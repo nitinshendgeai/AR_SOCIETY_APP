@@ -2,6 +2,17 @@
 
 ## ✅ Phase 1 — Foundation (Complete)
 
+## ✅ Phase 1.5 — Backend Hardening (Complete)
+
+- [x] Standardized API response envelopes (SuccessResponse, ErrorResponse, PaginatedResponse)
+- [x] Global exception handlers (ValidationError, IntegrityError, generic 500)
+- [x] AuditLog model + AuditService (CREATE/UPDATE/DELETE/LOGIN/APPROVE/REJECT)
+- [x] Notification model + NotificationService (in_app/email/sms/push stubs)
+- [x] Notification routes (GET unread, PATCH mark-read)
+- [x] Alembic migration: audit_logs + notifications tables
+- [x] Response helpers (success, created, error, not_found, forbidden)
+- [x] Structured logging across all layers
+
 - [x] FastAPI project scaffold (clean architecture)
 - [x] PostgreSQL + SQLAlchemy 2.0 ORM
 - [x] UUID primary keys + BaseModel mixin (created_at, updated_at, is_active)
