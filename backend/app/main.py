@@ -2,26 +2,34 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import time
+import logging
 
 from app.core.config import settings
 from app.api import api_router
 from app.db.base import Base
 from app.db.session import engine
 
-# ── Import all models so SQLAlchemy registers them before create_all ──────────
+# ── Register all models ───────────────────────────────────────────────────────
 import app.models  # noqa: F401
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Create tables (dev convenience; use Alembic for prod migrations)
-# ─────────────────────────────────────────────────────────────────────────────
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# ── Dev convenience: create tables directly (skipped if DB unavailable) ───────
+# In production use: alembic upgrade head  (via RUN_MIGRATIONS=true)
 try:
     Base.metadata.create_all(bind=engine)
+    logger.info("[startup] Database tables verified/created.")
 except Exception as e:
-    print(f"[startup] DB not available yet, skipping table creation: {e}")
+    logger.warning(f"[startup] DB not available yet, skipping table creation: {e}")
 
+# ── Optional: run alembic migrations on boot ─────────────────────────────────
+try:
+    from app.db.migrate import run_migrations
+    run_migrations()
+except Exception as e:
+    logger.warning(f"[startup] Migration runner skipped: {e}")
 
-# ─────────────────────────────────────────────────────────────────────────────
-# App factory
 # ─────────────────────────────────────────────────────────────────────────────
 app = FastAPI(
     title=settings.APP_NAME,
@@ -32,7 +40,6 @@ app = FastAPI(
     openapi_url="/openapi.json",
 )
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -41,18 +48,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Routes
-# ─────────────────────────────────────────────────────────────────────────────
 app.include_router(api_router, prefix="/api/v1")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Health check
-# ─────────────────────────────────────────────────────────────────────────────
 @app.get("/health", tags=["Health"])
-def health_check():
+def health():
     return JSONResponse({
         "status":  "ok",
         "app":     settings.APP_NAME,
