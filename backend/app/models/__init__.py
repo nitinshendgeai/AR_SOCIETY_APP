@@ -18,3 +18,9 @@ __all__ = [
     "Notification", "NotificationChannel", "NotificationStatus", "NotificationType",
     "Gate", "Visitor", "VisitorVehicle", "VisitorLog", "VisitorType", "VisitorStatus", "GateType",
 ]
+
+# Complaint module models
+from app.modules.complaint.models.complaint import (
+    Complaint, ComplaintComment, ComplaintAttachment,
+    ComplaintStatusHistory, ComplaintCategory, ComplaintPriority, ComplaintStatus,
+)
