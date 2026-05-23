@@ -93,3 +93,37 @@ app/
 ```
 
 Then register the router in `app/api/__init__.py`.
+
+---
+
+## Database & Migration Architecture
+
+### Connection Strategy
+- Engine created lazily in `app/db/session.py` — no crash on missing DB
+- `pool_pre_ping=True` — stale connections detected automatically
+- `check_db_connection()` — used by `/health` to report DB status live
+
+### Alembic Migration Flow
+```
+Developer changes model
+  → alembic revision --autogenerate -m "describe change"
+  → alembic upgrade head
+  → commit alembic/versions/*.py to git
+  → Railway auto-applies on next deploy (RUN_MIGRATIONS=true)
+```
+
+### Railway PostgreSQL Integration
+1. Add PostgreSQL plugin in Railway → `DATABASE_URL` auto-injected
+2. Set `RUN_MIGRATIONS=true` in Railway Variables
+3. Set `SECRET_KEY` to a strong random value
+4. Deploy → `start.sh` runs `alembic upgrade head` then starts uvicorn
+
+### startup sequence (Railway)
+```
+nixpacks build → pip install deps into /opt/venv
+↓
+bash /app/start.sh
+  ├── cd /app/backend
+  ├── alembic upgrade head  (if RUN_MIGRATIONS=true)
+  └── uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```

@@ -35,7 +35,6 @@ htmlcov/
 .tox/
 
 # Alembic
-backend/alembic/versions/*.py
 
 # Logs
 *.log

@@ -1,25 +1,46 @@
 """
 Migration helper — runs 'alembic upgrade head' programmatically.
-Called at app startup when RUN_MIGRATIONS=true env var is set.
-Safe to call even if DB is unavailable (fails silently).
+Resolves alembic.ini path absolutely so it works from any working directory.
+Activated by setting RUN_MIGRATIONS=true environment variable.
 """
 import os
 import logging
 
 logger = logging.getLogger(__name__)
 
+# Absolute path to backend/ directory (where alembic.ini lives)
+BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-def run_migrations() -> None:
-    """Run alembic upgrade head if RUN_MIGRATIONS env var is set."""
+
+def run_migrations() -> bool:
+    """
+    Run alembic upgrade head.
+    Returns True on success, False on failure.
+    Always safe to call — never raises.
+    """
     if os.getenv("RUN_MIGRATIONS", "false").lower() != "true":
-        return
+        logger.info("[migrate] RUN_MIGRATIONS not set — skipping.")
+        return False
+
     try:
         from alembic.config import Config
         from alembic import command
 
-        alembic_cfg = Config("alembic.ini")
-        logger.info("[migrate] Running alembic upgrade head...")
+        ini_path = os.path.join(BACKEND_DIR, "alembic.ini")
+        logger.info(f"[migrate] Loading alembic config from: {ini_path}")
+
+        alembic_cfg = Config(ini_path)
+        # Ensure script_location is absolute
+        alembic_cfg.set_main_option(
+            "script_location",
+            os.path.join(BACKEND_DIR, "alembic")
+        )
+
+        logger.info("[migrate] Running: alembic upgrade head")
         command.upgrade(alembic_cfg, "head")
-        logger.info("[migrate] Migrations complete.")
+        logger.info("[migrate] ✅ Migrations complete.")
+        return True
+
     except Exception as e:
-        logger.warning(f"[migrate] Migration skipped — DB not ready: {e}")
+        logger.error(f"[migrate] ❌ Migration failed: {e}")
+        return False
