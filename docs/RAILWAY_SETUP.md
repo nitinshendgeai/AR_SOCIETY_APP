@@ -1,46 +1,39 @@
 # Railway Setup Guide
 
-## Step 1 — Variables to set in Railway Dashboard
-
-Go to your service → **Variables** tab → add these:
+## Railway Variables — set these in your service → Variables tab
 
 | Variable | Value |
 |---|---|
-| `DATABASE_URL` | `postgresql://postgres:TVulfWPoqUanbCRMIQvomLMbQXQELEUA@kodama.proxy.rlwy.net:57666/railway` |
+| `DATABASE_URL` | `postgresql://postgres:TVulfWPoqUanbCRMIQvomLMbQXQELEUA@postgres.railway.internal:5432/railway` |
 | `RUN_MIGRATIONS` | `true` |
-| `SECRET_KEY` | `ar-society-erp-prod-2026-change-this-to-random` |
+| `SECRET_KEY` | `ar-society-erp-prod-2026-nitin` |
 | `APP_ENV` | `production` |
 | `ALLOWED_ORIGINS` | `["*"]` |
 
-> **Tip:** For `DATABASE_URL`, Railway also provides an *internal* URL like
-> `postgresql://postgres:PASSWORD@postgres.railway.internal:5432/railway`
-> which is faster. Use that if your DB and app are in the same Railway project.
+> The internal URL (`postgres.railway.internal`) is only reachable from within
+> Railway. Use the public proxy URL only for external tools (TablePlus, DBeaver).
 
-## Step 2 — Trigger a Deploy
+## Public URL (for local DB tools only)
+```
+postgresql://postgres:TVulfWPoqUanbCRMIQvomLMbQXQELEUA@kodama.proxy.rlwy.net:57666/railway
+```
 
-After setting variables, go to **Deployments** → **Deploy** (or push a commit).
+## After deploying — verify
 
-## Step 3 — Verify
-
-Once deployed, visit:
-- `https://YOUR_RAILWAY_URL/health` → should show `"database": {"status": "connected"}`
+- `https://YOUR_RAILWAY_URL/health` → `"database": {"status": "connected"}`
 - `https://YOUR_RAILWAY_URL/docs` → Swagger UI
 
-## Step 4 — First Admin User
+## First Admin User
 
-Use Swagger `/api/v1/auth/register` to create your first user, then use
-`/api/v1/users/{id}/roles` to assign the `Admin` role.
+1. POST `/api/v1/auth/register` — create your user
+2. POST `/api/v1/users/{id}/roles` body: `{"role_name": "Admin"}`
 
-## Alembic Commands (local, with DB accessible)
+## Local Alembic (using public URL)
 
 ```bash
 cd backend
-
-# Apply all migrations
-DATABASE_URL="postgresql://..." alembic upgrade head
-
-# Check state
-DATABASE_URL="postgresql://..." alembic current
+DATABASE_URL="postgresql://postgres:TVulfWPoqUanbCRMIQvomLMbQXQELEUA@kodama.proxy.rlwy.net:57666/railway" \
+  alembic upgrade head
 
 # New migration after model changes
 DATABASE_URL="postgresql://..." alembic revision --autogenerate -m "add visitor table"
