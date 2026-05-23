@@ -1,0 +1,39 @@
+from pydantic import EmailStr
+from typing import List, Optional
+from app.schemas.common import OrmBase, TimestampSchema
+from app.models.user import UserStatus
+
+
+class RoleOut(OrmBase):
+    id:   object
+    name: str
+
+
+class UserCreate(OrmBase):
+    email:     EmailStr
+    phone:     Optional[str] = None
+    full_name: str
+    password:  str
+
+
+class UserUpdate(OrmBase):
+    full_name:     Optional[str] = None
+    phone:         Optional[str] = None
+    profile_image: Optional[str] = None
+    status:        Optional[UserStatus] = None
+
+
+class UserOut(TimestampSchema):
+    email:         str
+    phone:         Optional[str]
+    full_name:     str
+    status:        UserStatus
+    is_superadmin: bool
+    roles:         List[str] = []
+
+    @classmethod
+    def from_orm_with_roles(cls, user) -> "UserOut":
+        roles = [ur.role.name for ur in user.user_roles if ur.role]
+        data  = cls.model_validate(user)
+        data.roles = roles
+        return data
