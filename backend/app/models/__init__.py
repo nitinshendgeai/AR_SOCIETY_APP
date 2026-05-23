@@ -7,6 +7,8 @@ from app.models.resident     import Resident, ResidentType
 from app.models.tenant       import Tenant
 from app.models.audit_log    import AuditLog, AuditAction
 from app.models.notification import Notification, NotificationChannel, NotificationStatus, NotificationType
+# Visitor module models
+from app.modules.visitor.models.visitor import Gate, Visitor, VisitorVehicle, VisitorLog, VisitorType, VisitorStatus, GateType
 
 __all__ = [
     "Society", "Wing", "Flat", "FlatType", "OccupancyStatus",
@@ -14,4 +16,5 @@ __all__ = [
     "Resident", "ResidentType", "Tenant",
     "AuditLog", "AuditAction",
     "Notification", "NotificationChannel", "NotificationStatus", "NotificationType",
+    "Gate", "Visitor", "VisitorVehicle", "VisitorLog", "VisitorType", "VisitorStatus", "GateType",
 ]
