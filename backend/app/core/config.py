@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     # Database
-    DATABASE_URL: str
+    DATABASE_URL: str = "postgresql://user:password@localhost:5432/ar_society_db"
 
     # JWT
     SECRET_KEY: str

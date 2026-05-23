@@ -14,7 +14,10 @@ import app.models  # noqa: F401
 # ─────────────────────────────────────────────────────────────────────────────
 # Create tables (dev convenience; use Alembic for prod migrations)
 # ─────────────────────────────────────────────────────────────────────────────
-Base.metadata.create_all(bind=engine)
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    print(f"[startup] DB not available yet, skipping table creation: {e}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
