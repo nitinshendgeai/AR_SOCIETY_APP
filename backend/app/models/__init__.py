@@ -24,3 +24,10 @@ from app.modules.complaint.models.complaint import (
     Complaint, ComplaintComment, ComplaintAttachment,
     ComplaintStatusHistory, ComplaintCategory, ComplaintPriority, ComplaintStatus,
 )
+
+# Amenity module models
+from app.modules.amenity.models.amenity import (
+    Amenity, AmenityRule, AmenitySlot, AmenityPricing,
+    AmenityBlackoutDate, AmenityBooking, AmenityUsageLog,
+    AmenityType, BookingStatus, RuleType,
+)
