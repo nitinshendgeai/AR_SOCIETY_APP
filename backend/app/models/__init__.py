@@ -39,3 +39,12 @@ from app.modules.staff.models.staff import (
     StaffDepartment, StaffStatus, AttendanceStatus,
     TaskStatus, LeaveType, LeaveStatus, ShiftType,
 )
+
+# Inventory module models
+from app.modules.inventory.models.inventory import (
+    InventoryCategory, InventoryItem, InventoryStock,
+    InventoryTransaction, InventoryIssue, InventoryReturn,
+    Asset, AssetMaintenance, AssetAMC, AssetUsageLog,
+    ItemCategory, UnitType, TransactionType, IssueStatus,
+    AssetCategory, AssetStatus, MaintenanceType, MaintenanceStatus,
+)

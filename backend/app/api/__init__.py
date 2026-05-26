@@ -1,9 +1,10 @@
 from fastapi import APIRouter
 from app.api.routes import auth, society, wing, flat, user, notifications
-from app.modules.visitor.routes.visitor     import router as visitor_router
-from app.modules.complaint.routes.complaint import router as complaint_router
-from app.modules.amenity.routes.amenity     import router as amenity_router
-from app.modules.staff.routes.staff         import router as staff_router
+from app.modules.visitor.routes.visitor       import router as visitor_router
+from app.modules.complaint.routes.complaint   import router as complaint_router
+from app.modules.amenity.routes.amenity       import router as amenity_router
+from app.modules.staff.routes.staff           import router as staff_router
+from app.modules.inventory.routes.inventory   import router as inventory_router
 
 api_router = APIRouter()
 api_router.include_router(auth.router)
@@ -16,3 +17,4 @@ api_router.include_router(visitor_router)
 api_router.include_router(complaint_router)
 api_router.include_router(amenity_router)
 api_router.include_router(staff_router)
+api_router.include_router(inventory_router)
