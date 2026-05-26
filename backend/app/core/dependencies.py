@@ -1,12 +1,9 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from typing import List
-
 from app.core.security import decode_token
 from app.db.session import get_db
 from app.models.user import User
-from app.models.role import Role
 
 bearer_scheme = HTTPBearer()
 
@@ -26,14 +23,26 @@ def get_current_user(
         )
 
     user_id = payload.get("sub")
-    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+
+    # Support both UUID objects and string representations (SQLite compat)
+    try:
+        import uuid as _uuid
+        uid = _uuid.UUID(str(user_id))
+        user = db.query(User).filter(User.id == uid, User.is_active == True).first()
+    except (ValueError, AttributeError):
+        user = None
+
+    # Fallback: string comparison (SQLite stores UUIDs as strings)
+    if not user:
+        user = db.query(User).filter(
+            User.id == str(user_id), User.is_active == True
+        ).first()
 
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
         )
-
     return user
 
 
@@ -57,8 +66,8 @@ def require_roles(*role_names: str):
 
 
 # Convenience role guards
-require_admin      = require_roles("Admin")
-require_committee  = require_roles("Admin", "Committee")
-require_resident   = require_roles("Admin", "Committee", "Resident")
-require_security   = require_roles("Admin", "Security")
-require_staff      = require_roles("Admin", "Staff")
+require_admin     = require_roles("Admin")
+require_committee = require_roles("Admin", "Committee")
+require_resident  = require_roles("Admin", "Committee", "Resident")
+require_security  = require_roles("Admin", "Security")
+require_staff     = require_roles("Admin", "Staff")
