@@ -76,3 +76,11 @@ from app.modules.billing.models.billing import (
     DueTracker, PenaltyRule,
     ChargeType, BillStatus, PaymentMode, PenaltyCalculationType, CycleFrequency,
 )
+
+# Vendor module models
+from app.modules.vendor.models.vendor import (
+    Vendor, VendorService, AMCContract, AMCServiceSchedule,
+    ServiceRequest, ServiceVisitLog, VendorInvoice,
+    VendorCategory, VendorStatus, ContractStatus, ServiceFrequency,
+    ServiceRequestStatus, ServiceRequestPriority, ScheduleStatus,
+)
