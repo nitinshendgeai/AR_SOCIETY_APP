@@ -1,46 +1,40 @@
 from app.models.society      import Society
 from app.models.wing         import Wing
-from app.models.flat         import Flat, FlatType, OccupancyStatus
+from app.models.flat         import Flat, FlatType, OccupancyStatus, MaintenanceStatus
 from app.models.role         import Role
 from app.models.user         import User, UserRole, UserStatus
-from app.models.resident     import Resident, ResidentType
-from app.models.tenant       import Tenant
+from app.models.resident     import Resident, ResidentType, CommunicationPreference
+from app.models.tenant       import Tenant, PoliceVerificationStatus
+from app.models.vehicle      import Vehicle, VehicleType
 from app.models.audit_log    import AuditLog, AuditAction
 from app.models.notification import Notification, NotificationChannel, NotificationStatus, NotificationType
-# Visitor module models
+
+# Visitor module
 from app.modules.visitor.models.visitor import Gate, Visitor, VisitorVehicle, VisitorLog, VisitorType, VisitorStatus, GateType
 
-__all__ = [
-    "Society", "Wing", "Flat", "FlatType", "OccupancyStatus",
-    "Role", "User", "UserRole", "UserStatus",
-    "Resident", "ResidentType", "Tenant",
-    "AuditLog", "AuditAction",
-    "Notification", "NotificationChannel", "NotificationStatus", "NotificationType",
-    "Gate", "Visitor", "VisitorVehicle", "VisitorLog", "VisitorType", "VisitorStatus", "GateType",
-]
-
-# Complaint module models
+# Complaint module
 from app.modules.complaint.models.complaint import (
     Complaint, ComplaintComment, ComplaintAttachment,
     ComplaintStatusHistory, ComplaintCategory, ComplaintPriority, ComplaintStatus,
 )
 
-# Amenity module models
+# Amenity module
 from app.modules.amenity.models.amenity import (
     Amenity, AmenityRule, AmenitySlot, AmenityPricing,
     AmenityBlackoutDate, AmenityBooking, AmenityUsageLog,
     AmenityType, BookingStatus, RuleType,
 )
 
-# Staff module models
+# Staff module
 from app.modules.staff.models.staff import (
     Staff, StaffDesignation, StaffShift, DutyAssignment,
     StaffAttendance, StaffTask, StaffLeave, StaffWorkLog,
+    StaffRoster, StaffLeaveBalance,
     StaffDepartment, StaffStatus, AttendanceStatus,
-    TaskStatus, LeaveType, LeaveStatus, ShiftType,
+    TaskStatus, LeaveType, LeaveStatus, ShiftType, RosterStatus,
 )
 
-# Inventory module models
+# Inventory module
 from app.modules.inventory.models.inventory import (
     InventoryCategory, InventoryItem, InventoryStock,
     InventoryTransaction, InventoryIssue, InventoryReturn,

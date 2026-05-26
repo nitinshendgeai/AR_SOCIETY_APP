@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 from datetime import date
 from fastapi import APIRouter, Depends, Request, Query
@@ -202,3 +202,65 @@ def pending_leaves(society_id: UUID, db: Session = Depends(get_db)):
 def staff_leaves(staff_id: UUID, skip: int = 0, limit: int = 50,
                  db: Session = Depends(get_db)):
     return StaffService(db).get_staff_leaves(staff_id, skip, limit)
+
+
+# ── Roster ────────────────────────────────────────────────────────────────────
+from app.modules.staff.models.staff import StaffRoster, StaffLeaveBalance, RosterStatus
+from app.schemas.common import OrmBase, TimestampSchema as TS2
+from pydantic import BaseModel as BM2
+
+class RosterCreate(OrmBase):
+    society_id: UUID; staff_id: UUID; shift_id: Optional[UUID] = None
+    week_start: date; week_end: date
+    monday: bool = True; tuesday: bool = True; wednesday: bool = True
+    thursday: bool = True; friday: bool = True; saturday: bool = True; sunday: bool = False
+    is_holiday_week: bool = False; notes: Optional[str] = None
+
+class RosterOut(TS2):
+    society_id: UUID; staff_id: UUID; shift_id: Optional[UUID]
+    week_start: date; week_end: date; roster_status: RosterStatus
+    monday: bool; tuesday: bool; wednesday: bool
+    thursday: bool; friday: bool; saturday: bool; sunday: bool
+
+@router.post("/roster", response_model=RosterOut, status_code=201,
+             dependencies=[Depends(admin_or_committee)])
+def create_roster(data: RosterCreate, db: Session = Depends(get_db),
+                  user: User = Depends(get_current_user)):
+    roster = StaffRoster(**data.model_dump(), created_by=user.id)
+    db.add(roster); db.commit(); db.refresh(roster); return roster
+
+@router.patch("/roster/{roster_id}/publish", response_model=RosterOut,
+              dependencies=[Depends(admin_or_committee)])
+def publish_roster(roster_id: UUID, db: Session = Depends(get_db)):
+    r = db.query(StaffRoster).filter(StaffRoster.id==roster_id).first()
+    if not r: raise HTTPException(status_code=404, detail="Roster not found")
+    r.roster_status = RosterStatus.PUBLISHED
+    db.commit(); db.refresh(r); return r
+
+@router.get("/roster/society/{society_id}", response_model=List[RosterOut],
+            dependencies=[Depends(admin_or_committee)])
+def list_rosters(society_id: UUID, db: Session = Depends(get_db)):
+    return db.query(StaffRoster).filter(StaffRoster.society_id==society_id, StaffRoster.is_active==True)\
+        .order_by(StaffRoster.week_start.desc()).limit(20).all()
+
+
+# ── Leave Balance ─────────────────────────────────────────────────────────────
+class LeaveBalanceOut(TS2):
+    staff_id: UUID; year: int
+    casual_total: float; sick_total: float; earned_total: float
+    casual_used: float; sick_used: float; earned_used: float
+
+@router.get("/leave-balance/{staff_id}/{year}", response_model=LeaveBalanceOut,
+            dependencies=[Depends(supervisor_above)])
+def get_leave_balance(staff_id: UUID, year: int, db: Session = Depends(get_db)):
+    lb = db.query(StaffLeaveBalance).filter(
+        StaffLeaveBalance.staff_id==staff_id, StaffLeaveBalance.year==year
+    ).first()
+    if not lb:
+        # Auto-create default balance
+        lb = StaffLeaveBalance(
+            society_id=db.query(Staff).filter(Staff.id==staff_id).first().society_id,
+            staff_id=staff_id, year=year,
+        )
+        db.add(lb); db.commit(); db.refresh(lb)
+    return lb

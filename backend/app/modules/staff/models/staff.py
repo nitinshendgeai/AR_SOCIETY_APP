@@ -297,3 +297,60 @@ class StaffWorkLog(Base, TimestampMixin):
     society = relationship("Society")
     staff   = relationship("Staff", back_populates="work_logs")
     task    = relationship("StaffTask", back_populates="work_logs")
+
+
+# ── StaffRoster (Weekly duty roster) ─────────────────────────────────────────
+
+class RosterStatus(str, enum.Enum):
+    DRAFT     = "draft"
+    PUBLISHED = "published"
+    ARCHIVED  = "archived"
+
+
+class StaffRoster(Base, TimestampMixin):
+    """Weekly/periodic shift roster for a society."""
+    __tablename__ = "staff_rosters"
+
+    society_id   = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    staff_id     = Column(UUID(as_uuid=True), ForeignKey("staff.id", ondelete="CASCADE"), nullable=False, index=True)
+    shift_id     = Column(UUID(as_uuid=True), ForeignKey("staff_shifts.id", ondelete="SET NULL"), nullable=True)
+    created_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    week_start   = Column(Date, nullable=False, index=True)
+    week_end     = Column(Date, nullable=False)
+    roster_status = Column(Enum(RosterStatus), default=RosterStatus.DRAFT, nullable=False)
+
+    monday    = Column(Boolean, default=True)
+    tuesday   = Column(Boolean, default=True)
+    wednesday = Column(Boolean, default=True)
+    thursday  = Column(Boolean, default=True)
+    friday    = Column(Boolean, default=True)
+    saturday  = Column(Boolean, default=True)
+    sunday    = Column(Boolean, default=False)
+    is_holiday_week = Column(Boolean, default=False)
+    notes     = Column(Text, nullable=True)
+
+    society = relationship("Society")
+    staff   = relationship("Staff")
+    shift   = relationship("StaffShift")
+    creator = relationship("User", foreign_keys=[created_by])
+
+
+# ── StaffLeaveBalance (leave quota tracking) ──────────────────────────────────
+
+class StaffLeaveBalance(Base, TimestampMixin):
+    """Annual leave quota and consumed balance per staff per year."""
+    __tablename__ = "staff_leave_balances"
+
+    society_id   = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    staff_id     = Column(UUID(as_uuid=True), ForeignKey("staff.id", ondelete="CASCADE"), nullable=False, index=True)
+    year         = Column(Integer, nullable=False, index=True)   # e.g. 2026
+    casual_total    = Column(Float, default=12.0, nullable=False)
+    sick_total      = Column(Float, default=12.0, nullable=False)
+    earned_total    = Column(Float, default=15.0, nullable=False)
+    casual_used     = Column(Float, default=0.0, nullable=False)
+    sick_used       = Column(Float, default=0.0, nullable=False)
+    earned_used     = Column(Float, default=0.0, nullable=False)
+
+    society = relationship("Society")
+    staff   = relationship("Staff")
