@@ -31,3 +31,11 @@ from app.modules.amenity.models.amenity import (
     AmenityBlackoutDate, AmenityBooking, AmenityUsageLog,
     AmenityType, BookingStatus, RuleType,
 )
+
+# Staff module models
+from app.modules.staff.models.staff import (
+    Staff, StaffDesignation, StaffShift, DutyAssignment,
+    StaffAttendance, StaffTask, StaffLeave, StaffWorkLog,
+    StaffDepartment, StaffStatus, AttendanceStatus,
+    TaskStatus, LeaveType, LeaveStatus, ShiftType,
+)
