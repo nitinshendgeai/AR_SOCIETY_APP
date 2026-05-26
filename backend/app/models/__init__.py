@@ -52,3 +52,19 @@ from app.modules.staff.models.payroll_readiness import (
     StaffSalaryStructure, AttendanceCorrection, MonthlyAttendanceSummary,
     SalaryComponent, PayrollCycle, AttendanceCorrectionStatus,
 )
+
+# Parking module models
+from app.modules.parking.models.parking import (
+    ParkingZone, ParkingFloor, ParkingSlot, ParkingAllocation,
+    VisitorParking, ParkingViolation, ParkingAccessLog,
+    SlotType, SlotStatus, AllocationStatus, VisitorParkingStatus,
+    ViolationType, AccessType, AccessMethod,
+)
+
+# Notice module models
+from app.modules.notice.models.notice import (
+    Notice, NoticeAcknowledgement, Announcement,
+    CommunicationLog, EmergencyAlert,
+    NoticeCategory, NoticePriority, NoticeStatus,
+    AudienceType, AlertType, AlertStatus,
+)
