@@ -42,3 +42,13 @@ from app.modules.inventory.models.inventory import (
     ItemCategory, UnitType, TransactionType, IssueStatus,
     AssetCategory, AssetStatus, MaintenanceType, MaintenanceStatus,
 )
+
+# Operational models
+from app.models.occupancy_log     import OccupancyLog, OccupancyEventType
+from app.models.agreement_tracker import AgreementTracker, AgreementStatus
+
+# Payroll readiness models
+from app.modules.staff.models.payroll_readiness import (
+    StaffSalaryStructure, AttendanceCorrection, MonthlyAttendanceSummary,
+    SalaryComponent, PayrollCycle, AttendanceCorrectionStatus,
+)
