@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
@@ -6,16 +6,49 @@ from uuid import UUID
 from app.db.session import get_db
 from app.schemas.society import SocietyCreate, SocietyUpdate, SocietyOut
 from app.services.society_service import SocietyService
+from app.services.society_setup_service import SocietySetupService
 from app.core.dependencies import require_admin, require_committee, get_current_user
 from app.models.user import User
 
 router = APIRouter(prefix="/societies", tags=["Societies"])
 
 
-@router.post("/", response_model=SocietyOut, status_code=201,
-             dependencies=[Depends(require_admin)])
-def create_society(data: SocietyCreate, db: Session = Depends(get_db)):
-    return SocietyService(db).create(data)
+@router.post("/", response_model=SocietyOut, status_code=201)
+def create_society(data: SocietyCreate, request: Request,
+                   db: Session = Depends(get_db),
+                   user: User = Depends(require_admin)):
+    society = SocietyService(db).create(data)
+    return society
+
+
+@router.post("/{society_id}/initialize")
+def initialize_society(society_id: UUID,
+                        db: Session = Depends(get_db),
+                        user: User = Depends(require_admin)):
+    """
+    Initialize a society — creates default roles and operational users.
+    Returns temporary credentials. Run once after society creation.
+    """
+    society = SocietyService(db).get_or_404(society_id)
+    return SocietySetupService(db).initialize_society(society, user)
+
+
+@router.post("/register-and-initialize", status_code=201)
+def register_and_initialize(data: SocietyCreate, request: Request,
+                              db: Session = Depends(get_db),
+                              user: User = Depends(require_admin)):
+    """
+    One-shot: register society + auto-initialize roles and default users.
+    Returns society + temporary credentials in single transaction.
+    """
+    society = SocietyService(db).create(data)
+    result  = SocietySetupService(db).initialize_society(society, user)
+    result["society"] = {
+        "id":           str(society.id),
+        "name":         society.name,
+        "society_code": society.society_code,
+    }
+    return result
 
 
 @router.get("/", response_model=List[SocietyOut],

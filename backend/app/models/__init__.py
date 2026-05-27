@@ -84,3 +84,9 @@ from app.modules.vendor.models.vendor import (
     VendorCategory, VendorStatus, ContractStatus, ServiceFrequency,
     ServiceRequestStatus, ServiceRequestPriority, ScheduleStatus,
 )
+
+# Handover models
+from app.modules.staff.models.handover import (
+    StaffHandover, HandoverItem,
+    HandoverStatus, HandoverItemType, HANDOVER_TRANSITIONS,
+)
