@@ -1,73 +1,119 @@
-# AR Society ERP — RBAC Matrix
+# RBAC Matrix — AR Society ERP
 
-## Role Definitions
+## Roles
 
-| Role      | Code        | Description                                              |
-|-----------|-------------|----------------------------------------------------------|
-| Admin     | `Admin`     | Super access — manages societies, users, system config   |
-| Committee | `Committee` | Society management, approvals, announcements             |
-| Resident  | `Resident`  | View own flat, raise complaints, book amenities          |
-| Security  | `Security`  | Gate management, visitor entry/exit                      |
-| Staff     | `Staff`     | Maintenance, housekeeping, payroll-visible               |
+| Role | Description |
+|------|------------|
+| Admin | Full system access |
+| Committee | Society management, approvals |
+| Resident | Own flat, complaints, bookings |
+| Security | Gate, visitor, parking operations |
+| Staff | Maintenance, housekeeping, tasks |
 
 ## Permission Matrix
 
 `✓` = Allowed · `✗` = Denied · `own` = Own records only
 
-### Core Module
+### Society & Master
+| Action | Admin | Committee | Resident | Security | Staff |
+|--------|-------|-----------|----------|----------|-------|
+| Create/delete society | ✓ | ✗ | ✗ | ✗ | ✗ |
+| Update society | ✓ | ✓ | ✗ | ✗ | ✗ |
+| View society | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Manage wings/flats | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Register vehicle | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Move-in / move-out | ✓ | ✓ | ✗ | ✗ | ✗ |
 
-| Action                    | Admin | Committee | Resident | Security | Staff |
-|---------------------------|-------|-----------|----------|----------|-------|
-| Create Society            | ✓     | ✗         | ✗        | ✗        | ✗     |
-| View Society              | ✓     | ✓         | ✓        | ✓        | ✓     |
-| Update Society            | ✓     | ✓         | ✗        | ✗        | ✗     |
-| Delete Society            | ✓     | ✗         | ✗        | ✗        | ✗     |
-| Create Wing / Flat        | ✓     | ✗         | ✗        | ✗        | ✗     |
-| View Wing / Flat          | ✓     | ✓         | ✓        | ✓        | ✓     |
-| Update Wing / Flat        | ✓     | ✓         | ✗        | ✗        | ✗     |
-| Delete Wing / Flat        | ✓     | ✗         | ✗        | ✗        | ✗     |
-| List All Users            | ✓     | ✗         | ✗        | ✗        | ✗     |
-| Assign Roles              | ✓     | ✗         | ✗        | ✗        | ✗     |
-| View Own Profile          | ✓     | ✓         | ✓        | ✓        | ✓     |
+### User Management
+| Action | Admin | Committee | Resident | Security | Staff |
+|--------|-------|-----------|----------|----------|-------|
+| List all users | ✓ | ✗ | ✗ | ✗ | ✗ |
+| Assign roles | ✓ | ✗ | ✗ | ✗ | ✗ |
+| View own profile | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-### Future Modules (Planned)
+### Visitor & Gate
+| Action | Admin | Committee | Resident | Security | Staff |
+|--------|-------|-----------|----------|----------|-------|
+| Create visitor entry | ✓ | ✓ | ✗ | ✓ | ✗ |
+| Approve visitor | ✓ | ✓ | ✓ | ✗ | ✗ |
+| View visitor list | ✓ | ✓ | own | ✓ | ✗ |
 
-| Action                    | Admin | Committee | Resident | Security | Staff |
-|---------------------------|-------|-----------|----------|----------|-------|
-| Visitor Check-in/out      | ✓     | ✗         | ✗        | ✓        | ✗     |
-| Approve Visitor           | ✓     | ✓         | own      | ✓        | ✗     |
-| Raise Complaint           | ✓     | ✓         | ✓        | ✗        | ✗     |
-| Resolve Complaint         | ✓     | ✓         | ✗        | ✗        | ✓     |
-| Book Amenity              | ✓     | ✓         | ✓        | ✗        | ✗     |
-| Approve Amenity Booking   | ✓     | ✓         | ✗        | ✗        | ✗     |
-| View Payroll              | ✓     | ✓         | ✗        | ✗        | own   |
-| Manage Inventory          | ✓     | ✓         | ✗        | ✗        | ✓     |
-| Finance Reports           | ✓     | ✓         | ✗        | ✗        | ✗     |
-| Generate Invoices         | ✓     | ✓         | ✗        | ✗        | ✗     |
+### Complaints
+| Action | Admin | Committee | Resident | Security | Staff |
+|--------|-------|-----------|----------|----------|-------|
+| Create complaint | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Assign/update | ✓ | ✓ | ✗ | ✗ | ✓ |
+| Close/reject | ✓ | ✓ | ✗ | ✗ | ✗ |
 
-## Implementation
+### Amenities
+| Action | Admin | Committee | Resident | Security | Staff |
+|--------|-------|-----------|----------|----------|-------|
+| Configure amenity/rules | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Create booking | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Approve/reject booking | ✓ | ✓ | ✗ | ✗ | ✗ |
+| View availability | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-Guards are FastAPI `Depends` factories in `app/core/dependencies.py`:
+### Staff Operations
+| Action | Admin | Committee | Resident | Security | Staff |
+|--------|-------|-----------|----------|----------|-------|
+| Create/manage staff | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Check-in/out | ✓ | ✓ | ✗ | ✗ | ✓ |
+| Assign duty/task | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Update task status | ✓ | ✓ | ✗ | ✗ | ✓ |
+| Apply leave | ✓ | ✓ | ✗ | ✗ | ✓ |
+| Approve leave | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Create handover | ✓ | ✓ | ✗ | ✓ | ✓ |
+| Verify handover | ✓ | ✓ | ✗ | ✗ | ✓ |
+| Workload analytics | ✓ | ✓ | ✗ | ✗ | ✗ |
+
+### Inventory & Assets
+| Action | Admin | Committee | Resident | Security | Staff |
+|--------|-------|-----------|----------|----------|-------|
+| Manage items/assets | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Issue/return items | ✓ | ✓ | ✗ | ✗ | ✓ |
+| View stock | ✓ | ✓ | ✗ | ✗ | ✓ |
+
+### Parking
+| Action | Admin | Committee | Resident | Security | Staff |
+|--------|-------|-----------|----------|----------|-------|
+| Manage zones/slots | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Allocate slots | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Assign visitor parking | ✓ | ✓ | ✗ | ✓ | ✗ |
+| Report violations | ✓ | ✓ | ✗ | ✓ | ✗ |
+| View own allocation | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+### Billing
+| Action | Admin | Committee | Resident | Security | Staff |
+|--------|-------|-----------|----------|----------|-------|
+| Generate/issue bills | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Record payments | ✓ | ✓ | ✗ | ✗ | ✗ |
+| View own bills | ✓ | ✓ | ✓ | ✗ | ✓ |
+| View outstanding reports | ✓ | ✓ | ✗ | ✗ | ✗ |
+
+### Vendor & AMC
+| Action | Admin | Committee | Resident | Security | Staff |
+|--------|-------|-----------|----------|----------|-------|
+| Manage vendors/contracts | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Create service requests | ✓ | ✓ | ✗ | ✗ | ✓ |
+| Assign vendor | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Update SR / log visits | ✓ | ✓ | ✗ | ✗ | ✓ |
+
+### Notice & Communication
+| Action | Admin | Committee | Resident | Security | Staff |
+|--------|-------|-----------|----------|----------|-------|
+| Create/publish notices | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Trigger emergency alert | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Acknowledge notice | ✓ | ✓ | ✓ | ✓ | ✓ |
+| View notices | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+## Code Reference
 
 ```python
-# Require Admin
-@router.post("/societies/", dependencies=[Depends(require_admin)])
-
-# Require Admin OR Committee
-@router.patch("/societies/{id}", dependencies=[Depends(require_committee)])
-
-# Custom combination
-admin_or_security = require_roles("Admin", "Security")
+# Common dependency groups
+admin_only       = require_roles("Admin")
+admin_committee  = require_roles("Admin", "Committee")
+supervisor_above = require_roles("Admin", "Committee", "Staff")
+security_above   = require_roles("Admin", "Committee", "Security")
+any_staff        = require_roles("Admin", "Committee", "Staff", "Security")
+any_member       = require_roles("Admin", "Committee", "Resident", "Staff", "Security")
 ```
-
-## Multi-Role Assignment
-
-A single user can hold multiple roles simultaneously:
-
-```
-User(john@example.com)
-  └── UserRole → Role(Committee)
-  └── UserRole → Role(Resident)
-```
-
-This enables committee members who are also residents of the society.

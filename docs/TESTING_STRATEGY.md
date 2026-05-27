@@ -1,53 +1,82 @@
-# Testing Strategy
+# Testing Strategy — AR Society ERP
 
 ## Stack
-- pytest + httpx TestClient
-- SQLite in-memory (JSONB → JSON patched for SQLite compat)
-- Per-test DB transaction rollback — full isolation
+- **pytest** with SQLite in-memory (no external DB needed)
+- JSONB → JSON patched in conftest for SQLite compat
+- Per-test transaction rollback — full isolation
+- `TestClient` with dependency injection override
 
-## Test Structure
+## Structure
 ```
 backend/tests/
-├── conftest.py          # fixtures, helpers, JSONB patch
+├── conftest.py              # fixtures, DB setup, helper factories
 ├── auth/
-│   └── test_auth.py    # register, login, JWT, health
+│   ├── test_auth.py         # register, login, JWT, health (12 tests)
+│   └── test_auth_hardening.py # edge cases, security (24 tests)
 ├── rbac/
-│   └── test_rbac.py    # role enforcement, multi-role
+│   ├── test_rbac.py         # role enforcement (10 tests)
+│   └── test_rbac_hardening.py # privilege escalation, boundaries (15 tests)
 ├── master/
-│   └── test_master.py  # society, wing, flat, vehicle
+│   ├── test_master.py       # society, wing, flat, vehicle (10 tests)
+│   └── test_society_onboarding.py # initialization workflow (6 tests)
 └── staff/
-    ├── test_attendance.py  # checkin, checkout, duplicates
-    └── test_leave.py       # leave workflow, overlaps
+    ├── test_attendance.py   # check-in/out, duplicates (5 tests)
+    ├── test_leave.py        # leave workflow, overlaps (7 tests)
+    └── test_handover.py     # handover FSM (6 tests)
 ```
+**Total: 90 tests, 0 failures**
 
 ## Running Tests
 ```bash
 cd backend
-make test          # verbose
-make test-cov      # quiet with stats
-
+make test          # verbose output
+make test-cov      # quiet
 # Or directly:
 DATABASE_URL="sqlite:///./test_ar_society.db" SECRET_KEY="test-secret" \
 python -m pytest tests/ -q
 ```
 
-## Seed Data
-```bash
-# Requires live DATABASE_URL in .env or env var
-make seed
+## Key Fixtures (conftest.py)
+```python
+db      # SQLite session with rollback per test
+client  # TestClient with DB injected
 
-# Test credentials (password: Test@12345)
-admin@arsociety.com     → Admin
-committee@arsociety.com → Committee
-security@arsociety.com  → Security
-staff1@arsociety.com    → Staff
-res1@arsociety.com      → Resident
+make_user(db, email, password, role)    # → {user, token, headers}
+make_society(db, name)                  # → Society
+make_wing(db, society_id, name)         # → Wing
+make_flat(db, wing_id, flat_number)     # → Flat
 ```
 
-## Coverage Goals
-| Area | Tests |
-|------|-------|
-| Auth | register, login, JWT, invalid token, health |
-| RBAC | admin-only, committee, resident, unauthenticated, multi-role |
-| Master | society CRUD, wing, flat, vehicle (duplicate prevention) |
-| Staff | check-in/out (duplicates, order), leave (overlap, approval) |
+## Seed Data
+```bash
+make seed   # requires live DATABASE_URL in .env
+```
+Creates: 1 society, 3 wings, 15 flats, 10 users, 5 residents, 3 vehicles, 2 staff, 5-day attendance.
+
+Test credentials (password: `Test@12345`):
+```
+admin@arsociety.com     Admin
+committee@arsociety.com Committee
+security@arsociety.com  Security
+staff1@arsociety.com    Staff
+res1@arsociety.com      Resident
+```
+
+## Test Coverage Goals
+
+| Category | What to test |
+|----------|-------------|
+| Happy path | Every endpoint returns expected status |
+| Validation | 422 on bad input, 409 on conflicts |
+| RBAC | 403 when wrong role, 401 when no token |
+| FSM | Invalid transitions return 409 |
+| Duplicate prevention | 409 on second create |
+| Edge cases | Inactive users, tampered tokens, SQL injection |
+
+## Adding New Tests
+
+1. Create `tests/{module}/test_{name}.py`
+2. Import fixtures from `conftest.py`
+3. Use `make_user(db, email, role=)` for authenticated requests
+4. Keep tests independent (each creates its own data)
+5. Run `make test` — must be 0 failures before committing

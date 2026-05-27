@@ -1,129 +1,131 @@
-# AR Society ERP — Architecture
+# Architecture — AR Society ERP
 
-## Overview
+## Stack
 
-A multi-tenant, cloud-ready Society ERP built on clean architecture principles.
-Designed for horizontal scalability and future module extensibility.
-
-## Tech Stack
-
-| Layer       | Technology                         |
-|-------------|-------------------------------------|
-| API         | FastAPI 0.115                       |
-| ORM         | SQLAlchemy 2.0 (async-ready)        |
-| Database    | PostgreSQL 15+                      |
-| Auth        | JWT (python-jose) + bcrypt          |
-| Deployment  | Railway (Procfile + runtime.txt)    |
-| Validation  | Pydantic v2                         |
+| Layer | Technology |
+|-------|-----------|
+| API | FastAPI 0.115 |
+| ORM | SQLAlchemy 2.0 |
+| Database | PostgreSQL 15+ |
+| Auth | JWT (python-jose) + bcrypt |
+| Migrations | Alembic (manual migrations) |
+| Validation | Pydantic v2 |
+| Deployment | Railway |
 
 ## Layer Diagram
 
 ```
-┌──────────────────────────────────────────────┐
-│                   Client                     │
-└─────────────────────┬────────────────────────┘
-                      │ HTTP
-┌─────────────────────▼────────────────────────┐
-│           FastAPI (main.py)                  │
-│  CORS middleware · JWT middleware            │
-│  /api/v1  prefix                             │
-└─────────────────────┬────────────────────────┘
-                      │
-┌─────────────────────▼────────────────────────┐
-│              API Routes Layer                │
-│   auth · society · wing · flat · user       │
-└─────────────────────┬────────────────────────┘
-                      │ calls
-┌─────────────────────▼────────────────────────┐
-│              Services Layer                  │
-│  Business logic · validation · composition  │
-└─────────────────────┬────────────────────────┘
-                      │ calls
-┌─────────────────────▼────────────────────────┐
-│           Repositories Layer                 │
-│   BaseRepository[T] + domain-specific repos │
-└─────────────────────┬────────────────────────┘
-                      │ queries
-┌─────────────────────▼────────────────────────┐
-│           SQLAlchemy Models                  │
-│  Society · Wing · Flat · User · Role · ...  │
-└─────────────────────┬────────────────────────┘
-                      │
-┌─────────────────────▼────────────────────────┐
-│              PostgreSQL                      │
-└──────────────────────────────────────────────┘
+Client
+  │ HTTP /api/v1
+FastAPI (main.py)
+  │ CORS · JWT Bearer · Exception handlers
+api/__init__.py  ← all routers registered here
+  │
+  ├── routes/      ← HTTP only (Pydantic schemas, Depends)
+  ├── services/    ← Business logic, FSM, audit, notifications
+  ├── repositories/← DB queries (extend BaseRepository)
+  └── models/      ← SQLAlchemy + enums + FSM dicts
 ```
 
-## Data Model ERD (simplified)
+## Module Structure
 
 ```
-Society ──< Wing ──< Flat ──< Resident
-                        └──< Tenant
-User >──< UserRole >──< Role
-Resident >── User
-Tenant   >── User
+backend/app/
+├── main.py                   # FastAPI app, middleware, router
+├── api/
+│   ├── __init__.py           # All routers included here
+│   └── routes/               # Core routes (auth, society, etc.)
+├── core/
+│   ├── security.py           # JWT, bcrypt
+│   └── dependencies.py       # get_current_user, require_roles()
+├── db/
+│   ├── base.py               # Base, TimestampMixin
+│   └── session.py            # get_db, SessionLocal
+├── models/
+│   └── __init__.py           # All models imported here
+├── modules/
+│   ├── amenity/
+│   ├── billing/
+│   ├── complaint/
+│   ├── inventory/
+│   ├── notice/
+│   ├── parking/
+│   ├── staff/
+│   ├── vendor/
+│   └── visitor/
+└── services/
+    ├── audit_service.py
+    ├── auth_service.py
+    ├── notification_service.py
+    ├── occupancy_service.py
+    └── society_setup_service.py
 ```
 
-## Multi-Tenancy Design
+## Database
 
-- Each Society is an isolated tenant
-- `society_id` foreign key propagates through Wing → Flat
-- Future: Row-level security (PostgreSQL RLS) per society
-- JWT payload carries `society_id` for scoped queries
+- **80 tables** across 13 Alembic migrations
+- UUID primary keys (`UUID(as_uuid=True)`)
+- `TimestampMixin`: `id`, `created_at`, `updated_at`, `is_active` on every table
+- Soft deletes: `is_active = False` (never hard delete)
+- Multi-tenant: every table has `society_id` FK to `societies`
 
-## Security
-
-- Passwords: bcrypt (12 rounds)
-- Access tokens: short-lived (60 min default)
-- Refresh tokens: long-lived (7 days), rotated on use
-- Role guards implemented as FastAPI `Depends` factories
-- Soft-delete on all models (is_active flag)
-
-## Extensibility Pattern
-
-Each new module follows this pattern:
+## Multi-Tenant Architecture
 
 ```
-app/
-├── models/     visitor.py        ← SQLAlchemy model
-├── schemas/    visitor.py        ← Pydantic in/out
-├── repositories/ visitor_repo.py ← DB queries
-├── services/   visitor_service.py ← business logic
-├── api/routes/ visitor.py        ← FastAPI router
+societies (1)
+    ├── wings (N)
+    │   └── flats (N)
+    │       ├── residents
+    │       └── tenants
+    ├── staff
+    ├── amenity_bookings
+    ├── maintenance_bills
+    └── [all other entities]
 ```
 
-Then register the router in `app/api/__init__.py`.
+Every query must filter `society_id` + `is_active = True`.
 
----
+## Authentication
 
-## Database & Migration Architecture
-
-### Connection Strategy
-- Engine created lazily in `app/db/session.py` — no crash on missing DB
-- `pool_pre_ping=True` — stale connections detected automatically
-- `check_db_connection()` — used by `/health` to report DB status live
-
-### Alembic Migration Flow
-```
-Developer changes model
-  → alembic revision --autogenerate -m "describe change"
-  → alembic upgrade head
-  → commit alembic/versions/*.py to git
-  → Railway auto-applies on next deploy (RUN_MIGRATIONS=true)
+```mermaid
+sequenceDiagram
+    Client->>POST /auth/login: email + password
+    FastAPI->>AuthService: verify credentials
+    AuthService-->>Client: access_token (30min) + refresh_token (7d)
+    Client->>Protected route: Bearer access_token
+    FastAPI->>dependencies.py: decode JWT → get_current_user()
+    dependencies.py-->>Route: User object
 ```
 
-### Railway PostgreSQL Integration
-1. Add PostgreSQL plugin in Railway → `DATABASE_URL` auto-injected
-2. Set `RUN_MIGRATIONS=true` in Railway Variables
-3. Set `SECRET_KEY` to a strong random value
-4. Deploy → `start.sh` runs `alembic upgrade head` then starts uvicorn
+## RBAC Architecture
 
-### startup sequence (Railway)
+`require_roles(*role_names)` returns a FastAPI dependency:
+```python
+def require_roles(*role_names):
+    def _checker(current_user: User = Depends(get_current_user)):
+        user_roles = {ur.role.name for ur in current_user.user_roles if ur.role}
+        if not user_roles.intersection(set(role_names)):
+            raise HTTPException(403, ...)
+        return current_user
+    return _checker
 ```
-nixpacks build → pip install deps into /opt/venv
-↓
-bash /app/start.sh
-  ├── cd /app/backend
-  ├── alembic upgrade head  (if RUN_MIGRATIONS=true)
-  └── uvicorn app.main:app --host 0.0.0.0 --port $PORT
+
+## Audit Logging
+
+`AuditService.log()` — never raises, called from services:
 ```
+audit_logs table: action, module, entity_type, entity_id, user_id, old/new values, timestamp
+```
+
+## Notifications
+
+`NotificationService.send()` — in-app only currently:
+```
+notifications table: user_id, title, body, type, channel, is_read
+```
+Future: SMS, WhatsApp, Push — hooks already in services.
+
+## Current Scale
+- **254 routes** across 13 modules
+- **80 tables**, **13 migrations**
+- **90 tests** (SQLite, no external DB)
