@@ -1,0 +1,5 @@
+# Development & testing only — do NOT install on Railway
+-r requirements.txt
+pytest==8.3.4
+pytest-asyncio==0.24.0
+faker==33.1.0
