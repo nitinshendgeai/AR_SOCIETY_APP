@@ -8,6 +8,30 @@ from app.models.user import User
 bearer_scheme = HTTPBearer()
 
 
+def _find_user_by_id(db: Session, user_id: str) -> "User | None":
+    """Robust user lookup that handles both UUID objects and strings (SQLite compat)."""
+    import uuid as _uuid
+    # Try as proper UUID first
+    try:
+        uid = _uuid.UUID(str(user_id))
+        try:
+            user = db.query(User).filter(User.id == uid, User.is_active == True).first()
+            if user:
+                return user
+        except Exception:
+            pass
+    except ValueError:
+        pass
+
+    # Fallback: string comparison
+    try:
+        return db.query(User).filter(
+            User.id == str(user_id), User.is_active == True
+        ).first()
+    except Exception:
+        return None
+
+
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: Session = Depends(get_db),
@@ -23,20 +47,7 @@ def get_current_user(
         )
 
     user_id = payload.get("sub")
-
-    # Support both UUID objects and string representations (SQLite compat)
-    try:
-        import uuid as _uuid
-        uid = _uuid.UUID(str(user_id))
-        user = db.query(User).filter(User.id == uid, User.is_active == True).first()
-    except (ValueError, AttributeError):
-        user = None
-
-    # Fallback: string comparison (SQLite stores UUIDs as strings)
-    if not user:
-        user = db.query(User).filter(
-            User.id == str(user_id), User.is_active == True
-        ).first()
+    user    = _find_user_by_id(db, user_id)
 
     if not user:
         raise HTTPException(
@@ -53,7 +64,6 @@ def get_current_active_user(current_user: User = Depends(get_current_user)) -> U
 
 
 def require_roles(*role_names: str):
-    """Factory that returns a dependency requiring at least one of the given roles."""
     def _checker(current_user: User = Depends(get_current_user)) -> User:
         user_roles = {ur.role.name for ur in current_user.user_roles if ur.role}
         if not user_roles.intersection(set(role_names)):

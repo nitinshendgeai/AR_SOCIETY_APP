@@ -31,6 +31,7 @@ pg_dialect.base.JSONB = _JSONBCompat
 import sqlalchemy.dialects.postgresql.base as pg_base
 pg_base.JSONB = _JSONBCompat
 
+
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 from fastapi.testclient import TestClient
