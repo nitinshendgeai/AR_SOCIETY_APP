@@ -43,6 +43,7 @@ def upgrade() -> None:
 
     # ── ALTER flats ───────────────────────────────────────────────────────────
     maint_status = sa.Enum('clear','due','overdue','disputed', name='maintenanceflatstatus')
+    maint_status.create(op.get_bind(), checkfirst=True)
     op.add_column('flats', sa.Column('maintenance_status', maint_status, server_default='clear', nullable=True))
     op.add_column('flats', sa.Column('parking_slot',  sa.String(20), nullable=True))
     op.add_column('flats', sa.Column('parking_slot_2',sa.String(20), nullable=True))
@@ -51,6 +52,7 @@ def upgrade() -> None:
 
     # ── ALTER residents ───────────────────────────────────────────────────────
     comm_pref = sa.Enum('app_only','sms','email','whatsapp','all', name='communicationpreference')
+    comm_pref.create(op.get_bind(), checkfirst=True)
     op.add_column('residents', sa.Column('kyc_verified',             sa.Boolean(), server_default='false', nullable=False))
     op.add_column('residents', sa.Column('kyc_doc_url',              sa.String(500), nullable=True))
     op.add_column('residents', sa.Column('family_member_count',      sa.Integer(), server_default='0', nullable=False))
@@ -61,6 +63,7 @@ def upgrade() -> None:
 
     # ── ALTER tenants ─────────────────────────────────────────────────────────
     police_status = sa.Enum('pending','submitted','verified','rejected', name='policeverificationstatus')
+    police_status.create(op.get_bind(), checkfirst=True)
     op.add_column('tenants', sa.Column('agreement_start_date',         sa.Date(), nullable=True))
     op.add_column('tenants', sa.Column('agreement_end_date',           sa.Date(), nullable=True))
     op.add_column('tenants', sa.Column('agreement_doc_url',            sa.String(500), nullable=True))
@@ -74,6 +77,7 @@ def upgrade() -> None:
 
     # ── CREATE vehicles ───────────────────────────────────────────────────────
     vehicle_type_enum = sa.Enum('car','motorcycle','scooter','auto','truck','van','bicycle','other', name='vehicletype')
+    vehicle_type_enum.create(op.get_bind(), checkfirst=True)
     op.create_table('vehicles',
         sa.Column('id',               UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
         sa.Column('created_at',       sa.DateTime(), nullable=False),
@@ -113,6 +117,7 @@ def upgrade() -> None:
 
     # ── CREATE staff_rosters ──────────────────────────────────────────────────
     roster_status_enum = sa.Enum('draft','published','archived', name='rosterstatus')
+    roster_status_enum.create(op.get_bind(), checkfirst=True)
     op.create_table('staff_rosters',
         sa.Column('id',              UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
         sa.Column('created_at',      sa.DateTime(), nullable=False),
