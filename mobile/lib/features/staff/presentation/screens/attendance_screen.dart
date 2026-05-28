@@ -61,33 +61,33 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
           )
         ],
       ),
-      body: switch (state) {
-        AttendanceLoading() => const Center(
-            child: CircularProgressIndicator(color: AppTheme.primary)),
-        AttendanceError(:final message) => Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppErrorBanner(message: message),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: () => ref
-                      .read(attendanceProvider.notifier)
-                      .loadHistory(widget.staffId),
-                  child: const Text('Retry'),
-                ),
-              ],
+      body: _buildBody(state),
+    );
+  }
+
+  Widget _buildBody(AttendanceState state) {
+    if (state is AttendanceLoading) {
+      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+    }
+    if (state is AttendanceError) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppErrorBanner(message: state.message),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => ref.read(attendanceProvider.notifier).loadHistory(widget.staffId),
+              child: const Text('Retry'),
             ),
-          ),
-        AttendanceLoaded(:final today, :final history) ||
-        AttendanceSuccess(record: _, message: _) when _getLoaded(state) != null =>
-          _Body(
-            staffId: widget.staffId,
-            today: _getTodayRecord(state),
-            history: _getHistory(state),
-          ),
-        _ => _Body(staffId: widget.staffId, today: null, history: const []),
-      },
+          ],
+        ),
+      );
+    }
+    return _Body(
+      staffId: widget.staffId,
+      today: _getTodayRecord(state),
+      history: _getHistory(state),
     );
   }
 
