@@ -4,22 +4,24 @@ import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:ar_society_app/features/splash/presentation/screens/splash_screen.dart';
-import 'package:ar_society_app/features/dashboard/home_placeholder_screen.dart';
+import 'package:ar_society_app/features/dashboard/role_dashboards.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_home_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/attendance_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/duties_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/handover_screen.dart';
+import 'package:ar_society_app/features/auth/presentation/screens/change_password_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 
 class AppRoutes {
-  static const splash    = '/';
-  static const login     = '/login';
-  static const home      = '/home';
-  static const adminHome     = '/admin';
-  static const committeeHome = '/committee';
-  static const residentHome  = '/resident';
-  static const securityHome  = '/security';
-  static const staffHome     = '/staff';
+  static const splash          = '/';
+  static const login           = '/login';
+  static const changePassword  = '/change-password';
+  static const home            = '/home';
+  static const adminHome       = '/admin';
+  static const committeeHome   = '/committee';
+  static const residentHome    = '/resident';
+  static const securityHome    = '/security';
+  static const staffHome       = '/staff';
   static const staffAttendance = '/staff/attendance/:staffId';
   static const staffDuties     = '/staff/duties/:staffId';
   static const staffHandover   = '/staff/handover/:staffId';
@@ -35,27 +37,39 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isLoading       = authState is AuthLoading || authState is AuthInitial;
       final isAuthenticated = authState is AuthAuthenticated;
       final path = state.matchedLocation;
-      final isOnSplash = path == AppRoutes.splash;
-      final isOnLogin  = path == AppRoutes.login;
+      final isOnSplash          = path == AppRoutes.splash;
+      final isOnLogin           = path == AppRoutes.login;
+      final isOnChangePassword  = path == AppRoutes.changePassword;
 
       if (isLoading) return isOnSplash ? null : AppRoutes.splash;
       if (!isAuthenticated && !isOnLogin) return AppRoutes.login;
-      if (isAuthenticated && (isOnLogin || isOnSplash)) return _roleHome(ref);
+
+      if (isAuthenticated) {
+        final user = (authState as AuthAuthenticated).user;
+        if (user.mustChangePassword && !isOnChangePassword) {
+          return AppRoutes.changePassword;
+        }
+        if (!user.mustChangePassword && (isOnLogin || isOnSplash || isOnChangePassword)) {
+          return _roleHome(ref);
+        }
+      }
 
       return null;
     },
     routes: [
       GoRoute(path: AppRoutes.splash, builder: (_, __) => const SplashScreen()),
       GoRoute(path: AppRoutes.login,  builder: (_, __) => const LoginScreen()),
+      GoRoute(path: AppRoutes.changePassword,
+          builder: (_, __) => const ChangePasswordScreen()),
       GoRoute(path: AppRoutes.home,   redirect: (_, __) => _roleHome(ref)),
       GoRoute(path: AppRoutes.adminHome,
-          builder: (_, __) => const HomePlaceholderScreen(role: 'Admin')),
+          builder: (_, __) => const AdminDashboardScreen()),
       GoRoute(path: AppRoutes.committeeHome,
-          builder: (_, __) => const HomePlaceholderScreen(role: 'Committee')),
+          builder: (_, __) => const CommitteeDashboardScreen()),
       GoRoute(path: AppRoutes.residentHome,
-          builder: (_, __) => const HomePlaceholderScreen(role: 'Resident')),
+          builder: (_, __) => const ResidentDashboardScreen()),
       GoRoute(path: AppRoutes.securityHome,
-          builder: (_, __) => const HomePlaceholderScreen(role: 'Security')),
+          builder: (_, __) => const SecurityDashboardScreen()),
       GoRoute(path: AppRoutes.staffHome,
           builder: (_, __) => const StaffHomeScreen()),
       GoRoute(

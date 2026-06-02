@@ -68,6 +68,12 @@ def update_staff(staff_id: UUID, data: StaffUpdate, request: Request,
 def get_staff(staff_id: UUID, db: Session = Depends(get_db)):
     return StaffService(db).get_staff(staff_id)
 
+@router.get("/by-user/{user_id}", response_model=StaffOut,
+            dependencies=[Depends(any_auth)])
+def get_staff_by_user(user_id: UUID, db: Session = Depends(get_db)):
+    """Return the Staff record linked to a given user_id (used by mobile app after login)."""
+    return StaffService(db).get_staff_by_user(user_id)
+
 @router.get("/society/{society_id}", response_model=List[StaffOut],
             dependencies=[Depends(admin_or_committee)])
 def list_staff(society_id: UUID, skip: int = 0, limit: int = 50,

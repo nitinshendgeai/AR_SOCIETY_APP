@@ -24,12 +24,13 @@ class UserUpdate(OrmBase):
 
 
 class UserOut(TimestampSchema):
-    email:         str
-    phone:         Optional[str]
-    full_name:     str
-    status:        UserStatus
-    is_superadmin: bool
-    roles:         List[str] = []
+    email:                str
+    phone:                Optional[str]
+    full_name:            str
+    status:               UserStatus
+    is_superadmin:        bool
+    must_change_password: bool = False
+    roles:                List[str] = []
 
     @classmethod
     def from_orm_with_roles(cls, user) -> "UserOut":

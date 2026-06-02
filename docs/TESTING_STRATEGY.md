@@ -19,12 +19,29 @@ backend/tests/
 ├── master/
 │   ├── test_master.py       # society, wing, flat, vehicle (10 tests)
 │   └── test_society_onboarding.py # initialization workflow (6 tests)
-└── staff/
-    ├── test_attendance.py   # check-in/out, duplicates (5 tests)
-    ├── test_leave.py        # leave workflow, overlaps (7 tests)
-    └── test_handover.py     # handover FSM (6 tests)
+├── staff/
+│   ├── test_attendance.py   # check-in/out, duplicates (5 tests)
+│   ├── test_leave.py        # leave workflow, overlaps (7 tests)
+│   ├── test_handover.py     # handover FSM (6 tests)
+│   └── test_tasks.py        # task FSM, RBAC (7 tests)
+├── complaint/
+│   └── test_complaint.py    # FSM lifecycle, RBAC, comments (16 tests)
+├── billing/
+│   └── test_billing.py      # periods, charge config, bills, payment (11 tests)
+├── visitor/
+│   └── test_visitor.py      # gate CRUD, visitor workflow (12 tests)
+├── amenity/
+│   └── test_amenity.py      # amenity CRUD, booking workflow (7 tests)
+├── parking/
+│   └── test_parking.py      # zone, slot, allocation (7 tests)
+├── inventory/
+│   └── test_inventory.py    # item CRUD, stock-in, issue (7 tests)
+├── notice/
+│   └── test_notice.py       # notice CRUD, publish, acknowledge (7 tests)
+└── vendor/
+    └── test_vendor.py       # vendor CRUD, service requests (7 tests)
 ```
-**Total: 90 tests, 0 failures**
+**Total: 171 tests, 0 failures**
 
 ## Running Tests
 ```bash

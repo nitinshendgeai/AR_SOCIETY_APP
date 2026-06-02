@@ -4,9 +4,9 @@
 
 | Variable | Value |
 |---|---|
-| `DATABASE_URL` | `postgresql://postgres:TVulfWPoqUanbCRMIQvomLMbQXQELEUA@postgres.railway.internal:5432/railway` |
+| `DATABASE_URL` | `<railway_database_url>` (copy from Railway → Postgres → Connect tab) |
 | `RUN_MIGRATIONS` | `true` |
-| `SECRET_KEY` | `ar-society-erp-prod-2026-nitin` |
+| `SECRET_KEY` | `<generate_new_secret>` (e.g. `openssl rand -hex 32`) |
 | `APP_ENV` | `production` |
 | `ALLOWED_ORIGINS` | `["*"]` |
 
@@ -15,8 +15,9 @@
 
 ## Public URL (for local DB tools only)
 ```
-postgresql://postgres:TVulfWPoqUanbCRMIQvomLMbQXQELEUA@kodama.proxy.rlwy.net:57666/railway
+postgresql://postgres:<DB_PASSWORD>@<proxy_host>:<proxy_port>/railway
 ```
+Find the real values in Railway → Postgres service → Connect tab.
 
 ## After deploying — verify
 
@@ -32,10 +33,10 @@ postgresql://postgres:TVulfWPoqUanbCRMIQvomLMbQXQELEUA@kodama.proxy.rlwy.net:576
 
 ```bash
 cd backend
-DATABASE_URL="postgresql://postgres:TVulfWPoqUanbCRMIQvomLMbQXQELEUA@kodama.proxy.rlwy.net:57666/railway" \
+DATABASE_URL="<public_proxy_url_from_railway>" \
   alembic upgrade head
 
-# New migration after model changes
-DATABASE_URL="postgresql://..." alembic revision --autogenerate -m "add visitor table"
-DATABASE_URL="postgresql://..." alembic upgrade head
+# New migration after model changes (manual only — never --autogenerate in prod)
+DATABASE_URL="<public_proxy_url_from_railway>" alembic revision -m "describe_change"
+DATABASE_URL="<public_proxy_url_from_railway>" alembic upgrade head
 ```

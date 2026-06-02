@@ -11,25 +11,29 @@ final staffRepositoryProvider = Provider<StaffRepository>((ref) {
 
 // ── Staff ID provider (extracted from current user, fetched from backend) ──────
 
-/// Async provider: fetches StaffEntity for the current logged-in user.
-/// Staff user_id links to User, then to Staff record via /staff/{id}.
+/// Async provider: auto-resolves Staff record for the current user via /staff/by-user/{user_id}.
+/// Falls back to manually set staffIdProvider if the API returns nothing.
 final currentStaffProvider = FutureProvider<StaffEntity?>((ref) async {
   final user = ref.watch(currentUserProvider);
   if (user == null) return null;
-  // The staff_id must come from user profile or a dedicated endpoint.
-  // For now we store it after first successful staff fetch.
   final repo = ref.read(staffRepositoryProvider);
-  // Try to get staff by stored staff_id if available
+  final result = await repo.getStaffByUser(user.id);
+  if (result is StaffSuccess<StaffEntity>) {
+    // Sync the resolved id into staffIdProvider so nav routes work
+    ref.read(staffIdProvider.notifier).state = result.data.id;
+    return result.data;
+  }
+  // Fallback: manual override via staffIdProvider
   final staffId = ref.read(staffIdProvider);
   if (staffId == null) return null;
-  final result = await repo.getStaff(staffId);
-  return switch (result) {
+  final fallback = await repo.getStaff(staffId);
+  return switch (fallback) {
     StaffSuccess(:final data) => data,
     StaffFailure() => null,
   };
 });
 
-/// Manually set staff_id once we know it (stored in state).
+/// Can be set manually as fallback when auto-resolution fails.
 final staffIdProvider = StateProvider<String?>((ref) => null);
 
 // ── Attendance state ──────────────────────────────────────────────────────────

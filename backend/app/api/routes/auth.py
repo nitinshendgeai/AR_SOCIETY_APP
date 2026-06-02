@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, RefreshRequest
+from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, RefreshRequest, ChangePasswordRequest
 from app.schemas.user import UserOut
 from app.services.auth_service import AuthService
 from app.core.dependencies import get_current_user
@@ -37,3 +37,13 @@ def refresh(data: RefreshRequest, db: Session = Depends(get_db)):
 def me(current_user: User = Depends(get_current_user)):
     """Return the currently authenticated user."""
     return UserOut.model_validate(current_user)
+
+
+@router.post("/change-password", status_code=204)
+def change_password(
+    data: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Change password for the currently authenticated user."""
+    AuthService(db).change_password(current_user, data)

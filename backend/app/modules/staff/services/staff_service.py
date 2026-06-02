@@ -98,6 +98,12 @@ class StaffService:
     def get_staff(self, staff_id: UUID) -> Staff:
         return self._staff_or_404(staff_id)
 
+    def get_staff_by_user(self, user_id: UUID) -> Staff:
+        staff = self.repo.get_by_user(user_id)
+        if not staff:
+            raise HTTPException(status_code=404, detail="No staff profile linked to this user")
+        return staff
+
     def list_staff(self, society_id: UUID, skip=0, limit=50) -> List[Staff]:
         return self.repo.get_by_society(society_id, skip, limit)
 

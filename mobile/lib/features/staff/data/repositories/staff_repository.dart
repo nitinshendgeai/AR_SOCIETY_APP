@@ -47,6 +47,13 @@ class StaffRepository {
     } catch (e) { return _handle(e); }
   }
 
+  Future<StaffResult<StaffEntity>> getStaffByUser(String userId) async {
+    try {
+      final m = await _ds.getStaffByUser(userId);
+      return StaffSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
   // ── Attendance ─────────────────────────────────────────────────────────────
 
   Future<StaffResult<AttendanceEntity>> checkIn(String staffId, {String? notes}) async {

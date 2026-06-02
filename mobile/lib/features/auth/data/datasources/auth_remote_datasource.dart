@@ -33,4 +33,15 @@ class AuthRemoteDataSource {
     });
     return TokenModel.fromJson(response.data as Map<String, dynamic>);
   }
+
+  /// POST /auth/change-password
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _dio.post('/auth/change-password', data: {
+      'current_password': currentPassword,
+      'new_password': newPassword,
+    });
+  }
 }

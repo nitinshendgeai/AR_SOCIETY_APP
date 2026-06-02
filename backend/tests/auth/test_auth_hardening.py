@@ -131,7 +131,9 @@ def test_password_not_in_response(client):
     assert r.status_code == 201
     body = str(r.json())
     assert "hashed_password" not in body
-    assert "password" not in body
+    # must_change_password is an allowed field; only raw password values must not leak
+    assert "Test@1234" not in body
+    assert r.json().get("hashed_password") is None
 
 
 def test_same_password_different_hash(client, db):

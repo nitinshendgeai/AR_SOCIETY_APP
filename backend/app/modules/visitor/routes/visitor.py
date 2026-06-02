@@ -16,7 +16,7 @@ from app.modules.visitor.services.visitor_service import VisitorService
 router = APIRouter(prefix="/visitors", tags=["Visitor & Gate Management"])
 
 # Role guards
-security_or_admin = require_roles("Admin", "Security")
+security_or_admin = require_roles("Admin", "Security", "Committee")
 resident_or_above = require_roles("Admin", "Committee", "Resident")
 
 

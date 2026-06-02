@@ -16,6 +16,12 @@ class StaffRemoteDataSource {
     return StaffModel.fromJson(r.data as Map<String, dynamic>);
   }
 
+  /// GET /staff/by-user/{user_id}
+  Future<StaffModel> getStaffByUser(String userId) async {
+    final r = await _dio.get('/staff/by-user/$userId');
+    return StaffModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
   // ── Attendance ─────────────────────────────────────────────────────────────
 
   /// POST /staff/attendance/{staff_id}/checkin
