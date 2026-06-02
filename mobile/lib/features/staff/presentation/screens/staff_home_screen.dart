@@ -14,6 +14,8 @@ class StaffHomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
+    // Auto-resolve on first build; result syncs staffIdProvider
+    ref.watch(currentStaffProvider);
     final staffId = ref.watch(staffIdProvider);
 
     return Scaffold(

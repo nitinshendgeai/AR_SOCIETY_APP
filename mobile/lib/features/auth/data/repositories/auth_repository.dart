@@ -61,6 +61,24 @@ class AuthRepository {
     }
   }
 
+  /// Change password for the currently authenticated user.
+  Future<AuthResult<void>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      await _remote.changePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      );
+      return AuthSuccess(null);
+    } on DioException catch (e) {
+      return AuthFailure(parseApiError(e));
+    } catch (e) {
+      return AuthFailure('Unexpected error: $e');
+    }
+  }
+
   /// Logout: clear all stored tokens.
   Future<void> logout() async {
     await TokenStorage.clearTokens();

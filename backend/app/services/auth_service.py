@@ -8,7 +8,7 @@ from app.core.security import (
     hash_password, verify_password,
     create_access_token, create_refresh_token, decode_token,
 )
-from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse
+from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, ChangePasswordRequest
 from app.models.audit_log import AuditAction
 from app.services.audit_service import AuditService
 import logging
@@ -93,6 +93,19 @@ class AuthService:
         )
         logger.info(f"[auth] Login: {user.email} roles={roles}")
         return TokenResponse(access_token=access, refresh_token=refresh)
+
+    def change_password(self, user: User, data: ChangePasswordRequest) -> None:
+        if not verify_password(data.current_password, user.hashed_password):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+        user.hashed_password = hash_password(data.new_password)
+        user.must_change_password = False
+        self.db.commit()
+        AuditService.log(
+            db=self.db, action=AuditAction.UPDATE, module="auth",
+            entity_id=str(user.id), entity_type="User",
+            user=user, notes="Password changed",
+        )
+        logger.info(f"[auth] Password changed: {user.email}")
 
     def refresh(self, refresh_token: str) -> TokenResponse:
         payload = decode_token(refresh_token)

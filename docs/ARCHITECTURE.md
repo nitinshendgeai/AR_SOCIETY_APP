@@ -125,7 +125,14 @@ notifications table: user_id, title, body, type, channel, is_read
 ```
 Future: SMS, WhatsApp, Push — hooks already in services.
 
+## Authentication — must_change_password
+
+Users onboarded by admins have `must_change_password = True`. On login the
+Flutter app reads this flag from `GET /auth/me` (`UserOut.must_change_password`)
+and redirects to `/change-password` before allowing access to any other route.
+The flag is cleared server-side by `POST /auth/change-password`.
+
 ## Current Scale
-- **254 routes** across 13 modules
+- **255 routes** across 13 modules (added `GET /staff/by-user/{user_id}`, `POST /auth/change-password`)
 - **80 tables**, **13 migrations**
-- **90 tests** (SQLite, no external DB)
+- **171 tests** (SQLite, no external DB) — amenity, parking, inventory, notice, vendor, staff tasks added

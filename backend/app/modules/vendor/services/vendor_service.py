@@ -42,6 +42,7 @@ class VendorService_:  # trailing underscore avoids clash with model name
         self.vendor_repo.create(vendor)
         self._audit(AuditAction.CREATE, vendor, "Vendor", user, request,
                     new_values={"code": code, "name": data["company_name"]})
+        self.db.refresh(vendor)
         return vendor
 
     def update_vendor(self, vendor_id: UUID, data: dict, user: User) -> Vendor:

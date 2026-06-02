@@ -59,6 +59,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// Change password. On success, clears the mustChangePassword flag on the user.
+  Future<AuthResult<void>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final result = await _repo.changePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
+    if (result is AuthSuccess && state is AuthAuthenticated) {
+      final user = (state as AuthAuthenticated).user;
+      state = AuthAuthenticated(user.copyWith(mustChangePassword: false));
+    }
+    return result;
+  }
+
   /// Logout — clears tokens and redirects to login.
   Future<void> logout() async {
     await _repo.logout();
