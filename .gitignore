@@ -17,9 +17,15 @@ venv/
 env/
 ENV/
 
-# Environment variables - NEVER commit real .env
+# Environment variables - NEVER commit real .env files
 .env
+.env.local
+.env.development
+.env.production
+.env.staging
 backend/.env
+backend/.env.local
+backend/.env.production
 
 # IDE
 .vscode/
@@ -42,3 +48,7 @@ logs/
 
 # Railway
 .railway/
+
+# Test databases
+*.db
+backend/*.db

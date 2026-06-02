@@ -70,6 +70,7 @@ class BillingService:
         self.charge_repo.create(config)
         self._audit(AuditAction.CREATE, config, "ChargeConfig", user,
                     new_values={"name": data.get("name"), "amount": str(data.get("default_amount"))})
+        self.db.refresh(config)
         return config
 
     def list_charge_configs(self, society_id: UUID) -> List[MaintenanceChargeConfig]:
@@ -82,6 +83,7 @@ class BillingService:
         self.cycle_repo.create(cycle)
         self._audit(AuditAction.CREATE, cycle, "BillingCycle", user, request,
                     new_values={"name": data.get("name"), "due_date": str(data.get("due_date"))})
+        self.db.refresh(cycle)
         return cycle
 
     def list_cycles(self, society_id: UUID) -> List[BillingCycle]:
