@@ -15,7 +15,7 @@ Changes:
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ENUM as PgEnum
 import uuid
 
 revision      = '4a5e788184f7'
@@ -76,7 +76,7 @@ def upgrade() -> None:
     op.add_column('tenants', sa.Column('remarks',                      sa.Text(), nullable=True))
 
     # ── CREATE vehicles ───────────────────────────────────────────────────────
-    vehicle_type_enum = sa.Enum('car','motorcycle','scooter','auto','truck','van','bicycle','other', name='vehicletype', create_type=False)
+    vehicle_type_enum = PgEnum('car','motorcycle','scooter','auto','truck','van','bicycle','other', name='vehicletype', create_type=False)
     vehicle_type_enum.create(op.get_bind(), checkfirst=True)
     op.create_table('vehicles',
         sa.Column('id',               UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
@@ -116,7 +116,7 @@ def upgrade() -> None:
     op.create_index('ix_vehicles_parking_slot',   'vehicles', ['parking_slot'])
 
     # ── CREATE staff_rosters ──────────────────────────────────────────────────
-    roster_status_enum = sa.Enum('draft','published','archived', name='rosterstatus', create_type=False)
+    roster_status_enum = PgEnum('draft','published','archived', name='rosterstatus', create_type=False)
     roster_status_enum.create(op.get_bind(), checkfirst=True)
     op.create_table('staff_rosters',
         sa.Column('id',              UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
@@ -176,8 +176,8 @@ def downgrade() -> None:
     op.drop_table('staff_leave_balances')
     op.drop_table('staff_rosters')
     op.drop_table('vehicles')
-    sa.Enum(name='rosterstatus').drop(op.get_bind(), checkfirst=True)
-    sa.Enum(name='vehicletype').drop(op.get_bind(), checkfirst=True)
+    PgEnum(name='rosterstatus').drop(op.get_bind(), checkfirst=True)
+    PgEnum(name='vehicletype').drop(op.get_bind(), checkfirst=True)
     sa.Enum(name='policeverificationstatus').drop(op.get_bind(), checkfirst=True)
     sa.Enum(name='communicationpreference').drop(op.get_bind(), checkfirst=True)
     sa.Enum(name='maintenanceflatstatus').drop(op.get_bind(), checkfirst=True)
