@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
@@ -120,11 +122,14 @@ class _ActionItem {
   final String label;
   final Color color;
   final String? badge;
-  const _ActionItem(
-      {required this.icon,
-      required this.label,
-      required this.color,
-      this.badge});
+  final String? route;
+  const _ActionItem({
+    required this.icon,
+    required this.label,
+    required this.color,
+    this.badge,
+    this.route,
+  });
 }
 
 class _ModuleGrid extends StatelessWidget {
@@ -143,9 +148,11 @@ class _ModuleGrid extends StatelessWidget {
         childAspectRatio: 1.15,
       ),
       itemCount: items.length,
-      itemBuilder: (_, i) {
+      itemBuilder: (context, i) {
         final item = items[i];
-        return Container(
+        return GestureDetector(
+          onTap: item.route != null ? () => context.push(item.route!) : null,
+          child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: AppTheme.cardBg,
@@ -192,6 +199,7 @@ class _ModuleGrid extends StatelessWidget {
                       color: AppTheme.textPrimary)),
             ],
           ),
+        ),
         );
       },
     );
@@ -296,7 +304,7 @@ class AdminDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 20),
         const _SectionLabel('Society Management'),
         const SizedBox(height: 12),
-        _ModuleGrid(items: const [
+        const _ModuleGrid(items: [
           _ActionItem(icon: Icons.people_rounded,
               label: 'Users & Roles', color: AppTheme.primary),
           _ActionItem(icon: Icons.apartment_rounded,
@@ -309,11 +317,13 @@ class AdminDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 20),
         const _SectionLabel('Operations'),
         const SizedBox(height: 12),
-        _ModuleGrid(items: const [
+        const _ModuleGrid(items: [
           _ActionItem(icon: Icons.badge_rounded,
-              label: 'Staff', color: AppTheme.primary),
+              label: 'Staff', color: AppTheme.primary,
+              route: AppRoutes.staffHome),
           _ActionItem(icon: Icons.meeting_room_rounded,
-              label: 'Visitors', color: AppTheme.secondary),
+              label: 'Visitors', color: AppTheme.secondary,
+              route: AppRoutes.visitorsMy),
           _ActionItem(icon: Icons.inventory_2_rounded,
               label: 'Inventory', color: AppTheme.warning),
           _ActionItem(icon: Icons.campaign_rounded,
@@ -341,22 +351,25 @@ class CommitteeDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 20),
         const _SectionLabel('Approvals & Governance'),
         const SizedBox(height: 12),
-        _ModuleGrid(items: const [
+        const _ModuleGrid(items: [
           _ActionItem(icon: Icons.approval_rounded,
-              label: 'Complaints', color: AppTheme.error),
+              label: 'Complaints', color: AppTheme.error,
+              route: AppRoutes.complaints),
           _ActionItem(icon: Icons.campaign_rounded,
               label: 'Notices', color: AppTheme.primary),
           _ActionItem(icon: Icons.receipt_long_rounded,
               label: 'Billing', color: AppTheme.success),
           _ActionItem(icon: Icons.people_rounded,
-              label: 'Staff', color: AppTheme.warning),
+              label: 'Staff', color: AppTheme.warning,
+              route: AppRoutes.staffHome),
         ]),
         const SizedBox(height: 20),
         const _SectionLabel('Gate & Facility'),
         const SizedBox(height: 12),
-        _ModuleGrid(items: const [
+        const _ModuleGrid(items: [
           _ActionItem(icon: Icons.meeting_room_rounded,
-              label: 'Visitors', color: AppTheme.secondary),
+              label: 'Visitors', color: AppTheme.secondary,
+              route: AppRoutes.visitorsMy),
           _ActionItem(icon: Icons.local_parking_rounded,
               label: 'Parking', color: AppTheme.primary),
           _ActionItem(icon: Icons.sports_tennis_rounded,
@@ -386,15 +399,19 @@ class SecurityDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 20),
         const _SectionLabel('Gate Operations'),
         const SizedBox(height: 12),
-        _ModuleGrid(items: const [
+        const _ModuleGrid(items: [
           _ActionItem(icon: Icons.person_add_rounded,
-              label: 'Log Visitor', color: AppTheme.primary),
+              label: 'Log Visitor', color: AppTheme.primary,
+              route: AppRoutes.visitorsCreate),
           _ActionItem(icon: Icons.login_rounded,
-              label: 'Check In', color: AppTheme.success),
+              label: 'Check In', color: AppTheme.success,
+              route: AppRoutes.visitorsPending),
           _ActionItem(icon: Icons.logout_rounded,
-              label: 'Check Out', color: AppTheme.warning),
+              label: 'Check Out', color: AppTheme.warning,
+              route: AppRoutes.visitorsMy),
           _ActionItem(icon: Icons.list_alt_rounded,
-              label: 'Visitor Log', color: AppTheme.secondary),
+              label: 'Visitor Log', color: AppTheme.secondary,
+              route: AppRoutes.visitorsMy),
         ]),
         const SizedBox(height: 20),
         const _SectionLabel('Shift Management'),
@@ -442,9 +459,10 @@ class ResidentDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 20),
         const _SectionLabel('My Services'),
         const SizedBox(height: 12),
-        _ModuleGrid(items: const [
+        const _ModuleGrid(items: [
           _ActionItem(icon: Icons.report_problem_rounded,
-              label: 'Complaints', color: AppTheme.error),
+              label: 'Complaints', color: AppTheme.error,
+              route: AppRoutes.complaints),
           _ActionItem(icon: Icons.campaign_rounded,
               label: 'Notices', color: AppTheme.primary),
           _ActionItem(icon: Icons.receipt_long_rounded,
@@ -455,11 +473,13 @@ class ResidentDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 20),
         const _SectionLabel('Visitors & Parking'),
         const SizedBox(height: 12),
-        _ModuleGrid(items: const [
+        const _ModuleGrid(items: [
           _ActionItem(icon: Icons.person_rounded,
-              label: 'My Visitors', color: AppTheme.secondary),
+              label: 'My Visitors', color: AppTheme.secondary,
+              route: AppRoutes.visitorsMy),
           _ActionItem(icon: Icons.pending_actions_rounded,
-              label: 'Pending Approvals', color: AppTheme.warning),
+              label: 'Pending Approvals', color: AppTheme.warning,
+              route: AppRoutes.visitorsPending),
           _ActionItem(icon: Icons.local_parking_rounded,
               label: 'My Parking', color: AppTheme.primary),
           _ActionItem(icon: Icons.home_rounded,

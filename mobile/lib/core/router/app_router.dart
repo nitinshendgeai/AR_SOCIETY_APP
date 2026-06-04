@@ -11,20 +11,36 @@ import 'package:ar_society_app/features/staff/presentation/screens/duties_screen
 import 'package:ar_society_app/features/staff/presentation/screens/handover_screen.dart';
 import 'package:ar_society_app/features/auth/presentation/screens/change_password_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
+import 'package:ar_society_app/features/visitor/presentation/screens/visitor_list_screen.dart';
+import 'package:ar_society_app/features/visitor/presentation/screens/create_visitor_screen.dart';
+import 'package:ar_society_app/features/visitor/presentation/screens/visitor_approvals_screen.dart';
+import 'package:ar_society_app/features/complaint/presentation/screens/complaint_list_screen.dart';
+import 'package:ar_society_app/features/complaint/presentation/screens/complaint_detail_screen.dart';
+import 'package:ar_society_app/features/complaint/presentation/screens/create_complaint_screen.dart';
 
 class AppRoutes {
-  static const splash          = '/';
-  static const login           = '/login';
-  static const changePassword  = '/change-password';
-  static const home            = '/home';
-  static const adminHome       = '/admin';
-  static const committeeHome   = '/committee';
-  static const residentHome    = '/resident';
-  static const securityHome    = '/security';
-  static const staffHome       = '/staff';
-  static const staffAttendance = '/staff/attendance/:staffId';
-  static const staffDuties     = '/staff/duties/:staffId';
-  static const staffHandover   = '/staff/handover/:staffId';
+  static const splash             = '/';
+  static const login              = '/login';
+  static const changePassword     = '/change-password';
+  static const home               = '/home';
+  static const adminHome          = '/admin';
+  static const committeeHome      = '/committee';
+  static const residentHome       = '/resident';
+  static const securityHome       = '/security';
+  static const staffHome          = '/staff';
+  static const staffAttendance    = '/staff/attendance/:staffId';
+  static const staffDuties        = '/staff/duties/:staffId';
+  static const staffHandover      = '/staff/handover/:staffId';
+  // Visitor routes
+  static const visitorsCreate     = '/visitors/create';
+  static const visitorsMy         = '/visitors/my';
+  static const visitorsPending    = '/visitors/pending';
+  static const visitorsSociety    = '/visitors/society/:societyId';
+  // Complaint routes
+  static const complaints         = '/complaints';
+  static const complaintsCreate   = '/complaints/create';
+  static const complaintsDetail   = '/complaints/:complaintId';
+  static const complaintsSociety  = '/complaints/society/:societyId';
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -90,6 +106,53 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => HandoverScreen(
           staffId: state.pathParameters['staffId']!,
           societyId: state.extra as String? ?? '',
+        ),
+      ),
+      // Visitor routes (specific paths before parameterised)
+      GoRoute(
+        path: AppRoutes.visitorsCreate,
+        builder: (_, state) => CreateVisitorScreen(
+          societyId: state.extra as String? ??
+              state.uri.queryParameters['societyId'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.visitorsMy,
+        builder: (_, __) => const VisitorListScreen(isMy: true),
+      ),
+      GoRoute(
+        path: AppRoutes.visitorsPending,
+        builder: (_, __) => const VisitorApprovalsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.visitorsSociety,
+        builder: (_, state) => VisitorListScreen(
+          isMy: false,
+          societyId: state.pathParameters['societyId']!,
+        ),
+      ),
+      // Complaint routes (literal 'create' and 'society' before :complaintId)
+      GoRoute(
+        path: AppRoutes.complaints,
+        builder: (_, __) => const ComplaintListScreen(isMy: true),
+      ),
+      GoRoute(
+        path: AppRoutes.complaintsCreate,
+        builder: (_, state) => CreateComplaintScreen(
+          societyId: state.uri.queryParameters['societyId'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.complaintsSociety,
+        builder: (_, state) => ComplaintListScreen(
+          isMy: false,
+          societyId: state.pathParameters['societyId']!,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.complaintsDetail,
+        builder: (_, state) => ComplaintDetailScreen(
+          complaintId: state.pathParameters['complaintId']!,
         ),
       ),
     ],
