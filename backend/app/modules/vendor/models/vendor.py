@@ -112,8 +112,8 @@ class Vendor(Base, TimestampMixin):
     contact_person   = Column(String(255), nullable=True)
     mobile           = Column(String(20), nullable=False, index=True)
     email            = Column(String(255), nullable=True)
-    category         = Column(Enum(VendorCategory), nullable=False, index=True)
-    status           = Column(Enum(VendorStatus), default=VendorStatus.ACTIVE, nullable=False, index=True)
+    category         = Column(Enum(VendorCategory, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
+    status           = Column(Enum(VendorStatus, values_callable=lambda e: [x.value for x in e]), default=VendorStatus.ACTIVE, nullable=False, index=True)
 
     # Address
     address          = Column(Text, nullable=True)
@@ -159,7 +159,7 @@ class VendorService(Base, TimestampMixin):
 
     vendor_id    = Column(UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="CASCADE"), nullable=False, index=True)
     service_name = Column(String(150), nullable=False)
-    category     = Column(Enum(VendorCategory), nullable=False)
+    category     = Column(Enum(VendorCategory, values_callable=lambda e: [x.value for x in e]), nullable=False)
     rate_per_visit= Column(Numeric(10, 2), nullable=True)
     rate_per_hour = Column(Numeric(8, 2), nullable=True)
     description  = Column(Text, nullable=True)
@@ -179,8 +179,8 @@ class AMCContract(Base, TimestampMixin):
 
     contract_number  = Column(String(50), nullable=False, unique=True, index=True)
     contract_name    = Column(String(255), nullable=False)
-    category         = Column(Enum(VendorCategory), nullable=False, index=True)
-    status           = Column(Enum(ContractStatus), default=ContractStatus.DRAFT, nullable=False, index=True)
+    category         = Column(Enum(VendorCategory, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
+    status           = Column(Enum(ContractStatus, values_callable=lambda e: [x.value for x in e]), default=ContractStatus.DRAFT, nullable=False, index=True)
 
     start_date       = Column(Date, nullable=False, index=True)
     end_date         = Column(Date, nullable=False, index=True)
@@ -188,7 +188,7 @@ class AMCContract(Base, TimestampMixin):
     renewal_notice_days = Column(Integer, default=30, nullable=False)
 
     # Service config
-    service_frequency = Column(Enum(ServiceFrequency), nullable=False)
+    service_frequency = Column(Enum(ServiceFrequency, values_callable=lambda e: [x.value for x in e]), nullable=False)
     sla_response_hours = Column(Integer, nullable=True)   # SLA readiness
     scope_of_work     = Column(Text, nullable=True)
     inclusions        = Column(Text, nullable=True)
@@ -228,7 +228,7 @@ class AMCServiceSchedule(Base, TimestampMixin):
     contract_id    = Column(UUID(as_uuid=True), ForeignKey("amc_contracts.id", ondelete="CASCADE"), nullable=False, index=True)
     society_id     = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     scheduled_date = Column(Date, nullable=False, index=True)
-    status         = Column(Enum(ScheduleStatus), default=ScheduleStatus.SCHEDULED, nullable=False, index=True)
+    status         = Column(Enum(ScheduleStatus, values_callable=lambda e: [x.value for x in e]), default=ScheduleStatus.SCHEDULED, nullable=False, index=True)
     completed_date = Column(Date, nullable=True)
     notes          = Column(Text, nullable=True)
     visit_log_id   = Column(UUID(as_uuid=True), nullable=True)   # ref to ServiceVisitLog
@@ -253,9 +253,9 @@ class ServiceRequest(Base, TimestampMixin):
     request_number = Column(String(20), nullable=False, unique=True, index=True)
     title          = Column(String(255), nullable=False)
     description    = Column(Text, nullable=True)
-    category       = Column(Enum(VendorCategory), nullable=False, index=True)
-    priority       = Column(Enum(ServiceRequestPriority), default=ServiceRequestPriority.MEDIUM, nullable=False)
-    status         = Column(Enum(ServiceRequestStatus), default=ServiceRequestStatus.OPEN, nullable=False, index=True)
+    category       = Column(Enum(VendorCategory, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
+    priority       = Column(Enum(ServiceRequestPriority, values_callable=lambda e: [x.value for x in e]), default=ServiceRequestPriority.MEDIUM, nullable=False)
+    status         = Column(Enum(ServiceRequestStatus, values_callable=lambda e: [x.value for x in e]), default=ServiceRequestStatus.OPEN, nullable=False, index=True)
     location       = Column(String(255), nullable=True)
 
     # Scheduling

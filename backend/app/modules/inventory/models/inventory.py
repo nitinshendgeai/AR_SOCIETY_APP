@@ -117,8 +117,8 @@ class InventoryItem(Base, TimestampMixin):
     item_code      = Column(String(30), nullable=False, unique=True, index=True)
     name           = Column(String(255), nullable=False)
     description    = Column(Text, nullable=True)
-    category       = Column(Enum(ItemCategory), nullable=False, index=True)
-    unit_type      = Column(Enum(UnitType), default=UnitType.PIECE, nullable=False)
+    category       = Column(Enum(ItemCategory, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
+    unit_type      = Column(Enum(UnitType, values_callable=lambda e: [x.value for x in e]), default=UnitType.PIECE, nullable=False)
     storage_location = Column(String(255), nullable=True)
     minimum_stock  = Column(Float, default=0, nullable=False)   # alert threshold
     unit_cost      = Column(Numeric(10, 2), nullable=True)      # finance-ready
@@ -161,7 +161,7 @@ class InventoryTransaction(Base, TimestampMixin):
 
     society_id       = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     item_id          = Column(UUID(as_uuid=True), ForeignKey("inventory_items.id", ondelete="CASCADE"), nullable=False, index=True)
-    transaction_type = Column(Enum(TransactionType), nullable=False, index=True)
+    transaction_type = Column(Enum(TransactionType, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     quantity         = Column(Float, nullable=False)
     quantity_before  = Column(Float, nullable=False)   # stock snapshot for audit
     quantity_after   = Column(Float, nullable=False)
@@ -191,7 +191,7 @@ class InventoryIssue(Base, TimestampMixin):
 
     quantity_issued   = Column(Float, nullable=False)
     quantity_returned = Column(Float, default=0, nullable=False)
-    status            = Column(Enum(IssueStatus), default=IssueStatus.ISSUED, nullable=False, index=True)
+    status            = Column(Enum(IssueStatus, values_callable=lambda e: [x.value for x in e]), default=IssueStatus.ISSUED, nullable=False, index=True)
     purpose           = Column(Text, nullable=True)
     expected_return_date = Column(Date, nullable=True)
     actual_return_date   = Column(Date, nullable=True)
@@ -231,10 +231,10 @@ class Asset(Base, TimestampMixin):
     society_id       = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     asset_code       = Column(String(30), nullable=False, unique=True, index=True)
     name             = Column(String(255), nullable=False)
-    asset_category   = Column(Enum(AssetCategory), nullable=False, index=True)
+    asset_category   = Column(Enum(AssetCategory, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     description      = Column(Text, nullable=True)
     location         = Column(String(255), nullable=True)
-    status           = Column(Enum(AssetStatus), default=AssetStatus.ACTIVE, nullable=False, index=True)
+    status           = Column(Enum(AssetStatus, values_callable=lambda e: [x.value for x in e]), default=AssetStatus.ACTIVE, nullable=False, index=True)
 
     # Procurement
     purchase_date    = Column(Date, nullable=True)
@@ -272,8 +272,8 @@ class AssetMaintenance(Base, TimestampMixin):
 
     asset_id          = Column(UUID(as_uuid=True), ForeignKey("assets.id", ondelete="CASCADE"), nullable=False, index=True)
     society_id        = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
-    maintenance_type  = Column(Enum(MaintenanceType), nullable=False, index=True)
-    status            = Column(Enum(MaintenanceStatus), default=MaintenanceStatus.SCHEDULED, nullable=False, index=True)
+    maintenance_type  = Column(Enum(MaintenanceType, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
+    status            = Column(Enum(MaintenanceStatus, values_callable=lambda e: [x.value for x in e]), default=MaintenanceStatus.SCHEDULED, nullable=False, index=True)
     scheduled_date    = Column(Date, nullable=False)
     completed_date    = Column(Date, nullable=True)
     vendor_name       = Column(String(255), nullable=True)

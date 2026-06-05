@@ -27,7 +27,7 @@ class Vehicle(Base, TimestampMixin):
 
     # Identity
     vehicle_number = Column(String(30), nullable=False, index=True)
-    vehicle_type   = Column(Enum(VehicleType), default=VehicleType.CAR, nullable=False, index=True)
+    vehicle_type   = Column(Enum(VehicleType, values_callable=lambda e: [x.value for x in e]), default=VehicleType.CAR, nullable=False, index=True)
     make           = Column(String(100), nullable=True)   # Honda, Maruti
     model          = Column(String(100), nullable=True)   # City, Swift
     color          = Column(String(50), nullable=True)

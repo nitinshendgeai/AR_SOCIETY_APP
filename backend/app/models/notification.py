@@ -36,9 +36,9 @@ class Notification(Base, TimestampMixin):
     # Content
     title       = Column(String(255), nullable=False)
     body        = Column(Text, nullable=False)
-    type        = Column(Enum(NotificationType), default=NotificationType.INFO, nullable=False)
-    channel     = Column(Enum(NotificationChannel), default=NotificationChannel.IN_APP, nullable=False)
-    status      = Column(Enum(NotificationStatus), default=NotificationStatus.PENDING, nullable=False, index=True)
+    type        = Column(Enum(NotificationType, values_callable=lambda e: [x.value for x in e]), default=NotificationType.INFO, nullable=False)
+    channel     = Column(Enum(NotificationChannel, values_callable=lambda e: [x.value for x in e]), default=NotificationChannel.IN_APP, nullable=False)
+    status      = Column(Enum(NotificationStatus, values_callable=lambda e: [x.value for x in e]), default=NotificationStatus.PENDING, nullable=False, index=True)
 
     # Reference (which module/entity triggered this)
     module      = Column(String(100), nullable=True)   # e.g. "visitor", "complaint"

@@ -71,7 +71,7 @@ class StaffHandover(Base, TimestampMixin):
 
     # Core handover content
     summary          = Column(Text, nullable=False)   # outgoing staff summary
-    status           = Column(Enum(HandoverStatus), default=HandoverStatus.DRAFT,
+    status           = Column(Enum(HandoverStatus, values_callable=lambda e: [x.value for x in e]), default=HandoverStatus.DRAFT,
                                nullable=False, index=True)
 
     # Takeover details
@@ -101,7 +101,7 @@ class HandoverItem(Base, TimestampMixin):
 
     handover_id  = Column(UUID(as_uuid=True), ForeignKey("staff_handovers.id", ondelete="CASCADE"),
                            nullable=False, index=True)
-    item_type    = Column(Enum(HandoverItemType), nullable=False, index=True)
+    item_type    = Column(Enum(HandoverItemType, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     title        = Column(String(255), nullable=False)
     description  = Column(Text, nullable=True)
     is_urgent    = Column(Boolean, default=False, nullable=False)

@@ -51,7 +51,7 @@ class StaffSalaryStructure(Base, TimestampMixin):
     staff_id        = Column(UUID(as_uuid=True), ForeignKey("staff.id", ondelete="CASCADE"), nullable=False, index=True)
     effective_from  = Column(Date, nullable=False)
     effective_to    = Column(Date, nullable=True)    # null = current
-    payroll_cycle   = Column(Enum(PayrollCycle), default=PayrollCycle.MONTHLY, nullable=False)
+    payroll_cycle   = Column(Enum(PayrollCycle, values_callable=lambda e: [x.value for x in e]), default=PayrollCycle.MONTHLY, nullable=False)
 
     # Gross components (stored as monthly amounts)
     basic_salary    = Column(Numeric(10, 2), nullable=False)
@@ -106,7 +106,7 @@ class AttendanceCorrection(Base, TimestampMixin):
     original_check_out= Column(String(20), nullable=True)
     requested_check_out = Column(String(20), nullable=True)
     reason            = Column(Text, nullable=False)
-    status            = Column(Enum(AttendanceCorrectionStatus),
+    status            = Column(Enum(AttendanceCorrectionStatus, values_callable=lambda e: [x.value for x in e]),
                                default=AttendanceCorrectionStatus.PENDING, nullable=False, index=True)
     rejection_reason  = Column(Text, nullable=True)
 

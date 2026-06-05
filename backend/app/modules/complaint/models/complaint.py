@@ -61,9 +61,9 @@ class Complaint(Base, TimestampMixin):
     complaint_number = Column(String(20), nullable=False, unique=True, index=True)
     title            = Column(String(255), nullable=False)
     description      = Column(Text, nullable=False)
-    category         = Column(Enum(ComplaintCategory), nullable=False, index=True)
-    priority         = Column(Enum(ComplaintPriority), default=ComplaintPriority.MEDIUM, nullable=False, index=True)
-    status           = Column(Enum(ComplaintStatus), default=ComplaintStatus.OPEN, nullable=False, index=True)
+    category         = Column(Enum(ComplaintCategory, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
+    priority         = Column(Enum(ComplaintPriority, values_callable=lambda e: [x.value for x in e]), default=ComplaintPriority.MEDIUM, nullable=False, index=True)
+    status           = Column(Enum(ComplaintStatus, values_callable=lambda e: [x.value for x in e]), default=ComplaintStatus.OPEN, nullable=False, index=True)
 
     # References
     society_id       = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -126,8 +126,8 @@ class ComplaintStatusHistory(Base, TimestampMixin):
     __tablename__ = "complaint_status_history"
 
     complaint_id  = Column(UUID(as_uuid=True), ForeignKey("complaints.id", ondelete="CASCADE"), nullable=False, index=True)
-    from_status   = Column(Enum(ComplaintStatus), nullable=True)
-    to_status     = Column(Enum(ComplaintStatus), nullable=False)
+    from_status   = Column(Enum(ComplaintStatus, values_callable=lambda e: [x.value for x in e]), nullable=True)
+    to_status     = Column(Enum(ComplaintStatus, values_callable=lambda e: [x.value for x in e]), nullable=False)
     changed_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     notes         = Column(Text, nullable=True)
 

@@ -103,7 +103,7 @@ class MaintenanceChargeConfig(Base, TimestampMixin):
     __tablename__ = "maintenance_charge_configs"
 
     society_id    = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
-    charge_type   = Column(Enum(ChargeType), nullable=False, index=True)
+    charge_type   = Column(Enum(ChargeType, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     name          = Column(String(150), nullable=False)
     description   = Column(Text, nullable=True)
     default_amount = Column(Numeric(10, 2), nullable=True)      # per flat per cycle
@@ -137,7 +137,7 @@ class BillingCycle(Base, TimestampMixin):
     cycle_start   = Column(Date, nullable=False)
     cycle_end     = Column(Date, nullable=False)
     due_date      = Column(Date, nullable=False, index=True)
-    frequency     = Column(Enum(CycleFrequency), default=CycleFrequency.MONTHLY, nullable=False)
+    frequency     = Column(Enum(CycleFrequency, values_callable=lambda e: [x.value for x in e]), default=CycleFrequency.MONTHLY, nullable=False)
     is_finalized  = Column(Boolean, default=False, nullable=False)  # locked after bills generated
     total_flats_billed = Column(Integer, default=0, nullable=False)
     total_amount_generated = Column(Numeric(14, 2), default=0, nullable=False)
@@ -166,7 +166,7 @@ class MaintenanceBill(Base, TimestampMixin):
     generated_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     invoice_number  = Column(String(30), nullable=False, unique=True, index=True)
-    bill_status     = Column(Enum(BillStatus), default=BillStatus.DRAFT, nullable=False, index=True)
+    bill_status     = Column(Enum(BillStatus, values_callable=lambda e: [x.value for x in e]), default=BillStatus.DRAFT, nullable=False, index=True)
     bill_date       = Column(Date, nullable=False)
     due_date        = Column(Date, nullable=False, index=True)
 
@@ -204,7 +204,7 @@ class InvoiceLineItem(Base, TimestampMixin):
     __tablename__ = "invoice_line_items"
 
     bill_id     = Column(UUID(as_uuid=True), ForeignKey("maintenance_bills.id", ondelete="CASCADE"), nullable=False, index=True)
-    charge_type = Column(Enum(ChargeType), nullable=False)
+    charge_type = Column(Enum(ChargeType, values_callable=lambda e: [x.value for x in e]), nullable=False)
     description = Column(String(255), nullable=False)
     quantity    = Column(Float, default=1.0, nullable=False)
     unit_rate   = Column(Numeric(10, 2), nullable=False)
@@ -230,7 +230,7 @@ class PaymentReceipt(Base, TimestampMixin):
     receipt_number  = Column(String(30), nullable=False, unique=True, index=True)
     payment_date    = Column(Date, nullable=False, index=True)
     amount          = Column(Numeric(12, 2), nullable=False)
-    payment_mode    = Column(Enum(PaymentMode), nullable=False, index=True)
+    payment_mode    = Column(Enum(PaymentMode, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     transaction_ref = Column(String(100), nullable=True, index=True)  # UPI/bank ref
     cheque_number   = Column(String(50), nullable=True)
     bank_name       = Column(String(100), nullable=True)
@@ -289,7 +289,7 @@ class PenaltyRule(Base, TimestampMixin):
 
     society_id       = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     name             = Column(String(100), nullable=False)
-    calc_type        = Column(Enum(PenaltyCalculationType), default=PenaltyCalculationType.PERCENTAGE, nullable=False)
+    calc_type        = Column(Enum(PenaltyCalculationType, values_callable=lambda e: [x.value for x in e]), default=PenaltyCalculationType.PERCENTAGE, nullable=False)
     rate             = Column(Numeric(8, 4), nullable=False)   # % or flat amount
     grace_period_days = Column(Integer, default=10, nullable=False)
     max_penalty_pct  = Column(Numeric(5, 2), nullable=True)    # cap at X% of bill amount

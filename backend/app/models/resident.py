@@ -27,7 +27,7 @@ class Resident(Base, TimestampMixin):
     phone           = Column(String(20), nullable=True)
     email           = Column(String(255), nullable=True)
     date_of_birth   = Column(Date, nullable=True)
-    resident_type   = Column(Enum(ResidentType), default=ResidentType.OWNER, nullable=False)
+    resident_type   = Column(Enum(ResidentType, values_callable=lambda e: [x.value for x in e]), default=ResidentType.OWNER, nullable=False)
     is_primary      = Column(Boolean, default=False)
 
     # Move in/out
@@ -46,7 +46,7 @@ class Resident(Base, TimestampMixin):
     emergency_contact_phone = Column(String(20), nullable=True)
 
     # Communication preference
-    comm_preference = Column(Enum(CommunicationPreference),
+    comm_preference = Column(Enum(CommunicationPreference, values_callable=lambda e: [x.value for x in e]),
                              default=CommunicationPreference.APP_ONLY, nullable=True)
 
     # Photo

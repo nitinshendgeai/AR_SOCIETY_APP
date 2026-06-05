@@ -25,7 +25,7 @@ class AuditLog(Base, TimestampMixin):
     user_email  = Column(String(255), nullable=True)   # denormalized for fast reads
 
     # What
-    action      = Column(Enum(AuditAction), nullable=False, index=True)
+    action      = Column(Enum(AuditAction, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     module      = Column(String(100), nullable=False, index=True)   # e.g. "society", "visitor"
     entity_id   = Column(String(100), nullable=True, index=True)    # UUID of affected record
     entity_type = Column(String(100), nullable=True)                # e.g. "Society"

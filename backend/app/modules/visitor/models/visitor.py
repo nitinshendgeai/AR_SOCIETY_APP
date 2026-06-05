@@ -46,7 +46,7 @@ class Gate(Base, TimestampMixin):
 
     society_id   = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     name         = Column(String(100), nullable=False)        # "Main Gate", "East Gate"
-    gate_type    = Column(Enum(GateType), default=GateType.BOTH, nullable=False)
+    gate_type    = Column(Enum(GateType, values_callable=lambda e: [x.value for x in e]), default=GateType.BOTH, nullable=False)
     location     = Column(String(255), nullable=True)
     is_active    = Column(Boolean, default=True, nullable=False)
 
@@ -65,7 +65,7 @@ class Visitor(Base, TimestampMixin):
     # Identity
     name         = Column(String(255), nullable=False)
     mobile       = Column(String(20), nullable=False, index=True)
-    visitor_type = Column(Enum(VisitorType), default=VisitorType.GUEST, nullable=False, index=True)
+    visitor_type = Column(Enum(VisitorType, values_callable=lambda e: [x.value for x in e]), default=VisitorType.GUEST, nullable=False, index=True)
     purpose      = Column(Text, nullable=True)
     photo_url    = Column(String(500), nullable=True)
 
@@ -76,7 +76,7 @@ class Visitor(Base, TimestampMixin):
     gate_id      = Column(UUID(as_uuid=True), ForeignKey("gates.id", ondelete="SET NULL"), nullable=True)
 
     # Workflow status
-    status             = Column(Enum(VisitorStatus), default=VisitorStatus.PENDING, nullable=False, index=True)
+    status             = Column(Enum(VisitorStatus, values_callable=lambda e: [x.value for x in e]), default=VisitorStatus.PENDING, nullable=False, index=True)
     expected_arrival   = Column(DateTime, nullable=True)
     checked_in_at      = Column(DateTime, nullable=True)
     checked_out_at     = Column(DateTime, nullable=True)

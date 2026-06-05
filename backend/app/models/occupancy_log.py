@@ -27,7 +27,7 @@ class OccupancyLog(Base, TimestampMixin):
     wing_id       = Column(UUID(as_uuid=True), ForeignKey("wings.id", ondelete="SET NULL"), nullable=True)
     resident_id   = Column(UUID(as_uuid=True), ForeignKey("residents.id", ondelete="SET NULL"), nullable=True, index=True)
     tenant_id     = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="SET NULL"), nullable=True, index=True)
-    event_type    = Column(Enum(OccupancyEventType), nullable=False, index=True)
+    event_type    = Column(Enum(OccupancyEventType, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     event_date    = Column(Date, nullable=False, index=True)
     logged_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     notes         = Column(Text, nullable=True)

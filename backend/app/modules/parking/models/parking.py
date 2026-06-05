@@ -112,8 +112,8 @@ class ParkingSlot(Base, TimestampMixin):
     floor_id    = Column(UUID(as_uuid=True), ForeignKey("parking_floors.id", ondelete="SET NULL"), nullable=True, index=True)
 
     slot_number = Column(String(20), nullable=False, index=True)
-    slot_type   = Column(Enum(SlotType), default=SlotType.RESIDENT, nullable=False, index=True)
-    status      = Column(Enum(SlotStatus), default=SlotStatus.AVAILABLE, nullable=False, index=True)
+    slot_type   = Column(Enum(SlotType, values_callable=lambda e: [x.value for x in e]), default=SlotType.RESIDENT, nullable=False, index=True)
+    status      = Column(Enum(SlotStatus, values_callable=lambda e: [x.value for x in e]), default=SlotStatus.AVAILABLE, nullable=False, index=True)
 
     # Physical attributes
     length_ft   = Column(Integer, nullable=True)
@@ -150,8 +150,8 @@ class ParkingAllocation(Base, TimestampMixin):
     allocated_to_user   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     allocated_by        = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
-    allocation_type = Column(Enum(SlotType), nullable=False, index=True)
-    status          = Column(Enum(AllocationStatus), default=AllocationStatus.ACTIVE, nullable=False, index=True)
+    allocation_type = Column(Enum(SlotType, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
+    status          = Column(Enum(AllocationStatus, values_callable=lambda e: [x.value for x in e]), default=AllocationStatus.ACTIVE, nullable=False, index=True)
     start_date      = Column(Date, nullable=False)
     end_date        = Column(Date, nullable=True)   # null = indefinite
     monthly_charge  = Column(Integer, nullable=True)   # future finance integration
@@ -186,7 +186,7 @@ class VisitorParking(Base, TimestampMixin):
     check_in_time   = Column(DateTime, nullable=True)
     check_out_time  = Column(DateTime, nullable=True)
     expected_duration_hours = Column(Integer, default=4, nullable=False)
-    status          = Column(Enum(VisitorParkingStatus), default=VisitorParkingStatus.ACTIVE, nullable=False, index=True)
+    status          = Column(Enum(VisitorParkingStatus, values_callable=lambda e: [x.value for x in e]), default=VisitorParkingStatus.ACTIVE, nullable=False, index=True)
     purpose         = Column(String(255), nullable=True)
     host_flat_id    = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="SET NULL"), nullable=True)
     notes           = Column(Text, nullable=True)
@@ -212,7 +212,7 @@ class ParkingViolation(Base, TimestampMixin):
     slot_id          = Column(UUID(as_uuid=True), ForeignKey("parking_slots.id", ondelete="SET NULL"), nullable=True, index=True)
     vehicle_number   = Column(String(30), nullable=False, index=True)
     vehicle_id       = Column(UUID(as_uuid=True), ForeignKey("vehicles.id", ondelete="SET NULL"), nullable=True)
-    violation_type   = Column(Enum(ViolationType), nullable=False, index=True)
+    violation_type   = Column(Enum(ViolationType, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     reported_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     resolved_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
@@ -243,8 +243,8 @@ class ParkingAccessLog(Base, TimestampMixin):
     vehicle_number = Column(String(30), nullable=False, index=True)
     user_id        = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
-    access_type    = Column(Enum(AccessType), nullable=False, index=True)
-    access_method  = Column(Enum(AccessMethod), default=AccessMethod.MANUAL, nullable=False)
+    access_type    = Column(Enum(AccessType, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
+    access_method  = Column(Enum(AccessMethod, values_callable=lambda e: [x.value for x in e]), default=AccessMethod.MANUAL, nullable=False)
     access_time    = Column(DateTime, nullable=False, index=True)
     gate_id        = Column(UUID(as_uuid=True), nullable=True)   # Gate ref
     rfid_tag       = Column(String(100), nullable=True)          # scanned RFID

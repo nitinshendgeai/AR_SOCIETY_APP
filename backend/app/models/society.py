@@ -54,7 +54,7 @@ class Society(Base, TimestampMixin):
     require_visitor_approval = Column(Boolean, default=True, nullable=False)
 
     # Trial & Subscription
-    account_status   = Column(Enum(AccountStatus), default=AccountStatus.TRIAL, nullable=False)
+    account_status   = Column(Enum(AccountStatus, values_callable=lambda e: [x.value for x in e]), default=AccountStatus.TRIAL, nullable=False)
     is_trial         = Column(Boolean, default=True, nullable=False)
     trial_start_date = Column(Date, nullable=True)
     trial_end_date   = Column(Date, nullable=True)

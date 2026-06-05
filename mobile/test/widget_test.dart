@@ -24,7 +24,7 @@ Widget _wrapWithUser(Widget child, UserEntity user) {
       currentUserProvider.overrideWithValue(user),
     ],
     child: MaterialApp(
-      theme: AppTheme.light,
+      theme: AppTheme.lightTheme,
       home: child,
     ),
   );

@@ -75,7 +75,7 @@ class Amenity(Base, TimestampMixin):
 
     society_id        = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     name              = Column(String(150), nullable=False)
-    amenity_type      = Column(Enum(AmenityType), nullable=False, index=True)
+    amenity_type      = Column(Enum(AmenityType, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     description       = Column(Text, nullable=True)
     location          = Column(String(255), nullable=True)
     capacity          = Column(Integer, nullable=True)       # max people
@@ -103,7 +103,7 @@ class AmenityRule(Base, TimestampMixin):
     __tablename__ = "amenity_rules"
 
     amenity_id  = Column(UUID(as_uuid=True), ForeignKey("amenities.id", ondelete="CASCADE"), nullable=False, index=True)
-    rule_type   = Column(Enum(RuleType), nullable=False, index=True)
+    rule_type   = Column(Enum(RuleType, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     rule_value  = Column(String(255), nullable=True)   # "true", "48", "2", "500.00"
     description = Column(String(500), nullable=True)
     is_active   = Column(Boolean, default=True, nullable=False)
@@ -190,7 +190,7 @@ class AmenityBooking(Base, TimestampMixin):
     special_notes = Column(Text, nullable=True)
 
     # Status
-    status        = Column(Enum(BookingStatus), default=BookingStatus.PENDING, nullable=False, index=True)
+    status        = Column(Enum(BookingStatus, values_callable=lambda e: [x.value for x in e]), default=BookingStatus.PENDING, nullable=False, index=True)
 
     # Approval
     approved_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/complaint/domain/entities/complaint_entities.dart';
+import 'package:ar_society_app/features/complaint/data/repositories/complaint_repository.dart';
 import 'package:ar_society_app/features/complaint/presentation/providers/complaint_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 

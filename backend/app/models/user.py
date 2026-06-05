@@ -19,7 +19,7 @@ class User(Base, TimestampMixin):
     phone          = Column(String(20), nullable=True, unique=True, index=True)
     full_name      = Column(String(255), nullable=False)
     hashed_password = Column(String(255), nullable=False)
-    status         = Column(Enum(UserStatus), default=UserStatus.PENDING, nullable=False)
+    status         = Column(Enum(UserStatus, values_callable=lambda e: [x.value for x in e]), default=UserStatus.PENDING, nullable=False)
     profile_image  = Column(String(500), nullable=True)
     is_superadmin        = Column(Boolean, default=False, nullable=False)
     must_change_password = Column(Boolean, default=False, nullable=False)

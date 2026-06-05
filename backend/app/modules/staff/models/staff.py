@@ -96,7 +96,7 @@ class StaffDesignation(Base, TimestampMixin):
 
     society_id  = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     name        = Column(String(100), nullable=False)
-    department  = Column(Enum(StaffDepartment), nullable=False, index=True)
+    department  = Column(Enum(StaffDepartment, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     description = Column(Text, nullable=True)
 
     society = relationship("Society")
@@ -110,7 +110,7 @@ class StaffShift(Base, TimestampMixin):
 
     society_id  = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     name        = Column(String(100), nullable=False)
-    shift_type  = Column(Enum(ShiftType), default=ShiftType.GENERAL, nullable=False)
+    shift_type  = Column(Enum(ShiftType, values_callable=lambda e: [x.value for x in e]), default=ShiftType.GENERAL, nullable=False)
     start_time  = Column(Time, nullable=False)
     end_time    = Column(Time, nullable=False)
     is_overnight = Column(Boolean, default=False, nullable=False)
@@ -136,10 +136,10 @@ class Staff(Base, TimestampMixin):
     photo_url         = Column(String(500), nullable=True)
 
     # Employment
-    department        = Column(Enum(StaffDepartment), nullable=False, index=True)
+    department        = Column(Enum(StaffDepartment, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     designation_id    = Column(UUID(as_uuid=True), ForeignKey("staff_designations.id", ondelete="SET NULL"), nullable=True)
     shift_id          = Column(UUID(as_uuid=True), ForeignKey("staff_shifts.id", ondelete="SET NULL"), nullable=True)
-    status            = Column(Enum(StaffStatus), default=StaffStatus.PROBATION, nullable=False, index=True)
+    status            = Column(Enum(StaffStatus, values_callable=lambda e: [x.value for x in e]), default=StaffStatus.PROBATION, nullable=False, index=True)
     joining_date      = Column(Date, nullable=True)
     termination_date  = Column(Date, nullable=True)
 
@@ -206,7 +206,7 @@ class StaffAttendance(Base, TimestampMixin):
     society_id       = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     staff_id         = Column(UUID(as_uuid=True), ForeignKey("staff.id", ondelete="CASCADE"), nullable=False, index=True)
     attendance_date  = Column(Date, nullable=False, index=True)
-    status           = Column(Enum(AttendanceStatus), default=AttendanceStatus.PRESENT, nullable=False, index=True)
+    status           = Column(Enum(AttendanceStatus, values_callable=lambda e: [x.value for x in e]), default=AttendanceStatus.PRESENT, nullable=False, index=True)
 
     check_in_time    = Column(DateTime, nullable=True)
     check_out_time   = Column(DateTime, nullable=True)
@@ -242,7 +242,7 @@ class StaffTask(Base, TimestampMixin):
     description   = Column(Text, nullable=True)
     location      = Column(String(255), nullable=True)
     due_date      = Column(DateTime, nullable=True)
-    status        = Column(Enum(TaskStatus), default=TaskStatus.ASSIGNED, nullable=False, index=True)
+    status        = Column(Enum(TaskStatus, values_callable=lambda e: [x.value for x in e]), default=TaskStatus.ASSIGNED, nullable=False, index=True)
 
     acknowledged_at = Column(DateTime, nullable=True)
     started_at      = Column(DateTime, nullable=True)
@@ -267,12 +267,12 @@ class StaffLeave(Base, TimestampMixin):
     staff_id     = Column(UUID(as_uuid=True), ForeignKey("staff.id", ondelete="CASCADE"), nullable=False, index=True)
     approved_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
-    leave_type   = Column(Enum(LeaveType), nullable=False, index=True)
+    leave_type   = Column(Enum(LeaveType, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     from_date    = Column(Date, nullable=False)
     to_date      = Column(Date, nullable=False)
     total_days   = Column(Integer, nullable=False)
     reason       = Column(Text, nullable=True)
-    status       = Column(Enum(LeaveStatus), default=LeaveStatus.PENDING, nullable=False, index=True)
+    status       = Column(Enum(LeaveStatus, values_callable=lambda e: [x.value for x in e]), default=LeaveStatus.PENDING, nullable=False, index=True)
     approved_at  = Column(DateTime, nullable=True)
     rejection_reason = Column(Text, nullable=True)
 
@@ -318,7 +318,7 @@ class StaffRoster(Base, TimestampMixin):
 
     week_start   = Column(Date, nullable=False, index=True)
     week_end     = Column(Date, nullable=False)
-    roster_status = Column(Enum(RosterStatus), default=RosterStatus.DRAFT, nullable=False)
+    roster_status = Column(Enum(RosterStatus, values_callable=lambda e: [x.value for x in e]), default=RosterStatus.DRAFT, nullable=False)
 
     monday    = Column(Boolean, default=True)
     tuesday   = Column(Boolean, default=True)

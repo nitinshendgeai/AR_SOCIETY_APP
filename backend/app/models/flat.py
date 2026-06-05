@@ -33,10 +33,10 @@ class Flat(Base, TimestampMixin):
 
     flat_number        = Column(String(20), nullable=False)
     floor              = Column(Integer, nullable=True)
-    flat_type          = Column(Enum(FlatType), default=FlatType.TWO_BHK, nullable=True)
+    flat_type          = Column(Enum(FlatType, values_callable=lambda e: [x.value for x in e]), default=FlatType.TWO_BHK, nullable=True)
     area_sqft          = Column(Float, nullable=True)
-    occupancy_status   = Column(Enum(OccupancyStatus), default=OccupancyStatus.VACANT, nullable=True)
-    maintenance_status = Column(Enum(MaintenanceStatus), default=MaintenanceStatus.CLEAR, nullable=True)
+    occupancy_status   = Column(Enum(OccupancyStatus, values_callable=lambda e: [x.value for x in e]), default=OccupancyStatus.VACANT, nullable=True)
+    maintenance_status = Column(Enum(MaintenanceStatus, values_callable=lambda e: [x.value for x in e]), default=MaintenanceStatus.CLEAR, nullable=True)
 
     # Parking
     parking_slot       = Column(String(20), nullable=True)

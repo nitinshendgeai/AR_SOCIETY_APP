@@ -83,9 +83,9 @@ class Notice(Base, TimestampMixin):
 
     title                = Column(String(255), nullable=False)
     content              = Column(Text, nullable=False)
-    category             = Column(Enum(NoticeCategory), nullable=False, index=True)
-    priority             = Column(Enum(NoticePriority), default=NoticePriority.NORMAL, nullable=False, index=True)
-    status               = Column(Enum(NoticeStatus), default=NoticeStatus.DRAFT, nullable=False, index=True)
+    category             = Column(Enum(NoticeCategory, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
+    priority             = Column(Enum(NoticePriority, values_callable=lambda e: [x.value for x in e]), default=NoticePriority.NORMAL, nullable=False, index=True)
+    status               = Column(Enum(NoticeStatus, values_callable=lambda e: [x.value for x in e]), default=NoticeStatus.DRAFT, nullable=False, index=True)
 
     publish_date         = Column(DateTime, nullable=True)
     expiry_date          = Column(DateTime, nullable=True)
@@ -93,7 +93,7 @@ class Notice(Base, TimestampMixin):
     attachment_url       = Column(String(500), nullable=True)
 
     # Audience targeting
-    audience_type        = Column(Enum(AudienceType), default=AudienceType.ALL_RESIDENTS, nullable=False, index=True)
+    audience_type        = Column(Enum(AudienceType, values_callable=lambda e: [x.value for x in e]), default=AudienceType.ALL_RESIDENTS, nullable=False, index=True)
     target_wing_ids      = Column(JSONB, nullable=True)   # list of wing UUIDs if SPECIFIC_WINGS
     target_flat_ids      = Column(JSONB, nullable=True)   # list of flat UUIDs if SPECIFIC_FLATS
     target_user_ids      = Column(JSONB, nullable=True)   # explicit user override
@@ -140,13 +140,13 @@ class Announcement(Base, TimestampMixin):
 
     title        = Column(String(255), nullable=False)
     content      = Column(Text, nullable=False)
-    category     = Column(Enum(NoticeCategory), nullable=False, index=True)
-    priority     = Column(Enum(NoticePriority), default=NoticePriority.NORMAL, nullable=False)
+    category     = Column(Enum(NoticeCategory, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
+    priority     = Column(Enum(NoticePriority, values_callable=lambda e: [x.value for x in e]), default=NoticePriority.NORMAL, nullable=False)
     is_published = Column(Boolean, default=False, nullable=False, index=True)
     publish_date = Column(DateTime, nullable=True)
     expiry_date  = Column(DateTime, nullable=True)
     image_url    = Column(String(500), nullable=True)
-    audience_type= Column(Enum(AudienceType), default=AudienceType.ALL, nullable=False)
+    audience_type= Column(Enum(AudienceType, values_callable=lambda e: [x.value for x in e]), default=AudienceType.ALL, nullable=False)
 
     society = relationship("Society")
     author  = relationship("User", foreign_keys=[created_by])
@@ -179,8 +179,8 @@ class EmergencyAlert(Base, TimestampMixin):
     triggered_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     resolved_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
-    alert_type   = Column(Enum(AlertType), nullable=False, index=True)
-    status       = Column(Enum(AlertStatus), default=AlertStatus.ACTIVE, nullable=False, index=True)
+    alert_type   = Column(Enum(AlertType, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
+    status       = Column(Enum(AlertStatus, values_callable=lambda e: [x.value for x in e]), default=AlertStatus.ACTIVE, nullable=False, index=True)
     title        = Column(String(255), nullable=False)
     description  = Column(Text, nullable=True)
     location     = Column(String(255), nullable=True)

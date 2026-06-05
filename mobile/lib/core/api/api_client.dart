@@ -43,7 +43,8 @@ class _AuthInterceptor extends QueuedInterceptor {
     // Skip auth header for login/register/refresh endpoints
     final isAuthEndpoint = options.path.contains('/auth/login') ||
         options.path.contains('/auth/register') ||
-        options.path.contains('/auth/refresh');
+        options.path.contains('/auth/refresh') ||
+        options.path.contains('/public/');
 
     if (!isAuthEndpoint) {
       final token = await TokenStorage.getAccessToken();
@@ -105,19 +106,20 @@ class _AuthInterceptor extends QueuedInterceptor {
 class _LogInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    _logger.d('[API] → ${options.method} ${options.path}');
+    _logger.d('[API] → ${options.method} ${options.uri}');
+    if (options.data != null) _logger.d('[API]   body: ${options.data}');
     handler.next(options);
   }
 
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
-    _logger.d('[API] ← ${response.statusCode} ${response.requestOptions.path}');
+    _logger.d('[API] ← ${response.statusCode} ${response.requestOptions.uri}');
     handler.next(response);
   }
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    _logger.e('[API] ✗ ${err.response?.statusCode} ${err.requestOptions.path}: ${err.message}');
+    _logger.e('[API] ✗ ${err.response?.statusCode} ${err.requestOptions.uri}: ${err.message}');
     handler.next(err);
   }
 }

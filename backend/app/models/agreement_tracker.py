@@ -29,7 +29,7 @@ class AgreementTracker(Base, TimestampMixin):
     end_date        = Column(Date, nullable=False, index=True)
     monthly_rent    = Column(Numeric(12, 2), nullable=True)
     security_deposit = Column(Numeric(12, 2), nullable=True)
-    status          = Column(Enum(AgreementStatus), default=AgreementStatus.ACTIVE, nullable=False, index=True)
+    status          = Column(Enum(AgreementStatus, values_callable=lambda e: [x.value for x in e]), default=AgreementStatus.ACTIVE, nullable=False, index=True)
     document_url    = Column(String(500), nullable=True)
     renewal_of_id   = Column(UUID(as_uuid=True), nullable=True)   # FK to previous agreement
     termination_reason = Column(Text, nullable=True)
