@@ -20,7 +20,7 @@ class TokenModel {
 }
 
 /// Maps to FastAPI UserOut schema.
-/// user_roles is a list of {role: {name: string}} objects.
+/// The API returns roles as a flat list of strings: ["Society Admin", ...]
 class UserModel {
   final String id;
   final String email;
@@ -28,7 +28,7 @@ class UserModel {
   final String? phone;
   final String? profileImage;
   final String status;
-  final List<Map<String, dynamic>> userRoles;
+  final List<String> roles;
   final bool mustChangePassword;
 
   const UserModel({
@@ -38,7 +38,7 @@ class UserModel {
     this.phone,
     this.profileImage,
     required this.status,
-    required this.userRoles,
+    required this.roles,
     this.mustChangePassword = false,
   });
 
@@ -50,26 +50,17 @@ class UserModel {
         profileImage: json['profile_image'] as String?,
         status: json['status'] as String? ?? 'active',
         mustChangePassword: json['must_change_password'] as bool? ?? false,
-        userRoles: (json['user_roles'] as List<dynamic>?)
-                ?.map((e) => e as Map<String, dynamic>)
+        roles: (json['roles'] as List<dynamic>?)
+                ?.map((e) => e as String)
                 .toList() ??
             [],
       );
-
-  /// Extract role names from nested user_roles structure.
-  List<String> get roleNames => userRoles
-      .map((ur) {
-        final role = ur['role'] as Map<String, dynamic>?;
-        return role?['name'] as String? ?? '';
-      })
-      .where((name) => name.isNotEmpty)
-      .toList();
 
   UserEntity toEntity() => UserEntity(
         id: id,
         email: email,
         fullName: fullName,
-        roles: roleNames,
+        roles: roles,
         phone: phone,
         profileImage: profileImage,
         mustChangePassword: mustChangePassword,

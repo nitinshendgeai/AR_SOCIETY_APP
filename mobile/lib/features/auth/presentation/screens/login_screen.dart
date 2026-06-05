@@ -299,16 +299,12 @@ class _TestCredentials extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           ...[
-            ('Admin',     'admin@arsociety.com'),
-            ('Committee', 'committee@arsociety.com'),
-            ('Security',  'security@arsociety.com'),
-            ('Staff',     'staff1@arsociety.com'),
-            ('Resident',  'res1@arsociety.com'),
+            ('Admin', 'admin@testsociety.com', 'Admin@123'),
           ].map(
             (e) => Padding(
               padding: const EdgeInsets.only(top: 2),
               child: Text(
-                '${e.$1}: ${e.$2} / Test@12345',
+                '${e.$1}: ${e.$2} / ${e.$3}',
                 style: TextStyle(
                   fontSize: 11,
                   color: AppTheme.textSecondary,
