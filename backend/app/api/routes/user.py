@@ -20,26 +20,26 @@ class AssignRoleRequest(BaseModel):
 @router.get("/", response_model=List[UserOut],
             dependencies=[Depends(require_admin)])
 def list_users(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
-    return [UserOut.model_validate(u) for u in UserService(db).list(skip, limit)]
+    return [UserOut.from_orm_with_roles(u) for u in UserService(db).list(skip, limit)]
 
 
 @router.get("/{user_id}", response_model=UserOut,
             dependencies=[Depends(require_admin)])
 def get_user(user_id: UUID, db: Session = Depends(get_db)):
-    return UserOut.model_validate(UserService(db).get_or_404(user_id))
+    return UserOut.from_orm_with_roles(UserService(db).get_or_404(user_id))
 
 
 @router.patch("/{user_id}", response_model=UserOut,
               dependencies=[Depends(require_admin)])
 def update_user(user_id: UUID, data: UserUpdate, db: Session = Depends(get_db)):
-    return UserOut.model_validate(UserService(db).update(user_id, data))
+    return UserOut.from_orm_with_roles(UserService(db).update(user_id, data))
 
 
 @router.post("/{user_id}/roles", response_model=UserOut,
              dependencies=[Depends(require_admin)])
 def assign_role(user_id: UUID, body: AssignRoleRequest, db: Session = Depends(get_db)):
     user = UserService(db).assign_role(user_id, body.role_name)
-    return UserOut.model_validate(user)
+    return UserOut.from_orm_with_roles(user)
 
 
 @router.delete("/{user_id}", status_code=204,

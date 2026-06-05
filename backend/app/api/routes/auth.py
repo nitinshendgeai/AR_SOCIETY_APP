@@ -16,7 +16,7 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     """Register a new user (default role: Resident)."""
     service = AuthService(db)
     user = service.register(data)
-    return UserOut.model_validate(user)
+    return UserOut.from_orm_with_roles(user)
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -36,7 +36,7 @@ def refresh(data: RefreshRequest, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 def me(current_user: User = Depends(get_current_user)):
     """Return the currently authenticated user."""
-    return UserOut.model_validate(current_user)
+    return UserOut.from_orm_with_roles(current_user)
 
 
 @router.post("/change-password", status_code=204)
