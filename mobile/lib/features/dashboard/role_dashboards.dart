@@ -150,53 +150,81 @@ class _ModuleGrid extends StatelessWidget {
       itemCount: items.length,
       itemBuilder: (context, i) {
         final item = items[i];
-        return GestureDetector(
-          onTap: item.route != null ? () => context.push(item.route!) : null,
-          child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.cardBg,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        final isDisabled = item.route == null;
+        return Opacity(
+          opacity: isDisabled ? 0.55 : 1.0,
+          child: GestureDetector(
+          onTap: isDisabled ? null : () => context.push(item.route!),
+          child: Stack(
             children: [
-              Row(
+              Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.cardBg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: item.color.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(item.icon, color: item.color, size: 20),
-                  ),
-                  if (item.badge != null) ...[
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppTheme.error,
-                        borderRadius: BorderRadius.circular(10),
+                  Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: item.color.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(item.icon, color: item.color, size: 20),
                       ),
-                      child: Text(item.badge!,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600)),
-                    ),
-                  ],
+                      if (item.badge != null) ...[
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.error,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(item.badge!,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const Spacer(),
+                  Text(item.label,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary)),
                 ],
               ),
-              const Spacer(),
-              Text(item.label,
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary)),
+            ),
+              if (isDisabled)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.textSecondary.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'Soon',
+                      style: TextStyle(
+                          fontSize: 9,
+                          color: AppTheme.textSecondary,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
