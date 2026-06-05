@@ -30,6 +30,8 @@ class UserOut(TimestampSchema):
     status:               UserStatus
     is_superadmin:        bool
     must_change_password: bool = False
+    terms_accepted:       bool = False
+    setup_completed:      bool = False
     roles:                List[str] = []
 
     @classmethod

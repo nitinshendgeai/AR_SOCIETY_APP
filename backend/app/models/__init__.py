@@ -1,4 +1,4 @@
-from app.models.society      import Society
+from app.models.society      import Society, AccountStatus, ACCOUNT_STATUS_TRANSITIONS
 from app.models.wing         import Wing
 from app.models.flat         import Flat, FlatType, OccupancyStatus, MaintenanceStatus
 from app.models.role         import Role

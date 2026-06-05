@@ -21,8 +21,10 @@ class User(Base, TimestampMixin):
     hashed_password = Column(String(255), nullable=False)
     status         = Column(Enum(UserStatus), default=UserStatus.PENDING, nullable=False)
     profile_image  = Column(String(500), nullable=True)
-    is_superadmin  = Column(Boolean, default=False, nullable=False)
-    must_change_password = Column(Boolean, default=False, nullable=False)  # force reset on first login
+    is_superadmin        = Column(Boolean, default=False, nullable=False)
+    must_change_password = Column(Boolean, default=False, nullable=False)
+    terms_accepted       = Column(Boolean, default=False, nullable=False)
+    setup_completed      = Column(Boolean, default=False, nullable=False)
 
     # Relationships
     user_roles = relationship("UserRole", back_populates="user", cascade="all, delete-orphan")

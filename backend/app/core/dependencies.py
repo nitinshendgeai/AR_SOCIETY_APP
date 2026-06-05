@@ -81,3 +81,12 @@ require_committee = require_roles("Admin", "Committee")
 require_resident  = require_roles("Admin", "Committee", "Resident")
 require_security  = require_roles("Admin", "Security")
 require_staff     = require_roles("Admin", "Staff")
+
+
+def require_platform_admin(current_user: User = Depends(get_current_user)) -> User:
+    if not current_user.is_superadmin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Platform Admin access required",
+        )
+    return current_user
