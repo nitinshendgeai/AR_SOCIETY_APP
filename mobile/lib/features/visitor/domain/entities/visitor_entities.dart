@@ -7,7 +7,8 @@ enum VisitorType {
   delivery,
   cab,
   maintenance,
-  vendor;
+  vendor,
+  emergency;
 
   String get label {
     switch (this) {
@@ -16,6 +17,7 @@ enum VisitorType {
       case VisitorType.cab:         return 'Cab';
       case VisitorType.maintenance: return 'Maintenance';
       case VisitorType.vendor:      return 'Vendor';
+      case VisitorType.emergency:   return 'Emergency';
     }
   }
 
@@ -26,6 +28,7 @@ enum VisitorType {
       case 'cab':         return VisitorType.cab;
       case 'maintenance': return VisitorType.maintenance;
       case 'vendor':      return VisitorType.vendor;
+      case 'emergency':   return VisitorType.emergency;
       default:            return VisitorType.guest;
     }
   }

@@ -17,6 +17,9 @@ import 'package:ar_society_app/features/visitor/presentation/screens/visitor_app
 import 'package:ar_society_app/features/complaint/presentation/screens/complaint_list_screen.dart';
 import 'package:ar_society_app/features/complaint/presentation/screens/complaint_detail_screen.dart';
 import 'package:ar_society_app/features/complaint/presentation/screens/create_complaint_screen.dart';
+import 'package:ar_society_app/features/onboarding/presentation/screens/register_society_screen.dart';
+import 'package:ar_society_app/features/onboarding/presentation/screens/trial_success_screen.dart';
+import 'package:ar_society_app/features/onboarding/domain/registration_result.dart';
 
 class AppRoutes {
   static const splash             = '/';
@@ -36,6 +39,9 @@ class AppRoutes {
   static const visitorsMy         = '/visitors/my';
   static const visitorsPending    = '/visitors/pending';
   static const visitorsSociety    = '/visitors/society/:societyId';
+  // Onboarding routes
+  static const registerSociety    = '/register';
+  static const trialSuccess       = '/trial-success';
   // Complaint routes
   static const complaints         = '/complaints';
   static const complaintsCreate   = '/complaints/create';
@@ -56,9 +62,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isOnSplash          = path == AppRoutes.splash;
       final isOnLogin           = path == AppRoutes.login;
       final isOnChangePassword  = path == AppRoutes.changePassword;
+      final isPublicRoute       = path == AppRoutes.registerSociety ||
+                                  path == AppRoutes.trialSuccess;
 
       if (isLoading) return isOnSplash ? null : AppRoutes.splash;
-      if (!isAuthenticated && !isOnLogin) return AppRoutes.login;
+      if (!isAuthenticated && !isOnLogin && !isPublicRoute) {
+        return AppRoutes.login;
+      }
 
       if (isAuthenticated) {
         final user = (authState as AuthAuthenticated).user;
@@ -154,6 +164,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => ComplaintDetailScreen(
           complaintId: state.pathParameters['complaintId']!,
         ),
+      ),
+      // Onboarding routes (no auth required)
+      GoRoute(
+        path: AppRoutes.registerSociety,
+        builder: (_, __) => const RegisterSocietyScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.trialSuccess,
+        builder: (_, state) {
+          final result = state.extra as RegistrationResult;
+          return TrialSuccessScreen(result: result);
+        },
       ),
     ],
     errorBuilder: (context, state) =>

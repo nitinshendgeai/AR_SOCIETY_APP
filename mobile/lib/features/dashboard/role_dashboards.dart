@@ -150,53 +150,81 @@ class _ModuleGrid extends StatelessWidget {
       itemCount: items.length,
       itemBuilder: (context, i) {
         final item = items[i];
-        return GestureDetector(
-          onTap: item.route != null ? () => context.push(item.route!) : null,
-          child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.cardBg,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        final isDisabled = item.route == null;
+        return Opacity(
+          opacity: isDisabled ? 0.55 : 1.0,
+          child: GestureDetector(
+          onTap: isDisabled ? null : () => context.push(item.route!),
+          child: Stack(
             children: [
-              Row(
+              Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.cardBg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: item.color.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(item.icon, color: item.color, size: 20),
-                  ),
-                  if (item.badge != null) ...[
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppTheme.error,
-                        borderRadius: BorderRadius.circular(10),
+                  Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: item.color.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(item.icon, color: item.color, size: 20),
                       ),
-                      child: Text(item.badge!,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600)),
-                    ),
-                  ],
+                      if (item.badge != null) ...[
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.error,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(item.badge!,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const Spacer(),
+                  Text(item.label,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary)),
                 ],
               ),
-              const Spacer(),
-              Text(item.label,
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary)),
+            ),
+              if (isDisabled)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.textSecondary.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'Soon',
+                      style: TextStyle(
+                          fontSize: 9,
+                          color: AppTheme.textSecondary,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -289,6 +317,88 @@ class _StatusBar extends StatelessWidget {
   }
 }
 
+// ── Trial Status Widget ───────────────────────────────────────────────────────
+
+class _TrialStatusWidget extends StatelessWidget {
+  final int daysRemaining;
+  final bool isExpired;
+  final bool isWarning;
+  final bool isCritical;
+
+  const _TrialStatusWidget({
+    required this.daysRemaining,
+    required this.isExpired,
+    required this.isWarning,
+    required this.isCritical,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Color bannerColor;
+    IconData bannerIcon;
+    String bannerTitle;
+    String bannerSubtitle;
+
+    if (isExpired) {
+      bannerColor = AppTheme.error;
+      bannerIcon  = Icons.warning_amber_rounded;
+      bannerTitle = 'Trial Expired';
+      bannerSubtitle = 'Contact support to continue using AR Society.';
+    } else if (isCritical) {
+      bannerColor = AppTheme.error;
+      bannerIcon  = Icons.timer_rounded;
+      bannerTitle = '$daysRemaining days left in trial';
+      bannerSubtitle = 'Your trial ends soon — upgrade now to avoid disruption.';
+    } else if (isWarning) {
+      bannerColor = AppTheme.warning;
+      bannerIcon  = Icons.access_time_rounded;
+      bannerTitle = '$daysRemaining days left in trial';
+      bannerSubtitle = 'Consider upgrading to a paid plan.';
+    } else {
+      bannerColor = AppTheme.success;
+      bannerIcon  = Icons.check_circle_outline_rounded;
+      bannerTitle = 'Trial Active — $daysRemaining days remaining';
+      bannerSubtitle = 'Enjoy full access during your free trial.';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: bannerColor.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: bannerColor.withOpacity(0.25)),
+      ),
+      child: Row(
+        children: [
+          Icon(bannerIcon, color: bannerColor, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  bannerTitle,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: bannerColor,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  bannerSubtitle,
+                  style: TextStyle(
+                      fontSize: 11, color: AppTheme.textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Admin Dashboard ───────────────────────────────────────────────────────────
 
 class AdminDashboardScreen extends ConsumerWidget {
@@ -302,6 +412,10 @@ class AdminDashboardScreen extends ConsumerWidget {
       children: [
         _GreetingCard(user: user, subtitle: 'Administrator · Full Access'),
         const SizedBox(height: 20),
+        // Trial status placeholder — rendered when trial data is passed via
+        // route or notifier. Shown only for trial accounts.
+        // In production, this would be fed from a trial-status provider.
+        const SizedBox(height: 0),
         const _SectionLabel('Society Management'),
         const SizedBox(height: 12),
         const _ModuleGrid(items: [

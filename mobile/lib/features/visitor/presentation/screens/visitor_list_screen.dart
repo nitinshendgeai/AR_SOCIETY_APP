@@ -8,8 +8,9 @@ import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 class VisitorListScreen extends ConsumerStatefulWidget {
+  final bool isMy;
   final String societyId;
-  const VisitorListScreen({super.key, required this.societyId});
+  const VisitorListScreen({super.key, this.isMy = false, this.societyId = ''});
 
   @override
   ConsumerState<VisitorListScreen> createState() => _VisitorListScreenState();
@@ -19,13 +20,19 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
 
+  void _reload() {
+    if (widget.isMy) {
+      ref.read(visitorListProvider.notifier).loadMyVisitors();
+    } else {
+      ref.read(visitorListProvider.notifier).loadSocietyVisitors(widget.societyId);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(visitorListProvider.notifier).loadSocietyVisitors(widget.societyId);
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
   }
 
   @override
@@ -45,7 +52,7 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
           backgroundColor: AppTheme.success,
           behavior: SnackBarBehavior.floating,
         ));
-        ref.read(visitorListProvider.notifier).loadSocietyVisitors(widget.societyId);
+        _reload();
         ref.read(visitorActionProvider.notifier).reset();
       } else if (next is VisitorActionError) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -60,7 +67,7 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(
-        title: const Text('Visitor Log'),
+        title: Text(widget.isMy ? 'My Visitors' : 'Visitor Log'),
         bottom: TabBar(
           controller: _tabs,
           tabs: const [Tab(text: 'All Visitors'), Tab(text: 'Inside Now')],
@@ -68,18 +75,20 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            onPressed: () =>
-                ref.read(visitorListProvider.notifier).loadSocietyVisitors(widget.societyId),
+            onPressed: _reload,
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/visitors/create', extra: widget.societyId),
-        backgroundColor: AppTheme.primary,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.person_add_rounded),
-        label: const Text('Log Visitor'),
-      ),
+      floatingActionButton: widget.isMy
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () =>
+                  context.push('/visitors/create', extra: widget.societyId),
+              backgroundColor: AppTheme.primary,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.person_add_rounded),
+              label: const Text('Log Visitor'),
+            ),
       body: _buildBody(state),
     );
   }
@@ -96,8 +105,7 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
             AppErrorBanner(message: state.message),
             const SizedBox(height: 12),
             TextButton(
-              onPressed: () =>
-                  ref.read(visitorListProvider.notifier).loadSocietyVisitors(widget.societyId),
+              onPressed: _reload,
               child: const Text('Retry'),
             ),
           ],
@@ -113,17 +121,13 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
       children: [
         _VisitorListView(
           visitors: all,
-          onRefresh: () => ref
-              .read(visitorListProvider.notifier)
-              .loadSocietyVisitors(widget.societyId),
-          showActions: true,
+          onRefresh: () async => _reload(),
+          showActions: !widget.isMy,
         ),
         _VisitorListView(
           visitors: inside,
-          onRefresh: () => ref
-              .read(visitorListProvider.notifier)
-              .loadSocietyVisitors(widget.societyId),
-          showActions: true,
+          onRefresh: () async => _reload(),
+          showActions: !widget.isMy,
           emptyTitle: 'No visitors inside',
           emptySubtitle: 'All checked-out or no check-ins yet',
         ),
