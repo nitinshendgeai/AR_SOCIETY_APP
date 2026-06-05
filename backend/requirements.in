@@ -1,0 +1,28 @@
+# Direct runtime dependencies — managed by pip-compile
+# To regenerate: pip-compile --generate-hashes requirements.in
+# To upgrade:    pip-compile --generate-hashes --upgrade requirements.in
+
+# Core
+fastapi
+uvicorn[standard]
+
+# Database
+sqlalchemy
+psycopg2-binary
+alembic
+
+# Pydantic
+pydantic[email]
+pydantic-settings
+
+# Auth
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt
+python-multipart
+
+# HTTP
+httpx
+
+# Utils
+python-dotenv
