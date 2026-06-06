@@ -29,6 +29,12 @@ def flats_by_wing(wing_id: UUID, db: Session = Depends(get_db)):
     return FlatService(db).list_by_wing(wing_id)
 
 
+@router.get("/by-society/{society_id}", response_model=List[FlatOut],
+            dependencies=[Depends(get_current_user)])
+def flats_by_society(society_id: UUID, db: Session = Depends(get_db)):
+    return FlatService(db).list_by_society(society_id)
+
+
 @router.get("/{flat_id}", response_model=FlatOut,
             dependencies=[Depends(get_current_user)])
 def get_flat(flat_id: UUID, db: Session = Depends(get_db)):

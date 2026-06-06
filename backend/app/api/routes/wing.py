@@ -41,6 +41,18 @@ def update_wing(wing_id: UUID, data: WingUpdate, db: Session = Depends(get_db)):
     return WingService(db).update(wing_id, data)
 
 
+@router.post("/{wing_id}/activate", response_model=WingOut,
+             dependencies=[Depends(require_admin)])
+def activate_wing(wing_id: UUID, db: Session = Depends(get_db)):
+    return WingService(db).toggle_active(wing_id, activate=True)
+
+
+@router.post("/{wing_id}/deactivate", response_model=WingOut,
+             dependencies=[Depends(require_admin)])
+def deactivate_wing(wing_id: UUID, db: Session = Depends(get_db)):
+    return WingService(db).toggle_active(wing_id, activate=False)
+
+
 @router.delete("/{wing_id}", status_code=204,
                dependencies=[Depends(require_admin)])
 def delete_wing(wing_id: UUID, db: Session = Depends(get_db)):

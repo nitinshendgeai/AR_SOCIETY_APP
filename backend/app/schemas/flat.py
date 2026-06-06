@@ -10,6 +10,7 @@ class FlatCreate(OrmBase):
     flat_type:        Optional[FlatType] = None
     area_sqft:        Optional[float] = None
     occupancy_status: Optional[OccupancyStatus] = None
+    remarks:          Optional[str] = None
     wing_id:          UUID
 
 
@@ -19,6 +20,7 @@ class FlatUpdate(OrmBase):
     flat_type:        Optional[FlatType] = None
     area_sqft:        Optional[float] = None
     occupancy_status: Optional[OccupancyStatus] = None
+    remarks:          Optional[str] = None
 
 
 class FlatOut(TimestampSchema):
@@ -27,4 +29,6 @@ class FlatOut(TimestampSchema):
     flat_type:        Optional[FlatType]
     area_sqft:        Optional[float]
     occupancy_status: Optional[OccupancyStatus]
+    remarks:          Optional[str]
     wing_id:          UUID
+    wing_name:        Optional[str] = None   # populated by service helper

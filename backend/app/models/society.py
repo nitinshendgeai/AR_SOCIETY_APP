@@ -38,6 +38,11 @@ class Society(Base, TimestampMixin):
     total_wings = Column(Integer, nullable=True)
     total_flats = Column(Integer, nullable=True)
 
+    # Legal / Registration
+    registration_number = Column(String(100), nullable=True)
+    gst_number          = Column(String(20), nullable=True)
+    pan_number          = Column(String(20), nullable=True)
+
     # Contact
     contact_email               = Column(String(255), nullable=True)
     contact_phone               = Column(String(20), nullable=True)

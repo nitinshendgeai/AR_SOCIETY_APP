@@ -1,5 +1,6 @@
 from app.models.society      import Society, AccountStatus, ACCOUNT_STATUS_TRANSITIONS
 from app.models.wing         import Wing
+from app.models.floor        import Floor
 from app.models.flat         import Flat, FlatType, OccupancyStatus, MaintenanceStatus
 from app.models.role         import Role
 from app.models.user         import User, UserRole, UserStatus

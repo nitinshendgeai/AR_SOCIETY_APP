@@ -22,6 +22,10 @@ class SocietySettingsModel {
   final int? lateFeePercent;
   final bool allowTenantPortal;
   final bool requireVisitorApproval;
+  // Legal / Registration
+  final String? registrationNumber;
+  final String? gstNumber;
+  final String? panNumber;
   // Trial & subscription (read-only)
   final String? accountStatus;
   final bool isTrial;
@@ -55,6 +59,9 @@ class SocietySettingsModel {
     this.lateFeePercent,
     this.allowTenantPortal = true,
     this.requireVisitorApproval = true,
+    this.registrationNumber,
+    this.gstNumber,
+    this.panNumber,
     this.accountStatus,
     this.isTrial = false,
     this.trialEndDate,
@@ -89,6 +96,9 @@ class SocietySettingsModel {
         allowTenantPortal: json['allow_tenant_portal'] as bool? ?? true,
         requireVisitorApproval:
             json['require_visitor_approval'] as bool? ?? true,
+        registrationNumber: json['registration_number'] as String?,
+        gstNumber: json['gst_number'] as String?,
+        panNumber: json['pan_number'] as String?,
         accountStatus: json['account_status'] as String?,
         isTrial: json['is_trial'] as bool? ?? false,
         trialEndDate: json['trial_end_date'] as String?,

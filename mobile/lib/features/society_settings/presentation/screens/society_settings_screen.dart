@@ -134,6 +134,9 @@ class _GeneralTabState extends ConsumerState<_GeneralTab>
   late TextEditingController _pincodeCtrl;
   late TextEditingController _countryCtrl;
   late TextEditingController _websiteCtrl;
+  late TextEditingController _regNumberCtrl;
+  late TextEditingController _gstCtrl;
+  late TextEditingController _panCtrl;
   bool _saving = false;
 
   @override
@@ -142,20 +145,25 @@ class _GeneralTabState extends ConsumerState<_GeneralTab>
   @override
   void initState() {
     super.initState();
-    _nameCtrl    = TextEditingController(text: widget.society.name);
-    _addressCtrl = TextEditingController(text: widget.society.address ?? '');
-    _cityCtrl    = TextEditingController(text: widget.society.city ?? '');
-    _stateCtrl   = TextEditingController(text: widget.society.state ?? '');
-    _pincodeCtrl = TextEditingController(text: widget.society.pincode ?? '');
-    _countryCtrl = TextEditingController(
+    _nameCtrl      = TextEditingController(text: widget.society.name);
+    _addressCtrl   = TextEditingController(text: widget.society.address ?? '');
+    _cityCtrl      = TextEditingController(text: widget.society.city ?? '');
+    _stateCtrl     = TextEditingController(text: widget.society.state ?? '');
+    _pincodeCtrl   = TextEditingController(text: widget.society.pincode ?? '');
+    _countryCtrl   = TextEditingController(
         text: widget.society.country ?? 'India');
-    _websiteCtrl = TextEditingController(text: widget.society.website ?? '');
+    _websiteCtrl   = TextEditingController(text: widget.society.website ?? '');
+    _regNumberCtrl = TextEditingController(
+        text: widget.society.registrationNumber ?? '');
+    _gstCtrl       = TextEditingController(text: widget.society.gstNumber ?? '');
+    _panCtrl       = TextEditingController(text: widget.society.panNumber ?? '');
   }
 
   @override
   void dispose() {
     for (final c in [_nameCtrl, _addressCtrl, _cityCtrl, _stateCtrl,
-        _pincodeCtrl, _countryCtrl, _websiteCtrl]) {
+        _pincodeCtrl, _countryCtrl, _websiteCtrl,
+        _regNumberCtrl, _gstCtrl, _panCtrl]) {
       c.dispose();
     }
     super.dispose();
@@ -181,6 +189,12 @@ class _GeneralTabState extends ConsumerState<_GeneralTab>
         'website': _websiteCtrl.text.trim().isEmpty
             ? null
             : _websiteCtrl.text.trim(),
+        'registration_number': _regNumberCtrl.text.trim().isEmpty
+            ? null : _regNumberCtrl.text.trim(),
+        'gst_number': _gstCtrl.text.trim().isEmpty
+            ? null : _gstCtrl.text.trim(),
+        'pan_number': _panCtrl.text.trim().isEmpty
+            ? null : _panCtrl.text.trim(),
       });
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -232,6 +246,21 @@ class _GeneralTabState extends ConsumerState<_GeneralTab>
             _Field('Website', _websiteCtrl,
                 hint: 'https://example.com',
                 keyboardType: TextInputType.url),
+            const SizedBox(height: 16),
+            _SectionHeader('Legal / Registration'),
+            _Field('Registration Number', _regNumberCtrl,
+                hint: 'e.g. MH-2024-001'),
+            Row(children: [
+              Expanded(
+                child: _Field('GST Number', _gstCtrl,
+                    hint: 'e.g. 27AAAAA0000A1Z5'),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _Field('PAN Number', _panCtrl,
+                    hint: 'e.g. AAAAA0000A'),
+              ),
+            ]),
             const SizedBox(height: 24),
             _SaveButton(saving: _saving, onSave: _save),
           ],

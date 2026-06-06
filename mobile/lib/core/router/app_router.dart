@@ -27,6 +27,15 @@ import 'package:ar_society_app/features/users/presentation/screens/create_user_s
 import 'package:ar_society_app/features/users/presentation/screens/edit_user_screen.dart';
 import 'package:ar_society_app/features/users/presentation/screens/role_assignment_screen.dart';
 import 'package:ar_society_app/features/society_settings/presentation/screens/society_settings_screen.dart';
+import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
+import 'package:ar_society_app/features/society_structure/presentation/screens/wing_list_screen.dart';
+import 'package:ar_society_app/features/society_structure/presentation/screens/wing_form_screen.dart';
+import 'package:ar_society_app/features/society_structure/presentation/screens/floor_list_screen.dart';
+import 'package:ar_society_app/features/society_structure/presentation/screens/floor_form_screen.dart';
+import 'package:ar_society_app/features/society_structure/presentation/screens/flat_list_screen.dart';
+import 'package:ar_society_app/features/society_structure/presentation/screens/flat_form_screen.dart';
+import 'package:ar_society_app/features/society_structure/presentation/screens/flat_detail_screen.dart';
+import 'package:ar_society_app/features/society_structure/presentation/screens/setup_wizard_screen.dart';
 
 class AppRoutes {
   static const splash             = '/';
@@ -62,6 +71,16 @@ class AppRoutes {
   static const usersRoles         = '/users/:userId/roles';
   // Society Settings
   static const societySettings    = '/society-settings';
+  // Society Structure
+  static const wingsList          = '/wings';
+  static const wingForm           = '/wings/form';
+  static const floorsByWing       = '/wings/:wingId/floors';
+  static const floorForm          = '/wings/:wingId/floors/form';
+  static const flatsList          = '/flats';
+  static const flatsByWing        = '/wings/:wingId/flats';
+  static const flatDetail         = '/flats/detail';
+  static const flatForm           = '/flats/form';
+  static const setupWizard        = '/setup-wizard';
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -224,6 +243,68 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.societySettings,
         builder: (_, __) => const SocietySettingsScreen(),
+      ),
+      // Society Structure — Wings
+      GoRoute(
+        path: AppRoutes.wingsList,
+        builder: (_, __) => const WingListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.wingForm,
+        builder: (_, state) =>
+            WingFormScreen(wing: state.extra as WingModel?),
+      ),
+      // Society Structure — Floors (nested under wing)
+      GoRoute(
+        path: AppRoutes.floorsByWing,
+        builder: (_, state) =>
+            FloorListScreen(wing: state.extra as WingModel),
+      ),
+      GoRoute(
+        path: AppRoutes.floorForm,
+        builder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>;
+          return FloorFormScreen(
+            wing:  extra['wing'] as WingModel,
+            floor: extra['floor'] as FloorModel?,
+          );
+        },
+      ),
+      // Society Structure — Flats
+      GoRoute(
+        path: AppRoutes.flatsList,
+        builder: (_, __) => const FlatListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.flatsByWing,
+        builder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return FlatListScreen(
+            filterWing:  extra?['wing'] as WingModel?,
+            filterFloor: extra?['floor'] as FloorModel?,
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.flatDetail,
+        builder: (_, state) =>
+            FlatDetailScreen(flat: state.extra as FlatModel),
+      ),
+      GoRoute(
+        path: AppRoutes.flatForm,
+        builder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return FlatFormScreen(
+            flat:         extra?['flat'] as FlatModel?,
+            defaultWing:  extra?['wing'] as WingModel?,
+            defaultFloor: extra?['floor'] as FloorModel?,
+          );
+        },
+      ),
+      // Setup Wizard
+      GoRoute(
+        path: AppRoutes.setupWizard,
+        builder: (_, __) => const SetupWizardScreen(),
       ),
     ],
     errorBuilder: (context, state) =>

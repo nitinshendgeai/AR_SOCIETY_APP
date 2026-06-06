@@ -25,6 +25,10 @@ class SocietyUpdate(OrmBase):
     timezone:                Optional[str] = None
     website:                 Optional[str] = None
     logo_url:                Optional[str] = None
+    # Legal
+    registration_number:     Optional[str] = None
+    gst_number:              Optional[str] = None
+    pan_number:              Optional[str] = None
     # Contact
     contact_email:           Optional[str] = None
     contact_phone:           Optional[str] = None
@@ -32,9 +36,9 @@ class SocietyUpdate(OrmBase):
     emergency_contact_name:  Optional[str] = None
     emergency_contact_phone: Optional[str] = None
     # Settings
-    maintenance_day:         Optional[int]  = None
-    late_fee_percent:        Optional[int]  = None
-    allow_tenant_portal:     Optional[bool] = None
+    maintenance_day:          Optional[int]  = None
+    late_fee_percent:         Optional[int]  = None
+    allow_tenant_portal:      Optional[bool] = None
     require_visitor_approval: Optional[bool] = None
 
 
@@ -50,6 +54,10 @@ class SocietyOut(TimestampSchema):
     timezone:                Optional[str]
     website:                 Optional[str]
     logo_url:                Optional[str]
+    # Legal
+    registration_number:     Optional[str]
+    gst_number:              Optional[str]
+    pan_number:              Optional[str]
     # Contact
     contact_email:           Optional[str]
     contact_phone:           Optional[str]
