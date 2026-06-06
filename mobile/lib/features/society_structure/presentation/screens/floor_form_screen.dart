@@ -80,10 +80,16 @@ class _FloorFormScreenState extends ConsumerState<FloorFormScreen> {
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(
-        title: Text(_isEdit ? 'Edit Floor' : 'Add Floor'),
-        subtitle: Text(widget.wing.name,
-            style: const TextStyle(
-                fontSize: 12, color: AppTheme.textSecondary)),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_isEdit ? 'Edit Floor' : 'Add Floor'),
+            Text(
+              widget.wing.name,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
       ),
       body: Form(
         key: _formKey,

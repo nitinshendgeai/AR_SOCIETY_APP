@@ -55,7 +55,7 @@ class _WingFormScreenState extends ConsumerState<WingFormScreen> {
           if (_floors.text.isNotEmpty)
             'total_floors': int.parse(_floors.text.trim()),
         };
-        await ref.read(wingsProvider.notifier).update(widget.wing!.id, data);
+        await ref.read(wingsProvider.notifier).updateWing(widget.wing!.id, data);
       } else {
         await ref.read(wingsProvider.notifier).create(
           name: _name.text.trim(),

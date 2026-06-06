@@ -84,7 +84,7 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
               ? null
               : _remarks.text.trim(),
         };
-        await ref.read(flatsBySocietyProvider.notifier).update(widget.flat!.id, data);
+        await ref.read(flatsBySocietyProvider.notifier).updateFlat(widget.flat!.id, data);
       } else {
         await ref.read(flatsBySocietyProvider.notifier).create(
           flatNumber: _flatNumber.text.trim(),

@@ -38,7 +38,7 @@ class WingsNotifier extends AsyncNotifier<List<WingModel>> {
     return wing;
   }
 
-  Future<WingModel> update(String id, Map<String, dynamic> data) async {
+  Future<WingModel> updateWing(String id, Map<String, dynamic> data) async {
     final updated = await ref.read(structureRepoProvider).updateWing(id, data);
     state = AsyncData(
       state.valueOrNull?.map((w) => w.id == id ? updated : w).toList() ?? [],
@@ -130,7 +130,7 @@ class FlatsBySocietyNotifier extends AsyncNotifier<List<FlatModel>> {
     return flat;
   }
 
-  Future<FlatModel> update(String id, Map<String, dynamic> data) async {
+  Future<FlatModel> updateFlat(String id, Map<String, dynamic> data) async {
     final updated = await ref.read(structureRepoProvider).updateFlat(id, data);
     state = AsyncData(
       state.valueOrNull?.map((f) => f.id == id ? updated : f).toList() ?? [],
