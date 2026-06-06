@@ -76,6 +76,15 @@ class OnboardingService:
         roles   = self._create_extended_roles()
         users, creds = self._create_default_users(society, roles)
 
+        # Commit society, roles, and users FIRST so they are persisted regardless
+        # of whether the audit log write succeeds.  AuditService.log() internally
+        # calls db.commit() and, on failure, db.rollback() — if the audit were
+        # called while these objects were still unflushed, a rollback would wipe
+        # the society and users while the route still returned credentials (→ 401).
+        self.db.commit()
+
+        days_remaining = (society.trial_end_date - date.today()).days
+
         AuditService.log(
             db=self.db, action=AuditAction.CREATE,
             module="onboarding", entity_id=str(society.id),
@@ -90,9 +99,6 @@ class OnboardingService:
                 "users_created": len(users),
             },
         )
-        self.db.commit()
-
-        days_remaining = (society.trial_end_date - date.today()).days
 
         return {
             "society_id":     str(society.id),

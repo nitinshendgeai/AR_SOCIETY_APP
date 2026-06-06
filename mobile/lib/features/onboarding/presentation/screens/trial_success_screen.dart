@@ -1,18 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
+import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/onboarding/domain/registration_result.dart';
 
-class TrialSuccessScreen extends StatelessWidget {
+class TrialSuccessScreen extends ConsumerStatefulWidget {
   final RegistrationResult result;
 
   const TrialSuccessScreen({super.key, required this.result});
 
   @override
+  ConsumerState<TrialSuccessScreen> createState() =>
+      _TrialSuccessScreenState();
+}
+
+class _TrialSuccessScreenState extends ConsumerState<TrialSuccessScreen> {
+  bool _signingIn = false;
+  String? _loginError;
+
+  Future<void> _signInAsAdmin() async {
+    final admin = widget.result.adminCredential;
+    if (admin == null) {
+      context.go(AppRoutes.login);
+      return;
+    }
+
+    setState(() {
+      _signingIn = true;
+      _loginError = null;
+    });
+
+    await ref.read(authProvider.notifier).login(
+          email: admin.email,
+          password: admin.password,
+        );
+
+    if (!mounted) return;
+    setState(() => _signingIn = false);
+
+    final authState = ref.read(authProvider);
+    if (authState is AuthError) {
+      setState(() => _loginError = authState.message);
+    }
+    // On success GoRouter redirect fires automatically (→ /change-password)
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final admin = result.adminCredential;
+    final admin = widget.result.adminCredential;
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
@@ -51,8 +89,8 @@ class TrialSuccessScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                '${result.societyName} is registered with a ${result.trialDays}-day free trial.',
-                style: TextStyle(
+                '${widget.result.societyName} is registered with a ${widget.result.trialDays}-day free trial.',
+                style: const TextStyle(
                   color: AppTheme.textSecondary,
                   fontSize: 15,
                 ),
@@ -81,7 +119,7 @@ class TrialSuccessScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${result.trialDays} days remaining',
+                          '${widget.result.trialDays} days remaining',
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,
@@ -89,7 +127,7 @@ class TrialSuccessScreen extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Trial ends ${result.trialEndDate}',
+                          'Trial ends ${widget.result.trialEndDate}',
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.85),
                             fontSize: 12,
@@ -107,15 +145,15 @@ class TrialSuccessScreen extends StatelessWidget {
               if (admin != null) ...[
                 _CredentialCard(
                   title: 'Admin Login Credentials',
-                  subtitle: 'Use these to sign in for the first time',
+                  subtitle: 'Save these — you\'ll need them after changing your password',
                   credential: admin,
                 ),
                 const SizedBox(height: 16),
               ],
 
               // All credentials
-              if (result.credentials.length > 1) ...[
-                _AllCredentialsExpanded(credentials: result.credentials),
+              if (widget.result.credentials.length > 1) ...[
+                _AllCredentialsExpanded(credentials: widget.result.credentials),
                 const SizedBox(height: 16),
               ],
 
@@ -124,7 +162,31 @@ class TrialSuccessScreen extends StatelessWidget {
 
               const SizedBox(height: 28),
 
-              // Go to login button
+              // Login error banner
+              if (_loginError != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.error.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.error.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    _loginError!,
+                    style: const TextStyle(color: AppTheme.error, fontSize: 13),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => context.go(AppRoutes.login),
+                  child: const Text('Sign in manually instead'),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // Sign in button — auto-logs in with admin credentials
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -136,13 +198,18 @@ class TrialSuccessScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  icon: const Icon(Icons.login_rounded),
-                  label: const Text(
-                    'Sign in as Admin',
-                    style: TextStyle(
+                  icon: _signingIn
+                      ? const SizedBox(
+                          width: 18, height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.login_rounded),
+                  label: Text(
+                    _signingIn ? 'Signing in…' : 'Sign in as Admin',
+                    style: const TextStyle(
                         fontWeight: FontWeight.w600, fontSize: 15),
                   ),
-                  onPressed: () => context.go(AppRoutes.login),
+                  onPressed: _signingIn ? null : _signInAsAdmin,
                 ),
               ),
 
