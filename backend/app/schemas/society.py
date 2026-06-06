@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Optional
 from app.schemas.common import OrmBase, TimestampSchema
 
@@ -72,8 +73,8 @@ class SocietyOut(TimestampSchema):
     # Trial & subscription (read-only)
     account_status:           Optional[str]
     is_trial:                 bool
-    trial_start_date:         Optional[str]
-    trial_end_date:           Optional[str]
+    trial_start_date:         Optional[date]
+    trial_end_date:           Optional[date]
     subscription_plan:        Optional[str]
     subscription_status:      Optional[str]
     # Limits
