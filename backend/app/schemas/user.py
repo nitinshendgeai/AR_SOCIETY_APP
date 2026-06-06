@@ -1,4 +1,4 @@
-from pydantic import EmailStr
+from pydantic import EmailStr, field_validator
 from typing import List, Optional
 from app.schemas.common import OrmBase, TimestampSchema
 from app.models.user import UserStatus
@@ -16,11 +16,30 @@ class UserCreate(OrmBase):
     password:  str
 
 
+class AdminUserCreate(OrmBase):
+    """Used by admin to create a user and optionally assign a role immediately."""
+    email:                EmailStr
+    full_name:            str
+    phone:                Optional[str] = None
+    role_name:            Optional[str] = None
+    must_change_password: bool = True
+
+    @field_validator("email")
+    @classmethod
+    def lower_email(cls, v: str) -> str:
+        return v.lower().strip()
+
+
 class UserUpdate(OrmBase):
     full_name:     Optional[str] = None
     phone:         Optional[str] = None
     profile_image: Optional[str] = None
     status:        Optional[UserStatus] = None
+
+
+class PasswordResetResponse(OrmBase):
+    temporary_password: str
+    message:            str = "Password has been reset. User must change it on next login."
 
 
 class UserOut(TimestampSchema):

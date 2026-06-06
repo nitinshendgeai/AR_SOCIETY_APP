@@ -32,3 +32,15 @@ class UserRepository(BaseRepository[User]):
 
     def get_roles(self, user: User) -> list:
         return [ur.role.name for ur in user.user_roles if ur.role]
+
+    def remove_role(self, user: User, role_name: str) -> None:
+        role = self.db.query(Role).filter(Role.name == role_name).first()
+        if not role:
+            return
+        ur = self.db.query(UserRole).filter(
+            UserRole.user_id == user.id,
+            UserRole.role_id == role.id,
+        ).first()
+        if ur:
+            self.db.delete(ur)
+            self.db.commit()

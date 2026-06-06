@@ -420,9 +420,11 @@ class AdminDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 12),
         const _ModuleGrid(items: [
           _ActionItem(icon: Icons.people_rounded,
-              label: 'Users & Roles', color: AppTheme.primary),
+              label: 'Users & Roles', color: AppTheme.primary,
+              route: AppRoutes.usersList),
           _ActionItem(icon: Icons.apartment_rounded,
-              label: 'Society Settings', color: AppTheme.secondary),
+              label: 'Society Settings', color: AppTheme.secondary,
+              route: AppRoutes.societySettings),
           _ActionItem(icon: Icons.receipt_long_rounded,
               label: 'Billing', color: AppTheme.success),
           _ActionItem(icon: Icons.bar_chart_rounded,

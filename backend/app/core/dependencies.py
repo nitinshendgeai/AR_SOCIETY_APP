@@ -76,11 +76,30 @@ def require_roles(*role_names: str):
 
 
 # Convenience role guards
-require_admin     = require_roles("Admin")
-require_committee = require_roles("Admin", "Committee")
-require_resident  = require_roles("Admin", "Committee", "Resident")
-require_security  = require_roles("Admin", "Security")
-require_staff     = require_roles("Admin", "Staff")
+# These must match the actual role names stored in the DB (see EXTENDED_DEFAULT_ROLES
+# in onboarding_service.py).  The old names ("Admin", "Committee", etc.) were abstract
+# group labels that no user actually holds — Society Admin users have role "Society Admin".
+require_admin = require_roles(
+    "Admin", "Society Admin", "Super Admin", "Platform Admin",
+)
+require_committee = require_roles(
+    "Admin", "Society Admin", "Super Admin", "Platform Admin",
+    "Committee Chairman", "Committee Secretary", "Committee Treasurer",
+)
+require_resident = require_roles(
+    "Admin", "Society Admin", "Super Admin", "Platform Admin",
+    "Committee Chairman", "Committee Secretary", "Committee Treasurer",
+    "Resident", "Tenant",
+)
+require_security = require_roles(
+    "Admin", "Society Admin", "Super Admin", "Platform Admin",
+    "Security Supervisor", "Security Staff",
+)
+require_staff = require_roles(
+    "Admin", "Society Admin", "Super Admin", "Platform Admin",
+    "Housekeeping Supervisor", "Housekeeping Staff",
+    "Technical Supervisor", "Technical Staff",
+)
 
 
 def require_platform_admin(current_user: User = Depends(get_current_user)) -> User:

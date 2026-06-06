@@ -20,6 +20,13 @@ import 'package:ar_society_app/features/complaint/presentation/screens/create_co
 import 'package:ar_society_app/features/onboarding/presentation/screens/register_society_screen.dart';
 import 'package:ar_society_app/features/onboarding/presentation/screens/trial_success_screen.dart';
 import 'package:ar_society_app/features/onboarding/domain/registration_result.dart';
+import 'package:ar_society_app/features/users/data/models/user_admin_models.dart';
+import 'package:ar_society_app/features/users/presentation/screens/user_list_screen.dart';
+import 'package:ar_society_app/features/users/presentation/screens/user_detail_screen.dart';
+import 'package:ar_society_app/features/users/presentation/screens/create_user_screen.dart';
+import 'package:ar_society_app/features/users/presentation/screens/edit_user_screen.dart';
+import 'package:ar_society_app/features/users/presentation/screens/role_assignment_screen.dart';
+import 'package:ar_society_app/features/society_settings/presentation/screens/society_settings_screen.dart';
 
 class AppRoutes {
   static const splash             = '/';
@@ -47,6 +54,14 @@ class AppRoutes {
   static const complaintsCreate   = '/complaints/create';
   static const complaintsDetail   = '/complaints/:complaintId';
   static const complaintsSociety  = '/complaints/society/:societyId';
+  // Users & Roles
+  static const usersList          = '/users';
+  static const usersCreate        = '/users/create';
+  static const usersDetail        = '/users/:userId';
+  static const usersEdit          = '/users/:userId/edit';
+  static const usersRoles         = '/users/:userId/roles';
+  // Society Settings
+  static const societySettings    = '/society-settings';
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -176,6 +191,39 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final result = state.extra as RegistrationResult;
           return TrialSuccessScreen(result: result);
         },
+      ),
+      // Users & Roles (literal 'create' before :userId)
+      GoRoute(
+        path: AppRoutes.usersList,
+        builder: (_, __) => const UserListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.usersCreate,
+        builder: (_, __) => const CreateUserScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.usersEdit,
+        builder: (_, state) {
+          final user = state.extra as AdminUserModel;
+          return EditUserScreen(user: user);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.usersRoles,
+        builder: (_, state) {
+          final user = state.extra as AdminUserModel;
+          return RoleAssignmentScreen(user: user);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.usersDetail,
+        builder: (_, state) =>
+            UserDetailScreen(userId: state.pathParameters['userId']!),
+      ),
+      // Society Settings
+      GoRoute(
+        path: AppRoutes.societySettings,
+        builder: (_, __) => const SocietySettingsScreen(),
       ),
     ],
     errorBuilder: (context, state) =>
