@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/auth/token_storage.dart';
@@ -34,11 +35,21 @@ class AuthRepository {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
       );
+      debugPrint('[TOKEN_SAVED] access and refresh tokens written to storage');
+      // Verify the token was actually stored
+      final stored = await TokenStorage.getAccessToken();
+      debugPrint('[TOKEN_SAVED] read-back: ${stored != null ? "OK (${stored.substring(0, 20)}...)" : "NULL — storage failed!"}');
       final userModel = await _remote.getMe();
-      return AuthSuccess(userModel.toEntity());
+      final entity = userModel.toEntity();
+      debugPrint('[AUTH_STATE_UPDATED] user=${entity.email} '
+          'roles=${entity.roles} mustChangePassword=${entity.mustChangePassword}');
+      return AuthSuccess(entity);
     } on DioException catch (e) {
+      debugPrint('[LOGIN_ERROR] DioException: ${e.response?.statusCode} '
+          '${e.response?.data} ${e.message}');
       return AuthFailure(parseApiError(e));
     } catch (e) {
+      debugPrint('[LOGIN_ERROR] Unexpected: $e');
       return AuthFailure('Unexpected error: $e');
     }
   }

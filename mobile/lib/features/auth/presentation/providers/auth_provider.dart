@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
@@ -37,24 +38,31 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Called on app startup — validates existing session.
   Future<void> checkSession() async {
+    debugPrint('[AUTH_STATE] checkSession → AuthLoading');
     state = AuthLoading();
     final result = await _repo.validateSession();
     switch (result) {
       case AuthSuccess(:final data):
+        debugPrint('[AUTH_STATE] checkSession → AuthAuthenticated(${data.email})');
         state = AuthAuthenticated(data);
-      case AuthFailure():
+      case AuthFailure(:final message):
+        debugPrint('[AUTH_STATE] checkSession → AuthUnauthenticated ($message)');
         state = AuthUnauthenticated();
     }
   }
 
   /// Called from login screen.
   Future<void> login({required String email, required String password}) async {
+    debugPrint('[AUTH_STATE] login($email) → AuthLoading');
     state = AuthLoading();
     final result = await _repo.login(email: email, password: password);
     switch (result) {
       case AuthSuccess(:final data):
+        debugPrint('[AUTH_STATE] login → AuthAuthenticated(${data.email}) '
+            'roles=${data.roles} mustChange=${data.mustChangePassword}');
         state = AuthAuthenticated(data);
       case AuthFailure(:final message):
+        debugPrint('[AUTH_STATE] login → AuthError($message)');
         state = AuthError(message);
     }
   }

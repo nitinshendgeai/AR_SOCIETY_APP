@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -83,39 +84,100 @@ class AppRoutes {
   static const setupWizard        = '/setup-wizard';
 }
 
-final appRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+// ── Router notifier ───────────────────────────────────────────────────────────
+//
+// Bridges Riverpod state changes into GoRouter's ChangeNotifier-based
+// refresh mechanism. This keeps GoRouter as a single long-lived instance
+// rather than recreating it on every auth state change (which would reset
+// the navigation stack to initialLocation on every state transition).
 
-  return GoRouter(
+class _RouterNotifier extends ChangeNotifier {
+  final Ref _ref;
+
+  _RouterNotifier(this._ref) {
+    _ref.listen<AuthState>(authProvider, (previous, next) {
+      debugPrint('[ROUTE_REDIRECT] authProvider changed: '
+          '${previous.runtimeType} → ${next.runtimeType}');
+      notifyListeners();
+    });
+  }
+}
+
+// ── Router provider ───────────────────────────────────────────────────────────
+//
+// GoRouter is created ONCE. Auth state changes notify the router via
+// refreshListenable, which re-evaluates the redirect without rebuilding
+// the entire router or resetting the navigation stack.
+
+final appRouterProvider = Provider<GoRouter>((ref) {
+  final notifier = _RouterNotifier(ref);
+  ref.onDispose(notifier.dispose);
+
+  final router = GoRouter(
     initialLocation: AppRoutes.splash,
-    debugLogDiagnostics: false,
+    debugLogDiagnostics: kDebugMode,
+    refreshListenable: notifier,
+
     redirect: (context, state) {
-      final isLoading       = authState is AuthLoading || authState is AuthInitial;
+      // Read current auth state at redirect time (not a stale closure capture)
+      final authState = ref.read(authProvider);
+      final path      = state.matchedLocation;
+
       final isAuthenticated = authState is AuthAuthenticated;
-      final path = state.matchedLocation;
       final isOnSplash          = path == AppRoutes.splash;
       final isOnLogin           = path == AppRoutes.login;
       final isOnChangePassword  = path == AppRoutes.changePassword;
       final isPublicRoute       = path == AppRoutes.registerSociety ||
                                   path == AppRoutes.trialSuccess;
 
-      if (isLoading) return isOnSplash ? null : AppRoutes.splash;
+      debugPrint('[ROUTE_REDIRECT] path=$path '
+          'state=${authState.runtimeType} '
+          'isAuth=$isAuthenticated');
+
+      // Very first state before checkSession runs — hold on splash.
+      // AuthLoading during login should NOT redirect away from login screen.
+      if (authState is AuthInitial) {
+        debugPrint('[ROUTE_REDIRECT] → AuthInitial: '
+            '${isOnSplash ? "stay on splash" : "→ splash"}');
+        return isOnSplash ? null : AppRoutes.splash;
+      }
+
+      // Mid-flight (session check or login in progress): stay wherever we are.
+      if (authState is AuthLoading) {
+        debugPrint('[ROUTE_REDIRECT] → AuthLoading: no redirect (stay on current screen)');
+        return null;
+      }
+
+      // Not authenticated and not on a public page → login
       if (!isAuthenticated && !isOnLogin && !isPublicRoute) {
+        debugPrint('[ROUTE_REDIRECT] → unauthenticated, → login');
         return AppRoutes.login;
       }
 
       if (isAuthenticated) {
         final user = (authState as AuthAuthenticated).user;
+        debugPrint('[AUTH_STATE_UPDATED] user=${user.email} '
+            'roles=${user.roles} primaryRole=${user.primaryRole} '
+            'mustChangePassword=${user.mustChangePassword}');
+
+        // Force password change before anything else
         if (user.mustChangePassword && !isOnChangePassword) {
+          debugPrint('[ROUTE_REDIRECT] → must change password');
           return AppRoutes.changePassword;
         }
-        if (!user.mustChangePassword && (isOnLogin || isOnSplash || isOnChangePassword)) {
-          return _roleHome(ref);
+        // Already changed password — redirect away from auth screens
+        if (!user.mustChangePassword &&
+            (isOnLogin || isOnSplash || isOnChangePassword)) {
+          final home = _roleHome(ref);
+          debugPrint('[ROUTE_REDIRECT] → role home: $home');
+          return home;
         }
       }
 
+      debugPrint('[ROUTE_REDIRECT] → null (no redirect)');
       return null;
     },
+
     routes: [
       GoRoute(path: AppRoutes.splash, builder: (_, __) => const SplashScreen()),
       GoRoute(path: AppRoutes.login,  builder: (_, __) => const LoginScreen()),
@@ -308,12 +370,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
     errorBuilder: (context, state) =>
-        Scaffold(body: Center(child: Text('Route not found: \${state.uri}'))),
+        Scaffold(body: Center(child: Text('Route not found: ${state.uri}'))),
   );
+
+  return router;
 });
 
 String _roleHome(Ref ref) {
   final user = ref.read(currentUserProvider);
+  debugPrint('[ROUTE_REDIRECT] _roleHome: user=${user?.email} '
+      'primaryRole=${user?.primaryRole}');
   if (user == null) return AppRoutes.login;
   switch (user.primaryRole) {
     case 'Admin':

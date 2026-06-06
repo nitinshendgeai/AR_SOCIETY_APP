@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/features/auth/data/models/auth_models.dart';
@@ -13,16 +14,25 @@ class AuthRemoteDataSource {
     required String email,
     required String password,
   }) async {
+    debugPrint('[LOGIN_REQUEST] POST /auth/login  email=$email');
     final response = await _dio.post('/auth/login', data: {
       'email': email,
       'password': password,
     });
-    return TokenModel.fromJson(response.data as Map<String, dynamic>);
+    debugPrint('[LOGIN_RESPONSE] status=${response.statusCode}  '
+        'keys=${(response.data as Map?)?.keys.toList()}');
+    final token = TokenModel.fromJson(response.data as Map<String, dynamic>);
+    debugPrint('[ACCESS_TOKEN_RECEIVED] ${token.accessToken.substring(0, 20)}...');
+    debugPrint('[REFRESH_TOKEN_RECEIVED] ${token.refreshToken.substring(0, 20)}...');
+    return token;
   }
 
   /// GET /auth/me
   Future<UserModel> getMe() async {
+    debugPrint('[USER_PROFILE_FETCH] GET /auth/me');
     final response = await _dio.get('/auth/me');
+    debugPrint('[USER_PROFILE_FETCH] status=${response.statusCode}  '
+        'data=${response.data}');
     return UserModel.fromJson(response.data as Map<String, dynamic>);
   }
 
