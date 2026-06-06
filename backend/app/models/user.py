@@ -15,6 +15,15 @@ class UserStatus(str, enum.Enum):
 class User(Base, TimestampMixin):
     __tablename__ = "users"
 
+    # Tenant isolation: every non-superadmin user belongs to exactly one society.
+    # NULL is permitted only for Platform Admin / superadmin accounts.
+    society_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("societies.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+
     email          = Column(String(255), nullable=False, unique=True, index=True)
     phone          = Column(String(20), nullable=True, unique=True, index=True)
     full_name      = Column(String(255), nullable=False)
@@ -27,6 +36,7 @@ class User(Base, TimestampMixin):
     setup_completed      = Column(Boolean, default=False, nullable=False)
 
     # Relationships
+    society    = relationship("Society", foreign_keys=[society_id])
     user_roles = relationship("UserRole", back_populates="user", cascade="all, delete-orphan")
     residents  = relationship("Resident", back_populates="user")
     tenants    = relationship("Tenant", back_populates="user")

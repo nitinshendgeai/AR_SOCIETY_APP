@@ -253,6 +253,7 @@ class OnboardingService:
                 continue  # idempotent: skip if already exists
 
             user = User(
+                society_id           = society.id,
                 email                = email,
                 full_name            = full_name,
                 hashed_password      = pwd_hash,
