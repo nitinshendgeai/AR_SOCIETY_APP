@@ -36,9 +36,6 @@ class AuthRepository {
         refreshToken: tokens.refreshToken,
       );
       debugPrint('[TOKEN_SAVED] access and refresh tokens written to storage');
-      // Verify the token was actually stored
-      final stored = await TokenStorage.getAccessToken();
-      debugPrint('[TOKEN_SAVED] read-back: ${stored != null ? "OK (${stored.substring(0, 20)}...)" : "NULL — storage failed!"}');
       final userModel = await _remote.getMe();
       final entity = userModel.toEntity();
       debugPrint('[AUTH_STATE_UPDATED] user=${entity.email} '
