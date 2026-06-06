@@ -24,7 +24,7 @@ class FloorListScreen extends ConsumerWidget {
             tooltip: 'Add Floor',
             onPressed: () => context.push(
               AppRoutes.floorForm.replaceFirst(':wingId', wing.id),
-              extra: wing,
+              extra: {'wing': wing, 'floor': null},
             ),
           ),
         ],
