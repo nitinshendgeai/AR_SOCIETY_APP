@@ -148,8 +148,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                 const SizedBox(height: 16),
 
-                // Test credentials hint (dev only)
-                if (!Env.isProduction) _TestCredentials(),
+                // Demo format hint — always visible
+                _DemoFormatHint(),
 
                 const SizedBox(height: 40),
               ],
@@ -267,54 +267,116 @@ class _Header extends StatelessWidget {
   }
 }
 
-// ── Test credentials hint (dev mode only) ─────────────────────────────────────
+// ── Demo format hint ──────────────────────────────────────────────────────────
 
-class _TestCredentials extends StatelessWidget {
+class _DemoFormatHint extends StatefulWidget {
+  @override
+  State<_DemoFormatHint> createState() => _DemoFormatHintState();
+}
+
+class _DemoFormatHintState extends State<_DemoFormatHint> {
+  bool _expanded = false;
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.warning.withOpacity(0.08),
+        color: AppTheme.primary.withOpacity(0.04),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.warning.withOpacity(0.25)),
+        border: Border.all(color: AppTheme.primary.withOpacity(0.18)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.info_outline_rounded,
-                  color: AppTheme.warning, size: 16),
-              const SizedBox(width: 6),
-              Text(
-                'Dev mode — test credentials',
-                style: TextStyle(
-                  color: AppTheme.warning,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+      child: Column(children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(children: [
+              Icon(Icons.help_outline_rounded,
+                  color: AppTheme.primary, size: 16),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Demo Login Format',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primary,
+                  ),
                 ),
               ),
-            ],
+              Icon(
+                _expanded
+                    ? Icons.expand_less_rounded
+                    : Icons.expand_more_rounded,
+                color: AppTheme.primary,
+                size: 18,
+              ),
+            ]),
           ),
-          const SizedBox(height: 8),
-          ...[
-            ('Admin', 'admin@testsociety.com', 'Admin@123'),
-          ].map(
-            (e) => Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                '${e.$1}: ${e.$2} / ${e.$3}',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppTheme.textSecondary,
-                  fontFamily: 'monospace',
+        ),
+        if (_expanded) ...[
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'After registering, your login credentials follow this format:',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),
-              ),
+                const SizedBox(height: 10),
+                _HintRow(label: 'Society Code', value: 'greenpark'),
+                const SizedBox(height: 6),
+                _HintRow(label: 'Admin Login',  value: 'admin@greenpark.com'),
+                const SizedBox(height: 6),
+                _HintRow(label: 'Password',     value: 'Admin@1234'),
+                const SizedBox(height: 10),
+                const Text(
+                  'Replace "greenpark" with your society code (lowercase).\nYou must change this password on first login.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppTheme.textSecondary,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
-      ),
+      ]),
     );
+  }
+}
+
+class _HintRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _HintRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      SizedBox(
+        width: 90,
+        child: Text(label,
+            style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w500)),
+      ),
+      Expanded(
+        child: Text(
+          value,
+          style: const TextStyle(
+            fontSize: 12,
+            color: AppTheme.textPrimary,
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    ]);
   }
 }

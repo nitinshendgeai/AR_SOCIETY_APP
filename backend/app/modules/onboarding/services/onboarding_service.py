@@ -19,18 +19,22 @@ from app.models.user import User, UserRole, UserStatus
 from app.models.audit_log import AuditAction
 from app.core.security import hash_password
 from app.services.audit_service import AuditService
-from app.services.society_setup_service import _generate_temp_password
 from app.modules.onboarding.schemas.onboarding import SelfRegistrationRequest
 
 TRIAL_DAYS = 30
 
-# 13 default roles for self-registered societies
+# Fixed password used for ALL system-generated onboarding accounts.
+# Users are forced to change this on first login (must_change_password=True).
+STANDARD_ONBOARDING_PASSWORD = "Admin@1234"
+
+# 14 default roles for self-registered societies
 EXTENDED_DEFAULT_ROLES = [
     ("Platform Admin",          "AR Society internal cross-society management"),
     ("Society Admin",           "Full society-level administration"),
     ("Committee Chairman",      "Head of resident welfare committee"),
     ("Committee Secretary",     "Society secretary and record keeper"),
     ("Committee Treasurer",     "Society treasurer and finance"),
+    ("Committee Member",        "General committee member"),
     ("Security Supervisor",     "Supervises security staff and gate operations"),
     ("Housekeeping Supervisor", "Supervises housekeeping and cleaning staff"),
     ("Technical Supervisor",    "Supervises maintenance and technical staff"),
@@ -47,6 +51,7 @@ ROLE_RBAC_GROUP = {
     "Committee Chairman":      "Committee",
     "Committee Secretary":     "Committee",
     "Committee Treasurer":     "Committee",
+    "Committee Member":        "Committee",
     "Security Supervisor":     "Security",
     "Security Staff":          "Security",
     "Housekeeping Supervisor": "Staff",
@@ -56,6 +61,21 @@ ROLE_RBAC_GROUP = {
     "Resident":                "Resident",
     "Tenant":                  "Resident",
 }
+
+# 9 default users created for every new society.
+# Email pattern: {prefix}@{society_code_lowercase}.com
+# All share STANDARD_ONBOARDING_PASSWORD and must_change_password=True.
+DEFAULT_USER_CONFIGS = [
+    {"prefix": "admin",        "name_suffix": "Admin",                 "role": "Society Admin"},
+    {"prefix": "chairman",     "name_suffix": "Chairman",              "role": "Committee Chairman"},
+    {"prefix": "secretary",    "name_suffix": "Secretary",             "role": "Committee Secretary"},
+    {"prefix": "treasurer",    "name_suffix": "Treasurer",             "role": "Committee Treasurer"},
+    {"prefix": "committee",    "name_suffix": "Committee Member",      "role": "Committee Member"},
+    {"prefix": "security",     "name_suffix": "Security Supervisor",   "role": "Security Supervisor"},
+    {"prefix": "housekeeping", "name_suffix": "Housekeeping Supervisor","role": "Housekeeping Supervisor"},
+    {"prefix": "technical",    "name_suffix": "Technical Supervisor",  "role": "Technical Supervisor"},
+    {"prefix": "resident",     "name_suffix": "Resident",              "role": "Resident"},
+]
 
 
 class OnboardingService:
@@ -221,41 +241,21 @@ class OnboardingService:
                                roles: list) -> Tuple[list, list]:
         code     = society.society_code.lower()
         role_map = {r.name: r for r in roles}
-
-        default_users = [
-            {
-                "email":     f"admin@{code}.arsociety.com",
-                "full_name": f"{society.name} Admin",
-                "role":      "Society Admin",
-            },
-            {
-                "email":     f"chairman@{code}.arsociety.com",
-                "full_name": f"{society.name} Chairman",
-                "role":      "Committee Chairman",
-            },
-            {
-                "email":     f"secretary@{code}.arsociety.com",
-                "full_name": f"{society.name} Secretary",
-                "role":      "Committee Secretary",
-            },
-            {
-                "email":     f"treasurer@{code}.arsociety.com",
-                "full_name": f"{society.name} Treasurer",
-                "role":      "Committee Treasurer",
-            },
-        ]
+        pwd_hash = hash_password(STANDARD_ONBOARDING_PASSWORD)
 
         created_users, credentials = [], []
 
-        for udata in default_users:
-            if self.db.query(User).filter(User.email == udata["email"]).first():
-                continue  # idempotent
+        for cfg in DEFAULT_USER_CONFIGS:
+            email     = f"{cfg['prefix']}@{code}.com"
+            full_name = f"{society.name} {cfg['name_suffix']}"
 
-            temp_pwd = _generate_temp_password()
+            if self.db.query(User).filter(User.email == email).first():
+                continue  # idempotent: skip if already exists
+
             user = User(
-                email                = udata["email"],
-                full_name            = udata["full_name"],
-                hashed_password      = hash_password(temp_pwd),
+                email                = email,
+                full_name            = full_name,
+                hashed_password      = pwd_hash,
                 status               = UserStatus.ACTIVE,
                 must_change_password = True,
                 terms_accepted       = False,
@@ -264,15 +264,15 @@ class OnboardingService:
             self.db.add(user)
             self.db.flush()
 
-            role = role_map.get(udata["role"])
+            role = role_map.get(cfg["role"])
             if role:
                 self.db.add(UserRole(user_id=user.id, role_id=role.id))
 
             created_users.append(user)
             credentials.append({
-                "role":     udata["role"],
-                "email":    udata["email"],
-                "password": temp_pwd,
+                "role":     cfg["role"],
+                "email":    email,
+                "password": STANDARD_ONBOARDING_PASSWORD,
             })
 
         return created_users, credentials
