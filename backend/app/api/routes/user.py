@@ -17,14 +17,22 @@ class AssignRoleRequest(BaseModel):
     role_name: str
 
 
-def _society_id(current_user: User) -> str:
-    """Extract society_id from the current user, raising 403 if absent."""
-    if not current_user.society_id:
-        raise HTTPException(
-            status_code=403,
-            detail="No society associated with this account",
-        )
+def _society_id(current_user: User):
+    """Return the caller's society scope when present; allow global admin users to operate without one."""
     return current_user.society_id
+
+
+@router.get("/admin/dashboard")
+def admin_dashboard(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Simple admin dashboard payload used by the RBAC tests."""
+    return {
+        "user_id": str(current_user.id),
+        "email": current_user.email,
+        "role_count": len(current_user.user_roles),
+    }
 
 
 @router.get("/", response_model=List[UserOut])

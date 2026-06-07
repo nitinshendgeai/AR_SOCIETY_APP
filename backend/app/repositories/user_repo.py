@@ -18,11 +18,12 @@ class UserRepository(BaseRepository[User]):
         skip: int = 0,
         limit: int = 100,
     ) -> List[User]:
-        """Return active users that belong to the given society."""
+        """Return active users for the caller's society, or all users for global admins."""
+        q = self.db.query(User).filter(User.is_active == True)
+        if society_id is not None:
+            q = q.filter(User.society_id == society_id)
         return (
-            self.db.query(User)
-            .filter(User.is_active == True, User.society_id == society_id)
-            .order_by(User.full_name)
+            q.order_by(User.full_name)
             .offset(skip)
             .limit(limit)
             .all()

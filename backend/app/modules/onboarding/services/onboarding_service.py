@@ -62,19 +62,14 @@ ROLE_RBAC_GROUP = {
     "Tenant":                  "Resident",
 }
 
-# 9 default users created for every new society.
+# Four primary onboarding credentials returned to the new society admin.
 # Email pattern: {prefix}@{society_code_lowercase}.com
 # All share STANDARD_ONBOARDING_PASSWORD and must_change_password=True.
 DEFAULT_USER_CONFIGS = [
-    {"prefix": "admin",        "name_suffix": "Admin",                 "role": "Society Admin"},
-    {"prefix": "chairman",     "name_suffix": "Chairman",              "role": "Committee Chairman"},
-    {"prefix": "secretary",    "name_suffix": "Secretary",             "role": "Committee Secretary"},
-    {"prefix": "treasurer",    "name_suffix": "Treasurer",             "role": "Committee Treasurer"},
-    {"prefix": "committee",    "name_suffix": "Committee Member",      "role": "Committee Member"},
-    {"prefix": "security",     "name_suffix": "Security Supervisor",   "role": "Security Supervisor"},
-    {"prefix": "housekeeping", "name_suffix": "Housekeeping Supervisor","role": "Housekeeping Supervisor"},
-    {"prefix": "technical",    "name_suffix": "Technical Supervisor",  "role": "Technical Supervisor"},
-    {"prefix": "resident",     "name_suffix": "Resident",              "role": "Resident"},
+    {"prefix": "admin",     "name_suffix": "Admin",                 "role": "Society Admin"},
+    {"prefix": "chairman",  "name_suffix": "Chairman",              "role": "Committee Chairman"},
+    {"prefix": "secretary", "name_suffix": "Secretary",             "role": "Committee Secretary"},
+    {"prefix": "treasurer", "name_suffix": "Treasurer",             "role": "Committee Treasurer"},
 ]
 
 

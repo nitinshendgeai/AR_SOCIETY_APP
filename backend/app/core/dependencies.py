@@ -83,22 +83,26 @@ require_admin = require_roles(
     "Admin", "Society Admin", "Super Admin", "Platform Admin",
 )
 require_committee = require_roles(
-    "Admin", "Society Admin", "Super Admin", "Platform Admin",
-    "Committee Chairman", "Committee Secretary", "Committee Treasurer",
+    "Admin", "Committee", "Society Admin", "Super Admin", "Platform Admin",
+    "Committee Chairman", "Committee Secretary", "Committee Treasurer", "Committee Member",
 )
 require_resident = require_roles(
-    "Admin", "Society Admin", "Super Admin", "Platform Admin",
-    "Committee Chairman", "Committee Secretary", "Committee Treasurer",
-    "Resident", "Tenant",
+    "Admin", "Committee", "Resident", "Tenant", "Society Admin", "Super Admin", "Platform Admin",
+    "Committee Chairman", "Committee Secretary", "Committee Treasurer", "Committee Member",
+    "Security", "Security Supervisor", "Security Staff",
+    "Staff", "Housekeeping Supervisor", "Housekeeping Staff",
+    "Technical Supervisor", "Technical Staff",
 )
 require_security = require_roles(
-    "Admin", "Society Admin", "Super Admin", "Platform Admin",
+    "Admin", "Committee", "Security", "Society Admin", "Super Admin", "Platform Admin",
     "Security Supervisor", "Security Staff",
+    "Committee Chairman", "Committee Secretary", "Committee Treasurer", "Committee Member",
 )
 require_staff = require_roles(
-    "Admin", "Society Admin", "Super Admin", "Platform Admin",
+    "Admin", "Committee", "Staff", "Society Admin", "Super Admin", "Platform Admin",
     "Housekeeping Supervisor", "Housekeeping Staff",
     "Technical Supervisor", "Technical Staff",
+    "Committee Chairman", "Committee Secretary", "Committee Treasurer", "Committee Member",
 )
 
 
