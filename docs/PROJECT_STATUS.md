@@ -33,6 +33,7 @@ Last updated: 2026-06-06
 | Login screen | ✅ Done | |
 | Change password screen | ✅ Done | |
 | Role dashboards | ✅ Done | Admin, Committee, Resident, Security, Staff |
+| Dashboard redesign | ✅ Done | Replaced large tile menu with compact summary cards, operational widgets, quick actions, and drawer navigation |
 | Trial success screen | ✅ Done | Shows all 9 credentials, Copy All, Sign in as Admin |
 | Society self-registration | ✅ Done | |
 | Society Settings screen | ✅ Done | |

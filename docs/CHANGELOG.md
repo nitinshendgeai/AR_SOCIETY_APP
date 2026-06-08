@@ -44,6 +44,19 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-06-08
+
+### feat: redesign dashboard with operational summary cards
+
+- **File:** `mobile/lib/features/dashboard/role_dashboards.dart`
+- **Change:** Reworked the dashboard from large module tiles into a compact operational layout with:
+  - welcome card showing society name, user name, role, and current date
+  - responsive summary cards for occupancy, residents, staff, visitors, complaints, approvals, and notices
+  - operational panels for complaints, visitors, and staff duty
+  - compact quick actions for frequent tasks
+  - drawer-based navigation instead of menu-style landing tiles
+- **Impact:** Better mobile and web responsiveness, cleaner operational dashboard, and role-aware overview screens for admins, committee, security, and residents.
+
 ## Earlier (pre-2026-06-06)
 
 See git log: `git log --oneline` for full history of module builds (amenity, billing, complaint, inventory, notice, parking, staff, vendor, visitor, society structure, onboarding, auth).

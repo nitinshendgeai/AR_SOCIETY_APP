@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -m venv .venv)",
+      "Bash(\"/Users/sarthakshendge/Desktop/AR New App/test_venv/bin/python\" --version)",
+      "Bash(/Users/sarthakshendge/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12 -m venv .venv312)",
+      "Bash(flutter create *)",
+      "Bash(flutter pub *)",
+      "Bash(flutter analyze *)",
+      "Bash(curl -s -I -X OPTIONS https://arsocietyapp-production.up.railway.app/api/v1/public/register -H 'Origin: http://localhost:64531' -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: content-type')",
+      "Bash(curl -s -X POST https://arsocietyapp-production.up.railway.app/api/v1/public/register -H 'Content-Type: application/json' -H 'Origin: http://localhost:64531' -d '{ *)",
+      "Bash(curl -s \"https://arsocietyapp-production.up.railway.app/health\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' -X POST https://arsocietyapp-production.up.railway.app/api/v1/public/register -H 'Content-Type: application/json' -d '{\"society_name\":\"Test\",\"society_code\":\"TST01\",\"contact_person_name\":\"Test\",\"contact_email\":\"t@t.com\",\"contact_mobile\":\"9876543210\",\"city\":\"Mumbai\",\"state\":\"MH\",\"country\":\"India\",\"total_wings\":1,\"total_flats\":10,\"terms_accepted\":true}')",
+      "Bash(curl -s -o /dev/null -w 'HTTP %{http_code}: %{url_effective}\\\\n' -X POST https://arsocietyapp-production.up.railway.app/public/register -H 'Content-Type: application/json' -d '{\"society_name\":\"Test\",\"society_code\":\"TST01\",\"contact_person_name\":\"Test\",\"contact_email\":\"t@t.com\",\"contact_mobile\":\"9876543210\",\"city\":\"Mumbai\",\"state\":\"MH\",\"country\":\"India\",\"total_wings\":1,\"total_flats\":10,\"terms_accepted\":true}')",
+      "Bash(curl -s -o /dev/null -w 'HTTP %{http_code}: %{url_effective}\\\\n' https://arsocietyapp-production.up.railway.app/public/register)",
+      "Bash(curl -s -I -X POST https://arsocietyapp-production.up.railway.app/public/register -H 'Origin: http://localhost:64531' -H 'Content-Type: application/json')",
+      "Bash(curl -s -I -X OPTIONS https://arsocietyapp-production.up.railway.app/api/v1/public/register -H 'Origin: http://localhost:54321' -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: content-type')",
+      "Bash(curl -s -I -X OPTIONS https://arsocietyapp-production.up.railway.app/public/register -H 'Origin: http://localhost:54321' -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: content-type')",
+      "Bash(# Check actual Dio 5.x URL construction logic *)",
+      "Read(//Users/sarthakshendge/**)"
+    ]
+  }
+}

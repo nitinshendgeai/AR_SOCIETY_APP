@@ -16,9 +16,23 @@ class _DashboardShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final menuItems = <_MenuItem>[
+      _MenuItem('Users & Roles', Icons.people_rounded, AppRoutes.usersList),
+      _MenuItem('Society Settings', Icons.apartment_rounded, AppRoutes.societySettings),
+      _MenuItem('Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
+      _MenuItem('Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
+      _MenuItem('Staff', Icons.badge_rounded, AppRoutes.staffHome),
+      _MenuItem('Setup Wizard', Icons.checklist_rounded, AppRoutes.setupWizard),
+    ];
+
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.menu_rounded),
+          tooltip: 'Open menu',
+          onPressed: () => Scaffold.of(context).openDrawer(),
+        ),
         title: Text(title),
         centerTitle: false,
         actions: [
@@ -28,6 +42,28 @@ class _DashboardShell extends ConsumerWidget {
             onPressed: () => _confirmLogout(context, ref),
           ),
         ],
+      ),
+      drawer: Drawer(
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Text('Navigation', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              ),
+              const Divider(),
+              ...menuItems.map((item) => ListTile(
+                    leading: Icon(item.icon, color: AppTheme.primary),
+                    title: Text(item.label),
+                    onTap: () {
+                      Navigator.pop(context);
+                      if (item.route != null) context.push(item.route!);
+                    },
+                  )),
+            ],
+          ),
+        ),
       ),
       body: SafeArea(
         child: ListView(
@@ -62,6 +98,14 @@ class _DashboardShell extends ConsumerWidget {
 
 // ── Shared components ─────────────────────────────────────────────────────────
 
+class _MenuItem {
+  final String label;
+  final IconData icon;
+  final String? route;
+
+  const _MenuItem(this.label, this.icon, this.route);
+}
+
 class _GreetingCard extends StatelessWidget {
   final UserEntity? user;
   final String subtitle;
@@ -70,37 +114,46 @@ class _GreetingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final today = DateTime.now();
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [AppTheme.primary, AppTheme.primaryDark],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Hello, ${user?.fullName.split(' ').first ?? 'User'}!',
-            style: const TextStyle(
-                color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 4),
-          Text(subtitle,
-              style: TextStyle(
-                  color: Colors.white.withOpacity(0.85), fontSize: 13)),
+          Text('Welcome back', style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12)),
           const SizedBox(height: 2),
-          Text(user?.email ?? '',
-              style: TextStyle(
-                  color: Colors.white.withOpacity(0.6), fontSize: 12)),
+          Text(user?.fullName ?? 'Society User', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(subtitle, style: TextStyle(color: Colors.white.withOpacity(0.88), fontSize: 13)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _chip('Society Name', 'Airtel Society'),
+              _chip('Role', user?.roles.firstOrNull ?? 'Member'),
+              _chip('Date', '${today.day}/${today.month}/${today.year}'),
+            ],
+          ),
         ],
       ),
     );
   }
+
+  Widget _chip(String label, String value) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(color: Colors.white.withOpacity(0.12), borderRadius: BorderRadius.circular(999)),
+        child: Text('$label: $value', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+      );
 }
 
 class _SectionLabel extends StatelessWidget {
@@ -132,104 +185,79 @@ class _ActionItem {
   });
 }
 
-class _ModuleGrid extends StatelessWidget {
-  final List<_ActionItem> items;
-  const _ModuleGrid({required this.items});
+class _SummaryCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _SummaryCard({required this.icon, required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 1.15,
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.border),
       ),
-      itemCount: items.length,
-      itemBuilder: (context, i) {
-        final item = items[i];
-        final isDisabled = item.route == null;
-        return Opacity(
-          opacity: isDisabled ? 0.55 : 1.0,
-          child: GestureDetector(
-          onTap: isDisabled ? null : () => context.push(item.route!),
-          child: Stack(
-            children: [
-              Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.cardBg,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.border),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: item.color.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(item.icon, color: item.color, size: 20),
-                      ),
-                      if (item.badge != null) ...[
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.error,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(item.badge!,
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600)),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const Spacer(),
-                  Text(item.label,
-                      style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary)),
-                ],
-              ),
-            ),
-              if (isDisabled)
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.textSecondary.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text(
-                      'Soon',
-                      style: TextStyle(
-                          fontSize: 9,
-                          color: AppTheme.textSecondary,
-                          fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-            ],
-          ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Container(width: 36, height: 36, decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: color, size: 18)),
+            const Spacer(),
+            Icon(Icons.trending_up_rounded, color: color.withOpacity(0.8), size: 14),
+          ]),
+          const SizedBox(height: 10),
+          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+          const SizedBox(height: 2),
+          Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickActionChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String? route;
+
+  const _QuickActionChip({required this.icon, required this.label, this.route});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        onTap: route == null ? null : () => context.push(route!),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.border)),
+          child: Column(children: [Icon(icon, color: AppTheme.primary), const SizedBox(height: 6), Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textPrimary))]),
         ),
-        );
-      },
+      ),
+    );
+  }
+}
+
+class _OperationalPanel extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+  const _OperationalPanel({required this.title, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppTheme.border)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+        const SizedBox(height: 10),
+        ...children,
+      ]),
     );
   }
 }
@@ -408,61 +436,61 @@ class AdminDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
     return _DashboardShell(
-      title: 'Admin Dashboard',
+      title: 'Society Overview',
       children: [
-        _GreetingCard(user: user, subtitle: 'Administrator · Full Access'),
-        const SizedBox(height: 20),
-        // Trial status placeholder — rendered when trial data is passed via
-        // route or notifier. Shown only for trial accounts.
-        // In production, this would be fed from a trial-status provider.
-        const SizedBox(height: 0),
-        const _SectionLabel('Society Management'),
-        const SizedBox(height: 12),
-        const _ModuleGrid(items: [
-          _ActionItem(icon: Icons.people_rounded,
-              label: 'Users & Roles', color: AppTheme.primary,
-              route: AppRoutes.usersList),
-          _ActionItem(icon: Icons.apartment_rounded,
-              label: 'Society Settings', color: AppTheme.secondary,
-              route: AppRoutes.societySettings),
-          _ActionItem(icon: Icons.receipt_long_rounded,
-              label: 'Billing', color: AppTheme.success),
-          _ActionItem(icon: Icons.bar_chart_rounded,
-              label: 'Reports', color: AppTheme.warning),
+        _GreetingCard(user: user, subtitle: 'Society Admin · Operational dashboard'),
+        const SizedBox(height: 18),
+        const _SectionLabel('Summary'),
+        const SizedBox(height: 10),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.12,
+          children: const [
+            _SummaryCard(icon: Icons.apartment_rounded, label: 'Total Flats', value: '128', color: AppTheme.primary),
+            _SummaryCard(icon: Icons.home_rounded, label: 'Occupied Flats', value: '96', color: AppTheme.success),
+            _SummaryCard(icon: Icons.people_rounded, label: 'Residents', value: '324', color: AppTheme.secondary),
+            _SummaryCard(icon: Icons.badge_rounded, label: 'Active Staff', value: '24', color: AppTheme.warning),
+            _SummaryCard(icon: Icons.meeting_room_rounded, label: 'Visitors Today', value: '18', color: AppTheme.primary),
+            _SummaryCard(icon: Icons.report_problem_rounded, label: 'Open Complaints', value: '7', color: AppTheme.error),
+            _SummaryCard(icon: Icons.approval_rounded, label: 'Pending Approvals', value: '3', color: AppTheme.warning),
+            _SummaryCard(icon: Icons.campaign_rounded, label: 'Notice Count', value: '5', color: AppTheme.secondary),
+          ],
+        ),
+        const SizedBox(height: 18),
+        const _SectionLabel('Quick Actions'),
+        const SizedBox(height: 10),
+        Row(children: const [
+          _QuickActionChip(icon: Icons.person_add_rounded, label: 'Add Visitor', route: AppRoutes.visitorsCreate),
+          SizedBox(width: 8),
+          _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Create Complaint', route: AppRoutes.complaints),
+          SizedBox(width: 8),
+          _QuickActionChip(icon: Icons.badge_rounded, label: 'Add Staff', route: AppRoutes.staffHome),
+          SizedBox(width: 8),
+          _QuickActionChip(icon: Icons.campaign_rounded, label: 'Add Notice', route: AppRoutes.complaintsCreate),
         ]),
-        const SizedBox(height: 20),
-        const _SectionLabel('Society Structure'),
-        const SizedBox(height: 12),
-        const _ModuleGrid(items: [
-          _ActionItem(icon: Icons.domain_rounded,
-              label: 'Wings', color: AppTheme.secondary,
-              route: AppRoutes.wingsList),
-          _ActionItem(icon: Icons.door_front_door_rounded,
-              label: 'Flats', color: AppTheme.warning,
-              route: AppRoutes.flatsList),
-          _ActionItem(icon: Icons.checklist_rounded,
-              label: 'Setup Wizard', color: AppTheme.success,
-              route: AppRoutes.setupWizard),
-          _ActionItem(icon: Icons.layers_rounded,
-              label: 'Floors', color: AppTheme.primary,
-              route: AppRoutes.wingsList),
+        const SizedBox(height: 18),
+        _OperationalPanel(title: 'Recent Complaints', children: const [
+          _InfoTile(icon: Icons.receipt_long_rounded, title: 'CMP-1042', value: 'Water leakage · In progress', color: AppTheme.warning),
+          SizedBox(height: 8),
+          _InfoTile(icon: Icons.electric_bolt_rounded, title: 'CMP-1040', value: 'Power issue · Open', color: AppTheme.error),
         ]),
-        const SizedBox(height: 20),
-        const _SectionLabel('Operations'),
         const SizedBox(height: 12),
-        const _ModuleGrid(items: [
-          _ActionItem(icon: Icons.badge_rounded,
-              label: 'Staff', color: AppTheme.primary,
-              route: AppRoutes.staffHome),
-          _ActionItem(icon: Icons.meeting_room_rounded,
-              label: 'Visitors', color: AppTheme.secondary,
-              route: AppRoutes.visitorsMy),
-          _ActionItem(icon: Icons.inventory_2_rounded,
-              label: 'Inventory', color: AppTheme.warning),
-          _ActionItem(icon: Icons.campaign_rounded,
-              label: 'Notices', color: AppTheme.success),
+        _OperationalPanel(title: 'Today\'s Visitors', children: const [
+          _InfoTile(icon: Icons.person_rounded, title: 'Ravi Sharma', value: 'Flat A-204 · Approved', color: AppTheme.primary),
+          SizedBox(height: 8),
+          _InfoTile(icon: Icons.person_outline_rounded, title: 'Neha Verma', value: 'Flat B-110 · Checked In', color: AppTheme.success),
         ]),
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
+        _OperationalPanel(title: 'Staff On Duty', children: const [
+          _InfoTile(icon: Icons.badge_rounded, title: 'A. Khan', value: 'Security · Night Shift', color: AppTheme.secondary),
+          SizedBox(height: 8),
+          _InfoTile(icon: Icons.cleaning_services_rounded, title: 'M. Rao', value: 'Housekeeping · Morning Shift', color: AppTheme.warning),
+        ]),
+        const SizedBox(height: 18),
         _StatusBar(user: user),
       ],
     );
@@ -478,39 +506,45 @@ class CommitteeDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
     return _DashboardShell(
-      title: 'Committee Dashboard',
+      title: 'Chairman Dashboard',
       children: [
-        _GreetingCard(user: user, subtitle: 'Committee Member'),
-        const SizedBox(height: 20),
-        const _SectionLabel('Approvals & Governance'),
-        const SizedBox(height: 12),
-        const _ModuleGrid(items: [
-          _ActionItem(icon: Icons.approval_rounded,
-              label: 'Complaints', color: AppTheme.error,
-              route: AppRoutes.complaints),
-          _ActionItem(icon: Icons.campaign_rounded,
-              label: 'Notices', color: AppTheme.primary),
-          _ActionItem(icon: Icons.receipt_long_rounded,
-              label: 'Billing', color: AppTheme.success),
-          _ActionItem(icon: Icons.people_rounded,
-              label: 'Staff', color: AppTheme.warning,
-              route: AppRoutes.staffHome),
+        _GreetingCard(user: user, subtitle: 'Committee Chairman · Governance overview'),
+        const SizedBox(height: 18),
+        const _SectionLabel('Overview'),
+        const SizedBox(height: 10),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.12,
+          children: const [
+            _SummaryCard(icon: Icons.report_problem_rounded, label: 'Complaints', value: '7', color: AppTheme.error),
+            _SummaryCard(icon: Icons.campaign_rounded, label: 'Notices', value: '5', color: AppTheme.primary),
+            _SummaryCard(icon: Icons.approval_rounded, label: 'Approvals', value: '3', color: AppTheme.warning),
+            _SummaryCard(icon: Icons.people_rounded, label: 'Staff', value: '24', color: AppTheme.secondary),
+          ],
+        ),
+        const SizedBox(height: 18),
+        const _SectionLabel('Quick Actions'),
+        const SizedBox(height: 10),
+        Row(children: const [
+          _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: AppRoutes.complaints),
+          SizedBox(width: 8),
+          _QuickActionChip(icon: Icons.campaign_rounded, label: 'Updates', route: AppRoutes.societySettings),
+          SizedBox(width: 8),
+          _QuickActionChip(icon: Icons.people_rounded, label: 'Staff', route: AppRoutes.staffHome),
+          SizedBox(width: 8),
+          _QuickActionChip(icon: Icons.meeting_room_rounded, label: 'Visitors', route: AppRoutes.visitorsMy),
         ]),
-        const SizedBox(height: 20),
-        const _SectionLabel('Gate & Facility'),
-        const SizedBox(height: 12),
-        const _ModuleGrid(items: [
-          _ActionItem(icon: Icons.meeting_room_rounded,
-              label: 'Visitors', color: AppTheme.secondary,
-              route: AppRoutes.visitorsMy),
-          _ActionItem(icon: Icons.local_parking_rounded,
-              label: 'Parking', color: AppTheme.primary),
-          _ActionItem(icon: Icons.sports_tennis_rounded,
-              label: 'Amenities', color: AppTheme.success),
-          _ActionItem(icon: Icons.inventory_2_rounded,
-              label: 'Inventory', color: AppTheme.warning),
+        const SizedBox(height: 18),
+        _OperationalPanel(title: 'Open actions', children: const [
+          _InfoTile(icon: Icons.pending_actions_rounded, title: 'Pending approvals', value: '3 items need review', color: AppTheme.warning),
+          SizedBox(height: 8),
+          _InfoTile(icon: Icons.gpp_good_rounded, title: 'Society status', value: 'All core services running', color: AppTheme.success),
         ]),
-        const SizedBox(height: 20),
+        const SizedBox(height: 18),
         _StatusBar(user: user),
       ],
     );
@@ -526,51 +560,45 @@ class SecurityDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
     return _DashboardShell(
-      title: 'Security Dashboard',
+      title: 'Security Supervisor',
       children: [
-        _GreetingCard(user: user, subtitle: 'Security Officer · Gate Operations'),
-        const SizedBox(height: 20),
-        const _SectionLabel('Gate Operations'),
-        const SizedBox(height: 12),
-        const _ModuleGrid(items: [
-          _ActionItem(icon: Icons.person_add_rounded,
-              label: 'Log Visitor', color: AppTheme.primary,
-              route: AppRoutes.visitorsCreate),
-          _ActionItem(icon: Icons.login_rounded,
-              label: 'Check In', color: AppTheme.success,
-              route: AppRoutes.visitorsPending),
-          _ActionItem(icon: Icons.logout_rounded,
-              label: 'Check Out', color: AppTheme.warning,
-              route: AppRoutes.visitorsMy),
-          _ActionItem(icon: Icons.list_alt_rounded,
-              label: 'Visitor Log', color: AppTheme.secondary,
-              route: AppRoutes.visitorsMy),
-        ]),
-        const SizedBox(height: 20),
-        const _SectionLabel('Shift Management'),
-        const SizedBox(height: 12),
-        Row(
+        _GreetingCard(user: user, subtitle: 'Security Supervisor · Gate and visitor operations'),
+        const SizedBox(height: 18),
+        const _SectionLabel('Today'),
+        const SizedBox(height: 10),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.12,
           children: const [
-            Expanded(
-              child: _InfoTile(
-                icon: Icons.swap_horiz_rounded,
-                title: 'Handover',
-                value: 'Shift Takeover',
-                color: AppTheme.warning,
-              ),
-            ),
-            SizedBox(width: 12),
-            Expanded(
-              child: _InfoTile(
-                icon: Icons.local_parking_rounded,
-                title: 'Parking',
-                value: 'Gate Entry',
-                color: AppTheme.primary,
-              ),
-            ),
+            _SummaryCard(icon: Icons.people_rounded, label: 'Visitors Today', value: '18', color: AppTheme.primary),
+            _SummaryCard(icon: Icons.login_rounded, label: 'Check-ins', value: '12', color: AppTheme.success),
+            _SummaryCard(icon: Icons.local_parking_rounded, label: 'Parking Entries', value: '9', color: AppTheme.secondary),
+            _SummaryCard(icon: Icons.shield_rounded, label: 'Duty Status', value: 'On Duty', color: AppTheme.warning),
           ],
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 18),
+        const _SectionLabel('Quick Actions'),
+        const SizedBox(height: 10),
+        Row(children: const [
+          _QuickActionChip(icon: Icons.person_add_rounded, label: 'Log Visitor', route: AppRoutes.visitorsCreate),
+          SizedBox(width: 8),
+          _QuickActionChip(icon: Icons.login_rounded, label: 'Check In', route: AppRoutes.visitorsPending),
+          SizedBox(width: 8),
+          _QuickActionChip(icon: Icons.logout_rounded, label: 'Check Out', route: AppRoutes.visitorsMy),
+          SizedBox(width: 8),
+          _QuickActionChip(icon: Icons.list_alt_rounded, label: 'Visitor Log', route: AppRoutes.visitorsMy),
+        ]),
+        const SizedBox(height: 18),
+        _OperationalPanel(title: 'Shift Notes', children: const [
+          _InfoTile(icon: Icons.swap_horiz_rounded, title: 'Handover', value: 'Shift handover confirmed', color: AppTheme.warning),
+          SizedBox(height: 8),
+          _InfoTile(icon: Icons.gpp_good_rounded, title: 'Security status', value: 'All gates monitored', color: AppTheme.success),
+        ]),
+        const SizedBox(height: 18),
         _StatusBar(user: user),
       ],
     );
@@ -588,37 +616,43 @@ class ResidentDashboardScreen extends ConsumerWidget {
     return _DashboardShell(
       title: 'Resident Dashboard',
       children: [
-        _GreetingCard(user: user, subtitle: 'Resident'),
-        const SizedBox(height: 20),
-        const _SectionLabel('My Services'),
-        const SizedBox(height: 12),
-        const _ModuleGrid(items: [
-          _ActionItem(icon: Icons.report_problem_rounded,
-              label: 'Complaints', color: AppTheme.error,
-              route: AppRoutes.complaints),
-          _ActionItem(icon: Icons.campaign_rounded,
-              label: 'Notices', color: AppTheme.primary),
-          _ActionItem(icon: Icons.receipt_long_rounded,
-              label: 'My Bills', color: AppTheme.warning),
-          _ActionItem(icon: Icons.sports_tennis_rounded,
-              label: 'Amenities', color: AppTheme.success),
+        _GreetingCard(user: user, subtitle: 'Resident · Day-to-day services'),
+        const SizedBox(height: 18),
+        const _SectionLabel('Summary'),
+        const SizedBox(height: 10),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.12,
+          children: const [
+            _SummaryCard(icon: Icons.report_problem_rounded, label: 'Open Complaints', value: '2', color: AppTheme.error),
+            _SummaryCard(icon: Icons.campaign_rounded, label: 'Notices', value: '3', color: AppTheme.primary),
+            _SummaryCard(icon: Icons.receipt_long_rounded, label: 'Bills', value: '1 pending', color: AppTheme.warning),
+            _SummaryCard(icon: Icons.home_rounded, label: 'My Flat', value: 'A-204', color: AppTheme.success),
+          ],
+        ),
+        const SizedBox(height: 18),
+        const _SectionLabel('Quick Actions'),
+        const SizedBox(height: 10),
+        Row(children: const [
+          _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaint', route: AppRoutes.complaints),
+          SizedBox(width: 8),
+          _QuickActionChip(icon: Icons.campaign_rounded, label: 'Updates', route: AppRoutes.societySettings),
+          SizedBox(width: 8),
+          _QuickActionChip(icon: Icons.person_rounded, label: 'Visitors', route: AppRoutes.visitorsMy),
+          SizedBox(width: 8),
+          _QuickActionChip(icon: Icons.receipt_long_rounded, label: 'Settings', route: AppRoutes.societySettings),
         ]),
-        const SizedBox(height: 20),
-        const _SectionLabel('Visitors & Parking'),
-        const SizedBox(height: 12),
-        const _ModuleGrid(items: [
-          _ActionItem(icon: Icons.person_rounded,
-              label: 'My Visitors', color: AppTheme.secondary,
-              route: AppRoutes.visitorsMy),
-          _ActionItem(icon: Icons.pending_actions_rounded,
-              label: 'Pending Approvals', color: AppTheme.warning,
-              route: AppRoutes.visitorsPending),
-          _ActionItem(icon: Icons.local_parking_rounded,
-              label: 'My Parking', color: AppTheme.primary),
-          _ActionItem(icon: Icons.home_rounded,
-              label: 'My Flat', color: AppTheme.success),
+        const SizedBox(height: 18),
+        _OperationalPanel(title: 'Recent updates', children: const [
+          _InfoTile(icon: Icons.info_outline_rounded, title: 'Notice board', value: 'Community meeting scheduled', color: AppTheme.primary),
+          SizedBox(height: 8),
+          _InfoTile(icon: Icons.pending_actions_rounded, title: 'Pending approvals', value: 'Visitor entry approval', color: AppTheme.warning),
         ]),
-        const SizedBox(height: 20),
+        const SizedBox(height: 18),
         _StatusBar(user: user),
       ],
     );
