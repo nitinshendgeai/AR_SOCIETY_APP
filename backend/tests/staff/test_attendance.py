@@ -88,3 +88,39 @@ def test_duplicate_checkout_prevented(client, db):
     r = client.post(f"/api/v1/staff/attendance/{staff.id}/checkout",
                     json={}, headers=admin["headers"])
     assert r.status_code == 409
+
+
+def test_pending_attendance_approval_list_and_approve(client, db):
+    from app.modules.staff.models.staff import StaffAttendance, AttendanceStatus
+    from datetime import datetime, timedelta
+
+    admin = make_user(db, "adm6@att.com", role="Admin")
+    society = make_society(db, "Attendance Society 6")
+    staff = _make_staff(db, society.id, "Guard Six")
+
+    att = StaffAttendance(
+        society_id=society.id,
+        staff_id=staff.id,
+        attendance_date=date.today(),
+        status=AttendanceStatus.PRESENT,
+        check_in_time=datetime.utcnow() - timedelta(hours=7),
+        check_out_time=datetime.utcnow(),
+        working_hours=7.0,
+        notes="Awaiting approval",
+    )
+    db.add(att)
+    db.commit()
+    db.refresh(att)
+
+    pending = client.get(f"/api/v1/staff/attendance/pending/{society.id}", headers=admin["headers"])
+    assert pending.status_code == 200
+    assert any(item["id"] == str(att.id) for item in pending.json())
+
+    approved = client.post(
+        f"/api/v1/staff/attendance/{att.id}/approve",
+        json={"notes": "Approved by supervisor"},
+        headers=admin["headers"],
+    )
+    assert approved.status_code == 200
+    assert approved.json()["is_approved"] is True
+    assert approved.json()["approval_notes"] == "Approved by supervisor"

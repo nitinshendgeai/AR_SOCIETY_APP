@@ -74,6 +74,13 @@ class AttendanceRepository(BaseRepository[StaffAttendance]):
             StaffAttendance.society_id==sid, StaffAttendance.attendance_date==att_date
         ).all()
 
+    def get_pending(self, sid: UUID) -> List[StaffAttendance]:
+        return self.db.query(StaffAttendance).filter(
+            StaffAttendance.society_id==sid,
+            StaffAttendance.is_active==True,
+            StaffAttendance.is_approved==False,
+        ).order_by(StaffAttendance.attendance_date.desc()).all()
+
 
 class TaskRepository(BaseRepository[StaffTask]):
     def __init__(self, db): super().__init__(StaffTask, db)

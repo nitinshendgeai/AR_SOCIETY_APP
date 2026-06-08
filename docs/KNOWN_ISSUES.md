@@ -6,7 +6,12 @@ Last updated: 2026-06-06
 
 ## Active Issues
 
-_No known issues at this time._
+_No blocking issues at this time._
+
+## Recent Staff Workflow Update
+
+- Staff attendance approval endpoints are now available for supervisor/committee review.
+- The staff test suite covers pending approval retrieval and approval confirmation.
 
 ---
 

@@ -17,7 +17,7 @@ Last updated: 2026-06-06
 | Onboarding (self-register) | ✅ Done | 9 default users, trial 30-day, audit log |
 | Visitors | ✅ Done | create, list, approve, society-level |
 | Complaints | ✅ Done | create, list, detail, society-level |
-| Staff | ✅ Done | attendance, duties, handover |
+| Staff | ✅ Done | attendance, duties, handover, pending attendance approvals |
 | Amenities | ✅ Done | booking FSM |
 | Billing | ✅ Done | maintenance FSM |
 | Inventory | ✅ Done | |
@@ -44,7 +44,7 @@ Last updated: 2026-06-06
 | Flats list + form + detail | ✅ Done | |
 | Visitors | ✅ Done | |
 | Complaints | ✅ Done | |
-| Staff (attendance, duties, handover) | ✅ Done | |
+| Staff (attendance, duties, handover, approval workflow) | ✅ Done | Pending attendance approvals are now exposed via dedicated backend endpoints and tested in the staff suite |
 | Setup Wizard | ✅ Done | 5-step |
 
 ---

@@ -12,7 +12,7 @@ from app.modules.staff.models.staff import (
 from app.modules.staff.schemas.staff import (
     StaffCreate, StaffUpdate, DesignationCreate, ShiftCreate,
     DutyCreate, DutyVerifyRequest, AttendanceCheckIn, AttendanceCheckOut,
-    AttendanceManualEntry, TaskCreate, TaskStatusUpdate, WorkLogCreate,
+    AttendanceManualEntry, AttendanceApprovalRequest, TaskCreate, TaskStatusUpdate, WorkLogCreate,
     LeaveCreate, LeaveApproveRequest, LeaveRejectRequest,
 )
 from app.modules.staff.repositories.staff_repo import (
@@ -225,6 +225,29 @@ class StaffService:
 
     def get_daily_attendance(self, society_id: UUID, att_date: date) -> List[StaffAttendance]:
         return self.att_repo.get_by_society_date(society_id, att_date)
+
+    def get_pending_attendance(self, society_id: UUID) -> List[StaffAttendance]:
+        return self.att_repo.get_pending(society_id)
+
+    def approve_attendance(self, attendance_id: UUID, data: AttendanceApprovalRequest,
+                           user: User, request=None) -> StaffAttendance:
+        attendance = self.att_repo.get(attendance_id)
+        if not attendance:
+            raise HTTPException(status_code=404, detail="Attendance record not found")
+        if attendance.is_approved:
+            raise HTTPException(status_code=409, detail="Attendance record already approved")
+
+        attendance.is_approved = True
+        attendance.approved_by = user.id
+        attendance.approved_at = datetime.utcnow()
+        if data.notes:
+            attendance.approval_notes = data.notes
+
+        self._audit(AuditAction.APPROVE, attendance, "StaffAttendance", user, request,
+                    new_values={"approval_status": "approved"})
+        self.db.commit()
+        self.db.refresh(attendance)
+        return attendance
 
     # ── Tasks ─────────────────────────────────────────────────────────────────
 

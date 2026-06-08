@@ -213,6 +213,10 @@ class StaffAttendance(Base, TimestampMixin):
     working_hours    = Column(Float, nullable=True)     # computed on checkout
     overtime_hours   = Column(Float, nullable=True)     # payroll-ready
     is_manual_entry  = Column(Boolean, default=False)   # admin override flag
+    is_approved      = Column(Boolean, default=False, nullable=False, index=True)
+    approved_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    approved_at      = Column(DateTime, nullable=True)
+    approval_notes   = Column(Text, nullable=True)
     marked_by        = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     notes            = Column(Text, nullable=True)
 

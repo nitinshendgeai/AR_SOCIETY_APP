@@ -10,7 +10,7 @@ from app.models.user import User
 from app.modules.staff.schemas.staff import (
     StaffCreate, StaffUpdate, StaffOut, DesignationCreate, DesignationOut,
     ShiftCreate, ShiftOut, DutyCreate, DutyOut, DutyVerifyRequest,
-    AttendanceCheckIn, AttendanceCheckOut, AttendanceManualEntry, AttendanceOut,
+    AttendanceCheckIn, AttendanceCheckOut, AttendanceManualEntry, AttendanceApprovalRequest, AttendanceOut,
     TaskCreate, TaskOut, TaskStatusUpdate, WorkLogCreate,
     LeaveCreate, LeaveOut, LeaveApproveRequest, LeaveRejectRequest,
 )
@@ -145,6 +145,17 @@ def daily_attendance(society_id: UUID,
                      att_date: date = Query(..., description="YYYY-MM-DD"),
                      db: Session = Depends(get_db)):
     return StaffService(db).get_daily_attendance(society_id, att_date)
+
+@router.get("/attendance/pending/{society_id}", response_model=List[AttendanceOut],
+            dependencies=[Depends(admin_or_committee)])
+def pending_attendance(society_id: UUID, db: Session = Depends(get_db)):
+    return StaffService(db).get_pending_attendance(society_id)
+
+@router.post("/attendance/{attendance_id}/approve", response_model=AttendanceOut)
+def approve_attendance(attendance_id: UUID, data: AttendanceApprovalRequest,
+                      db: Session = Depends(get_db),
+                      user: User = Depends(admin_or_committee)):
+    return StaffService(db).approve_attendance(attendance_id, data, user)
 
 
 # ── Tasks ─────────────────────────────────────────────────────────────────────

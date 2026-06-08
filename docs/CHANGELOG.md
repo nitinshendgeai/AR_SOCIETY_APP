@@ -46,6 +46,12 @@ Format: `[YYYY-MM-DD] type: description`
 
 ## 2026-06-08
 
+### feat: implement staff attendance approval workflow
+
+- **Files:** `backend/app/modules/staff/routes/staff.py`, `backend/app/modules/staff/services/staff_service.py`, `backend/app/modules/staff/models/staff.py`, `backend/tests/staff/test_attendance.py`
+- **Change:** Added pending attendance approval listing plus supervisor/committee approval support for staff attendance records.
+- **Impact:** Completes the first operational approval step in the staff management workflow and adds regression coverage for the new path.
+
 ### feat: redesign dashboard with operational summary cards
 
 - **File:** `mobile/lib/features/dashboard/role_dashboards.dart`

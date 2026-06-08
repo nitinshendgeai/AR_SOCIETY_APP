@@ -92,11 +92,15 @@ class AttendanceManualEntry(OrmBase):
     check_out_time:  Optional[datetime] = None
     notes:           Optional[str]      = None
 
+class AttendanceApprovalRequest(OrmBase):
+    notes: Optional[str] = None
+
 class AttendanceOut(TimestampSchema):
     society_id: UUID; staff_id: UUID; attendance_date: date; status: AttendanceStatus
     check_in_time: Optional[datetime]; check_out_time: Optional[datetime]
     working_hours: Optional[float]; overtime_hours: Optional[float]
-    is_manual_entry: bool; notes: Optional[str]
+    is_manual_entry: bool; is_approved: bool; approval_notes: Optional[str]
+    approved_at: Optional[datetime]; notes: Optional[str]
 
 
 # ── Task ──────────────────────────────────────────────────────────────────────
