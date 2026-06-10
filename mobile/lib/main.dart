@@ -11,8 +11,10 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load environment variables
-  await dotenv.load(fileName: '.env');
+  // Load environment variables from bundled .env asset.
+  // Errors are silently swallowed — compile-time --dart-define values
+  // and hard-coded fallbacks in Env class cover production builds.
+  await dotenv.load(fileName: '.env').catchError((_) {});
 
   // Initialize Dio API client
   ApiClient.initialize();

@@ -44,6 +44,32 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-06-10 (Railway Frontend Deployment Prep)
+
+### docs: prepare railway frontend deployment
+
+**Flutter web build verified** — `flutter build web --release` and `flutter build web --release --dart-define=API_BASE_URL=... --dart-define=APP_ENV=production` both pass cleanly (Flutter 3.41.7).
+
+**New files**
+- `mobile/Dockerfile` — Multi-stage build: Flutter builder (ghcr.io/cirruslabs/flutter:stable) → Nginx 1.27 Alpine runtime
+- `mobile/nginx.conf` — SPA routing with gzip, asset caching, index.html fallback for GoRouter
+- `mobile/railway.json` — Railway service config for frontend (Docker builder, health check `/`)
+
+**Updated files**
+- `mobile/lib/core/config/env.dart` — Added `--dart-define` priority: compile-time constants checked first, `.env` fallback second, hard-coded fallback third
+- `mobile/lib/main.dart` — `.env` load wrapped in `catchError` — silent no-op if file missing (production builds bake URL via `--dart-define`)
+- `docs/DEPLOYMENT.md` — Full two-service Railway architecture, step-by-step deploy guide, local dev override instructions, troubleshooting
+
+**Architecture**
+```
+Service 1 — Backend: root / → Nixpacks → FastAPI
+Service 2 — Frontend: root /mobile → Docker → Flutter Web + Nginx
+```
+
+**Not yet deployed** — Railway service setup is manual (create new service, set root dir `/mobile`).
+
+---
+
 ## 2026-06-10 (RBAC Fix)
 
 ### fix: implement role hierarchy and society admin permissions
