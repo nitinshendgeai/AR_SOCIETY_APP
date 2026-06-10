@@ -5,7 +5,11 @@ from fastapi import APIRouter, Depends, Request, Query
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import (
+    get_current_user, require_roles,
+    require_admin_committee, require_manager_above,
+    require_supervisor_above, require_any_staff, require_any_member,
+)
 from app.models.user import User
 from app.modules.staff.schemas.staff import (
     StaffCreate, StaffUpdate, StaffOut, DesignationCreate, DesignationOut,
@@ -20,10 +24,10 @@ from app.modules.staff.services.staff_service import StaffService
 
 router = APIRouter(prefix="/staff", tags=["Staff Operations"])
 
-admin_or_committee = require_roles("Admin", "Committee")
-supervisor_above   = require_roles("Admin", "Committee", "Staff")
-any_auth           = require_roles("Admin", "Committee", "Staff", "Resident", "Security")
-manager_or_above   = require_roles("Admin", "Committee")
+admin_or_committee = require_admin_committee
+supervisor_above   = require_supervisor_above
+any_auth           = require_any_member
+manager_or_above   = require_manager_above
 
 
 # ── Designations ──────────────────────────────────────────────────────────────

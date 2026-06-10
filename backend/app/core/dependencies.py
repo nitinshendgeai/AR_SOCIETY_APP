@@ -75,35 +75,65 @@ def require_roles(*role_names: str):
     return _checker
 
 
-# Convenience role guards
-# These must match the actual role names stored in the DB (see EXTENDED_DEFAULT_ROLES
-# in onboarding_service.py).  The old names ("Admin", "Committee", etc.) were abstract
-# group labels that no user actually holds — Society Admin users have role "Society Admin".
-require_admin = require_roles(
-    "Admin", "Society Admin", "Super Admin", "Platform Admin",
+# ── Canonical role sets (match EXTENDED_DEFAULT_ROLES in onboarding_service.py) ──
+_ROLES_PLATFORM  = ("Platform Admin",)
+_ROLES_SOCIETY   = ("Society Admin",)
+_ROLES_COMMITTEE = (
+    "Committee Chairman", "Committee Secretary",
+    "Committee Treasurer", "Committee Member",
 )
-require_committee = require_roles(
-    "Admin", "Committee", "Society Admin", "Super Admin", "Platform Admin",
-    "Committee Chairman", "Committee Secretary", "Committee Treasurer", "Committee Member",
+_ROLES_MANAGER     = ("Manager",)
+_ROLES_SUPERVISORS = (
+    "Security Supervisor", "Housekeeping Supervisor", "Technical Supervisor",
 )
-require_resident = require_roles(
-    "Admin", "Committee", "Resident", "Tenant", "Society Admin", "Super Admin", "Platform Admin",
-    "Committee Chairman", "Committee Secretary", "Committee Treasurer", "Committee Member",
-    "Security", "Security Supervisor", "Security Staff",
-    "Staff", "Housekeeping Supervisor", "Housekeeping Staff",
-    "Technical Supervisor", "Technical Staff",
+_ROLES_STAFF = (
+    "Security Staff", "Housekeeping Staff", "Technical Staff", "Gym Trainer",
 )
+_ROLES_RESIDENTS = ("Resident", "Tenant")
+
+# ── Hierarchy guards (use these in all route files instead of local aliases) ──
+
+# Full society-level admin or platform admin
+require_admin = require_roles(*_ROLES_PLATFORM, *_ROLES_SOCIETY)
+
+# Admin + all committee roles (for management actions)
+require_admin_committee = require_roles(
+    *_ROLES_PLATFORM, *_ROLES_SOCIETY, *_ROLES_COMMITTEE,
+)
+
+# Manager and above (admin, committee, manager)
+require_manager_above = require_roles(
+    *_ROLES_PLATFORM, *_ROLES_SOCIETY, *_ROLES_COMMITTEE, *_ROLES_MANAGER,
+)
+
+# Supervisor and above
+require_supervisor_above = require_roles(
+    *_ROLES_PLATFORM, *_ROLES_SOCIETY, *_ROLES_COMMITTEE,
+    *_ROLES_MANAGER, *_ROLES_SUPERVISORS,
+)
+
+# Any staff member or above (supervisor+, manager+, admin+)
+require_any_staff = require_roles(
+    *_ROLES_PLATFORM, *_ROLES_SOCIETY, *_ROLES_COMMITTEE,
+    *_ROLES_MANAGER, *_ROLES_SUPERVISORS, *_ROLES_STAFF,
+)
+
+# Security-related roles and above
 require_security = require_roles(
-    "Admin", "Committee", "Security", "Society Admin", "Super Admin", "Platform Admin",
-    "Security Supervisor", "Security Staff",
-    "Committee Chairman", "Committee Secretary", "Committee Treasurer", "Committee Member",
+    *_ROLES_PLATFORM, *_ROLES_SOCIETY, *_ROLES_COMMITTEE,
+    *_ROLES_MANAGER, "Security Supervisor", "Security Staff",
 )
-require_staff = require_roles(
-    "Admin", "Committee", "Staff", "Society Admin", "Super Admin", "Platform Admin",
-    "Housekeeping Supervisor", "Housekeeping Staff",
-    "Technical Supervisor", "Technical Staff",
-    "Committee Chairman", "Committee Secretary", "Committee Treasurer", "Committee Member",
+
+# Any authenticated member (everyone)
+require_any_member = require_roles(
+    *_ROLES_PLATFORM, *_ROLES_SOCIETY, *_ROLES_COMMITTEE,
+    *_ROLES_MANAGER, *_ROLES_SUPERVISORS, *_ROLES_STAFF, *_ROLES_RESIDENTS,
 )
+
+# Backwards-compatible aliases (used by existing route imports)
+require_committee = require_admin_committee
+require_resident  = require_any_member
+require_staff     = require_any_staff
 
 
 def require_platform_admin(current_user: User = Depends(get_current_user)) -> User:

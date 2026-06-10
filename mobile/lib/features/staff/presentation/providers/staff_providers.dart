@@ -255,7 +255,8 @@ class StaffListLoaded   extends StaffListState {
 }
 class StaffListError    extends StaffListState {
   final String message;
-  StaffListError(this.message);
+  final int? statusCode;
+  StaffListError(this.message, {this.statusCode});
 }
 
 class StaffListNotifier extends StateNotifier<StaffListState> {
@@ -267,7 +268,7 @@ class StaffListNotifier extends StateNotifier<StaffListState> {
     final result = await _repo.listStaff(societyId, department: department);
     switch (result) {
       case StaffSuccess(:final data): state = StaffListLoaded(data);
-      case StaffFailure(:final message): state = StaffListError(message);
+      case StaffFailure(:final message, :final statusCode): state = StaffListError(message, statusCode: statusCode);
     }
   }
 }

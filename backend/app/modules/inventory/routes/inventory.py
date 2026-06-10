@@ -4,7 +4,10 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import (
+    get_current_user, require_roles,
+    require_admin_committee, require_supervisor_above, require_any_staff,
+)
 from app.models.user import User
 from app.modules.inventory.schemas.inventory import (
     CategoryCreate, CategoryOut, ItemCreate, ItemUpdate, ItemOut,
@@ -18,9 +21,9 @@ from app.modules.inventory.services.inventory_service import InventoryService
 
 router = APIRouter(prefix="/inventory", tags=["Inventory & Asset Management"])
 
-admin_or_committee = require_roles("Admin", "Committee")
-staff_above        = require_roles("Admin", "Committee", "Staff")
-any_auth           = require_roles("Admin", "Committee", "Staff", "Security")
+admin_or_committee = require_admin_committee
+staff_above        = require_supervisor_above
+any_auth           = require_any_staff
 
 
 # ── Categories ────────────────────────────────────────────────────────────────

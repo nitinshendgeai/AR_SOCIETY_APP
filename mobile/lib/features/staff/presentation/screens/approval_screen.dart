@@ -76,8 +76,21 @@ class _AttendanceApprovalScreenState extends ConsumerState<AttendanceApprovalScr
         ),
       ),
       body: switch (state) {
-        ApprovalLoading() => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
-        ApprovalError(:final message) => Center(child: AppErrorBanner(message: message)),
+        ApprovalLoading() || ApprovalInitial() => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+        ApprovalError(:final message) => Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppErrorBanner(message: message),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () => ref.read(approvalProvider.notifier).load(widget.societyId, department: widget.department),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
         ApprovalLoaded(:final pendingCheckin, :final pendingCheckout) => TabBarView(
           controller: _tab,
           children: [
@@ -95,7 +108,7 @@ class _AttendanceApprovalScreenState extends ConsumerState<AttendanceApprovalScr
             ),
           ],
         ),
-        _ => const SizedBox.shrink(),
+        _ => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
       },
     );
   }

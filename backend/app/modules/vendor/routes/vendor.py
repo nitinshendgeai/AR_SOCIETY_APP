@@ -7,7 +7,10 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from app.db.session import get_db
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import (
+    get_current_user, require_roles,
+    require_admin_committee, require_supervisor_above, require_any_member,
+)
 from app.models.user import User
 from app.modules.vendor.models.vendor import (
     VendorCategory, VendorStatus, ServiceFrequency,
@@ -18,9 +21,9 @@ from app.schemas.common import OrmBase
 
 router = APIRouter(prefix="/vendors", tags=["Vendor & AMC Management"])
 
-admin_committee = require_roles("Admin", "Committee")
-staff_above     = require_roles("Admin", "Committee", "Staff")
-any_member      = require_roles("Admin", "Committee", "Staff", "Resident", "Security")
+admin_committee = require_admin_committee
+staff_above     = require_supervisor_above
+any_member      = require_any_member
 
 
 # ── Inline schemas ────────────────────────────────────────────────────────────

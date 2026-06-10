@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import get_current_user, require_roles, require_admin_committee
 from app.models.user import User
 from app.services.society_service import SocietyService
 from app.modules.onboarding.schemas.onboarding import (
@@ -14,10 +14,7 @@ from app.modules.onboarding.services.onboarding_service import OnboardingService
 
 router = APIRouter(tags=["Onboarding & Trial"])
 
-admin_or_committee = require_roles(
-    "Admin", "Committee",
-    "Society Admin", "Committee Chairman", "Committee Secretary", "Committee Treasurer",
-)
+admin_or_committee = require_admin_committee
 
 
 # ── Public self-registration (no auth) ────────────────────────────────────────

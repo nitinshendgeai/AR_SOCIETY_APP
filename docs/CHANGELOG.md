@@ -44,6 +44,45 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-06-10 (RBAC Fix)
+
+### fix: implement role hierarchy and society admin permissions
+
+**Root Cause**
+Every module route file defined local role aliases using abstract names (`"Admin"`, `"Committee"`, `"Staff"`) that do not exist in the database. The actual DB roles are `"Society Admin"`, `"Committee Chairman"`, etc. This caused 403 Forbidden for Society Admin on all module endpoints.
+
+**Backend — `backend/app/core/dependencies.py`**
+- Added canonical role sets matching `EXTENDED_DEFAULT_ROLES` in onboarding:
+  `_ROLES_PLATFORM`, `_ROLES_SOCIETY`, `_ROLES_COMMITTEE`, `_ROLES_MANAGER`, `_ROLES_SUPERVISORS`, `_ROLES_STAFF`, `_ROLES_RESIDENTS`
+- Added hierarchy guards: `require_admin_committee`, `require_manager_above`, `require_supervisor_above`, `require_any_staff`, `require_security`, `require_any_member`
+- Kept backwards-compatible aliases: `require_committee`, `require_resident`, `require_staff`
+
+**Backend — All Module Routes (10 files updated)**
+Replaced broken local role aliases with imports from `dependencies.py`:
+- `staff/routes/staff.py` — `admin_or_committee`, `supervisor_above`, `any_auth`, `manager_or_above`
+- `staff/routes/handover.py` — `admin_committee`, `supervisor_above`, `any_staff`
+- `amenity/routes/amenity.py` — `committee_or_admin`, `any_member`
+- `notice/routes/notice.py` — `admin_committee`, `any_member`
+- `complaint/routes/complaint.py` — `staff_or_above`, `committee_or_admin`, `any_member`
+- `visitor/routes/visitor.py` — `security_or_admin`, `resident_or_above`, inline `require_roles()` calls
+- `inventory/routes/inventory.py` — `admin_or_committee`, `staff_above`, `any_auth`
+- `parking/routes/parking.py` — `admin_committee`, `security_above`, `any_member`
+- `billing/routes/billing.py` — `admin_committee`, `any_member`
+- `vendor/routes/vendor.py` — `admin_committee`, `staff_above`, `any_member`
+- `onboarding/routes/onboarding.py` — `admin_or_committee`
+- `api/routes/vehicle.py`, `occupancy.py`, `payroll_readiness.py`, `workload.py`
+
+**Flutter — Improved State Handling**
+- `StaffListError` now carries `statusCode` field
+- `StaffListScreen`: 403 → shows `_AccessDeniedWidget` (lock icon, "Access Denied" message, Retry button); `_ initial` → shows spinner instead of blank
+- `AttendanceApprovalScreen`: `ApprovalInitial` and `ApprovalError` now show visible UI; Retry button added
+
+**Validation**
+- Society Admin: no more 403 on Staff, Attendance, Duty, Visitors, Complaints, Inventory, Parking, Billing, Vendor, Amenity, Notice
+- Multi-tenant isolation unchanged — all queries still filter by `society_id`
+
+---
+
 ## 2026-06-10 (Staff Master)
 
 ### feat: implement staff master and reporting hierarchy

@@ -145,9 +145,24 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
           Expanded(
             child: switch (state) {
               StaffListLoading() => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
-              StaffListError(:final message) => Center(child: AppErrorBanner(message: message)),
+              StaffListError(:final message, :final statusCode) when statusCode == 403 =>
+                _AccessDeniedWidget(onRetry: _load),
+              StaffListError(:final message) => Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppErrorBanner(message: message),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: _load,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
               StaffListLoaded(:final staff) => _buildList(staff, societyId),
-              _ => const SizedBox.shrink(),
+              _ => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
             },
           ),
         ],
@@ -281,6 +296,50 @@ class _StaffCard extends ConsumerWidget {
                   ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AccessDeniedWidget extends StatelessWidget {
+  final VoidCallback? onRetry;
+  const _AccessDeniedWidget({this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: AppTheme.error.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(Icons.lock_outline_rounded, color: AppTheme.error, size: 36),
+            ),
+            const SizedBox(height: 16),
+            const Text('Access Denied', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+            const SizedBox(height: 8),
+            const Text(
+              'You do not have permission to view staff records. Contact your Society Admin.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+            ),
+            if (onRetry != null) ...[
+              const SizedBox(height: 20),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Try again'),
+              ),
+            ],
           ],
         ),
       ),

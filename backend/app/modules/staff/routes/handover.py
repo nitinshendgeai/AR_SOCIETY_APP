@@ -6,7 +6,10 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from app.db.session import get_db
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import (
+    get_current_user, require_roles,
+    require_admin_committee, require_supervisor_above, require_any_staff,
+)
 from app.models.user import User
 from app.modules.staff.models.handover import HandoverItemType, HandoverStatus
 from app.modules.staff.services.handover_service import HandoverService
@@ -14,9 +17,9 @@ from app.schemas.common import OrmBase, TimestampSchema
 
 router = APIRouter(prefix="/handovers", tags=["Shift Handover / Takeover"])
 
-admin_committee  = require_roles("Admin", "Committee")
-supervisor_above = require_roles("Admin", "Committee", "Staff")
-any_staff        = require_roles("Admin", "Committee", "Staff", "Security")
+admin_committee  = require_admin_committee
+supervisor_above = require_supervisor_above
+any_staff        = require_any_staff
 
 
 # ── Inline schemas ────────────────────────────────────────────────────────────

@@ -4,7 +4,10 @@ from fastapi import APIRouter, Depends, Request, Query
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import (
+    get_current_user, require_roles,
+    require_admin_committee, require_security, require_any_member,
+)
 from app.models.user import User
 from app.modules.parking.schemas.parking import (
     ZoneCreate, ZoneOut, FloorCreate, FloorOut,
@@ -19,9 +22,9 @@ from app.modules.parking.services.parking_service import ParkingService
 
 router = APIRouter(prefix="/parking", tags=["Parking Management"])
 
-admin_committee = require_roles("Admin", "Committee")
-security_above  = require_roles("Admin", "Committee", "Security")
-any_member      = require_roles("Admin", "Committee", "Resident", "Staff", "Security")
+admin_committee = require_admin_committee
+security_above  = require_security
+any_member      = require_any_member
 
 
 # ── Zones ─────────────────────────────────────────────────────────────────────

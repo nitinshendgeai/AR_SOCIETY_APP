@@ -1,5 +1,8 @@
 # Staff Management — Workflow and Approval Matrix
 
+> **RBAC Fix (2026-06-10):** Society Admin now has full access to all staff APIs. The prior 403 errors were caused by local role aliases using abstract group names ("Admin", "Committee") that don't match actual DB roles ("Society Admin", "Committee Chairman", etc.). This is fixed in `backend/app/core/dependencies.py`.
+
+
 Last updated: 2026-06-10
 
 ---
