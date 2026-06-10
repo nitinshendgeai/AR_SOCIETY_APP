@@ -3,8 +3,10 @@ FROM ghcr.io/cirruslabs/flutter:stable AS builder
 
 WORKDIR /app
 
-# Copy dependency files first for layer caching
-COPY pubspec.yaml pubspec.lock ./
+# Copy pubspec.yaml first for layer caching.
+# pubspec.lock is in .gitignore (*.lock pattern) so it is never in the
+# build context — flutter pub get regenerates it from pubspec.yaml constraints.
+COPY pubspec.yaml ./
 RUN flutter pub get --no-example
 
 # Copy source
