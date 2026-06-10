@@ -10,6 +10,9 @@ class UserEntity {
   final String? phone;
   final String? profileImage;
   final bool mustChangePassword;
+  final bool termsAccepted;
+  final bool setupCompleted;
+  final String? societyId;
 
   const UserEntity({
     required this.id,
@@ -19,6 +22,9 @@ class UserEntity {
     this.phone,
     this.profileImage,
     this.mustChangePassword = false,
+    this.termsAccepted = false,
+    this.setupCompleted = false,
+    this.societyId,
   });
 
   // ── Role helpers ───────────────────────────────────────────────────────────
@@ -28,10 +34,14 @@ class UserEntity {
       roles.contains(AppConstants.roleSuperAdmin) ||
       roles.contains(AppConstants.roleSocietyAdmin);
 
-  bool get isCommittee => roles.contains(AppConstants.roleCommittee);
+  bool get isCommittee => roles.contains(AppConstants.roleCommittee) ||
+      roles.any((r) => r.startsWith('Committee'));
+
   bool get isResident => roles.contains(AppConstants.roleResident);
-  bool get isSecurity => roles.contains(AppConstants.roleSecurity);
-  bool get isStaff => roles.contains(AppConstants.roleStaff);
+  bool get isSecurity => roles.contains(AppConstants.roleSecurity) ||
+      roles.any((r) => r.contains('Security'));
+  bool get isStaff => roles.contains(AppConstants.roleStaff) ||
+      roles.any((r) => r.contains('Staff') || r.contains('Supervisor'));
 
   bool get isAdminOrCommittee => isAdmin || isCommittee;
 
@@ -69,6 +79,9 @@ class UserEntity {
     String? phone,
     String? profileImage,
     bool? mustChangePassword,
+    bool? termsAccepted,
+    bool? setupCompleted,
+    String? societyId,
   }) {
     return UserEntity(
       id: id ?? this.id,
@@ -78,9 +91,12 @@ class UserEntity {
       phone: phone ?? this.phone,
       profileImage: profileImage ?? this.profileImage,
       mustChangePassword: mustChangePassword ?? this.mustChangePassword,
+      termsAccepted: termsAccepted ?? this.termsAccepted,
+      setupCompleted: setupCompleted ?? this.setupCompleted,
+      societyId: societyId ?? this.societyId,
     );
   }
 
   @override
-  String toString() => 'UserEntity($email, roles: $roles)';
+  String toString() => 'UserEntity($email, roles: $roles, societyId: $societyId)';
 }

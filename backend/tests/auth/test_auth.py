@@ -71,7 +71,13 @@ def test_me_with_valid_token(client, db):
     u = make_user(db, "me@test.com")
     r = client.get("/api/v1/auth/me", headers=u["headers"])
     assert r.status_code == 200
-    assert r.json()["email"] == "me@test.com"
+    data = r.json()
+    assert data["email"] == "me@test.com"
+    # from_orm_with_roles must populate roles (not empty list)
+    assert "roles" in data
+    assert "Resident" in data["roles"]
+    # society_id key must be present (null is OK for users without a society)
+    assert "society_id" in data
 
 
 def test_me_no_token(client):

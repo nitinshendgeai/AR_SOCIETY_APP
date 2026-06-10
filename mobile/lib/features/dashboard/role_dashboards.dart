@@ -5,6 +5,7 @@ import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:ar_society_app/features/onboarding/presentation/providers/trial_status_provider.dart';
 
 // ── Shared scaffold wrapper ───────────────────────────────────────────────────
 
@@ -435,11 +436,34 @@ class AdminDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
+    final societyId = user?.societyId;
+
+    Widget trialBanner = const SizedBox.shrink();
+    if (societyId != null) {
+      final trialAsync = ref.watch(trialStatusProvider(societyId));
+      trialBanner = trialAsync.when(
+        data: (trial) => trial.isTrial || trial.trialExpired
+            ? Column(children: [
+                _TrialStatusWidget(
+                  daysRemaining: trial.trialDaysRemaining,
+                  isExpired: trial.trialExpired,
+                  isWarning: trial.expiryWarning,
+                  isCritical: trial.expiryCritical,
+                ),
+                const SizedBox(height: 16),
+              ])
+            : const SizedBox.shrink(),
+        loading: () => const SizedBox.shrink(),
+        error: (_, __) => const SizedBox.shrink(),
+      );
+    }
+
     return _DashboardShell(
       title: 'Society Overview',
       children: [
         _GreetingCard(user: user, subtitle: 'Society Admin · Operational dashboard'),
         const SizedBox(height: 18),
+        trialBanner,
         const _SectionLabel('Summary'),
         const SizedBox(height: 10),
         GridView.count(
