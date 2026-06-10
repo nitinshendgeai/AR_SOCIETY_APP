@@ -196,7 +196,10 @@ Statuses (complaint module): `open → assigned → in_progress → resolved →
 | HandoverScreen | /staff/handover/:id | Staff |
 | AttendanceApprovalScreen | /staff/approvals | Supervisor, Manager |
 | DutyAssignScreen | /staff/assign-duty | Supervisor, Manager |
-| StaffListScreen | /staff/list | Supervisor, Manager |
+| StaffListScreen | /staff/list | Admin, Committee, Manager, Supervisor |
+| StaffDetailScreen | /staff/:staffId/detail | Admin, Committee, Manager |
+| StaffAddScreen | /staff/add | Admin, Committee |
+| StaffEditScreen | /staff/:staffId/edit | Admin, Committee |
 | ManagerDashboardScreen | /manager | Manager |
 | SupervisorDashboardScreen | /supervisor | Security Supervisor, Housekeeping Supervisor |
 
@@ -251,9 +254,10 @@ Adds:
 
 | Feature | Status |
 |---------|--------|
-| Staff CRUD | ✅ Complete |
+| Staff CRUD (create/read/update) | ✅ Complete |
 | Employee Code auto-generation | ✅ Complete |
 | Department/Designation management | ✅ Complete |
+| designation_name + reporting_manager_name in StaffOut | ✅ Complete |
 | TECHNICAL + GYM departments | ✅ Complete (migration d1e2f3a4b5c6) |
 | Reporting Manager FK | ✅ Complete (migration d1e2f3a4b5c6) |
 | Punch-In with pending approval | ✅ Complete |
@@ -275,7 +279,10 @@ Adds:
 | Flutter: Handover screen | ✅ Complete |
 | Flutter: Attendance Approval screen | ✅ Complete |
 | Flutter: Duty Assign screen | ✅ Complete |
-| Flutter: Staff List screen | ✅ Complete |
+| Flutter: Staff List screen (search, filter, FAB, tappable cards) | ✅ Complete |
+| Flutter: Staff Detail screen | ✅ Complete |
+| Flutter: Add Staff screen (full form with designation/shift/manager dropdowns) | ✅ Complete |
+| Flutter: Edit Staff screen (update all fields + deactivate) | ✅ Complete |
 | Flutter: StaffHome (supervisor actions) | ✅ Complete |
 | Flutter: Manager Dashboard | ✅ Complete |
 | Flutter: Supervisor Dashboard | ✅ Complete |

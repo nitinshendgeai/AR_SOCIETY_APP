@@ -8,20 +8,6 @@ class StaffRemoteDataSource {
   final Dio _dio;
   StaffRemoteDataSource({Dio? dio}) : _dio = dio ?? ApiClient.instance;
 
-  // ── Staff ──────────────────────────────────────────────────────────────────
-
-  /// GET /staff/{staff_id}
-  Future<StaffModel> getStaff(String staffId) async {
-    final r = await _dio.get('/staff/$staffId');
-    return StaffModel.fromJson(r.data as Map<String, dynamic>);
-  }
-
-  /// GET /staff/by-user/{user_id}
-  Future<StaffModel> getStaffByUser(String userId) async {
-    final r = await _dio.get('/staff/by-user/$userId');
-    return StaffModel.fromJson(r.data as Map<String, dynamic>);
-  }
-
   // ── Attendance ─────────────────────────────────────────────────────────────
 
   /// POST /staff/attendance/{staff_id}/checkin
@@ -105,7 +91,19 @@ class StaffRemoteDataSource {
     return r.data as Map<String, dynamic>;
   }
 
-  // ── Staff List ────────────────────────────────────────────────────────────
+  // ── Staff CRUD ────────────────────────────────────────────────────────────
+
+  /// GET /staff/{staff_id}
+  Future<StaffModel> getStaff(String staffId) async {
+    final r = await _dio.get('/staff/$staffId');
+    return StaffModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// GET /staff/by-user/{user_id}
+  Future<StaffModel> getStaffByUser(String userId) async {
+    final r = await _dio.get('/staff/by-user/$userId');
+    return StaffModel.fromJson(r.data as Map<String, dynamic>);
+  }
 
   /// GET /staff/society/{society_id}
   Future<List<StaffModel>> listStaff(String societyId, {String? department}) async {
@@ -115,6 +113,38 @@ class StaffRemoteDataSource {
     );
     return (r.data as List)
         .map((e) => StaffModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// POST /staff/
+  Future<StaffModel> createStaff(Map<String, dynamic> data) async {
+    final r = await _dio.post('/staff/', data: data);
+    return StaffModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// PATCH /staff/{staff_id}
+  Future<StaffModel> updateStaff(String staffId, Map<String, dynamic> data) async {
+    final r = await _dio.patch('/staff/$staffId', data: data);
+    return StaffModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  // ── Designations ─────────────────────────────────────────────────────────
+
+  /// GET /staff/designations/{society_id}
+  Future<List<DesignationModel>> listDesignations(String societyId) async {
+    final r = await _dio.get('/staff/designations/$societyId');
+    return (r.data as List)
+        .map((e) => DesignationModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  // ── Shifts ────────────────────────────────────────────────────────────────
+
+  /// GET /staff/shifts/{society_id}
+  Future<List<ShiftModel>> listShifts(String societyId) async {
+    final r = await _dio.get('/staff/shifts/$societyId');
+    return (r.data as List)
+        .map((e) => ShiftModel.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 

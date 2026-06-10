@@ -15,6 +15,10 @@ import 'package:ar_society_app/features/staff/presentation/screens/handover_scre
 import 'package:ar_society_app/features/staff/presentation/screens/approval_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/duty_assign_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_list_screen.dart';
+import 'package:ar_society_app/features/staff/presentation/screens/staff_add_screen.dart';
+import 'package:ar_society_app/features/staff/presentation/screens/staff_detail_screen.dart';
+import 'package:ar_society_app/features/staff/presentation/screens/staff_edit_screen.dart';
+import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/auth/presentation/screens/change_password_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/visitor/presentation/screens/visitor_list_screen.dart';
@@ -60,6 +64,9 @@ class AppRoutes {
   static const staffApprovals     = '/staff/approvals';
   static const staffAssignDuty    = '/staff/assign-duty';
   static const staffList          = '/staff/list';
+  static const staffAdd           = '/staff/add';
+  static const staffDetail        = '/staff/:staffId/detail';
+  static const staffEdit          = '/staff/:staffId/edit';
   static const managerHome        = '/manager';
   static const supervisorHome     = '/supervisor';
   // Visitor routes
@@ -240,6 +247,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, state) {
           final dept = state.uri.queryParameters['department'];
           return StaffListScreen(filterDepartment: dept);
+        },
+      ),
+      // Staff Master CRUD — literal /add before parameterised /:staffId/*
+      GoRoute(
+        path: AppRoutes.staffAdd,
+        builder: (_, __) => const StaffAddScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.staffDetail,
+        builder: (_, state) {
+          final staff = state.extra as StaffEntity;
+          return StaffDetailScreen(staff: staff);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.staffEdit,
+        builder: (_, state) {
+          final staff = state.extra as StaffEntity;
+          return StaffEditScreen(staff: staff);
         },
       ),
       GoRoute(

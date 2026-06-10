@@ -44,6 +44,31 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-06-10 (Staff Master)
+
+### feat: implement staff master and reporting hierarchy
+
+**Backend**
+- Added `designation_name` and `reporting_manager_name` as `@property` on `Staff` ORM model (reads from loaded relationships)
+- Added `designation_name: Optional[str] = None` and `reporting_manager_name: Optional[str] = None` to `StaffOut` schema — these are now returned in every staff API response
+
+**Flutter — New Screens**
+- `StaffAddScreen` (`/staff/add`) — full form: full name, mobile, email, department (dropdown), designation (filtered by dept), shift, joining date picker, reporting manager dropdown; calls `POST /staff/`
+- `StaffDetailScreen` (`/staff/:staffId/detail`) — read-only record view with employment, reporting, and contact sections; Edit button navigates to edit screen
+- `StaffEditScreen` (`/staff/:staffId/edit`) — pre-filled edit form for all fields including status and deactivate shortcut; calls `PATCH /staff/{id}`
+
+**Flutter — Updated**
+- `StaffListScreen` — added FAB (Add Staff → `/staff/add`); cards are now tappable → detail screen; cards show `designationName` and `reportingManagerName` inline
+- `StaffEntity` — added `designationId`, `designationName`, `reportingManagerName`
+- `StaffModel.fromJson` — parses `designation_id`, `designation_name`, `reporting_manager_name` from API
+- Added `DesignationEntity`, `ShiftEntity`, `DesignationModel`, `ShiftModel`
+- `StaffRemoteDataSource` — added `createStaff`, `updateStaff`, `listDesignations`, `listShifts`; removed duplicate `getStaff`/`getStaffByUser` stubs
+- `StaffRepository` — added `createStaff`, `updateStaff`, `listDesignations`, `listShifts`
+- `staff_providers.dart` — added `designationsProvider`, `shiftsProvider`, `StaffFormNotifier`, `staffFormProvider`
+- `app_router.dart` — added routes `/staff/add`, `/staff/:staffId/detail`, `/staff/:staffId/edit`; added route constants `staffAdd`, `staffDetail`, `staffEdit`
+
+---
+
 ## 2026-06-10
 
 ### feat: complete staff management workflow and approval hierarchy

@@ -1,3 +1,43 @@
+// ── Designation entity ────────────────────────────────────────────────────────
+
+class DesignationEntity {
+  final String id;
+  final String societyId;
+  final String name;
+  final String department;
+  final String? description;
+
+  const DesignationEntity({
+    required this.id,
+    required this.societyId,
+    required this.name,
+    required this.department,
+    this.description,
+  });
+}
+
+// ── Shift entity ──────────────────────────────────────────────────────────────
+
+class ShiftEntity {
+  final String id;
+  final String societyId;
+  final String name;
+  final String shiftType;
+  final String startTime;
+  final String endTime;
+  final bool isOvernight;
+
+  const ShiftEntity({
+    required this.id,
+    required this.societyId,
+    required this.name,
+    required this.shiftType,
+    required this.startTime,
+    required this.endTime,
+    this.isOvernight = false,
+  });
+}
+
 // ── Staff entity ──────────────────────────────────────────────────────────────
 
 class StaffEntity {
@@ -13,6 +53,9 @@ class StaffEntity {
   final String? reportingManagerId;
   final String? email;
   final String? joiningDate;
+  final String? designationId;
+  final String? designationName;
+  final String? reportingManagerName;
 
   const StaffEntity({
     required this.id,
@@ -27,6 +70,9 @@ class StaffEntity {
     this.reportingManagerId,
     this.email,
     this.joiningDate,
+    this.designationId,
+    this.designationName,
+    this.reportingManagerName,
   });
 
   String get departmentLabel {

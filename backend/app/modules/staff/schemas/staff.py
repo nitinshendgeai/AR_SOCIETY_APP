@@ -62,6 +62,8 @@ class StaffOut(TimestampSchema):
     status:        StaffStatus; joining_date: Optional[date]
     emergency_contact_name: Optional[str]; base_salary: Optional[float]
     reporting_manager_id: Optional[UUID] = None
+    designation_name: Optional[str] = None
+    reporting_manager_name: Optional[str] = None
 
 
 # ── Duty ──────────────────────────────────────────────────────────────────────

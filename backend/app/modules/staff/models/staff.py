@@ -170,6 +170,14 @@ class Staff(Base, TimestampMixin):
     leaves          = relationship("StaffLeave", back_populates="staff", cascade="all, delete-orphan")
     work_logs       = relationship("StaffWorkLog", back_populates="staff", cascade="all, delete-orphan")
 
+    @property
+    def designation_name(self) -> str | None:
+        return self.designation_rel.name if self.designation_rel else None
+
+    @property
+    def reporting_manager_name(self) -> str | None:
+        return self.reporting_manager.full_name if self.reporting_manager else None
+
     def __repr__(self):
         return f"<Staff {self.employee_code} {self.full_name}>"
 

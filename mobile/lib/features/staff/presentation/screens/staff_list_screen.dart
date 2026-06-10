@@ -8,8 +8,7 @@ import 'package:ar_society_app/features/staff/presentation/providers/staff_provi
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
-/// Staff list screen for supervisors and managers.
-/// Shows staff filtered by department with quick actions.
+/// Staff master list — shows all staff with search, filter, add, and detail navigation.
 class StaffListScreen extends ConsumerStatefulWidget {
   final String? filterDepartment;
   const StaffListScreen({super.key, this.filterDepartment});
@@ -64,12 +63,18 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
       appBar: AppBar(
         title: const Text('Staff'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _load,
-          ),
+          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
         ],
       ),
+      floatingActionButton: societyId != null
+          ? FloatingActionButton.extended(
+              onPressed: () => context.push('/staff/add'),
+              backgroundColor: AppTheme.primary,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.person_add_rounded),
+              label: const Text('Add Staff'),
+            )
+          : null,
       body: Column(
         children: [
           // Search + filter bar
@@ -194,43 +199,52 @@ class _StaffCard extends ConsumerWidget {
       case 'active':    return AppTheme.success;
       case 'on_leave':  return AppTheme.warning;
       case 'inactive':  return AppTheme.textSecondary;
+      case 'terminated':return AppTheme.error;
       default:          return AppTheme.primary;
     }
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+    return GestureDetector(
+      onTap: () => context.push('/staff/${staff.id}/detail', extra: staff),
+      child: AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.person_rounded, color: AppTheme.primary, size: 22),
                 ),
-                child: const Icon(Icons.person_rounded, color: AppTheme.primary, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(staff.fullName,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.textPrimary)),
-                    Text('${staff.employeeCode} · ${staff.departmentLabel}',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                  ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(staff.fullName,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.textPrimary)),
+                      Text(
+                        '${staff.employeeCode} · ${staff.departmentLabel}',
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      ),
+                      if (staff.designationName != null)
+                        Text(
+                          staff.designationName!,
+                          style: const TextStyle(fontSize: 11, color: AppTheme.primary, fontWeight: FontWeight.w500),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              _StatusBadge(status: staff.status, color: _statusColor(staff.status)),
-            ],
-          ),
-          if (staff.mobile.isNotEmpty) ...[
+                _StatusBadge(status: staff.status, color: _statusColor(staff.status)),
+              ],
+            ),
             const SizedBox(height: 10),
             const Divider(height: 1, color: AppTheme.border),
             const SizedBox(height: 10),
@@ -238,10 +252,20 @@ class _StaffCard extends ConsumerWidget {
               children: [
                 const Icon(Icons.phone_rounded, size: 14, color: AppTheme.textSecondary),
                 const SizedBox(width: 6),
-                Text(staff.mobile,
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                const Spacer(),
-                // Quick action: assign duty
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(staff.mobile,
+                          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      if (staff.reportingManagerName != null)
+                        Text(
+                          'Reports to: ${staff.reportingManagerName}',
+                          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                        ),
+                    ],
+                  ),
+                ),
                 if (societyId != null)
                   TextButton.icon(
                     onPressed: () => context.push(
@@ -258,7 +282,7 @@ class _StaffCard extends ConsumerWidget {
               ],
             ),
           ],
-        ],
+        ),
       ),
     );
   }

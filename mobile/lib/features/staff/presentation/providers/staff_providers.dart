@@ -339,6 +339,72 @@ final approvalProvider = StateNotifierProvider<ApprovalNotifier, ApprovalState>(
   return ApprovalNotifier(ref.read(staffRepositoryProvider));
 });
 
+// ── Designations provider ─────────────────────────────────────────────────────
+
+final designationsProvider = FutureProvider.family<List<DesignationEntity>, String>((ref, societyId) async {
+  final repo = ref.read(staffRepositoryProvider);
+  final result = await repo.listDesignations(societyId);
+  return switch (result) {
+    StaffSuccess(:final data) => data,
+    StaffFailure() => <DesignationEntity>[],
+  };
+});
+
+// ── Shifts provider ───────────────────────────────────────────────────────────
+
+final shiftsProvider = FutureProvider.family<List<ShiftEntity>, String>((ref, societyId) async {
+  final repo = ref.read(staffRepositoryProvider);
+  final result = await repo.listShifts(societyId);
+  return switch (result) {
+    StaffSuccess(:final data) => data,
+    StaffFailure() => <ShiftEntity>[],
+  };
+});
+
+// ── Staff form state (create / edit) ─────────────────────────────────────────
+
+sealed class StaffFormState {}
+class StaffFormInitial extends StaffFormState {}
+class StaffFormLoading extends StaffFormState {}
+class StaffFormSuccess extends StaffFormState {
+  final StaffEntity staff;
+  final String message;
+  StaffFormSuccess(this.staff, this.message);
+}
+class StaffFormError extends StaffFormState {
+  final String message;
+  StaffFormError(this.message);
+}
+
+class StaffFormNotifier extends StateNotifier<StaffFormState> {
+  final StaffRepository _repo;
+  StaffFormNotifier(this._repo) : super(StaffFormInitial());
+
+  Future<void> create(Map<String, dynamic> data) async {
+    state = StaffFormLoading();
+    final result = await _repo.createStaff(data);
+    state = switch (result) {
+      StaffSuccess(:final data) => StaffFormSuccess(data, 'Staff created successfully'),
+      StaffFailure(:final message) => StaffFormError(message),
+    };
+  }
+
+  Future<void> update(String staffId, Map<String, dynamic> data) async {
+    state = StaffFormLoading();
+    final result = await _repo.updateStaff(staffId, data);
+    state = switch (result) {
+      StaffSuccess(:final data) => StaffFormSuccess(data, 'Staff updated successfully'),
+      StaffFailure(:final message) => StaffFormError(message),
+    };
+  }
+
+  void reset() => state = StaffFormInitial();
+}
+
+final staffFormProvider = StateNotifierProvider<StaffFormNotifier, StaffFormState>((ref) {
+  return StaffFormNotifier(ref.read(staffRepositoryProvider));
+});
+
 // ── Duty assignment state ─────────────────────────────────────────────────────
 
 sealed class DutyAssignState {}

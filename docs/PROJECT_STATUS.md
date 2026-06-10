@@ -44,7 +44,7 @@ Last updated: 2026-06-10
 | Flats list + form + detail | ✅ Done | |
 | Visitors | ✅ Done | |
 | Complaints | ✅ Done | |
-| Staff (complete module) | ✅ Done | Punch-in/out approval, supervisor-scoped filters, duty assignment, complaint assignment, Manager Dashboard, Supervisor Dashboard, Staff List, Approval screen |
+| Staff (complete module) | ✅ Done | Staff Master (List/Add/Edit/Detail), Punch-in/out approval hierarchy, supervisor-scoped filters, duty assignment, complaint assignment, Manager Dashboard, Supervisor Dashboard |
 | Setup Wizard | ✅ Done | 5-step |
 
 ---

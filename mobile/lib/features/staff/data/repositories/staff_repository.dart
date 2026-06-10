@@ -38,7 +38,7 @@ class StaffRepository {
     return StaffFailure('Unexpected error: $e');
   }
 
-  // ── Staff ──────────────────────────────────────────────────────────────────
+  // ── Staff CRUD ─────────────────────────────────────────────────────────────
 
   Future<StaffResult<StaffEntity>> getStaff(String staffId) async {
     try {
@@ -54,11 +54,39 @@ class StaffRepository {
     } catch (e) { return _handle(e); }
   }
 
-  // ── Staff list ─────────────────────────────────────────────────────────────
-
   Future<StaffResult<List<StaffEntity>>> listStaff(String societyId, {String? department}) async {
     try {
       final list = await _ds.listStaff(societyId, department: department);
+      return StaffSuccess(list.map((m) => m.toEntity()).toList());
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<StaffEntity>> createStaff(Map<String, dynamic> data) async {
+    try {
+      final m = await _ds.createStaff(data);
+      return StaffSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<StaffEntity>> updateStaff(String staffId, Map<String, dynamic> data) async {
+    try {
+      final m = await _ds.updateStaff(staffId, data);
+      return StaffSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
+  // ── Designations & Shifts ──────────────────────────────────────────────────
+
+  Future<StaffResult<List<DesignationEntity>>> listDesignations(String societyId) async {
+    try {
+      final list = await _ds.listDesignations(societyId);
+      return StaffSuccess(list.map((m) => m.toEntity()).toList());
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<List<ShiftEntity>>> listShifts(String societyId) async {
+    try {
+      final list = await _ds.listShifts(societyId);
       return StaffSuccess(list.map((m) => m.toEntity()).toList());
     } catch (e) { return _handle(e); }
   }
