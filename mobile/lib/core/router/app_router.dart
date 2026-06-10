@@ -20,6 +20,7 @@ import 'package:ar_society_app/features/complaint/presentation/screens/complaint
 import 'package:ar_society_app/features/complaint/presentation/screens/create_complaint_screen.dart';
 import 'package:ar_society_app/features/onboarding/presentation/screens/register_society_screen.dart';
 import 'package:ar_society_app/features/onboarding/presentation/screens/trial_success_screen.dart';
+import 'package:ar_society_app/features/onboarding/presentation/screens/setup_wizard_screen.dart';
 import 'package:ar_society_app/features/onboarding/domain/registration_result.dart';
 import 'package:ar_society_app/features/users/data/models/user_admin_models.dart';
 import 'package:ar_society_app/features/users/presentation/screens/user_list_screen.dart';
@@ -36,7 +37,7 @@ import 'package:ar_society_app/features/society_structure/presentation/screens/f
 import 'package:ar_society_app/features/society_structure/presentation/screens/flat_list_screen.dart';
 import 'package:ar_society_app/features/society_structure/presentation/screens/flat_form_screen.dart';
 import 'package:ar_society_app/features/society_structure/presentation/screens/flat_detail_screen.dart';
-import 'package:ar_society_app/features/society_structure/presentation/screens/setup_wizard_screen.dart';
+import 'package:ar_society_app/features/society_structure/presentation/screens/setup_wizard_screen.dart' as structure_wizard;
 
 class AppRoutes {
   static const splash             = '/';
@@ -59,6 +60,7 @@ class AppRoutes {
   // Onboarding routes
   static const registerSociety    = '/register';
   static const trialSuccess       = '/trial-success';
+  static const setupWizard        = '/setup-wizard';
   // Complaint routes
   static const complaints         = '/complaints';
   static const complaintsCreate   = '/complaints/create';
@@ -81,7 +83,7 @@ class AppRoutes {
   static const flatsByWing        = '/wings/:wingId/flats';
   static const flatDetail         = '/flats/detail';
   static const flatForm           = '/flats/form';
-  static const setupWizard        = '/setup-wizard';
+  static const structureWizard    = '/structure-wizard';
 }
 
 // ── Router notifier ───────────────────────────────────────────────────────────
@@ -123,10 +125,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final authState = ref.read(authProvider);
       final path      = state.matchedLocation;
 
-      final isAuthenticated = authState is AuthAuthenticated;
+      final isAuthenticated     = authState is AuthAuthenticated;
       final isOnSplash          = path == AppRoutes.splash;
       final isOnLogin           = path == AppRoutes.login;
       final isOnChangePassword  = path == AppRoutes.changePassword;
+      final isOnSetupWizard     = path == AppRoutes.setupWizard;
       final isPublicRoute       = path == AppRoutes.registerSociety ||
                                   path == AppRoutes.trialSuccess;
 
@@ -160,14 +163,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             'roles=${user.roles} primaryRole=${user.primaryRole} '
             'mustChangePassword=${user.mustChangePassword}');
 
-        // Force password change before anything else
+        // 1. Force password change before anything else.
         if (user.mustChangePassword && !isOnChangePassword) {
           debugPrint('[ROUTE_REDIRECT] → must change password');
           return AppRoutes.changePassword;
         }
-        // Already changed password — redirect away from auth screens
-        if (!user.mustChangePassword &&
-            (isOnLogin || isOnSplash || isOnChangePassword)) {
+
+        // 2. After password change, require terms acceptance via setup wizard.
+        if (!user.mustChangePassword && !user.termsAccepted && !isOnSetupWizard) {
+          debugPrint('[ROUTE_REDIRECT] → terms not accepted, → setup wizard');
+          return AppRoutes.setupWizard;
+        }
+
+        // 3. Once setup is complete, redirect away from auth/setup screens.
+        if (!user.mustChangePassword && user.termsAccepted &&
+            (isOnLogin || isOnSplash || isOnChangePassword || isOnSetupWizard)) {
           final home = _roleHome(ref);
           debugPrint('[ROUTE_REDIRECT] → role home: $home');
           return home;
@@ -261,7 +271,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           complaintId: state.pathParameters['complaintId']!,
         ),
       ),
-      // Onboarding routes (no auth required)
+      // Onboarding wizard (auth-gated; redirect target for new users)
+      GoRoute(
+        path: AppRoutes.setupWizard,
+        builder: (_, __) => const SetupWizardScreen(),
+      ),
       GoRoute(
         path: AppRoutes.registerSociety,
         builder: (_, __) => const RegisterSocietyScreen(),
@@ -363,10 +377,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
-      // Setup Wizard
+      // Society Structure wizard (wings/floors/flats setup)
       GoRoute(
-        path: AppRoutes.setupWizard,
-        builder: (_, __) => const SetupWizardScreen(),
+        path: AppRoutes.structureWizard,
+        builder: (_, __) => const structure_wizard.SetupWizardScreen(),
       ),
     ],
     errorBuilder: (context, state) =>

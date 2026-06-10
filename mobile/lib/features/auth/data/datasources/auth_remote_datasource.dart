@@ -54,4 +54,9 @@ class AuthRemoteDataSource {
       'new_password': newPassword,
     });
   }
+
+  /// POST /auth/accept-terms
+  Future<void> acceptTerms() async {
+    await _dio.post('/auth/accept-terms', data: {'terms_accepted': true});
+  }
 }

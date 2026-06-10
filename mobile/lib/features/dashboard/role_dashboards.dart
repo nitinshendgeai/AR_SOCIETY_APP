@@ -23,7 +23,7 @@ class _DashboardShell extends ConsumerWidget {
       _MenuItem('Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
       _MenuItem('Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
       _MenuItem('Staff', Icons.badge_rounded, AppRoutes.staffHome),
-      _MenuItem('Setup Wizard', Icons.checklist_rounded, AppRoutes.setupWizard),
+      _MenuItem('Setup Wizard', Icons.checklist_rounded, AppRoutes.structureWizard),
     ];
 
     return Scaffold(
