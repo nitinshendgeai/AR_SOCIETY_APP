@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from pydantic import field_validator
 
 from app.db.session import get_db
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import get_current_user, require_roles, require_admin_committee, require_any_member
 from app.models.user import User
 from app.models.vehicle import Vehicle, VehicleType
 from app.models.audit_log import AuditAction
@@ -14,8 +14,8 @@ from app.schemas.common import OrmBase, TimestampSchema
 
 router = APIRouter(prefix="/vehicles", tags=["Vehicle Master"])
 
-committee_or_admin = require_roles("Admin", "Committee")
-any_member         = require_roles("Admin", "Committee", "Resident", "Staff", "Security")
+committee_or_admin = require_admin_committee
+any_member         = require_any_member
 
 
 class VehicleCreate(OrmBase):

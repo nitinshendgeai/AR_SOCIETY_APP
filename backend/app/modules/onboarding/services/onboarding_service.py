@@ -256,7 +256,6 @@ class OnboardingService:
                 must_change_password = True,
                 terms_accepted       = False,
                 setup_completed      = False,
-                society_id           = society.id,
             )
             self.db.add(user)
             self.db.flush()

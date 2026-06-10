@@ -1,17 +1,59 @@
 # Known Issues — AR Society ERP
 
-Last updated: 2026-06-06
+Last updated: 2026-06-10
 
 ---
 
 ## Active Issues
 
-_No blocking issues at this time._
+### [KNOWN GAP] Dashboard summary cards show hardcoded values
 
-## Recent Staff Workflow Update
+Admin, Committee, and Security dashboards show static values (e.g. "128 flats", "24 staff") instead of live data from the API. Live data queries are pending for a future iteration.
 
-- Staff attendance approval endpoints are now available for supervisor/committee review.
-- The staff test suite covers pending approval retrieval and approval confirmation.
+---
+
+### [KNOWN GAP] Staff approval routing is role-convention, not enforced by FK
+
+The supervisor-scoped attendance approval endpoint (`GET /staff/attendance/pending/supervisor/{society_id}?department=security`) relies on the calling user passing their own department — the backend does not re-derive the department from the authenticated token. A future improvement should extract department from the user's staff record and enforce it server-side.
+
+### [KNOWN GAP] Complaint-to-department assignment does not auto-notify
+
+When a manager assigns a complaint to a department via `POST /staff/complaints/assign-department`, the assigned supervisor receives no push notification. Notification infrastructure would be needed to close this gap.
+
+### [KNOWN GAP] Manager/Supervisor dashboard approval counts are live-fetched per load
+
+`approvalProvider` in `ManagerDashboardScreen` and `SupervisorDashboardScreen` makes individual API calls per session load. Consider WebSocket or SSE for real-time count updates in a future iteration.
+
+## Recent Staff Workflow Update (2026-06-10)
+
+Full staff hierarchy approval system implemented:
+- Punch-in and punch-out approval with two-phase workflow
+- Supervisor-scoped attendance filtering by department
+- TECHNICAL and GYM departments added to enum
+- Reporting Manager FK on staff records
+- Complaint → department assignment by manager
+- Manager Dashboard and Supervisor Dashboard screens in Flutter
+- AttendanceApprovalScreen, DutyAssignScreen, StaffListScreen added
+
+---
+
+---
+
+### [FIXED 2026-06-10] Society Admin receives 403 on all module APIs
+
+**Symptom:** Staff Portal, Visitors, Complaints, and other modules showed blank screens or 403 errors when logged in as Society Admin.
+
+**Root cause:** Every module route file (`staff.py`, `amenity.py`, `complaint.py`, etc.) defined local role aliases using abstract role names (`"Admin"`, `"Committee"`) that do not exist in the database. The actual roles stored are `"Society Admin"`, `"Committee Chairman"`, etc.
+
+**Fix:**  
+- Added canonical role sets and named guards to `backend/app/core/dependencies.py`:
+  `require_admin_committee`, `require_manager_above`, `require_supervisor_above`, `require_any_staff`, `require_any_member`
+- Updated all 10 module route files to import and use the canonical guards instead of local broken aliases.
+- All guards explicitly include `"Society Admin"` and `"Platform Admin"`.
+
+**Affected files:** `dependencies.py` + all module route files.
+
+**Validation:** Society Admin can now access Staff, Attendance, Duty Assignment, Visitors, Complaints, Inventory, Parking, Billing, Vendor, Amenity, Notice, and Users & Roles without 403 errors.
 
 ---
 

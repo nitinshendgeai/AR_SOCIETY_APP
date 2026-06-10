@@ -8,20 +8,6 @@ class StaffRemoteDataSource {
   final Dio _dio;
   StaffRemoteDataSource({Dio? dio}) : _dio = dio ?? ApiClient.instance;
 
-  // ── Staff ──────────────────────────────────────────────────────────────────
-
-  /// GET /staff/{staff_id}
-  Future<StaffModel> getStaff(String staffId) async {
-    final r = await _dio.get('/staff/$staffId');
-    return StaffModel.fromJson(r.data as Map<String, dynamic>);
-  }
-
-  /// GET /staff/by-user/{user_id}
-  Future<StaffModel> getStaffByUser(String userId) async {
-    final r = await _dio.get('/staff/by-user/$userId');
-    return StaffModel.fromJson(r.data as Map<String, dynamic>);
-  }
-
   // ── Attendance ─────────────────────────────────────────────────────────────
 
   /// POST /staff/attendance/{staff_id}/checkin
@@ -55,6 +41,164 @@ class StaffRemoteDataSource {
     return (r.data as List)
         .map((e) => AttendanceModel.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  // ── Attendance Approval (supervisor/manager) ────────────────────────────────
+
+  /// GET /staff/attendance/pending/supervisor/{society_id}
+  Future<List<AttendanceModel>> getPendingAttendance(String societyId, {String? department}) async {
+    final r = await _dio.get(
+      '/staff/attendance/pending/supervisor/$societyId',
+      queryParameters: department != null ? {'department': department} : null,
+    );
+    return (r.data as List)
+        .map((e) => AttendanceModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// GET /staff/attendance/pending-checkout/{society_id}
+  Future<List<AttendanceModel>> getPendingCheckout(String societyId, {String? department}) async {
+    final r = await _dio.get(
+      '/staff/attendance/pending-checkout/$societyId',
+      queryParameters: department != null ? {'department': department} : null,
+    );
+    return (r.data as List)
+        .map((e) => AttendanceModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// POST /staff/attendance/{attendance_id}/approve
+  Future<AttendanceModel> approveAttendance(String attendanceId, {String? notes}) async {
+    final r = await _dio.post(
+      '/staff/attendance/$attendanceId/approve',
+      data: {'notes': notes},
+    );
+    return AttendanceModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// POST /staff/attendance/{attendance_id}/approve-checkout
+  Future<AttendanceModel> approveCheckout(String attendanceId, {String? notes}) async {
+    final r = await _dio.post(
+      '/staff/attendance/$attendanceId/approve-checkout',
+      data: {'notes': notes},
+    );
+    return AttendanceModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// GET /staff/society/{society_id}/summary?att_date=
+  Future<Map<String, dynamic>> getAttendanceSummary(String societyId, String date) async {
+    final r = await _dio.get('/staff/society/$societyId/summary', queryParameters: {'att_date': date});
+    return r.data as Map<String, dynamic>;
+  }
+
+  // ── Staff CRUD ────────────────────────────────────────────────────────────
+
+  /// GET /staff/{staff_id}
+  Future<StaffModel> getStaff(String staffId) async {
+    final r = await _dio.get('/staff/$staffId');
+    return StaffModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// GET /staff/by-user/{user_id}
+  Future<StaffModel> getStaffByUser(String userId) async {
+    final r = await _dio.get('/staff/by-user/$userId');
+    return StaffModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// GET /staff/society/{society_id}
+  Future<List<StaffModel>> listStaff(String societyId, {String? department}) async {
+    final r = await _dio.get(
+      '/staff/society/$societyId',
+      queryParameters: department != null ? {'department': department} : null,
+    );
+    return (r.data as List)
+        .map((e) => StaffModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// POST /staff/
+  Future<StaffModel> createStaff(Map<String, dynamic> data) async {
+    final r = await _dio.post('/staff/', data: data);
+    return StaffModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// PATCH /staff/{staff_id}
+  Future<StaffModel> updateStaff(String staffId, Map<String, dynamic> data) async {
+    final r = await _dio.patch('/staff/$staffId', data: data);
+    return StaffModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  // ── Designations ─────────────────────────────────────────────────────────
+
+  /// GET /staff/designations/{society_id}
+  Future<List<DesignationModel>> listDesignations(String societyId) async {
+    final r = await _dio.get('/staff/designations/$societyId');
+    return (r.data as List)
+        .map((e) => DesignationModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  // ── Shifts ────────────────────────────────────────────────────────────────
+
+  /// GET /staff/shifts/{society_id}
+  Future<List<ShiftModel>> listShifts(String societyId) async {
+    final r = await _dio.get('/staff/shifts/$societyId');
+    return (r.data as List)
+        .map((e) => ShiftModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  // ── Duties ─────────────────────────────────────────────────────────────────
+
+  /// POST /staff/duties — assign a duty to staff
+  Future<DutyModel> assignDuty({
+    required String staffId,
+    required String societyId,
+    required String dutyName,
+    required String dutyDate,
+    String? description,
+    String? location,
+    String? startTime,
+    String? endTime,
+  }) async {
+    final r = await _dio.post('/staff/duties', data: {
+      'staff_id': staffId,
+      'society_id': societyId,
+      'duty_name': dutyName,
+      'duty_date': dutyDate,
+      if (description != null) 'description': description,
+      if (location != null) 'location': location,
+      if (startTime != null) 'start_time': startTime,
+      if (endTime != null) 'end_time': endTime,
+    });
+    return DutyModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// GET /staff/duties/society/{society_id}?duty_date=
+  Future<List<DutyModel>> getDailyDuties(String societyId, String date) async {
+    final r = await _dio.get(
+      '/staff/duties/society/$societyId',
+      queryParameters: {'duty_date': date},
+    );
+    return (r.data as List)
+        .map((e) => DutyModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  // ── Complaint Assignment ───────────────────────────────────────────────────
+
+  /// POST /staff/complaints/assign-department
+  Future<Map<String, dynamic>> assignComplaintToDepartment({
+    required String complaintId,
+    required String department,
+    String? notes,
+  }) async {
+    final r = await _dio.post('/staff/complaints/assign-department', data: {
+      'complaint_id': complaintId,
+      'department': department,
+      if (notes != null) 'notes': notes,
+    });
+    return r.data as Map<String, dynamic>;
   }
 
   // ── Duties ─────────────────────────────────────────────────────────────────

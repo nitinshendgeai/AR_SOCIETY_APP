@@ -4,7 +4,10 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import (
+    get_current_user, require_roles,
+    require_admin_committee, require_supervisor_above, require_any_member,
+)
 from app.models.user import User
 from app.modules.complaint.schemas.complaint import (
     ComplaintCreate, ComplaintOut, ComplaintListOut,
@@ -16,9 +19,9 @@ from app.modules.complaint.services.complaint_service import ComplaintService
 
 router = APIRouter(prefix="/complaints", tags=["Complaint Management"])
 
-staff_or_above     = require_roles("Admin", "Committee", "Staff")
-committee_or_admin = require_roles("Admin", "Committee")
-any_member         = require_roles("Admin", "Committee", "Resident", "Staff", "Security")
+staff_or_above     = require_supervisor_above
+committee_or_admin = require_admin_committee
+any_member         = require_any_member
 
 
 # ── CRUD ──────────────────────────────────────────────────────────────────────

@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from app.db.session import get_db
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import get_current_user, require_roles, require_admin_committee, require_any_member
 from app.models.user import User
 from app.services.occupancy_service import OccupancyService
 from app.schemas.common import OrmBase, TimestampSchema
@@ -16,8 +16,8 @@ from app.models.agreement_tracker import AgreementStatus
 
 router = APIRouter(prefix="/occupancy", tags=["Occupancy & Agreement Tracking"])
 
-committee_or_admin = require_roles("Admin", "Committee")
-any_member         = require_roles("Admin", "Committee", "Resident")
+committee_or_admin = require_admin_committee
+any_member         = require_any_member
 
 
 class MoveInRequest(OrmBase):

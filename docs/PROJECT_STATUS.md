@@ -1,6 +1,6 @@
 # Project Status — AR Society ERP
 
-Last updated: 2026-06-06
+Last updated: 2026-06-10
 
 ---
 
@@ -17,7 +17,7 @@ Last updated: 2026-06-06
 | Onboarding (self-register) | ✅ Done | 9 default users, trial 30-day, audit log |
 | Visitors | ✅ Done | create, list, approve, society-level |
 | Complaints | ✅ Done | create, list, detail, society-level |
-| Staff | ✅ Done | attendance, duties, handover, pending attendance approvals |
+| Staff | ✅ Done | attendance, duties, handover, punch-in/punch-out approval hierarchy, checkout approval, supervisor-scoped endpoints, attendance summary, complaint→dept assignment, reporting_manager_id |
 | Amenities | ✅ Done | booking FSM |
 | Billing | ✅ Done | maintenance FSM |
 | Inventory | ✅ Done | |
@@ -32,7 +32,7 @@ Last updated: 2026-06-06
 | Auth flow | ✅ Done | GoRouter stable, web storage fix |
 | Login screen | ✅ Done | |
 | Change password screen | ✅ Done | |
-| Role dashboards | ✅ Done | Admin, Committee, Resident, Security, Staff |
+| Role dashboards | ✅ Done | Admin, Committee, Resident, Security, Staff, Manager, Supervisor |
 | Dashboard redesign | ✅ Done | Replaced large tile menu with compact summary cards, operational widgets, quick actions, and drawer navigation |
 | Trial success screen | ✅ Done | Shows all 9 credentials, Copy All, Sign in as Admin |
 | Society self-registration | ✅ Done | |
@@ -44,7 +44,7 @@ Last updated: 2026-06-06
 | Flats list + form + detail | ✅ Done | |
 | Visitors | ✅ Done | |
 | Complaints | ✅ Done | |
-| Staff (attendance, duties, handover, approval workflow) | ✅ Done | Pending attendance approvals are now exposed via dedicated backend endpoints and tested in the staff suite |
+| Staff (complete module) | ✅ Done | Staff Master (List/Add/Edit/Detail), Punch-in/out approval hierarchy, supervisor-scoped filters, duty assignment, complaint assignment, Manager Dashboard, Supervisor Dashboard |
 | Setup Wizard | ✅ Done | 5-step |
 
 ---

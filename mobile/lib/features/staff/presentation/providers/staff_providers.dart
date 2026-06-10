@@ -243,3 +243,206 @@ class HandoverNotifier extends StateNotifier<HandoverState> {
 final handoverProvider = StateNotifierProvider<HandoverNotifier, HandoverState>((ref) {
   return HandoverNotifier(ref.read(staffRepositoryProvider));
 });
+
+// ── Staff list state ──────────────────────────────────────────────────────────
+
+sealed class StaffListState {}
+class StaffListInitial extends StaffListState {}
+class StaffListLoading  extends StaffListState {}
+class StaffListLoaded   extends StaffListState {
+  final List<StaffEntity> staff;
+  StaffListLoaded(this.staff);
+}
+class StaffListError    extends StaffListState {
+  final String message;
+  final int? statusCode;
+  StaffListError(this.message, {this.statusCode});
+}
+
+class StaffListNotifier extends StateNotifier<StaffListState> {
+  final StaffRepository _repo;
+  StaffListNotifier(this._repo) : super(StaffListInitial());
+
+  Future<void> load(String societyId, {String? department}) async {
+    state = StaffListLoading();
+    final result = await _repo.listStaff(societyId, department: department);
+    switch (result) {
+      case StaffSuccess(:final data): state = StaffListLoaded(data);
+      case StaffFailure(:final message, :final statusCode): state = StaffListError(message, statusCode: statusCode);
+    }
+  }
+}
+
+final staffListProvider = StateNotifierProvider<StaffListNotifier, StaffListState>((ref) {
+  return StaffListNotifier(ref.read(staffRepositoryProvider));
+});
+
+// ── Attendance approval state ─────────────────────────────────────────────────
+
+sealed class ApprovalState {}
+class ApprovalInitial extends ApprovalState {}
+class ApprovalLoading  extends ApprovalState {}
+class ApprovalLoaded   extends ApprovalState {
+  final List<AttendanceEntity> pendingCheckin;
+  final List<AttendanceEntity> pendingCheckout;
+  ApprovalLoaded({required this.pendingCheckin, required this.pendingCheckout});
+}
+class ApprovalSuccess  extends ApprovalState { final String message; ApprovalSuccess(this.message); }
+class ApprovalError    extends ApprovalState { final String message; ApprovalError(this.message); }
+
+class ApprovalNotifier extends StateNotifier<ApprovalState> {
+  final StaffRepository _repo;
+  ApprovalNotifier(this._repo) : super(ApprovalInitial());
+
+  Future<void> load(String societyId, {String? department}) async {
+    state = ApprovalLoading();
+    final checkinResult  = await _repo.getPendingAttendance(societyId, department: department);
+    final checkoutResult = await _repo.getPendingCheckout(societyId, department: department);
+
+    final checkin  = checkinResult  is StaffSuccess ? (checkinResult  as StaffSuccess<List<AttendanceEntity>>).data : <AttendanceEntity>[];
+    final checkout = checkoutResult is StaffSuccess ? (checkoutResult as StaffSuccess<List<AttendanceEntity>>).data : <AttendanceEntity>[];
+
+    if (checkinResult is StaffFailure && checkoutResult is StaffFailure) {
+      state = ApprovalError((checkinResult as StaffFailure).message);
+      return;
+    }
+    state = ApprovalLoaded(pendingCheckin: checkin, pendingCheckout: checkout);
+  }
+
+  Future<void> approveCheckin(String attendanceId, String societyId, {String? notes, String? department}) async {
+    final result = await _repo.approveAttendance(attendanceId, notes: notes);
+    switch (result) {
+      case StaffSuccess():
+        state = ApprovalSuccess('Check-in approved');
+        await load(societyId, department: department);
+      case StaffFailure(:final message): state = ApprovalError(message);
+    }
+  }
+
+  Future<void> approveCheckout(String attendanceId, String societyId, {String? notes, String? department}) async {
+    final result = await _repo.approveCheckout(attendanceId, notes: notes);
+    switch (result) {
+      case StaffSuccess():
+        state = ApprovalSuccess('Check-out approved');
+        await load(societyId, department: department);
+      case StaffFailure(:final message): state = ApprovalError(message);
+    }
+  }
+
+  void clearStatus() {
+    if (state is ApprovalSuccess || state is ApprovalError) {
+      state = ApprovalInitial();
+    }
+  }
+}
+
+final approvalProvider = StateNotifierProvider<ApprovalNotifier, ApprovalState>((ref) {
+  return ApprovalNotifier(ref.read(staffRepositoryProvider));
+});
+
+// ── Designations provider ─────────────────────────────────────────────────────
+
+final designationsProvider = FutureProvider.family<List<DesignationEntity>, String>((ref, societyId) async {
+  final repo = ref.read(staffRepositoryProvider);
+  final result = await repo.listDesignations(societyId);
+  return switch (result) {
+    StaffSuccess(:final data) => data,
+    StaffFailure() => <DesignationEntity>[],
+  };
+});
+
+// ── Shifts provider ───────────────────────────────────────────────────────────
+
+final shiftsProvider = FutureProvider.family<List<ShiftEntity>, String>((ref, societyId) async {
+  final repo = ref.read(staffRepositoryProvider);
+  final result = await repo.listShifts(societyId);
+  return switch (result) {
+    StaffSuccess(:final data) => data,
+    StaffFailure() => <ShiftEntity>[],
+  };
+});
+
+// ── Staff form state (create / edit) ─────────────────────────────────────────
+
+sealed class StaffFormState {}
+class StaffFormInitial extends StaffFormState {}
+class StaffFormLoading extends StaffFormState {}
+class StaffFormSuccess extends StaffFormState {
+  final StaffEntity staff;
+  final String message;
+  StaffFormSuccess(this.staff, this.message);
+}
+class StaffFormError extends StaffFormState {
+  final String message;
+  StaffFormError(this.message);
+}
+
+class StaffFormNotifier extends StateNotifier<StaffFormState> {
+  final StaffRepository _repo;
+  StaffFormNotifier(this._repo) : super(StaffFormInitial());
+
+  Future<void> create(Map<String, dynamic> data) async {
+    state = StaffFormLoading();
+    final result = await _repo.createStaff(data);
+    state = switch (result) {
+      StaffSuccess(:final data) => StaffFormSuccess(data, 'Staff created successfully'),
+      StaffFailure(:final message) => StaffFormError(message),
+    };
+  }
+
+  Future<void> update(String staffId, Map<String, dynamic> data) async {
+    state = StaffFormLoading();
+    final result = await _repo.updateStaff(staffId, data);
+    state = switch (result) {
+      StaffSuccess(:final data) => StaffFormSuccess(data, 'Staff updated successfully'),
+      StaffFailure(:final message) => StaffFormError(message),
+    };
+  }
+
+  void reset() => state = StaffFormInitial();
+}
+
+final staffFormProvider = StateNotifierProvider<StaffFormNotifier, StaffFormState>((ref) {
+  return StaffFormNotifier(ref.read(staffRepositoryProvider));
+});
+
+// ── Duty assignment state ─────────────────────────────────────────────────────
+
+sealed class DutyAssignState {}
+class DutyAssignInitial extends DutyAssignState {}
+class DutyAssignLoading extends DutyAssignState {}
+class DutyAssignSuccess extends DutyAssignState { final DutyEntity duty; DutyAssignSuccess(this.duty); }
+class DutyAssignError   extends DutyAssignState { final String message; DutyAssignError(this.message); }
+
+class DutyAssignNotifier extends StateNotifier<DutyAssignState> {
+  final StaffRepository _repo;
+  DutyAssignNotifier(this._repo) : super(DutyAssignInitial());
+
+  Future<void> assign({
+    required String staffId,
+    required String societyId,
+    required String dutyName,
+    required String dutyDate,
+    String? description,
+    String? location,
+    String? startTime,
+    String? endTime,
+  }) async {
+    state = DutyAssignLoading();
+    final result = await _repo.assignDuty(
+      staffId: staffId, societyId: societyId, dutyName: dutyName,
+      dutyDate: dutyDate, description: description, location: location,
+      startTime: startTime, endTime: endTime,
+    );
+    switch (result) {
+      case StaffSuccess(:final data): state = DutyAssignSuccess(data);
+      case StaffFailure(:final message): state = DutyAssignError(message);
+    }
+  }
+
+  void reset() => state = DutyAssignInitial();
+}
+
+final dutyAssignProvider = StateNotifierProvider<DutyAssignNotifier, DutyAssignState>((ref) {
+  return DutyAssignNotifier(ref.read(staffRepositoryProvider));
+});

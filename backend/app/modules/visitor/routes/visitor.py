@@ -4,7 +4,10 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import (
+    get_current_user, require_roles,
+    require_admin_committee, require_security, require_any_member,
+)
 from app.models.user import User
 from app.modules.visitor.schemas.visitor import (
     VisitorCreate, VisitorOut, VisitorApproveRequest,
@@ -16,14 +19,14 @@ from app.modules.visitor.services.visitor_service import VisitorService
 router = APIRouter(prefix="/visitors", tags=["Visitor & Gate Management"])
 
 # Role guards
-security_or_admin = require_roles("Admin", "Security", "Committee")
-resident_or_above = require_roles("Admin", "Committee", "Resident")
+security_or_admin = require_security
+resident_or_above = require_any_member
 
 
 # ── Gates ─────────────────────────────────────────────────────────────────────
 
 @router.post("/gates", response_model=GateOut, status_code=201,
-             dependencies=[Depends(require_roles("Admin"))])
+             dependencies=[Depends(require_admin_committee)])
 def create_gate(data: GateCreate, db: Session = Depends(get_db),
                 current_user: User = Depends(get_current_user)):
     return VisitorService(db).create_gate(data, current_user)
@@ -109,7 +112,7 @@ def get_visitor(visitor_id: UUID, db: Session = Depends(get_db)):
 
 
 @router.get("/society/{society_id}", response_model=List[VisitorOut],
-            dependencies=[Depends(require_roles("Admin", "Committee", "Security"))])
+            dependencies=[Depends(require_security)])
 def list_society_visitors(
     society_id: UUID,
     skip: int = 0, limit: int = 50,
@@ -120,7 +123,7 @@ def list_society_visitors(
 
 
 @router.get("/society/{society_id}/inside", response_model=List[VisitorOut],
-            dependencies=[Depends(require_roles("Admin", "Committee", "Security"))])
+            dependencies=[Depends(require_security)])
 def currently_inside(society_id: UUID, db: Session = Depends(get_db)):
     """Who is currently inside the society."""
     return VisitorService(db).get_currently_inside(society_id)

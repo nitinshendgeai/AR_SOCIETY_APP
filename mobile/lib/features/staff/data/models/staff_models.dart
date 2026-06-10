@@ -1,5 +1,74 @@
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 
+// ── Designation model ─────────────────────────────────────────────────────────
+
+class DesignationModel {
+  final String id;
+  final String societyId;
+  final String name;
+  final String department;
+  final String? description;
+
+  const DesignationModel({
+    required this.id,
+    required this.societyId,
+    required this.name,
+    required this.department,
+    this.description,
+  });
+
+  factory DesignationModel.fromJson(Map<String, dynamic> j) => DesignationModel(
+        id: j['id'] as String,
+        societyId: j['society_id'] as String,
+        name: j['name'] as String,
+        department: j['department'] as String,
+        description: j['description'] as String?,
+      );
+
+  DesignationEntity toEntity() => DesignationEntity(
+        id: id, societyId: societyId, name: name,
+        department: department, description: description,
+      );
+}
+
+// ── Shift model ───────────────────────────────────────────────────────────────
+
+class ShiftModel {
+  final String id;
+  final String societyId;
+  final String name;
+  final String shiftType;
+  final String startTime;
+  final String endTime;
+  final bool isOvernight;
+
+  const ShiftModel({
+    required this.id,
+    required this.societyId,
+    required this.name,
+    required this.shiftType,
+    required this.startTime,
+    required this.endTime,
+    this.isOvernight = false,
+  });
+
+  factory ShiftModel.fromJson(Map<String, dynamic> j) => ShiftModel(
+        id: j['id'] as String,
+        societyId: j['society_id'] as String,
+        name: j['name'] as String,
+        shiftType: j['shift_type'] as String,
+        startTime: j['start_time'] as String,
+        endTime: j['end_time'] as String,
+        isOvernight: j['is_overnight'] as bool? ?? false,
+      );
+
+  ShiftEntity toEntity() => ShiftEntity(
+        id: id, societyId: societyId, name: name,
+        shiftType: shiftType, startTime: startTime,
+        endTime: endTime, isOvernight: isOvernight,
+      );
+}
+
 // ── Staff model ───────────────────────────────────────────────────────────────
 
 class StaffModel {
@@ -12,6 +81,12 @@ class StaffModel {
   final String status;
   final String? shiftId;
   final String? userId;
+  final String? reportingManagerId;
+  final String? email;
+  final String? joiningDate;
+  final String? designationId;
+  final String? designationName;
+  final String? reportingManagerName;
 
   const StaffModel({
     required this.id,
@@ -23,6 +98,12 @@ class StaffModel {
     required this.status,
     this.shiftId,
     this.userId,
+    this.reportingManagerId,
+    this.email,
+    this.joiningDate,
+    this.designationId,
+    this.designationName,
+    this.reportingManagerName,
   });
 
   factory StaffModel.fromJson(Map<String, dynamic> j) => StaffModel(
@@ -35,12 +116,23 @@ class StaffModel {
         status: j['status'] as String,
         shiftId: j['shift_id'] as String?,
         userId: j['user_id'] as String?,
+        reportingManagerId: j['reporting_manager_id'] as String?,
+        email: j['email'] as String?,
+        joiningDate: j['joining_date'] as String?,
+        designationId: j['designation_id'] as String?,
+        designationName: j['designation_name'] as String?,
+        reportingManagerName: j['reporting_manager_name'] as String?,
       );
 
   StaffEntity toEntity() => StaffEntity(
         id: id, societyId: societyId, employeeCode: employeeCode,
         fullName: fullName, mobile: mobile, department: department,
         status: status, shiftId: shiftId, userId: userId,
+        reportingManagerId: reportingManagerId,
+        email: email, joiningDate: joiningDate,
+        designationId: designationId,
+        designationName: designationName,
+        reportingManagerName: reportingManagerName,
       );
 }
 
@@ -57,6 +149,8 @@ class AttendanceModel {
   final double? workingHours;
   final double? overtimeHours;
   final bool isManualEntry;
+  final bool isApproved;
+  final bool isCheckoutApproved;
   final String? notes;
 
   const AttendanceModel({
@@ -70,6 +164,8 @@ class AttendanceModel {
     this.workingHours,
     this.overtimeHours,
     this.isManualEntry = false,
+    this.isApproved = false,
+    this.isCheckoutApproved = false,
     this.notes,
   });
 
@@ -84,6 +180,8 @@ class AttendanceModel {
         workingHours: (j['working_hours'] as num?)?.toDouble(),
         overtimeHours: (j['overtime_hours'] as num?)?.toDouble(),
         isManualEntry: j['is_manual_entry'] as bool? ?? false,
+        isApproved: j['is_approved'] as bool? ?? false,
+        isCheckoutApproved: j['is_checkout_approved'] as bool? ?? false,
         notes: j['notes'] as String?,
       );
 
@@ -96,6 +194,8 @@ class AttendanceModel {
         workingHours: workingHours,
         overtimeHours: overtimeHours,
         isManualEntry: isManualEntry,
+        isApproved: isApproved,
+        isCheckoutApproved: isCheckoutApproved,
         notes: notes,
       );
 }

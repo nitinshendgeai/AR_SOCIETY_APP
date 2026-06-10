@@ -1,3 +1,43 @@
+// ── Designation entity ────────────────────────────────────────────────────────
+
+class DesignationEntity {
+  final String id;
+  final String societyId;
+  final String name;
+  final String department;
+  final String? description;
+
+  const DesignationEntity({
+    required this.id,
+    required this.societyId,
+    required this.name,
+    required this.department,
+    this.description,
+  });
+}
+
+// ── Shift entity ──────────────────────────────────────────────────────────────
+
+class ShiftEntity {
+  final String id;
+  final String societyId;
+  final String name;
+  final String shiftType;
+  final String startTime;
+  final String endTime;
+  final bool isOvernight;
+
+  const ShiftEntity({
+    required this.id,
+    required this.societyId,
+    required this.name,
+    required this.shiftType,
+    required this.startTime,
+    required this.endTime,
+    this.isOvernight = false,
+  });
+}
+
 // ── Staff entity ──────────────────────────────────────────────────────────────
 
 class StaffEntity {
@@ -10,6 +50,12 @@ class StaffEntity {
   final String status;
   final String? shiftId;
   final String? userId;
+  final String? reportingManagerId;
+  final String? email;
+  final String? joiningDate;
+  final String? designationId;
+  final String? designationName;
+  final String? reportingManagerName;
 
   const StaffEntity({
     required this.id,
@@ -21,7 +67,24 @@ class StaffEntity {
     required this.status,
     this.shiftId,
     this.userId,
+    this.reportingManagerId,
+    this.email,
+    this.joiningDate,
+    this.designationId,
+    this.designationName,
+    this.reportingManagerName,
   });
+
+  String get departmentLabel {
+    switch (department.toLowerCase()) {
+      case 'security':     return 'Security';
+      case 'housekeeping': return 'Housekeeping';
+      case 'technical':    return 'Technical';
+      case 'gym':          return 'Gym';
+      case 'admin':        return 'Administration';
+      default:             return department;
+    }
+  }
 }
 
 // ── Attendance status ─────────────────────────────────────────────────────────
@@ -70,6 +133,8 @@ class AttendanceEntity {
   final double? workingHours;
   final double? overtimeHours;
   final bool isManualEntry;
+  final bool isApproved;
+  final bool isCheckoutApproved;
   final String? notes;
 
   const AttendanceEntity({
@@ -83,12 +148,16 @@ class AttendanceEntity {
     this.workingHours,
     this.overtimeHours,
     this.isManualEntry = false,
+    this.isApproved = false,
+    this.isCheckoutApproved = false,
     this.notes,
   });
 
   bool get isCheckedIn  => checkInTime != null;
   bool get isCheckedOut => checkOutTime != null;
   bool get isComplete   => isCheckedIn && isCheckedOut;
+  bool get needsCheckinApproval  => isCheckedIn && !isApproved;
+  bool get needsCheckoutApproval => isCheckedOut && !isCheckoutApproved;
 }
 
 // ── Duty entity ───────────────────────────────────────────────────────────────

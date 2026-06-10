@@ -5,11 +5,20 @@ import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:ar_society_app/features/splash/presentation/screens/splash_screen.dart';
-import 'package:ar_society_app/features/dashboard/role_dashboards.dart';
+import 'package:ar_society_app/features/dashboard/role_dashboards.dart'
+    show AdminDashboardScreen, CommitteeDashboardScreen, ResidentDashboardScreen,
+         SecurityDashboardScreen, ManagerDashboardScreen, SupervisorDashboardScreen;
 import 'package:ar_society_app/features/staff/presentation/screens/staff_home_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/attendance_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/duties_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/handover_screen.dart';
+import 'package:ar_society_app/features/staff/presentation/screens/approval_screen.dart';
+import 'package:ar_society_app/features/staff/presentation/screens/duty_assign_screen.dart';
+import 'package:ar_society_app/features/staff/presentation/screens/staff_list_screen.dart';
+import 'package:ar_society_app/features/staff/presentation/screens/staff_add_screen.dart';
+import 'package:ar_society_app/features/staff/presentation/screens/staff_detail_screen.dart';
+import 'package:ar_society_app/features/staff/presentation/screens/staff_edit_screen.dart';
+import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/auth/presentation/screens/change_password_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/visitor/presentation/screens/visitor_list_screen.dart';
@@ -52,6 +61,14 @@ class AppRoutes {
   static const staffAttendance    = '/staff/attendance/:staffId';
   static const staffDuties        = '/staff/duties/:staffId';
   static const staffHandover      = '/staff/handover/:staffId';
+  static const staffApprovals     = '/staff/approvals';
+  static const staffAssignDuty    = '/staff/assign-duty';
+  static const staffList          = '/staff/list';
+  static const staffAdd           = '/staff/add';
+  static const staffDetail        = '/staff/:staffId/detail';
+  static const staffEdit          = '/staff/:staffId/edit';
+  static const managerHome        = '/manager';
+  static const supervisorHome     = '/supervisor';
   // Visitor routes
   static const visitorsCreate     = '/visitors/create';
   static const visitorsMy         = '/visitors/my';
@@ -202,8 +219,55 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (_, __) => const ResidentDashboardScreen()),
       GoRoute(path: AppRoutes.securityHome,
           builder: (_, __) => const SecurityDashboardScreen()),
+      GoRoute(path: AppRoutes.managerHome,
+          builder: (_, __) => const ManagerDashboardScreen()),
+      GoRoute(path: AppRoutes.supervisorHome,
+          builder: (_, __) => const SupervisorDashboardScreen()),
       GoRoute(path: AppRoutes.staffHome,
           builder: (_, __) => const StaffHomeScreen()),
+      GoRoute(
+        path: AppRoutes.staffApprovals,
+        builder: (_, state) {
+          final societyId = state.extra as String? ?? '';
+          return AttendanceApprovalScreen(societyId: societyId);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.staffAssignDuty,
+        builder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          return DutyAssignScreen(
+            societyId: extra['societyId'] as String? ?? '',
+            preSelectedStaffId: extra['staffId'] as String?,
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.staffList,
+        builder: (_, state) {
+          final dept = state.uri.queryParameters['department'];
+          return StaffListScreen(filterDepartment: dept);
+        },
+      ),
+      // Staff Master CRUD — literal /add before parameterised /:staffId/*
+      GoRoute(
+        path: AppRoutes.staffAdd,
+        builder: (_, __) => const StaffAddScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.staffDetail,
+        builder: (_, state) {
+          final staff = state.extra as StaffEntity;
+          return StaffDetailScreen(staff: staff);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.staffEdit,
+        builder: (_, state) {
+          final staff = state.extra as StaffEntity;
+          return StaffEditScreen(staff: staff);
+        },
+      ),
       GoRoute(
         path: AppRoutes.staffAttendance,
         builder: (_, state) {
@@ -401,6 +465,10 @@ String _roleHome(Ref ref) {
     case 'Society Admin': return AppRoutes.adminHome;
     case 'Committee':     return AppRoutes.committeeHome;
     case 'Security':      return AppRoutes.securityHome;
+    case 'Manager':       return AppRoutes.managerHome;
+    case 'Security Supervisor':
+    case 'Housekeeping Supervisor':
+    case 'Supervisor':    return AppRoutes.supervisorHome;
     case 'Staff':         return AppRoutes.staffHome;
     default:              return AppRoutes.residentHome;
   }

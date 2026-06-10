@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.db.session import get_db
-from app.core.dependencies import require_roles
+from app.core.dependencies import require_roles, require_admin_committee
 from app.modules.staff.models.staff import (
     Staff, StaffTask, StaffAttendance, StaffLeave,
     TaskStatus, AttendanceStatus, LeaveStatus, StaffStatus,
@@ -17,7 +17,7 @@ from app.modules.staff.models.staff import (
 
 router = APIRouter(prefix="/workload", tags=["Workload Analytics"])
 
-admin_or_committee = require_roles("Admin", "Committee")
+admin_or_committee = require_admin_committee
 
 
 @router.get("/society/{society_id}/summary",

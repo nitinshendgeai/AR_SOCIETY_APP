@@ -7,7 +7,7 @@ import 'package:ar_society_app/features/staff/presentation/providers/staff_provi
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 
 /// Staff home screen — provides navigation to all staff modules.
-/// Requires staffId to be set in staffIdProvider.
+/// Adapts based on role: supervisor/manager see extra management actions.
 class StaffHomeScreen extends ConsumerWidget {
   const StaffHomeScreen({super.key});
 
@@ -16,7 +16,16 @@ class StaffHomeScreen extends ConsumerWidget {
     final user = ref.watch(currentUserProvider);
     // Auto-resolve on first build; result syncs staffIdProvider
     ref.watch(currentStaffProvider);
-    final staffId = ref.watch(staffIdProvider);
+    final staffId   = ref.watch(staffIdProvider);
+    final societyId = user?.societyId;
+
+    // Role detection for supervisor/manager sections
+    final roles = user?.roles ?? [];
+    final isSupervisor = roles.any((r) => r.contains('Security Supervisor') ||
+        r.contains('Housekeeping Supervisor') || r.contains('Supervisor'));
+    final isManager = roles.any((r) => r.contains('Manager') || r == 'Admin' ||
+        r.contains('Committee') || r == 'Super Admin' || r == 'Society Admin');
+    final showManagement = isSupervisor || isManager;
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
@@ -33,7 +42,7 @@ class StaffHomeScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // Greeting
+            // Greeting card
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
@@ -86,8 +95,8 @@ class StaffHomeScreen extends ConsumerWidget {
               const SizedBox(height: 20),
             ],
 
-            // Modules grid
-            const SectionHeader(title: 'Operations'),
+            // My Operations
+            const SectionHeader(title: 'My Operations'),
             const SizedBox(height: 14),
             GridView.count(
               crossAxisCount: 2,
@@ -108,7 +117,7 @@ class StaffHomeScreen extends ConsumerWidget {
                 ),
                 _ModuleCard(
                   icon: Icons.assignment_rounded,
-                  label: 'Duties',
+                  label: 'My Duties',
                   subtitle: 'View & complete',
                   color: AppTheme.primary,
                   onTap: staffId != null
@@ -134,6 +143,52 @@ class StaffHomeScreen extends ConsumerWidget {
                 ),
               ],
             ),
+
+            // Supervisor / Manager operations
+            if (showManagement && societyId != null) ...[
+              const SizedBox(height: 24),
+              const SectionHeader(title: 'Management'),
+              const SizedBox(height: 14),
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 1.1,
+                children: [
+                  _ModuleCard(
+                    icon: Icons.approval_rounded,
+                    label: 'Approvals',
+                    subtitle: 'Punch-in & out',
+                    color: AppTheme.error,
+                    onTap: () => context.push('/staff/approvals', extra: societyId),
+                  ),
+                  _ModuleCard(
+                    icon: Icons.badge_rounded,
+                    label: 'My Staff',
+                    subtitle: 'View team',
+                    color: AppTheme.secondary,
+                    onTap: () => context.push('/staff/list'),
+                  ),
+                  _ModuleCard(
+                    icon: Icons.assignment_turned_in_rounded,
+                    label: 'Assign Duty',
+                    subtitle: 'To staff member',
+                    color: AppTheme.primary,
+                    onTap: () => context.push('/staff/assign-duty', extra: {'societyId': societyId}),
+                  ),
+                  if (isManager)
+                    _ModuleCard(
+                      icon: Icons.report_problem_rounded,
+                      label: 'Complaints',
+                      subtitle: 'Assign to dept',
+                      color: AppTheme.warning,
+                      onTap: () => context.push('/complaints'),
+                    ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

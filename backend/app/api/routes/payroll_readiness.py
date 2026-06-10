@@ -6,7 +6,10 @@ from sqlalchemy.orm import Session
 from decimal import Decimal
 
 from app.db.session import get_db
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import (
+    get_current_user, require_roles,
+    require_admin_committee, require_supervisor_above, require_admin,
+)
 from app.models.user import User
 from app.modules.staff.services.payroll_service import PayrollService
 from app.modules.staff.models.payroll_readiness import (
@@ -17,9 +20,9 @@ from typing import Optional
 
 router = APIRouter(prefix="/payroll", tags=["Payroll Readiness"])
 
-admin_only         = require_roles("Admin")
-committee_or_admin = require_roles("Admin", "Committee")
-supervisor_above   = require_roles("Admin", "Committee", "Staff")
+admin_only         = require_admin
+committee_or_admin = require_admin_committee
+supervisor_above   = require_supervisor_above
 
 
 # ── Salary Structure ──────────────────────────────────────────────────────────

@@ -81,6 +81,31 @@ class AttendanceRepository(BaseRepository[StaffAttendance]):
             StaffAttendance.is_approved==False,
         ).order_by(StaffAttendance.attendance_date.desc()).all()
 
+    def get_pending_by_dept(self, sid: UUID, department: Optional[str] = None) -> List[StaffAttendance]:
+        q = self.db.query(StaffAttendance).join(
+            Staff, StaffAttendance.staff_id == Staff.id
+        ).filter(
+            StaffAttendance.society_id == sid,
+            StaffAttendance.is_active == True,
+            StaffAttendance.is_approved == False,
+        )
+        if department:
+            q = q.filter(Staff.department == department)
+        return q.order_by(StaffAttendance.attendance_date.desc()).all()
+
+    def get_pending_checkout(self, sid: UUID, department: Optional[str] = None) -> List[StaffAttendance]:
+        q = self.db.query(StaffAttendance).join(
+            Staff, StaffAttendance.staff_id == Staff.id
+        ).filter(
+            StaffAttendance.society_id == sid,
+            StaffAttendance.is_active == True,
+            StaffAttendance.check_out_time.isnot(None),
+            StaffAttendance.is_checkout_approved == False,
+        )
+        if department:
+            q = q.filter(Staff.department == department)
+        return q.order_by(StaffAttendance.attendance_date.desc()).all()
+
 
 class TaskRepository(BaseRepository[StaffTask]):
     def __init__(self, db): super().__init__(StaffTask, db)

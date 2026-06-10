@@ -5,7 +5,10 @@ from fastapi import APIRouter, Depends, Request, Query
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import (
+    get_current_user, require_roles,
+    require_admin_committee, require_any_member,
+)
 from app.models.user import User
 from app.modules.amenity.schemas.amenity import (
     AmenityCreate, AmenityUpdate, AmenityOut,
@@ -18,8 +21,8 @@ from app.modules.amenity.services.amenity_service import AmenityService
 
 router = APIRouter(prefix="/amenities", tags=["Amenity Management"])
 
-committee_or_admin = require_roles("Admin", "Committee")
-any_member         = require_roles("Admin", "Committee", "Resident", "Staff", "Security")
+committee_or_admin = require_admin_committee
+any_member         = require_any_member
 
 
 # ── Amenity CRUD ──────────────────────────────────────────────────────────────
