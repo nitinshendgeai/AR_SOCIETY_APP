@@ -44,6 +44,52 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-06-10
+
+### feat: complete staff management workflow and approval hierarchy
+
+**Backend — Migration `d1e2f3a4b5c6_staff_hierarchy_checkout_approval`**
+- Added `staff.reporting_manager_id` (UUID FK → users) to model, schema, and migration
+- Added `TECHNICAL` and `GYM` to `staffdepartment` PostgreSQL enum via `ALTER TYPE ... ADD VALUE IF NOT EXISTS`
+- Added punch-out approval columns to `staff_attendance`: `is_checkout_approved`, `checkout_approved_by`, `checkout_approved_at`, `checkout_approval_notes`
+- Added `complaints.assigned_department` (String) and `complaints.assigned_by` (UUID FK → users)
+
+**Backend — New API Endpoints**
+- `POST /staff/attendance/{id}/approve-checkout` — approves punch-out; restricted to Admin/Committee/Manager
+- `GET /staff/attendance/pending/supervisor/{society_id}?department=` — supervisor-scoped pending punch-in list
+- `GET /staff/attendance/pending-checkout/{society_id}?department=` — supervisor-scoped pending punch-out list
+- `GET /staff/society/{society_id}/summary?att_date=` — daily attendance summary (total/present/absent/pending + dept breakdown)
+- `POST /staff/complaints/assign-department` — manager assigns open complaint to security/housekeeping/technical
+- `GET /staff/complaints/department/{society_id}?department=` — supervisor views complaints assigned to their department
+
+**Backend — Model Changes**
+- `Staff.user` relationship now declares `foreign_keys=[user_id]` to avoid SQLAlchemy ambiguity after adding `reporting_manager` relationship
+- `Staff.reporting_manager` relationship added with `foreign_keys=[reporting_manager_id]`
+- `StaffAttendance.approver` and `StaffAttendance.checkout_approver` relationships added
+
+**Flutter — New Screens**
+- `AttendanceApprovalScreen` (`/staff/approvals`) — tabbed punch-in / punch-out approval list for supervisors and managers
+- `DutyAssignScreen` (`/staff/assign-duty`) — duty assignment form with predefined location options per department
+- `StaffListScreen` (`/staff/list`) — searchable, filterable staff roster with quick duty-assign shortcut
+
+**Flutter — New Providers**
+- `staffListProvider` (`StaffListNotifier`) — loads and caches staff list per society with optional department filter
+- `approvalProvider` (`ApprovalNotifier`) — loads pending check-in and check-out lists; exposes `approveCheckin`, `approveCheckout`, `clearStatus` actions
+- `dutyAssignProvider` (`DutyAssignNotifier`) — wraps duty assignment with `assign` and `reset` actions
+
+**Flutter — Updated Screens**
+- `StaffHomeScreen` — added Management section (Approvals, My Staff, Assign Duty, Complaints) visible to supervisors and managers
+- `ManagerDashboardScreen` — live approval counts, quick actions, department-status panel
+- `SupervisorDashboardScreen` — dept-scoped approval counts, gym trainer panel for housekeeping supervisors
+
+**Flutter — Router**
+- New routes: `/staff/approvals`, `/staff/assign-duty`, `/staff/list`, `/manager`, `/supervisor`
+- `_roleHome` updated: Manager → `/manager`, Security/Housekeeping Supervisor → `/supervisor`
+
+**Impact:** Staff management module reaches 100% feature coverage against the specified hierarchy, approval matrix, attendance workflow, and duty assignment rules.
+
+---
+
 ## 2026-06-08
 
 ### feat: implement staff attendance approval workflow

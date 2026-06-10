@@ -10,7 +10,8 @@ from app.models.user import User
 from app.modules.staff.schemas.staff import (
     StaffCreate, StaffUpdate, StaffOut, DesignationCreate, DesignationOut,
     ShiftCreate, ShiftOut, DutyCreate, DutyOut, DutyVerifyRequest,
-    AttendanceCheckIn, AttendanceCheckOut, AttendanceManualEntry, AttendanceApprovalRequest, AttendanceOut,
+    AttendanceCheckIn, AttendanceCheckOut, AttendanceManualEntry,
+    AttendanceApprovalRequest, AttendanceCheckoutApprovalRequest, AttendanceOut,
     TaskCreate, TaskOut, TaskStatusUpdate, WorkLogCreate,
     LeaveCreate, LeaveOut, LeaveApproveRequest, LeaveRejectRequest,
 )
@@ -22,6 +23,7 @@ router = APIRouter(prefix="/staff", tags=["Staff Operations"])
 admin_or_committee = require_roles("Admin", "Committee")
 supervisor_above   = require_roles("Admin", "Committee", "Staff")
 any_auth           = require_roles("Admin", "Committee", "Staff", "Resident", "Security")
+manager_or_above   = require_roles("Admin", "Committee")
 
 
 # ── Designations ──────────────────────────────────────────────────────────────
@@ -157,6 +159,46 @@ def approve_attendance(attendance_id: UUID, data: AttendanceApprovalRequest,
                       user: User = Depends(admin_or_committee)):
     return StaffService(db).approve_attendance(attendance_id, data, user)
 
+@router.post("/attendance/{attendance_id}/approve-checkout", response_model=AttendanceOut)
+def approve_checkout(attendance_id: UUID, data: AttendanceCheckoutApprovalRequest,
+                     db: Session = Depends(get_db),
+                     user: User = Depends(admin_or_committee)):
+    """Approve the punch-out for a staff attendance record."""
+    return StaffService(db).approve_checkout(attendance_id, data, user)
+
+@router.get("/attendance/pending/supervisor/{society_id}", response_model=List[AttendanceOut])
+def supervisor_pending_attendance(
+    society_id: UUID,
+    department: Optional[str] = Query(None, description="Filter by department (security/housekeeping/technical/gym)"),
+    db: Session = Depends(get_db),
+    user: User = Depends(supervisor_above),
+):
+    """
+    Returns pending punch-in approvals scoped to the caller's department.
+    Managers see all; supervisors see only their dept.
+    """
+    return StaffService(db).get_pending_attendance_for_supervisor(society_id, department)
+
+@router.get("/attendance/pending-checkout/{society_id}", response_model=List[AttendanceOut])
+def pending_checkout_approvals(
+    society_id: UUID,
+    department: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    user: User = Depends(supervisor_above),
+):
+    """Returns attendance records with completed checkout awaiting checkout approval."""
+    return StaffService(db).get_pending_checkout_approvals(society_id, department)
+
+@router.get("/society/{society_id}/summary", response_model=dict)
+def attendance_summary(
+    society_id: UUID,
+    att_date: date = Query(..., description="YYYY-MM-DD"),
+    db: Session = Depends(get_db),
+    user: User = Depends(supervisor_above),
+):
+    """Department-wise attendance summary for manager/supervisor dashboard."""
+    return StaffService(db).get_attendance_summary(society_id, att_date)
+
 
 # ── Tasks ─────────────────────────────────────────────────────────────────────
 @router.post("/tasks", response_model=TaskOut, status_code=201)
@@ -219,6 +261,41 @@ def pending_leaves(society_id: UUID, db: Session = Depends(get_db)):
 def staff_leaves(staff_id: UUID, skip: int = 0, limit: int = 50,
                  db: Session = Depends(get_db)):
     return StaffService(db).get_staff_leaves(staff_id, skip, limit)
+
+
+# ── Complaint Assignment to Staff Department ──────────────────────────────────
+
+from pydantic import BaseModel as _BM
+
+class ComplaintDeptAssign(_BM):
+    complaint_id: UUID
+    department: str   # security | housekeeping | technical
+    notes: Optional[str] = None
+
+class ComplaintDeptAssignOut(_BM):
+    complaint_id: str
+    department: str
+    assigned_by: str
+    message: str
+
+@router.post("/complaints/assign-department", response_model=ComplaintDeptAssignOut)
+def assign_complaint_to_department(
+    data: ComplaintDeptAssign,
+    db: Session = Depends(get_db),
+    user: User = Depends(manager_or_above),
+):
+    """Manager assigns a complaint to a staff department (security/housekeeping/technical)."""
+    return StaffService(db).assign_complaint_to_department(data.complaint_id, data.department, data.notes, user)
+
+@router.get("/complaints/department/{society_id}", response_model=list)
+def complaints_by_department(
+    society_id: UUID,
+    department: str = Query(..., description="security|housekeeping|technical"),
+    db: Session = Depends(get_db),
+    user: User = Depends(supervisor_above),
+):
+    """Lists complaints assigned to a specific department."""
+    return StaffService(db).get_complaints_for_department(society_id, department)
 
 
 # ── Roster ────────────────────────────────────────────────────────────────────

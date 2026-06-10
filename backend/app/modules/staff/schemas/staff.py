@@ -41,6 +41,7 @@ class StaffCreate(OrmBase):
     emergency_contact_phone: Optional[str] = None
     base_salary:      Optional[float] = None
     user_id:          Optional[UUID] = None
+    reporting_manager_id: Optional[UUID] = None
 
 class StaffUpdate(OrmBase):
     full_name:     Optional[str]            = None
@@ -52,6 +53,7 @@ class StaffUpdate(OrmBase):
     base_salary:   Optional[float]          = None
     bank_account_number: Optional[str]      = None
     bank_name:     Optional[str]            = None
+    reporting_manager_id: Optional[UUID]    = None
 
 class StaffOut(TimestampSchema):
     society_id:    UUID; employee_code: str; full_name: str; mobile: str
@@ -59,6 +61,7 @@ class StaffOut(TimestampSchema):
     designation_id:Optional[UUID]; shift_id: Optional[UUID]
     status:        StaffStatus; joining_date: Optional[date]
     emergency_contact_name: Optional[str]; base_salary: Optional[float]
+    reporting_manager_id: Optional[UUID] = None
 
 
 # ── Duty ──────────────────────────────────────────────────────────────────────
@@ -95,12 +98,19 @@ class AttendanceManualEntry(OrmBase):
 class AttendanceApprovalRequest(OrmBase):
     notes: Optional[str] = None
 
+class AttendanceCheckoutApprovalRequest(OrmBase):
+    notes: Optional[str] = None
+
 class AttendanceOut(TimestampSchema):
     society_id: UUID; staff_id: UUID; attendance_date: date; status: AttendanceStatus
     check_in_time: Optional[datetime]; check_out_time: Optional[datetime]
     working_hours: Optional[float]; overtime_hours: Optional[float]
     is_manual_entry: bool; is_approved: bool; approval_notes: Optional[str]
-    approved_at: Optional[datetime]; notes: Optional[str]
+    approved_at: Optional[datetime]
+    is_checkout_approved: bool = False
+    checkout_approved_at: Optional[datetime] = None
+    checkout_approval_notes: Optional[str] = None
+    notes: Optional[str]
 
 
 # ── Task ──────────────────────────────────────────────────────────────────────

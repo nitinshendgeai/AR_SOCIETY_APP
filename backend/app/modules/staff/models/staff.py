@@ -21,11 +21,13 @@ from app.db.base import Base, TimestampMixin
 class StaffDepartment(str, enum.Enum):
     SECURITY     = "security"
     HOUSEKEEPING = "housekeeping"
+    TECHNICAL    = "technical"
+    GYM          = "gym"
+    ADMIN        = "admin"
     MAINTENANCE  = "maintenance"
     ELECTRICAL   = "electrical"
     PLUMBING     = "plumbing"
     GARDENING    = "gardening"
-    ADMIN        = "admin"
     AMENITIES    = "amenities"
 
 
@@ -143,6 +145,9 @@ class Staff(Base, TimestampMixin):
     joining_date      = Column(Date, nullable=True)
     termination_date  = Column(Date, nullable=True)
 
+    # Reporting hierarchy
+    reporting_manager_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+
     # Emergency contact
     emergency_contact_name  = Column(String(255), nullable=True)
     emergency_contact_phone = Column(String(20), nullable=True)
@@ -154,9 +159,10 @@ class Staff(Base, TimestampMixin):
     pf_number           = Column(String(50), nullable=True)
 
     # Relationships
-    society         = relationship("Society")
-    user            = relationship("User")
-    designation_rel = relationship("StaffDesignation", back_populates="staff")
+    society             = relationship("Society")
+    user                = relationship("User", foreign_keys=[user_id])
+    reporting_manager   = relationship("User", foreign_keys=[reporting_manager_id])
+    designation_rel     = relationship("StaffDesignation", back_populates="staff")
     shift           = relationship("StaffShift", back_populates="staff")
     attendance      = relationship("StaffAttendance", back_populates="staff", cascade="all, delete-orphan")
     duties          = relationship("DutyAssignment", back_populates="staff", cascade="all, delete-orphan")
@@ -213,16 +219,25 @@ class StaffAttendance(Base, TimestampMixin):
     working_hours    = Column(Float, nullable=True)     # computed on checkout
     overtime_hours   = Column(Float, nullable=True)     # payroll-ready
     is_manual_entry  = Column(Boolean, default=False)   # admin override flag
+    # Punch-in approval
     is_approved      = Column(Boolean, default=False, nullable=False, index=True)
     approved_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     approved_at      = Column(DateTime, nullable=True)
     approval_notes   = Column(Text, nullable=True)
+    # Punch-out approval
+    is_checkout_approved    = Column(Boolean, default=False, nullable=False)
+    checkout_approved_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    checkout_approved_at    = Column(DateTime, nullable=True)
+    checkout_approval_notes = Column(Text, nullable=True)
+
     marked_by        = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     notes            = Column(Text, nullable=True)
 
-    society  = relationship("Society")
-    staff    = relationship("Staff", back_populates="attendance")
-    marker   = relationship("User", foreign_keys=[marked_by])
+    society          = relationship("Society")
+    staff            = relationship("Staff", back_populates="attendance")
+    marker           = relationship("User", foreign_keys=[marked_by])
+    approver         = relationship("User", foreign_keys=[approved_by])
+    checkout_approver = relationship("User", foreign_keys=[checkout_approved_by])
 
     def __repr__(self):
         return f"<Attendance staff={self.staff_id} date={self.attendance_date} {self.status}>"

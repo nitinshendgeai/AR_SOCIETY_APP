@@ -69,7 +69,9 @@ class Complaint(Base, TimestampMixin):
     society_id       = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     flat_id          = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="SET NULL"), nullable=True, index=True)
     raised_by        = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=False, index=True)
-    assigned_to      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    assigned_to         = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    assigned_department = Column(String(50), nullable=True, index=True)   # security|housekeeping|technical
+    assigned_by         = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     # Timestamps
     assigned_at      = Column(DateTime, nullable=True)
@@ -87,6 +89,7 @@ class Complaint(Base, TimestampMixin):
     flat           = relationship("Flat")
     reporter       = relationship("User", foreign_keys=[raised_by])
     assignee       = relationship("User", foreign_keys=[assigned_to])
+    assigner       = relationship("User", foreign_keys=[assigned_by])
     comments       = relationship("ComplaintComment",    back_populates="complaint", cascade="all, delete-orphan", order_by="ComplaintComment.created_at")
     attachments    = relationship("ComplaintAttachment", back_populates="complaint", cascade="all, delete-orphan")
     status_history = relationship("ComplaintStatusHistory", back_populates="complaint", cascade="all, delete-orphan", order_by="ComplaintStatusHistory.created_at")

@@ -10,6 +10,9 @@ class StaffEntity {
   final String status;
   final String? shiftId;
   final String? userId;
+  final String? reportingManagerId;
+  final String? email;
+  final String? joiningDate;
 
   const StaffEntity({
     required this.id,
@@ -21,7 +24,21 @@ class StaffEntity {
     required this.status,
     this.shiftId,
     this.userId,
+    this.reportingManagerId,
+    this.email,
+    this.joiningDate,
   });
+
+  String get departmentLabel {
+    switch (department.toLowerCase()) {
+      case 'security':     return 'Security';
+      case 'housekeeping': return 'Housekeeping';
+      case 'technical':    return 'Technical';
+      case 'gym':          return 'Gym';
+      case 'admin':        return 'Administration';
+      default:             return department;
+    }
+  }
 }
 
 // ── Attendance status ─────────────────────────────────────────────────────────
@@ -70,6 +87,8 @@ class AttendanceEntity {
   final double? workingHours;
   final double? overtimeHours;
   final bool isManualEntry;
+  final bool isApproved;
+  final bool isCheckoutApproved;
   final String? notes;
 
   const AttendanceEntity({
@@ -83,12 +102,16 @@ class AttendanceEntity {
     this.workingHours,
     this.overtimeHours,
     this.isManualEntry = false,
+    this.isApproved = false,
+    this.isCheckoutApproved = false,
     this.notes,
   });
 
   bool get isCheckedIn  => checkInTime != null;
   bool get isCheckedOut => checkOutTime != null;
   bool get isComplete   => isCheckedIn && isCheckedOut;
+  bool get needsCheckinApproval  => isCheckedIn && !isApproved;
+  bool get needsCheckoutApproval => isCheckedOut && !isCheckoutApproved;
 }
 
 // ── Duty entity ───────────────────────────────────────────────────────────────

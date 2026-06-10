@@ -1,17 +1,33 @@
 # Known Issues — AR Society ERP
 
-Last updated: 2026-06-06
+Last updated: 2026-06-10
 
 ---
 
 ## Active Issues
 
-_No blocking issues at this time._
+### [KNOWN GAP] Staff approval routing is role-convention, not enforced by FK
 
-## Recent Staff Workflow Update
+The supervisor-scoped attendance approval endpoint (`GET /staff/attendance/pending/supervisor/{society_id}?department=security`) relies on the calling user passing their own department — the backend does not re-derive the department from the authenticated token. A future improvement should extract department from the user's staff record and enforce it server-side.
 
-- Staff attendance approval endpoints are now available for supervisor/committee review.
-- The staff test suite covers pending approval retrieval and approval confirmation.
+### [KNOWN GAP] Complaint-to-department assignment does not auto-notify
+
+When a manager assigns a complaint to a department via `POST /staff/complaints/assign-department`, the assigned supervisor receives no push notification. Notification infrastructure would be needed to close this gap.
+
+### [KNOWN GAP] Manager/Supervisor dashboard approval counts are live-fetched per load
+
+`approvalProvider` in `ManagerDashboardScreen` and `SupervisorDashboardScreen` makes individual API calls per session load. Consider WebSocket or SSE for real-time count updates in a future iteration.
+
+## Recent Staff Workflow Update (2026-06-10)
+
+Full staff hierarchy approval system implemented:
+- Punch-in and punch-out approval with two-phase workflow
+- Supervisor-scoped attendance filtering by department
+- TECHNICAL and GYM departments added to enum
+- Reporting Manager FK on staff records
+- Complaint → department assignment by manager
+- Manager Dashboard and Supervisor Dashboard screens in Flutter
+- AttendanceApprovalScreen, DutyAssignScreen, StaffListScreen added
 
 ---
 

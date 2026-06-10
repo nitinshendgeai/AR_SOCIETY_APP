@@ -12,7 +12,8 @@ from app.modules.staff.models.staff import (
 from app.modules.staff.schemas.staff import (
     StaffCreate, StaffUpdate, DesignationCreate, ShiftCreate,
     DutyCreate, DutyVerifyRequest, AttendanceCheckIn, AttendanceCheckOut,
-    AttendanceManualEntry, AttendanceApprovalRequest, TaskCreate, TaskStatusUpdate, WorkLogCreate,
+    AttendanceManualEntry, AttendanceApprovalRequest, AttendanceCheckoutApprovalRequest,
+    TaskCreate, TaskStatusUpdate, WorkLogCreate,
     LeaveCreate, LeaveApproveRequest, LeaveRejectRequest,
 )
 from app.modules.staff.repositories.staff_repo import (
@@ -229,6 +230,44 @@ class StaffService:
     def get_pending_attendance(self, society_id: UUID) -> List[StaffAttendance]:
         return self.att_repo.get_pending(society_id)
 
+    def get_pending_attendance_for_supervisor(
+        self, society_id: UUID, department: str | None = None
+    ) -> List[StaffAttendance]:
+        return self.att_repo.get_pending_by_dept(society_id, department)
+
+    def get_pending_checkout_approvals(
+        self, society_id: UUID, department: str | None = None
+    ) -> List[StaffAttendance]:
+        return self.att_repo.get_pending_checkout(society_id, department)
+
+    def get_attendance_summary(self, society_id: UUID, att_date: date) -> dict:
+        records = self.att_repo.get_by_society_date(society_id, att_date)
+        staff_list = self.repo.get_by_society(society_id, skip=0, limit=500)
+        total_staff = len(staff_list)
+        present = sum(1 for r in records if r.check_in_time is not None)
+        absent  = total_staff - present
+        pending_checkin  = sum(1 for r in records if not r.is_approved)
+        pending_checkout = sum(1 for r in records if r.check_out_time and not r.is_checkout_approved)
+
+        # department breakdown
+        dept_map: dict = {}
+        for r in records:
+            st = self.repo.get(r.staff_id)
+            dept = st.department.value if st else "unknown"
+            if dept not in dept_map:
+                dept_map[dept] = {"present": 0, "absent": 0}
+            dept_map[dept]["present"] += 1
+
+        return {
+            "date": str(att_date),
+            "total_staff": total_staff,
+            "present": present,
+            "absent": absent,
+            "pending_checkin_approval": pending_checkin,
+            "pending_checkout_approval": pending_checkout,
+            "department_breakdown": dept_map,
+        }
+
     def approve_attendance(self, attendance_id: UUID, data: AttendanceApprovalRequest,
                            user: User, request=None) -> StaffAttendance:
         attendance = self.att_repo.get(attendance_id)
@@ -245,6 +284,28 @@ class StaffService:
 
         self._audit(AuditAction.APPROVE, attendance, "StaffAttendance", user, request,
                     new_values={"approval_status": "approved"})
+        self.db.commit()
+        self.db.refresh(attendance)
+        return attendance
+
+    def approve_checkout(self, attendance_id: UUID, data: AttendanceCheckoutApprovalRequest,
+                         user: User, request=None) -> StaffAttendance:
+        attendance = self.att_repo.get(attendance_id)
+        if not attendance:
+            raise HTTPException(status_code=404, detail="Attendance record not found")
+        if not attendance.check_out_time:
+            raise HTTPException(status_code=409, detail="Staff has not checked out yet")
+        if attendance.is_checkout_approved:
+            raise HTTPException(status_code=409, detail="Checkout already approved")
+
+        attendance.is_checkout_approved    = True
+        attendance.checkout_approved_by    = user.id
+        attendance.checkout_approved_at    = datetime.utcnow()
+        if data.notes:
+            attendance.checkout_approval_notes = data.notes
+
+        self._audit(AuditAction.APPROVE, attendance, "StaffAttendance", user, request,
+                    new_values={"checkout_approval_status": "approved"})
         self.db.commit()
         self.db.refresh(attendance)
         return attendance
@@ -363,3 +424,37 @@ class StaffService:
 
     def get_staff_leaves(self, staff_id: UUID, skip=0, limit=50) -> List[StaffLeave]:
         return self.leave_repo.get_by_staff(staff_id, skip, limit)
+
+    # ── Complaint Assignment ───────────────────────────────────────────────────
+
+    def assign_complaint_to_department(
+        self, complaint_id: UUID, department: str, notes: str | None, user: User
+    ) -> dict:
+        from app.modules.complaint.models.complaint import Complaint
+        complaint = self.db.query(Complaint).filter(Complaint.id == complaint_id).first()
+        if not complaint:
+            raise HTTPException(status_code=404, detail="Complaint not found")
+        valid_depts = {"security", "housekeeping", "technical"}
+        if department not in valid_depts:
+            raise HTTPException(status_code=400, detail=f"department must be one of: {valid_depts}")
+
+        complaint.assigned_department = department
+        complaint.assigned_by = user.id
+        complaint.assigned_at = datetime.utcnow()
+        if notes:
+            complaint.resolution_notes = (complaint.resolution_notes or "") + f"\n[Dept Assignment] {notes}"
+        self.db.commit()
+        return {
+            "complaint_id": str(complaint_id),
+            "department": department,
+            "assigned_by": str(user.id),
+            "message": f"Complaint assigned to {department} department",
+        }
+
+    def get_complaints_for_department(self, society_id: UUID, department: str) -> list:
+        from app.modules.complaint.models.complaint import Complaint
+        return self.db.query(Complaint).filter(
+            Complaint.society_id == society_id,
+            Complaint.assigned_department == department,
+            Complaint.is_active == True,
+        ).order_by(Complaint.created_at.desc()).all()

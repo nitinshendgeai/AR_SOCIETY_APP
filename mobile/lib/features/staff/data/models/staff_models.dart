@@ -12,6 +12,9 @@ class StaffModel {
   final String status;
   final String? shiftId;
   final String? userId;
+  final String? reportingManagerId;
+  final String? email;
+  final String? joiningDate;
 
   const StaffModel({
     required this.id,
@@ -23,6 +26,9 @@ class StaffModel {
     required this.status,
     this.shiftId,
     this.userId,
+    this.reportingManagerId,
+    this.email,
+    this.joiningDate,
   });
 
   factory StaffModel.fromJson(Map<String, dynamic> j) => StaffModel(
@@ -35,12 +41,17 @@ class StaffModel {
         status: j['status'] as String,
         shiftId: j['shift_id'] as String?,
         userId: j['user_id'] as String?,
+        reportingManagerId: j['reporting_manager_id'] as String?,
+        email: j['email'] as String?,
+        joiningDate: j['joining_date'] as String?,
       );
 
   StaffEntity toEntity() => StaffEntity(
         id: id, societyId: societyId, employeeCode: employeeCode,
         fullName: fullName, mobile: mobile, department: department,
         status: status, shiftId: shiftId, userId: userId,
+        reportingManagerId: reportingManagerId,
+        email: email, joiningDate: joiningDate,
       );
 }
 
@@ -57,6 +68,8 @@ class AttendanceModel {
   final double? workingHours;
   final double? overtimeHours;
   final bool isManualEntry;
+  final bool isApproved;
+  final bool isCheckoutApproved;
   final String? notes;
 
   const AttendanceModel({
@@ -70,6 +83,8 @@ class AttendanceModel {
     this.workingHours,
     this.overtimeHours,
     this.isManualEntry = false,
+    this.isApproved = false,
+    this.isCheckoutApproved = false,
     this.notes,
   });
 
@@ -84,6 +99,8 @@ class AttendanceModel {
         workingHours: (j['working_hours'] as num?)?.toDouble(),
         overtimeHours: (j['overtime_hours'] as num?)?.toDouble(),
         isManualEntry: j['is_manual_entry'] as bool? ?? false,
+        isApproved: j['is_approved'] as bool? ?? false,
+        isCheckoutApproved: j['is_checkout_approved'] as bool? ?? false,
         notes: j['notes'] as String?,
       );
 
@@ -96,6 +113,8 @@ class AttendanceModel {
         workingHours: workingHours,
         overtimeHours: overtimeHours,
         isManualEntry: isManualEntry,
+        isApproved: isApproved,
+        isCheckoutApproved: isCheckoutApproved,
         notes: notes,
       );
 }
