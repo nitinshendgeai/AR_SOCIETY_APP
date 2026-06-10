@@ -1,0 +1,8 @@
+[phases.install]
+cmds = ["flutter pub get"]
+
+[phases.build]
+cmds = ["flutter build web --release"]
+
+[start]
+cmd = "python3 -m http.server ${PORT:-8080} --directory build/web"
