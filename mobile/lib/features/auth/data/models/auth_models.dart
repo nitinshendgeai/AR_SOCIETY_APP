@@ -20,7 +20,7 @@ class TokenModel {
 }
 
 /// Maps to FastAPI UserOut schema.
-/// The API returns roles as a flat list of strings: ["Society Admin", ...]
+/// roles is a flat List<String> returned by /auth/me via from_orm_with_roles.
 class UserModel {
   final String id;
   final String email;
@@ -28,8 +28,11 @@ class UserModel {
   final String? phone;
   final String? profileImage;
   final String status;
-  final List<String> roles;
   final bool mustChangePassword;
+  final bool termsAccepted;
+  final bool setupCompleted;
+  final String? societyId;
+  final List<String> roles;
 
   const UserModel({
     required this.id,
@@ -38,8 +41,11 @@ class UserModel {
     this.phone,
     this.profileImage,
     required this.status,
-    required this.roles,
     this.mustChangePassword = false,
+    this.termsAccepted = false,
+    this.setupCompleted = false,
+    this.societyId,
+    required this.roles,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -50,8 +56,11 @@ class UserModel {
         profileImage: json['profile_image'] as String?,
         status: json['status'] as String? ?? 'active',
         mustChangePassword: json['must_change_password'] as bool? ?? false,
+        termsAccepted: json['terms_accepted'] as bool? ?? false,
+        setupCompleted: json['setup_completed'] as bool? ?? false,
+        societyId: json['society_id'] as String?,
         roles: (json['roles'] as List<dynamic>?)
-                ?.map((e) => e as String)
+                ?.map((e) => e.toString())
                 .toList() ??
             [],
       );
@@ -64,5 +73,8 @@ class UserModel {
         phone: phone,
         profileImage: profileImage,
         mustChangePassword: mustChangePassword,
+        termsAccepted: termsAccepted,
+        setupCompleted: setupCompleted,
+        societyId: societyId,
       );
 }

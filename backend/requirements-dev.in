@@ -1,0 +1,6 @@
+# Development & testing only — do NOT install on Railway
+# To regenerate: pip-compile --generate-hashes requirements-dev.in
+-r requirements.in
+pytest
+pytest-asyncio
+faker

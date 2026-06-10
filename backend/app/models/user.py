@@ -3,6 +3,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
 from app.db.base import Base, TimestampMixin
+import uuid as _uuid
 
 
 class UserStatus(str, enum.Enum):
@@ -23,7 +24,6 @@ class User(Base, TimestampMixin):
         nullable=True,
         index=True,
     )
-
     email          = Column(String(255), nullable=False, unique=True, index=True)
     phone          = Column(String(20), nullable=True, unique=True, index=True)
     full_name      = Column(String(255), nullable=False)

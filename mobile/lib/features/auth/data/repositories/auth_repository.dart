@@ -87,6 +87,18 @@ class AuthRepository {
     }
   }
 
+  /// Accept terms of service for the current user.
+  Future<AuthResult<void>> acceptTerms() async {
+    try {
+      await _remote.acceptTerms();
+      return AuthSuccess(null);
+    } on DioException catch (e) {
+      return AuthFailure(parseApiError(e));
+    } catch (e) {
+      return AuthFailure('Unexpected error: $e');
+    }
+  }
+
   /// Logout: clear all stored tokens.
   Future<void> logout() async {
     await TokenStorage.clearTokens();

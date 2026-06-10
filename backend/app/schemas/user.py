@@ -1,5 +1,6 @@
 from pydantic import EmailStr, field_validator
 from typing import List, Optional
+from uuid import UUID
 from app.schemas.common import OrmBase, TimestampSchema
 from app.models.user import UserStatus
 
@@ -52,6 +53,7 @@ class UserOut(TimestampSchema):
     must_change_password: bool = False
     terms_accepted:       bool = False
     setup_completed:      bool = False
+    society_id:           Optional[UUID] = None
     roles:                List[str] = []
 
     @classmethod
@@ -59,4 +61,5 @@ class UserOut(TimestampSchema):
         roles = [ur.role.name for ur in user.user_roles if ur.role]
         data  = cls.model_validate(user)
         data.roles = roles
+        data.society_id = user.society_id
         return data

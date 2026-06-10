@@ -83,6 +83,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
     return result;
   }
 
+  /// Accept terms of service. Does not update local state — call refreshUser() after wizard completes.
+  Future<AuthResult<void>> acceptTerms() async {
+    return await _repo.acceptTerms();
+  }
+
+  /// Re-fetch user from /auth/me and update local state.
+  Future<void> refreshUser() async {
+    final result = await _repo.validateSession();
+    if (result is AuthSuccess<UserEntity>) {
+      state = AuthAuthenticated(result.data);
+    }
+    // On failure, keep existing auth state — don't log the user out.
+  }
+
   /// Logout — clears tokens and redirects to login.
   Future<void> logout() async {
     await _repo.logout();
