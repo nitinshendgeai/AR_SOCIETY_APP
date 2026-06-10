@@ -231,12 +231,12 @@ class StaffService:
         return self.att_repo.get_pending(society_id)
 
     def get_pending_attendance_for_supervisor(
-        self, society_id: UUID, department: str | None = None
+        self, society_id: UUID, department: Optional[str] = None
     ) -> List[StaffAttendance]:
         return self.att_repo.get_pending_by_dept(society_id, department)
 
     def get_pending_checkout_approvals(
-        self, society_id: UUID, department: str | None = None
+        self, society_id: UUID, department: Optional[str] = None
     ) -> List[StaffAttendance]:
         return self.att_repo.get_pending_checkout(society_id, department)
 
@@ -428,7 +428,7 @@ class StaffService:
     # ── Complaint Assignment ───────────────────────────────────────────────────
 
     def assign_complaint_to_department(
-        self, complaint_id: UUID, department: str, notes: str | None, user: User
+        self, complaint_id: UUID, department: str, notes: Optional[str], user: User
     ) -> dict:
         from app.modules.complaint.models.complaint import Complaint
         complaint = self.db.query(Complaint).filter(Complaint.id == complaint_id).first()

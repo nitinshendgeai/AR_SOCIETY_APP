@@ -7,6 +7,7 @@ Workflows:
   Leave: PENDING → APPROVED | REJECTED
 """
 import enum
+from typing import Optional
 from sqlalchemy import (
     Column, String, Text, Integer, Float, Boolean,
     DateTime, Date, Time, Enum, ForeignKey
@@ -171,11 +172,11 @@ class Staff(Base, TimestampMixin):
     work_logs       = relationship("StaffWorkLog", back_populates="staff", cascade="all, delete-orphan")
 
     @property
-    def designation_name(self) -> str | None:
+    def designation_name(self) -> Optional[str]:
         return self.designation_rel.name if self.designation_rel else None
 
     @property
-    def reporting_manager_name(self) -> str | None:
+    def reporting_manager_name(self) -> Optional[str]:
         return self.reporting_manager.full_name if self.reporting_manager else None
 
     def __repr__(self):
