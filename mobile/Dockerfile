@@ -22,13 +22,15 @@ RUN flutter build web --release \
 # ── Stage 2: Nginx runtime ────────────────────────────────────────────────────
 FROM nginx:1.27-alpine
 
-RUN rm /etc/nginx/conf.d/default.conf
-
-# Store config as a template — CMD substitutes only $PORT at startup
-COPY nginx.conf /etc/nginx/conf.d/default.conf.template
+# Remove the nginx default config and IPv6-by-default entrypoint script.
+# Our start.sh generates the config from $PORT at container startup.
+RUN rm /etc/nginx/conf.d/default.conf \
+ && rm /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
 
 COPY --from=builder /app/build/web /usr/share/nginx/html
 
-# Substitute ONLY $PORT (leaves nginx vars like $uri untouched), then start nginx.
-# envsubst '$PORT' limits substitution to that one variable.
-CMD ["/bin/sh", "-c", "envsubst '$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'"]
+# Startup script: generates nginx.conf with Railway's $PORT then starts nginx.
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+
+CMD ["/start.sh"]
