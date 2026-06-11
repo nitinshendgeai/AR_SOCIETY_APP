@@ -12,6 +12,10 @@ RUN flutter pub get --no-example
 # Copy source
 COPY . .
 
+# .env is not committed (no secrets), but is listed as an asset in pubspec.yaml.
+# Create an empty placeholder so Flutter's asset bundler doesn't abort.
+RUN touch .env
+
 # Build arguments — override at build time for different environments
 ARG API_BASE_URL=https://arsocietyapp-production.up.railway.app/api/v1
 ARG APP_ENV=production
