@@ -33,14 +33,14 @@ FROM nginx:1.27-alpine
 # Remove default nginx config
 RUN rm /etc/nginx/conf.d/default.conf
 
-# Copy SPA nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Place config as a template — nginx entrypoint runs envsubst on startup,
+# substituting ${PORT} so nginx listens on Railway's dynamic port.
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
 # Copy built Flutter web output
 COPY --from=builder /app/build/web /usr/share/nginx/html
 
-# Railway sets PORT at runtime; nginx listens on 80 internally.
-# Railway's networking maps its PORT → container:80.
-EXPOSE 80
+# Default PORT for local runs; Railway overrides this at runtime.
+ENV PORT=80
 
 CMD ["nginx", "-g", "daemon off;"]
