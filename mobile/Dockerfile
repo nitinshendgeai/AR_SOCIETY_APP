@@ -19,18 +19,11 @@ RUN flutter build web --release \
     --dart-define=APP_ENV=${APP_ENV} \
     --no-tree-shake-icons
 
-# ── Stage 2: Nginx runtime ────────────────────────────────────────────────────
-FROM nginx:1.27-alpine
+# ── Stage 2: Caddy runtime ────────────────────────────────────────────────────
+FROM caddy:2-alpine
 
-# Remove the nginx default config and IPv6-by-default entrypoint script.
-# Our start.sh generates the config from $PORT at container startup.
-RUN rm /etc/nginx/conf.d/default.conf \
- && rm /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
+# Caddy reads PORT from the environment via {$PORT} in the Caddyfile.
+# No scripts, no entrypoint modifications needed.
+COPY Caddyfile /etc/caddy/Caddyfile
+COPY --from=builder /app/build/web /srv
 
-COPY --from=builder /app/build/web /usr/share/nginx/html
-
-# Startup script: generates nginx.conf with Railway's $PORT then starts nginx.
-COPY start.sh /start.sh
-RUN chmod +x /start.sh
-
-CMD ["/start.sh"]
