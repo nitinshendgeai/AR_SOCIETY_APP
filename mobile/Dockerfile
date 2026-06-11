@@ -15,6 +15,7 @@ ARG API_BASE_URL=https://arsocietyapp-production.up.railway.app/api/v1
 ARG APP_ENV=production
 
 RUN flutter build web --release \
+    --web-renderer html \
     --dart-define=API_BASE_URL=${API_BASE_URL} \
     --dart-define=APP_ENV=${APP_ENV} \
     --no-tree-shake-icons
