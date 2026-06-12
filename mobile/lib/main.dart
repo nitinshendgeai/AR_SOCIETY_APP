@@ -10,10 +10,8 @@ import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 
 Future<void> main() async {
-  // Catch any uncaught async/platform exception and print it to the browser
-  // console so we can read it even in a minified release build.
   PlatformDispatcher.instance.onError = (error, stack) {
-    print('[STARTUP_CRASH] PlatformDispatcher caught: $error');
+    print('[STARTUP_CRASH] PlatformDispatcher: $error');
     print('[STARTUP_CRASH] $stack');
     return true;
   };
@@ -21,7 +19,6 @@ Future<void> main() async {
   print('[STARTUP] 1 ensureInitialized');
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Catch any widget-layer exception (layout errors, build errors, etc.)
   FlutterError.onError = (details) {
     print('[STARTUP_CRASH] FlutterError: ${details.exception}');
     print('[STARTUP_CRASH] ${details.stack}');
@@ -34,8 +31,7 @@ Future<void> main() async {
   try {
     ApiClient.initialize();
   } catch (e, s) {
-    print('[STARTUP_CRASH] ApiClient.initialize threw: $e');
-    print('[STARTUP_CRASH] $s');
+    print('[STARTUP_CRASH] ApiClient.initialize: $e\n$s');
   }
 
   print('[STARTUP] 4 platform setup');
@@ -53,11 +49,7 @@ Future<void> main() async {
   }
 
   print('[STARTUP] 5 runApp');
-  runApp(
-    const ProviderScope(
-      child: ArSocietyApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: ArSocietyApp()));
   print('[STARTUP] 6 runApp returned');
 }
 
@@ -68,17 +60,36 @@ class ArSocietyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     print('[STARTUP] ArSocietyApp.build');
     try {
+      print('[STARTUP] watching appRouterProvider');
       final router = ref.watch(appRouterProvider);
       print('[STARTUP] appRouterProvider OK');
-      return MaterialApp.router(
-        title: Env.appName,
+
+      print('[STARTUP] Env.appName');
+      final title = Env.appName;
+      print('[STARTUP] title=$title');
+
+      print('[STARTUP] AppTheme.lightTheme');
+      ThemeData theme;
+      try {
+        theme = AppTheme.lightTheme;
+        print('[STARTUP] lightTheme OK');
+      } catch (e, s) {
+        print('[STARTUP_CRASH] AppTheme.lightTheme threw: $e\n$s');
+        theme = ThemeData(useMaterial3: true);
+        print('[STARTUP] using fallback ThemeData');
+      }
+
+      print('[STARTUP] MaterialApp.router');
+      final app = MaterialApp.router(
+        title: title,
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
+        theme: theme,
         routerConfig: router,
       );
+      print('[STARTUP] MaterialApp.router OK');
+      return app;
     } catch (e, s) {
-      print('[STARTUP_CRASH] ArSocietyApp.build threw: $e');
-      print('[STARTUP_CRASH] $s');
+      print('[STARTUP_CRASH] ArSocietyApp.build: $e\n$s');
       rethrow;
     }
   }
