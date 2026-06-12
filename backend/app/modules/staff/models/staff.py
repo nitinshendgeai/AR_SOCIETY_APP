@@ -248,6 +248,10 @@ class StaffAttendance(Base, TimestampMixin):
     approver         = relationship("User", foreign_keys=[approved_by])
     checkout_approver = relationship("User", foreign_keys=[checkout_approved_by])
 
+    @property
+    def staff_name(self) -> str:
+        return self.staff.full_name if self.staff else ""
+
     def __repr__(self):
         return f"<Attendance staff={self.staff_id} date={self.attendance_date} {self.status}>"
 

@@ -36,13 +36,20 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
     ('admin',        'Administration'),
   ];
 
-  static const _defaultDesignations = {
-    'security':     ['Security Supervisor', 'Security Guard'],
-    'housekeeping': ['Housekeeping Supervisor', 'Housekeeping Staff'],
-    'technical':    ['Technical Staff'],
-    'gym':          ['Gym Trainer'],
-    'admin':        ['Manager'],
-  };
+  @override
+  void initState() {
+    super.initState();
+    // Ensure staff list is loaded so the reporting manager dropdown is populated.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = ref.read(currentUserProvider);
+      if (user?.societyId != null) {
+        final listState = ref.read(staffListProvider);
+        if (listState is StaffListInitial) {
+          ref.read(staffListProvider.notifier).load(user!.societyId!);
+        }
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -169,10 +176,17 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
             _FormField(
               label: 'Designation',
               child: allDesignations.isEmpty
-                  ? _FallbackDesignationDropdown(
-                      dept: _selectedDept,
-                      defaults: _defaultDesignations,
-                      onChanged: (_) {},
+                  ? Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardBg,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.border),
+                      ),
+                      child: const Text(
+                        'No designations configured. Ask your admin to set up designations first.',
+                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                      ),
                     )
                   : DropdownButtonFormField<String>(
                       value: _selectedDesignationId,
@@ -327,31 +341,18 @@ class _FormField extends StatelessWidget {
   );
 }
 
-/// Fallback when no designations are loaded from the server yet.
+/// Dead class — kept to avoid orphan reference until full cleanup.
+// ignore: unused_element
 class _FallbackDesignationDropdown extends StatelessWidget {
   final String? dept;
-  final Map<String, List<String>> defaults;
   final void Function(String?) onChanged;
-  const _FallbackDesignationDropdown({this.dept, required this.defaults, required this.onChanged});
+  const _FallbackDesignationDropdown({this.dept, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
-    final options = dept != null ? (defaults[dept] ?? <String>[]) : <String>[];
-    if (options.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppTheme.cardBg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: const Text('Select a department first',
-            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-      );
-    }
     return DropdownButtonFormField<String>(
       decoration: const InputDecoration(hintText: 'Select designation'),
-      items: options.map((n) => DropdownMenuItem(value: n, child: Text(n))).toList(),
+      items: const [],
       onChanged: onChanged,
     );
   }

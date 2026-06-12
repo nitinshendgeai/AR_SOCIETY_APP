@@ -66,7 +66,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
           IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
         ],
       ),
-      floatingActionButton: societyId != null
+      floatingActionButton: (societyId != null && (user?.isAdminOrCommittee ?? false))
           ? FloatingActionButton.extended(
               onPressed: () => context.push('/staff/add'),
               backgroundColor: AppTheme.primary,

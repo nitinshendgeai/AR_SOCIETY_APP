@@ -113,6 +113,7 @@ class AttendanceOut(TimestampSchema):
     checkout_approved_at: Optional[datetime] = None
     checkout_approval_notes: Optional[str] = None
     notes: Optional[str]
+    staff_name: Optional[str] = None
 
 
 # ── Task ──────────────────────────────────────────────────────────────────────

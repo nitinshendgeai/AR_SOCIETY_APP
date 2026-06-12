@@ -437,17 +437,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 });
 
 String _userRoleHome(UserEntity user) {
-  switch (user.primaryRole) {
-    case 'Admin':
-    case 'Super Admin':
-    case 'Society Admin': return AppRoutes.adminHome;
-    case 'Committee':     return AppRoutes.committeeHome;
-    case 'Security':      return AppRoutes.securityHome;
-    case 'Manager':       return AppRoutes.managerHome;
-    case 'Security Supervisor':
-    case 'Housekeeping Supervisor':
-    case 'Supervisor':    return AppRoutes.supervisorHome;
-    case 'Staff':         return AppRoutes.staffHome;
-    default:              return AppRoutes.residentHome;
+  if (user.isAdmin) return AppRoutes.adminHome;
+  if (user.isCommittee) return AppRoutes.committeeHome;
+  final roles = user.roles;
+  // Specific staff hierarchy roles — checked before generic contains() guards
+  if (roles.any((r) => r == 'Manager')) return AppRoutes.managerHome;
+  if (roles.any((r) => r.contains('Supervisor'))) return AppRoutes.supervisorHome;
+  if (roles.any((r) => r.contains('Staff') || r == 'Gym Trainer' || r.contains('Trainer'))) {
+    return AppRoutes.staffHome;
   }
+  if (user.isSecurity) return AppRoutes.securityHome;
+  return AppRoutes.residentHome;
 }

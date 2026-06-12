@@ -152,6 +152,7 @@ class AttendanceModel {
   final bool isApproved;
   final bool isCheckoutApproved;
   final String? notes;
+  final String? staffName;
 
   const AttendanceModel({
     required this.id,
@@ -167,6 +168,7 @@ class AttendanceModel {
     this.isApproved = false,
     this.isCheckoutApproved = false,
     this.notes,
+    this.staffName,
   });
 
   factory AttendanceModel.fromJson(Map<String, dynamic> j) => AttendanceModel(
@@ -183,6 +185,7 @@ class AttendanceModel {
         isApproved: j['is_approved'] as bool? ?? false,
         isCheckoutApproved: j['is_checkout_approved'] as bool? ?? false,
         notes: j['notes'] as String?,
+        staffName: j['staff_name'] as String?,
       );
 
   AttendanceEntity toEntity() => AttendanceEntity(
@@ -197,6 +200,7 @@ class AttendanceModel {
         isApproved: isApproved,
         isCheckoutApproved: isCheckoutApproved,
         notes: notes,
+        staffName: staffName,
       );
 }
 

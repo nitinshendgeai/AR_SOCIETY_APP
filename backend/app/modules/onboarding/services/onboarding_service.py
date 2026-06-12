@@ -13,6 +13,7 @@ from typing import Tuple
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
+from datetime import time as dt_time
 from app.models.society import Society, AccountStatus
 from app.models.role import Role
 from app.models.user import User, UserRole, UserStatus
@@ -20,6 +21,9 @@ from app.models.audit_log import AuditAction
 from app.core.security import hash_password
 from app.services.audit_service import AuditService
 from app.modules.onboarding.schemas.onboarding import SelfRegistrationRequest
+from app.modules.staff.models.staff import (
+    StaffDesignation, StaffShift, StaffDepartment, ShiftType,
+)
 
 TRIAL_DAYS = 30
 
@@ -27,7 +31,7 @@ TRIAL_DAYS = 30
 # Users are forced to change this on first login (must_change_password=True).
 STANDARD_ONBOARDING_PASSWORD = "Admin@1234"
 
-# 14 default roles for self-registered societies
+# 16 default roles for self-registered societies
 EXTENDED_DEFAULT_ROLES = [
     ("Platform Admin",          "AR Society internal cross-society management"),
     ("Society Admin",           "Full society-level administration"),
@@ -35,12 +39,14 @@ EXTENDED_DEFAULT_ROLES = [
     ("Committee Secretary",     "Society secretary and record keeper"),
     ("Committee Treasurer",     "Society treasurer and finance"),
     ("Committee Member",        "General committee member"),
+    ("Manager",                 "Operations manager; approves supervisors and assigns duties"),
     ("Security Supervisor",     "Supervises security staff and gate operations"),
     ("Housekeeping Supervisor", "Supervises housekeeping and cleaning staff"),
     ("Technical Supervisor",    "Supervises maintenance and technical staff"),
     ("Security Staff",          "Gate security and patrol operations"),
     ("Housekeeping Staff",      "Cleaning and housekeeping operations"),
     ("Technical Staff",         "Electrical, plumbing, and maintenance work"),
+    ("Gym Trainer",             "Gym and fitness operations"),
     ("Resident",                "Flat owner or permanent occupant"),
     ("Tenant",                  "Rented flat occupant"),
 ]
@@ -73,6 +79,23 @@ DEFAULT_USER_CONFIGS = [
 ]
 
 
+DEFAULT_DESIGNATIONS = [
+    ("Manager",                 StaffDepartment.ADMIN),
+    ("Security Supervisor",     StaffDepartment.SECURITY),
+    ("Security Guard",          StaffDepartment.SECURITY),
+    ("Housekeeping Supervisor", StaffDepartment.HOUSEKEEPING),
+    ("Housekeeping Staff",      StaffDepartment.HOUSEKEEPING),
+    ("Technical Staff",         StaffDepartment.TECHNICAL),
+    ("Gym Trainer",             StaffDepartment.GYM),
+]
+
+DEFAULT_SHIFTS = [
+    ("Morning Shift",   ShiftType.MORNING,   dt_time(6,  0), dt_time(14, 0), False),
+    ("Afternoon Shift", ShiftType.AFTERNOON,  dt_time(14, 0), dt_time(22, 0), False),
+    ("Night Shift",     ShiftType.NIGHT,      dt_time(22, 0), dt_time(6,  0), True),
+]
+
+
 class OnboardingService:
 
     def __init__(self, db: Session):
@@ -90,8 +113,9 @@ class OnboardingService:
         society = self._create_society(data)
         roles   = self._create_extended_roles()
         users, creds = self._create_default_users(society, roles)
+        self._create_default_designations_and_shifts(society)
 
-        # Commit society, roles, and users FIRST so they are persisted regardless
+        # Commit society, roles, users, and defaults FIRST so they are persisted regardless
         # of whether the audit log write succeeds.  AuditService.log() internally
         # calls db.commit() and, on failure, db.rollback() — if the audit were
         # called while these objects were still unflushed, a rollback would wipe
@@ -272,3 +296,29 @@ class OnboardingService:
             })
 
         return created_users, credentials
+
+    def _create_default_designations_and_shifts(self, society: Society) -> None:
+        for name, dept in DEFAULT_DESIGNATIONS:
+            existing = self.db.query(StaffDesignation).filter(
+                StaffDesignation.society_id == society.id,
+                StaffDesignation.name == name,
+            ).first()
+            if not existing:
+                self.db.add(StaffDesignation(
+                    society_id=society.id, name=name, department=dept,
+                ))
+
+        for name, shift_type, start, end, overnight in DEFAULT_SHIFTS:
+            existing = self.db.query(StaffShift).filter(
+                StaffShift.society_id == society.id,
+                StaffShift.name == name,
+            ).first()
+            if not existing:
+                self.db.add(StaffShift(
+                    society_id=society.id, name=name,
+                    shift_type=shift_type,
+                    start_time=start, end_time=end,
+                    is_overnight=overnight,
+                ))
+        self.db.flush()
+

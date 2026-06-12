@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -18,12 +17,8 @@ class AppTheme {
 
   static TextTheme _safeTextTheme() {
     try {
-      print('[THEME] GoogleFonts.interTextTheme');
-      final t = GoogleFonts.interTextTheme();
-      print('[THEME] interTextTheme OK');
-      return t;
-    } catch (e) {
-      print('[THEME_CRASH] interTextTheme threw: $e — using default');
+      return GoogleFonts.interTextTheme();
+    } catch (_) {
       return const TextTheme();
     }
   }
@@ -31,15 +26,13 @@ class AppTheme {
   static TextStyle _safeInter(double size, FontWeight weight, [Color? color]) {
     try {
       return GoogleFonts.inter(fontSize: size, fontWeight: weight, color: color);
-    } catch (e) {
-      print('[THEME_CRASH] GoogleFonts.inter threw: $e — using default');
+    } catch (_) {
       return TextStyle(fontSize: size, fontWeight: weight, color: color);
     }
   }
 
   static ThemeData get lightTheme {
-    print('[THEME] lightTheme start');
-    final theme = ThemeData(
+    return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
         seedColor: primary,
@@ -97,7 +90,5 @@ class AppTheme {
         ),
       ),
     );
-    print('[THEME] lightTheme done');
-    return theme;
   }
 }

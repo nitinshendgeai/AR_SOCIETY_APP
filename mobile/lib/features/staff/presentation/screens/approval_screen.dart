@@ -200,7 +200,10 @@ class _ApprovalCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Staff ID: ${record.staffId.substring(0, 8)}…',
+                    Text(
+                        record.staffName?.isNotEmpty == true
+                            ? record.staffName!
+                            : 'Staff #${record.staffId.substring(0, 8)}',
                         style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimary)),
                     Text(formatDate(record.attendanceDate),
                         style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),

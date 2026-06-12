@@ -136,6 +136,7 @@ class AttendanceEntity {
   final bool isApproved;
   final bool isCheckoutApproved;
   final String? notes;
+  final String? staffName;
 
   const AttendanceEntity({
     required this.id,
@@ -151,6 +152,7 @@ class AttendanceEntity {
     this.isApproved = false,
     this.isCheckoutApproved = false,
     this.notes,
+    this.staffName,
   });
 
   bool get isCheckedIn  => checkInTime != null;
