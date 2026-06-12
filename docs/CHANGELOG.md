@@ -4,6 +4,35 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-06-12
+
+### feat: finalize staff management module
+
+**Routing (critical fix)**
+- `_userRoleHome` now routes based on actual role strings rather than
+  the simplified `primaryRole` computed property.
+  - Manager → `/manager` (was landing on Resident dashboard)
+  - Security/Housekeeping/Technical Supervisor → `/supervisor` (was going to Security or Staff)
+  - Security Staff → `/staff` (was going to Security dashboard)
+  - Gym Trainer → `/staff` (was landing on Resident dashboard)
+
+**Flutter**
+- Removed all `print('[STARTUP]...')` and `print('[THEME]...')` debug calls
+- `StaffListScreen`: "Add Staff" FAB hidden for non-admin/committee users (prevents 403)
+- `StaffAddScreen`: replaced broken fallback designation dropdown (no-op `onChanged`)
+  with a clear "No designations configured" message; also auto-loads staff list on
+  init so the Reporting Manager dropdown is populated without first visiting StaffList
+- `AttendanceApprovalScreen`: shows staff full name instead of truncated UUID
+
+**Backend**
+- `StaffAttendance` model: added `staff_name` computed property (reads from relationship)
+- `AttendanceOut` schema: added `staff_name: Optional[str]` field
+- Onboarding: added `Manager` and `Gym Trainer` to `EXTENDED_DEFAULT_ROLES` (were missing)
+- Onboarding: new societies automatically get 7 default designations + 3 default shifts
+  (Morning 06:00–14:00, Afternoon 14:00–22:00, Night 22:00–06:00)
+
+---
+
 ## 2026-06-06
 
 ### fix: resolve WingModel floor creation serialization issue

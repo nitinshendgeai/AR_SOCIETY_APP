@@ -1,10 +1,16 @@
 # Known Issues — AR Society ERP
 
-Last updated: 2026-06-10
+Last updated: 2026-06-12
 
 ---
 
 ## Active Issues
+
+### [KNOWN GAP] Existing societies missing Manager/Gym Trainer roles and default designations
+
+Societies registered before 2026-06-12 do not have 'Manager' or 'Gym Trainer' roles in their role table, and have no default designations or shifts. Admin must manually create them via the API or a one-time migration script. New registrations are fully seeded from this date onward.
+
+---
 
 ### [KNOWN GAP] Dashboard summary cards show hardcoded values
 
