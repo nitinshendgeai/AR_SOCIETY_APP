@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:ar_society_app/features/splash/presentation/screens/splash_screen.dart';
@@ -172,7 +173,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         // 3. Once setup is complete, redirect away from auth/setup screens.
         if (!user.mustChangePassword && user.termsAccepted &&
             (isOnLogin || isOnSplash || isOnChangePassword || isOnSetupWizard)) {
-          final home = _roleHome(ref);
+          final home = _userRoleHome(user);
           debugPrint('[ROUTE_REDIRECT] → role home: $home');
           return home;
         }
@@ -187,7 +188,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: AppRoutes.login,  builder: (_, __) => const LoginScreen()),
       GoRoute(path: AppRoutes.changePassword,
           builder: (_, __) => const ChangePasswordScreen()),
-      GoRoute(path: AppRoutes.home,   redirect: (_, __) => _roleHome(ref)),
+      GoRoute(path: AppRoutes.home, redirect: (_, __) {
+        if (authState is AuthAuthenticated) {
+          return _userRoleHome((authState as AuthAuthenticated).user);
+        }
+        return AppRoutes.login;
+      }),
       GoRoute(path: AppRoutes.adminHome,
           builder: (_, __) => const AdminDashboardScreen()),
       GoRoute(path: AppRoutes.committeeHome,
@@ -247,11 +253,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.staffAttendance,
-        builder: (_, state) {
-          final staffId = state.pathParameters['staffId']!;
-          ref.read(staffIdProvider.notifier).state = staffId;
-          return AttendanceScreen(staffId: staffId);
-        },
+        builder: (_, state) => AttendanceScreen(
+          staffId: state.pathParameters['staffId']!,
+        ),
       ),
       GoRoute(
         path: AppRoutes.staffDuties,
@@ -428,14 +432,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         Scaffold(body: Center(child: Text('Route not found: ${state.uri}'))),
   );
 
+  ref.onDispose(router.dispose);
   return router;
 });
 
-String _roleHome(Ref ref) {
-  final user = ref.read(currentUserProvider);
-  debugPrint('[ROUTE_REDIRECT] _roleHome: user=${user?.email} '
-      'primaryRole=${user?.primaryRole}');
-  if (user == null) return AppRoutes.login;
+String _userRoleHome(UserEntity user) {
   switch (user.primaryRole) {
     case 'Admin':
     case 'Super Admin':
