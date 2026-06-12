@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -103,44 +102,22 @@ class AppRoutes {
   static const structureWizard    = '/structure-wizard';
 }
 
-// ── Router notifier ───────────────────────────────────────────────────────────
-//
-// Bridges Riverpod state changes into GoRouter's ChangeNotifier-based
-// refresh mechanism. This keeps GoRouter as a single long-lived instance
-// rather than recreating it on every auth state change (which would reset
-// the navigation stack to initialLocation on every state transition).
-
-class _RouterNotifier extends ChangeNotifier {
-  final Ref _ref;
-
-  _RouterNotifier(this._ref) {
-    _ref.listen<AuthState>(authProvider, (previous, next) {
-      debugPrint('[ROUTE_REDIRECT] authProvider changed: '
-          '${previous.runtimeType} → ${next.runtimeType}');
-      notifyListeners();
-    });
-  }
-}
-
 // ── Router provider ───────────────────────────────────────────────────────────
 //
-// GoRouter is created ONCE. Auth state changes notify the router via
-// refreshListenable, which re-evaluates the redirect without rebuilding
-// the entire router or resetting the navigation stack.
+// appRouterProvider watches authProvider directly. Riverpod rebuilds the router
+// whenever auth state changes. This is the safe pattern: no ref.read() inside
+// GoRouter callbacks (which run outside Riverpod's build context and fail in
+// dart2js release builds with "Instance of 'minified:...'").
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final notifier = _RouterNotifier(ref);
-  ref.onDispose(notifier.dispose);
+  final authState = ref.watch(authProvider);
 
   final router = GoRouter(
     initialLocation: AppRoutes.splash,
-    debugLogDiagnostics: kDebugMode,
-    refreshListenable: notifier,
+    debugLogDiagnostics: false,
 
     redirect: (context, state) {
-      // Read current auth state at redirect time (not a stale closure capture)
-      final authState = ref.read(authProvider);
-      final path      = state.matchedLocation;
+      final path = state.matchedLocation;
 
       final isAuthenticated     = authState is AuthAuthenticated;
       final isOnSplash          = path == AppRoutes.splash;
