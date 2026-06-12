@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,24 +10,40 @@ import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 
 Future<void> main() async {
+  // Catch any uncaught async/platform exception and print it to the browser
+  // console so we can read it even in a minified release build.
+  PlatformDispatcher.instance.onError = (error, stack) {
+    print('[STARTUP_CRASH] PlatformDispatcher caught: $error');
+    print('[STARTUP_CRASH] $stack');
+    return true;
+  };
+
+  print('[STARTUP] 1 ensureInitialized');
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load environment variables from bundled .env asset.
-  // Errors are silently swallowed — compile-time --dart-define values
-  // and hard-coded fallbacks in Env class cover production builds.
+  // Catch any widget-layer exception (layout errors, build errors, etc.)
+  FlutterError.onError = (details) {
+    print('[STARTUP_CRASH] FlutterError: ${details.exception}');
+    print('[STARTUP_CRASH] ${details.stack}');
+  };
+
+  print('[STARTUP] 2 dotenv.load');
   await dotenv.load(fileName: '.env').catchError((_) {});
 
-  // Initialize Dio API client
-  ApiClient.initialize();
+  print('[STARTUP] 3 ApiClient.initialize');
+  try {
+    ApiClient.initialize();
+  } catch (e, s) {
+    print('[STARTUP_CRASH] ApiClient.initialize threw: $e');
+    print('[STARTUP_CRASH] $s');
+  }
 
+  print('[STARTUP] 4 platform setup');
   if (!kIsWeb) {
-    // Lock to portrait for native mobile builds.
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
     ]);
-
-    // Status bar styling for native mobile builds.
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -35,11 +52,13 @@ Future<void> main() async {
     );
   }
 
+  print('[STARTUP] 5 runApp');
   runApp(
     const ProviderScope(
       child: ArSocietyApp(),
     ),
   );
+  print('[STARTUP] 6 runApp returned');
 }
 
 class ArSocietyApp extends ConsumerWidget {
@@ -47,13 +66,20 @@ class ArSocietyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final router = ref.watch(appRouterProvider);
-
-    return MaterialApp.router(
-      title: Env.appName,
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      routerConfig: router,
-    );
+    print('[STARTUP] ArSocietyApp.build');
+    try {
+      final router = ref.watch(appRouterProvider);
+      print('[STARTUP] appRouterProvider OK');
+      return MaterialApp.router(
+        title: Env.appName,
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        routerConfig: router,
+      );
+    } catch (e, s) {
+      print('[STARTUP_CRASH] ArSocietyApp.build threw: $e');
+      print('[STARTUP_CRASH] $s');
+      rethrow;
+    }
   }
 }
