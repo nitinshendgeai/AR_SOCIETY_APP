@@ -4,8 +4,6 @@ FROM ghcr.io/cirruslabs/flutter:stable AS builder
 WORKDIR /app
 
 # Copy pubspec.yaml first for layer caching.
-# pubspec.lock is in .gitignore (*.lock pattern) so it is never in the
-# build context — flutter pub get regenerates it from pubspec.yaml constraints.
 COPY pubspec.yaml ./
 RUN flutter pub get --no-example
 
@@ -33,14 +31,17 @@ FROM nginx:1.27-alpine
 # Remove default nginx config
 RUN rm /etc/nginx/conf.d/default.conf
 
-# Copy SPA nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy as a template — the official nginx entrypoint substitutes ${PORT}
+# via /docker-entrypoint.d/20-envsubst-on-templates.sh at container start.
+# Railway always sets PORT at runtime; nginx listens on whatever PORT is.
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
 # Copy built Flutter web output
 COPY --from=builder /app/build/web /usr/share/nginx/html
 
-# Railway sets PORT at runtime; nginx listens on 80 internally.
-# Railway's networking maps its PORT → container:80.
-EXPOSE 80
+# Fallback port for local testing (Railway overrides at runtime)
+ENV PORT=8080
+
+EXPOSE 8080
 
 CMD ["nginx", "-g", "daemon off;"]
