@@ -284,4 +284,23 @@ class StaffRemoteDataSource {
     final r = await _dio.get('/handovers/$handoverId');
     return HandoverModel.fromJson(r.data as Map<String, dynamic>);
   }
+
+  // ── User account management (staff login) ─────────────────────────────────
+
+  /// GET /users/{user_id}
+  Future<Map<String, dynamic>> getUserById(String userId) async {
+    final r = await _dio.get('/users/$userId');
+    return r.data as Map<String, dynamic>;
+  }
+
+  /// POST /users/{user_id}/reset-password
+  Future<String> resetUserPassword(String userId) async {
+    final r = await _dio.post('/users/$userId/reset-password');
+    return (r.data as Map<String, dynamic>)['temporary_password'] as String;
+  }
+
+  /// PATCH /users/{user_id} with status: "active" | "suspended"
+  Future<void> setUserStatus(String userId, String status) async {
+    await _dio.patch('/users/$userId', data: {'status': status});
+  }
 }

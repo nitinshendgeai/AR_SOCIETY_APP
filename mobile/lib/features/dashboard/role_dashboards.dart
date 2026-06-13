@@ -6,6 +6,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/onboarding/presentation/providers/trial_status_provider.dart';
+import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/complaint/presentation/providers/complaint_providers.dart';
 
@@ -842,11 +843,18 @@ class SupervisorDashboardScreen extends ConsumerWidget {
         ? ref.watch(attendanceSummaryProvider(societyId))
         : const AsyncValue<Map<String, dynamic>>.data({});
 
+    final dutiesAsync = societyId != null
+        ? ref.watch(societyDutiesProvider(societyId))
+        : const AsyncValue<List<DutyEntity>>.data([]);
+
     final pendingCheckin  = approvalState is ApprovalLoaded ? approvalState.pendingCheckin.length  : 0;
     final pendingCheckout = approvalState is ApprovalLoaded ? approvalState.pendingCheckout.length : 0;
     final summary         = summaryAsync.valueOrNull ?? {};
     final presentCount    = summary['present'] != null ? '${summary['present']}' : '--';
     final absentCount     = summary['absent']  != null ? '${summary['absent']}'  : '--';
+    final duties          = dutiesAsync.valueOrNull ?? [];
+    final pendingDuties   = duties.where((d) => !d.isCompleted).length;
+    final completedDuties = duties.where((d) => d.isCompleted).length;
 
     return _DashboardShell(
       title: '$deptLabel Supervisor',
@@ -877,6 +885,18 @@ class SupervisorDashboardScreen extends ConsumerWidget {
               value: pendingCheckout > 0 ? '$pendingCheckout' : '0',
               color: pendingCheckout > 0 ? AppTheme.error : AppTheme.success,
             ),
+            _SummaryCard(
+              icon: Icons.assignment_late_rounded,
+              label: 'Duties Pending',
+              value: dutiesAsync.isLoading ? '--' : '$pendingDuties',
+              color: pendingDuties > 0 ? AppTheme.warning : AppTheme.success,
+            ),
+            _SummaryCard(
+              icon: Icons.assignment_turned_in_rounded,
+              label: 'Duties Done',
+              value: dutiesAsync.isLoading ? '--' : '$completedDuties',
+              color: AppTheme.success,
+            ),
           ],
         ),
         const SizedBox(height: 18),
@@ -902,11 +922,17 @@ class SupervisorDashboardScreen extends ConsumerWidget {
           _QuickActionChip(icon: Icons.swap_horiz_rounded, label: 'Handover', route: AppRoutes.staffHome),
         ]),
         const SizedBox(height: 18),
-        if (isHousekeeping)
-          _OperationalPanel(title: 'Gym Attendance', children: const [
-            _InfoTile(icon: Icons.fitness_center_rounded, title: 'Gym Trainer', value: 'Pending approval', color: AppTheme.warning),
+        if (isHousekeeping && dutiesAsync.valueOrNull != null) ...[
+          _OperationalPanel(title: 'Gym Attendance', children: [
+            _InfoTile(
+              icon: Icons.fitness_center_rounded,
+              title: 'Gym Trainer',
+              value: pendingCheckin > 0 ? '$pendingCheckin pending approval' : 'All approved',
+              color: pendingCheckin > 0 ? AppTheme.warning : AppTheme.success,
+            ),
           ]),
-        const SizedBox(height: 18),
+          const SizedBox(height: 18),
+        ],
         _StatusBar(user: user),
       ],
     );

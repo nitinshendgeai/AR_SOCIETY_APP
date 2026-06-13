@@ -226,6 +226,16 @@ class _TodayCard extends ConsumerWidget {
                           fontWeight: FontWeight.w700),
                     ),
                     const Text('worked', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    if (today!.overtimeHours != null && today!.overtimeHours! > 0) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '+${formatHours(today!.overtimeHours)} OT',
+                        style: const TextStyle(
+                            color: Colors.orangeAccent,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ],
                   ],
                 ),
             ],

@@ -462,3 +462,19 @@ class DutyAssignNotifier extends StateNotifier<DutyAssignState> {
 final dutyAssignProvider = StateNotifierProvider<DutyAssignNotifier, DutyAssignState>((ref) {
   return DutyAssignNotifier(ref.read(staffRepositoryProvider));
 });
+
+// ── Daily society duties provider (dashboard summary) ─────────────────────────
+
+final societyDutiesProvider = FutureProvider.family<List<DutyEntity>, String>(
+  (ref, societyId) async {
+    final repo = ref.read(staffRepositoryProvider);
+    final today = DateTime.now();
+    final dateStr =
+        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    final result = await repo.getDailyDuties(societyId, dateStr);
+    return switch (result) {
+      StaffSuccess(:final data) => data,
+      StaffFailure() => <DutyEntity>[],
+    };
+  },
+);

@@ -264,4 +264,25 @@ class StaffRepository {
       return StaffSuccess(list.map((m) => m.toEntity()).toList());
     } catch (e) { return _handle(e); }
   }
+
+  // ── User account management ────────────────────────────────────────────────
+
+  Future<StaffResult<Map<String, dynamic>>> getUserById(String userId) async {
+    try {
+      return StaffSuccess(await _ds.getUserById(userId));
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<String>> resetStaffPassword(String userId) async {
+    try {
+      return StaffSuccess(await _ds.resetUserPassword(userId));
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<bool>> setStaffLoginStatus(String userId, {required bool active}) async {
+    try {
+      await _ds.setUserStatus(userId, active ? 'active' : 'suspended');
+      return StaffSuccess(true);
+    } catch (e) { return _handle(e); }
+  }
 }

@@ -159,7 +159,11 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
               label: 'Email (optional)',
               child: TextFormField(
                 controller: _emailCtrl,
-                decoration: const InputDecoration(hintText: 'staff@example.com'),
+                decoration: const InputDecoration(
+                  hintText: 'e.g. security1@artsociety.com',
+                  helperText: 'Providing an email auto-creates a login account (password: Staff@1234)',
+                  helperMaxLines: 2,
+                ),
                 keyboardType: TextInputType.emailAddress,
               ),
             ),

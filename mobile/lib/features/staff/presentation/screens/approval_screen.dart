@@ -242,12 +242,62 @@ class _ApprovalCard extends ConsumerWidget {
   }
 
   void _approve(BuildContext context, WidgetRef ref) {
-    final notifier = ref.read(approvalProvider.notifier);
-    if (type == _ApprovalType.checkin) {
-      notifier.approveCheckin(record.id, societyId, department: department);
-    } else {
-      notifier.approveCheckout(record.id, societyId, department: department);
-    }
+    _showApproveDialog(context, ref);
+  }
+
+  void _showApproveDialog(BuildContext context, WidgetRef ref) {
+    final notesCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(type == _ApprovalType.checkin ? 'Approve Punch-In?' : 'Approve Punch-Out?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              record.staffName?.isNotEmpty == true
+                  ? record.staffName!
+                  : 'Staff #${record.staffId.substring(0, 8)}',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            Text(formatDate(record.attendanceDate),
+              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: notesCtrl,
+              decoration: const InputDecoration(
+                hintText: 'Optional approval notes',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              maxLines: 2,
+              textCapitalization: TextCapitalization.sentences,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.success),
+            onPressed: () {
+              Navigator.pop(ctx);
+              final notifier = ref.read(approvalProvider.notifier);
+              final notes = notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim();
+              if (type == _ApprovalType.checkin) {
+                notifier.approveCheckin(record.id, societyId, notes: notes, department: department);
+              } else {
+                notifier.approveCheckout(record.id, societyId, notes: notes, department: department);
+              }
+            },
+            child: const Text('Approve'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
