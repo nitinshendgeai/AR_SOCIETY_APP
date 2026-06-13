@@ -87,6 +87,7 @@ class StaffModel {
   final String? designationId;
   final String? designationName;
   final String? reportingManagerName;
+  final String? tempPassword;
 
   const StaffModel({
     required this.id,
@@ -104,6 +105,7 @@ class StaffModel {
     this.designationId,
     this.designationName,
     this.reportingManagerName,
+    this.tempPassword,
   });
 
   factory StaffModel.fromJson(Map<String, dynamic> j) => StaffModel(
@@ -122,6 +124,7 @@ class StaffModel {
         designationId: j['designation_id'] as String?,
         designationName: j['designation_name'] as String?,
         reportingManagerName: j['reporting_manager_name'] as String?,
+        tempPassword: j['temp_password'] as String?,
       );
 
   StaffEntity toEntity() => StaffEntity(
@@ -133,6 +136,7 @@ class StaffModel {
         designationId: designationId,
         designationName: designationName,
         reportingManagerName: reportingManagerName,
+        tempPassword: tempPassword,
       );
 }
 

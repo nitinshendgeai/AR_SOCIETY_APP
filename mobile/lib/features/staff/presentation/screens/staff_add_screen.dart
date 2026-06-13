@@ -89,15 +89,19 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
 
     ref.listen(staffFormProvider, (_, next) {
       if (next is StaffFormSuccess) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(next.message),
-          backgroundColor: AppTheme.success,
-          behavior: SnackBarBehavior.floating,
-        ));
-        // Reload the list then go back
         ref.read(staffListProvider.notifier).load(societyId);
         ref.read(staffFormProvider.notifier).reset();
-        context.pop();
+        final staff = next.staff;
+        if (staff.tempPassword != null && staff.email != null) {
+          _showCredentialsDialog(context, staff.fullName, staff.email!, staff.tempPassword!);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(next.message),
+            backgroundColor: AppTheme.success,
+            behavior: SnackBarBehavior.floating,
+          ));
+          context.pop();
+        }
       } else if (next is StaffFormError) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(next.message),
@@ -276,6 +280,56 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
     );
   }
 
+  void _showCredentialsDialog(BuildContext context, String name, String email, String password) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.check_circle_rounded, color: AppTheme.success, size: 22),
+            SizedBox(width: 8),
+            Text('Staff Account Created', style: TextStyle(fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('$name can now log in with:', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            const SizedBox(height: 12),
+            _CredentialRow(label: 'Email', value: email),
+            const SizedBox(height: 8),
+            _CredentialRow(label: 'Password', value: password),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.warning.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.warning.withOpacity(0.3)),
+              ),
+              child: const Text(
+                'They will be prompted to change their password on first login.',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              context.pop();
+            },
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _pickJoiningDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -338,6 +392,35 @@ class _FormField extends StatelessWidget {
         child,
       ],
     ),
+  );
+}
+
+class _CredentialRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _CredentialRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      SizedBox(
+        width: 70,
+        child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+            color: AppTheme.textSecondary)),
+      ),
+      Expanded(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppTheme.cardBg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Text(value, style: const TextStyle(fontSize: 13, fontFamily: 'monospace',
+              fontWeight: FontWeight.w600)),
+        ),
+      ),
+    ],
   );
 }
 

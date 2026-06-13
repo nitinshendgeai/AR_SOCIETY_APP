@@ -56,6 +56,7 @@ class StaffEntity {
   final String? designationId;
   final String? designationName;
   final String? reportingManagerName;
+  final String? tempPassword;
 
   const StaffEntity({
     required this.id,
@@ -73,6 +74,7 @@ class StaffEntity {
     this.designationId,
     this.designationName,
     this.reportingManagerName,
+    this.tempPassword,
   });
 
   String get departmentLabel {

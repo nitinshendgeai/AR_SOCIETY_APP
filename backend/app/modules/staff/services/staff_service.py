@@ -20,11 +20,33 @@ from app.modules.staff.repositories.staff_repo import (
     StaffRepository, StaffDesignationRepo, StaffShiftRepo,
     DutyRepository, AttendanceRepository, TaskRepository, LeaveRepository,
 )
-from app.models.user import User
+from app.models.user import User, UserRole, UserStatus
+from app.models.role import Role
 from app.models.audit_log import AuditAction
+from app.core.security import hash_password
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
 from app.models.notification import NotificationType, NotificationChannel
+
+DEFAULT_STAFF_PASSWORD = "Staff@1234"
+
+_DESIGNATION_TO_ROLE = {
+    "Manager":                 "Manager",
+    "Security Supervisor":     "Security Supervisor",
+    "Security Guard":          "Security Staff",
+    "Housekeeping Supervisor": "Housekeeping Supervisor",
+    "Housekeeping Staff":      "Housekeeping Staff",
+    "Technical Staff":         "Technical Staff",
+    "Gym Trainer":             "Gym Trainer",
+}
+
+_DEPT_TO_ROLE = {
+    "security":     "Security Staff",
+    "housekeeping": "Housekeeping Staff",
+    "technical":    "Technical Staff",
+    "gym":          "Gym Trainer",
+    "admin":        "Manager",
+}
 
 
 class StaffService:
@@ -85,10 +107,51 @@ class StaffService:
     def create_staff(self, data: StaffCreate, user: User, request=None) -> Staff:
         code  = self.repo.next_employee_code(data.society_id)
         staff = Staff(**data.model_dump(), employee_code=code)
-        self.repo.create(staff)
+        self.repo.create(staff)  # commits + refreshes
+
+        temp_pwd = None
+        if data.email and not data.user_id:
+            # Auto-create a login account for this staff member
+            temp_pwd = DEFAULT_STAFF_PASSWORD
+            new_user = User(
+                society_id           = data.society_id,
+                email                = data.email,
+                full_name            = data.full_name,
+                hashed_password      = hash_password(temp_pwd),
+                status               = UserStatus.ACTIVE,
+                must_change_password = True,
+                terms_accepted       = False,
+                setup_completed      = False,
+            )
+            self.db.add(new_user)
+            self.db.flush()
+
+            role_name = self._resolve_staff_role(staff)
+            if role_name:
+                role = self.db.query(Role).filter(Role.name == role_name).first()
+                if role:
+                    self.db.add(UserRole(user_id=new_user.id, role_id=role.id))
+
+            staff.user_id = new_user.id
+            self.db.commit()
+            self.db.refresh(staff)
+
         self._audit(AuditAction.CREATE, staff, "Staff", user, request,
-                    new_values={"employee_code": code, "name": data.full_name, "dept": data.department.value})
+                    new_values={"employee_code": code, "name": data.full_name,
+                                "dept": data.department.value, "user_created": temp_pwd is not None})
+
+        if temp_pwd:
+            staff.__dict__['temp_password'] = temp_pwd
         return staff
+
+    def _resolve_staff_role(self, staff: Staff) -> Optional[str]:
+        if staff.designation_id:
+            desg = self.db.query(StaffDesignation).filter(
+                StaffDesignation.id == staff.designation_id
+            ).first()
+            if desg and desg.name in _DESIGNATION_TO_ROLE:
+                return _DESIGNATION_TO_ROLE[desg.name]
+        return _DEPT_TO_ROLE.get(staff.department.value)
 
     def update_staff(self, staff_id: UUID, data: StaffUpdate, user: User, request=None) -> Staff:
         staff = self._staff_or_404(staff_id)

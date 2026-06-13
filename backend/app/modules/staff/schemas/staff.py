@@ -64,6 +64,8 @@ class StaffOut(TimestampSchema):
     reporting_manager_id: Optional[UUID] = None
     designation_name: Optional[str] = None
     reporting_manager_name: Optional[str] = None
+    user_id:       Optional[UUID] = None
+    temp_password: Optional[str] = None
 
 
 # ── Duty ──────────────────────────────────────────────────────────────────────

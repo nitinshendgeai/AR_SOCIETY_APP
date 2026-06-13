@@ -698,15 +698,22 @@ class ManagerDashboardScreen extends ConsumerWidget {
     final societyId = user?.societyId;
 
     final approvalState = ref.watch(approvalProvider);
-    // Load on first build
     if (societyId != null && approvalState is ApprovalInitial) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(approvalProvider.notifier).load(societyId);
       });
     }
 
+    final staffListState = ref.watch(staffListProvider);
+    if (societyId != null && staffListState is StaffListInitial) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(staffListProvider.notifier).load(societyId);
+      });
+    }
+
     final pendingCheckin  = approvalState is ApprovalLoaded ? approvalState.pendingCheckin.length  : 0;
     final pendingCheckout = approvalState is ApprovalLoaded ? approvalState.pendingCheckout.length : 0;
+    final totalStaff      = staffListState is StaffListLoaded ? '${staffListState.staff.length}' : '--';
 
     return _DashboardShell(
       title: 'Manager Dashboard',
@@ -735,8 +742,8 @@ class ManagerDashboardScreen extends ConsumerWidget {
               value: pendingCheckout > 0 ? '$pendingCheckout' : '0',
               color: pendingCheckout > 0 ? AppTheme.error : AppTheme.success,
             ),
-            _SummaryCard(icon: Icons.badge_rounded, label: 'Total Staff', value: '--', color: AppTheme.primary),
-            _SummaryCard(icon: Icons.assignment_rounded, label: 'Open Complaints', value: '7', color: AppTheme.error),
+            _SummaryCard(icon: Icons.badge_rounded, label: 'Total Staff', value: totalStaff, color: AppTheme.primary),
+            _SummaryCard(icon: Icons.assignment_rounded, label: 'Open Complaints', value: '--', color: AppTheme.error),
           ],
         ),
         const SizedBox(height: 18),
@@ -798,8 +805,15 @@ class SupervisorDashboardScreen extends ConsumerWidget {
       });
     }
 
+    final summaryAsync = societyId != null
+        ? ref.watch(attendanceSummaryProvider(societyId))
+        : const AsyncValue<Map<String, dynamic>>.data({});
+
     final pendingCheckin  = approvalState is ApprovalLoaded ? approvalState.pendingCheckin.length  : 0;
     final pendingCheckout = approvalState is ApprovalLoaded ? approvalState.pendingCheckout.length : 0;
+    final summary         = summaryAsync.valueOrNull ?? {};
+    final presentCount    = summary['present'] != null ? '${summary['present']}' : '--';
+    final absentCount     = summary['absent']  != null ? '${summary['absent']}'  : '--';
 
     return _DashboardShell(
       title: '$deptLabel Supervisor',
@@ -816,8 +830,8 @@ class SupervisorDashboardScreen extends ConsumerWidget {
           mainAxisSpacing: 12,
           childAspectRatio: 1.12,
           children: [
-            _SummaryCard(icon: Icons.people_rounded, label: 'Staff Present', value: '--', color: AppTheme.success),
-            _SummaryCard(icon: Icons.person_off_rounded, label: 'Staff Absent', value: '--', color: AppTheme.error),
+            _SummaryCard(icon: Icons.people_rounded, label: 'Staff Present', value: presentCount, color: AppTheme.success),
+            _SummaryCard(icon: Icons.person_off_rounded, label: 'Staff Absent', value: absentCount, color: AppTheme.error),
             _SummaryCard(
               icon: Icons.login_rounded,
               label: 'Pending Check-in',
