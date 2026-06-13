@@ -44,7 +44,6 @@ class PasswordResetResponse(OrmBase):
 
 
 class UserOut(TimestampSchema):
-    society_id:           Optional[object] = None
     email:                str
     phone:                Optional[str]
     full_name:            str
