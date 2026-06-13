@@ -153,6 +153,10 @@ class Staff(Base, TimestampMixin):
     emergency_contact_name  = Column(String(255), nullable=True)
     emergency_contact_phone = Column(String(20), nullable=True)
 
+    # Additional info
+    address     = Column(Text, nullable=True)
+    notes       = Column(Text, nullable=True)
+
     # Payroll readiness
     bank_account_number = Column(String(50), nullable=True)
     bank_name           = Column(String(100), nullable=True)

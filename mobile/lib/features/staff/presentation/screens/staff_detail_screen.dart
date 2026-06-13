@@ -43,7 +43,9 @@ class StaffDetailScreen extends ConsumerWidget {
                     color: AppTheme.primary.withOpacity(0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.person_rounded, color: AppTheme.primary, size: 38),
+                  child: staff.photoUrl != null
+                      ? ClipOval(child: Image.network(staff.photoUrl!, fit: BoxFit.cover))
+                      : const Icon(Icons.person_rounded, color: AppTheme.primary, size: 38),
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -96,8 +98,30 @@ class StaffDetailScreen extends ConsumerWidget {
             children: [
               _Row(label: 'Mobile', value: staff.mobile),
               _Row(label: 'Email',  value: staff.email ?? '—'),
+              _Row(label: 'Address', value: staff.address ?? '—'),
             ],
           ),
+
+          const SizedBox(height: 16),
+
+          // Emergency contact
+          _Section(
+            title: 'Emergency Contact',
+            children: [
+              _Row(label: 'Name',  value: staff.emergencyContactName ?? '—'),
+              _Row(label: 'Phone', value: staff.emergencyContactPhone ?? '—'),
+            ],
+          ),
+
+          if (staff.notes != null && staff.notes!.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _Section(
+              title: 'Admin Notes',
+              children: [
+                Text(staff.notes!, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              ],
+            ),
+          ],
 
           const SizedBox(height: 32),
 

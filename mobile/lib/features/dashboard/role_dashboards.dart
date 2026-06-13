@@ -7,6 +7,7 @@ import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/onboarding/presentation/providers/trial_status_provider.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
+import 'package:ar_society_app/features/complaint/presentation/providers/complaint_providers.dart';
 
 // ── Shared scaffold wrapper ───────────────────────────────────────────────────
 
@@ -723,6 +724,22 @@ class ManagerDashboardScreen extends ConsumerWidget {
     final pendingCheckout = approvalState is ApprovalLoaded ? approvalState.pendingCheckout.length : 0;
     final totalStaff      = staffListState is StaffListLoaded ? '${staffListState.staff.length}' : '--';
 
+    // Attendance summary for absent + late
+    final summaryAsync = societyId != null
+        ? ref.watch(attendanceSummaryProvider(societyId))
+        : const AsyncValue<Map<String, dynamic>>.data({});
+    final summary     = summaryAsync.valueOrNull ?? {};
+    final absentCount = summary['absent'] != null ? '${summary['absent']}' : '--';
+    final lateCount   = summary['late']   != null ? '${summary['late']}'   : '--';
+
+    // Open complaints count
+    final complaintsAsync = societyId != null
+        ? ref.watch(openComplaintsCountProvider(societyId))
+        : const AsyncValue<int>.data(0);
+    final openComplaints = complaintsAsync.valueOrNull != null
+        ? '${complaintsAsync.valueOrNull}'
+        : '--';
+
     return _DashboardShell(
       title: 'Manager Dashboard',
       children: [
@@ -740,18 +757,35 @@ class ManagerDashboardScreen extends ConsumerWidget {
           children: [
             _SummaryCard(
               icon: Icons.login_rounded,
-              label: 'Pending Check-in Approvals',
-              value: pendingCheckin > 0 ? '$pendingCheckin' : '0',
+              label: 'Pending Check-in',
+              value: '$pendingCheckin',
               color: pendingCheckin > 0 ? AppTheme.warning : AppTheme.success,
             ),
             _SummaryCard(
               icon: Icons.logout_rounded,
-              label: 'Pending Check-out Approvals',
-              value: pendingCheckout > 0 ? '$pendingCheckout' : '0',
+              label: 'Pending Punch-out',
+              value: '$pendingCheckout',
               color: pendingCheckout > 0 ? AppTheme.error : AppTheme.success,
             ),
+            _SummaryCard(
+              icon: Icons.person_off_rounded,
+              label: 'Absent Staff',
+              value: absentCount,
+              color: AppTheme.error,
+            ),
+            _SummaryCard(
+              icon: Icons.schedule_rounded,
+              label: 'Late Staff',
+              value: lateCount,
+              color: AppTheme.warning,
+            ),
             _SummaryCard(icon: Icons.badge_rounded, label: 'Total Staff', value: totalStaff, color: AppTheme.primary),
-            _SummaryCard(icon: Icons.assignment_rounded, label: 'Open Complaints', value: '--', color: AppTheme.error),
+            _SummaryCard(
+              icon: Icons.assignment_rounded,
+              label: 'Open Complaints',
+              value: openComplaints,
+              color: openComplaints != '0' && openComplaints != '--' ? AppTheme.error : AppTheme.success,
+            ),
           ],
         ),
         const SizedBox(height: 18),
@@ -760,7 +794,6 @@ class ManagerDashboardScreen extends ConsumerWidget {
         Row(children: [
           _QuickActionChip(
             icon: Icons.approval_rounded, label: 'Approvals',
-            route: societyId != null ? null : null,
             onTap: societyId != null ? () => context.push(AppRoutes.staffApprovals, extra: societyId) : null,
           ),
           const SizedBox(width: 8),
@@ -774,14 +807,6 @@ class ManagerDashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(width: 8),
           _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: AppRoutes.complaints),
-        ]),
-        const SizedBox(height: 18),
-        _OperationalPanel(title: 'Department Status', children: const [
-          _InfoTile(icon: Icons.security_rounded, title: 'Security', value: 'All on duty', color: AppTheme.success),
-          SizedBox(height: 8),
-          _InfoTile(icon: Icons.cleaning_services_rounded, title: 'Housekeeping', value: 'Awaiting approval', color: AppTheme.warning),
-          SizedBox(height: 8),
-          _InfoTile(icon: Icons.build_rounded, title: 'Technical', value: 'All on duty', color: AppTheme.success),
         ]),
         const SizedBox(height: 18),
         _StatusBar(user: user),

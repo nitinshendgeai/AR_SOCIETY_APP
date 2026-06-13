@@ -38,6 +38,14 @@ class ComplaintRemoteDataSource {
         .toList();
   }
 
+  /// GET /complaints/society/{societyId}/open
+  Future<List<ComplaintListModel>> listOpenComplaints(String societyId) async {
+    final r = await _dio.get('/complaints/society/$societyId/open');
+    return (r.data as List)
+        .map((e) => ComplaintListModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   /// GET /complaints/me/complaints?skip&limit
   Future<List<ComplaintListModel>> listMyComplaints({
     int skip = 0,

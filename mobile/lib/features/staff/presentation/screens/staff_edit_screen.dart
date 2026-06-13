@@ -23,6 +23,10 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _mobileCtrl;
   late final TextEditingController _emailCtrl;
+  late final TextEditingController _emergencyNameCtrl;
+  late final TextEditingController _emergencyPhoneCtrl;
+  late final TextEditingController _addressCtrl;
+  late final TextEditingController _notesCtrl;
 
   String? _selectedDept;
   String? _selectedDesignationId;
@@ -49,9 +53,13 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
   @override
   void initState() {
     super.initState();
-    _nameCtrl   = TextEditingController(text: widget.staff.fullName);
-    _mobileCtrl = TextEditingController(text: widget.staff.mobile);
-    _emailCtrl  = TextEditingController(text: widget.staff.email ?? '');
+    _nameCtrl           = TextEditingController(text: widget.staff.fullName);
+    _mobileCtrl         = TextEditingController(text: widget.staff.mobile);
+    _emailCtrl          = TextEditingController(text: widget.staff.email ?? '');
+    _emergencyNameCtrl  = TextEditingController(text: widget.staff.emergencyContactName ?? '');
+    _emergencyPhoneCtrl = TextEditingController(text: widget.staff.emergencyContactPhone ?? '');
+    _addressCtrl        = TextEditingController(text: widget.staff.address ?? '');
+    _notesCtrl          = TextEditingController(text: widget.staff.notes ?? '');
     _selectedDept             = widget.staff.department;
     _selectedDesignationId    = widget.staff.designationId;
     _selectedShiftId          = widget.staff.shiftId;
@@ -64,6 +72,10 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
     _nameCtrl.dispose();
     _mobileCtrl.dispose();
     _emailCtrl.dispose();
+    _emergencyNameCtrl.dispose();
+    _emergencyPhoneCtrl.dispose();
+    _addressCtrl.dispose();
+    _notesCtrl.dispose();
     super.dispose();
   }
 
@@ -268,6 +280,54 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
               ),
             ),
 
+            // ── Emergency contact ─────────────────────────────────────────
+            const SizedBox(height: 8),
+            const _SectionHeader('Emergency Contact'),
+            const SizedBox(height: 10),
+
+            _FormField(
+              label: 'Contact Name',
+              child: TextFormField(
+                controller: _emergencyNameCtrl,
+                decoration: const InputDecoration(hintText: 'e.g. Father / Spouse'),
+                textCapitalization: TextCapitalization.words,
+              ),
+            ),
+
+            _FormField(
+              label: 'Contact Phone',
+              child: TextFormField(
+                controller: _emergencyPhoneCtrl,
+                decoration: const InputDecoration(hintText: '10-digit mobile number'),
+                keyboardType: TextInputType.phone,
+              ),
+            ),
+
+            // ── Additional info ───────────────────────────────────────────
+            const SizedBox(height: 8),
+            const _SectionHeader('Additional Info'),
+            const SizedBox(height: 10),
+
+            _FormField(
+              label: 'Residential Address',
+              child: TextFormField(
+                controller: _addressCtrl,
+                decoration: const InputDecoration(hintText: 'Full address'),
+                maxLines: 2,
+                textCapitalization: TextCapitalization.sentences,
+              ),
+            ),
+
+            _FormField(
+              label: 'Admin Notes',
+              child: TextFormField(
+                controller: _notesCtrl,
+                decoration: const InputDecoration(hintText: 'Internal notes (not visible to staff)'),
+                maxLines: 2,
+                textCapitalization: TextCapitalization.sentences,
+              ),
+            ),
+
             const SizedBox(height: 32),
 
             // Deactivate shortcut
@@ -308,14 +368,20 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final data = <String, dynamic>{
-      if (_nameCtrl.text.trim().isNotEmpty)   'full_name': _nameCtrl.text.trim(),
-      if (_mobileCtrl.text.trim().isNotEmpty) 'mobile':    _mobileCtrl.text.trim(),
-      if (_emailCtrl.text.trim().isNotEmpty)  'email':     _emailCtrl.text.trim(),
-      if (_selectedDept != null)              'department': _selectedDept,
-      if (_selectedDesignationId != null)     'designation_id': _selectedDesignationId,
-      if (_selectedShiftId != null)           'shift_id': _selectedShiftId,
-      if (_selectedStatus != null)            'status': _selectedStatus,
+      if (_nameCtrl.text.trim().isNotEmpty)        'full_name':  _nameCtrl.text.trim(),
+      if (_mobileCtrl.text.trim().isNotEmpty)      'mobile':     _mobileCtrl.text.trim(),
+      if (_emailCtrl.text.trim().isNotEmpty)       'email':      _emailCtrl.text.trim(),
+      if (_selectedDept != null)                   'department': _selectedDept,
+      if (_selectedDesignationId != null)          'designation_id': _selectedDesignationId,
+      if (_selectedShiftId != null)                'shift_id':   _selectedShiftId,
+      if (_selectedStatus != null)                 'status':     _selectedStatus,
       'reporting_manager_id': _selectedReportingManagerId,
+      if (_emergencyNameCtrl.text.trim().isNotEmpty)
+        'emergency_contact_name': _emergencyNameCtrl.text.trim(),
+      if (_emergencyPhoneCtrl.text.trim().isNotEmpty)
+        'emergency_contact_phone': _emergencyPhoneCtrl.text.trim(),
+      'address': _addressCtrl.text.trim().isEmpty ? null : _addressCtrl.text.trim(),
+      'notes':   _notesCtrl.text.trim().isEmpty   ? null : _notesCtrl.text.trim(),
     };
 
     ref.read(staffFormProvider.notifier).update(widget.staff.id, data);

@@ -304,28 +304,56 @@ class StaffService:
         return self.att_repo.get_pending_checkout(society_id, department)
 
     def get_attendance_summary(self, society_id: UUID, att_date: date) -> dict:
-        records = self.att_repo.get_by_society_date(society_id, att_date)
+        from datetime import timedelta
+        records    = self.att_repo.get_by_society_date(society_id, att_date)
         staff_list = self.repo.get_by_society(society_id, skip=0, limit=500)
+        staff_map  = {s.id: s for s in staff_list}
         total_staff = len(staff_list)
-        present = sum(1 for r in records if r.check_in_time is not None)
-        absent  = total_staff - present
-        pending_checkin  = sum(1 for r in records if not r.is_approved)
-        pending_checkout = sum(1 for r in records if r.check_out_time and not r.is_checkout_approved)
 
-        # department breakdown
+        present  = 0
+        late     = 0
+        pending_checkin  = 0
+        pending_checkout = 0
         dept_map: dict = {}
+
+        LATE_THRESHOLD_MINUTES = 30
+
         for r in records:
-            st = self.repo.get(r.staff_id)
+            if r.check_in_time is not None:
+                present += 1
+                # Late detection: compare check_in_time against assigned shift start
+                st = staff_map.get(r.staff_id)
+                if st and st.shift_id and st.shift:
+                    shift_start = st.shift.start_time
+                    # Build a datetime for today's shift start
+                    from datetime import datetime as dt
+                    shift_dt = dt.combine(att_date, shift_start)
+                    # For overnight shifts the start on att_date is correct
+                    if r.check_in_time > shift_dt + timedelta(minutes=LATE_THRESHOLD_MINUTES):
+                        late += 1
+
+            if not r.is_approved:
+                pending_checkin += 1
+            if r.check_out_time and not r.is_checkout_approved:
+                pending_checkout += 1
+
+            # dept breakdown
+            st = staff_map.get(r.staff_id)
             dept = st.department.value if st else "unknown"
             if dept not in dept_map:
-                dept_map[dept] = {"present": 0, "absent": 0}
+                dept_map[dept] = {"present": 0, "absent": 0, "late": 0}
             dept_map[dept]["present"] += 1
+            if st and st.shift and r.check_in_time:
+                pass  # late per dept could be added later
+
+        absent = total_staff - present
 
         return {
             "date": str(att_date),
             "total_staff": total_staff,
             "present": present,
             "absent": absent,
+            "late": late,
             "pending_checkin_approval": pending_checkin,
             "pending_checkout_approval": pending_checkout,
             "department_breakdown": dept_map,

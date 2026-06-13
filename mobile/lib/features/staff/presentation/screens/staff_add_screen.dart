@@ -18,9 +18,13 @@ class StaffAddScreen extends ConsumerStatefulWidget {
 class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final _nameCtrl   = TextEditingController();
-  final _mobileCtrl = TextEditingController();
-  final _emailCtrl  = TextEditingController();
+  final _nameCtrl              = TextEditingController();
+  final _mobileCtrl            = TextEditingController();
+  final _emailCtrl             = TextEditingController();
+  final _emergencyNameCtrl     = TextEditingController();
+  final _emergencyPhoneCtrl    = TextEditingController();
+  final _addressCtrl           = TextEditingController();
+  final _notesCtrl             = TextEditingController();
 
   String? _selectedDept;
   String? _selectedDesignationId;
@@ -56,6 +60,10 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
     _nameCtrl.dispose();
     _mobileCtrl.dispose();
     _emailCtrl.dispose();
+    _emergencyNameCtrl.dispose();
+    _emergencyPhoneCtrl.dispose();
+    _addressCtrl.dispose();
+    _notesCtrl.dispose();
     super.dispose();
   }
 
@@ -266,6 +274,54 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
               ),
             ),
 
+            // ── Emergency contact ───────────────────────────────────────────
+            const SizedBox(height: 8),
+            const _SectionHeader('Emergency Contact'),
+            const SizedBox(height: 10),
+
+            _FormField(
+              label: 'Contact Name',
+              child: TextFormField(
+                controller: _emergencyNameCtrl,
+                decoration: const InputDecoration(hintText: 'e.g. Father / Spouse'),
+                textCapitalization: TextCapitalization.words,
+              ),
+            ),
+
+            _FormField(
+              label: 'Contact Phone',
+              child: TextFormField(
+                controller: _emergencyPhoneCtrl,
+                decoration: const InputDecoration(hintText: '10-digit mobile number'),
+                keyboardType: TextInputType.phone,
+              ),
+            ),
+
+            // ── Additional info ─────────────────────────────────────────────
+            const SizedBox(height: 8),
+            const _SectionHeader('Additional Info'),
+            const SizedBox(height: 10),
+
+            _FormField(
+              label: 'Residential Address',
+              child: TextFormField(
+                controller: _addressCtrl,
+                decoration: const InputDecoration(hintText: 'Full address'),
+                maxLines: 2,
+                textCapitalization: TextCapitalization.sentences,
+              ),
+            ),
+
+            _FormField(
+              label: 'Admin Notes',
+              child: TextFormField(
+                controller: _notesCtrl,
+                decoration: const InputDecoration(hintText: 'Internal notes (not visible to staff)'),
+                maxLines: 2,
+                textCapitalization: TextCapitalization.sentences,
+              ),
+            ),
+
             const SizedBox(height: 32),
 
             AppPrimaryButton(
@@ -357,6 +413,10 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
       if (_selectedShiftId != null) 'shift_id': _selectedShiftId,
       if (joiningStr != null) 'joining_date': joiningStr,
       if (_selectedReportingManagerId != null) 'reporting_manager_id': _selectedReportingManagerId,
+      if (_emergencyNameCtrl.text.trim().isNotEmpty) 'emergency_contact_name': _emergencyNameCtrl.text.trim(),
+      if (_emergencyPhoneCtrl.text.trim().isNotEmpty) 'emergency_contact_phone': _emergencyPhoneCtrl.text.trim(),
+      if (_addressCtrl.text.trim().isNotEmpty) 'address': _addressCtrl.text.trim(),
+      if (_notesCtrl.text.trim().isNotEmpty) 'notes': _notesCtrl.text.trim(),
     };
 
     ref.read(staffFormProvider.notifier).create(data);

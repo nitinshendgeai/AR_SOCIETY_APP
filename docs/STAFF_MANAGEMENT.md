@@ -3,7 +3,7 @@
 > **RBAC Fix (2026-06-10):** Society Admin now has full access to all staff APIs. The prior 403 errors were caused by local role aliases using abstract group names ("Admin", "Committee") that don't match actual DB roles ("Society Admin", "Committee Chairman", etc.). This is fixed in `backend/app/core/dependencies.py`.
 
 
-Last updated: 2026-06-10
+Last updated: 2026-06-13
 
 ---
 
@@ -35,7 +35,7 @@ Technical Staff → reports directly to Manager
 | Employee Code | Auto-generated (EMP-0001) |
 | Full Name | String |
 | Mobile | String |
-| Email | String (optional) |
+| Email | String (optional — auto-creates User account if provided) |
 | Department | Enum |
 | Designation | FK → staff_designations |
 | Reporting Manager | FK → users (reporting_manager_id) |
@@ -43,6 +43,20 @@ Technical Staff → reports directly to Manager
 | Employment Status | active / probation / on_leave / inactive / terminated |
 | Shift | FK → staff_shifts |
 | Society | FK → societies (multi-tenant isolation) |
+| Profile Photo | URL (photo_url) |
+| Emergency Contact Name | String |
+| Emergency Contact Phone | String |
+| Residential Address | Text |
+| Admin Notes | Text (internal, not visible to staff) |
+
+### Auto User Creation
+
+When a staff member is created with an `email`:
+1. A `User` account is created automatically
+2. Password is set to `Staff@1234` with `must_change_password=True`
+3. Role is auto-assigned via designation name or department
+4. `temp_password` is returned in the API response (one-time only)
+5. Flutter shows a credentials dialog to the admin with the email and password
 
 ### Departments
 

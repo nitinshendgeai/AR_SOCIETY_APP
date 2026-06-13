@@ -42,6 +42,8 @@ class StaffCreate(OrmBase):
     base_salary:      Optional[float] = None
     user_id:          Optional[UUID] = None
     reporting_manager_id: Optional[UUID] = None
+    address:          Optional[str] = None
+    notes:            Optional[str] = None
 
 class StaffUpdate(OrmBase):
     full_name:     Optional[str]            = None
@@ -54,18 +56,26 @@ class StaffUpdate(OrmBase):
     bank_account_number: Optional[str]      = None
     bank_name:     Optional[str]            = None
     reporting_manager_id: Optional[UUID]    = None
+    address:       Optional[str]            = None
+    notes:         Optional[str]            = None
+    emergency_contact_name:  Optional[str]  = None
+    emergency_contact_phone: Optional[str]  = None
 
 class StaffOut(TimestampSchema):
     society_id:    UUID; employee_code: str; full_name: str; mobile: str
     email:         Optional[str]; department: StaffDepartment
     designation_id:Optional[UUID]; shift_id: Optional[UUID]
     status:        StaffStatus; joining_date: Optional[date]
-    emergency_contact_name: Optional[str]; base_salary: Optional[float]
+    emergency_contact_name: Optional[str]; emergency_contact_phone: Optional[str] = None
+    base_salary: Optional[float]
     reporting_manager_id: Optional[UUID] = None
     designation_name: Optional[str] = None
     reporting_manager_name: Optional[str] = None
     user_id:       Optional[UUID] = None
     temp_password: Optional[str] = None
+    address:       Optional[str] = None
+    notes:         Optional[str] = None
+    photo_url:     Optional[str] = None
 
 
 # ── Duty ──────────────────────────────────────────────────────────────────────

@@ -136,3 +136,15 @@ final complaintDetailProvider =
     StateNotifierProvider<ComplaintDetailNotifier, ComplaintDetailState>((ref) {
   return ComplaintDetailNotifier(ref.read(complaintRepositoryProvider));
 });
+
+// ── Open complaints count (FutureProvider, society-scoped) ────────────────────
+
+final openComplaintsCountProvider =
+    FutureProvider.family<int, String>((ref, societyId) async {
+  final repo = ref.read(complaintRepositoryProvider);
+  final result = await repo.openComplaintsCount(societyId);
+  return switch (result) {
+    ComplaintSuccess(:final data) => data,
+    ComplaintFailure() => 0,
+  };
+});
