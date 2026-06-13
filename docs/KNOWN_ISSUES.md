@@ -1,10 +1,16 @@
 # Known Issues — AR Society ERP
 
-Last updated: 2026-06-12
+Last updated: 2026-06-13
 
 ---
 
 ## Active Issues
+
+### [KNOWN GAP] Staff login management: last_login not tracked
+
+The `User` model has no `last_login` field. The StaffDetailScreen Login Account card therefore cannot display last login time. To implement: add `last_login: Optional[datetime]` to User model, update it in `AuthService.login()`, expose it in `UserOut`.
+
+---
 
 ### [KNOWN GAP] Existing societies missing Manager/Gym Trainer roles and default designations
 
@@ -12,9 +18,9 @@ Societies registered before 2026-06-12 do not have 'Manager' or 'Gym Trainer' ro
 
 ---
 
-### [KNOWN GAP] Dashboard summary cards show hardcoded values
+### [KNOWN GAP] Admin/Committee/Security dashboards show some static values
 
-Admin, Committee, and Security dashboards show static values (e.g. "128 flats", "24 staff") instead of live data from the API. Live data queries are pending for a future iteration.
+Manager and Supervisor dashboards use 100% live data. Admin, Committee, and Security dashboards still show `--` or static values for flats occupied, resident count, and visitor count — those modules need their own summary endpoints wired up.
 
 ---
 

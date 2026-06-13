@@ -697,6 +697,49 @@ class ResidentDashboardScreen extends ConsumerWidget {
   }
 }
 
+class _DeptRow extends StatelessWidget {
+  final String dept;
+  final int present;
+  final int absent;
+  const _DeptRow({required this.dept, required this.present, required this.absent});
+
+  String get _label {
+    switch (dept) {
+      case 'security':     return 'Security';
+      case 'housekeeping': return 'Housekeeping';
+      case 'technical':    return 'Technical';
+      case 'gym':          return 'Gym';
+      case 'admin':        return 'Administration';
+      default:             return dept[0].toUpperCase() + dept.substring(1);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: Text(_label,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+        ),
+        _pill('$present present', AppTheme.success),
+        const SizedBox(width: 6),
+        _pill('$absent absent', AppTheme.error),
+      ],
+    );
+  }
+
+  Widget _pill(String label, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+  );
+}
+
 // ── Manager Dashboard ─────────────────────────────────────────────────────────
 
 class ManagerDashboardScreen extends ConsumerWidget {
@@ -740,6 +783,17 @@ class ManagerDashboardScreen extends ConsumerWidget {
     final openComplaints = complaintsAsync.valueOrNull != null
         ? '${complaintsAsync.valueOrNull}'
         : '--';
+
+    // Duty assignment queue
+    final dutiesAsync = societyId != null
+        ? ref.watch(societyDutiesProvider(societyId))
+        : const AsyncValue<List<DutyEntity>>.data([]);
+    final duties         = dutiesAsync.valueOrNull ?? [];
+    final pendingDuties  = duties.where((d) => !d.isCompleted).length;
+
+    // Department breakdown from summary
+    final deptBreakdown = (summary['department_breakdown'] as Map?)
+        ?.cast<String, dynamic>() ?? {};
 
     return _DashboardShell(
       title: 'Manager Dashboard',
@@ -787,8 +841,33 @@ class ManagerDashboardScreen extends ConsumerWidget {
               value: openComplaints,
               color: openComplaints != '0' && openComplaints != '--' ? AppTheme.error : AppTheme.success,
             ),
+            _SummaryCard(
+              icon: Icons.assignment_late_rounded,
+              label: 'Duty Queue',
+              value: dutiesAsync.isLoading ? '--' : '$pendingDuties',
+              color: pendingDuties > 0 ? AppTheme.warning : AppTheme.success,
+            ),
           ],
         ),
+        if (deptBreakdown.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          const _SectionLabel('Department Summary'),
+          const SizedBox(height: 10),
+          _OperationalPanel(
+            title: 'Attendance by Department',
+            children: [
+              for (final entry in deptBreakdown.entries)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _DeptRow(
+                    dept: entry.key,
+                    present: (entry.value as Map<String, dynamic>)['present'] as int? ?? 0,
+                    absent: (entry.value as Map<String, dynamic>)['absent'] as int? ?? 0,
+                  ),
+                ),
+            ],
+          ),
+        ],
         const SizedBox(height: 18),
         const _SectionLabel('Quick Actions'),
         const SizedBox(height: 10),

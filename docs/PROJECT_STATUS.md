@@ -44,7 +44,7 @@ Last updated: 2026-06-13
 | Flats list + form + detail | ✅ Done | |
 | Visitors | ✅ Done | |
 | Complaints | ✅ Done | |
-| Staff (complete module) | ✅ Done | Staff Master (List/Add/Edit/Detail), all fields (photo, address, notes, emergency contact), auto-user creation with temp password + credentials dialog, Punch-in/out approval hierarchy, supervisor-scoped filters, duty assignment, complaint assignment, Manager Dashboard (live: pending checkin/checkout/absent/late/complaints), Supervisor Dashboard (live present/absent) |
+| Staff (complete module) | ✅ Done | Staff Master (all fields), Login Account management (view/reset/disable/enable), auto-user creation, Attendance (check-in/out + overtime display), Approval with notes dialog, Duties, Handover, Manager Dashboard (7 live cards + dept summary), Supervisor Dashboard (6 live cards + duty queue + gym panel) |
 | Setup Wizard | ✅ Done | 5-step |
 
 ---

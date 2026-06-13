@@ -269,21 +269,28 @@ Adds:
 
 ## Implementation Completeness
 
+Last updated: 2026-06-13
+
 | Feature | Status |
 |---------|--------|
 | Staff CRUD (create/read/update) | ✅ Complete |
-| Employee Code auto-generation | ✅ Complete |
+| Employee Code auto-generation (globally unique) | ✅ Complete |
 | Department/Designation management | ✅ Complete |
 | designation_name + reporting_manager_name in StaffOut | ✅ Complete |
 | TECHNICAL + GYM departments | ✅ Complete (migration d1e2f3a4b5c6) |
 | Reporting Manager FK | ✅ Complete (migration d1e2f3a4b5c6) |
+| staff.address + staff.notes fields | ✅ Complete (migration e2f3a4b5c6d7) |
+| Emergency Contact (name + phone) | ✅ Complete |
+| Staff Login Management (view/reset/disable/enable) | ✅ Complete |
 | Punch-In with pending approval | ✅ Complete |
 | Punch-In approval endpoint | ✅ Complete |
+| Approval with optional notes | ✅ Complete |
 | Supervisor-scoped approval endpoint | ✅ Complete |
 | Punch-Out recording | ✅ Complete |
 | Punch-Out approval fields | ✅ Complete (migration d1e2f3a4b5c6) |
 | Punch-Out approval endpoint | ✅ Complete |
-| Attendance summary endpoint | ✅ Complete |
+| Attendance summary with department_breakdown | ✅ Complete |
+| Overtime hours tracking + display | ✅ Complete |
 | Duty assignment by supervisor | ✅ Complete |
 | Duty completion + verification | ✅ Complete |
 | Shift Handover workflow | ✅ Complete |
@@ -291,16 +298,38 @@ Adds:
 | Task FSM | ✅ Complete |
 | Roster management | ✅ Complete |
 | Complaint→Department assignment | ✅ Complete |
-| Flutter: Staff attendance screen | ✅ Complete |
+| Flutter: Staff attendance screen (check-in/out, overtime display) | ✅ Complete |
 | Flutter: Duty screen | ✅ Complete |
 | Flutter: Handover screen | ✅ Complete |
-| Flutter: Attendance Approval screen | ✅ Complete |
+| Flutter: Attendance Approval screen (with notes dialog) | ✅ Complete |
 | Flutter: Duty Assign screen | ✅ Complete |
 | Flutter: Staff List screen (search, filter, FAB, tappable cards) | ✅ Complete |
-| Flutter: Staff Detail screen | ✅ Complete |
+| Flutter: Staff Detail screen (login account card) | ✅ Complete |
 | Flutter: Add Staff screen (full form with designation/shift/manager dropdowns) | ✅ Complete |
 | Flutter: Edit Staff screen (update all fields + deactivate) | ✅ Complete |
 | Flutter: StaffHome (supervisor actions) | ✅ Complete |
-| Flutter: Manager Dashboard | ✅ Complete |
-| Flutter: Supervisor Dashboard | ✅ Complete |
+| Flutter: Manager Dashboard (all 7 live cards + department summary panel) | ✅ Complete |
+| Flutter: Supervisor Dashboard (6 live cards + gym panel) | ✅ Complete |
 | Multi-tenant isolation | ✅ Complete |
+
+## Manager Dashboard
+
+Live data cards:
+- **Pending Check-in** — `approvalProvider` (pending punch-in approvals)
+- **Pending Punch-out** — `approvalProvider` (pending checkout approvals)
+- **Absent Staff** — `attendanceSummaryProvider`
+- **Late Staff** — `attendanceSummaryProvider` (30-min shift threshold)
+- **Total Staff** — `staffListProvider`
+- **Open Complaints** — `openComplaintsCountProvider`
+- **Duty Queue** — `societyDutiesProvider` (today's unfinished duties)
+
+Department Summary panel: rendered when `department_breakdown` is non-empty (present/absent per dept from summary endpoint).
+
+## Supervisor Dashboard
+
+Live data cards (Security and Housekeeping Supervisors):
+- Staff Present / Absent — `attendanceSummaryProvider`
+- Pending Check-in / Pending Check-out — `approvalProvider` (dept-scoped)
+- Duties Pending / Duties Done — `societyDutiesProvider`
+
+HK Supervisor additionally shows a Gym Attendance panel.

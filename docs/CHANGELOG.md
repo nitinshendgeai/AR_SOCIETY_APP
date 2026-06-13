@@ -6,6 +6,19 @@ Format: `[YYYY-MM-DD] type: description`
 
 ## 2026-06-13
 
+### feat: staff login management, dashboard department summary, approval notes
+
+**Flutter**
+- `StaffDetailScreen`: Login Account card — shows user status chip, Reset Password button (temp password dialog), Disable/Enable Login toggle
+- `StaffRepository` + datasource: `getUserById`, `resetStaffPassword`, `setStaffLoginStatus` using `/users/{id}` endpoints
+- `StaffAddScreen`: email field hint shows username format example; helper text explains auto-account creation
+- `AttendanceScreen`: overtime hours displayed in orange alongside working hours in today's card
+- `ApprovalScreen`: Approve button now opens a notes dialog before confirming (notes optional, sent to backend)
+- **Manager Dashboard**: added Duty Queue card (`societyDutiesProvider`) and Department Summary panel (present/absent per dept from `department_breakdown`)
+- **Supervisor Dashboard**: added Duties Pending + Duties Done live cards; HK gym panel shows live approval count
+- `societyDutiesProvider`: new `FutureProvider.family` calling `GET /staff/duties/society/{id}?duty_date=today`
+- `_DeptRow` widget: renders per-department attendance row in manager dashboard
+
 ### feat: complete staff management module — production-ready
 
 **Backend**
@@ -13,10 +26,10 @@ Format: `[YYYY-MM-DD] type: description`
 - Alembic migration `e2f3a4b5c6d7`: adds `address` and `notes` to staff table
 - `StaffCreate` / `StaffUpdate` / `StaffOut` schemas: expose `address`, `notes`, `photo_url`, `emergency_contact_phone`
 - `StaffService.create_staff()`: auto-creates `User` account (with `Staff@1234` temp password + `must_change_password=True`) when staff is created with an email; assigns appropriate role via `_DESIGNATION_TO_ROLE` / `_DEPT_TO_ROLE` lookup
-- `StaffService.get_attendance_summary()`: now returns `late` count (checkin > shift start + 30 min threshold)
+- `StaffService.get_attendance_summary()`: returns `late` count + `department_breakdown` map
 - Onboarding: 16 default roles (added `Manager`, `Gym Trainer`)
 - New societies get 7 default designations + 3 default shifts on registration
-- `tests/staff/test_staff.py`: comprehensive CRUD tests (create, auto-user, list society-scoped, get, update, deactivate, hierarchy, department filter, 10-member org)
+- `tests/staff/test_staff.py`: 12 comprehensive CRUD tests (create, auto-user, list society-scoped, get, update, deactivate, hierarchy, department filter, 10-member org)
 
 **Flutter**
 - `StaffEntity` + `StaffModel`: added `address`, `notes`, `photoUrl`, `emergencyContactName`, `emergencyContactPhone` fields
@@ -30,7 +43,6 @@ Format: `[YYYY-MM-DD] type: description`
   - Open Complaints from new `openComplaintsCountProvider`
   - Total Staff from `staffListProvider`
 - `openComplaintsCountProvider`: new `FutureProvider.family<int, String>` backed by `GET /complaints/society/{id}/open`
-- Removed hardcoded "All on duty" department status tiles from Manager Dashboard
 - `_GreetingCard`: shows real society name from `societyInfoProvider`
 
 ---
