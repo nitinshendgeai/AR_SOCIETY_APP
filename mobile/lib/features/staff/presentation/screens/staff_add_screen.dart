@@ -402,6 +402,14 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
 
   void _submit(String societyId) {
     if (!_formKey.currentState!.validate()) return;
+    if (societyId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Society not loaded. Please reload the app.'),
+        backgroundColor: AppTheme.error,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
 
     final joiningStr = _joiningDate != null
         ? '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}'

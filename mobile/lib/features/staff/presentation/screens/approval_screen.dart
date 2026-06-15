@@ -203,7 +203,7 @@ class _ApprovalCard extends ConsumerWidget {
                     Text(
                         record.staffName?.isNotEmpty == true
                             ? record.staffName!
-                            : 'Staff #${record.staffId.substring(0, 8)}',
+                            : 'Staff #${record.staffId.substring(0, record.staffId.length.clamp(0, 8))}',
                         style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimary)),
                     Text(formatDate(record.attendanceDate),
                         style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
@@ -258,7 +258,7 @@ class _ApprovalCard extends ConsumerWidget {
             Text(
               record.staffName?.isNotEmpty == true
                   ? record.staffName!
-                  : 'Staff #${record.staffId.substring(0, 8)}',
+                  : 'Staff #${record.staffId.substring(0, record.staffId.length.clamp(0, 8))}',
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             Text(formatDate(record.attendanceDate),

@@ -29,6 +29,26 @@ supervisor_above   = require_supervisor_above
 any_auth           = require_any_member
 manager_or_above   = require_manager_above
 
+# Roles that can see all departments (managers and above)
+_MANAGER_ROLES = {
+    "Manager", "Society Admin", "Platform Admin",
+    "Committee Chairman", "Committee Secretary", "Committee Treasurer",
+}
+
+
+def _resolve_dept(user: User, requested_dept: Optional[str], db: Session) -> Optional[str]:
+    """
+    Managers/admins: pass through the requested_dept (or None = all depts).
+    Supervisors: always restrict to their own staff.department, ignoring requested_dept.
+    """
+    role_names = {ur.role.name for ur in user.user_roles if ur.role}
+    if role_names & _MANAGER_ROLES:
+        return requested_dept
+    # Supervisor — look up their staff record
+    from app.modules.staff.repositories.staff_repo import StaffRepository
+    staff = StaffRepository(db).get_by_user(user.id)
+    return staff.department.value if staff else requested_dept
+
 
 # ── Designations ──────────────────────────────────────────────────────────────
 @router.post("/designations", response_model=DesignationOut, status_code=201,
@@ -74,10 +94,21 @@ def update_staff(staff_id: UUID, data: StaffUpdate, request: Request,
 def get_staff(staff_id: UUID, db: Session = Depends(get_db)):
     return StaffService(db).get_staff(staff_id)
 
-@router.get("/by-user/{user_id}", response_model=StaffOut,
-            dependencies=[Depends(any_auth)])
-def get_staff_by_user(user_id: UUID, db: Session = Depends(get_db)):
-    """Return the Staff record linked to a given user_id (used by mobile app after login)."""
+@router.get("/by-user/{user_id}", response_model=StaffOut)
+def get_staff_by_user(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(any_auth),
+):
+    """Return the Staff record linked to a given user_id.
+    Callers may only look up their own record unless they are admin/committee/manager.
+    """
+    role_names = {ur.role.name for ur in current_user.user_roles if ur.role}
+    is_privileged = bool(role_names & _MANAGER_ROLES) or \
+                    bool(role_names & {"Committee Chairman", "Committee Secretary", "Committee Treasurer", "Society Admin", "Platform Admin"})
+    if not is_privileged and str(current_user.id) != str(user_id):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="You can only fetch your own staff record")
     return StaffService(db).get_staff_by_user(user_id)
 
 @router.get("/society/{society_id}", response_model=List[StaffOut],
@@ -178,10 +209,12 @@ def supervisor_pending_attendance(
     user: User = Depends(supervisor_above),
 ):
     """
-    Returns pending punch-in approvals scoped to the caller's department.
-    Managers see all; supervisors see only their dept.
+    Returns pending punch-in approvals.
+    Managers/admins see all (or filter by requested dept).
+    Supervisors are automatically restricted to their own department.
     """
-    return StaffService(db).get_pending_attendance_for_supervisor(society_id, department)
+    effective_dept = _resolve_dept(user, department, db)
+    return StaffService(db).get_pending_attendance_for_supervisor(society_id, effective_dept)
 
 @router.get("/attendance/pending-checkout/{society_id}", response_model=List[AttendanceOut])
 def pending_checkout_approvals(
@@ -190,8 +223,11 @@ def pending_checkout_approvals(
     db: Session = Depends(get_db),
     user: User = Depends(supervisor_above),
 ):
-    """Returns attendance records with completed checkout awaiting checkout approval."""
-    return StaffService(db).get_pending_checkout_approvals(society_id, department)
+    """Returns attendance records with completed checkout awaiting checkout approval.
+    Supervisors are automatically restricted to their own department.
+    """
+    effective_dept = _resolve_dept(user, department, db)
+    return StaffService(db).get_pending_checkout_approvals(society_id, effective_dept)
 
 @router.get("/society/{society_id}/summary", response_model=dict)
 def attendance_summary(
@@ -200,7 +236,9 @@ def attendance_summary(
     db: Session = Depends(get_db),
     user: User = Depends(supervisor_above),
 ):
-    """Department-wise attendance summary for manager/supervisor dashboard."""
+    """Department-wise attendance summary for manager/supervisor dashboard.
+    Supervisors see their own department only; managers see all.
+    """
     return StaffService(db).get_attendance_summary(society_id, att_date)
 
 

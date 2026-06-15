@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, Enum, ForeignKey
+from sqlalchemy import Column, String, Boolean, Enum, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
@@ -34,6 +34,7 @@ class User(Base, TimestampMixin):
     must_change_password = Column(Boolean, default=False, nullable=False)
     terms_accepted       = Column(Boolean, default=False, nullable=False)
     setup_completed      = Column(Boolean, default=False, nullable=False)
+    last_login           = Column(DateTime, nullable=True)
 
     # Relationships
     society    = relationship("Society", foreign_keys=[society_id])

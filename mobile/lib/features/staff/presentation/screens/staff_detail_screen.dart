@@ -240,6 +240,7 @@ class _LoginAccountCard extends ConsumerStatefulWidget {
 
 class _LoginAccountCardState extends ConsumerState<_LoginAccountCard> {
   String? _userStatus;
+  String? _lastLogin;
   bool _loading = true;
   String? _error;
   bool _actionLoading = false;
@@ -256,9 +257,34 @@ class _LoginAccountCardState extends ConsumerState<_LoginAccountCard> {
     if (!mounted) return;
     switch (result) {
       case StaffSuccess(:final data):
-        setState(() { _userStatus = data['status'] as String?; _loading = false; });
+        setState(() {
+          _userStatus = data['status'] as String?;
+          _lastLogin  = data['last_login'] as String?;
+          _loading    = false;
+        });
       case StaffFailure(:final message):
         setState(() { _error = message; _loading = false; });
+    }
+  }
+
+  String _formatLastLogin(String? raw) {
+    if (raw == null) return 'Never';
+    try {
+      final dt   = DateTime.parse(raw).toLocal();
+      final diff = DateTime.now().difference(dt);
+      if (diff.inDays == 0) {
+        final h = dt.hour.toString().padLeft(2, '0');
+        final m = dt.minute.toString().padLeft(2, '0');
+        return 'Today $h:$m';
+      } else if (diff.inDays == 1) {
+        return 'Yesterday';
+      } else if (diff.inDays < 7) {
+        return '${diff.inDays} days ago';
+      } else {
+        return '${dt.day}/${dt.month}/${dt.year}';
+      }
+    } catch (_) {
+      return raw;
     }
   }
 
@@ -349,7 +375,8 @@ class _LoginAccountCardState extends ConsumerState<_LoginAccountCard> {
             ],
           ),
           const SizedBox(height: 12),
-          _Row(label: 'Email', value: widget.email.isEmpty ? '—' : widget.email),
+          _Row(label: 'Email',      value: widget.email.isEmpty ? '—' : widget.email),
+          _Row(label: 'Last Login', value: _formatLastLogin(_lastLogin)),
           if (_loading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 12),

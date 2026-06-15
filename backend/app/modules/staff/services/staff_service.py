@@ -364,6 +364,8 @@ class StaffService:
         attendance = self.att_repo.get(attendance_id)
         if not attendance:
             raise HTTPException(status_code=404, detail="Attendance record not found")
+        if user.society_id and str(attendance.society_id) != str(user.society_id):
+            raise HTTPException(status_code=403, detail="Cannot approve attendance from another society")
         if attendance.is_approved:
             raise HTTPException(status_code=409, detail="Attendance record already approved")
 
@@ -384,6 +386,8 @@ class StaffService:
         attendance = self.att_repo.get(attendance_id)
         if not attendance:
             raise HTTPException(status_code=404, detail="Attendance record not found")
+        if user.society_id and str(attendance.society_id) != str(user.society_id):
+            raise HTTPException(status_code=403, detail="Cannot approve attendance from another society")
         if not attendance.check_out_time:
             raise HTTPException(status_code=409, detail="Staff has not checked out yet")
         if attendance.is_checkout_approved:
