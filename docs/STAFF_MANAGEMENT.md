@@ -2,8 +2,9 @@
 
 > **RBAC Fix (2026-06-10):** Society Admin now has full access to all staff APIs. The prior 403 errors were caused by local role aliases using abstract group names ("Admin", "Committee") that don't match actual DB roles ("Society Admin", "Committee Chairman", etc.). This is fixed in `backend/app/core/dependencies.py`.
 
+> **Audit (2026-06-17):** Dashboard action buttons audited across all 11 roles. Broken "Add Notice" button removed from Admin Dashboard. Handover societyId routing bug fixed. 44 acceptance tests pass. See CHANGELOG.md for full details.
 
-Last updated: 2026-06-13
+Last updated: 2026-06-17
 
 ---
 

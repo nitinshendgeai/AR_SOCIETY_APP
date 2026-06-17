@@ -1,6 +1,6 @@
 # Project Status — AR Society ERP
 
-Last updated: 2026-06-13
+Last updated: 2026-06-17
 
 ---
 
@@ -44,7 +44,7 @@ Last updated: 2026-06-13
 | Flats list + form + detail | ✅ Done | |
 | Visitors | ✅ Done | |
 | Complaints | ✅ Done | |
-| Staff (complete module) | ✅ Done | Staff Master (all fields), Login Account management (view/reset/disable/enable), auto-user creation, Attendance (check-in/out + overtime display), Approval with notes dialog, Duties, Handover, Manager Dashboard (7 live cards + dept summary), Supervisor Dashboard (6 live cards + duty queue + gym panel) |
+| Staff (complete module) | ✅ Done | Staff Master (all fields), Login Account management (view/reset/disable/enable), last_login display, auto-user creation, Attendance (check-in/out + overtime display), Approval with notes dialog, Duties, Handover (societyId fix applied), Manager Dashboard (7 live cards + dept summary), Supervisor Dashboard (6 live cards + duty queue + gym panel), 44 acceptance tests passing, all dashboard actions verified |
 | Setup Wizard | ✅ Done | 5-step |
 
 ---

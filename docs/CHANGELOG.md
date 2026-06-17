@@ -4,6 +4,42 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-06-17
+
+### chore: finalize staff module and dashboard action audit
+
+**Audit findings and fixes:**
+
+#### Dashboard Action Fixes
+- **Admin Dashboard Quick Actions**: Removed broken "Add Notice" button (was routing to `complaintsCreate` — a complaint form). Replaced with "Staff List" → `/staff/list` (useful admin shortcut). Fixed "Add Staff" to route directly to `/staff/add` instead of `/staff` (staff portal entry for staff members).
+- **Committee Dashboard**: Replaced hardcoded fake panel data ("3 items need review", "All core services running") with accurate instructional text pointing to real features.
+- **Security Dashboard**: Replaced hardcoded "Shift handover confirmed" / "All gates monitored" static text with instructional guidance directing to the Handover and Visitor features.
+- **Resident Dashboard**: Replaced hardcoded "Community meeting scheduled" / "Visitor entry approval" static text with accurate guidance.
+
+#### Bug Fix
+- **StaffHomeScreen Handover navigation**: Fixed missing `societyId` in route extra. `/staff/handover/:staffId` receives `societyId: state.extra as String? ?? ''`. Without the fix, handover creation always sent empty `society_id` to the backend, causing 422 validation errors.
+
+#### Backend (previous sessions, now included here)
+- `approve_checkout`: Added cross-society guard (same pattern as `approve_attendance`): raises 403 if approver's `society_id` ≠ attendance record's `society_id`.
+- `approve_attendance` + `approve_checkout`: Added `_check_dept_access()` — Security Supervisors can only approve Security dept; Housekeeping Supervisors can approve Housekeeping and Gym; manager-level roles bypass the check.
+- Route guards promoted: `approve_attendance`, `approve_checkout`, `verify_duty`, `assign_duty` now use `supervisor_above`; `complete_duty` and `my_duties` use `any_staff`.
+
+#### Acceptance Testing (44 tests, all pass)
+- `backend/tests/staff/test_acceptance.py`: 44 tests across 7 classes:
+  - A (staff creation): employee_code format, auto-user account, temp_password returned
+  - B (login flow): first-login must_change_password, force redirect, change_password clears flag
+  - C (attendance): punch-in, supervisor approval, punch-out, checkout approval, working_hours calculated
+  - D (duty): assign, complete, verify; supervisor dept enforcement; cross-dept 403
+  - E (punch-out): full end-to-end with history
+  - F (role validation): 14 tests covering all 11 roles
+  - G (multi-tenant): 6 tests — Society A cannot see Society B staff/attendance
+
+#### CI Fixes
+- `build-apk.yml`: Changed `flutter-version: 'stable'` → `channel: 'stable'` (subosito/flutter-action@v2 parameter name)
+- `build-apk.yml`: Added `cp .env.example .env` step before `flutter pub get` (`.env` is gitignored but declared as pubspec asset)
+
+---
+
 ## 2026-06-13
 
 ### feat: staff login management, dashboard department summary, approval notes

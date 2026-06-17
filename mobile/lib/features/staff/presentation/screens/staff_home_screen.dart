@@ -130,7 +130,7 @@ class StaffHomeScreen extends ConsumerWidget {
                   subtitle: 'Create & accept',
                   color: AppTheme.warning,
                   onTap: staffId != null
-                      ? () => context.push('/staff/handover/$staffId')
+                      ? () => context.push('/staff/handover/$staffId', extra: societyId ?? '')
                       : null,
                 ),
                 _ModuleCard(

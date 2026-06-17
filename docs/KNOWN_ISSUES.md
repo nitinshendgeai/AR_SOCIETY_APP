@@ -1,14 +1,14 @@
 # Known Issues — AR Society ERP
 
-Last updated: 2026-06-13
+Last updated: 2026-06-17
 
 ---
 
 ## Active Issues
 
-### [KNOWN GAP] Staff login management: last_login not tracked
+### [FIXED 2026-06-17] Staff login management: last_login now tracked
 
-The `User` model has no `last_login` field. The StaffDetailScreen Login Account card therefore cannot display last login time. To implement: add `last_login: Optional[datetime]` to User model, update it in `AuthService.login()`, expose it in `UserOut`.
+`last_login` column added to `users` table (migration `f1g2h3i4j5k6`). `AuthService.login()` updates it on every successful login. `UserOut` exposes it. `StaffDetailScreen` Login Account card displays last login with human-readable relative format ("Today HH:MM", "Yesterday", "N days ago").
 
 ---
 
@@ -18,9 +18,17 @@ Societies registered before 2026-06-12 do not have 'Manager' or 'Gym Trainer' ro
 
 ---
 
-### [KNOWN GAP] Admin/Committee/Security dashboards show some static values
+### [KNOWN GAP] Admin/Committee/Security dashboards show partial static values
 
-Manager and Supervisor dashboards use 100% live data. Admin, Committee, and Security dashboards still show `--` or static values for flats occupied, resident count, and visitor count — those modules need their own summary endpoints wired up.
+Manager and Supervisor dashboards use 100% live data for staff-related cards. Admin, Committee, and Security dashboards show live data for staff count but still show `--` for flats occupied, resident count, and visitor count — those modules need their own summary endpoints wired up. Hardcoded fake panel content has been removed (replaced with instructional guidance).
+
+### [KNOWN GAP] SecurityDashboardScreen unreachable in current 11-role system
+
+The `/security` route exists but no current role lands there. `Security Supervisor` routes to `/supervisor` (contains 'Supervisor'), `Security Staff` routes to `/staff` (contains 'Staff'). The screen remains as a fallback for legacy or custom roles with plain 'Security' designation.
+
+### [KNOWN GAP] Dashboard drawer is not role-scoped
+
+All dashboards share the same `_DashboardShell` drawer which includes links to "Users & Roles" and "Society Settings". These links are visible to all roles including Staff and Resident. The backend enforces permissions (403 on unauthorized access), so no data leaks occur, but low-privilege users see links that mostly fail. A future improvement should conditionally render drawer items based on role.
 
 ---
 
