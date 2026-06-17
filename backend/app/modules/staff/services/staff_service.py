@@ -30,6 +30,19 @@ from app.models.notification import NotificationType, NotificationChannel
 
 DEFAULT_STAFF_PASSWORD = "Staff@1234"
 
+# Roles that bypass department restrictions
+_MANAGER_ROLES_SVC = {
+    "Manager", "Society Admin", "Platform Admin",
+    "Committee Chairman", "Committee Secretary", "Committee Treasurer",
+}
+
+# Supervisor role → set of departments they can approve
+_SUPERVISOR_DEPT_ACCESS: dict = {
+    "Security Supervisor":     {"security"},
+    "Housekeeping Supervisor": {"housekeeping", "gym"},
+    "Technical Supervisor":    {"technical"},
+}
+
 _DESIGNATION_TO_ROLE = {
     "Manager":                 "Manager",
     "Security Supervisor":     "Security Supervisor",
@@ -77,6 +90,22 @@ class StaffService:
         AuditService.log(db=self.db, action=action, module="staff",
                          entity_id=str(entity.id), entity_type=entity_type,
                          user=user, request=request, **kw)
+
+    def _check_dept_access(self, user: User, staff_department: str) -> None:
+        """Raise 403 if a supervisor is not authorised to act on the given department.
+        Managers/admins bypass this check entirely."""
+        role_names = {ur.role.name for ur in user.user_roles if ur.role}
+        if role_names & _MANAGER_ROLES_SVC:
+            return
+        for sup_role, allowed_depts in _SUPERVISOR_DEPT_ACCESS.items():
+            if sup_role in role_names:
+                if staff_department not in allowed_depts:
+                    raise HTTPException(
+                        status_code=403,
+                        detail=f"{sup_role} cannot approve {staff_department} department attendance",
+                    )
+                return
+        raise HTTPException(status_code=403, detail="Insufficient permissions to approve attendance")
 
     def _notify(self, user_id, title, body, type=NotificationType.INFO, module="staff", entity_id=None):
         if user_id:
@@ -366,6 +395,9 @@ class StaffService:
             raise HTTPException(status_code=404, detail="Attendance record not found")
         if user.society_id and str(attendance.society_id) != str(user.society_id):
             raise HTTPException(status_code=403, detail="Cannot approve attendance from another society")
+        staff = self.repo.get(attendance.staff_id)
+        if staff:
+            self._check_dept_access(user, staff.department.value)
         if attendance.is_approved:
             raise HTTPException(status_code=409, detail="Attendance record already approved")
 
@@ -388,6 +420,9 @@ class StaffService:
             raise HTTPException(status_code=404, detail="Attendance record not found")
         if user.society_id and str(attendance.society_id) != str(user.society_id):
             raise HTTPException(status_code=403, detail="Cannot approve attendance from another society")
+        staff = self.repo.get(attendance.staff_id)
+        if staff:
+            self._check_dept_access(user, staff.department.value)
         if not attendance.check_out_time:
             raise HTTPException(status_code=409, detail="Staff has not checked out yet")
         if attendance.is_checkout_approved:

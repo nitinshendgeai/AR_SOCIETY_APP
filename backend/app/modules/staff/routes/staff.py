@@ -27,6 +27,7 @@ router = APIRouter(prefix="/staff", tags=["Staff Operations"])
 admin_or_committee = require_admin_committee
 supervisor_above   = require_supervisor_above
 any_auth           = require_any_member
+any_staff          = require_any_staff
 manager_or_above   = require_manager_above
 
 # Roles that can see all departments (managers and above)
@@ -127,17 +128,17 @@ def list_by_department(society_id: UUID, department: StaffDepartment,
 # ── Duties ────────────────────────────────────────────────────────────────────
 @router.post("/duties", response_model=DutyOut, status_code=201)
 def assign_duty(data: DutyCreate, request: Request, db: Session = Depends(get_db),
-                user: User = Depends(admin_or_committee)):
+                user: User = Depends(supervisor_above)):
     return StaffService(db).assign_duty(data, user, request)
 
 @router.post("/duties/{duty_id}/complete", response_model=DutyOut)
 def complete_duty(duty_id: UUID, db: Session = Depends(get_db),
-                  user: User = Depends(supervisor_above)):
+                  user: User = Depends(any_staff)):
     return StaffService(db).complete_duty(duty_id, user)
 
 @router.post("/duties/{duty_id}/verify", response_model=DutyOut)
 def verify_duty(duty_id: UUID, data: DutyVerifyRequest, db: Session = Depends(get_db),
-                user: User = Depends(admin_or_committee)):
+                user: User = Depends(supervisor_above)):
     return StaffService(db).verify_duty(duty_id, data, user)
 
 @router.get("/duties/society/{society_id}", response_model=List[DutyOut],
@@ -148,7 +149,7 @@ def duties_by_date(society_id: UUID,
     return StaffService(db).get_duties_by_date(society_id, duty_date)
 
 @router.get("/duties/me/{staff_id}", response_model=List[DutyOut],
-            dependencies=[Depends(supervisor_above)])
+            dependencies=[Depends(any_staff)])
 def my_duties(staff_id: UUID, db: Session = Depends(get_db)):
     return StaffService(db).get_my_duties(staff_id)
 
@@ -191,13 +192,13 @@ def pending_attendance(society_id: UUID, db: Session = Depends(get_db)):
 @router.post("/attendance/{attendance_id}/approve", response_model=AttendanceOut)
 def approve_attendance(attendance_id: UUID, data: AttendanceApprovalRequest,
                       db: Session = Depends(get_db),
-                      user: User = Depends(admin_or_committee)):
+                      user: User = Depends(supervisor_above)):
     return StaffService(db).approve_attendance(attendance_id, data, user)
 
 @router.post("/attendance/{attendance_id}/approve-checkout", response_model=AttendanceOut)
 def approve_checkout(attendance_id: UUID, data: AttendanceCheckoutApprovalRequest,
                      db: Session = Depends(get_db),
-                     user: User = Depends(admin_or_committee)):
+                     user: User = Depends(supervisor_above)):
     """Approve the punch-out for a staff attendance record."""
     return StaffService(db).approve_checkout(attendance_id, data, user)
 

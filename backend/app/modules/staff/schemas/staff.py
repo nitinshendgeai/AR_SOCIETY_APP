@@ -92,6 +92,7 @@ class DutyOut(TimestampSchema):
     society_id: UUID; staff_id: UUID; duty_name: str; description: Optional[str]
     location: Optional[str]; duty_date: date; start_time: Optional[time]
     end_time: Optional[time]; is_completed: bool; completed_at: Optional[datetime]
+    verified_by: Optional[UUID] = None; verified_at: Optional[datetime] = None
     is_recurring: bool; notes: Optional[str]
 
 
