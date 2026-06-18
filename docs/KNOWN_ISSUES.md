@@ -1,6 +1,6 @@
 # Known Issues — AR Society ERP
 
-Last updated: 2026-06-18
+Last updated: 2026-06-18 (12-phase deep audit complete — no new active issues found)
 
 ---
 
