@@ -15,7 +15,7 @@ def _make_staff(db, society_id, name="Worker"):
 
 
 def test_create_task_success(client, db):
-    admin   = make_user(db, "admin@task.com", role="Admin")
+    admin   = make_user(db, "admin@task.com", role="Society Admin")
     society = make_society(db, "Task Society")
     staff   = _make_staff(db, society.id)
     r = client.post(
@@ -44,8 +44,8 @@ def test_create_task_requires_admin_or_committee(client, db):
 
 
 def test_task_status_assigned_to_acknowledged(client, db):
-    admin   = make_user(db, "adm2@task.com", role="Admin")
-    staff_u = make_user(db, "stf@task.com", role="Staff")
+    admin   = make_user(db, "adm2@task.com", role="Society Admin")
+    staff_u = make_user(db, "stf@task.com", role="Security Staff")
     society = make_society(db, "Task Society 3")
     staff   = _make_staff(db, society.id, "Worker3")
     # Create
@@ -68,7 +68,7 @@ def test_task_status_assigned_to_acknowledged(client, db):
 
 
 def test_task_invalid_transition_rejected(client, db):
-    admin   = make_user(db, "adm3@task.com", role="Admin")
+    admin   = make_user(db, "adm3@task.com", role="Society Admin")
     society = make_society(db, "Task Society 4")
     staff   = _make_staff(db, society.id, "Worker4")
     r = client.post(
@@ -88,7 +88,7 @@ def test_task_invalid_transition_rejected(client, db):
 
 
 def test_full_task_lifecycle(client, db):
-    admin   = make_user(db, "adm4@task.com", role="Admin")
+    admin   = make_user(db, "adm4@task.com", role="Society Admin")
     society = make_society(db, "Task Society 5")
     staff   = _make_staff(db, society.id, "Worker5")
     # Create
@@ -112,7 +112,7 @@ def test_full_task_lifecycle(client, db):
 
 
 def test_list_staff_tasks(client, db):
-    admin   = make_user(db, "adm5@task.com", role="Admin")
+    admin   = make_user(db, "adm5@task.com", role="Society Admin")
     society = make_society(db, "Task Society 6")
     staff   = _make_staff(db, society.id, "Worker6")
     for i in range(3):

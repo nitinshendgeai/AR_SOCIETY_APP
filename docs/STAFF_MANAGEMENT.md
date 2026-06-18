@@ -4,7 +4,9 @@
 
 > **Audit (2026-06-17):** Dashboard action buttons audited across all 11 roles. Broken "Add Notice" button removed from Admin Dashboard. Handover societyId routing bug fixed. 44 acceptance tests pass. See CHANGELOG.md for full details.
 
-Last updated: 2026-06-17
+> **UAT Audit (2026-06-18):** 6 critical RBAC permission bugs fixed in `routes/staff.py`. Staff can now punch in/out, view own attendance, list staff, view individual staff records, see duty queue, and update task status. Department filter in staff list now works end-to-end. 79 backend tests all pass (up from 44). All staff role workflows verified end-to-end. Module declared UAT READY.
+
+Last updated: 2026-06-18
 
 ---
 
@@ -130,24 +132,24 @@ is_checkout_approved: true
 |--------|------|------------|
 | POST | /staff/ | Admin, Committee |
 | PATCH | /staff/{id} | Admin, Committee |
-| GET | /staff/{id} | Admin, Committee |
-| GET | /staff/by-user/{user_id} | Any auth |
-| GET | /staff/society/{society_id} | Admin, Committee |
+| GET | /staff/{id} | supervisor_above (Manager, Supervisor, Admin, Committee) |
+| GET | /staff/by-user/{user_id} | Any auth (own record only; privileged roles see any) |
+| GET | /staff/society/{society_id} | supervisor_above + optional `?department=` (supervisors auto-scoped to own dept) |
 | GET | /staff/society/{society_id}/department/{dept} | Admin, Committee |
 
 ### Attendance
 | Method | Path | Permission |
 |--------|------|------------|
-| POST | /staff/attendance/{id}/checkin | Staff+ |
-| POST | /staff/attendance/{id}/checkout | Staff+ |
-| GET | /staff/attendance/{id} | Admin, Committee |
+| POST | /staff/attendance/{id}/checkin | any_staff (all staff + supervisors + admin) |
+| POST | /staff/attendance/{id}/checkout | any_staff |
+| GET | /staff/attendance/{id} | any_staff |
 | GET | /staff/attendance/daily/{society_id} | Admin, Committee |
 | GET | /staff/attendance/pending/{society_id} | Admin, Committee |
-| GET | /staff/attendance/pending/supervisor/{society_id} | Staff+ |
-| GET | /staff/attendance/pending-checkout/{society_id} | Staff+ |
-| POST | /staff/attendance/{id}/approve | Admin, Committee |
-| POST | /staff/attendance/{id}/approve-checkout | Admin, Committee |
-| GET | /staff/society/{society_id}/summary | Staff+ |
+| GET | /staff/attendance/pending/supervisor/{society_id} | supervisor_above (dept-scoped for supervisors) |
+| GET | /staff/attendance/pending-checkout/{society_id} | supervisor_above |
+| POST | /staff/attendance/{id}/approve | supervisor_above |
+| POST | /staff/attendance/{id}/approve-checkout | supervisor_above |
+| GET | /staff/society/{society_id}/summary | supervisor_above |
 
 ### Duties
 | Method | Path | Permission |

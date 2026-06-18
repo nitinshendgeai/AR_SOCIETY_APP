@@ -91,7 +91,7 @@ def update_staff(staff_id: UUID, data: StaffUpdate, request: Request,
     return StaffService(db).update_staff(staff_id, data, user, request)
 
 @router.get("/{staff_id}", response_model=StaffOut,
-            dependencies=[Depends(admin_or_committee)])
+            dependencies=[Depends(supervisor_above)])
 def get_staff(staff_id: UUID, db: Session = Depends(get_db)):
     return StaffService(db).get_staff(staff_id)
 
@@ -112,11 +112,17 @@ def get_staff_by_user(
         raise HTTPException(status_code=403, detail="You can only fetch your own staff record")
     return StaffService(db).get_staff_by_user(user_id)
 
-@router.get("/society/{society_id}", response_model=List[StaffOut],
-            dependencies=[Depends(admin_or_committee)])
-def list_staff(society_id: UUID, skip: int = 0, limit: int = 50,
-               db: Session = Depends(get_db)):
-    return StaffService(db).list_staff(society_id, skip, limit)
+@router.get("/society/{society_id}", response_model=List[StaffOut])
+def list_staff(
+    society_id: UUID,
+    skip: int = 0,
+    limit: int = 50,
+    department: Optional[str] = Query(None, description="Filter by department (security/housekeeping/technical/gym/admin)"),
+    db: Session = Depends(get_db),
+    user: User = Depends(supervisor_above),
+):
+    effective_dept = _resolve_dept(user, department, db)
+    return StaffService(db).list_staff(society_id, skip, limit, effective_dept)
 
 @router.get("/society/{society_id}/department/{department}", response_model=List[StaffOut],
             dependencies=[Depends(admin_or_committee)])
@@ -142,7 +148,7 @@ def verify_duty(duty_id: UUID, data: DutyVerifyRequest, db: Session = Depends(ge
     return StaffService(db).verify_duty(duty_id, data, user)
 
 @router.get("/duties/society/{society_id}", response_model=List[DutyOut],
-            dependencies=[Depends(admin_or_committee)])
+            dependencies=[Depends(supervisor_above)])
 def duties_by_date(society_id: UUID,
                    duty_date: date = Query(..., description="YYYY-MM-DD"),
                    db: Session = Depends(get_db)):
@@ -157,12 +163,12 @@ def my_duties(staff_id: UUID, db: Session = Depends(get_db)):
 # ── Attendance ────────────────────────────────────────────────────────────────
 @router.post("/attendance/{staff_id}/checkin", response_model=AttendanceOut)
 def check_in(staff_id: UUID, data: AttendanceCheckIn, request: Request,
-             db: Session = Depends(get_db), user: User = Depends(supervisor_above)):
+             db: Session = Depends(get_db), user: User = Depends(any_staff)):
     return StaffService(db).check_in(staff_id, data, user, request)
 
 @router.post("/attendance/{staff_id}/checkout", response_model=AttendanceOut)
 def check_out(staff_id: UUID, data: AttendanceCheckOut, request: Request,
-              db: Session = Depends(get_db), user: User = Depends(supervisor_above)):
+              db: Session = Depends(get_db), user: User = Depends(any_staff)):
     return StaffService(db).check_out(staff_id, data, user, request)
 
 @router.post("/attendance/manual", response_model=AttendanceOut,
@@ -172,7 +178,7 @@ def manual_attendance(data: AttendanceManualEntry, db: Session = Depends(get_db)
     return StaffService(db).manual_attendance(data, user)
 
 @router.get("/attendance/{staff_id}", response_model=List[AttendanceOut],
-            dependencies=[Depends(admin_or_committee)])
+            dependencies=[Depends(any_staff)])
 def get_attendance(staff_id: UUID, skip: int = 0, limit: int = 50,
                    db: Session = Depends(get_db)):
     return StaffService(db).get_attendance(staff_id, skip, limit)
@@ -251,7 +257,7 @@ def create_task(data: TaskCreate, request: Request, db: Session = Depends(get_db
 
 @router.post("/tasks/{task_id}/status", response_model=TaskOut)
 def update_task(task_id: UUID, data: TaskStatusUpdate, request: Request,
-                db: Session = Depends(get_db), user: User = Depends(supervisor_above)):
+                db: Session = Depends(get_db), user: User = Depends(any_staff)):
     return StaffService(db).update_task_status(task_id, data, user, request)
 
 @router.post("/tasks/{task_id}/worklog", response_model=TaskOut, status_code=201)

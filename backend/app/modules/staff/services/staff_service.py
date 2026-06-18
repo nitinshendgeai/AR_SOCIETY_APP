@@ -197,7 +197,15 @@ class StaffService:
             raise HTTPException(status_code=404, detail="No staff profile linked to this user")
         return staff
 
-    def list_staff(self, society_id: UUID, skip=0, limit=50) -> List[Staff]:
+    def list_staff(self, society_id: UUID, skip=0, limit=50,
+                   department: Optional[str] = None) -> List[Staff]:
+        if department:
+            from app.modules.staff.models.staff import StaffDepartment
+            try:
+                dept_enum = StaffDepartment(department)
+                return self.repo.get_by_department(society_id, dept_enum)
+            except ValueError:
+                pass
         return self.repo.get_by_society(society_id, skip, limit)
 
     def list_by_department(self, society_id: UUID, dept) -> List[Staff]:

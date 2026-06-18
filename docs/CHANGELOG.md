@@ -4,6 +4,74 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-06-18
+
+### fix: complete staff module uat audit and workflow stabilization
+
+**UAT Audit — 6 Critical Backend Permission Bugs Fixed:**
+
+#### CRITICAL: Staff cannot punch in/out
+- `POST /staff/attendance/{id}/checkin` and `checkout` were guarded by `supervisor_above`.
+- Security Staff, Housekeeping Staff, Technical Staff, and Gym Trainer all received 403 when trying to mark their own attendance.
+- **Fix:** Changed both routes to `any_staff` (includes all staff + supervisors + admins).
+
+#### CRITICAL: Staff cannot view own attendance history
+- `GET /staff/attendance/{staff_id}` was guarded by `admin_or_committee`.
+- Staff members could not see their own check-in/out history — the Attendance Screen always returned 403.
+- **Fix:** Changed to `any_staff`.
+
+#### CRITICAL: Manager/Supervisor cannot list staff
+- `GET /staff/society/{society_id}` was guarded by `admin_or_committee`.
+- Manager Dashboard "Total Staff" card, DutyAssignScreen staff picker, and StaffListScreen all failed for Manager and Supervisor roles.
+- **Fix:** Changed to `supervisor_above`. Added `department: Optional[str] = Query(None)` parameter with `_resolve_dept()` to auto-scope supervisors to their own department.
+
+#### CRITICAL: Manager/Supervisor cannot view individual staff records
+- `GET /staff/{staff_id}` was guarded by `admin_or_committee`.
+- Manager and Supervisor roles received 403 when opening StaffDetailScreen.
+- **Fix:** Changed to `supervisor_above`.
+
+#### CRITICAL: Manager/Supervisor Duty Queue fails with 403
+- `GET /staff/duties/society/{society_id}` was guarded by `admin_or_committee`.
+- Manager Dashboard Duty Queue showed '--' and Supervisor Dashboard showed 0 duties.
+- **Fix:** Changed to `supervisor_above`.
+
+#### CRITICAL: Task status update blocked for staff
+- `POST /staff/tasks/{task_id}/status` was guarded by `supervisor_above`.
+- Staff members assigned a task could not acknowledge or update their own task status.
+- **Fix:** Changed to `any_staff` (FSM already validates transition rules; RBAC should not be the blocker).
+
+**Service Update:**
+- `StaffService.list_staff()`: Added optional `department` parameter. When provided, delegates to `repo.get_by_department()` with enum conversion; falls back to `get_by_society()` if department string is invalid.
+
+**Test Fixes (79 total, all passing):**
+- `test_attendance.py`: Updated 6 test functions from `role="Admin"` → `role="Society Admin"` (canonical role name).
+- `test_handover.py`, `test_leave.py`, `test_tasks.py`: Same fix for 9 more test functions.
+- `test_tasks.py::test_task_status_assigned_to_acknowledged`: Updated `role="Staff"` → `role="Security Staff"`.
+- Result: **79 staff tests passing** (up from 44 acceptance tests, now includes attendance/handover/leave/task tests).
+
+**UAT Report:**
+
+| Component | Status |
+|-----------|--------|
+| Staff Punch-In | ✅ Fixed (was 403 for Security/Housekeeping/Technical/Gym staff) |
+| Staff Punch-Out | ✅ Fixed (same) |
+| Attendance History view | ✅ Fixed (was 403 for all staff) |
+| Attendance Approval (supervisor) | ✅ Working |
+| Checkout Approval (supervisor) | ✅ Working |
+| Staff List (manager/supervisor) | ✅ Fixed (was 403) |
+| Staff Detail view (manager) | ✅ Fixed (was 403) |
+| Duty Queue on dashboards | ✅ Fixed (was 403) |
+| Task Status Update (staff) | ✅ Fixed (was 403) |
+| Department filter chips | ✅ Now works end-to-end (backend param added) |
+| Duty Assignment flow | ✅ Working |
+| Handover workflow | ✅ Working |
+| Manager Dashboard (7 live cards) | ✅ All data loads after RBAC fixes |
+| Supervisor Dashboard (6 live cards) | ✅ All data loads after RBAC fixes |
+| Auto User Creation on staff add | ✅ Working |
+| Multi-tenant isolation | ✅ Verified (44 acceptance tests pass) |
+
+---
+
 ## 2026-06-17
 
 ### chore: finalize staff module and dashboard action audit

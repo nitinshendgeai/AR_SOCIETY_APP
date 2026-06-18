@@ -13,7 +13,7 @@ def _make_staff(db, society_id, code, name):
 
 
 def test_create_handover(client, db):
-    admin   = make_user(db, "adm@hndov.com", role="Admin")
+    admin   = make_user(db, "adm@hndov.com", role="Society Admin")
     society = make_society(db, "Handover Society")
     out     = _make_staff(db, society.id, "HND-001", "Guard Out")
     inc     = _make_staff(db, society.id, "HND-002", "Guard Inc")
@@ -35,7 +35,7 @@ def test_create_handover(client, db):
 
 
 def test_submit_and_accept_handover(client, db):
-    admin   = make_user(db, "adm2@hndov.com", role="Admin")
+    admin   = make_user(db, "adm2@hndov.com", role="Society Admin")
     society = make_society(db, "Handover Society 2")
     out     = _make_staff(db, society.id, "HND-003", "Guard 3")
     inc     = _make_staff(db, society.id, "HND-004", "Guard 4")
@@ -64,7 +64,7 @@ def test_submit_and_accept_handover(client, db):
 
 
 def test_cannot_submit_without_incoming_staff(client, db):
-    admin   = make_user(db, "adm3@hndov.com", role="Admin")
+    admin   = make_user(db, "adm3@hndov.com", role="Society Admin")
     society = make_society(db, "Handover Society 3")
     out     = _make_staff(db, society.id, "HND-005", "Guard 5")
 
@@ -82,7 +82,7 @@ def test_cannot_submit_without_incoming_staff(client, db):
 
 
 def test_dispute_and_resubmit(client, db):
-    admin   = make_user(db, "adm4@hndov.com", role="Admin")
+    admin   = make_user(db, "adm4@hndov.com", role="Society Admin")
     society = make_society(db, "Handover Society 4")
     out     = _make_staff(db, society.id, "HND-006", "Guard 6")
     inc     = _make_staff(db, society.id, "HND-007", "Guard 7")
@@ -105,7 +105,7 @@ def test_dispute_and_resubmit(client, db):
 
 def test_invalid_transition_blocked(client, db):
     """Cannot accept a DRAFT handover (must submit first)."""
-    admin   = make_user(db, "adm5@hndov.com", role="Admin")
+    admin   = make_user(db, "adm5@hndov.com", role="Society Admin")
     society = make_society(db, "Handover Society 5")
     out     = _make_staff(db, society.id, "HND-008", "Guard 8")
     inc     = _make_staff(db, society.id, "HND-009", "Guard 9")
@@ -123,7 +123,7 @@ def test_invalid_transition_blocked(client, db):
 
 
 def test_get_pending_handovers(client, db):
-    admin   = make_user(db, "adm6@hndov.com", role="Admin")
+    admin   = make_user(db, "adm6@hndov.com", role="Society Admin")
     society = make_society(db, "Handover Society 6")
     out     = _make_staff(db, society.id, "HND-010", "Guard 10")
     inc     = _make_staff(db, society.id, "HND-011", "Guard 11")

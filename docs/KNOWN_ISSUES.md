@@ -1,10 +1,24 @@
 # Known Issues — AR Society ERP
 
-Last updated: 2026-06-17
+Last updated: 2026-06-18
 
 ---
 
 ## Active Issues
+
+### [FIXED 2026-06-18] Staff cannot punch in/out — 6 RBAC permission bugs fixed
+
+Six critical permission mismatches in `backend/app/modules/staff/routes/staff.py` were identified and fixed:
+1. `check_in` / `check_out`: was `supervisor_above` → now `any_staff`
+2. `get_attendance`: was `admin_or_committee` → now `any_staff`
+3. `list_staff`: was `admin_or_committee` → now `supervisor_above` + added optional `department` query param
+4. `get_staff`: was `admin_or_committee` → now `supervisor_above`
+5. `duties_by_date`: was `admin_or_committee` → now `supervisor_above`
+6. `update_task status`: was `supervisor_above` → now `any_staff`
+
+Staff attendance workflow now works end-to-end for all 7 staff roles. 79 backend tests pass.
+
+---
 
 ### [FIXED 2026-06-17] Staff login management: last_login now tracked
 
