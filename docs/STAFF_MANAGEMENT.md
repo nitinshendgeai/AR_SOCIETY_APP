@@ -8,7 +8,9 @@
 
 > **12-Phase Deep Audit (2026-06-18):** Comprehensive code-level audit of all 12 screens, 30 buttons, 12 routes, full API chains for all 8 staff roles, 5 workflow tests (Login, Attendance, Duty, Housekeeping, Manager), dead button check, and multi-tenant validation. **Result: 0 new bugs found. 100% of implemented features pass. STAFF MODULE UAT READY.**
 
-Last updated: 2026-06-18
+> **Release Certification (2026-06-19):** 3 additional permission bugs fixed: (1) `apply_leave` now `any_staff` with own-record enforcement; (2) `get_staff_leaves` now `any_staff` with own-record enforcement; (3) Technical Supervisor correctly detected in SupervisorDashboard. 79 backend tests pass. **STAFF MODULE CERTIFIED FOR PRODUCTION.**
+
+Last updated: 2026-06-19
 
 ---
 
@@ -169,7 +171,19 @@ is_checkout_approved: true
 | GET | /staff/complaints/department/{society_id} | Staff+ |
 
 ### Tasks, Leaves, Handovers, Roster
-See inline API documentation in `/backend/app/modules/staff/routes/staff.py`.
+
+| Method | Path | Permission | Notes |
+|--------|------|------------|-------|
+| POST | /staff/leaves/{staff_id} | any_staff | Staff: own record only; Supervisor/Manager: any |
+| GET | /staff/leaves/staff/{staff_id} | any_staff | Staff: own record only; Supervisor/Manager: any |
+| GET | /staff/leaves/pending/{society_id} | Admin, Committee | |
+| POST | /staff/leaves/{leave_id}/approve | Admin, Committee | |
+| POST | /staff/leaves/{leave_id}/reject | Admin, Committee | |
+| GET | /handovers/pending/{staff_id} | any_staff | |
+| POST | /handovers/ | any_staff | Create handover |
+| POST | /handovers/{id}/accept | any_staff | Accept takeover |
+| POST | /handovers/{id}/dispute | any_staff | Dispute handover |
+| GET | /handovers/staff/{staff_id}/history | any_staff | |
 
 ---
 

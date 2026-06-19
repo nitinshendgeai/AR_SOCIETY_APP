@@ -287,7 +287,7 @@ def society_tasks(society_id: UUID, skip: int = 0, limit: int = 50,
 # ── Leave ─────────────────────────────────────────────────────────────────────
 @router.post("/leaves/{staff_id}", response_model=LeaveOut, status_code=201)
 def apply_leave(staff_id: UUID, data: LeaveCreate, db: Session = Depends(get_db),
-                user: User = Depends(supervisor_above)):
+                user: User = Depends(any_staff)):
     return StaffService(db).apply_leave(data, staff_id, user)
 
 @router.post("/leaves/{leave_id}/approve", response_model=LeaveOut)
@@ -305,11 +305,11 @@ def reject_leave(leave_id: UUID, data: LeaveRejectRequest, request: Request,
 def pending_leaves(society_id: UUID, db: Session = Depends(get_db)):
     return StaffService(db).get_pending_leaves(society_id)
 
-@router.get("/leaves/staff/{staff_id}", response_model=List[LeaveOut],
-            dependencies=[Depends(supervisor_above)])
+@router.get("/leaves/staff/{staff_id}", response_model=List[LeaveOut])
 def staff_leaves(staff_id: UUID, skip: int = 0, limit: int = 50,
-                 db: Session = Depends(get_db)):
-    return StaffService(db).get_staff_leaves(staff_id, skip, limit)
+                 db: Session = Depends(get_db),
+                 user: User = Depends(any_staff)):
+    return StaffService(db).get_staff_leaves_checked(staff_id, skip, limit, user)
 
 
 # ── Complaint Assignment to Staff Department ──────────────────────────────────

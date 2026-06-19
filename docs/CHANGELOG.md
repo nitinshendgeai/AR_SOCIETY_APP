@@ -4,7 +4,30 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
-## 2026-06-18
+## 2026-06-19
+
+### fix: staff module release certification and workflow stabilization
+
+**3 Permission Bugs Fixed — Release Certification Audit:**
+
+#### BUG: Staff cannot apply for their own leave (403 Forbidden)
+- `POST /staff/leaves/{staff_id}` was guarded by `supervisor_above`.
+- Staff members got 403 when attempting to apply for their own leave.
+- **Fix:** Changed route guard to `any_staff`. Added own-record enforcement in `StaffService.apply_leave()`: non-privileged staff can only apply leave for their own staff record; supervisors and managers can apply on behalf of any staff.
+
+#### BUG: Staff cannot view their own leave history (403 Forbidden)
+- `GET /staff/leaves/staff/{staff_id}` was guarded by `supervisor_above`.
+- Staff members could not retrieve their own leave records.
+- **Fix:** Changed to `any_staff`. Added `get_staff_leaves_checked()` in service with same own-record enforcement pattern.
+
+#### BUG: Technical Supervisor misclassified as Security Supervisor in dashboard
+- `SupervisorDashboardScreen` only checked for 'housekeeping' role suffix; all other supervisors defaulted to `department = 'security'`.
+- A Technical Supervisor would see "Security Supervisor" in their dashboard header and load security approval counts.
+- **Fix:** Added `isTechnical` detection in `role_dashboards.dart`. Department now correctly resolves to `technical` for Technical Supervisor role.
+
+**Backend Tests: 79 passed (unchanged)**
+
+---
 
 ### docs: 12-phase staff module uat deep audit — no new bugs, module declared ready
 

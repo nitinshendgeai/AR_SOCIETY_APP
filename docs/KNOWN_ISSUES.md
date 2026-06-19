@@ -1,10 +1,34 @@
 # Known Issues — AR Society ERP
 
-Last updated: 2026-06-18 (12-phase deep audit complete — no new active issues found)
+Last updated: 2026-06-19 (release certification audit — 3 more permission bugs fixed)
 
 ---
 
 ## Active Issues
+
+### [FIXED 2026-06-19] Staff cannot apply for own leave / view own leave history — 2 RBAC bugs fixed
+
+`POST /staff/leaves/{staff_id}` and `GET /staff/leaves/staff/{staff_id}` both used `supervisor_above`, blocking staff from self-service leave. Fixed: both now use `any_staff` with own-record enforcement at service layer. Supervisors/managers retain ability to apply/view on behalf of any staff member.
+
+### [FIXED 2026-06-19] Technical Supervisor dashboard shows wrong department
+
+`SupervisorDashboardScreen` only detected housekeeping vs security departments. Technical Supervisor was misclassified as security, loading wrong department approval counts. Fixed: `isTechnical` detection added, dashboard now resolves to correct department for all three supervisor types.
+
+---
+
+### [KNOWN GAP] Edit Duty — not implemented
+
+There is no `PATCH /staff/duties/{id}` endpoint and no Edit Duty UI. Once assigned, a duty's name/description/location cannot be changed. The only lifecycle actions available are Mark Complete (staff) and Verify (supervisor). No broken button exists.
+
+### [KNOWN GAP] Close Handover — not implemented
+
+The handover lifecycle ends at `accepted` or `disputed`. There is no explicit "close" state or endpoint. Accepted handovers are considered complete. No broken button exists.
+
+### [KNOWN GAP] Leave self-service UI not yet available
+
+The leave apply/view API is now open to staff (`any_staff` guard + own-record check), but no Flutter screen exists for staff to apply or view their leave. Currently only accessible via direct API call.
+
+---
 
 ### [FIXED 2026-06-18] Staff cannot punch in/out — 6 RBAC permission bugs fixed
 

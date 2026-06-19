@@ -908,8 +908,9 @@ class SupervisorDashboardScreen extends ConsumerWidget {
     // Detect department from role
     final roles = user?.roles ?? [];
     final isHousekeeping = roles.any((r) => r.toLowerCase().contains('housekeeping'));
-    final department = isHousekeeping ? 'housekeeping' : 'security';
-    final deptLabel  = isHousekeeping ? 'Housekeeping' : 'Security';
+    final isTechnical    = roles.any((r) => r.toLowerCase().contains('technical'));
+    final department = isHousekeeping ? 'housekeeping' : (isTechnical ? 'technical' : 'security');
+    final deptLabel  = isHousekeeping ? 'Housekeeping' : (isTechnical ? 'Technical' : 'Security');
 
     final approvalState = ref.watch(approvalProvider);
     if (societyId != null && approvalState is ApprovalInitial) {

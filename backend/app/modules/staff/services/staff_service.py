@@ -517,6 +517,14 @@ class StaffService:
     # ── Leave ─────────────────────────────────────────────────────────────────
 
     def apply_leave(self, data: LeaveCreate, staff_id: UUID, user: User) -> StaffLeave:
+        role_names = {ur.role.name for ur in user.user_roles if ur.role}
+        is_privileged = bool(role_names & _MANAGER_ROLES_SVC) or \
+                        bool(role_names & set(_SUPERVISOR_DEPT_ACCESS.keys()))
+        if not is_privileged:
+            own_staff = self.repo.get_by_user(user.id)
+            if not own_staff or str(own_staff.id) != str(staff_id):
+                raise HTTPException(status_code=403,
+                    detail="Staff can only apply leave for their own record")
         if self.leave_repo.has_conflict(staff_id, data.from_date, data.to_date):
             raise HTTPException(status_code=409,
                 detail="A leave request already exists for this date range")
@@ -561,6 +569,18 @@ class StaffService:
         return self.leave_repo.get_pending(society_id)
 
     def get_staff_leaves(self, staff_id: UUID, skip=0, limit=50) -> List[StaffLeave]:
+        return self.leave_repo.get_by_staff(staff_id, skip, limit)
+
+    def get_staff_leaves_checked(self, staff_id: UUID, skip: int, limit: int,
+                                  user: User) -> List[StaffLeave]:
+        role_names = {ur.role.name for ur in user.user_roles if ur.role}
+        is_privileged = bool(role_names & _MANAGER_ROLES_SVC) or \
+                        bool(role_names & set(_SUPERVISOR_DEPT_ACCESS.keys()))
+        if not is_privileged:
+            own_staff = self.repo.get_by_user(user.id)
+            if not own_staff or str(own_staff.id) != str(staff_id):
+                raise HTTPException(status_code=403,
+                    detail="Staff can only view their own leave records")
         return self.leave_repo.get_by_staff(staff_id, skip, limit)
 
     # ── Complaint Assignment ───────────────────────────────────────────────────
