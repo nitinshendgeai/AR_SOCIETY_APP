@@ -1,10 +1,18 @@
 # Known Issues — AR Society ERP
 
-Last updated: 2026-06-19 (release certification audit — 3 more permission bugs fixed)
+Last updated: 2026-06-20 (dashboard integration audit — staff dashboard navigation defects fixed)
 
 ---
 
 ## Active Issues
+
+### [FIXED 2026-06-20] Staff Dashboard "My Operations" cards do nothing when tapped
+
+`StaffHomeScreen` resolved `currentStaffProvider` (async) but the returned `AsyncValue` was ignored. `staffIdProvider` starts `null` while the provider fetches; all three operation cards (Attendance, My Duties, Handover) received `onTap: null` silently. Cards appeared enabled but produced no navigation.
+
+**Fix:** `_StaffProfileStatus` replaces `_StaffIdSetup`; cards use `disabled: !isReady` with `AnimatedOpacity`; `RefreshIndicator` added for pull-to-refresh retry.
+
+---
 
 ### [FIXED 2026-06-19] Staff cannot apply for own leave / view own leave history — 2 RBAC bugs fixed
 

@@ -4,6 +4,49 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-06-20
+
+### fix: connect staff dashboard actions and operational workflows
+
+**Staff Dashboard Integration Audit — Root Cause Fixed:**
+
+#### BUG: All 3 "My Operations" cards do nothing when tapped (Attendance, My Duties, Handover)
+- `StaffHomeScreen` called `ref.watch(currentStaffProvider)` but the returned `AsyncValue<StaffEntity?>` was never read.
+- `staffIdProvider` starts as `null` (async resolution in progress); all 3 operation cards received `onTap: null` silently.
+- Staff would see a spinning screen with clickable-looking cards that did nothing.
+- **Fix:** Added `final staffAsync = ref.watch(currentStaffProvider)` and `final isReady = staffId != null`.
+  - All 3 cards now have `disabled: !isReady` with `AnimatedOpacity(opacity: 0.45)` while loading.
+  - Card subtitles switch between `'Loading…'` and their real subtitle text based on `isReady`.
+
+#### BUG: UUID text field shown to staff instead of contextual status
+- `_StaffIdSetup` widget displayed a raw UUID input field during profile resolution.
+- Non-technical staff had no way to know what to enter or why.
+- **Fix:** Replaced entirely with `_StaffProfileStatus` `ConsumerWidget` showing three contextual states:
+  - **Loading** (blue): spinner + "Loading your staff profile…" message
+  - **Error** (red): error message + Retry button (`ref.invalidate(currentStaffProvider)`)
+  - **Not Linked** (amber): "Ask your administrator to link your account to a staff record."
+
+#### BUG: No pull-to-refresh for staff profile resolution
+- Staff with network issues had no way to retry profile loading without restarting the app.
+- **Fix:** `RefreshIndicator` wrapping the `ListView`; `onRefresh` calls `ref.invalidate(currentStaffProvider)`.
+
+**Dashboard Audit Summary:**
+
+| Card | Route | Status |
+|------|-------|--------|
+| Attendance | `/staff/attendance/:staffId` | ✅ Fixed (was: null onTap) |
+| My Duties | `/staff/duties/:staffId` | ✅ Fixed (was: null onTap) |
+| Handover | `/staff/handover/:staffId` (extra: societyId) | ✅ Fixed (was: null onTap) |
+| Tasks | disabled (coming soon) | ✅ Correct — intentionally disabled |
+| Approvals | `/staff/approvals` (extra: societyId) | ✅ Working |
+| My Staff | `/staff/list` | ✅ Working |
+| Assign Duty | `/staff/assign-duty` (extra: {societyId}) | ✅ Working |
+| Complaints | `/complaints` | ✅ Working (Manager only) |
+
+**Files Changed:** `mobile/lib/features/staff/presentation/screens/staff_home_screen.dart`
+
+---
+
 ## 2026-06-19
 
 ### fix: staff module release certification and workflow stabilization

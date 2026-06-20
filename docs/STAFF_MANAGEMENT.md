@@ -10,7 +10,9 @@
 
 > **Release Certification (2026-06-19):** 3 additional permission bugs fixed: (1) `apply_leave` now `any_staff` with own-record enforcement; (2) `get_staff_leaves` now `any_staff` with own-record enforcement; (3) Technical Supervisor correctly detected in SupervisorDashboard. 79 backend tests pass. **STAFF MODULE CERTIFIED FOR PRODUCTION.**
 
-Last updated: 2026-06-19
+> **Dashboard Integration Fix (2026-06-20):** Root cause of "My Operations cards do nothing" identified and fixed. `StaffHomeScreen` was ignoring the `AsyncValue` returned by `currentStaffProvider` — all 3 operation cards (Attendance, My Duties, Handover) had `onTap: null` while `staffIdProvider` was still resolving. Fixed: cards now `disabled: !isReady` with loading banners and pull-to-refresh. All 8 dashboard cards confirmed working end-to-end.
+
+Last updated: 2026-06-20
 
 ---
 
