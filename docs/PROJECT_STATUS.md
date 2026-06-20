@@ -1,6 +1,14 @@
 # Project Status — AR Society ERP
 
-Last updated: 2026-06-18
+Last updated: 2026-06-20
+
+---
+
+## UAT Status
+
+**Full ERP UAT completed 2026-06-20. 255 backend tests pass (0 failures). 6 Flutter defects fixed. READY FOR PILOT.**
+
+See `docs/UAT_REPORT.md` for full audit details.
 
 ---
 

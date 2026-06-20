@@ -44,8 +44,8 @@ def test_resident_cannot_assign_admin_role_to_self(client, db):
 
 
 def test_staff_cannot_assign_roles(client, db):
-    staff = make_user(db, "staffrole@priv.com", role="Staff")
-    admin = make_user(db, "admintarget@priv.com", role="Admin")
+    staff = make_user(db, "staffrole@priv.com", role="Security Staff")
+    admin = make_user(db, "admintarget@priv.com", role="Society Admin")
     r = client.post(f"/api/v1/users/{admin['user'].id}/roles",
                     json={"role_name": "Admin"},
                     headers=staff["headers"])
@@ -56,7 +56,7 @@ def test_staff_cannot_assign_roles(client, db):
 
 def test_committee_can_update_but_not_delete_society(client, db):
     """Committee can patch but not delete society."""
-    comm    = make_user(db, "comm@bounds.com", role="Committee")
+    comm    = make_user(db, "comm@bounds.com", role="Committee Chairman")
     society = make_society(db, "Comm Bounds")
 
     patch_r = client.patch(f"/api/v1/societies/{society.id}",
@@ -131,7 +131,7 @@ def test_security_cannot_create_complaint(client, db):
     """Security role is not in 'any_member' for complaint creation."""
     from tests.conftest import make_society as ms
     society = ms(db, "Comp Security Test")
-    sec = make_user(db, "seccomp@priv.com", role="Security")
+    sec = make_user(db, "seccomp@priv.com", role="Security Staff")
     r = client.post("/api/v1/complaints/", json={
         "title": "Test", "description": "Test",
         "category": "general", "society_id": str(society.id)

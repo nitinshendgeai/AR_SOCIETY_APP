@@ -19,7 +19,7 @@ def _create_notice(client, headers, society_id, title="Water Shutdown"):
 
 
 def test_create_notice_success(client, db):
-    admin   = make_user(db, "adm@notice.com", role="Admin")
+    admin   = make_user(db, "adm@notice.com", role="Society Admin")
     society = make_society(db, "Notice Society")
     r = _create_notice(client, admin["headers"], society.id)
     assert r.status_code == 201
@@ -27,7 +27,7 @@ def test_create_notice_success(client, db):
 
 
 def test_create_notice_committee_allowed(client, db):
-    committee = make_user(db, "com@notice.com", role="Committee")
+    committee = make_user(db, "com@notice.com", role="Committee Chairman")
     society   = make_society(db, "Notice Society 2")
     r = _create_notice(client, committee["headers"], society.id, "AGM Meeting")
     assert r.status_code == 201
@@ -41,7 +41,7 @@ def test_create_notice_resident_forbidden(client, db):
 
 
 def test_list_notices_by_society(client, db):
-    admin   = make_user(db, "adm2@notice.com", role="Admin")
+    admin   = make_user(db, "adm2@notice.com", role="Society Admin")
     society = make_society(db, "Notice Society 4")
     _create_notice(client, admin["headers"], society.id, "Gym Closed")
     _create_notice(client, admin["headers"], society.id, "Pool Maintenance")
@@ -52,7 +52,7 @@ def test_list_notices_by_society(client, db):
 
 
 def test_acknowledge_notice(client, db):
-    admin    = make_user(db, "adm3@notice.com", role="Admin")
+    admin    = make_user(db, "adm3@notice.com", role="Society Admin")
     resident = make_user(db, "res2@notice.com", role="Resident")
     society  = make_society(db, "Notice Society 5")
     nr = _create_notice(client, admin["headers"], society.id, "Important Notice")
@@ -68,7 +68,7 @@ def test_acknowledge_notice(client, db):
 
 
 def test_get_notice_by_id(client, db):
-    admin   = make_user(db, "adm4@notice.com", role="Admin")
+    admin   = make_user(db, "adm4@notice.com", role="Society Admin")
     society = make_society(db, "Notice Society 6")
     nr = _create_notice(client, admin["headers"], society.id, "Specific Notice")
     notice_id = nr.json()["id"]

@@ -19,7 +19,7 @@ def _create_amenity(client, headers, society_id, name="Pool"):
 
 
 def test_create_amenity_success(client, db):
-    admin   = make_user(db, "adm@amen.com", role="Admin")
+    admin   = make_user(db, "adm@amen.com", role="Society Admin")
     society = make_society(db, "Amenity Society")
     r = _create_amenity(client, admin["headers"], society.id)
     assert r.status_code == 201
@@ -35,7 +35,7 @@ def test_create_amenity_requires_admin_or_committee(client, db):
 
 
 def test_list_amenities_by_society(client, db):
-    admin   = make_user(db, "adm2@amen.com", role="Admin")
+    admin   = make_user(db, "adm2@amen.com", role="Society Admin")
     society = make_society(db, "Amenity Society 3")
     _create_amenity(client, admin["headers"], society.id, "Gym")
     _create_amenity(client, admin["headers"], society.id, "Clubhouse")
@@ -46,7 +46,7 @@ def test_list_amenities_by_society(client, db):
 
 
 def test_book_amenity_no_approval_required(client, db):
-    admin    = make_user(db, "adm3@amen.com", role="Admin")
+    admin    = make_user(db, "adm3@amen.com", role="Society Admin")
     resident = make_user(db, "res2@amen.com", role="Resident")
     society  = make_society(db, "Amenity Society 4")
     cr = _create_amenity(client, admin["headers"], society.id, "Tennis Court")
@@ -69,7 +69,7 @@ def test_book_amenity_no_approval_required(client, db):
 
 
 def test_approve_booking_with_approval_required(client, db):
-    admin    = make_user(db, "adm4@amen.com", role="Admin")
+    admin    = make_user(db, "adm4@amen.com", role="Society Admin")
     resident = make_user(db, "res3@amen.com", role="Resident")
     society  = make_society(db, "Amenity Society 5")
     # Create amenity that requires explicit approval
@@ -110,7 +110,7 @@ def test_approve_booking_with_approval_required(client, db):
 
 
 def test_cancel_booking(client, db):
-    admin    = make_user(db, "adm5@amen.com", role="Admin")
+    admin    = make_user(db, "adm5@amen.com", role="Society Admin")
     resident = make_user(db, "res4@amen.com", role="Resident")
     society  = make_society(db, "Amenity Society 6")
     # approval_required=True keeps status as pending (cancellable)

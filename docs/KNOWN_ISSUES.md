@@ -1,6 +1,6 @@
 # Known Issues — AR Society ERP
 
-Last updated: 2026-06-20 (dashboard integration audit — staff dashboard navigation defects fixed)
+Last updated: 2026-06-20 (full ERP UAT — 255 backend tests pass, 6 Flutter defects fixed, READY FOR PILOT)
 
 ---
 

@@ -6,6 +6,44 @@ Format: `[YYYY-MM-DD] type: description`
 
 ## 2026-06-20
 
+### test: complete full ERP UAT audit and defect resolution
+
+**Full 12-Phase UAT Audit — 255 Tests Pass, 0 Failures**
+
+#### Backend fixes
+
+1. **Complaint status endpoint guard** (`complaint/routes/complaint.py`):  
+   `staff_or_above` alias was `require_supervisor_above`, blocking Security Staff from updating complaint status to `in_progress`/`resolved`. Changed to `require_any_staff`. All staff roles can now update complaint status.
+
+2. **Test role canonicalization** (13 test files):  
+   All 70 occurrences of `role="Admin"` → `role="Society Admin"` across all test files.  
+   All occurrences of `role="Staff"` → `role="Security Staff"` in 3 test files.  
+   All occurrences of `role="Security"` → `role="Security Staff"` in `test_visitor.py`, `test_rbac.py`, `test_rbac_hardening.py`.  
+   All occurrences of `role="Committee"` → `role="Committee Chairman"` in `test_notice.py`, `test_rbac.py`, `test_rbac_hardening.py`.  
+   `test_multi_role_access` updated to create canonical roles ("Society Admin", "Committee Chairman") instead of non-canonical ("Admin", "Committee").
+
+#### Flutter fixes
+
+3. **Admin Dashboard "Add Visitor"**: Was using static route with no societyId — CreateVisitorScreen would receive empty societyId. Fixed to `onTap: () => context.push(visitorsCreate, extra: societyId)`.
+
+4. **Security Dashboard "Log Visitor"**: Same fix — now passes societyId as route extra.
+
+5. **Resident Dashboard "Settings" chip**: Wrong icon (`Icons.receipt_long_rounded` — looks like Bills). Replaced with "Society Info" chip using `Icons.settings_outlined`.
+
+6. **Resident Dashboard "Updates" chip**: Was duplicate of another chip (both going to Society Settings). Replaced with "Approvals" → `/visitors/pending`.
+
+7. **Committee Dashboard "Updates" chip**: Misleading label for a chip routing to Society Settings. Renamed to "Society Info".
+
+8. **ComplaintListScreen FAB**: When screen opened with `isMy: true` (no societyId), FAB pushed `/complaints/create?societyId=` with empty string. Fixed to fall back to `ref.read(currentUserProvider)?.societyId`.
+
+9. **Admin/Committee dashboards — Open Complaints live count**: Was showing `--`. Wired `openComplaintsCountProvider(societyId)`.
+
+10. **Admin/Committee dashboards — Pending Approvals live count**: Was showing `--`. Wired `approvalProvider`.
+
+**Test run:** 255 passed, 0 failed (was 240 passed, 15 failed before this audit).
+
+---
+
 ### fix: connect staff dashboard actions and operational workflows
 
 **Staff Dashboard Integration Audit — Root Cause Fixed:**

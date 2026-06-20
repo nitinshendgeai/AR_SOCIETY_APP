@@ -4,7 +4,7 @@ from tests.conftest import make_user, make_society
 
 
 def test_register_and_initialize(client, db):
-    admin = make_user(db, "setup@onboard.com", role="Admin")
+    admin = make_user(db, "setup@onboard.com", role="Society Admin")
     r = client.post("/api/v1/societies/register-and-initialize", json={
         "name": "Setup Test Society", "society_code": "STS001"
     }, headers=admin["headers"])
@@ -19,7 +19,7 @@ def test_register_and_initialize(client, db):
 
 
 def test_initialize_creates_default_users(client, db):
-    admin   = make_user(db, "adm@onboard.com", role="Admin")
+    admin   = make_user(db, "adm@onboard.com", role="Society Admin")
     society = make_society(db, "Init Society")
     # Set society_code for predictable email
     society.society_code = "INITS"
@@ -36,7 +36,7 @@ def test_initialize_creates_default_users(client, db):
 
 def test_initialize_idempotent(client, db):
     """Running initialize twice should not duplicate users/roles."""
-    admin   = make_user(db, "adm2@onboard.com", role="Admin")
+    admin   = make_user(db, "adm2@onboard.com", role="Society Admin")
     society = make_society(db, "Idem Society")
     society.society_code = "IDEMS"
     db.commit()
@@ -54,7 +54,7 @@ def test_initialize_idempotent(client, db):
 def test_default_user_must_change_password(client, db):
     """Default users should have must_change_password=True."""
     from app.models.user import User
-    admin   = make_user(db, "adm3@onboard.com", role="Admin")
+    admin   = make_user(db, "adm3@onboard.com", role="Society Admin")
     society = make_society(db, "PWD Society")
     society.society_code = "PWDS"
     db.commit()
@@ -79,7 +79,7 @@ def test_only_admin_can_initialize(client, db):
 
 def test_initialize_nonexistent_society(client, db):
     import uuid
-    admin = make_user(db, "adm4@onboard.com", role="Admin")
+    admin = make_user(db, "adm4@onboard.com", role="Society Admin")
     r = client.post(f"/api/v1/societies/{uuid.uuid4()}/initialize",
                     headers=admin["headers"])
     assert r.status_code == 404

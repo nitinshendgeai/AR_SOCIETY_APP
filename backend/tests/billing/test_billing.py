@@ -10,7 +10,7 @@ def _make_flat_in_society(db, society):
 
 
 def test_create_financial_period(client, db):
-    admin   = make_user(db, "adm@bil.com", role="Admin")
+    admin   = make_user(db, "adm@bil.com", role="Society Admin")
     society = make_society(db, "Billing Society 1")
     r = client.post("/api/v1/billing/periods",
                     json={
@@ -40,7 +40,7 @@ def test_resident_cannot_create_period(client, db):
 
 
 def test_create_charge_config(client, db):
-    admin   = make_user(db, "adm2@bil.com", role="Admin")
+    admin   = make_user(db, "adm2@bil.com", role="Society Admin")
     society = make_society(db, "Billing Society 3")
     r = client.post("/api/v1/billing/charges",
                     json={
@@ -57,7 +57,7 @@ def test_create_charge_config(client, db):
 
 
 def test_list_charge_configs(client, db):
-    admin   = make_user(db, "adm3@bil.com", role="Admin")
+    admin   = make_user(db, "adm3@bil.com", role="Society Admin")
     society = make_society(db, "Billing Society 4")
 
     for charge in [("maintenance", "Maint", "1500"), ("water", "Water", "200")]:
@@ -77,7 +77,7 @@ def test_list_charge_configs(client, db):
 
 
 def test_create_billing_cycle(client, db):
-    admin   = make_user(db, "adm4@bil.com", role="Admin")
+    admin   = make_user(db, "adm4@bil.com", role="Society Admin")
     society = make_society(db, "Billing Society 5")
     today   = date.today()
 
@@ -97,7 +97,7 @@ def test_create_billing_cycle(client, db):
 
 def test_generate_bills_for_cycle(client, db):
     """Full bill generation: charge config + flat + cycle → bills created."""
-    admin   = make_user(db, "adm5@bil.com", role="Admin")
+    admin   = make_user(db, "adm5@bil.com", role="Society Admin")
     society = make_society(db, "Billing Society 6")
     today   = date.today()
 
@@ -135,7 +135,7 @@ def test_generate_bills_for_cycle(client, db):
 
 
 def test_duplicate_bill_generation_prevented(client, db):
-    admin   = make_user(db, "adm6@bil.com", role="Admin")
+    admin   = make_user(db, "adm6@bil.com", role="Society Admin")
     society = make_society(db, "Billing Society 7")
     today   = date.today()
 
@@ -173,7 +173,7 @@ def test_duplicate_bill_generation_prevented(client, db):
 
 def test_generate_bills_no_charge_config(client, db):
     """Generating bills without any charge config returns 422."""
-    admin   = make_user(db, "adm7@bil.com", role="Admin")
+    admin   = make_user(db, "adm7@bil.com", role="Society Admin")
     society = make_society(db, "Billing Society 8")
     today   = date.today()
 
@@ -197,7 +197,7 @@ def test_generate_bills_no_charge_config(client, db):
 
 def test_record_payment_and_update_outstanding(client, db):
     """Payment recording should reduce bill outstanding and update due tracker."""
-    admin   = make_user(db, "adm8@bil.com", role="Admin")
+    admin   = make_user(db, "adm8@bil.com", role="Society Admin")
     society = make_society(db, "Billing Society 9")
     today   = date.today()
 
@@ -255,7 +255,7 @@ def test_record_payment_and_update_outstanding(client, db):
 
 
 def test_close_period(client, db):
-    admin   = make_user(db, "adm9@bil.com", role="Admin")
+    admin   = make_user(db, "adm9@bil.com", role="Society Admin")
     society = make_society(db, "Billing Society 10")
 
     r = client.post("/api/v1/billing/periods",
@@ -276,7 +276,7 @@ def test_close_period(client, db):
 
 def test_close_period_idempotent(client, db):
     """Closing an already-closed period returns 409."""
-    admin   = make_user(db, "adm10@bil.com", role="Admin")
+    admin   = make_user(db, "adm10@bil.com", role="Society Admin")
     society = make_society(db, "Billing Society 11")
 
     r = client.post("/api/v1/billing/periods",

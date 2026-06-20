@@ -53,8 +53,8 @@ def test_create_complaint_empty_title_rejected(client, db):
 # ── Assign ────────────────────────────────────────────────────────────────────
 
 def test_assign_complaint(client, db):
-    admin   = make_user(db, "adm@cmp.com", role="Admin")
-    staff   = make_user(db, "stf@cmp.com", role="Staff")
+    admin   = make_user(db, "adm@cmp.com", role="Society Admin")
+    staff   = make_user(db, "stf@cmp.com", role="Security Staff")
     society = make_society(db, "Complaint Society 3")
 
     r = client.post("/api/v1/complaints/",
@@ -72,7 +72,7 @@ def test_assign_complaint(client, db):
 
 def test_resident_cannot_assign_complaint(client, db):
     resident = make_user(db, "res3@cmp.com", role="Resident")
-    staff    = make_user(db, "stf2@cmp.com", role="Staff")
+    staff    = make_user(db, "stf2@cmp.com", role="Security Staff")
     society  = make_society(db, "Complaint Society 4")
 
     r = client.post("/api/v1/complaints/",
@@ -88,7 +88,7 @@ def test_resident_cannot_assign_complaint(client, db):
 
 def test_invalid_transition_blocked(client, db):
     """Cannot go from OPEN → IN_PROGRESS (must go through ASSIGNED first)."""
-    admin   = make_user(db, "adm2@cmp.com", role="Admin")
+    admin   = make_user(db, "adm2@cmp.com", role="Society Admin")
     society = make_society(db, "Complaint Society 5")
 
     r = client.post("/api/v1/complaints/",
@@ -105,8 +105,8 @@ def test_invalid_transition_blocked(client, db):
 # ── Full lifecycle ────────────────────────────────────────────────────────────
 
 def test_full_lifecycle_open_to_closed(client, db):
-    admin   = make_user(db, "adm3@cmp.com", role="Admin")
-    staff   = make_user(db, "stf3@cmp.com", role="Staff")
+    admin   = make_user(db, "adm3@cmp.com", role="Society Admin")
+    staff   = make_user(db, "stf3@cmp.com", role="Security Staff")
     society = make_society(db, "Complaint Society 6")
 
     # Create
@@ -141,8 +141,8 @@ def test_full_lifecycle_open_to_closed(client, db):
 
 
 def test_reopen_resolved_complaint(client, db):
-    admin   = make_user(db, "adm4@cmp.com", role="Admin")
-    staff   = make_user(db, "stf4@cmp.com", role="Staff")
+    admin   = make_user(db, "adm4@cmp.com", role="Society Admin")
+    staff   = make_user(db, "stf4@cmp.com", role="Security Staff")
     society = make_society(db, "Complaint Society 7")
 
     r = client.post("/api/v1/complaints/",
@@ -169,7 +169,7 @@ def test_reopen_resolved_complaint(client, db):
 
 
 def test_cannot_reopen_open_complaint(client, db):
-    admin   = make_user(db, "adm5@cmp.com", role="Admin")
+    admin   = make_user(db, "adm5@cmp.com", role="Society Admin")
     society = make_society(db, "Complaint Society 8")
 
     r = client.post("/api/v1/complaints/",
@@ -184,8 +184,8 @@ def test_cannot_reopen_open_complaint(client, db):
 
 
 def test_cannot_modify_closed_complaint(client, db):
-    admin   = make_user(db, "adm6@cmp.com", role="Admin")
-    staff   = make_user(db, "stf5@cmp.com", role="Staff")
+    admin   = make_user(db, "adm6@cmp.com", role="Society Admin")
+    staff   = make_user(db, "stf5@cmp.com", role="Security Staff")
     society = make_society(db, "Complaint Society 9")
 
     r = client.post("/api/v1/complaints/",
@@ -230,8 +230,8 @@ def test_add_comment_success(client, db):
 
 
 def test_cannot_comment_on_closed_complaint(client, db):
-    admin   = make_user(db, "adm7@cmp.com", role="Admin")
-    staff   = make_user(db, "stf6@cmp.com", role="Staff")
+    admin   = make_user(db, "adm7@cmp.com", role="Society Admin")
+    staff   = make_user(db, "stf6@cmp.com", role="Security Staff")
     society = make_society(db, "Complaint Society 11")
 
     r = client.post("/api/v1/complaints/",
@@ -261,7 +261,7 @@ def test_cannot_comment_on_closed_complaint(client, db):
 # ── List endpoints ────────────────────────────────────────────────────────────
 
 def test_list_society_complaints(client, db):
-    admin   = make_user(db, "adm8@cmp.com", role="Admin")
+    admin   = make_user(db, "adm8@cmp.com", role="Society Admin")
     society = make_society(db, "Complaint Society 12")
 
     for i in range(3):
@@ -290,7 +290,7 @@ def test_list_my_complaints(client, db):
 
 
 def test_reject_complaint(client, db):
-    admin   = make_user(db, "adm9@cmp.com", role="Admin")
+    admin   = make_user(db, "adm9@cmp.com", role="Society Admin")
     society = make_society(db, "Complaint Society 14")
 
     r = client.post("/api/v1/complaints/",

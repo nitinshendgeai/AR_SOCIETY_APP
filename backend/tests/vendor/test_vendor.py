@@ -18,7 +18,7 @@ def _create_vendor(client, headers, society_id, name="CleanPro"):
 
 
 def test_create_vendor_success(client, db):
-    admin   = make_user(db, "adm@vendor.com", role="Admin")
+    admin   = make_user(db, "adm@vendor.com", role="Society Admin")
     society = make_society(db, "Vendor Society")
     r = _create_vendor(client, admin["headers"], society.id)
     assert r.status_code == 201
@@ -33,7 +33,7 @@ def test_create_vendor_requires_admin_or_committee(client, db):
 
 
 def test_list_vendors_by_society(client, db):
-    admin   = make_user(db, "adm2@vendor.com", role="Admin")
+    admin   = make_user(db, "adm2@vendor.com", role="Society Admin")
     society = make_society(db, "Vendor Society 3")
     _create_vendor(client, admin["headers"], society.id, "ElectraFix")
     _create_vendor(client, admin["headers"], society.id, "PlumPros")
@@ -44,7 +44,7 @@ def test_list_vendors_by_society(client, db):
 
 
 def test_get_vendor_by_id(client, db):
-    admin   = make_user(db, "adm3@vendor.com", role="Admin")
+    admin   = make_user(db, "adm3@vendor.com", role="Society Admin")
     society = make_society(db, "Vendor Society 4")
     cr = _create_vendor(client, admin["headers"], society.id, "FixAll")
     vendor_id = cr.json()["id"]
@@ -54,7 +54,7 @@ def test_get_vendor_by_id(client, db):
 
 
 def test_create_service_request(client, db):
-    admin   = make_user(db, "adm4@vendor.com", role="Admin")
+    admin   = make_user(db, "adm4@vendor.com", role="Society Admin")
     society = make_society(db, "Vendor Society 5")
     r = client.post(
         "/api/v1/vendors/service-requests",
@@ -73,7 +73,7 @@ def test_create_service_request(client, db):
 
 
 def test_list_open_service_requests(client, db):
-    admin   = make_user(db, "adm5@vendor.com", role="Admin")
+    admin   = make_user(db, "adm5@vendor.com", role="Society Admin")
     society = make_society(db, "Vendor Society 6")
     client.post(
         "/api/v1/vendors/service-requests",

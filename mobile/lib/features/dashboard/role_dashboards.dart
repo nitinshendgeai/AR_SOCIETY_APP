@@ -479,6 +479,23 @@ class AdminDashboardScreen extends ConsumerWidget {
     final totalFlats  = societyInfo?.totalFlats != null ? '${societyInfo!.totalFlats}' : '--';
     final activeStaff = staffListState is StaffListLoaded ? '${staffListState.staff.length}' : '--';
 
+    // Open complaints count
+    final complaintsAsync = societyId != null
+        ? ref.watch(openComplaintsCountProvider(societyId))
+        : const AsyncValue<int>.data(0);
+    final openComplaints = complaintsAsync.valueOrNull != null ? '${complaintsAsync.valueOrNull}' : '--';
+
+    // Pending approvals (check-in + check-out)
+    final approvalState = ref.watch(approvalProvider);
+    if (societyId != null && approvalState is ApprovalInitial) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(approvalProvider.notifier).load(societyId);
+      });
+    }
+    final pendingApprovals = approvalState is ApprovalLoaded
+        ? '${approvalState.pendingCheckin.length + approvalState.pendingCheckout.length}'
+        : '--';
+
     return _DashboardShell(
       title: 'Society Overview',
       children: [
@@ -500,22 +517,27 @@ class AdminDashboardScreen extends ConsumerWidget {
             _SummaryCard(icon: Icons.people_rounded, label: 'Residents', value: '--', color: AppTheme.secondary),
             _SummaryCard(icon: Icons.badge_rounded, label: 'Active Staff', value: activeStaff, color: AppTheme.warning),
             _SummaryCard(icon: Icons.meeting_room_rounded, label: 'Visitors Today', value: '--', color: AppTheme.primary),
-            _SummaryCard(icon: Icons.report_problem_rounded, label: 'Open Complaints', value: '--', color: AppTheme.error),
-            _SummaryCard(icon: Icons.approval_rounded, label: 'Pending Approvals', value: '--', color: AppTheme.warning),
+            _SummaryCard(icon: Icons.report_problem_rounded, label: 'Open Complaints', value: openComplaints, color: AppTheme.error),
+            _SummaryCard(icon: Icons.approval_rounded, label: 'Pending Approvals', value: pendingApprovals, color: AppTheme.warning),
             _SummaryCard(icon: Icons.campaign_rounded, label: 'Notice Count', value: '--', color: AppTheme.secondary),
           ],
         ),
         const SizedBox(height: 18),
         const _SectionLabel('Quick Actions'),
         const SizedBox(height: 10),
-        Row(children: const [
-          _QuickActionChip(icon: Icons.person_add_rounded, label: 'Add Visitor', route: AppRoutes.visitorsCreate),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: AppRoutes.complaints),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.person_add_alt_1_rounded, label: 'Add Staff', route: AppRoutes.staffAdd),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.badge_rounded, label: 'Staff List', route: AppRoutes.staffList),
+        Row(children: [
+          _QuickActionChip(
+            icon: Icons.person_add_rounded, label: 'Add Visitor',
+            onTap: societyId != null
+                ? () => context.push(AppRoutes.visitorsCreate, extra: societyId)
+                : null,
+          ),
+          const SizedBox(width: 8),
+          const _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: AppRoutes.complaints),
+          const SizedBox(width: 8),
+          const _QuickActionChip(icon: Icons.person_add_alt_1_rounded, label: 'Add Staff', route: AppRoutes.staffAdd),
+          const SizedBox(width: 8),
+          const _QuickActionChip(icon: Icons.badge_rounded, label: 'Staff List', route: AppRoutes.staffList),
         ]),
         const SizedBox(height: 18),
         const SizedBox(height: 18),
@@ -543,6 +565,23 @@ class CommitteeDashboardScreen extends ConsumerWidget {
     }
     final staffCount = staffListState is StaffListLoaded ? '${staffListState.staff.length}' : '--';
 
+    final committeeComplaintsAsync = societyId != null
+        ? ref.watch(openComplaintsCountProvider(societyId))
+        : const AsyncValue<int>.data(0);
+    final committeeComplaints = committeeComplaintsAsync.valueOrNull != null
+        ? '${committeeComplaintsAsync.valueOrNull}'
+        : '--';
+
+    final committeeApprovalState = ref.watch(approvalProvider);
+    if (societyId != null && committeeApprovalState is ApprovalInitial) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(approvalProvider.notifier).load(societyId);
+      });
+    }
+    final committeeApprovals = committeeApprovalState is ApprovalLoaded
+        ? '${committeeApprovalState.pendingCheckin.length + committeeApprovalState.pendingCheckout.length}'
+        : '--';
+
     return _DashboardShell(
       title: 'Chairman Dashboard',
       children: [
@@ -558,9 +597,9 @@ class CommitteeDashboardScreen extends ConsumerWidget {
           mainAxisSpacing: 12,
           childAspectRatio: 1.12,
           children: [
-            _SummaryCard(icon: Icons.report_problem_rounded, label: 'Complaints', value: '--', color: AppTheme.error),
+            _SummaryCard(icon: Icons.report_problem_rounded, label: 'Complaints', value: committeeComplaints, color: AppTheme.error),
             _SummaryCard(icon: Icons.campaign_rounded, label: 'Notices', value: '--', color: AppTheme.primary),
-            _SummaryCard(icon: Icons.approval_rounded, label: 'Approvals', value: '--', color: AppTheme.warning),
+            _SummaryCard(icon: Icons.approval_rounded, label: 'Approvals', value: committeeApprovals, color: AppTheme.warning),
             _SummaryCard(icon: Icons.people_rounded, label: 'Staff', value: staffCount, color: AppTheme.secondary),
           ],
         ),
@@ -570,7 +609,7 @@ class CommitteeDashboardScreen extends ConsumerWidget {
         Row(children: const [
           _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: AppRoutes.complaints),
           SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.campaign_rounded, label: 'Updates', route: AppRoutes.societySettings),
+          _QuickActionChip(icon: Icons.settings_outlined, label: 'Society Info', route: AppRoutes.societySettings),
           SizedBox(width: 8),
           _QuickActionChip(icon: Icons.people_rounded, label: 'Staff', route: AppRoutes.staffHome),
           SizedBox(width: 8),
@@ -597,6 +636,7 @@ class SecurityDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
+    final societyId = user?.societyId;
     return _DashboardShell(
       title: 'Security Supervisor',
       children: [
@@ -621,14 +661,19 @@ class SecurityDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 18),
         const _SectionLabel('Quick Actions'),
         const SizedBox(height: 10),
-        Row(children: const [
-          _QuickActionChip(icon: Icons.person_add_rounded, label: 'Log Visitor', route: AppRoutes.visitorsCreate),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.login_rounded, label: 'Check In', route: AppRoutes.visitorsPending),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.logout_rounded, label: 'Check Out', route: AppRoutes.visitorsMy),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.list_alt_rounded, label: 'Visitor Log', route: AppRoutes.visitorsMy),
+        Row(children: [
+          _QuickActionChip(
+            icon: Icons.person_add_rounded, label: 'Log Visitor',
+            onTap: societyId != null
+                ? () => context.push(AppRoutes.visitorsCreate, extra: societyId)
+                : null,
+          ),
+          const SizedBox(width: 8),
+          const _QuickActionChip(icon: Icons.login_rounded, label: 'Check In', route: AppRoutes.visitorsPending),
+          const SizedBox(width: 8),
+          const _QuickActionChip(icon: Icons.logout_rounded, label: 'Check Out', route: AppRoutes.visitorsMy),
+          const SizedBox(width: 8),
+          const _QuickActionChip(icon: Icons.list_alt_rounded, label: 'Visitor Log', route: AppRoutes.visitorsMy),
         ]),
         const SizedBox(height: 18),
         _OperationalPanel(title: 'Shift Notes', children: const [
@@ -678,11 +723,11 @@ class ResidentDashboardScreen extends ConsumerWidget {
         Row(children: const [
           _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaint', route: AppRoutes.complaints),
           SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.campaign_rounded, label: 'Updates', route: AppRoutes.societySettings),
+          _QuickActionChip(icon: Icons.settings_outlined, label: 'Society Info', route: AppRoutes.societySettings),
           SizedBox(width: 8),
           _QuickActionChip(icon: Icons.person_rounded, label: 'Visitors', route: AppRoutes.visitorsMy),
           SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.receipt_long_rounded, label: 'Settings', route: AppRoutes.societySettings),
+          _QuickActionChip(icon: Icons.pending_actions_rounded, label: 'Approvals', route: AppRoutes.visitorsPending),
         ]),
         const SizedBox(height: 18),
         _OperationalPanel(title: 'Recent updates', children: const [
