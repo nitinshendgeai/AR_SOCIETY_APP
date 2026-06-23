@@ -37,6 +37,7 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
     ('housekeeping', 'Housekeeping'),
     ('technical',    'Technical'),
     ('gym',          'Gym'),
+    ('maintenance',  'Maintenance'),
     ('admin',        'Administration'),
   ];
 
@@ -494,21 +495,4 @@ class _CredentialRow extends StatelessWidget {
       ),
     ],
   );
-}
-
-/// Dead class — kept to avoid orphan reference until full cleanup.
-// ignore: unused_element
-class _FallbackDesignationDropdown extends StatelessWidget {
-  final String? dept;
-  final void Function(String?) onChanged;
-  const _FallbackDesignationDropdown({this.dept, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return DropdownButtonFormField<String>(
-      decoration: const InputDecoration(hintText: 'Select designation'),
-      items: const [],
-      onChanged: onChanged,
-    );
-  }
 }

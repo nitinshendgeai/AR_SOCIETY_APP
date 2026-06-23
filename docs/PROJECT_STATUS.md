@@ -1,6 +1,6 @@
 # Project Status — AR Society ERP
 
-Last updated: 2026-06-20
+Last updated: 2026-06-23
 
 ---
 
@@ -8,7 +8,10 @@ Last updated: 2026-06-20
 
 **Full ERP UAT completed 2026-06-20. 255 backend tests pass (0 failures). 6 Flutter defects fixed. READY FOR PILOT.**
 
-See `docs/UAT_REPORT.md` for full audit details.
+**Staff Module Certification completed 2026-06-23. 7 additional Flutter defects fixed (maintenance dept added to 4 files, inactive staff filtered from duty assignment, dead code removed). 255 backend tests still pass. CERTIFIED FOR PRODUCTION.**
+
+See `docs/UAT_REPORT.md` for full ERP audit details.  
+See `docs/STAFF_MODULE_CERTIFICATION.md` for Staff Module certification report.
 
 ---
 
@@ -52,7 +55,7 @@ See `docs/UAT_REPORT.md` for full audit details.
 | Flats list + form + detail | ✅ Done | |
 | Visitors | ✅ Done | |
 | Complaints | ✅ Done | |
-| Staff (complete module) | ✅ Done | Staff Master (all fields), Login Account management (view/reset/disable/enable), last_login display, auto-user creation, Attendance (check-in/out + overtime display), Approval with notes dialog, Duties, Handover, Manager Dashboard (7 live cards + dept summary), Supervisor Dashboard (6 live cards + duty queue + gym panel + technical dept detection). Release certification 2026-06-19: 9 total RBAC bugs fixed across 2 audit passes, 79 backend tests pass, 13 screens verified, 30+ buttons audited, all 8 staff roles validated end-to-end. **CERTIFIED FOR PRODUCTION.** |
+| Staff (complete module) | ✅ Done | Staff Master (all fields incl. maintenance dept), Login Account management (view/reset/disable/enable), last_login display, auto-user creation, Attendance (check-in/out + overtime display), Approval with notes dialog, Duties, Handover, Manager Dashboard (7 live cards + dept summary), Supervisor Dashboard (6 live cards + duty queue + gym panel + technical dept detection). Certification 2026-06-23: 7 additional defects fixed, maintenance dept added to 4 files, inactive staff filtered from duty assignment, 255 backend tests pass, all 12 screens audited. **CERTIFIED FOR PRODUCTION.** |
 | Setup Wizard | ✅ Done | 5-step |
 
 ---

@@ -25,7 +25,7 @@ class StaffHomeScreen extends ConsumerWidget {
     final roles = user?.roles ?? [];
     final isSupervisor = roles.any((r) => r.contains('Supervisor'));
     final isManager = roles.any((r) =>
-        r.contains('Manager') || r == 'Admin' ||
+        r.contains('Manager') ||
         r.contains('Committee') || r == 'Super Admin' || r == 'Society Admin');
     final showManagement = (isSupervisor || isManager) && societyId != null;
 

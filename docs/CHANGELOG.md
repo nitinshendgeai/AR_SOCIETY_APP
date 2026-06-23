@@ -4,6 +4,50 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-06-23
+
+### fix: certify and stabilize staff module workflows
+
+**Staff Module Certification Audit — 7 Flutter Defects Fixed**
+
+Full 12-phase audit of all Staff Module screens, API routes, RBAC guards, entity layer, and UI/UX.
+
+#### Flutter fixes
+
+1. **Dead code removal** (`staff_add_screen.dart`):  
+   Removed `_FallbackDesignationDropdown` class (16 lines of dead, suppressed code).
+
+2. **`maintenance` department — Staff Add form** (`staff_add_screen.dart`):  
+   Added `('maintenance', 'Maintenance')` to `_departments` list. Maintenance staff can now be created in the correct department.
+
+3. **`maintenance` department — Staff Edit form** (`staff_edit_screen.dart`):  
+   Added `('maintenance', 'Maintenance')` to `_departments` list. Maintenance staff department can now be edited.
+
+4. **`maintenance` department — Staff List filter** (`staff_list_screen.dart`):  
+   Added `'maintenance'` to the filter chip list and `'maintenance': 'Maintenance'` to the label map.
+
+5. **`maintenance` department — `StaffEntity.departmentLabel`** (`staff_entities.dart`):  
+   Added `case 'maintenance': return 'Maintenance';` to the switch. Staff cards no longer show raw `maintenance` string.
+
+6. **DutyAssignScreen inactive staff** (`duty_assign_screen.dart`):  
+   Added `.where((s) => s.status == 'active')` filter. Supervisors can no longer accidentally assign duties to inactive or terminated staff members.
+
+7. **Dead role check** (`staff_home_screen.dart`):  
+   Removed `r == 'Admin'` from the `isManager` condition. `'Admin'` is not a canonical role name; this condition was permanently dead and could cause confusion.
+
+#### Documentation
+
+- `docs/STAFF_MODULE_CERTIFICATION.md` — New certification report (screens, routes, role matrix, defects, known gaps)
+- `docs/KNOWN_ISSUES.md` — Added certification entry with all 7 defects and 5 known gaps
+- `docs/PROJECT_STATUS.md` — Updated Staff module row and UAT status section
+- `docs/CHANGELOG.md` — This entry
+
+#### Test results
+
+255 backend tests pass, 0 failures (unchanged — no backend code modified).
+
+---
+
 ## 2026-06-20
 
 ### test: complete full ERP UAT audit and defect resolution

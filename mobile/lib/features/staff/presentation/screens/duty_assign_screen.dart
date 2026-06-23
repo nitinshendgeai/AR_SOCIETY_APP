@@ -91,7 +91,9 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
       }
     });
 
-    final staffList = staffState is StaffListLoaded ? staffState.staff : <StaffEntity>[];
+    final staffList = staffState is StaffListLoaded
+        ? staffState.staff.where((s) => s.status == 'active').toList()
+        : <StaffEntity>[];
 
     return Scaffold(
       backgroundColor: AppTheme.surface,

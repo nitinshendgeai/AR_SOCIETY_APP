@@ -1,10 +1,29 @@
 # Known Issues — AR Society ERP
 
-Last updated: 2026-06-20 (full ERP UAT — 255 backend tests pass, 6 Flutter defects fixed, READY FOR PILOT)
+Last updated: 2026-06-23 (Staff Module Certification Audit — 7 Flutter defects fixed, 255 backend tests pass, maintenance dept added, CERTIFIED FOR PRODUCTION)
 
 ---
 
 ## Active Issues
+
+### [FIXED 2026-06-23] Staff Module Certification Audit — 7 defects fixed
+
+Full audit of all 12 Staff Module screens, API routes, and RBAC guards.
+
+**Fixed defects:**
+1. `_FallbackDesignationDropdown` dead class removed from `staff_add_screen.dart`
+2. `maintenance` department added to Staff Add form (`staff_add_screen.dart`)
+3. `maintenance` department added to Staff Edit form (`staff_edit_screen.dart`)
+4. `maintenance` department added to Staff List filter chips (`staff_list_screen.dart`)
+5. `StaffEntity.departmentLabel` missing `maintenance` case fixed (`staff_entities.dart`)
+6. `DutyAssignScreen` now filters inactive/terminated staff from assignment dropdown
+7. Dead non-canonical `r == 'Admin'` condition removed from `staff_home_screen.dart` isManager check
+
+**Known gaps documented:** Handover UUID field (KG-01), Duty time free-text (KG-02), No Reject button in approval (KG-03), Drawer not role-scoped (KG-04), Supervisor Gym panel tied to Housekeeping (KG-05).
+
+See `docs/STAFF_MODULE_CERTIFICATION.md` for full audit report.
+
+---
 
 ### [FIXED 2026-06-20] Staff Dashboard "My Operations" cards do nothing when tapped
 

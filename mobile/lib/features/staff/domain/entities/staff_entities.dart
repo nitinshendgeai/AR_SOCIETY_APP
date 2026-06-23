@@ -93,6 +93,7 @@ class StaffEntity {
       case 'housekeeping': return 'Housekeeping';
       case 'technical':    return 'Technical';
       case 'gym':          return 'Gym';
+      case 'maintenance':  return 'Maintenance';
       case 'admin':        return 'Administration';
       default:             return department;
     }
