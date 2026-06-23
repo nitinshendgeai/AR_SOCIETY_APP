@@ -28,6 +28,10 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
     'technical',
     'gym',
     'maintenance',
+    'electrical',
+    'plumbing',
+    'gardening',
+    'amenities',
     'admin',
   ];
 
@@ -38,6 +42,10 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
     'technical': 'Technical',
     'gym': 'Gym',
     'maintenance': 'Maintenance',
+    'electrical': 'Electrical',
+    'plumbing': 'Plumbing',
+    'gardening': 'Gardening',
+    'amenities': 'Amenities',
     'admin': 'Admin',
   };
 

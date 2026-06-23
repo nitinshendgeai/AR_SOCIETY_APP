@@ -6,6 +6,54 @@ Format: `[YYYY-MM-DD] type: description`
 
 ## 2026-06-23
 
+### fix: complete staff module functional audit and workflow stabilization
+
+**Staff Module Functional Audit — Phase 2 (Role-Based Usage & Department Coverage)**
+
+Deep audit of all role-based workflows, societyId propagation paths, department coverage, and supervisor access controls.
+
+#### Flutter fixes
+
+1. **Approval screen guard** (`approval_screen.dart`):  
+   Added empty-`societyId` guard in `initState` and `build`. Screen now shows "Society context is missing" error view instead of firing an API call with `''` as UUID (which would return HTTP 422).
+
+2. **Handover screen submit guard** (`handover_screen.dart`):  
+   Added empty-`societyId` check in `_submit()`. Handover creation no longer silently fails with a UUID validation error if `societyId` was not passed via navigation.
+
+3. **Duty assign screen guard** (`duty_assign_screen.dart`):  
+   Added empty-`societyId` guards in both `initState` (staff list load) and `_submit()`. Screen no longer attempts backend calls with an empty UUID.
+
+4. **All departments in Staff Add/Edit** (`staff_add_screen.dart`, `staff_edit_screen.dart`):  
+   Added `electrical`, `plumbing`, `gardening`, `amenities` to `_departments`. All `StaffDepartment` enum values are now selectable in the UI.
+
+5. **All departments in Staff List filter** (`staff_list_screen.dart`):  
+   Added all 4 new departments to filter chips and `_deptLabels` map.
+
+6. **All departments in entity label** (`staff_entities.dart`):  
+   Added `electrical`, `plumbing`, `gardening`, `amenities` to `departmentLabel` getter. Staff cards no longer show raw enum strings.
+
+#### Backend fixes
+
+7. **Technical Supervisor department coverage** (`staff_service.py`):  
+   Added `'Technical Supervisor'` to `_DESIGNATION_TO_ROLE` map. Technical Supervisors can now be promoted to the correct role when created via the staff create flow.
+
+8. **Maintenance Staff designation** (`staff_service.py`):  
+   Added `'Maintenance Staff' → 'Technical Staff'` to `_DESIGNATION_TO_ROLE`. Maintenance staff created with this designation now receive the correct app role.
+
+9. **Supervisor dept access expanded** (`staff_service.py`):  
+   - Technical Supervisor: now covers `maintenance`, `electrical`, `plumbing` departments  
+   - Housekeeping Supervisor: now covers `gardening`, `amenities` departments  
+   Supervisors can now approve attendance and manage all logical sub-departments.
+
+10. **Department role mapping expanded** (`staff_service.py`):  
+    Added `electrical`, `plumbing`, `gardening`, `amenities` to `_DEPT_TO_ROLE`. Staff in these departments now receive the correct app role when created with a linked user account.
+
+#### Test results
+
+255 backend tests pass, 0 failures.
+
+---
+
 ### fix: certify and stabilize staff module workflows
 
 **Staff Module Certification Audit — 7 Flutter Defects Fixed**

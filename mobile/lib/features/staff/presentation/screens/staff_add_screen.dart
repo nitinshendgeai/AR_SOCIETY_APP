@@ -38,6 +38,10 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
     ('technical',    'Technical'),
     ('gym',          'Gym'),
     ('maintenance',  'Maintenance'),
+    ('electrical',   'Electrical'),
+    ('plumbing',     'Plumbing'),
+    ('gardening',    'Gardening'),
+    ('amenities',    'Amenities'),
     ('admin',        'Administration'),
   ];
 

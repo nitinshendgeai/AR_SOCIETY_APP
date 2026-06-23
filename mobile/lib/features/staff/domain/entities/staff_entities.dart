@@ -94,6 +94,10 @@ class StaffEntity {
       case 'technical':    return 'Technical';
       case 'gym':          return 'Gym';
       case 'maintenance':  return 'Maintenance';
+      case 'electrical':   return 'Electrical';
+      case 'plumbing':     return 'Plumbing';
+      case 'gardening':    return 'Gardening';
+      case 'amenities':    return 'Amenities';
       case 'admin':        return 'Administration';
       default:             return department;
     }

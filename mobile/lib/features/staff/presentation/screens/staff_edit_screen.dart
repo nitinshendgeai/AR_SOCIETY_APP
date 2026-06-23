@@ -40,6 +40,10 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
     ('technical',    'Technical'),
     ('gym',          'Gym'),
     ('maintenance',  'Maintenance'),
+    ('electrical',   'Electrical'),
+    ('plumbing',     'Plumbing'),
+    ('gardening',    'Gardening'),
+    ('amenities',    'Amenities'),
     ('admin',        'Administration'),
   ];
 

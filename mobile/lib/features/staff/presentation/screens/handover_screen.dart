@@ -561,6 +561,14 @@ class _CreateTabState extends ConsumerState<_CreateTab> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (widget.societyId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Society context is missing. Please go back and reopen this screen.'),
+        backgroundColor: AppTheme.error,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
     await ref.read(handoverProvider.notifier).createAndSubmit(
       societyId: widget.societyId,
       outgoingStaffId: widget.staffId,

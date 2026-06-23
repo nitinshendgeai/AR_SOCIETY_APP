@@ -39,8 +39,8 @@ _MANAGER_ROLES_SVC = {
 # Supervisor role → set of departments they can approve
 _SUPERVISOR_DEPT_ACCESS: dict = {
     "Security Supervisor":     {"security"},
-    "Housekeeping Supervisor": {"housekeeping", "gym"},
-    "Technical Supervisor":    {"technical"},
+    "Housekeeping Supervisor": {"housekeeping", "gym", "gardening", "amenities"},
+    "Technical Supervisor":    {"technical", "maintenance", "electrical", "plumbing"},
 }
 
 _DESIGNATION_TO_ROLE = {
@@ -49,7 +49,9 @@ _DESIGNATION_TO_ROLE = {
     "Security Guard":          "Security Staff",
     "Housekeeping Supervisor": "Housekeeping Supervisor",
     "Housekeeping Staff":      "Housekeeping Staff",
+    "Technical Supervisor":    "Technical Supervisor",
     "Technical Staff":         "Technical Staff",
+    "Maintenance Staff":       "Technical Staff",
     "Gym Trainer":             "Gym Trainer",
 }
 
@@ -57,6 +59,11 @@ _DEPT_TO_ROLE = {
     "security":     "Security Staff",
     "housekeeping": "Housekeeping Staff",
     "technical":    "Technical Staff",
+    "maintenance":  "Technical Staff",
+    "electrical":   "Technical Staff",
+    "plumbing":     "Technical Staff",
+    "gardening":    "Housekeeping Staff",
+    "amenities":    "Housekeeping Staff",
     "gym":          "Gym Trainer",
     "admin":        "Manager",
 }

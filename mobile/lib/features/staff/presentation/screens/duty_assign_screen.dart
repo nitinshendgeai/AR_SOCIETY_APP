@@ -53,7 +53,9 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
     super.initState();
     _selectedStaffId = widget.preSelectedStaffId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(staffListProvider.notifier).load(widget.societyId);
+      if (widget.societyId.isNotEmpty) {
+        ref.read(staffListProvider.notifier).load(widget.societyId);
+      }
     });
   }
 
@@ -250,6 +252,14 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
   }
 
   void _submit() {
+    if (widget.societyId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Society context is missing. Please go back and try again.'),
+        backgroundColor: AppTheme.error,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
     if (_selectedStaffId == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Please select a staff member'),

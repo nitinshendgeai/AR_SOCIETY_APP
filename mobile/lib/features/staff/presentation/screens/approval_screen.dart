@@ -26,6 +26,7 @@ class _AttendanceApprovalScreenState extends ConsumerState<AttendanceApprovalScr
     super.initState();
     _tab = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.societyId.isEmpty) return;
       ref.read(approvalProvider.notifier).load(widget.societyId, department: widget.department);
     });
   }
@@ -75,7 +76,12 @@ class _AttendanceApprovalScreenState extends ConsumerState<AttendanceApprovalScr
           ],
         ),
       ),
-      body: switch (state) {
+      body: widget.societyId.isEmpty
+          ? _ErrorView(
+              message: 'Society context is missing. Please go back and reopen this screen.',
+              onRetry: () => Navigator.pop(context),
+            )
+          : switch (state) {
         ApprovalLoading() || ApprovalInitial() =>
           const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
         ApprovalError(:final message) => _ErrorView(
