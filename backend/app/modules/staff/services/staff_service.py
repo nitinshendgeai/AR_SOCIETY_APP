@@ -448,6 +448,56 @@ class StaffService:
         self.db.refresh(attendance)
         return attendance
 
+    def reject_attendance(self, attendance_id: UUID, reason: Optional[str],
+                          user: User, request=None) -> StaffAttendance:
+        """Reject a pending punch-in. Deactivates the attendance record so staff
+        can check in again. Stores rejection reason in approval_notes."""
+        attendance = self.att_repo.get(attendance_id)
+        if not attendance:
+            raise HTTPException(status_code=404, detail="Attendance record not found")
+        if user.society_id and str(attendance.society_id) != str(user.society_id):
+            raise HTTPException(status_code=403, detail="Cannot reject attendance from another society")
+        staff = self.repo.get(attendance.staff_id)
+        if staff:
+            self._check_dept_access(user, staff.department.value)
+        if attendance.is_approved:
+            raise HTTPException(status_code=409, detail="Attendance already approved — cannot reject")
+
+        attendance.approval_notes = f"REJECTED by {user.email}: {reason or 'No reason given'}"
+        attendance.is_active      = False
+        self._audit(AuditAction.UPDATE, attendance, "StaffAttendance", user, request,
+                    new_values={"approval_status": "rejected", "reason": reason})
+        self.db.commit()
+        self.db.refresh(attendance)
+        return attendance
+
+    def reject_checkout(self, attendance_id: UUID, reason: Optional[str],
+                        user: User, request=None) -> StaffAttendance:
+        """Reject a pending punch-out. Clears checkout fields so staff can
+        re-check-out with a corrected timestamp."""
+        attendance = self.att_repo.get(attendance_id)
+        if not attendance:
+            raise HTTPException(status_code=404, detail="Attendance record not found")
+        if user.society_id and str(attendance.society_id) != str(user.society_id):
+            raise HTTPException(status_code=403, detail="Cannot reject attendance from another society")
+        staff = self.repo.get(attendance.staff_id)
+        if staff:
+            self._check_dept_access(user, staff.department.value)
+        if not attendance.check_out_time:
+            raise HTTPException(status_code=409, detail="No checkout recorded — nothing to reject")
+        if attendance.is_checkout_approved:
+            raise HTTPException(status_code=409, detail="Checkout already approved — cannot reject")
+
+        attendance.checkout_approval_notes = f"REJECTED by {user.email}: {reason or 'No reason given'}"
+        attendance.check_out_time          = None
+        attendance.working_hours           = None
+        attendance.overtime_hours          = None
+        self._audit(AuditAction.UPDATE, attendance, "StaffAttendance", user, request,
+                    new_values={"checkout_status": "rejected", "reason": reason})
+        self.db.commit()
+        self.db.refresh(attendance)
+        return attendance
+
     # ── Tasks ─────────────────────────────────────────────────────────────────
 
     def create_task(self, data: TaskCreate, assigner: User, request=None) -> StaffTask:

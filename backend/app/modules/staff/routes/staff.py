@@ -15,7 +15,8 @@ from app.modules.staff.schemas.staff import (
     StaffCreate, StaffUpdate, StaffOut, DesignationCreate, DesignationOut,
     ShiftCreate, ShiftOut, DutyCreate, DutyOut, DutyVerifyRequest,
     AttendanceCheckIn, AttendanceCheckOut, AttendanceManualEntry,
-    AttendanceApprovalRequest, AttendanceCheckoutApprovalRequest, AttendanceOut,
+    AttendanceApprovalRequest, AttendanceCheckoutApprovalRequest,
+    AttendanceRejectRequest, AttendanceOut,
     TaskCreate, TaskOut, TaskStatusUpdate, WorkLogCreate,
     LeaveCreate, LeaveOut, LeaveApproveRequest, LeaveRejectRequest,
 )
@@ -207,6 +208,20 @@ def approve_checkout(attendance_id: UUID, data: AttendanceCheckoutApprovalReques
                      user: User = Depends(supervisor_above)):
     """Approve the punch-out for a staff attendance record."""
     return StaffService(db).approve_checkout(attendance_id, data, user)
+
+@router.post("/attendance/{attendance_id}/reject", response_model=AttendanceOut)
+def reject_attendance(attendance_id: UUID, data: AttendanceRejectRequest,
+                      request: Request, db: Session = Depends(get_db),
+                      user: User = Depends(supervisor_above)):
+    """Reject a pending punch-in. Deactivates the record; staff must re-check-in."""
+    return StaffService(db).reject_attendance(attendance_id, data.reason, user, request)
+
+@router.post("/attendance/{attendance_id}/reject-checkout", response_model=AttendanceOut)
+def reject_checkout(attendance_id: UUID, data: AttendanceRejectRequest,
+                    request: Request, db: Session = Depends(get_db),
+                    user: User = Depends(supervisor_above)):
+    """Reject a pending punch-out. Clears checkout fields; staff must re-check-out."""
+    return StaffService(db).reject_checkout(attendance_id, data.reason, user, request)
 
 @router.get("/attendance/pending/supervisor/{society_id}", response_model=List[AttendanceOut])
 def supervisor_pending_attendance(

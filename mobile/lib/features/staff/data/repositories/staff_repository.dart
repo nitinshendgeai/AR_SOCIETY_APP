@@ -148,6 +148,20 @@ class StaffRepository {
     } catch (e) { return _handle(e); }
   }
 
+  Future<StaffResult<AttendanceEntity>> rejectAttendance(String attendanceId, {String? reason}) async {
+    try {
+      final m = await _ds.rejectAttendance(attendanceId, reason: reason);
+      return StaffSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<AttendanceEntity>> rejectCheckout(String attendanceId, {String? reason}) async {
+    try {
+      final m = await _ds.rejectCheckout(attendanceId, reason: reason);
+      return StaffSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
   Future<StaffResult<Map<String, dynamic>>> getAttendanceSummary(String societyId, String date) async {
     try {
       final data = await _ds.getAttendanceSummary(societyId, date);

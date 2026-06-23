@@ -116,6 +116,9 @@ class AttendanceApprovalRequest(OrmBase):
 class AttendanceCheckoutApprovalRequest(OrmBase):
     notes: Optional[str] = None
 
+class AttendanceRejectRequest(OrmBase):
+    reason: Optional[str] = None
+
 class AttendanceOut(TimestampSchema):
     society_id: UUID; staff_id: UUID; attendance_date: date; status: AttendanceStatus
     check_in_time: Optional[datetime]; check_out_time: Optional[datetime]

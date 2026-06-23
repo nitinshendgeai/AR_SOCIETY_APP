@@ -329,6 +329,26 @@ class ApprovalNotifier extends StateNotifier<ApprovalState> {
     }
   }
 
+  Future<void> rejectCheckin(String attendanceId, String societyId, {String? reason, String? department}) async {
+    final result = await _repo.rejectAttendance(attendanceId, reason: reason);
+    switch (result) {
+      case StaffSuccess():
+        state = ApprovalSuccess('Check-in rejected — staff must re-check-in');
+        await load(societyId, department: department);
+      case StaffFailure(:final message): state = ApprovalError(message);
+    }
+  }
+
+  Future<void> rejectCheckout(String attendanceId, String societyId, {String? reason, String? department}) async {
+    final result = await _repo.rejectCheckout(attendanceId, reason: reason);
+    switch (result) {
+      case StaffSuccess():
+        state = ApprovalSuccess('Check-out rejected — staff must re-check-out');
+        await load(societyId, department: department);
+      case StaffFailure(:final message): state = ApprovalError(message);
+    }
+  }
+
   void clearStatus() {
     if (state is ApprovalSuccess || state is ApprovalError) {
       state = ApprovalInitial();

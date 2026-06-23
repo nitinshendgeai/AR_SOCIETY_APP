@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/features/staff/data/models/staff_models.dart';
 
@@ -45,26 +46,50 @@ class StaffRemoteDataSource {
 
   // ── Attendance Approval (supervisor/manager) ────────────────────────────────
 
+  void _logApproval(String label, String method, String url, {int? status, Object? error, StackTrace? stack}) {
+    // TEMP LOGGING — remove after approval screen diagnosis is complete
+    if (error != null) {
+      debugPrint('[APPROVAL] ✗ $label | $method $url | status=$status | error=$error');
+      if (stack != null) debugPrint('[APPROVAL] stack: $stack');
+    } else {
+      debugPrint('[APPROVAL] ✓ $label | $method $url | status=$status');
+    }
+  }
+
   /// GET /staff/attendance/pending/supervisor/{society_id}
   Future<List<AttendanceModel>> getPendingAttendance(String societyId, {String? department}) async {
-    final r = await _dio.get(
-      '/staff/attendance/pending/supervisor/$societyId',
-      queryParameters: department != null ? {'department': department} : null,
-    );
-    return (r.data as List)
-        .map((e) => AttendanceModel.fromJson(e as Map<String, dynamic>))
-        .toList();
+    final path = '/staff/attendance/pending/supervisor/$societyId';
+    final qp   = department != null ? {'department': department} : null;
+    debugPrint('[APPROVAL] → GET $path dept=$department societyId=$societyId');
+    try {
+      final r = await _dio.get(path, queryParameters: qp);
+      _logApproval('getPendingAttendance', 'GET', path, status: r.statusCode);
+      return (r.data as List)
+          .map((e) => AttendanceModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e, s) {
+      final status = (e is DioException) ? e.response?.statusCode : null;
+      _logApproval('getPendingAttendance', 'GET', path, status: status, error: e, stack: s);
+      rethrow;
+    }
   }
 
   /// GET /staff/attendance/pending-checkout/{society_id}
   Future<List<AttendanceModel>> getPendingCheckout(String societyId, {String? department}) async {
-    final r = await _dio.get(
-      '/staff/attendance/pending-checkout/$societyId',
-      queryParameters: department != null ? {'department': department} : null,
-    );
-    return (r.data as List)
-        .map((e) => AttendanceModel.fromJson(e as Map<String, dynamic>))
-        .toList();
+    final path = '/staff/attendance/pending-checkout/$societyId';
+    final qp   = department != null ? {'department': department} : null;
+    debugPrint('[APPROVAL] → GET $path dept=$department societyId=$societyId');
+    try {
+      final r = await _dio.get(path, queryParameters: qp);
+      _logApproval('getPendingCheckout', 'GET', path, status: r.statusCode);
+      return (r.data as List)
+          .map((e) => AttendanceModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e, s) {
+      final status = (e is DioException) ? e.response?.statusCode : null;
+      _logApproval('getPendingCheckout', 'GET', path, status: status, error: e, stack: s);
+      rethrow;
+    }
   }
 
   /// POST /staff/attendance/{attendance_id}/approve
@@ -81,6 +106,24 @@ class StaffRemoteDataSource {
     final r = await _dio.post(
       '/staff/attendance/$attendanceId/approve-checkout',
       data: {'notes': notes},
+    );
+    return AttendanceModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// POST /staff/attendance/{attendance_id}/reject
+  Future<AttendanceModel> rejectAttendance(String attendanceId, {String? reason}) async {
+    final r = await _dio.post(
+      '/staff/attendance/$attendanceId/reject',
+      data: {'reason': reason},
+    );
+    return AttendanceModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// POST /staff/attendance/{attendance_id}/reject-checkout
+  Future<AttendanceModel> rejectCheckout(String attendanceId, {String? reason}) async {
+    final r = await _dio.post(
+      '/staff/attendance/$attendanceId/reject-checkout',
+      data: {'reason': reason},
     );
     return AttendanceModel.fromJson(r.data as Map<String, dynamic>);
   }
