@@ -5,13 +5,14 @@
 **Branch:** `claude/beautiful-davinci-dLJtD`  
 **Phase 1 Result:** CERTIFIED — 7 Flutter defects fixed. 255 backend tests pass.  
 **Phase 2 Result:** CERTIFIED — 6 additional Flutter defects + 4 backend defects fixed. 255 backend tests pass.  
-**Phase 3 Result:** CERTIFIED — 3 additional Flutter defects fixed. 255 backend tests pass.
+**Phase 3 Result:** CERTIFIED — 3 additional Flutter defects fixed. 255 backend tests pass.  
+**Phase 4 Result:** CERTIFIED — 20 additional defects fixed (3 critical, 10 high, 7 medium/low). 255 backend tests pass.
 
 ---
 
 ## Executive Summary
 
-Full three-phase audit of the AR Society ERP Staff Module covering all screens, API routes, RBAC guards, data flows, and UI/UX. Phase 1 fixed 7 Flutter defects. Phase 2 deep-audited role-based usage paths, societyId propagation, department coverage, and supervisor access controls — fixing 10 additional defects. Phase 3 audited all remaining screens in detail — fixing 3 additional defects including a high-severity department-scoping gap in the Supervisor Approval navigation.
+Full four-phase audit of the AR Society ERP Staff Module covering all screens, API routes, RBAC guards, data flows, and UI/UX. Phase 1 fixed 7 Flutter defects. Phase 2 deep-audited role-based usage paths, societyId propagation, department coverage, and supervisor access controls — fixing 10 additional defects. Phase 3 audited all remaining screens in detail — fixing 3 additional defects including a high-severity department-scoping gap in the Supervisor Approval navigation. Phase 4 applied a comprehensive workflow-driven analysis fixing 20 additional defects including 3 critical runtime crashes (backend NameError, AttributeError, and Riverpod FutureProvider side-effect violation).
 
 ---
 
@@ -326,7 +327,7 @@ The Staff Module has been audited across three phases (20 defects total fixed), 
 | All screens inventoried | ✅ |
 | All API routes verified | ✅ |
 | RBAC matrix validated | ✅ |
-| Code defects fixed (20 total across Phase 1 + 2 + 3) | ✅ |
+| Code defects fixed (40 total across Phase 1 + 2 + 3 + 4) | ✅ |
 | Known gaps documented (4 remaining) | ✅ |
 | Backend tests | ✅ 255/255 |
 | Multi-tenant isolation | ✅ (society_id enforced at service layer) |
@@ -334,5 +335,137 @@ The Staff Module has been audited across three phases (20 defects total fixed), 
 | Department coverage | ✅ (all 10 model departments handled) |
 | Supervisor dept access | ✅ (all sub-departments covered by logical supervisor) |
 | Supervisor UI dept scoping | ✅ (Approval screen receives dept filter from supervisor dashboard) |
+
+---
+
+## Phase 4 Defects Found and Fixed
+
+### D-21 — Backend `NameError` in `get_leave_balance` — `Staff` model not imported
+
+**Severity:** Critical (runtime crash on first `GET /staff/leave-balance/{id}/{year}` call for a new balance)  
+**File:** `backend/app/modules/staff/routes/staff.py`  
+**Fix:** Added `Staff` to the inline import: `from app.modules.staff.models.staff import StaffRoster, StaffLeaveBalance, RosterStatus, Staff`
+
+### D-22 — Backend `AttributeError` — unguarded `.first()` in `get_leave_balance`
+
+**Severity:** Critical (`AttributeError: 'NoneType' object has no attribute 'society_id'` when staff not found)  
+**File:** `backend/app/modules/staff/routes/staff.py`  
+**Fix:** Added `if not staff_obj: raise HTTPException(404, 'Staff not found')` guard.
+
+### D-23 — Riverpod side-effect inside `currentStaffProvider` FutureProvider
+
+**Severity:** Critical (Riverpod rule violation — `ProviderException` during build)  
+**Files:** `staff_providers.dart`, `staff_home_screen.dart`  
+**Fix:** Removed `ref.read(staffIdProvider.notifier).state = ...` from FutureProvider body. Added `ref.listen<AsyncValue<StaffEntity?>>` in `StaffHomeScreen.build`.
+
+### D-24 — Handover form clears on error (D-004)
+
+**Severity:** High (user loses all form data on any error response)  
+**File:** `handover_screen.dart`  
+**Fix:** Added `ref.read(handoverProvider) is HandoverCreated` check before clearing.
+
+### D-25 — Supervisor "Handover" chip routes to staffHome (D-005)
+
+**Severity:** High (chip does nothing useful — navigates to staffHome instead of Handover screen)  
+**File:** `role_dashboards.dart`  
+**Fix:** Added `staffIdProvider` read; chip now navigates to `/staff/handover/$staffId`.
+
+### D-26 — Approval TextEditingControllers never disposed (D-007)
+
+**Severity:** High (memory leak — each dialog open creates controllers that are never freed)  
+**File:** `approval_screen.dart`  
+**Fix:** Moved `_notesCtrl`/`_reasonCtrl` to `_ApprovalCardState` fields with `dispose()`.
+
+### D-27 — AttendanceInitial/AttendanceSuccess fall through to _Body (D-008)
+
+**Severity:** High (brief blank flash during check-in/check-out cycle)  
+**File:** `attendance_screen.dart`  
+**Fix:** Added `state is AttendanceInitial || state is AttendanceSuccess` check to show spinner.
+
+### D-28 — `_AddItemSheetState` missing `dispose()` (D-009)
+
+**Severity:** High (memory leak on every handover item sheet open)  
+**File:** `handover_screen.dart`  
+**Fix:** Added `dispose()` calling `_titleCtrl.dispose()` and `_qtyCtrl.dispose()`.
+
+### D-29 — Duplicate validators on Duty dropdown + TextFormField (D-010)
+
+**Severity:** High (conflicting validation when "Custom" selected — form may appear invalid when it isn't)  
+**File:** `duty_assign_screen.dart`  
+**Fix:** Removed `validator` from `DropdownButtonFormField`; TextFormField validator is sufficient.
+
+### D-30 — Duplicate Edit button in Staff Detail (D-011)
+
+**Severity:** High (confusing UX — two identical edit triggers, one at scroll top AppBar, one at scroll bottom)  
+**File:** `staff_detail_screen.dart`  
+**Fix:** Removed `AppPrimaryButton('Edit Staff')` from ListView body.
+
+### D-31 — No RBAC redirect on `/staff/add` and `/staff/:id/edit` (D-012)
+
+**Severity:** High (any authenticated user could reach admin-only staff create/edit screens)  
+**File:** `app_router.dart`  
+**Fix:** Added `redirect` closures returning `AppRoutes.staffHome` for non-admin/committee users.
+
+### D-32 — `HandoverNotifier.loadHandovers` hides partial failures (D-014)
+
+**Severity:** High (one successful API call masks a failed one — stale data silently shown)  
+**File:** `staff_providers.dart`  
+**Fix:** Changed `&&` to `||` in dual-failure check.
+
+### D-33 — `ApprovalNotifier.load` same partial-failure masking (D-015)
+
+**Severity:** High  
+**File:** `staff_providers.dart`  
+**Fix:** Changed `&&` to `||`.
+
+### D-34 — Staff Edit double-pop assumes fixed stack depth (D-019)
+
+**Severity:** Medium (may pop to wrong screen if stack depth differs)  
+**File:** `staff_edit_screen.dart`  
+**Fix:** Replaced with `context.go(AppRoutes.staffList)`.
+
+### D-35 — Dispute dialog silent on empty reason (D-020)
+
+**Severity:** Medium (UX — user taps Dispute with no reason, button does nothing, no feedback)  
+**File:** `handover_screen.dart`  
+**Fix:** Added error SnackBar when reason is empty.
+
+### D-36 — `Image.network` no error/loading builder (D-022)
+
+**Severity:** Medium (broken image on network failure shows nothing; loads show blank)  
+**File:** `staff_detail_screen.dart`  
+**Fix:** Added `errorBuilder` (person icon fallback) and `loadingBuilder` (spinner).
+
+### D-37 — Dead role strings in `isManager` check (D-016)
+
+**Severity:** Low (dead code — `Super Admin` and `Society Admin` roles never reach staffHome)  
+**File:** `staff_home_screen.dart`  
+**Fix:** Removed `r == 'Super Admin' || r == 'Society Admin'`.
+
+### D-38 — Dead duplicate border expression (D-027)
+
+**Severity:** Low (dead code — both branches of ternary produce same value)  
+**File:** `staff_home_screen.dart`  
+**Fix:** Simplified to `Border.all(color: AppTheme.border)`.
+
+### D-39 — Date picker allows yesterday (D-029)
+
+**Severity:** Low (user can assign duties for yesterday — undesirable)  
+**File:** `duty_assign_screen.dart`  
+**Fix:** `firstDate: DateTime.now()`.
+
+### D-40 — Supervisor Dashboard panel mislabelled (D-018)
+
+**Severity:** Low (label "Gym Attendance" shown for Housekeeping Supervisor — wrong dept)  
+**File:** `role_dashboards.dart`  
+**Fix:** Renamed to "Dept Check-in Approvals", title uses dynamic `$deptLabel`.
+
+---
+
+## Backend Test Results (Phase 4)
+
+**255 passed, 0 failed** — confirmed after all Phase 4 fixes.
+
+---
 
 **Status: CERTIFIED FOR PRODUCTION**

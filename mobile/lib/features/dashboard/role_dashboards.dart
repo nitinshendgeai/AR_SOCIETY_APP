@@ -949,6 +949,7 @@ class SupervisorDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user      = ref.watch(currentUserProvider);
     final societyId = user?.societyId;
+    final staffId   = ref.watch(staffIdProvider);
 
     // Detect department from role
     final roles = user?.roles ?? [];
@@ -1045,14 +1046,19 @@ class SupervisorDashboardScreen extends ConsumerWidget {
                 : null,
           ),
           const SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.swap_horiz_rounded, label: 'Handover', route: AppRoutes.staffHome),
+          _QuickActionChip(
+            icon: Icons.swap_horiz_rounded, label: 'Handover',
+            onTap: staffId != null && societyId != null
+                ? () => context.push('/staff/handover/$staffId', extra: societyId)
+                : null,
+          ),
         ]),
         const SizedBox(height: 18),
         if (isHousekeeping && dutiesAsync.valueOrNull != null) ...[
-          _OperationalPanel(title: 'Gym Attendance', children: [
+          _OperationalPanel(title: 'Dept Check-in Approvals', children: [
             _InfoTile(
               icon: Icons.fitness_center_rounded,
-              title: 'Gym Trainer',
+              title: '$deptLabel Staff',
               value: pendingCheckin > 0 ? '$pendingCheckin pending approval' : 'All approved',
               color: pendingCheckin > 0 ? AppTheme.warning : AppTheme.success,
             ),

@@ -135,7 +135,6 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
                 }
                 setState(() {});
               },
-              validator: (_) => _dutyNameCtrl.text.isEmpty ? 'Select or enter a duty' : null,
             ),
             if (_dutyNameCtrl.text.isEmpty) ...[
               const SizedBox(height: 8),
@@ -245,7 +244,7 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _dutyDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 30)),
     );
     if (picked != null) setState(() => _dutyDate = picked);

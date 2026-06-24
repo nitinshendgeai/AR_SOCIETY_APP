@@ -240,6 +240,15 @@ class _ApprovalCard extends ConsumerStatefulWidget {
 
 class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
   bool _expanded = false;
+  final _notesCtrl  = TextEditingController();
+  final _reasonCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _notesCtrl.dispose();
+    _reasonCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -382,7 +391,7 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
   }
 
   void _showApproveDialog(BuildContext context) {
-    final notesCtrl = TextEditingController();
+    _notesCtrl.clear();
     final isCheckin = widget.type == _ApprovalType.checkin;
     showDialog(
       context: context,
@@ -404,7 +413,7 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
             ),
             const SizedBox(height: 12),
             TextField(
-              controller: notesCtrl,
+              controller: _notesCtrl,
               decoration: const InputDecoration(
                 hintText: 'Optional approval notes',
                 border: OutlineInputBorder(),
@@ -422,7 +431,7 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
             onPressed: () {
               Navigator.pop(ctx);
               final notifier = ref.read(approvalProvider.notifier);
-              final notes = notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim();
+              final notes = _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim();
               if (isCheckin) {
                 notifier.approveCheckin(widget.record.id, widget.societyId,
                     notes: notes, department: widget.department);
@@ -439,7 +448,7 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
   }
 
   void _showRejectDialog(BuildContext context) {
-    final reasonCtrl = TextEditingController();
+    _reasonCtrl.clear();
     final isCheckin  = widget.type == _ApprovalType.checkin;
     showDialog(
       context: context,
@@ -476,7 +485,7 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
             ),
             const SizedBox(height: 12),
             TextField(
-              controller: reasonCtrl,
+              controller: _reasonCtrl,
               decoration: const InputDecoration(
                 hintText: 'Reason for rejection (optional)',
                 border: OutlineInputBorder(),
@@ -494,7 +503,7 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
             onPressed: () {
               Navigator.pop(ctx);
               final notifier = ref.read(approvalProvider.notifier);
-              final reason = reasonCtrl.text.trim().isEmpty ? null : reasonCtrl.text.trim();
+              final reason = _reasonCtrl.text.trim().isEmpty ? null : _reasonCtrl.text.trim();
               if (isCheckin) {
                 notifier.rejectCheckin(widget.record.id, widget.societyId,
                     reason: reason, department: widget.department);

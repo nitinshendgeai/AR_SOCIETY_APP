@@ -391,7 +391,14 @@ class _HandoverCard extends ConsumerWidget {
           ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
               onPressed: () {
-                if (reasonCtrl.text.trim().isEmpty) return;
+                if (reasonCtrl.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                    content: Text('Please enter a reason for disputing this handover'),
+                    backgroundColor: AppTheme.error,
+                    behavior: SnackBarBehavior.floating,
+                  ));
+                  return;
+                }
                 Navigator.pop(ctx, true);
               },
               child: const Text('Dispute')),
@@ -579,8 +586,8 @@ class _CreateTabState extends ConsumerState<_CreateTab> {
       summary: _summaryCtrl.text.trim(),
       items: _items.map((i) => i.toJson()).toList(),
     );
-    // Reset form on success
-    if (mounted) {
+    // Reset form only on success
+    if (mounted && ref.read(handoverProvider) is HandoverCreated) {
       _summaryCtrl.clear();
       _areaCtrl.clear();
       _incomingIdCtrl.clear();
@@ -663,6 +670,13 @@ class _AddItemSheetState extends State<_AddItemSheet> {
   final _qtyCtrl   = TextEditingController();
   String _type     = 'key';
   bool _isUrgent   = false;
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _qtyCtrl.dispose();
+    super.dispose();
+  }
 
   final _types = [
     ('key', 'Key', Icons.vpn_key_rounded),

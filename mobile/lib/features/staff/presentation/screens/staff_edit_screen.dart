@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
@@ -119,9 +120,7 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
         ));
         ref.read(staffListProvider.notifier).load(societyId);
         ref.read(staffFormProvider.notifier).reset();
-        // Pop edit, then pop detail → back to list
-        context.pop();
-        context.pop();
+        context.go(AppRoutes.staffList);
       } else if (next is StaffFormError) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(next.message),

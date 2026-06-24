@@ -19,8 +19,6 @@ final currentStaffProvider = FutureProvider<StaffEntity?>((ref) async {
   final repo = ref.read(staffRepositoryProvider);
   final result = await repo.getStaffByUser(user.id);
   if (result is StaffSuccess<StaffEntity>) {
-    // Sync the resolved id into staffIdProvider so nav routes work
-    ref.read(staffIdProvider.notifier).state = result.data.id;
     return result.data;
   }
   // Fallback: manual override via staffIdProvider
@@ -178,7 +176,7 @@ class HandoverNotifier extends StateNotifier<HandoverState> {
     state = HandoverLoading();
     final pendingResult = await _repo.getPendingHandovers(staffId);
     final historyResult = await _repo.getHandoverHistory(staffId);
-    if (pendingResult is StaffFailure && historyResult is StaffFailure) {
+    if (pendingResult is StaffFailure || historyResult is StaffFailure) {
       state = HandoverError((pendingResult as StaffFailure).message);
       return;
     }
@@ -302,7 +300,7 @@ class ApprovalNotifier extends StateNotifier<ApprovalState> {
     final checkin  = checkinResult  is StaffSuccess ? (checkinResult  as StaffSuccess<List<AttendanceEntity>>).data : <AttendanceEntity>[];
     final checkout = checkoutResult is StaffSuccess ? (checkoutResult as StaffSuccess<List<AttendanceEntity>>).data : <AttendanceEntity>[];
 
-    if (checkinResult is StaffFailure && checkoutResult is StaffFailure) {
+    if (checkinResult is StaffFailure || checkoutResult is StaffFailure) {
       state = ApprovalError((checkinResult as StaffFailure).message);
       return;
     }

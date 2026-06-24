@@ -363,7 +363,7 @@ def complaints_by_department(
 
 
 # ── Roster ────────────────────────────────────────────────────────────────────
-from app.modules.staff.models.staff import StaffRoster, StaffLeaveBalance, RosterStatus
+from app.modules.staff.models.staff import StaffRoster, StaffLeaveBalance, RosterStatus, Staff
 from app.schemas.common import OrmBase, TimestampSchema as TS2
 from pydantic import BaseModel as BM2
 
@@ -416,8 +416,11 @@ def get_leave_balance(staff_id: UUID, year: int, db: Session = Depends(get_db)):
     ).first()
     if not lb:
         # Auto-create default balance
+        staff_obj = db.query(Staff).filter(Staff.id == staff_id).first()
+        if not staff_obj:
+            raise HTTPException(status_code=404, detail="Staff not found")
         lb = StaffLeaveBalance(
-            society_id=db.query(Staff).filter(Staff.id==staff_id).first().society_id,
+            society_id=staff_obj.society_id,
             staff_id=staff_id, year=year,
         )
         db.add(lb); db.commit(); db.refresh(lb)

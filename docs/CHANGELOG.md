@@ -6,6 +6,82 @@ Format: `[YYYY-MM-DD] type: description`
 
 ## 2026-06-24
 
+### fix: staff module phase 4 audit — critical provider/backend fixes and deep defect sweep
+
+**Staff Module Functional Audit — Phase 4 (Workflow-Discovered Defects — 15 fixes)**
+
+#### Critical fixes
+
+1. **Backend `NameError` on leave-balance endpoint** (`backend/routes/staff.py` D-001):  
+   `Staff` model was missing from the inline import on line 366. Any call to `GET /staff/leave-balance/{id}/{year}` on a fresh balance raised `NameError: name 'Staff' is not defined` at runtime.
+
+2. **Backend `AttributeError` on missing staff record** (`backend/routes/staff.py` D-002):  
+   The unguarded `.first()` call in `get_leave_balance` crashed with `AttributeError: 'NoneType' has no attribute 'society_id'` when the staff record didn't exist. Now raises HTTP 404.
+
+3. **Riverpod side-effect inside FutureProvider** (`staff_providers.dart` D-003):  
+   `currentStaffProvider` was calling `ref.read(staffIdProvider.notifier).state = ...` inside the async body — a Riverpod rule violation that causes `ProviderException` during build. Side-effect removed from provider; replaced with `ref.listen<AsyncValue<StaffEntity?>>` in `StaffHomeScreen.build`.
+
+#### High severity fixes
+
+4. **Handover form clears on error** (`handover_screen.dart` D-004):  
+   Form fields cleared unconditionally after `createAndSubmit`, even on failure. Now checks `ref.read(handoverProvider) is HandoverCreated` before clearing.
+
+5. **Supervisor "Handover" chip navigates to staffHome** (`role_dashboards.dart` D-005):  
+   Chip used `route: AppRoutes.staffHome` instead of navigating to the actual Handover screen. Now reads `staffIdProvider` and navigates to `/staff/handover/$staffId`.
+
+6. **Approval TextEditingControllers never disposed** (`approval_screen.dart` D-007):  
+   `notesCtrl` and `reasonCtrl` were created as local variables in dialog methods — leaked on every open. Moved to `_ApprovalCardState` fields with `dispose()`.
+
+7. **AttendanceInitial/AttendanceSuccess fell through to _Body** (`attendance_screen.dart` D-008):  
+   `_buildBody` had no branch for these states; the body rendered with null data before loading completed. Now shows a loading spinner for `AttendanceInitial` and `AttendanceSuccess`.
+
+8. **`_AddItemSheetState` missing dispose()** (`handover_screen.dart` D-009):  
+   `_titleCtrl` and `_qtyCtrl` were never disposed — memory leak on every item sheet open.
+
+9. **Duplicate validator on Duty dropdown + TextFormField** (`duty_assign_screen.dart` D-010):  
+   Two conflicting validators fired when "Custom" was selected. Removed the validator from the `DropdownButtonFormField`; only the TextFormField validator remains.
+
+10. **Duplicate Edit button in Staff Detail** (`staff_detail_screen.dart` D-011):  
+    An `AppPrimaryButton('Edit Staff')` at the bottom of the ListView duplicated the AppBar edit icon. Removed.
+
+11. **`/staff/add` and `/staff/:id/edit` lacked RBAC redirect** (`app_router.dart` D-012):  
+    Any authenticated user could navigate to staff create/edit screens. Added redirect guards returning `AppRoutes.staffHome` for non-admin/committee users.
+
+12. **`HandoverNotifier.loadHandovers` hid partial failures** (`staff_providers.dart` D-014):  
+    Used `&&` for both-fail check — one successful call hid the other's error. Changed to `||`.
+
+13. **`ApprovalNotifier.load` same issue** (`staff_providers.dart` D-015):  
+    Same `&&` → `||` fix.
+
+#### Medium / Low fixes
+
+14. **Staff Edit double-pop assumes fixed stack depth** (`staff_edit_screen.dart` D-019):  
+    Replaced `context.pop(); context.pop()` with `context.go(AppRoutes.staffList)` for reliable navigation.
+
+15. **Dispute dialog silent on empty reason** (`handover_screen.dart` D-020):  
+    Silent `return` when reason was blank gave no feedback. Now shows error SnackBar.
+
+16. **`Image.network` in Staff Detail had no error/loading builder** (`staff_detail_screen.dart` D-022):  
+    Added `errorBuilder` (falls back to person icon) and `loadingBuilder` (shows progress spinner).
+
+17. **Dead role strings in `isManager` check** (`staff_home_screen.dart` D-016):  
+    Removed `r == 'Super Admin' || r == 'Society Admin'` — these roles are routed to adminHome before reaching staffHome.
+
+18. **Dead duplicate border expression** (`staff_home_screen.dart` D-027):  
+    `Border.all(color: disabled ? AppTheme.border : AppTheme.border)` simplified to `Border.all(color: AppTheme.border)`.
+
+19. **Date picker allows yesterday** (`duty_assign_screen.dart` D-029):  
+    `firstDate: DateTime.now().subtract(Duration(days: 1))` → `firstDate: DateTime.now()`.
+
+20. **Supervisor Dashboard panel mislabelled** (`role_dashboards.dart` D-018):  
+    "Gym Attendance" panel renamed to "Dept Check-in Approvals" for accuracy.
+
+#### Test results
+
+255 backend tests pass, 0 failures.
+
+---
+
 ### fix: staff module phase 3 audit — supervisor approval scoping, attendance/duties UI fixes
 
 **Staff Module Functional Audit — Phase 3 (Full Screen-by-Screen Deep Review)**

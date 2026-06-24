@@ -21,12 +21,18 @@ class StaffHomeScreen extends ConsumerWidget {
     final societyId  = user?.societyId;
     final isReady    = staffId != null;
 
+    // Sync resolved staff ID into staffIdProvider (side-effect must stay out of FutureProvider)
+    ref.listen<AsyncValue<StaffEntity?>>(currentStaffProvider, (_, next) {
+      next.whenData((staff) {
+        if (staff != null) ref.read(staffIdProvider.notifier).state = staff.id;
+      });
+    });
+
     // Role detection for supervisor/manager management section
     final roles = user?.roles ?? [];
     final isSupervisor = roles.any((r) => r.contains('Supervisor'));
     final isManager = roles.any((r) =>
-        r.contains('Manager') ||
-        r.contains('Committee') || r == 'Super Admin' || r == 'Society Admin');
+        r.contains('Manager') || r.contains('Committee'));
     final showManagement = (isSupervisor || isManager) && societyId != null;
 
     return Scaffold(
@@ -358,9 +364,7 @@ class _ModuleCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppTheme.cardBg,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: disabled ? AppTheme.border : AppTheme.border,
-            ),
+            border: Border.all(color: AppTheme.border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

@@ -244,6 +244,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Staff Master CRUD — literal /add before parameterised /:staffId/*
       GoRoute(
         path: AppRoutes.staffAdd,
+        redirect: (_, __) {
+          if (authState is AuthAuthenticated) {
+            final user = (authState as AuthAuthenticated).user;
+            if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
+          }
+          return null;
+        },
         builder: (_, __) => const StaffAddScreen(),
       ),
       GoRoute(
@@ -255,6 +262,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.staffEdit,
+        redirect: (_, __) {
+          if (authState is AuthAuthenticated) {
+            final user = (authState as AuthAuthenticated).user;
+            if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
+          }
+          return null;
+        },
         builder: (_, state) {
           final staff = state.extra as StaffEntity;
           return StaffEditScreen(staff: staff);

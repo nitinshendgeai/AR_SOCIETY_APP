@@ -46,7 +46,14 @@ class StaffDetailScreen extends ConsumerWidget {
                     shape: BoxShape.circle,
                   ),
                   child: staff.photoUrl != null
-                      ? ClipOval(child: Image.network(staff.photoUrl!, fit: BoxFit.cover))
+                      ? ClipOval(child: Image.network(
+                          staff.photoUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(Icons.person_rounded, color: AppTheme.primary, size: 38),
+                          loadingBuilder: (ctx, child, progress) => progress == null
+                              ? child
+                              : const SizedBox(width: 38, height: 38, child: CircularProgressIndicator(strokeWidth: 2)),
+                        ))
                       : const Icon(Icons.person_rounded, color: AppTheme.primary, size: 38),
                 ),
                 const SizedBox(height: 12),
@@ -134,13 +141,6 @@ class StaffDetailScreen extends ConsumerWidget {
           ],
 
           const SizedBox(height: 32),
-
-          // Edit button
-          AppPrimaryButton(
-            label: 'Edit Staff',
-            icon: Icons.edit_rounded,
-            onPressed: () => context.push('/staff/${staff.id}/edit', extra: staff),
-          ),
         ],
       ),
     );
