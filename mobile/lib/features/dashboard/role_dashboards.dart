@@ -1031,7 +1031,8 @@ class SupervisorDashboardScreen extends ConsumerWidget {
           _QuickActionChip(
             icon: Icons.approval_rounded, label: 'Approvals',
             onTap: societyId != null
-                ? () => context.push(AppRoutes.staffApprovals, extra: societyId)
+                ? () => context.push(AppRoutes.staffApprovals,
+                    extra: {'societyId': societyId, 'department': department})
                 : null,
           ),
           const SizedBox(width: 8),

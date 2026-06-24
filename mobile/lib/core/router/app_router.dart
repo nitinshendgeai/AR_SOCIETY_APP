@@ -211,8 +211,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.staffApprovals,
         builder: (_, state) {
-          final societyId = state.extra as String? ?? '';
-          return AttendanceApprovalScreen(societyId: societyId);
+          final extra = state.extra;
+          final String societyId;
+          final String? department;
+          if (extra is Map<String, dynamic>) {
+            societyId  = extra['societyId'] as String? ?? '';
+            department = extra['department'] as String?;
+          } else {
+            societyId  = extra as String? ?? '';
+            department = null;
+          }
+          return AttendanceApprovalScreen(societyId: societyId, department: department);
         },
       ),
       GoRoute(

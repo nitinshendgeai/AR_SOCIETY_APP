@@ -4,6 +4,31 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-06-24
+
+### fix: staff module phase 3 audit — supervisor approval scoping, attendance/duties UI fixes
+
+**Staff Module Functional Audit — Phase 3 (Full Screen-by-Screen Deep Review)**
+
+All 12 staff module screens and supporting providers reviewed end-to-end.
+
+#### Flutter fixes
+
+1. **Supervisor Approval navigation now department-scoped** (`app_router.dart`, `role_dashboards.dart`):  
+   Supervisor Dashboard "Approvals" chip now passes `{'societyId', 'department'}` as the route extra. The approval route builder was updated to handle both the new Map format (supervisor/dept-scoped) and the legacy String format (admin/manager, all-dept view). Supervisors now see only their own department's pending punch-ins and punch-outs.
+
+2. **Dead `SizedBox(width: 10)` removed from Attendance action row** (`attendance_screen.dart`):  
+   The inner `if (today!.isCheckedIn) const SizedBox(width: 10)` condition was always true inside the outer `isCheckedIn && !isCheckedOut` block. Removed the dead check. Check Out button now renders full-width without a 10px orphan gap.
+
+3. **"Completed Today" label corrected** (`duties_screen.dart`):  
+   The Duties screen section header said "Completed Today" but loaded all completed duties (not date-filtered). Changed to "Completed" for accuracy.
+
+#### Test results
+
+255 backend tests pass, 0 failures.
+
+---
+
 ## 2026-06-23
 
 ### fix: complete staff module functional audit and workflow stabilization

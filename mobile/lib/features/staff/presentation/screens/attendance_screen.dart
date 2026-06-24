@@ -255,7 +255,6 @@ class _TodayCard extends ConsumerWidget {
                   ),
                 ),
               if (today != null && today!.isCheckedIn && !today!.isCheckedOut) ...[
-                if (today!.isCheckedIn) const SizedBox(width: 10),
                 Expanded(
                   child: _ActionButton(
                     label: 'Check Out',

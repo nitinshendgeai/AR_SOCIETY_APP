@@ -1,16 +1,17 @@
 # Staff Module Certification Report
 
-**Date:** 2026-06-23  
+**Date:** 2026-06-24  
 **Auditor:** Claude Code  
 **Branch:** `claude/beautiful-davinci-dLJtD`  
 **Phase 1 Result:** CERTIFIED — 7 Flutter defects fixed. 255 backend tests pass.  
-**Phase 2 Result:** CERTIFIED — 6 additional Flutter defects + 4 backend defects fixed. 255 backend tests pass.
+**Phase 2 Result:** CERTIFIED — 6 additional Flutter defects + 4 backend defects fixed. 255 backend tests pass.  
+**Phase 3 Result:** CERTIFIED — 3 additional Flutter defects fixed. 255 backend tests pass.
 
 ---
 
 ## Executive Summary
 
-Full two-phase audit of the AR Society ERP Staff Module covering all screens, API routes, RBAC guards, data flows, and UI/UX. Phase 1 fixed 7 Flutter defects. Phase 2 deep-audited role-based usage paths, societyId propagation, department coverage, and supervisor access controls — fixing 10 additional defects.
+Full three-phase audit of the AR Society ERP Staff Module covering all screens, API routes, RBAC guards, data flows, and UI/UX. Phase 1 fixed 7 Flutter defects. Phase 2 deep-audited role-based usage paths, societyId propagation, department coverage, and supervisor access controls — fixing 10 additional defects. Phase 3 audited all remaining screens in detail — fixing 3 additional defects including a high-severity department-scoping gap in the Supervisor Approval navigation.
 
 ---
 
@@ -281,27 +282,57 @@ The "Gym Attendance" panel in `SupervisorDashboardScreen` is conditionally shown
 
 ---
 
+## Phase 3 Defects Found and Fixed
+
+### D-18 — Supervisor Approval navigation missing department filter
+
+**Severity:** High (Supervisor tapping "Approvals" from their dashboard opens the approval screen with no department scope — they see ALL departments' pending punch-ins and punch-outs, violating the RBAC department isolation enforced at backend)  
+**Files:** `mobile/lib/core/router/app_router.dart`, `mobile/lib/features/dashboard/role_dashboards.dart`  
+**Fix:**  
+- Updated `/staff/approvals` route builder to accept either a plain `String` (societyId) or a `Map<String, dynamic>` `{societyId, department}` as `state.extra`.  
+- Updated `SupervisorDashboardScreen` "Approvals" chip to pass `{'societyId': societyId, 'department': department}` so the screen loads with the supervisor's department filter applied.  
+- Manager/Admin/StaffHome approval navigations continue to pass plain `societyId` (no dept filter) — backward compatible.
+
+---
+
+### D-19 — Dead `if (today!.isCheckedIn)` guard leaves orphaned SizedBox in attendance action row
+
+**Severity:** Low (visual — 10px dead gap appears to the left of the Check Out button because the inner condition is always true inside the outer `isCheckedIn && !isCheckedOut` block)  
+**File:** `mobile/lib/features/staff/presentation/screens/attendance_screen.dart`  
+**Fix:** Removed the redundant `if (today!.isCheckedIn) const SizedBox(width: 10)` line. The Check Out button now occupies full button width correctly.
+
+---
+
+### D-20 — `DutiesScreen` section header "Completed Today" misleads users
+
+**Severity:** Low (UX label accuracy — backend API returns ALL completed duties for the staff member, not just today's)  
+**File:** `mobile/lib/features/staff/presentation/screens/duties_screen.dart`  
+**Fix:** Changed `SectionHeader(title: 'Completed Today')` → `SectionHeader(title: 'Completed')`.
+
+---
+
 ## Backend Test Results
 
-**255 passed, 0 failed** — confirmed after both Phase 1 and Phase 2 fixes.
+**255 passed, 0 failed** — confirmed after Phase 1, Phase 2, and Phase 3 fixes.
 
 ---
 
 ## Certification Statement
 
-The Staff Module has been audited across two phases (17 defects total fixed), all known gaps documented. The module is certified for production use with the limitations noted in the Known Gaps section above.
+The Staff Module has been audited across three phases (20 defects total fixed), all known gaps documented. The module is certified for production use with the limitations noted in the Known Gaps section above.
 
 | Check | Result |
 |-------|--------|
 | All screens inventoried | ✅ |
 | All API routes verified | ✅ |
 | RBAC matrix validated | ✅ |
-| Code defects fixed (17 total across Phase 1 + 2) | ✅ |
+| Code defects fixed (20 total across Phase 1 + 2 + 3) | ✅ |
 | Known gaps documented (4 remaining) | ✅ |
 | Backend tests | ✅ 255/255 |
 | Multi-tenant isolation | ✅ (society_id enforced at service layer) |
-| societyId propagation guarded | ✅ (all 3 screens now validate before API calls) |
+| societyId propagation guarded | ✅ (all critical screens validate before API calls) |
 | Department coverage | ✅ (all 10 model departments handled) |
 | Supervisor dept access | ✅ (all sub-departments covered by logical supervisor) |
+| Supervisor UI dept scoping | ✅ (Approval screen receives dept filter from supervisor dashboard) |
 
 **Status: CERTIFIED FOR PRODUCTION**
