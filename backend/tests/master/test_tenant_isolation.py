@@ -367,3 +367,226 @@ def test_resident_occupancy_move_in_wrong_flat_for_resident_denied(client, db, t
         "move_in_date": "2026-08-15",
     }, headers=t["admin_a"]["headers"])
     assert r.status_code == 404, "a resident cannot be moved into a flat that isn't their own"
+
+
+# ── Tenant (Phase M1.3) ───────────────────────────────────────────────────────
+# Same matrix as the Resident section above, applied to /tenants/* and the
+# agreement-renewal endpoint, using the same two_societies fixture.
+
+def test_tenant_get_own_society_allowed(client, db, two_societies):
+    t = two_societies
+    created = client.post("/api/v1/tenants/", json={
+        "flat_id": str(t["flat_a"].id), "full_name": "Own Society Tenant",
+    }, headers=t["admin_a"]["headers"]).json()
+    r = client.get(f"/api/v1/tenants/{created['id']}", headers=t["admin_a"]["headers"])
+    assert r.status_code == 200
+
+
+def test_tenant_get_cross_society_denied(client, db, two_societies):
+    t = two_societies
+    created = client.post("/api/v1/tenants/", json={
+        "flat_id": str(t["flat_b"].id), "full_name": "Society B Tenant",
+    }, headers=t["admin_b"]["headers"]).json()
+    r = client.get(f"/api/v1/tenants/{created['id']}", headers=t["admin_a"]["headers"])
+    assert r.status_code == 404
+
+
+def test_tenant_patch_own_society_allowed(client, db, two_societies):
+    t = two_societies
+    created = client.post("/api/v1/tenants/", json={
+        "flat_id": str(t["flat_a"].id), "full_name": "Editable Own Tenant",
+    }, headers=t["admin_a"]["headers"]).json()
+    r = client.patch(f"/api/v1/tenants/{created['id']}", json={"phone": "9123456790"},
+                      headers=t["admin_a"]["headers"])
+    assert r.status_code == 200
+
+
+def test_tenant_patch_cross_society_denied(client, db, two_societies):
+    t = two_societies
+    created = client.post("/api/v1/tenants/", json={
+        "flat_id": str(t["flat_b"].id), "full_name": "Society B Editable Tenant",
+    }, headers=t["admin_b"]["headers"]).json()
+    r = client.patch(f"/api/v1/tenants/{created['id']}", json={"phone": "9123456791"},
+                      headers=t["admin_a"]["headers"])
+    assert r.status_code == 404
+
+
+def test_tenant_post_into_own_flat_allowed(client, db, two_societies):
+    t = two_societies
+    r = client.post("/api/v1/tenants/", json={
+        "flat_id": str(t["flat_a"].id), "full_name": "Legit New Tenant",
+    }, headers=t["admin_a"]["headers"])
+    assert r.status_code == 201
+
+
+def test_tenant_post_into_other_societys_flat_denied(client, db, two_societies):
+    t = two_societies
+    r = client.post("/api/v1/tenants/", json={
+        "flat_id": str(t["flat_b"].id), "full_name": "Cross Tenant Injection Attempt",
+    }, headers=t["admin_a"]["headers"])
+    assert r.status_code == 404
+
+
+def test_tenant_list_own_society_only(client, db, two_societies):
+    t = two_societies
+    client.post("/api/v1/tenants/", json={
+        "flat_id": str(t["flat_a"].id), "full_name": "List Test Tenant A",
+    }, headers=t["admin_a"]["headers"])
+    client.post("/api/v1/tenants/", json={
+        "flat_id": str(t["flat_b"].id), "full_name": "List Test Tenant B",
+    }, headers=t["admin_b"]["headers"])
+    r = client.get("/api/v1/tenants/", headers=t["admin_a"]["headers"])
+    names = {x["full_name"] for x in r.json()}
+    assert "List Test Tenant A" in names
+    assert "List Test Tenant B" not in names
+
+
+def test_tenant_move_in_cross_society_denied(client, db, two_societies):
+    t = two_societies
+    tenant_on_b = client.post("/api/v1/tenants/", json={
+        "flat_id": str(t["flat_b"].id), "full_name": "Society B Tenant For Move-in",
+    }, headers=t["admin_b"]["headers"]).json()
+    r = client.post("/api/v1/occupancy/tenant/move-in", json={
+        "flat_id": str(t["flat_b"].id), "tenant_id": tenant_on_b["id"],
+        "move_in_date": "2026-08-15",
+    }, headers=t["admin_a"]["headers"])
+    assert r.status_code == 404
+
+
+def test_tenant_move_out_cross_society_denied(client, db, two_societies):
+    t = two_societies
+    tenant_on_b = client.post("/api/v1/tenants/", json={
+        "flat_id": str(t["flat_b"].id), "full_name": "Society B Tenant For Move-out",
+        "move_in_date": "2026-08-15",
+    }, headers=t["admin_b"]["headers"]).json()
+    r = client.post("/api/v1/occupancy/tenant/move-out", json={
+        "flat_id": str(t["flat_b"].id), "tenant_id": tenant_on_b["id"],
+        "move_out_date": "2026-08-16",
+    }, headers=t["admin_a"]["headers"])
+    assert r.status_code == 404
+
+
+def test_agreement_renewal_cross_society_denied(client, db, two_societies):
+    t = two_societies
+    from datetime import date, timedelta
+    start = date.today()
+    end = start + timedelta(days=180)
+    tenant_on_b = client.post("/api/v1/tenants/", json={
+        "flat_id": str(t["flat_b"].id), "full_name": "Society B Tenant For Renewal",
+        "agreement_start_date": str(start), "agreement_end_date": str(end),
+        "move_in_date": str(start),
+    }, headers=t["admin_b"]["headers"]).json()
+    r = client.post(f"/api/v1/tenants/{tenant_on_b['id']}/renew-agreement", json={
+        "start_date": str(end), "end_date": str(end + timedelta(days=90)),
+    }, headers=t["admin_a"]["headers"])
+    assert r.status_code == 404
+
+
+# ── Vehicle DB-level constraint enforcement (Phase M1.3) ─────────────────────
+# Mirrors TestResidentDatabaseConstraints (Phase M1.2) — proves the DATABASE
+# rejects invalid rows, not just the application layer, including via raw
+# SQL that bypasses the ORM/Pydantic validation entirely.
+
+class TestVehicleDatabaseConstraints:
+
+    def test_db_rejects_normalized_duplicate_vehicle_number(self, db, two_societies):
+        from app.models.vehicle import Vehicle
+        from sqlalchemy.exc import IntegrityError
+        t = two_societies
+        v1 = Vehicle(society_id=t["society_a"].id, flat_id=t["flat_a"].id, vehicle_number="MH07XY0001")
+        db.add(v1); db.commit()
+
+        v2 = Vehicle(society_id=t["society_a"].id, flat_id=t["flat_a"].id, vehicle_number="mh-07-xy-0001")
+        db.add(v2)
+        with pytest.raises(IntegrityError):
+            db.commit()
+
+    def test_db_allows_same_number_in_different_society(self, db, two_societies):
+        from app.models.vehicle import Vehicle
+        t = two_societies
+        v1 = Vehicle(society_id=t["society_a"].id, flat_id=t["flat_a"].id, vehicle_number="MH07XY0002")
+        v2 = Vehicle(society_id=t["society_b"].id, flat_id=t["flat_b"].id, vehicle_number="MH07XY0002")
+        db.add_all([v1, v2])
+        db.commit()  # must not raise
+
+    def test_db_rejects_resident_and_tenant_both_set_via_raw_sql(self, db, two_societies):
+        """Bypasses the Pydantic XOR validator entirely (raw SQL) — proves
+        the CHECK constraint, not application code, is what actually stops
+        this."""
+        from sqlalchemy import text
+        from sqlalchemy.exc import IntegrityError
+        from app.models.resident import Resident
+        from app.models.tenant import Tenant
+        t = two_societies
+        resident = Resident(flat_id=t["flat_a"].id, full_name="Vehicle XOR Resident")
+        tenant = Tenant(flat_id=t["flat_a"].id, full_name="Vehicle XOR Tenant")
+        db.add_all([resident, tenant]); db.commit()
+        db.refresh(resident); db.refresh(tenant)
+
+        with pytest.raises(IntegrityError):
+            db.execute(text("""
+                INSERT INTO vehicles (id, created_at, updated_at, is_active, society_id, flat_id,
+                                       resident_id, tenant_id, vehicle_number, vehicle_type)
+                VALUES (lower(hex(randomblob(16))), datetime('now'), datetime('now'), 1,
+                        :sid, :fid, :rid, :tid, 'MH07XY0003', 'car')
+            """), {"sid": t["society_a"].id.hex, "fid": t["flat_a"].id.hex,
+                    "rid": resident.id.hex, "tid": tenant.id.hex})
+            db.commit()
+
+    def test_db_allows_resident_only_via_raw_sql(self, db, two_societies):
+        from sqlalchemy import text
+        from app.models.resident import Resident
+        t = two_societies
+        resident = Resident(flat_id=t["flat_a"].id, full_name="Vehicle XOR OK Resident")
+        db.add(resident); db.commit(); db.refresh(resident)
+        db.execute(text("""
+            INSERT INTO vehicles (id, created_at, updated_at, is_active, society_id, flat_id,
+                                   resident_id, vehicle_number, vehicle_type)
+            VALUES (lower(hex(randomblob(16))), datetime('now'), datetime('now'), 1,
+                    :sid, :fid, :rid, 'MH07XY0004', 'car')
+        """), {"sid": t["society_a"].id.hex, "fid": t["flat_a"].id.hex, "rid": resident.id.hex})
+        db.commit()  # must not raise
+
+
+class TestAgreementRenewalFK:
+
+    def test_db_rejects_orphaned_renewal_of_id(self, db, two_societies):
+        import uuid
+        from datetime import date
+        from sqlalchemy.exc import IntegrityError
+        from app.models.tenant import Tenant
+        from app.models.agreement_tracker import AgreementTracker, AgreementStatus
+        t = two_societies
+        tenant = Tenant(flat_id=t["flat_a"].id, full_name="FK Test Tenant")
+        db.add(tenant); db.commit(); db.refresh(tenant)
+
+        agr = AgreementTracker(
+            society_id=t["society_a"].id, flat_id=t["flat_a"].id, tenant_id=tenant.id,
+            start_date=date(2026, 1, 1), end_date=date(2026, 6, 30), status=AgreementStatus.ACTIVE,
+            renewal_of_id=uuid.uuid4(),
+        )
+        db.add(agr)
+        with pytest.raises(IntegrityError):
+            db.commit()
+
+    def test_db_allows_renewal_of_id_pointing_at_real_agreement(self, db, two_societies):
+        from datetime import date
+        from app.models.tenant import Tenant
+        from app.models.agreement_tracker import AgreementTracker, AgreementStatus
+        t = two_societies
+        tenant = Tenant(flat_id=t["flat_a"].id, full_name="FK Test Tenant 2")
+        db.add(tenant); db.commit(); db.refresh(tenant)
+
+        agr1 = AgreementTracker(
+            society_id=t["society_a"].id, flat_id=t["flat_a"].id, tenant_id=tenant.id,
+            start_date=date(2026, 1, 1), end_date=date(2026, 6, 30), status=AgreementStatus.RENEWED,
+        )
+        db.add(agr1); db.commit(); db.refresh(agr1)
+
+        agr2 = AgreementTracker(
+            society_id=t["society_a"].id, flat_id=t["flat_a"].id, tenant_id=tenant.id,
+            start_date=date(2026, 6, 30), end_date=date(2026, 12, 31), status=AgreementStatus.ACTIVE,
+            renewal_of_id=agr1.id,
+        )
+        db.add(agr2)
+        db.commit()  # must not raise

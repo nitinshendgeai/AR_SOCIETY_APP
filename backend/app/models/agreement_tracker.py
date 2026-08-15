@@ -31,7 +31,13 @@ class AgreementTracker(Base, TimestampMixin):
     security_deposit = Column(Numeric(12, 2), nullable=True)
     status          = Column(Enum(AgreementStatus, values_callable=lambda e: [x.value for x in e]), default=AgreementStatus.ACTIVE, nullable=False, index=True)
     document_url    = Column(String(500), nullable=True)
-    renewal_of_id   = Column(UUID(as_uuid=True), nullable=True)   # FK to previous agreement
+    # Phase M1.3: was a bare UUID column with no FK constraint despite the
+    # comment below — promoted to a real self-referential FK now that a
+    # preflight (see alembic/versions for the migration) confirmed no
+    # orphaned renewal_of_id values exist. ondelete=SET NULL: if a prior
+    # agreement row is ever hard-deleted, a renewal chain shouldn't be
+    # blocked from existing, it just loses that one historical link.
+    renewal_of_id   = Column(UUID(as_uuid=True), ForeignKey("agreement_tracker.id", ondelete="SET NULL"), nullable=True)
     termination_reason = Column(Text, nullable=True)
     alert_sent_30   = Column(Boolean, default=False)  # 30-day expiry alert sent
     alert_sent_7    = Column(Boolean, default=False)  # 7-day expiry alert sent
@@ -42,6 +48,8 @@ class AgreementTracker(Base, TimestampMixin):
     tenant   = relationship("Tenant", foreign_keys=[tenant_id])
     resident = relationship("Resident", foreign_keys=[resident_id])
     creator  = relationship("User", foreign_keys=[created_by])
+    renewed_from = relationship("AgreementTracker", remote_side="AgreementTracker.id",
+                                 foreign_keys=[renewal_of_id])
 
     def days_to_expiry(self) -> int:
         from datetime import date

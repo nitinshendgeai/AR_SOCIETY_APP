@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, Enum, ForeignKey, Text
+from sqlalchemy import Column, String, Boolean, Enum, ForeignKey, Text, Index, CheckConstraint, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
@@ -43,6 +43,25 @@ class Vehicle(Base, TimestampMixin):
     rc_number      = Column(String(50), nullable=True)    # Registration Certificate
 
     remarks        = Column(Text, nullable=True)
+
+    # Phase M1.3: mirrors alembic/versions/d5e6f7a8b9c0_vehicle_constraints_with_preflight.py
+    # here too, so the test suite's SQLite schema (Base.metadata.create_all(),
+    # which doesn't run Alembic) actually enforces these as well — same
+    # reasoning as Resident's __table_args__ (Phase M1.2).
+    __table_args__ = (
+        CheckConstraint(
+            "resident_id IS NULL OR tenant_id IS NULL",
+            name="ck_vehicle_resident_tenant_xor",
+        ),
+        Index(
+            "uq_vehicle_society_normalized_number",
+            "society_id",
+            func.upper(func.replace(func.replace(vehicle_number, " ", ""), "-", "")),
+            unique=True,
+            postgresql_where=text("is_active = true"),
+            sqlite_where=text("is_active = 1"),
+        ),
+    )
 
     # Relationships
     society      = relationship("Society")
