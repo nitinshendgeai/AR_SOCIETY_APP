@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from app.api.routes import auth, society, wing, flat, user, notifications
 from app.api.routes.role  import router as role_router
 from app.api.routes.floor import router as floor_router
+from app.api.routes.resident import router as resident_router
 from app.api.routes.vehicle           import router as vehicle_router
 from app.api.routes.workload          import router as workload_router
 from app.api.routes.occupancy         import router as occupancy_router
@@ -27,6 +28,7 @@ api_router.include_router(flat.router)
 api_router.include_router(user.router)
 api_router.include_router(role_router)
 api_router.include_router(floor_router)
+api_router.include_router(resident_router)
 api_router.include_router(notifications.router)
 api_router.include_router(vehicle_router)
 api_router.include_router(workload_router)

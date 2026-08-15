@@ -28,8 +28,10 @@ def create_society(data: SocietyCreate, request: Request,
 def initialize_society(society_id: UUID,
                         db: Session = Depends(get_db),
                         user: User = Depends(require_admin)):
-    """Initialize a society — creates default roles and operational users."""
-    society = SocietyService(db).get_or_404(society_id)
+    """Initialize a society — creates default roles and operational users.
+    A Society Admin may only initialize their own society; platform admins
+    (no society_id) may target any society."""
+    society = SocietyService(db).get_or_404(society_id, user.society_id)
     return SocietySetupService(db).initialize_society(society, user)
 
 
@@ -94,13 +96,13 @@ def get_society(
     return SocietyService(db).get_or_404(society_id)
 
 
-@router.patch("/{society_id}", response_model=SocietyOut,
-              dependencies=[Depends(require_committee)])
-def update_society(society_id: UUID, data: SocietyUpdate, db: Session = Depends(get_db)):
-    return SocietyService(db).update(society_id, data)
+@router.patch("/{society_id}", response_model=SocietyOut)
+def update_society(society_id: UUID, data: SocietyUpdate, db: Session = Depends(get_db),
+                    current_user: User = Depends(require_committee)):
+    return SocietyService(db).update(society_id, data, current_user.society_id)
 
 
-@router.delete("/{society_id}", status_code=204,
-               dependencies=[Depends(require_admin)])
-def delete_society(society_id: UUID, db: Session = Depends(get_db)):
-    SocietyService(db).delete(society_id)
+@router.delete("/{society_id}", status_code=204)
+def delete_society(society_id: UUID, db: Session = Depends(get_db),
+                    current_user: User = Depends(require_admin)):
+    SocietyService(db).delete(society_id, current_user.society_id)

@@ -69,15 +69,15 @@ def tenant_move_out(data: TenantMoveOutRequest, db: Session = Depends(get_db),
     return OccupancyService(db).tenant_move_out(data.flat_id, data.tenant_id, data.move_out_date, user)
 
 
-@router.get("/flat/{flat_id}/history", response_model=List[OccupancyLogOut],
-            dependencies=[Depends(any_member)])
-def flat_history(flat_id: UUID, db: Session = Depends(get_db)):
-    return OccupancyService(db).get_flat_history(flat_id)
+@router.get("/flat/{flat_id}/history", response_model=List[OccupancyLogOut])
+def flat_history(flat_id: UUID, db: Session = Depends(get_db),
+                  user: User = Depends(any_member)):
+    return OccupancyService(db).get_flat_history(flat_id, user)
 
 
-@router.get("/agreements/expiring/{society_id}", response_model=List[AgreementOut],
-            dependencies=[Depends(committee_or_admin)])
+@router.get("/agreements/expiring/{society_id}", response_model=List[AgreementOut])
 def expiring_agreements(society_id: UUID,
                         days: int = Query(30, description="Look-ahead days"),
-                        db: Session = Depends(get_db)):
-    return OccupancyService(db).get_expiring_agreements(society_id, days)
+                        db: Session = Depends(get_db),
+                        user: User = Depends(committee_or_admin)):
+    return OccupancyService(db).get_expiring_agreements(society_id, days, user)
