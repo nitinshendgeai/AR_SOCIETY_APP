@@ -121,6 +121,60 @@ def test_owner_move_in_blocked_while_tenant_occupied(client, db, rig):
     assert r.status_code == 409
 
 
+def test_tenant_move_in_blocked_while_owner_occupied(client, db, rig):
+    """Symmetric counterpart to test_owner_move_in_blocked_while_tenant_occupied
+    above — direct OWNER_OCCUPIED -> TENANT_OCCUPIED must also be rejected;
+    the resident must be moved out first. Regression for the P0 found in
+    M1.5 certification: tenant_move_in() previously had no guard against an
+    active owner-resident, so it silently overwrote occupancy_status while
+    leaving the resident active — corrupting the flat's true state."""
+    from app.models.flat import OccupancyStatus
+    from app.models.resident import Resident
+    from app.models.tenant import Tenant
+    from app.models.audit_log import AuditLog
+
+    resident = client.post("/api/v1/residents/", json={
+        "flat_id": str(rig["flat"].id), "full_name": "Blocking Owner",
+        "resident_type": "owner", "is_primary": True,
+        "move_in_date": str(date.today()),
+    }, headers=rig["admin"]["headers"]).json()
+    assert _flat_status(db, rig["flat"].id) == OccupancyStatus.OWNER_OCCUPIED
+
+    tenant = client.post("/api/v1/tenants/", json={
+        "flat_id": str(rig["flat"].id), "full_name": "Tenant Trying To Move In",
+    }, headers=rig["admin"]["headers"]).json()
+
+    r = client.post("/api/v1/occupancy/tenant/move-in", json={
+        "flat_id": str(rig["flat"].id), "tenant_id": tenant["id"],
+        "move_in_date": str(date.today()),
+    }, headers=rig["admin"]["headers"])
+    assert r.status_code == 409
+    assert "owner" in r.json()["detail"].lower()
+
+    # Flat state unchanged
+    assert _flat_status(db, rig["flat"].id) == OccupancyStatus.OWNER_OCCUPIED
+
+    # Resident remains active, untouched
+    resident_row = db.query(Resident).filter(Resident.id == _to_uuid(resident["id"])).first()
+    assert resident_row.is_active is True
+    assert resident_row.move_out_date is None
+
+    # Tenant never became an active occupant
+    tenant_row = db.query(Tenant).filter(Tenant.id == _to_uuid(tenant["id"])).first()
+    assert tenant_row.move_in_date is None
+
+    # No successful tenant_move_in event in occupancy history
+    history = client.get(f"/api/v1/occupancy/flat/{rig['flat'].id}/history",
+                          headers=rig["admin"]["headers"]).json()
+    assert not any(e["event_type"] == "tenant_move_in" for e in history)
+
+    # No tenant_move_in audit event persisted
+    audit_entries = db.query(AuditLog).filter(
+        AuditLog.module == "occupancy", AuditLog.entity_id == str(rig["flat"].id),
+    ).all()
+    assert not any("tenant_move_in" in str(e.new_values) for e in audit_entries)
+
+
 def test_duplicate_active_tenancy_rejected(client, db, rig):
     tenant1 = client.post("/api/v1/tenants/", json={
         "flat_id": str(rig["flat"].id), "full_name": "First Tenant",
