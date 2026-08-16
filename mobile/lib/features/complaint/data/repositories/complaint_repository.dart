@@ -83,6 +83,15 @@ class ComplaintRepository {
     }
   }
 
+  Future<ComplaintResult<int>> openComplaintsCount(String societyId) async {
+    try {
+      final list = await _ds.listOpenComplaints(societyId);
+      return ComplaintSuccess(list.length);
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
   // ── Actions ────────────────────────────────────────────────────────────────
 
   Future<ComplaintResult<ComplaintEntity>> updateStatus(

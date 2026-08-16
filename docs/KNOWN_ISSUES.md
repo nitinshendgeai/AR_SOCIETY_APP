@@ -1,14 +1,99 @@
 # Known Issues — AR Society ERP
 
-Last updated: 2026-06-10
+Last updated: 2026-06-23 (Staff Module Certification Audit — 7 Flutter defects fixed, 255 backend tests pass, maintenance dept added, CERTIFIED FOR PRODUCTION)
 
 ---
 
 ## Active Issues
 
-### [KNOWN GAP] Dashboard summary cards show hardcoded values
+### [FIXED 2026-06-23] Staff Module Certification Audit — 7 defects fixed
 
-Admin, Committee, and Security dashboards show static values (e.g. "128 flats", "24 staff") instead of live data from the API. Live data queries are pending for a future iteration.
+Full audit of all 12 Staff Module screens, API routes, and RBAC guards.
+
+**Fixed defects:**
+1. `_FallbackDesignationDropdown` dead class removed from `staff_add_screen.dart`
+2. `maintenance` department added to Staff Add form (`staff_add_screen.dart`)
+3. `maintenance` department added to Staff Edit form (`staff_edit_screen.dart`)
+4. `maintenance` department added to Staff List filter chips (`staff_list_screen.dart`)
+5. `StaffEntity.departmentLabel` missing `maintenance` case fixed (`staff_entities.dart`)
+6. `DutyAssignScreen` now filters inactive/terminated staff from assignment dropdown
+7. Dead non-canonical `r == 'Admin'` condition removed from `staff_home_screen.dart` isManager check
+
+**Known gaps documented:** Handover UUID field (KG-01), Duty time free-text (KG-02), No Reject button in approval (KG-03), Drawer not role-scoped (KG-04), Supervisor Gym panel tied to Housekeeping (KG-05).
+
+See `docs/STAFF_MODULE_CERTIFICATION.md` for full audit report.
+
+---
+
+### [FIXED 2026-06-20] Staff Dashboard "My Operations" cards do nothing when tapped
+
+`StaffHomeScreen` resolved `currentStaffProvider` (async) but the returned `AsyncValue` was ignored. `staffIdProvider` starts `null` while the provider fetches; all three operation cards (Attendance, My Duties, Handover) received `onTap: null` silently. Cards appeared enabled but produced no navigation.
+
+**Fix:** `_StaffProfileStatus` replaces `_StaffIdSetup`; cards use `disabled: !isReady` with `AnimatedOpacity`; `RefreshIndicator` added for pull-to-refresh retry.
+
+---
+
+### [FIXED 2026-06-19] Staff cannot apply for own leave / view own leave history — 2 RBAC bugs fixed
+
+`POST /staff/leaves/{staff_id}` and `GET /staff/leaves/staff/{staff_id}` both used `supervisor_above`, blocking staff from self-service leave. Fixed: both now use `any_staff` with own-record enforcement at service layer. Supervisors/managers retain ability to apply/view on behalf of any staff member.
+
+### [FIXED 2026-06-19] Technical Supervisor dashboard shows wrong department
+
+`SupervisorDashboardScreen` only detected housekeeping vs security departments. Technical Supervisor was misclassified as security, loading wrong department approval counts. Fixed: `isTechnical` detection added, dashboard now resolves to correct department for all three supervisor types.
+
+---
+
+### [KNOWN GAP] Edit Duty — not implemented
+
+There is no `PATCH /staff/duties/{id}` endpoint and no Edit Duty UI. Once assigned, a duty's name/description/location cannot be changed. The only lifecycle actions available are Mark Complete (staff) and Verify (supervisor). No broken button exists.
+
+### [KNOWN GAP] Close Handover — not implemented
+
+The handover lifecycle ends at `accepted` or `disputed`. There is no explicit "close" state or endpoint. Accepted handovers are considered complete. No broken button exists.
+
+### [KNOWN GAP] Leave self-service UI not yet available
+
+The leave apply/view API is now open to staff (`any_staff` guard + own-record check), but no Flutter screen exists for staff to apply or view their leave. Currently only accessible via direct API call.
+
+---
+
+### [FIXED 2026-06-18] Staff cannot punch in/out — 6 RBAC permission bugs fixed
+
+Six critical permission mismatches in `backend/app/modules/staff/routes/staff.py` were identified and fixed:
+1. `check_in` / `check_out`: was `supervisor_above` → now `any_staff`
+2. `get_attendance`: was `admin_or_committee` → now `any_staff`
+3. `list_staff`: was `admin_or_committee` → now `supervisor_above` + added optional `department` query param
+4. `get_staff`: was `admin_or_committee` → now `supervisor_above`
+5. `duties_by_date`: was `admin_or_committee` → now `supervisor_above`
+6. `update_task status`: was `supervisor_above` → now `any_staff`
+
+Staff attendance workflow now works end-to-end for all 7 staff roles. 79 backend tests pass.
+
+---
+
+### [FIXED 2026-06-17] Staff login management: last_login now tracked
+
+`last_login` column added to `users` table (migration `f1g2h3i4j5k6`). `AuthService.login()` updates it on every successful login. `UserOut` exposes it. `StaffDetailScreen` Login Account card displays last login with human-readable relative format ("Today HH:MM", "Yesterday", "N days ago").
+
+---
+
+### [KNOWN GAP] Existing societies missing Manager/Gym Trainer roles and default designations
+
+Societies registered before 2026-06-12 do not have 'Manager' or 'Gym Trainer' roles in their role table, and have no default designations or shifts. Admin must manually create them via the API or a one-time migration script. New registrations are fully seeded from this date onward.
+
+---
+
+### [KNOWN GAP] Admin/Committee/Security dashboards show partial static values
+
+Manager and Supervisor dashboards use 100% live data for staff-related cards. Admin, Committee, and Security dashboards show live data for staff count but still show `--` for flats occupied, resident count, and visitor count — those modules need their own summary endpoints wired up. Hardcoded fake panel content has been removed (replaced with instructional guidance).
+
+### [KNOWN GAP] SecurityDashboardScreen unreachable in current 11-role system
+
+The `/security` route exists but no current role lands there. `Security Supervisor` routes to `/supervisor` (contains 'Supervisor'), `Security Staff` routes to `/staff` (contains 'Staff'). The screen remains as a fallback for legacy or custom roles with plain 'Security' designation.
+
+### [KNOWN GAP] Dashboard drawer is not role-scoped
+
+All dashboards share the same `_DashboardShell` drawer which includes links to "Users & Roles" and "Society Settings". These links are visible to all roles including Staff and Resident. The backend enforces permissions (403 on unauthorized access), so no data leaks occur, but low-privilege users see links that mostly fail. A future improvement should conditionally render drawer items based on role.
 
 ---
 

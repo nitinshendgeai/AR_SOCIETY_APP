@@ -27,6 +27,11 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
     'housekeeping',
     'technical',
     'gym',
+    'maintenance',
+    'electrical',
+    'plumbing',
+    'gardening',
+    'amenities',
     'admin',
   ];
 
@@ -36,6 +41,11 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
     'housekeeping': 'Housekeeping',
     'technical': 'Technical',
     'gym': 'Gym',
+    'maintenance': 'Maintenance',
+    'electrical': 'Electrical',
+    'plumbing': 'Plumbing',
+    'gardening': 'Gardening',
+    'amenities': 'Amenities',
     'admin': 'Admin',
   };
 
@@ -66,7 +76,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
           IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
         ],
       ),
-      floatingActionButton: societyId != null
+      floatingActionButton: (societyId != null && (user?.isAdminOrCommittee ?? false))
           ? FloatingActionButton.extended(
               onPressed: () => context.push('/staff/add'),
               backgroundColor: AppTheme.primary,

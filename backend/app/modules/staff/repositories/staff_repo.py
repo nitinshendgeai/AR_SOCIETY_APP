@@ -33,7 +33,7 @@ class StaffRepository(BaseRepository[Staff]):
         return self.db.query(Staff).filter(Staff.society_id==sid, Staff.department==dept, Staff.is_active==True).all()
 
     def next_employee_code(self, sid: UUID) -> str:
-        count = self.db.query(Staff).filter(Staff.society_id==sid).count()
+        count = self.db.query(Staff).count()
         return f"EMP-{str(count+1).zfill(4)}"
 
     def get_by_user(self, user_id: UUID) -> Optional[Staff]:

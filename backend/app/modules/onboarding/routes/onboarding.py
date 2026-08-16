@@ -40,7 +40,7 @@ def get_trial_status(
     current_user: User    = Depends(get_current_user),
 ):
     """Get current trial/subscription status for a society."""
-    society = SocietyService(db).get_or_404(society_id)
+    society = SocietyService(db).get_or_404(society_id, current_user.society_id)
     return OnboardingService(db).get_trial_status(society)
 
 
@@ -54,7 +54,7 @@ def update_setup_progress(
     current_user: User    = Depends(admin_or_committee),
 ):
     """Update society setup wizard completion percentage."""
-    society = SocietyService(db).get_or_404(society_id)
+    society = SocietyService(db).get_or_404(society_id, current_user.society_id)
     return OnboardingService(db).update_setup_progress(
         society, data.setup_completion_percentage, data.setup_completed
     )

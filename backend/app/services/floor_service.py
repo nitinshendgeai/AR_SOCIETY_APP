@@ -5,9 +5,11 @@ from typing import List
 
 from app.models.floor import Floor
 from app.models.flat import Flat
+from app.models.user import User
 from app.repositories.floor_repo import FloorRepository
 from app.repositories.wing_repo import WingRepository
 from app.schemas.floor import FloorCreate, FloorUpdate, FloorOut
+from app.core.tenant_scope import assert_society_access
 
 
 def _enrich(floor: Floor, db: Session) -> FloorOut:
@@ -26,29 +28,39 @@ class FloorService:
         self.repo      = FloorRepository(db)
         self.wing_repo = WingRepository(db)
 
-    def create(self, data: FloorCreate) -> FloorOut:
-        wing = self.wing_repo.get(data.wing_id)
+    def create(self, data: FloorCreate, current_user: User) -> FloorOut:
+        # society_id is derived from the (tenant-scoped) parent wing, not
+        # trusted from the request body — a caller-supplied society_id that
+        # doesn't match the wing's real owner would otherwise let a floor be
+        # silently attributed to the wrong society.
+        wing = self.wing_repo.get(data.wing_id, society_id=current_user.society_id)
         if not wing:
             raise HTTPException(404, "Wing not found")
         self.repo.assert_unique_number(data.wing_id, data.floor_number)
-        floor = Floor(**data.model_dump())
+        payload = data.model_dump()
+        payload["society_id"] = wing.society_id
+        floor = Floor(**payload)
         created = self.repo.create(floor)
         return _enrich(created, self.repo.db)
 
-    def get_or_404(self, id: UUID) -> FloorOut:
-        obj = self.repo.get(id)
+    def get_or_404(self, id: UUID, current_user: User) -> FloorOut:
+        obj = self.repo.get(id, society_id=current_user.society_id)
         if not obj:
             raise HTTPException(404, "Floor not found")
         return _enrich(obj, self.repo.db)
 
-    def list_by_wing(self, wing_id: UUID) -> List[FloorOut]:
+    def list_by_wing(self, wing_id: UUID, current_user: User) -> List[FloorOut]:
+        wing = self.wing_repo.get(wing_id, society_id=current_user.society_id)
+        if not wing:
+            raise HTTPException(404, "Wing not found")
         return [_enrich(f, self.repo.db) for f in self.repo.get_by_wing(wing_id)]
 
-    def list_by_society(self, society_id: UUID) -> List[FloorOut]:
+    def list_by_society(self, society_id: UUID, current_user: User) -> List[FloorOut]:
+        assert_society_access(current_user, society_id)
         return [_enrich(f, self.repo.db) for f in self.repo.get_by_society(society_id)]
 
-    def update(self, id: UUID, data: FloorUpdate) -> FloorOut:
-        floor = self.repo.get(id)
+    def update(self, id: UUID, data: FloorUpdate, current_user: User) -> FloorOut:
+        floor = self.repo.get(id, society_id=current_user.society_id)
         if not floor:
             raise HTTPException(404, "Floor not found")
         patch = data.model_dump(exclude_none=True)
@@ -57,8 +69,8 @@ class FloorService:
         updated = self.repo.update(floor, patch)
         return _enrich(updated, self.repo.db)
 
-    def delete(self, id: UUID) -> None:
-        floor = self.repo.get(id)
+    def delete(self, id: UUID, current_user: User) -> None:
+        floor = self.repo.get(id, society_id=current_user.society_id)
         if not floor:
             raise HTTPException(404, "Floor not found")
         self.repo.soft_delete(floor)

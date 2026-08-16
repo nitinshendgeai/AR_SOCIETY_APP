@@ -125,18 +125,53 @@ class _LogInterceptor extends Interceptor {
 }
 
 /// Parse Dio errors into human-readable messages.
+/// Maps HTTP status codes to user-facing messages before falling back to
+/// Dio exception types, so server errors never blame the user's internet.
 String parseApiError(DioException e) {
+  final statusCode = e.response?.statusCode;
+
+  // Try to extract server-supplied detail from JSON body first
   if (e.response?.data is Map) {
     final data = e.response!.data as Map<String, dynamic>;
-    if (data.containsKey('detail')) return data['detail'].toString();
-    if (data.containsKey('message')) return data['message'].toString();
+    final detail = data['detail'];
+    if (detail is String && detail.isNotEmpty) {
+      // Surface detail only if it's a domain error (not a generic HTTP string)
+      if (!detail.startsWith('Not Found') && !detail.startsWith('Internal Server')) {
+        return detail;
+      }
+    }
   }
+
+  // Map HTTP status codes to friendly messages
+  if (statusCode != null) {
+    switch (statusCode) {
+      case 401:
+        return 'Session expired. Please log in again.';
+      case 403:
+        return 'Permission denied. You do not have access to this action.';
+      case 404:
+        return 'The requested resource was not found.';
+      case 422:
+        return 'Invalid request. Please check your input and try again.';
+      case 500:
+      case 502:
+      case 503:
+        return 'Server error. Please try again in a moment.';
+    }
+    // Other 4xx/5xx
+    if (statusCode >= 400) return 'Request failed (HTTP $statusCode). Please try again.';
+  }
+
+  // Network-level errors (no HTTP response received)
   switch (e.type) {
     case DioExceptionType.connectionTimeout:
+    case DioExceptionType.sendTimeout:
     case DioExceptionType.receiveTimeout:
-      return 'Connection timed out. Check your internet.';
+      return 'Request timed out. The server may be starting up — please retry.';
     case DioExceptionType.connectionError:
-      return 'Cannot connect to server. Check your internet.';
+      return 'Could not reach the server. Check your connection and try again.';
+    case DioExceptionType.cancel:
+      return 'Request was cancelled.';
     default:
       return 'Something went wrong. Please try again.';
   }

@@ -1,6 +1,17 @@
 # Project Status — AR Society ERP
 
-Last updated: 2026-06-10
+Last updated: 2026-06-23
+
+---
+
+## UAT Status
+
+**Full ERP UAT completed 2026-06-20. 255 backend tests pass (0 failures). 6 Flutter defects fixed. READY FOR PILOT.**
+
+**Staff Module Certification completed 2026-06-23. 7 additional Flutter defects fixed (maintenance dept added to 4 files, inactive staff filtered from duty assignment, dead code removed). 255 backend tests still pass. CERTIFIED FOR PRODUCTION.**
+
+See `docs/UAT_REPORT.md` for full ERP audit details.  
+See `docs/STAFF_MODULE_CERTIFICATION.md` for Staff Module certification report.
 
 ---
 
@@ -13,11 +24,11 @@ Last updated: 2026-06-10
 | Auth (JWT + refresh) | ✅ Done | login, logout, change-password, /me |
 | Society (CRUD) | ✅ Done | multi-tenant, trial dates as `date` type |
 | Society Structure | ✅ Done | Wings, Floors, Flats with society_id isolation |
-| Users & Roles (RBAC) | ✅ Done | society-scoped queries, 14 default roles |
+| Users & Roles (RBAC) | ✅ Done | society-scoped queries, 16 default roles (Manager + Gym Trainer added) |
 | Onboarding (self-register) | ✅ Done | 9 default users, trial 30-day, audit log |
 | Visitors | ✅ Done | create, list, approve, society-level |
 | Complaints | ✅ Done | create, list, detail, society-level |
-| Staff | ✅ Done | attendance, duties, handover, punch-in/punch-out approval hierarchy, checkout approval, supervisor-scoped endpoints, attendance summary, complaint→dept assignment, reporting_manager_id |
+| Staff | ✅ Done | attendance, duties, handover, punch-in/punch-out approval hierarchy, checkout approval, supervisor-scoped endpoints, attendance summary (with late count), complaint→dept assignment, reporting_manager_id, address+notes fields, auto-user creation on email |
 | Amenities | ✅ Done | booking FSM |
 | Billing | ✅ Done | maintenance FSM |
 | Inventory | ✅ Done | |
@@ -44,7 +55,7 @@ Last updated: 2026-06-10
 | Flats list + form + detail | ✅ Done | |
 | Visitors | ✅ Done | |
 | Complaints | ✅ Done | |
-| Staff (complete module) | ✅ Done | Staff Master (List/Add/Edit/Detail), Punch-in/out approval hierarchy, supervisor-scoped filters, duty assignment, complaint assignment, Manager Dashboard, Supervisor Dashboard |
+| Staff (complete module) | ✅ Done | Staff Master (all fields incl. maintenance dept), Login Account management (view/reset/disable/enable), last_login display, auto-user creation, Attendance (check-in/out + overtime display), Approval with notes dialog, Duties, Handover, Manager Dashboard (7 live cards + dept summary), Supervisor Dashboard (6 live cards + duty queue + gym panel + technical dept detection). Certification 2026-06-23: 7 additional defects fixed, maintenance dept added to 4 files, inactive staff filtered from duty assignment, 255 backend tests pass, all 12 screens audited. **CERTIFIED FOR PRODUCTION.** |
 | Setup Wizard | ✅ Done | 5-step |
 
 ---

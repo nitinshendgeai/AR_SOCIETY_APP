@@ -19,8 +19,6 @@ final currentStaffProvider = FutureProvider<StaffEntity?>((ref) async {
   final repo = ref.read(staffRepositoryProvider);
   final result = await repo.getStaffByUser(user.id);
   if (result is StaffSuccess<StaffEntity>) {
-    // Sync the resolved id into staffIdProvider so nav routes work
-    ref.read(staffIdProvider.notifier).state = result.data.id;
     return result.data;
   }
   // Fallback: manual override via staffIdProvider
@@ -178,7 +176,7 @@ class HandoverNotifier extends StateNotifier<HandoverState> {
     state = HandoverLoading();
     final pendingResult = await _repo.getPendingHandovers(staffId);
     final historyResult = await _repo.getHandoverHistory(staffId);
-    if (pendingResult is StaffFailure && historyResult is StaffFailure) {
+    if (pendingResult is StaffFailure || historyResult is StaffFailure) {
       state = HandoverError((pendingResult as StaffFailure).message);
       return;
     }
@@ -302,7 +300,7 @@ class ApprovalNotifier extends StateNotifier<ApprovalState> {
     final checkin  = checkinResult  is StaffSuccess ? (checkinResult  as StaffSuccess<List<AttendanceEntity>>).data : <AttendanceEntity>[];
     final checkout = checkoutResult is StaffSuccess ? (checkoutResult as StaffSuccess<List<AttendanceEntity>>).data : <AttendanceEntity>[];
 
-    if (checkinResult is StaffFailure && checkoutResult is StaffFailure) {
+    if (checkinResult is StaffFailure || checkoutResult is StaffFailure) {
       state = ApprovalError((checkinResult as StaffFailure).message);
       return;
     }
@@ -324,6 +322,26 @@ class ApprovalNotifier extends StateNotifier<ApprovalState> {
     switch (result) {
       case StaffSuccess():
         state = ApprovalSuccess('Check-out approved');
+        await load(societyId, department: department);
+      case StaffFailure(:final message): state = ApprovalError(message);
+    }
+  }
+
+  Future<void> rejectCheckin(String attendanceId, String societyId, {String? reason, String? department}) async {
+    final result = await _repo.rejectAttendance(attendanceId, reason: reason);
+    switch (result) {
+      case StaffSuccess():
+        state = ApprovalSuccess('Check-in rejected — staff must re-check-in');
+        await load(societyId, department: department);
+      case StaffFailure(:final message): state = ApprovalError(message);
+    }
+  }
+
+  Future<void> rejectCheckout(String attendanceId, String societyId, {String? reason, String? department}) async {
+    final result = await _repo.rejectCheckout(attendanceId, reason: reason);
+    switch (result) {
+      case StaffSuccess():
+        state = ApprovalSuccess('Check-out rejected — staff must re-check-out');
         await load(societyId, department: department);
       case StaffFailure(:final message): state = ApprovalError(message);
     }
@@ -406,6 +424,22 @@ final staffFormProvider = StateNotifierProvider<StaffFormNotifier, StaffFormStat
   return StaffFormNotifier(ref.read(staffRepositoryProvider));
 });
 
+// ── Attendance summary provider ───────────────────────────────────────────────
+
+final attendanceSummaryProvider = FutureProvider.family<Map<String, dynamic>, String>(
+  (ref, societyId) async {
+    final repo = ref.read(staffRepositoryProvider);
+    final today = DateTime.now();
+    final dateStr =
+        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    final result = await repo.getAttendanceSummary(societyId, dateStr);
+    return switch (result) {
+      StaffSuccess(:final data) => data,
+      StaffFailure() => <String, dynamic>{},
+    };
+  },
+);
+
 // ── Duty assignment state ─────────────────────────────────────────────────────
 
 sealed class DutyAssignState {}
@@ -446,3 +480,19 @@ class DutyAssignNotifier extends StateNotifier<DutyAssignState> {
 final dutyAssignProvider = StateNotifierProvider<DutyAssignNotifier, DutyAssignState>((ref) {
   return DutyAssignNotifier(ref.read(staffRepositoryProvider));
 });
+
+// ── Daily society duties provider (dashboard summary) ─────────────────────────
+
+final societyDutiesProvider = FutureProvider.family<List<DutyEntity>, String>(
+  (ref, societyId) async {
+    final repo = ref.read(staffRepositoryProvider);
+    final today = DateTime.now();
+    final dateStr =
+        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    final result = await repo.getDailyDuties(societyId, dateStr);
+    return switch (result) {
+      StaffSuccess(:final data) => data,
+      StaffFailure() => <DutyEntity>[],
+    };
+  },
+);

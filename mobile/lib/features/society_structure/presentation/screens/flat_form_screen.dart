@@ -46,7 +46,11 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
       _remarks.text      = widget.flat!.remarks ?? '';
       _selectedWingId    = widget.flat!.wingId;
       _selectedFlatType  = widget.flat!.flatType;
-      _selectedOccupancy = widget.flat!.occupancyStatus;
+      // Occupancy status is deliberately NOT loaded here — it is display-only
+      // in edit mode. See the removed dropdown below and
+      // backend/app/schemas/flat.py's FlatUpdate (Phase M1.3 §5 / M1.4 §5):
+      // a flat's occupancy is changed only through the canonical
+      // Occupancy move-in/move-out workflow, never a generic Flat PATCH.
       _selectedFloor     = widget.flat!.floor;
     } else {
       _selectedWingId    = widget.defaultWing?.id;
@@ -79,7 +83,9 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
           if (_selectedFlatType != null) 'flat_type': _selectedFlatType,
           if (_area.text.trim().isNotEmpty)
             'area_sqft': double.parse(_area.text.trim()),
-          if (_selectedOccupancy != null) 'occupancy_status': _selectedOccupancy,
+          // occupancy_status intentionally omitted — FlatUpdate no longer
+          // accepts it (Phase M1.3). Occupancy changes go through the
+          // Occupancy move-in/move-out actions on Resident/Tenant detail.
           'remarks': _remarks.text.trim().isEmpty
               ? null
               : _remarks.text.trim(),
@@ -193,16 +199,41 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _selectedOccupancy,
-              decoration: const InputDecoration(labelText: 'Occupancy Status'),
-              hint: const Text('Select status (optional)'),
-              items: _occupancyStatuses
-                  .map((s) => DropdownMenuItem(
-                      value: s, child: Text(_occupancyLabel(s))))
-                  .toList(),
-              onChanged: (v) => setState(() => _selectedOccupancy = v),
-            ),
+            if (_isEdit) ...[
+              // Occupancy status is display-only once a flat exists — it is
+              // changed exclusively through the Occupancy move-in/move-out
+              // workflow (Resident/Tenant detail screens), never by editing
+              // the flat directly. See Phase M1.3 §5 / M1.4 §5.
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppTheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.border),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.info_outline_rounded, size: 18, color: AppTheme.textSecondary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Occupancy status: ${_occupancyLabel(widget.flat!.occupancyStatus ?? 'vacant')} '
+                      '— change this via Move In / Move Out on the resident or tenant, not here.',
+                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                    ),
+                  ),
+                ]),
+              ),
+            ] else
+              DropdownButtonFormField<String>(
+                value: _selectedOccupancy,
+                decoration: const InputDecoration(labelText: 'Occupancy Status'),
+                hint: const Text('Select status (optional)'),
+                items: _occupancyStatuses
+                    .map((s) => DropdownMenuItem(
+                        value: s, child: Text(_occupancyLabel(s))))
+                    .toList(),
+                onChanged: (v) => setState(() => _selectedOccupancy = v),
+              ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _remarks,

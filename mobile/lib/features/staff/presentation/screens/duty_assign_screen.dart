@@ -53,7 +53,9 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
     super.initState();
     _selectedStaffId = widget.preSelectedStaffId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(staffListProvider.notifier).load(widget.societyId);
+      if (widget.societyId.isNotEmpty) {
+        ref.read(staffListProvider.notifier).load(widget.societyId);
+      }
     });
   }
 
@@ -91,7 +93,9 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
       }
     });
 
-    final staffList = staffState is StaffListLoaded ? staffState.staff : <StaffEntity>[];
+    final staffList = staffState is StaffListLoaded
+        ? staffState.staff.where((s) => s.status == 'active').toList()
+        : <StaffEntity>[];
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
@@ -131,7 +135,6 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
                 }
                 setState(() {});
               },
-              validator: (_) => _dutyNameCtrl.text.isEmpty ? 'Select or enter a duty' : null,
             ),
             if (_dutyNameCtrl.text.isEmpty) ...[
               const SizedBox(height: 8),
@@ -241,13 +244,21 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _dutyDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 30)),
     );
     if (picked != null) setState(() => _dutyDate = picked);
   }
 
   void _submit() {
+    if (widget.societyId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Society context is missing. Please go back and try again.'),
+        backgroundColor: AppTheme.error,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
     if (_selectedStaffId == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Please select a staff member'),

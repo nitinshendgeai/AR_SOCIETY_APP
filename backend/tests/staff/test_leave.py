@@ -16,7 +16,7 @@ def _make_staff(db, society_id, code="EMP-LV1"):
 
 
 def test_leave_application_success(client, db):
-    admin   = make_user(db, "adm@leave.com", role="Admin")
+    admin   = make_user(db, "adm@leave.com", role="Society Admin")
     society = make_society(db, "Leave Society")
     staff   = _make_staff(db, society.id)
     today   = date.today()
@@ -33,7 +33,7 @@ def test_leave_application_success(client, db):
 
 
 def test_overlapping_leave_prevented(client, db):
-    admin   = make_user(db, "adm2@leave.com", role="Admin")
+    admin   = make_user(db, "adm2@leave.com", role="Society Admin")
     society = make_society(db, "Leave Society 2")
     staff   = _make_staff(db, society.id, "EMP-LV2")
     today   = date.today()
@@ -54,7 +54,7 @@ def test_overlapping_leave_prevented(client, db):
 
 
 def test_leave_to_before_from(client, db):
-    admin   = make_user(db, "adm3@leave.com", role="Admin")
+    admin   = make_user(db, "adm3@leave.com", role="Society Admin")
     society = make_society(db, "Leave Society 3")
     staff   = _make_staff(db, society.id, "EMP-LV3")
     today   = date.today()
@@ -67,7 +67,7 @@ def test_leave_to_before_from(client, db):
 
 
 def test_leave_approve_reject(client, db):
-    admin   = make_user(db, "adm4@leave.com", role="Admin")
+    admin   = make_user(db, "adm4@leave.com", role="Society Admin")
     society = make_society(db, "Leave Society 4")
     staff   = _make_staff(db, society.id, "EMP-LV4")
     today   = date.today()

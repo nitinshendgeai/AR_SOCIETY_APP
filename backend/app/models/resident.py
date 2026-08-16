@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Date, Boolean, Enum, ForeignKey, Text, Integer
+from sqlalchemy import Column, String, Date, Boolean, Enum, ForeignKey, Text, Integer, Index, CheckConstraint, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
@@ -22,6 +22,24 @@ class CommunicationPreference(str, enum.Enum):
 
 class Resident(Base, TimestampMixin):
     __tablename__ = "residents"
+    __table_args__ = (
+        # At most one ACTIVE primary resident per flat. Inactive (moved-out)
+        # residents are excluded so a historical primary never blocks a new
+        # one. Mirrored in alembic/versions/b3c4d5e6f7a8_resident_primary_constraints.py
+        # for real deployments; declared here too so the test suite's
+        # SQLite schema (built via Base.metadata.create_all(), which does
+        # not run Alembic) actually enforces it as well — see Phase M1.2.
+        Index(
+            "uq_resident_primary_per_flat", "flat_id",
+            unique=True,
+            postgresql_where=text("is_primary = true AND is_active = true"),
+            sqlite_where=text("is_primary = 1 AND is_active = 1"),
+        ),
+        CheckConstraint(
+            "is_primary IS NOT TRUE OR resident_type IN ('owner', 'co_owner')",
+            name="ck_resident_primary_type",
+        ),
+    )
 
     full_name       = Column(String(255), nullable=False)
     phone           = Column(String(20), nullable=True)

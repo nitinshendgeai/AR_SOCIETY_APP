@@ -6,7 +6,9 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/onboarding/presentation/providers/trial_status_provider.dart';
+import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
+import 'package:ar_society_app/features/complaint/presentation/providers/complaint_providers.dart';
 
 // ── Shared scaffold wrapper ───────────────────────────────────────────────────
 
@@ -19,6 +21,8 @@ class _DashboardShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final menuItems = <_MenuItem>[
+      _MenuItem('Residents', Icons.people_outline_rounded, AppRoutes.residentsList),
+      _MenuItem('Tenants', Icons.groups_2_outlined, AppRoutes.tenantsList),
       _MenuItem('Users & Roles', Icons.people_rounded, AppRoutes.usersList),
       _MenuItem('Society Settings', Icons.apartment_rounded, AppRoutes.societySettings),
       _MenuItem('Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
@@ -110,15 +114,18 @@ class _MenuItem {
   const _MenuItem(this.label, this.icon, this.route);
 }
 
-class _GreetingCard extends StatelessWidget {
+class _GreetingCard extends ConsumerWidget {
   final UserEntity? user;
   final String subtitle;
 
   const _GreetingCard({required this.user, required this.subtitle});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final today = DateTime.now();
+    final societyAsync = ref.watch(societyInfoProvider);
+    final societyName = societyAsync.valueOrNull?.name ?? '—';
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -143,7 +150,7 @@ class _GreetingCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _chip('Society Name', 'Airtel Society'),
+              _chip('Society', societyName),
               _chip('Role', user?.roles.firstOrNull ?? 'Member'),
               _chip('Date', '${today.day}/${today.month}/${today.year}'),
             ],
@@ -462,6 +469,35 @@ class AdminDashboardScreen extends ConsumerWidget {
       );
     }
 
+    // Live data
+    final societyAsync   = ref.watch(societyInfoProvider);
+    final societyInfo    = societyAsync.valueOrNull;
+    final staffListState = ref.watch(staffListProvider);
+    if (societyId != null && staffListState is StaffListInitial) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(staffListProvider.notifier).load(societyId);
+      });
+    }
+    final totalFlats  = societyInfo?.totalFlats != null ? '${societyInfo!.totalFlats}' : '--';
+    final activeStaff = staffListState is StaffListLoaded ? '${staffListState.staff.length}' : '--';
+
+    // Open complaints count
+    final complaintsAsync = societyId != null
+        ? ref.watch(openComplaintsCountProvider(societyId))
+        : const AsyncValue<int>.data(0);
+    final openComplaints = complaintsAsync.valueOrNull != null ? '${complaintsAsync.valueOrNull}' : '--';
+
+    // Pending approvals (check-in + check-out)
+    final approvalState = ref.watch(approvalProvider);
+    if (societyId != null && approvalState is ApprovalInitial) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(approvalProvider.notifier).load(societyId);
+      });
+    }
+    final pendingApprovals = approvalState is ApprovalLoaded
+        ? '${approvalState.pendingCheckin.length + approvalState.pendingCheckout.length}'
+        : '--';
+
     return _DashboardShell(
       title: 'Society Overview',
       children: [
@@ -477,47 +513,35 @@ class AdminDashboardScreen extends ConsumerWidget {
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
           childAspectRatio: 1.12,
-          children: const [
-            _SummaryCard(icon: Icons.apartment_rounded, label: 'Total Flats', value: '128', color: AppTheme.primary),
-            _SummaryCard(icon: Icons.home_rounded, label: 'Occupied Flats', value: '96', color: AppTheme.success),
-            _SummaryCard(icon: Icons.people_rounded, label: 'Residents', value: '324', color: AppTheme.secondary),
-            _SummaryCard(icon: Icons.badge_rounded, label: 'Active Staff', value: '24', color: AppTheme.warning),
-            _SummaryCard(icon: Icons.meeting_room_rounded, label: 'Visitors Today', value: '18', color: AppTheme.primary),
-            _SummaryCard(icon: Icons.report_problem_rounded, label: 'Open Complaints', value: '7', color: AppTheme.error),
-            _SummaryCard(icon: Icons.approval_rounded, label: 'Pending Approvals', value: '3', color: AppTheme.warning),
-            _SummaryCard(icon: Icons.campaign_rounded, label: 'Notice Count', value: '5', color: AppTheme.secondary),
+          children: [
+            _SummaryCard(icon: Icons.apartment_rounded, label: 'Total Flats', value: totalFlats, color: AppTheme.primary),
+            _SummaryCard(icon: Icons.home_rounded, label: 'Occupied Flats', value: '--', color: AppTheme.success),
+            _SummaryCard(icon: Icons.people_rounded, label: 'Residents', value: '--', color: AppTheme.secondary),
+            _SummaryCard(icon: Icons.badge_rounded, label: 'Active Staff', value: activeStaff, color: AppTheme.warning),
+            _SummaryCard(icon: Icons.meeting_room_rounded, label: 'Visitors Today', value: '--', color: AppTheme.primary),
+            _SummaryCard(icon: Icons.report_problem_rounded, label: 'Open Complaints', value: openComplaints, color: AppTheme.error),
+            _SummaryCard(icon: Icons.approval_rounded, label: 'Pending Approvals', value: pendingApprovals, color: AppTheme.warning),
+            _SummaryCard(icon: Icons.campaign_rounded, label: 'Notice Count', value: '--', color: AppTheme.secondary),
           ],
         ),
         const SizedBox(height: 18),
         const _SectionLabel('Quick Actions'),
         const SizedBox(height: 10),
-        Row(children: const [
-          _QuickActionChip(icon: Icons.person_add_rounded, label: 'Add Visitor', route: AppRoutes.visitorsCreate),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Create Complaint', route: AppRoutes.complaints),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.badge_rounded, label: 'Add Staff', route: AppRoutes.staffHome),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.campaign_rounded, label: 'Add Notice', route: AppRoutes.complaintsCreate),
+        Row(children: [
+          _QuickActionChip(
+            icon: Icons.person_add_rounded, label: 'Add Visitor',
+            onTap: societyId != null
+                ? () => context.push(AppRoutes.visitorsCreate, extra: societyId)
+                : null,
+          ),
+          const SizedBox(width: 8),
+          const _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: AppRoutes.complaints),
+          const SizedBox(width: 8),
+          const _QuickActionChip(icon: Icons.person_add_alt_1_rounded, label: 'Add Staff', route: AppRoutes.staffAdd),
+          const SizedBox(width: 8),
+          const _QuickActionChip(icon: Icons.badge_rounded, label: 'Staff List', route: AppRoutes.staffList),
         ]),
         const SizedBox(height: 18),
-        _OperationalPanel(title: 'Recent Complaints', children: const [
-          _InfoTile(icon: Icons.receipt_long_rounded, title: 'CMP-1042', value: 'Water leakage · In progress', color: AppTheme.warning),
-          SizedBox(height: 8),
-          _InfoTile(icon: Icons.electric_bolt_rounded, title: 'CMP-1040', value: 'Power issue · Open', color: AppTheme.error),
-        ]),
-        const SizedBox(height: 12),
-        _OperationalPanel(title: 'Today\'s Visitors', children: const [
-          _InfoTile(icon: Icons.person_rounded, title: 'Ravi Sharma', value: 'Flat A-204 · Approved', color: AppTheme.primary),
-          SizedBox(height: 8),
-          _InfoTile(icon: Icons.person_outline_rounded, title: 'Neha Verma', value: 'Flat B-110 · Checked In', color: AppTheme.success),
-        ]),
-        const SizedBox(height: 12),
-        _OperationalPanel(title: 'Staff On Duty', children: const [
-          _InfoTile(icon: Icons.badge_rounded, title: 'A. Khan', value: 'Security · Night Shift', color: AppTheme.secondary),
-          SizedBox(height: 8),
-          _InfoTile(icon: Icons.cleaning_services_rounded, title: 'M. Rao', value: 'Housekeeping · Morning Shift', color: AppTheme.warning),
-        ]),
         const SizedBox(height: 18),
         _StatusBar(user: user),
       ],
@@ -533,6 +557,33 @@ class CommitteeDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
+    final societyId = user?.societyId;
+
+    final staffListState = ref.watch(staffListProvider);
+    if (societyId != null && staffListState is StaffListInitial) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(staffListProvider.notifier).load(societyId);
+      });
+    }
+    final staffCount = staffListState is StaffListLoaded ? '${staffListState.staff.length}' : '--';
+
+    final committeeComplaintsAsync = societyId != null
+        ? ref.watch(openComplaintsCountProvider(societyId))
+        : const AsyncValue<int>.data(0);
+    final committeeComplaints = committeeComplaintsAsync.valueOrNull != null
+        ? '${committeeComplaintsAsync.valueOrNull}'
+        : '--';
+
+    final committeeApprovalState = ref.watch(approvalProvider);
+    if (societyId != null && committeeApprovalState is ApprovalInitial) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(approvalProvider.notifier).load(societyId);
+      });
+    }
+    final committeeApprovals = committeeApprovalState is ApprovalLoaded
+        ? '${committeeApprovalState.pendingCheckin.length + committeeApprovalState.pendingCheckout.length}'
+        : '--';
+
     return _DashboardShell(
       title: 'Chairman Dashboard',
       children: [
@@ -547,11 +598,11 @@ class CommitteeDashboardScreen extends ConsumerWidget {
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
           childAspectRatio: 1.12,
-          children: const [
-            _SummaryCard(icon: Icons.report_problem_rounded, label: 'Complaints', value: '7', color: AppTheme.error),
-            _SummaryCard(icon: Icons.campaign_rounded, label: 'Notices', value: '5', color: AppTheme.primary),
-            _SummaryCard(icon: Icons.approval_rounded, label: 'Approvals', value: '3', color: AppTheme.warning),
-            _SummaryCard(icon: Icons.people_rounded, label: 'Staff', value: '24', color: AppTheme.secondary),
+          children: [
+            _SummaryCard(icon: Icons.report_problem_rounded, label: 'Complaints', value: committeeComplaints, color: AppTheme.error),
+            _SummaryCard(icon: Icons.campaign_rounded, label: 'Notices', value: '--', color: AppTheme.primary),
+            _SummaryCard(icon: Icons.approval_rounded, label: 'Approvals', value: committeeApprovals, color: AppTheme.warning),
+            _SummaryCard(icon: Icons.people_rounded, label: 'Staff', value: staffCount, color: AppTheme.secondary),
           ],
         ),
         const SizedBox(height: 18),
@@ -560,7 +611,7 @@ class CommitteeDashboardScreen extends ConsumerWidget {
         Row(children: const [
           _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: AppRoutes.complaints),
           SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.campaign_rounded, label: 'Updates', route: AppRoutes.societySettings),
+          _QuickActionChip(icon: Icons.settings_outlined, label: 'Society Info', route: AppRoutes.societySettings),
           SizedBox(width: 8),
           _QuickActionChip(icon: Icons.people_rounded, label: 'Staff', route: AppRoutes.staffHome),
           SizedBox(width: 8),
@@ -568,9 +619,9 @@ class CommitteeDashboardScreen extends ConsumerWidget {
         ]),
         const SizedBox(height: 18),
         _OperationalPanel(title: 'Open actions', children: const [
-          _InfoTile(icon: Icons.pending_actions_rounded, title: 'Pending approvals', value: '3 items need review', color: AppTheme.warning),
+          _InfoTile(icon: Icons.pending_actions_rounded, title: 'Pending approvals', value: 'See Staff → Approvals', color: AppTheme.warning),
           SizedBox(height: 8),
-          _InfoTile(icon: Icons.gpp_good_rounded, title: 'Society status', value: 'All core services running', color: AppTheme.success),
+          _InfoTile(icon: Icons.gpp_good_rounded, title: 'Society status', value: 'Staff module operational', color: AppTheme.success),
         ]),
         const SizedBox(height: 18),
         _StatusBar(user: user),
@@ -587,6 +638,7 @@ class SecurityDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
+    final societyId = user?.societyId;
     return _DashboardShell(
       title: 'Security Supervisor',
       children: [
@@ -602,29 +654,34 @@ class SecurityDashboardScreen extends ConsumerWidget {
           mainAxisSpacing: 12,
           childAspectRatio: 1.12,
           children: const [
-            _SummaryCard(icon: Icons.people_rounded, label: 'Visitors Today', value: '18', color: AppTheme.primary),
-            _SummaryCard(icon: Icons.login_rounded, label: 'Check-ins', value: '12', color: AppTheme.success),
-            _SummaryCard(icon: Icons.local_parking_rounded, label: 'Parking Entries', value: '9', color: AppTheme.secondary),
-            _SummaryCard(icon: Icons.shield_rounded, label: 'Duty Status', value: 'On Duty', color: AppTheme.warning),
+            _SummaryCard(icon: Icons.people_rounded, label: 'Visitors Today', value: '--', color: AppTheme.primary),
+            _SummaryCard(icon: Icons.login_rounded, label: 'Check-ins', value: '--', color: AppTheme.success),
+            _SummaryCard(icon: Icons.local_parking_rounded, label: 'Parking Entries', value: '--', color: AppTheme.secondary),
+            _SummaryCard(icon: Icons.shield_rounded, label: 'Duty Status', value: 'Active', color: AppTheme.warning),
           ],
         ),
         const SizedBox(height: 18),
         const _SectionLabel('Quick Actions'),
         const SizedBox(height: 10),
-        Row(children: const [
-          _QuickActionChip(icon: Icons.person_add_rounded, label: 'Log Visitor', route: AppRoutes.visitorsCreate),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.login_rounded, label: 'Check In', route: AppRoutes.visitorsPending),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.logout_rounded, label: 'Check Out', route: AppRoutes.visitorsMy),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.list_alt_rounded, label: 'Visitor Log', route: AppRoutes.visitorsMy),
+        Row(children: [
+          _QuickActionChip(
+            icon: Icons.person_add_rounded, label: 'Log Visitor',
+            onTap: societyId != null
+                ? () => context.push(AppRoutes.visitorsCreate, extra: societyId)
+                : null,
+          ),
+          const SizedBox(width: 8),
+          const _QuickActionChip(icon: Icons.login_rounded, label: 'Check In', route: AppRoutes.visitorsPending),
+          const SizedBox(width: 8),
+          const _QuickActionChip(icon: Icons.logout_rounded, label: 'Check Out', route: AppRoutes.visitorsMy),
+          const SizedBox(width: 8),
+          const _QuickActionChip(icon: Icons.list_alt_rounded, label: 'Visitor Log', route: AppRoutes.visitorsMy),
         ]),
         const SizedBox(height: 18),
         _OperationalPanel(title: 'Shift Notes', children: const [
-          _InfoTile(icon: Icons.swap_horiz_rounded, title: 'Handover', value: 'Shift handover confirmed', color: AppTheme.warning),
+          _InfoTile(icon: Icons.swap_horiz_rounded, title: 'Handover', value: 'Use Staff → Handover to log shift notes', color: AppTheme.warning),
           SizedBox(height: 8),
-          _InfoTile(icon: Icons.gpp_good_rounded, title: 'Security status', value: 'All gates monitored', color: AppTheme.success),
+          _InfoTile(icon: Icons.gpp_good_rounded, title: 'Visitor log', value: 'Use visitor actions above to manage entries', color: AppTheme.success),
         ]),
         const SizedBox(height: 18),
         _StatusBar(user: user),
@@ -656,10 +713,10 @@ class ResidentDashboardScreen extends ConsumerWidget {
           mainAxisSpacing: 12,
           childAspectRatio: 1.12,
           children: const [
-            _SummaryCard(icon: Icons.report_problem_rounded, label: 'Open Complaints', value: '2', color: AppTheme.error),
-            _SummaryCard(icon: Icons.campaign_rounded, label: 'Notices', value: '3', color: AppTheme.primary),
-            _SummaryCard(icon: Icons.receipt_long_rounded, label: 'Bills', value: '1 pending', color: AppTheme.warning),
-            _SummaryCard(icon: Icons.home_rounded, label: 'My Flat', value: 'A-204', color: AppTheme.success),
+            _SummaryCard(icon: Icons.report_problem_rounded, label: 'Open Complaints', value: '--', color: AppTheme.error),
+            _SummaryCard(icon: Icons.campaign_rounded, label: 'Notices', value: '--', color: AppTheme.primary),
+            _SummaryCard(icon: Icons.receipt_long_rounded, label: 'Bills', value: '--', color: AppTheme.warning),
+            _SummaryCard(icon: Icons.home_rounded, label: 'My Flat', value: '--', color: AppTheme.success),
           ],
         ),
         const SizedBox(height: 18),
@@ -668,23 +725,66 @@ class ResidentDashboardScreen extends ConsumerWidget {
         Row(children: const [
           _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaint', route: AppRoutes.complaints),
           SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.campaign_rounded, label: 'Updates', route: AppRoutes.societySettings),
+          _QuickActionChip(icon: Icons.settings_outlined, label: 'Society Info', route: AppRoutes.societySettings),
           SizedBox(width: 8),
           _QuickActionChip(icon: Icons.person_rounded, label: 'Visitors', route: AppRoutes.visitorsMy),
           SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.receipt_long_rounded, label: 'Settings', route: AppRoutes.societySettings),
+          _QuickActionChip(icon: Icons.pending_actions_rounded, label: 'Approvals', route: AppRoutes.visitorsPending),
         ]),
         const SizedBox(height: 18),
         _OperationalPanel(title: 'Recent updates', children: const [
-          _InfoTile(icon: Icons.info_outline_rounded, title: 'Notice board', value: 'Community meeting scheduled', color: AppTheme.primary),
+          _InfoTile(icon: Icons.info_outline_rounded, title: 'Notice board', value: 'Check notices via Society Updates', color: AppTheme.primary),
           SizedBox(height: 8),
-          _InfoTile(icon: Icons.pending_actions_rounded, title: 'Pending approvals', value: 'Visitor entry approval', color: AppTheme.warning),
+          _InfoTile(icon: Icons.pending_actions_rounded, title: 'Visitor approvals', value: 'Use Visitors above to manage entries', color: AppTheme.warning),
         ]),
         const SizedBox(height: 18),
         _StatusBar(user: user),
       ],
     );
   }
+}
+
+class _DeptRow extends StatelessWidget {
+  final String dept;
+  final int present;
+  final int absent;
+  const _DeptRow({required this.dept, required this.present, required this.absent});
+
+  String get _label {
+    switch (dept) {
+      case 'security':     return 'Security';
+      case 'housekeeping': return 'Housekeeping';
+      case 'technical':    return 'Technical';
+      case 'gym':          return 'Gym';
+      case 'admin':        return 'Administration';
+      default:             return dept[0].toUpperCase() + dept.substring(1);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: Text(_label,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+        ),
+        _pill('$present present', AppTheme.success),
+        const SizedBox(width: 6),
+        _pill('$absent absent', AppTheme.error),
+      ],
+    );
+  }
+
+  Widget _pill(String label, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+  );
 }
 
 // ── Manager Dashboard ─────────────────────────────────────────────────────────
@@ -698,15 +798,49 @@ class ManagerDashboardScreen extends ConsumerWidget {
     final societyId = user?.societyId;
 
     final approvalState = ref.watch(approvalProvider);
-    // Load on first build
     if (societyId != null && approvalState is ApprovalInitial) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(approvalProvider.notifier).load(societyId);
       });
     }
 
+    final staffListState = ref.watch(staffListProvider);
+    if (societyId != null && staffListState is StaffListInitial) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(staffListProvider.notifier).load(societyId);
+      });
+    }
+
     final pendingCheckin  = approvalState is ApprovalLoaded ? approvalState.pendingCheckin.length  : 0;
     final pendingCheckout = approvalState is ApprovalLoaded ? approvalState.pendingCheckout.length : 0;
+    final totalStaff      = staffListState is StaffListLoaded ? '${staffListState.staff.length}' : '--';
+
+    // Attendance summary for absent + late
+    final summaryAsync = societyId != null
+        ? ref.watch(attendanceSummaryProvider(societyId))
+        : const AsyncValue<Map<String, dynamic>>.data({});
+    final summary     = summaryAsync.valueOrNull ?? {};
+    final absentCount = summary['absent'] != null ? '${summary['absent']}' : '--';
+    final lateCount   = summary['late']   != null ? '${summary['late']}'   : '--';
+
+    // Open complaints count
+    final complaintsAsync = societyId != null
+        ? ref.watch(openComplaintsCountProvider(societyId))
+        : const AsyncValue<int>.data(0);
+    final openComplaints = complaintsAsync.valueOrNull != null
+        ? '${complaintsAsync.valueOrNull}'
+        : '--';
+
+    // Duty assignment queue
+    final dutiesAsync = societyId != null
+        ? ref.watch(societyDutiesProvider(societyId))
+        : const AsyncValue<List<DutyEntity>>.data([]);
+    final duties         = dutiesAsync.valueOrNull ?? [];
+    final pendingDuties  = duties.where((d) => !d.isCompleted).length;
+
+    // Department breakdown from summary
+    final deptBreakdown = (summary['department_breakdown'] as Map?)
+        ?.cast<String, dynamic>() ?? {};
 
     return _DashboardShell(
       title: 'Manager Dashboard',
@@ -725,27 +859,68 @@ class ManagerDashboardScreen extends ConsumerWidget {
           children: [
             _SummaryCard(
               icon: Icons.login_rounded,
-              label: 'Pending Check-in Approvals',
-              value: pendingCheckin > 0 ? '$pendingCheckin' : '0',
+              label: 'Pending Check-in',
+              value: '$pendingCheckin',
               color: pendingCheckin > 0 ? AppTheme.warning : AppTheme.success,
             ),
             _SummaryCard(
               icon: Icons.logout_rounded,
-              label: 'Pending Check-out Approvals',
-              value: pendingCheckout > 0 ? '$pendingCheckout' : '0',
+              label: 'Pending Punch-out',
+              value: '$pendingCheckout',
               color: pendingCheckout > 0 ? AppTheme.error : AppTheme.success,
             ),
-            _SummaryCard(icon: Icons.badge_rounded, label: 'Total Staff', value: '--', color: AppTheme.primary),
-            _SummaryCard(icon: Icons.assignment_rounded, label: 'Open Complaints', value: '7', color: AppTheme.error),
+            _SummaryCard(
+              icon: Icons.person_off_rounded,
+              label: 'Absent Staff',
+              value: absentCount,
+              color: AppTheme.error,
+            ),
+            _SummaryCard(
+              icon: Icons.schedule_rounded,
+              label: 'Late Staff',
+              value: lateCount,
+              color: AppTheme.warning,
+            ),
+            _SummaryCard(icon: Icons.badge_rounded, label: 'Total Staff', value: totalStaff, color: AppTheme.primary),
+            _SummaryCard(
+              icon: Icons.assignment_rounded,
+              label: 'Open Complaints',
+              value: openComplaints,
+              color: openComplaints != '0' && openComplaints != '--' ? AppTheme.error : AppTheme.success,
+            ),
+            _SummaryCard(
+              icon: Icons.assignment_late_rounded,
+              label: 'Duty Queue',
+              value: dutiesAsync.isLoading ? '--' : '$pendingDuties',
+              color: pendingDuties > 0 ? AppTheme.warning : AppTheme.success,
+            ),
           ],
         ),
+        if (deptBreakdown.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          const _SectionLabel('Department Summary'),
+          const SizedBox(height: 10),
+          _OperationalPanel(
+            title: 'Attendance by Department',
+            children: [
+              for (final entry in deptBreakdown.entries)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _DeptRow(
+                    dept: entry.key,
+                    present: (entry.value as Map<String, dynamic>)['present'] as int? ?? 0,
+                    absent: (entry.value as Map<String, dynamic>)['absent'] as int? ?? 0,
+                  ),
+                ),
+            ],
+          ),
+        ],
         const SizedBox(height: 18),
         const _SectionLabel('Quick Actions'),
         const SizedBox(height: 10),
         Row(children: [
           _QuickActionChip(
             icon: Icons.approval_rounded, label: 'Approvals',
-            route: societyId != null ? null : null,
             onTap: societyId != null ? () => context.push(AppRoutes.staffApprovals, extra: societyId) : null,
           ),
           const SizedBox(width: 8),
@@ -759,14 +934,6 @@ class ManagerDashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(width: 8),
           _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: AppRoutes.complaints),
-        ]),
-        const SizedBox(height: 18),
-        _OperationalPanel(title: 'Department Status', children: const [
-          _InfoTile(icon: Icons.security_rounded, title: 'Security', value: 'All on duty', color: AppTheme.success),
-          SizedBox(height: 8),
-          _InfoTile(icon: Icons.cleaning_services_rounded, title: 'Housekeeping', value: 'Awaiting approval', color: AppTheme.warning),
-          SizedBox(height: 8),
-          _InfoTile(icon: Icons.build_rounded, title: 'Technical', value: 'All on duty', color: AppTheme.success),
         ]),
         const SizedBox(height: 18),
         _StatusBar(user: user),
@@ -784,12 +951,14 @@ class SupervisorDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user      = ref.watch(currentUserProvider);
     final societyId = user?.societyId;
+    final staffId   = ref.watch(staffIdProvider);
 
     // Detect department from role
     final roles = user?.roles ?? [];
     final isHousekeeping = roles.any((r) => r.toLowerCase().contains('housekeeping'));
-    final department = isHousekeeping ? 'housekeeping' : 'security';
-    final deptLabel  = isHousekeeping ? 'Housekeeping' : 'Security';
+    final isTechnical    = roles.any((r) => r.toLowerCase().contains('technical'));
+    final department = isHousekeeping ? 'housekeeping' : (isTechnical ? 'technical' : 'security');
+    final deptLabel  = isHousekeeping ? 'Housekeeping' : (isTechnical ? 'Technical' : 'Security');
 
     final approvalState = ref.watch(approvalProvider);
     if (societyId != null && approvalState is ApprovalInitial) {
@@ -798,8 +967,22 @@ class SupervisorDashboardScreen extends ConsumerWidget {
       });
     }
 
+    final summaryAsync = societyId != null
+        ? ref.watch(attendanceSummaryProvider(societyId))
+        : const AsyncValue<Map<String, dynamic>>.data({});
+
+    final dutiesAsync = societyId != null
+        ? ref.watch(societyDutiesProvider(societyId))
+        : const AsyncValue<List<DutyEntity>>.data([]);
+
     final pendingCheckin  = approvalState is ApprovalLoaded ? approvalState.pendingCheckin.length  : 0;
     final pendingCheckout = approvalState is ApprovalLoaded ? approvalState.pendingCheckout.length : 0;
+    final summary         = summaryAsync.valueOrNull ?? {};
+    final presentCount    = summary['present'] != null ? '${summary['present']}' : '--';
+    final absentCount     = summary['absent']  != null ? '${summary['absent']}'  : '--';
+    final duties          = dutiesAsync.valueOrNull ?? [];
+    final pendingDuties   = duties.where((d) => !d.isCompleted).length;
+    final completedDuties = duties.where((d) => d.isCompleted).length;
 
     return _DashboardShell(
       title: '$deptLabel Supervisor',
@@ -816,8 +999,8 @@ class SupervisorDashboardScreen extends ConsumerWidget {
           mainAxisSpacing: 12,
           childAspectRatio: 1.12,
           children: [
-            _SummaryCard(icon: Icons.people_rounded, label: 'Staff Present', value: '--', color: AppTheme.success),
-            _SummaryCard(icon: Icons.person_off_rounded, label: 'Staff Absent', value: '--', color: AppTheme.error),
+            _SummaryCard(icon: Icons.people_rounded, label: 'Staff Present', value: presentCount, color: AppTheme.success),
+            _SummaryCard(icon: Icons.person_off_rounded, label: 'Staff Absent', value: absentCount, color: AppTheme.error),
             _SummaryCard(
               icon: Icons.login_rounded,
               label: 'Pending Check-in',
@@ -830,6 +1013,18 @@ class SupervisorDashboardScreen extends ConsumerWidget {
               value: pendingCheckout > 0 ? '$pendingCheckout' : '0',
               color: pendingCheckout > 0 ? AppTheme.error : AppTheme.success,
             ),
+            _SummaryCard(
+              icon: Icons.assignment_late_rounded,
+              label: 'Duties Pending',
+              value: dutiesAsync.isLoading ? '--' : '$pendingDuties',
+              color: pendingDuties > 0 ? AppTheme.warning : AppTheme.success,
+            ),
+            _SummaryCard(
+              icon: Icons.assignment_turned_in_rounded,
+              label: 'Duties Done',
+              value: dutiesAsync.isLoading ? '--' : '$completedDuties',
+              color: AppTheme.success,
+            ),
           ],
         ),
         const SizedBox(height: 18),
@@ -839,7 +1034,8 @@ class SupervisorDashboardScreen extends ConsumerWidget {
           _QuickActionChip(
             icon: Icons.approval_rounded, label: 'Approvals',
             onTap: societyId != null
-                ? () => context.push(AppRoutes.staffApprovals, extra: societyId)
+                ? () => context.push(AppRoutes.staffApprovals,
+                    extra: {'societyId': societyId, 'department': department})
                 : null,
           ),
           const SizedBox(width: 8),
@@ -852,14 +1048,25 @@ class SupervisorDashboardScreen extends ConsumerWidget {
                 : null,
           ),
           const SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.swap_horiz_rounded, label: 'Handover', route: AppRoutes.staffHome),
+          _QuickActionChip(
+            icon: Icons.swap_horiz_rounded, label: 'Handover',
+            onTap: staffId != null && societyId != null
+                ? () => context.push('/staff/handover/$staffId', extra: societyId)
+                : null,
+          ),
         ]),
         const SizedBox(height: 18),
-        if (isHousekeeping)
-          _OperationalPanel(title: 'Gym Attendance', children: const [
-            _InfoTile(icon: Icons.fitness_center_rounded, title: 'Gym Trainer', value: 'Pending approval', color: AppTheme.warning),
+        if (isHousekeeping && dutiesAsync.valueOrNull != null) ...[
+          _OperationalPanel(title: 'Dept Check-in Approvals', children: [
+            _InfoTile(
+              icon: Icons.fitness_center_rounded,
+              title: '$deptLabel Staff',
+              value: pendingCheckin > 0 ? '$pendingCheckin pending approval' : 'All approved',
+              color: pendingCheckin > 0 ? AppTheme.warning : AppTheme.success,
+            ),
           ]),
-        const SizedBox(height: 18),
+          const SizedBox(height: 18),
+        ],
         _StatusBar(user: user),
       ],
     );

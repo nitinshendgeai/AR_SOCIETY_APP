@@ -162,7 +162,7 @@ def test_role_assigned_on_registration(client):
 def test_idempotent_role_assignment(client, db):
     """Assigning same role twice should not create duplicate UserRole entries."""
     from app.models.user import UserRole
-    admin = make_user(db, "roledup@auth.com", role="Admin")
+    admin = make_user(db, "roledup@auth.com", role="Society Admin")
     user_id = admin["user"].id
 
     # Assign Admin role again via API

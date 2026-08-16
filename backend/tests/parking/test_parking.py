@@ -27,7 +27,7 @@ def _create_slot(client, headers, society_id, zone_id, slot_num="P-001"):
 
 
 def test_create_zone_success(client, db):
-    admin   = make_user(db, "adm@park.com", role="Admin")
+    admin   = make_user(db, "adm@park.com", role="Society Admin")
     society = make_society(db, "Parking Society")
     r = _create_zone(client, admin["headers"], society.id)
     assert r.status_code == 201
@@ -42,7 +42,7 @@ def test_create_zone_requires_admin_or_committee(client, db):
 
 
 def test_create_slot_success(client, db):
-    admin   = make_user(db, "adm2@park.com", role="Admin")
+    admin   = make_user(db, "adm2@park.com", role="Society Admin")
     society = make_society(db, "Parking Society 3")
     zr      = _create_zone(client, admin["headers"], society.id, "Zone C")
     zone_id = zr.json()["id"]
@@ -53,7 +53,7 @@ def test_create_slot_success(client, db):
 
 
 def test_list_slots_by_zone(client, db):
-    admin   = make_user(db, "adm3@park.com", role="Admin")
+    admin   = make_user(db, "adm3@park.com", role="Society Admin")
     society = make_society(db, "Parking Society 4")
     zr      = _create_zone(client, admin["headers"], society.id, "Zone D")
     zone_id = zr.json()["id"]
@@ -66,7 +66,7 @@ def test_list_slots_by_zone(client, db):
 
 
 def test_allocate_slot_to_resident(client, db):
-    admin    = make_user(db, "adm4@park.com", role="Admin")
+    admin    = make_user(db, "adm4@park.com", role="Society Admin")
     resident = make_user(db, "res2@park.com", role="Resident")
     society  = make_society(db, "Parking Society 5")
     zr       = _create_zone(client, admin["headers"], society.id, "Zone E")
@@ -90,7 +90,7 @@ def test_allocate_slot_to_resident(client, db):
 
 
 def test_duplicate_allocation_rejected(client, db):
-    admin   = make_user(db, "adm5@park.com", role="Admin")
+    admin   = make_user(db, "adm5@park.com", role="Society Admin")
     society = make_society(db, "Parking Society 6")
     zr      = _create_zone(client, admin["headers"], society.id, "Zone F")
     zone_id = zr.json()["id"]

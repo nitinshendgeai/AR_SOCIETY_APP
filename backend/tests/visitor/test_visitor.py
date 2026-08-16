@@ -31,7 +31,7 @@ def _make_gate(client, admin_headers, society_id):
 # ── Gate tests ────────────────────────────────────────────────────────────────
 
 def test_create_gate_success(client, db):
-    admin   = make_user(db, "adm@vis.com", role="Admin")
+    admin   = make_user(db, "adm@vis.com", role="Society Admin")
     society = make_society(db, "Visitor Society 1")
     r = client.post("/api/v1/visitors/gates",
                     json={"society_id": str(society.id), "name": "Gate 1", "gate_type": "both"},
@@ -41,7 +41,7 @@ def test_create_gate_success(client, db):
 
 
 def test_non_admin_cannot_create_gate(client, db):
-    security = make_user(db, "sec@vis.com", role="Security")
+    security = make_user(db, "sec@vis.com", role="Security Staff")
     society  = make_society(db, "Visitor Society 2")
     r = client.post("/api/v1/visitors/gates",
                     json={"society_id": str(society.id), "name": "Gate 2", "gate_type": "both"},
@@ -50,7 +50,7 @@ def test_non_admin_cannot_create_gate(client, db):
 
 
 def test_list_gates(client, db):
-    admin   = make_user(db, "adm2@vis.com", role="Admin")
+    admin   = make_user(db, "adm2@vis.com", role="Society Admin")
     society = make_society(db, "Visitor Society 3")
     for i in range(2):
         client.post("/api/v1/visitors/gates",
@@ -64,8 +64,8 @@ def test_list_gates(client, db):
 # ── Visitor workflow tests ────────────────────────────────────────────────────
 
 def test_security_creates_visitor(client, db):
-    admin    = make_user(db, "adm3@vis.com", role="Admin")
-    security = make_user(db, "sec2@vis.com", role="Security")
+    admin    = make_user(db, "adm3@vis.com", role="Society Admin")
+    security = make_user(db, "sec2@vis.com", role="Security Staff")
     society  = make_society(db, "Visitor Society 4")
 
     r = client.post("/api/v1/visitors/",
@@ -88,9 +88,9 @@ def test_resident_cannot_create_visitor(client, db):
 
 
 def test_resident_approves_visitor(client, db):
-    admin    = make_user(db, "adm4@vis.com", role="Admin")
+    admin    = make_user(db, "adm4@vis.com", role="Society Admin")
     resident = make_user(db, "res2@vis.com", role="Resident")
-    security = make_user(db, "sec3@vis.com", role="Security")
+    security = make_user(db, "sec3@vis.com", role="Security Staff")
     society  = make_society(db, "Visitor Society 6")
 
     r = client.post("/api/v1/visitors/",
@@ -107,7 +107,7 @@ def test_resident_approves_visitor(client, db):
 
 
 def test_resident_rejects_visitor(client, db):
-    security = make_user(db, "sec4@vis.com", role="Security")
+    security = make_user(db, "sec4@vis.com", role="Security Staff")
     resident = make_user(db, "res3@vis.com", role="Resident")
     society  = make_society(db, "Visitor Society 7")
 
@@ -125,8 +125,8 @@ def test_resident_rejects_visitor(client, db):
 
 
 def test_check_in_visitor(client, db):
-    admin    = make_user(db, "adm5@vis.com", role="Admin")
-    security = make_user(db, "sec5@vis.com", role="Security")
+    admin    = make_user(db, "adm5@vis.com", role="Society Admin")
+    security = make_user(db, "sec5@vis.com", role="Security Staff")
     society  = make_society(db, "Visitor Society 8")
 
     r = client.post("/api/v1/visitors/",
@@ -148,8 +148,8 @@ def test_check_in_visitor(client, db):
 
 
 def test_check_out_visitor(client, db):
-    admin    = make_user(db, "adm6@vis.com", role="Admin")
-    security = make_user(db, "sec6@vis.com", role="Security")
+    admin    = make_user(db, "adm6@vis.com", role="Society Admin")
+    security = make_user(db, "sec6@vis.com", role="Security Staff")
     society  = make_society(db, "Visitor Society 9")
 
     r = client.post("/api/v1/visitors/",
@@ -171,7 +171,7 @@ def test_check_out_visitor(client, db):
 
 
 def test_invalid_mobile_rejected(client, db):
-    security = make_user(db, "sec7@vis.com", role="Security")
+    security = make_user(db, "sec7@vis.com", role="Security Staff")
     society  = make_society(db, "Visitor Society 10")
     payload  = _visitor_payload(society.id)
     payload["mobile"] = "not-a-number"
@@ -180,8 +180,8 @@ def test_invalid_mobile_rejected(client, db):
 
 
 def test_list_visitors_for_society(client, db):
-    admin    = make_user(db, "adm7@vis.com", role="Admin")
-    security = make_user(db, "sec8@vis.com", role="Security")
+    admin    = make_user(db, "adm7@vis.com", role="Society Admin")
+    security = make_user(db, "sec8@vis.com", role="Security Staff")
     society  = make_society(db, "Visitor Society 11")
 
     for i in range(3):
@@ -197,7 +197,7 @@ def test_list_visitors_for_society(client, db):
 
 
 def test_pending_approvals_for_resident(client, db):
-    security = make_user(db, "sec9@vis.com", role="Security")
+    security = make_user(db, "sec9@vis.com", role="Security Staff")
     resident = make_user(db, "res4@vis.com", role="Resident")
     society  = make_society(db, "Visitor Society 12")
     wing     = make_wing(db, society.id, "V Wing")

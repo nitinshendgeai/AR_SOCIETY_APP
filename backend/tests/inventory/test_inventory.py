@@ -19,7 +19,7 @@ def _create_item(client, headers, society_id, name="Mop"):
 
 
 def test_create_item_success(client, db):
-    admin   = make_user(db, "adm@inv.com", role="Admin")
+    admin   = make_user(db, "adm@inv.com", role="Society Admin")
     society = make_society(db, "Inventory Society")
     r = _create_item(client, admin["headers"], society.id)
     assert r.status_code == 201
@@ -35,7 +35,7 @@ def test_create_item_requires_admin_or_committee(client, db):
 
 
 def test_list_items_by_society(client, db):
-    admin   = make_user(db, "adm2@inv.com", role="Admin")
+    admin   = make_user(db, "adm2@inv.com", role="Society Admin")
     society = make_society(db, "Inventory Society 3")
     _create_item(client, admin["headers"], society.id, "Broom")
     _create_item(client, admin["headers"], society.id, "Dustpan")
@@ -46,7 +46,7 @@ def test_list_items_by_society(client, db):
 
 
 def test_stock_in_increases_stock(client, db):
-    admin   = make_user(db, "adm3@inv.com", role="Admin")
+    admin   = make_user(db, "adm3@inv.com", role="Society Admin")
     society = make_society(db, "Inventory Society 4")
     ir      = _create_item(client, admin["headers"], society.id, "Gloves")
     item_id = ir.json()["id"]
@@ -60,8 +60,8 @@ def test_stock_in_increases_stock(client, db):
 
 
 def test_issue_item_to_staff(client, db):
-    admin    = make_user(db, "adm4@inv.com", role="Admin")
-    staff_u  = make_user(db, "stf@inv.com", role="Staff")
+    admin    = make_user(db, "adm4@inv.com", role="Society Admin")
+    staff_u  = make_user(db, "stf@inv.com", role="Security Staff")
     society  = make_society(db, "Inventory Society 5")
     ir       = _create_item(client, admin["headers"], society.id, "Cleaning Kit")
     item_id  = ir.json()["id"]
@@ -86,7 +86,7 @@ def test_issue_item_to_staff(client, db):
 
 
 def test_stock_in_zero_quantity_rejected(client, db):
-    admin   = make_user(db, "adm5@inv.com", role="Admin")
+    admin   = make_user(db, "adm5@inv.com", role="Society Admin")
     society = make_society(db, "Inventory Society 6")
     ir      = _create_item(client, admin["headers"], society.id, "Cloth")
     item_id = ir.json()["id"]

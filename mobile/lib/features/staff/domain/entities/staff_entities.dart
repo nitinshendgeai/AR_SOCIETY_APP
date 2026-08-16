@@ -56,6 +56,12 @@ class StaffEntity {
   final String? designationId;
   final String? designationName;
   final String? reportingManagerName;
+  final String? tempPassword;
+  final String? address;
+  final String? notes;
+  final String? photoUrl;
+  final String? emergencyContactName;
+  final String? emergencyContactPhone;
 
   const StaffEntity({
     required this.id,
@@ -73,6 +79,12 @@ class StaffEntity {
     this.designationId,
     this.designationName,
     this.reportingManagerName,
+    this.tempPassword,
+    this.address,
+    this.notes,
+    this.photoUrl,
+    this.emergencyContactName,
+    this.emergencyContactPhone,
   });
 
   String get departmentLabel {
@@ -81,6 +93,11 @@ class StaffEntity {
       case 'housekeeping': return 'Housekeeping';
       case 'technical':    return 'Technical';
       case 'gym':          return 'Gym';
+      case 'maintenance':  return 'Maintenance';
+      case 'electrical':   return 'Electrical';
+      case 'plumbing':     return 'Plumbing';
+      case 'gardening':    return 'Gardening';
+      case 'amenities':    return 'Amenities';
       case 'admin':        return 'Administration';
       default:             return department;
     }
@@ -136,6 +153,7 @@ class AttendanceEntity {
   final bool isApproved;
   final bool isCheckoutApproved;
   final String? notes;
+  final String? staffName;
 
   const AttendanceEntity({
     required this.id,
@@ -151,6 +169,7 @@ class AttendanceEntity {
     this.isApproved = false,
     this.isCheckoutApproved = false,
     this.notes,
+    this.staffName,
   });
 
   bool get isCheckedIn  => checkInTime != null;

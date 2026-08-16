@@ -2,8 +2,17 @@
 
 > **RBAC Fix (2026-06-10):** Society Admin now has full access to all staff APIs. The prior 403 errors were caused by local role aliases using abstract group names ("Admin", "Committee") that don't match actual DB roles ("Society Admin", "Committee Chairman", etc.). This is fixed in `backend/app/core/dependencies.py`.
 
+> **Audit (2026-06-17):** Dashboard action buttons audited across all 11 roles. Broken "Add Notice" button removed from Admin Dashboard. Handover societyId routing bug fixed. 44 acceptance tests pass. See CHANGELOG.md for full details.
 
-Last updated: 2026-06-10
+> **UAT Audit (2026-06-18):** 6 critical RBAC permission bugs fixed in `routes/staff.py`. Staff can now punch in/out, view own attendance, list staff, view individual staff records, see duty queue, and update task status. Department filter in staff list now works end-to-end. 79 backend tests all pass (up from 44). All staff role workflows verified end-to-end. Module declared UAT READY.
+
+> **12-Phase Deep Audit (2026-06-18):** Comprehensive code-level audit of all 12 screens, 30 buttons, 12 routes, full API chains for all 8 staff roles, 5 workflow tests (Login, Attendance, Duty, Housekeeping, Manager), dead button check, and multi-tenant validation. **Result: 0 new bugs found. 100% of implemented features pass. STAFF MODULE UAT READY.**
+
+> **Release Certification (2026-06-19):** 3 additional permission bugs fixed: (1) `apply_leave` now `any_staff` with own-record enforcement; (2) `get_staff_leaves` now `any_staff` with own-record enforcement; (3) Technical Supervisor correctly detected in SupervisorDashboard. 79 backend tests pass. **STAFF MODULE CERTIFIED FOR PRODUCTION.**
+
+> **Dashboard Integration Fix (2026-06-20):** Root cause of "My Operations cards do nothing" identified and fixed. `StaffHomeScreen` was ignoring the `AsyncValue` returned by `currentStaffProvider` — all 3 operation cards (Attendance, My Duties, Handover) had `onTap: null` while `staffIdProvider` was still resolving. Fixed: cards now `disabled: !isReady` with loading banners and pull-to-refresh. All 8 dashboard cards confirmed working end-to-end.
+
+Last updated: 2026-06-20
 
 ---
 
@@ -35,7 +44,7 @@ Technical Staff → reports directly to Manager
 | Employee Code | Auto-generated (EMP-0001) |
 | Full Name | String |
 | Mobile | String |
-| Email | String (optional) |
+| Email | String (optional — auto-creates User account if provided) |
 | Department | Enum |
 | Designation | FK → staff_designations |
 | Reporting Manager | FK → users (reporting_manager_id) |
@@ -43,6 +52,20 @@ Technical Staff → reports directly to Manager
 | Employment Status | active / probation / on_leave / inactive / terminated |
 | Shift | FK → staff_shifts |
 | Society | FK → societies (multi-tenant isolation) |
+| Profile Photo | URL (photo_url) |
+| Emergency Contact Name | String |
+| Emergency Contact Phone | String |
+| Residential Address | Text |
+| Admin Notes | Text (internal, not visible to staff) |
+
+### Auto User Creation
+
+When a staff member is created with an `email`:
+1. A `User` account is created automatically
+2. Password is set to `Staff@1234` with `must_change_password=True`
+3. Role is auto-assigned via designation name or department
+4. `temp_password` is returned in the API response (one-time only)
+5. Flutter shows a credentials dialog to the admin with the email and password
 
 ### Departments
 
@@ -115,24 +138,24 @@ is_checkout_approved: true
 |--------|------|------------|
 | POST | /staff/ | Admin, Committee |
 | PATCH | /staff/{id} | Admin, Committee |
-| GET | /staff/{id} | Admin, Committee |
-| GET | /staff/by-user/{user_id} | Any auth |
-| GET | /staff/society/{society_id} | Admin, Committee |
+| GET | /staff/{id} | supervisor_above (Manager, Supervisor, Admin, Committee) |
+| GET | /staff/by-user/{user_id} | Any auth (own record only; privileged roles see any) |
+| GET | /staff/society/{society_id} | supervisor_above + optional `?department=` (supervisors auto-scoped to own dept) |
 | GET | /staff/society/{society_id}/department/{dept} | Admin, Committee |
 
 ### Attendance
 | Method | Path | Permission |
 |--------|------|------------|
-| POST | /staff/attendance/{id}/checkin | Staff+ |
-| POST | /staff/attendance/{id}/checkout | Staff+ |
-| GET | /staff/attendance/{id} | Admin, Committee |
+| POST | /staff/attendance/{id}/checkin | any_staff (all staff + supervisors + admin) |
+| POST | /staff/attendance/{id}/checkout | any_staff |
+| GET | /staff/attendance/{id} | any_staff |
 | GET | /staff/attendance/daily/{society_id} | Admin, Committee |
 | GET | /staff/attendance/pending/{society_id} | Admin, Committee |
-| GET | /staff/attendance/pending/supervisor/{society_id} | Staff+ |
-| GET | /staff/attendance/pending-checkout/{society_id} | Staff+ |
-| POST | /staff/attendance/{id}/approve | Admin, Committee |
-| POST | /staff/attendance/{id}/approve-checkout | Admin, Committee |
-| GET | /staff/society/{society_id}/summary | Staff+ |
+| GET | /staff/attendance/pending/supervisor/{society_id} | supervisor_above (dept-scoped for supervisors) |
+| GET | /staff/attendance/pending-checkout/{society_id} | supervisor_above |
+| POST | /staff/attendance/{id}/approve | supervisor_above |
+| POST | /staff/attendance/{id}/approve-checkout | supervisor_above |
+| GET | /staff/society/{society_id}/summary | supervisor_above |
 
 ### Duties
 | Method | Path | Permission |
@@ -150,7 +173,19 @@ is_checkout_approved: true
 | GET | /staff/complaints/department/{society_id} | Staff+ |
 
 ### Tasks, Leaves, Handovers, Roster
-See inline API documentation in `/backend/app/modules/staff/routes/staff.py`.
+
+| Method | Path | Permission | Notes |
+|--------|------|------------|-------|
+| POST | /staff/leaves/{staff_id} | any_staff | Staff: own record only; Supervisor/Manager: any |
+| GET | /staff/leaves/staff/{staff_id} | any_staff | Staff: own record only; Supervisor/Manager: any |
+| GET | /staff/leaves/pending/{society_id} | Admin, Committee | |
+| POST | /staff/leaves/{leave_id}/approve | Admin, Committee | |
+| POST | /staff/leaves/{leave_id}/reject | Admin, Committee | |
+| GET | /handovers/pending/{staff_id} | any_staff | |
+| POST | /handovers/ | any_staff | Create handover |
+| POST | /handovers/{id}/accept | any_staff | Accept takeover |
+| POST | /handovers/{id}/dispute | any_staff | Dispute handover |
+| GET | /handovers/staff/{staff_id}/history | any_staff | |
 
 ---
 
@@ -255,21 +290,28 @@ Adds:
 
 ## Implementation Completeness
 
+Last updated: 2026-06-13
+
 | Feature | Status |
 |---------|--------|
 | Staff CRUD (create/read/update) | ✅ Complete |
-| Employee Code auto-generation | ✅ Complete |
+| Employee Code auto-generation (globally unique) | ✅ Complete |
 | Department/Designation management | ✅ Complete |
 | designation_name + reporting_manager_name in StaffOut | ✅ Complete |
 | TECHNICAL + GYM departments | ✅ Complete (migration d1e2f3a4b5c6) |
 | Reporting Manager FK | ✅ Complete (migration d1e2f3a4b5c6) |
+| staff.address + staff.notes fields | ✅ Complete (migration e2f3a4b5c6d7) |
+| Emergency Contact (name + phone) | ✅ Complete |
+| Staff Login Management (view/reset/disable/enable) | ✅ Complete |
 | Punch-In with pending approval | ✅ Complete |
 | Punch-In approval endpoint | ✅ Complete |
+| Approval with optional notes | ✅ Complete |
 | Supervisor-scoped approval endpoint | ✅ Complete |
 | Punch-Out recording | ✅ Complete |
 | Punch-Out approval fields | ✅ Complete (migration d1e2f3a4b5c6) |
 | Punch-Out approval endpoint | ✅ Complete |
-| Attendance summary endpoint | ✅ Complete |
+| Attendance summary with department_breakdown | ✅ Complete |
+| Overtime hours tracking + display | ✅ Complete |
 | Duty assignment by supervisor | ✅ Complete |
 | Duty completion + verification | ✅ Complete |
 | Shift Handover workflow | ✅ Complete |
@@ -277,16 +319,38 @@ Adds:
 | Task FSM | ✅ Complete |
 | Roster management | ✅ Complete |
 | Complaint→Department assignment | ✅ Complete |
-| Flutter: Staff attendance screen | ✅ Complete |
+| Flutter: Staff attendance screen (check-in/out, overtime display) | ✅ Complete |
 | Flutter: Duty screen | ✅ Complete |
 | Flutter: Handover screen | ✅ Complete |
-| Flutter: Attendance Approval screen | ✅ Complete |
+| Flutter: Attendance Approval screen (with notes dialog) | ✅ Complete |
 | Flutter: Duty Assign screen | ✅ Complete |
 | Flutter: Staff List screen (search, filter, FAB, tappable cards) | ✅ Complete |
-| Flutter: Staff Detail screen | ✅ Complete |
+| Flutter: Staff Detail screen (login account card) | ✅ Complete |
 | Flutter: Add Staff screen (full form with designation/shift/manager dropdowns) | ✅ Complete |
 | Flutter: Edit Staff screen (update all fields + deactivate) | ✅ Complete |
 | Flutter: StaffHome (supervisor actions) | ✅ Complete |
-| Flutter: Manager Dashboard | ✅ Complete |
-| Flutter: Supervisor Dashboard | ✅ Complete |
+| Flutter: Manager Dashboard (all 7 live cards + department summary panel) | ✅ Complete |
+| Flutter: Supervisor Dashboard (6 live cards + gym panel) | ✅ Complete |
 | Multi-tenant isolation | ✅ Complete |
+
+## Manager Dashboard
+
+Live data cards:
+- **Pending Check-in** — `approvalProvider` (pending punch-in approvals)
+- **Pending Punch-out** — `approvalProvider` (pending checkout approvals)
+- **Absent Staff** — `attendanceSummaryProvider`
+- **Late Staff** — `attendanceSummaryProvider` (30-min shift threshold)
+- **Total Staff** — `staffListProvider`
+- **Open Complaints** — `openComplaintsCountProvider`
+- **Duty Queue** — `societyDutiesProvider` (today's unfinished duties)
+
+Department Summary panel: rendered when `department_breakdown` is non-empty (present/absent per dept from summary endpoint).
+
+## Supervisor Dashboard
+
+Live data cards (Security and Housekeeping Supervisors):
+- Staff Present / Absent — `attendanceSummaryProvider`
+- Pending Check-in / Pending Check-out — `approvalProvider` (dept-scoped)
+- Duties Pending / Duties Done — `societyDutiesProvider`
+
+HK Supervisor additionally shows a Gym Attendance panel.

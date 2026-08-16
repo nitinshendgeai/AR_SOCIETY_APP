@@ -66,7 +66,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
   }
 
   Widget _buildBody(AttendanceState state) {
-    if (state is AttendanceLoading) {
+    if (state is AttendanceLoading || state is AttendanceInitial || state is AttendanceSuccess) {
       return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
     }
     if (state is AttendanceError) {
@@ -226,6 +226,16 @@ class _TodayCard extends ConsumerWidget {
                           fontWeight: FontWeight.w700),
                     ),
                     const Text('worked', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    if (today!.overtimeHours != null && today!.overtimeHours! > 0) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '+${formatHours(today!.overtimeHours)} OT',
+                        style: const TextStyle(
+                            color: Colors.orangeAccent,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ],
                   ],
                 ),
             ],
@@ -245,7 +255,6 @@ class _TodayCard extends ConsumerWidget {
                   ),
                 ),
               if (today != null && today!.isCheckedIn && !today!.isCheckedOut) ...[
-                if (today!.isCheckedIn) const SizedBox(width: 10),
                 Expanded(
                   child: _ActionButton(
                     label: 'Check Out',
@@ -361,30 +370,32 @@ class _AttendanceHistoryTile extends StatelessWidget {
     return AppCard(
       child: Row(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(formatDate(record.attendanceDate),
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimary)),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Text(
-                    '${formatTime(record.checkInTime)} → ${formatTime(record.checkOutTime)}',
-                    style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
-                  ),
-                  if (record.workingHours != null) ...[
-                    const Text(' · ', style: TextStyle(color: AppTheme.textSecondary)),
-                    Text(formatHours(record.workingHours),
-                        style: const TextStyle(
-                            color: AppTheme.primary, fontSize: 12, fontWeight: FontWeight.w600)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(formatDate(record.attendanceDate),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimary)),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      '${formatTime(record.checkInTime)} → ${formatTime(record.checkOutTime)}',
+                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                    ),
+                    if (record.workingHours != null) ...[
+                      const Text(' · ', style: TextStyle(color: AppTheme.textSecondary)),
+                      Text(formatHours(record.workingHours),
+                          style: const TextStyle(
+                              color: AppTheme.primary, fontSize: 12, fontWeight: FontWeight.w600)),
+                    ],
                   ],
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
-          const Spacer(),
+          const SizedBox(width: 8),
           AttendanceStatusBadge(status: record.status),
         ],
       ),

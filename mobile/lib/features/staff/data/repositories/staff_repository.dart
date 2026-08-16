@@ -148,6 +148,20 @@ class StaffRepository {
     } catch (e) { return _handle(e); }
   }
 
+  Future<StaffResult<AttendanceEntity>> rejectAttendance(String attendanceId, {String? reason}) async {
+    try {
+      final m = await _ds.rejectAttendance(attendanceId, reason: reason);
+      return StaffSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<AttendanceEntity>> rejectCheckout(String attendanceId, {String? reason}) async {
+    try {
+      final m = await _ds.rejectCheckout(attendanceId, reason: reason);
+      return StaffSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
   Future<StaffResult<Map<String, dynamic>>> getAttendanceSummary(String societyId, String date) async {
     try {
       final data = await _ds.getAttendanceSummary(societyId, date);
@@ -262,6 +276,27 @@ class StaffRepository {
     try {
       final list = await _ds.getHandoverHistory(staffId);
       return StaffSuccess(list.map((m) => m.toEntity()).toList());
+    } catch (e) { return _handle(e); }
+  }
+
+  // ── User account management ────────────────────────────────────────────────
+
+  Future<StaffResult<Map<String, dynamic>>> getUserById(String userId) async {
+    try {
+      return StaffSuccess(await _ds.getUserById(userId));
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<String>> resetStaffPassword(String userId) async {
+    try {
+      return StaffSuccess(await _ds.resetUserPassword(userId));
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<bool>> setStaffLoginStatus(String userId, {required bool active}) async {
+    try {
+      await _ds.setUserStatus(userId, active ? 'active' : 'suspended');
+      return StaffSuccess(true);
     } catch (e) { return _handle(e); }
   }
 }

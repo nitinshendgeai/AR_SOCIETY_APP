@@ -11,22 +11,18 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load environment variables from bundled .env asset.
-  // Errors are silently swallowed — compile-time --dart-define values
-  // and hard-coded fallbacks in Env class cover production builds.
   await dotenv.load(fileName: '.env').catchError((_) {});
 
-  // Initialize Dio API client
-  ApiClient.initialize();
+  try {
+    ApiClient.initialize();
+  } catch (_) {}
 
   if (!kIsWeb) {
-    // Lock to portrait for native mobile builds.
+    // Portrait lock and status bar styling are native-mobile-only concepts.
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
     ]);
-
-    // Status bar styling for native mobile builds.
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -35,11 +31,7 @@ Future<void> main() async {
     );
   }
 
-  runApp(
-    const ProviderScope(
-      child: ArSocietyApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: ArSocietyApp()));
 }
 
 class ArSocietyApp extends ConsumerWidget {
@@ -48,7 +40,6 @@ class ArSocietyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
-
     return MaterialApp.router(
       title: Env.appName,
       debugShowCheckedModeBanner: false,

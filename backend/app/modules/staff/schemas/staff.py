@@ -42,6 +42,8 @@ class StaffCreate(OrmBase):
     base_salary:      Optional[float] = None
     user_id:          Optional[UUID] = None
     reporting_manager_id: Optional[UUID] = None
+    address:          Optional[str] = None
+    notes:            Optional[str] = None
 
 class StaffUpdate(OrmBase):
     full_name:     Optional[str]            = None
@@ -54,16 +56,26 @@ class StaffUpdate(OrmBase):
     bank_account_number: Optional[str]      = None
     bank_name:     Optional[str]            = None
     reporting_manager_id: Optional[UUID]    = None
+    address:       Optional[str]            = None
+    notes:         Optional[str]            = None
+    emergency_contact_name:  Optional[str]  = None
+    emergency_contact_phone: Optional[str]  = None
 
 class StaffOut(TimestampSchema):
     society_id:    UUID; employee_code: str; full_name: str; mobile: str
     email:         Optional[str]; department: StaffDepartment
     designation_id:Optional[UUID]; shift_id: Optional[UUID]
     status:        StaffStatus; joining_date: Optional[date]
-    emergency_contact_name: Optional[str]; base_salary: Optional[float]
+    emergency_contact_name: Optional[str]; emergency_contact_phone: Optional[str] = None
+    base_salary: Optional[float]
     reporting_manager_id: Optional[UUID] = None
     designation_name: Optional[str] = None
     reporting_manager_name: Optional[str] = None
+    user_id:       Optional[UUID] = None
+    temp_password: Optional[str] = None
+    address:       Optional[str] = None
+    notes:         Optional[str] = None
+    photo_url:     Optional[str] = None
 
 
 # ── Duty ──────────────────────────────────────────────────────────────────────
@@ -80,6 +92,7 @@ class DutyOut(TimestampSchema):
     society_id: UUID; staff_id: UUID; duty_name: str; description: Optional[str]
     location: Optional[str]; duty_date: date; start_time: Optional[time]
     end_time: Optional[time]; is_completed: bool; completed_at: Optional[datetime]
+    verified_by: Optional[UUID] = None; verified_at: Optional[datetime] = None
     is_recurring: bool; notes: Optional[str]
 
 
@@ -103,6 +116,9 @@ class AttendanceApprovalRequest(OrmBase):
 class AttendanceCheckoutApprovalRequest(OrmBase):
     notes: Optional[str] = None
 
+class AttendanceRejectRequest(OrmBase):
+    reason: Optional[str] = None
+
 class AttendanceOut(TimestampSchema):
     society_id: UUID; staff_id: UUID; attendance_date: date; status: AttendanceStatus
     check_in_time: Optional[datetime]; check_out_time: Optional[datetime]
@@ -113,6 +129,7 @@ class AttendanceOut(TimestampSchema):
     checkout_approved_at: Optional[datetime] = None
     checkout_approval_notes: Optional[str] = None
     notes: Optional[str]
+    staff_name: Optional[str] = None
 
 
 # ── Task ──────────────────────────────────────────────────────────────────────

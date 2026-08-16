@@ -109,7 +109,7 @@ class _DutyList extends ConsumerWidget {
           ],
 
           if (completed.isNotEmpty) ...[
-            const SectionHeader(title: 'Completed Today'),
+            const SectionHeader(title: 'Completed'),
             const SizedBox(height: 12),
             ...completed.map((d) => Padding(
               padding: const EdgeInsets.only(bottom: 10),

@@ -7,6 +7,7 @@ from app.modules.parking.models.parking import (
     SlotType, SlotStatus, AllocationStatus, VisitorParkingStatus,
     ViolationType, AccessType, AccessMethod,
 )
+from app.utils.vehicle_number import normalize_vehicle_number
 
 
 class ZoneCreate(OrmBase):
@@ -79,7 +80,7 @@ class VisitorParkingCreate(OrmBase):
 
     @field_validator("vehicle_number")
     @classmethod
-    def normalize(cls, v): return v.upper().replace(" ", "").replace("-", "")
+    def normalize(cls, v): return normalize_vehicle_number(v)
 
 class VisitorParkingOut(TimestampSchema):
     society_id: UUID; slot_id: Optional[UUID]; vehicle_number: str
@@ -96,6 +97,10 @@ class ViolationCreate(OrmBase):
     description: Optional[str] = None
     photo_url: Optional[str]   = None
     fine_amount: Optional[int] = None
+
+    @field_validator("vehicle_number")
+    @classmethod
+    def normalize(cls, v): return normalize_vehicle_number(v)
 
 class ViolationOut(TimestampSchema):
     society_id: UUID; slot_id: Optional[UUID]; vehicle_number: str
@@ -114,6 +119,10 @@ class AccessLogCreate(OrmBase):
     rfid_tag:      Optional[str]  = None
     is_authorized: bool           = True
     notes:         Optional[str]  = None
+
+    @field_validator("vehicle_number")
+    @classmethod
+    def normalize(cls, v): return normalize_vehicle_number(v)
 
 class AccessLogOut(TimestampSchema):
     society_id: UUID; vehicle_number: str; access_type: AccessType

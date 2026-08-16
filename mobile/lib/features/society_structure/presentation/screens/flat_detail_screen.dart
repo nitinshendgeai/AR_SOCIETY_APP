@@ -5,6 +5,8 @@ import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
+import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
+import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
 
 class FlatDetailScreen extends ConsumerWidget {
   final FlatModel flat;
@@ -39,6 +41,8 @@ class FlatDetailScreen extends ConsumerWidget {
           _HeaderCard(flat: flat),
           const SizedBox(height: 16),
           _DetailsCard(flat: flat),
+          const SizedBox(height: 16),
+          _PeopleCard(flat: flat),
         ],
       ),
     );
@@ -195,6 +199,100 @@ class _DetailsCard extends StatelessWidget {
           if (flat.remarks != null && flat.remarks!.isNotEmpty)
             _Row(label: 'Remarks', value: flat.remarks!),
         ],
+      ),
+    );
+  }
+}
+
+/// Concise "who lives here" summary — links into the Resident Master
+/// screens rather than reproducing their detail here (Phase M1.4 §20:
+/// Flat Detail must not become a dashboard).
+class _PeopleCard extends ConsumerWidget {
+  final FlatModel flat;
+  const _PeopleCard({required this.flat});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final residentsAsync = ref.watch(residentsByFlatProvider(flat.id));
+    final tenantsAsync = ref.watch(tenantsByFlatProvider(flat.id));
+    final vehiclesAsync = ref.watch(vehiclesByFlatProvider(flat.id));
+
+    final residents = residentsAsync.valueOrNull ?? const [];
+    ResidentModel? primary;
+    for (final r in residents) {
+      if (r.isPrimary) { primary = r; break; }
+    }
+    final activeTenants = (tenantsAsync.valueOrNull ?? const [])
+        .where((t) => t.moveOutDate == null).toList();
+    final vehicleCount = vehiclesAsync.valueOrNull?.length;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('People',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+          const SizedBox(height: 12),
+          _PeopleRow(
+            icon: Icons.star_rounded,
+            label: 'Primary Resident',
+            value: primary != null ? primary.fullName : (residents.isEmpty ? 'None on record' : '—'),
+          ),
+          _PeopleRow(
+            icon: Icons.people_outline_rounded,
+            label: 'Residents',
+            value: '${residents.length}',
+            onTap: () => context.push(AppRoutes.residentsList, extra: {'flat': flat}),
+          ),
+          _PeopleRow(
+            icon: Icons.groups_2_outlined,
+            label: 'Tenant',
+            value: activeTenants.isNotEmpty ? activeTenants.first.fullName : 'Not rented',
+            onTap: () => context.push(AppRoutes.tenantsList, extra: {'flat': flat}),
+          ),
+          _PeopleRow(
+            icon: Icons.directions_car_outlined,
+            label: 'Vehicles',
+            value: vehicleCount != null ? '$vehicleCount' : '…',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PeopleRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final VoidCallback? onTap;
+  const _PeopleRow({required this.icon, required this.label, required this.value, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(children: [
+          Icon(icon, size: 16, color: AppTheme.textSecondary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          ),
+          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+          if (onTap != null) ...[
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right_rounded, size: 16, color: AppTheme.textSecondary),
+          ],
+        ]),
       ),
     );
   }

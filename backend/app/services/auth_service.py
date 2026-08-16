@@ -84,6 +84,11 @@ class AuthService:
         access  = create_access_token(str(user.id), {"roles": roles})
         refresh = create_refresh_token(str(user.id))
 
+        # Record last login timestamp
+        from datetime import datetime as _dt
+        user.last_login = _dt.utcnow()
+        self.db.commit()
+
         # Audit: successful login
         AuditService.log(
             db=self.db, action=AuditAction.LOGIN, module="auth",

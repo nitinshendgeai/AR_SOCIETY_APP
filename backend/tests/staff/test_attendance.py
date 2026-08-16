@@ -16,7 +16,7 @@ def _make_staff(db, society_id, name="Guard One"):
 
 
 def test_checkin_success(client, db):
-    admin   = make_user(db, "adm@att.com", role="Admin")
+    admin   = make_user(db, "adm@att.com", role="Society Admin")
     society = make_society(db, "Attendance Society")
     staff   = _make_staff(db, society.id)
     r = client.post(f"/api/v1/staff/attendance/{staff.id}/checkin",
@@ -26,7 +26,7 @@ def test_checkin_success(client, db):
 
 
 def test_duplicate_checkin_prevented(client, db):
-    admin   = make_user(db, "adm2@att.com", role="Admin")
+    admin   = make_user(db, "adm2@att.com", role="Society Admin")
     society = make_society(db, "Attendance Society 2")
     staff   = _make_staff(db, society.id, "Guard Two")
     client.post(f"/api/v1/staff/attendance/{staff.id}/checkin",
@@ -38,7 +38,7 @@ def test_duplicate_checkin_prevented(client, db):
 
 
 def test_checkout_without_checkin_fails(client, db):
-    admin   = make_user(db, "adm3@att.com", role="Admin")
+    admin   = make_user(db, "adm3@att.com", role="Society Admin")
     society = make_society(db, "Attendance Society 3")
     staff   = _make_staff(db, society.id, "Guard Three")
     r = client.post(f"/api/v1/staff/attendance/{staff.id}/checkout",
@@ -50,7 +50,7 @@ def test_checkin_checkout_working_hours(client, db):
     """After checkout, working_hours should be computed."""
     from app.modules.staff.models.staff import StaffAttendance, AttendanceStatus
     from datetime import datetime, timedelta
-    admin   = make_user(db, "adm4@att.com", role="Admin")
+    admin   = make_user(db, "adm4@att.com", role="Society Admin")
     society = make_society(db, "Attendance Society 4")
     staff   = _make_staff(db, society.id, "Guard Four")
 
@@ -73,7 +73,7 @@ def test_checkin_checkout_working_hours(client, db):
 def test_duplicate_checkout_prevented(client, db):
     from app.modules.staff.models.staff import StaffAttendance, AttendanceStatus
     from datetime import datetime, timedelta
-    admin   = make_user(db, "adm5@att.com", role="Admin")
+    admin   = make_user(db, "adm5@att.com", role="Society Admin")
     society = make_society(db, "Attendance Society 5")
     staff   = _make_staff(db, society.id, "Guard Five")
 
@@ -94,7 +94,7 @@ def test_pending_attendance_approval_list_and_approve(client, db):
     from app.modules.staff.models.staff import StaffAttendance, AttendanceStatus
     from datetime import datetime, timedelta
 
-    admin = make_user(db, "adm6@att.com", role="Admin")
+    admin = make_user(db, "adm6@att.com", role="Society Admin")
     society = make_society(db, "Attendance Society 6")
     staff = _make_staff(db, society.id, "Guard Six")
 

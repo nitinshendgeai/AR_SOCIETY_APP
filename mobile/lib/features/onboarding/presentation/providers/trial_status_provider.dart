@@ -44,3 +44,43 @@ final trialStatusProvider =
   );
   return TrialStatus.fromJson(response.data as Map<String, dynamic>);
 });
+
+// ── Society info ───────────────────────────────────────────────────────────────
+
+class SocietyInfo {
+  final String id;
+  final String name;
+  final String? societyCode;
+  final int? totalFlats;
+  final int? totalWings;
+
+  const SocietyInfo({
+    required this.id,
+    required this.name,
+    this.societyCode,
+    this.totalFlats,
+    this.totalWings,
+  });
+
+  factory SocietyInfo.fromJson(Map<String, dynamic> json) => SocietyInfo(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        societyCode: json['society_code'] as String?,
+        totalFlats: json['total_flats'] as int?,
+        totalWings: json['total_wings'] as int?,
+      );
+}
+
+/// Fetches the current user's society info from GET /societies/.
+/// Returns null if the request fails (graceful degradation).
+final societyInfoProvider = FutureProvider.autoDispose<SocietyInfo?>((ref) async {
+  try {
+    final response = await ApiClient.instance.get('/societies/');
+    final list = response.data as List<dynamic>? ?? [];
+    if (list.isEmpty) return null;
+    return SocietyInfo.fromJson(list.first as Map<String, dynamic>);
+  } catch (_) {
+    return null;
+  }
+});
+

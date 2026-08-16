@@ -35,8 +35,16 @@ class Tenant(Base, TimestampMixin):
     kyc_doc_url      = Column(String(500), nullable=True)
 
     # Police verification
+    # Phase M1.3: was missing values_callable (a previously-tracked, still-open
+    # finding from the original repo audit) — SQLAlchemy 2.0 defaults to binding
+    # the enum's .name ("PENDING") rather than .value ("pending"), but the
+    # Postgres enum type (created by Alembic) only has the lowercase .value
+    # labels. Confirmed via a real INSERT against Postgres: every other Enum
+    # column in this codebase already has this fix; this was the one remaining
+    # column, and it directly blocked Tenant creation (the default value itself
+    # triggered the mismatch), so it's fixed here as part of Tenant CRUD.
     police_verification_status = Column(
-        Enum(PoliceVerificationStatus),
+        Enum(PoliceVerificationStatus, values_callable=lambda e: [x.value for x in e]),
         default=PoliceVerificationStatus.PENDING, nullable=True
     )
     police_verification_date = Column(Date, nullable=True)

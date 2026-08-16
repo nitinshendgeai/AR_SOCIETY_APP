@@ -18,9 +18,13 @@ class StaffAddScreen extends ConsumerStatefulWidget {
 class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final _nameCtrl   = TextEditingController();
-  final _mobileCtrl = TextEditingController();
-  final _emailCtrl  = TextEditingController();
+  final _nameCtrl              = TextEditingController();
+  final _mobileCtrl            = TextEditingController();
+  final _emailCtrl             = TextEditingController();
+  final _emergencyNameCtrl     = TextEditingController();
+  final _emergencyPhoneCtrl    = TextEditingController();
+  final _addressCtrl           = TextEditingController();
+  final _notesCtrl             = TextEditingController();
 
   String? _selectedDept;
   String? _selectedDesignationId;
@@ -33,22 +37,38 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
     ('housekeeping', 'Housekeeping'),
     ('technical',    'Technical'),
     ('gym',          'Gym'),
+    ('maintenance',  'Maintenance'),
+    ('electrical',   'Electrical'),
+    ('plumbing',     'Plumbing'),
+    ('gardening',    'Gardening'),
+    ('amenities',    'Amenities'),
     ('admin',        'Administration'),
   ];
 
-  static const _defaultDesignations = {
-    'security':     ['Security Supervisor', 'Security Guard'],
-    'housekeeping': ['Housekeeping Supervisor', 'Housekeeping Staff'],
-    'technical':    ['Technical Staff'],
-    'gym':          ['Gym Trainer'],
-    'admin':        ['Manager'],
-  };
+  @override
+  void initState() {
+    super.initState();
+    // Ensure staff list is loaded so the reporting manager dropdown is populated.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = ref.read(currentUserProvider);
+      if (user?.societyId != null) {
+        final listState = ref.read(staffListProvider);
+        if (listState is StaffListInitial) {
+          ref.read(staffListProvider.notifier).load(user!.societyId!);
+        }
+      }
+    });
+  }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _mobileCtrl.dispose();
     _emailCtrl.dispose();
+    _emergencyNameCtrl.dispose();
+    _emergencyPhoneCtrl.dispose();
+    _addressCtrl.dispose();
+    _notesCtrl.dispose();
     super.dispose();
   }
 
@@ -82,15 +102,19 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
 
     ref.listen(staffFormProvider, (_, next) {
       if (next is StaffFormSuccess) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(next.message),
-          backgroundColor: AppTheme.success,
-          behavior: SnackBarBehavior.floating,
-        ));
-        // Reload the list then go back
         ref.read(staffListProvider.notifier).load(societyId);
         ref.read(staffFormProvider.notifier).reset();
-        context.pop();
+        final staff = next.staff;
+        if (staff.tempPassword != null && staff.email != null) {
+          _showCredentialsDialog(context, staff.fullName, staff.email!, staff.tempPassword!);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(next.message),
+            backgroundColor: AppTheme.success,
+            behavior: SnackBarBehavior.floating,
+          ));
+          context.pop();
+        }
       } else if (next is StaffFormError) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(next.message),
@@ -140,7 +164,11 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
               label: 'Email (optional)',
               child: TextFormField(
                 controller: _emailCtrl,
-                decoration: const InputDecoration(hintText: 'staff@example.com'),
+                decoration: const InputDecoration(
+                  hintText: 'e.g. security1@artsociety.com',
+                  helperText: 'Providing an email auto-creates a login account (password: Staff@1234)',
+                  helperMaxLines: 2,
+                ),
                 keyboardType: TextInputType.emailAddress,
               ),
             ),
@@ -169,10 +197,17 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
             _FormField(
               label: 'Designation',
               child: allDesignations.isEmpty
-                  ? _FallbackDesignationDropdown(
-                      dept: _selectedDept,
-                      defaults: _defaultDesignations,
-                      onChanged: (_) {},
+                  ? Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardBg,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.border),
+                      ),
+                      child: const Text(
+                        'No designations configured. Ask your admin to set up designations first.',
+                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                      ),
                     )
                   : DropdownButtonFormField<String>(
                       value: _selectedDesignationId,
@@ -248,6 +283,54 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
               ),
             ),
 
+            // ── Emergency contact ───────────────────────────────────────────
+            const SizedBox(height: 8),
+            const _SectionHeader('Emergency Contact'),
+            const SizedBox(height: 10),
+
+            _FormField(
+              label: 'Contact Name',
+              child: TextFormField(
+                controller: _emergencyNameCtrl,
+                decoration: const InputDecoration(hintText: 'e.g. Father / Spouse'),
+                textCapitalization: TextCapitalization.words,
+              ),
+            ),
+
+            _FormField(
+              label: 'Contact Phone',
+              child: TextFormField(
+                controller: _emergencyPhoneCtrl,
+                decoration: const InputDecoration(hintText: '10-digit mobile number'),
+                keyboardType: TextInputType.phone,
+              ),
+            ),
+
+            // ── Additional info ─────────────────────────────────────────────
+            const SizedBox(height: 8),
+            const _SectionHeader('Additional Info'),
+            const SizedBox(height: 10),
+
+            _FormField(
+              label: 'Residential Address',
+              child: TextFormField(
+                controller: _addressCtrl,
+                decoration: const InputDecoration(hintText: 'Full address'),
+                maxLines: 2,
+                textCapitalization: TextCapitalization.sentences,
+              ),
+            ),
+
+            _FormField(
+              label: 'Admin Notes',
+              child: TextFormField(
+                controller: _notesCtrl,
+                decoration: const InputDecoration(hintText: 'Internal notes (not visible to staff)'),
+                maxLines: 2,
+                textCapitalization: TextCapitalization.sentences,
+              ),
+            ),
+
             const SizedBox(height: 32),
 
             AppPrimaryButton(
@@ -258,6 +341,56 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showCredentialsDialog(BuildContext context, String name, String email, String password) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.check_circle_rounded, color: AppTheme.success, size: 22),
+            SizedBox(width: 8),
+            Text('Staff Account Created', style: TextStyle(fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('$name can now log in with:', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            const SizedBox(height: 12),
+            _CredentialRow(label: 'Email', value: email),
+            const SizedBox(height: 8),
+            _CredentialRow(label: 'Password', value: password),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.warning.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.warning.withOpacity(0.3)),
+              ),
+              child: const Text(
+                'They will be prompted to change their password on first login.',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              context.pop();
+            },
+            child: const Text('Done'),
+          ),
+        ],
       ),
     );
   }
@@ -274,6 +407,14 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
 
   void _submit(String societyId) {
     if (!_formKey.currentState!.validate()) return;
+    if (societyId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Society not loaded. Please reload the app.'),
+        backgroundColor: AppTheme.error,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
 
     final joiningStr = _joiningDate != null
         ? '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}'
@@ -289,6 +430,10 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
       if (_selectedShiftId != null) 'shift_id': _selectedShiftId,
       if (joiningStr != null) 'joining_date': joiningStr,
       if (_selectedReportingManagerId != null) 'reporting_manager_id': _selectedReportingManagerId,
+      if (_emergencyNameCtrl.text.trim().isNotEmpty) 'emergency_contact_name': _emergencyNameCtrl.text.trim(),
+      if (_emergencyPhoneCtrl.text.trim().isNotEmpty) 'emergency_contact_phone': _emergencyPhoneCtrl.text.trim(),
+      if (_addressCtrl.text.trim().isNotEmpty) 'address': _addressCtrl.text.trim(),
+      if (_notesCtrl.text.trim().isNotEmpty) 'notes': _notesCtrl.text.trim(),
     };
 
     ref.read(staffFormProvider.notifier).create(data);
@@ -327,32 +472,31 @@ class _FormField extends StatelessWidget {
   );
 }
 
-/// Fallback when no designations are loaded from the server yet.
-class _FallbackDesignationDropdown extends StatelessWidget {
-  final String? dept;
-  final Map<String, List<String>> defaults;
-  final void Function(String?) onChanged;
-  const _FallbackDesignationDropdown({this.dept, required this.defaults, required this.onChanged});
+class _CredentialRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _CredentialRow({required this.label, required this.value});
 
   @override
-  Widget build(BuildContext context) {
-    final options = dept != null ? (defaults[dept] ?? <String>[]) : <String>[];
-    if (options.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppTheme.cardBg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.border),
+  Widget build(BuildContext context) => Row(
+    children: [
+      SizedBox(
+        width: 70,
+        child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+            color: AppTheme.textSecondary)),
+      ),
+      Expanded(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppTheme.cardBg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Text(value, style: const TextStyle(fontSize: 13, fontFamily: 'monospace',
+              fontWeight: FontWeight.w600)),
         ),
-        child: const Text('Select a department first',
-            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-      );
-    }
-    return DropdownButtonFormField<String>(
-      decoration: const InputDecoration(hintText: 'Select designation'),
-      items: options.map((n) => DropdownMenuItem(value: n, child: Text(n))).toList(),
-      onChanged: onChanged,
-    );
-  }
+      ),
+    ],
+  );
 }

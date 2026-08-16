@@ -20,11 +20,53 @@ from app.modules.staff.repositories.staff_repo import (
     StaffRepository, StaffDesignationRepo, StaffShiftRepo,
     DutyRepository, AttendanceRepository, TaskRepository, LeaveRepository,
 )
-from app.models.user import User
+from app.models.user import User, UserRole, UserStatus
+from app.models.role import Role
 from app.models.audit_log import AuditAction
+from app.core.security import hash_password
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
 from app.models.notification import NotificationType, NotificationChannel
+
+DEFAULT_STAFF_PASSWORD = "Staff@1234"
+
+# Roles that bypass department restrictions
+_MANAGER_ROLES_SVC = {
+    "Manager", "Society Admin", "Platform Admin",
+    "Committee Chairman", "Committee Secretary", "Committee Treasurer",
+}
+
+# Supervisor role → set of departments they can approve
+_SUPERVISOR_DEPT_ACCESS: dict = {
+    "Security Supervisor":     {"security"},
+    "Housekeeping Supervisor": {"housekeeping", "gym", "gardening", "amenities"},
+    "Technical Supervisor":    {"technical", "maintenance", "electrical", "plumbing"},
+}
+
+_DESIGNATION_TO_ROLE = {
+    "Manager":                 "Manager",
+    "Security Supervisor":     "Security Supervisor",
+    "Security Guard":          "Security Staff",
+    "Housekeeping Supervisor": "Housekeeping Supervisor",
+    "Housekeeping Staff":      "Housekeeping Staff",
+    "Technical Supervisor":    "Technical Supervisor",
+    "Technical Staff":         "Technical Staff",
+    "Maintenance Staff":       "Technical Staff",
+    "Gym Trainer":             "Gym Trainer",
+}
+
+_DEPT_TO_ROLE = {
+    "security":     "Security Staff",
+    "housekeeping": "Housekeeping Staff",
+    "technical":    "Technical Staff",
+    "maintenance":  "Technical Staff",
+    "electrical":   "Technical Staff",
+    "plumbing":     "Technical Staff",
+    "gardening":    "Housekeeping Staff",
+    "amenities":    "Housekeeping Staff",
+    "gym":          "Gym Trainer",
+    "admin":        "Manager",
+}
 
 
 class StaffService:
@@ -56,6 +98,22 @@ class StaffService:
                          entity_id=str(entity.id), entity_type=entity_type,
                          user=user, request=request, **kw)
 
+    def _check_dept_access(self, user: User, staff_department: str) -> None:
+        """Raise 403 if a supervisor is not authorised to act on the given department.
+        Managers/admins bypass this check entirely."""
+        role_names = {ur.role.name for ur in user.user_roles if ur.role}
+        if role_names & _MANAGER_ROLES_SVC:
+            return
+        for sup_role, allowed_depts in _SUPERVISOR_DEPT_ACCESS.items():
+            if sup_role in role_names:
+                if staff_department not in allowed_depts:
+                    raise HTTPException(
+                        status_code=403,
+                        detail=f"{sup_role} cannot approve {staff_department} department attendance",
+                    )
+                return
+        raise HTTPException(status_code=403, detail="Insufficient permissions to approve attendance")
+
     def _notify(self, user_id, title, body, type=NotificationType.INFO, module="staff", entity_id=None):
         if user_id:
             NotificationService.send(
@@ -85,10 +143,51 @@ class StaffService:
     def create_staff(self, data: StaffCreate, user: User, request=None) -> Staff:
         code  = self.repo.next_employee_code(data.society_id)
         staff = Staff(**data.model_dump(), employee_code=code)
-        self.repo.create(staff)
+        self.repo.create(staff)  # commits + refreshes
+
+        temp_pwd = None
+        if data.email and not data.user_id:
+            # Auto-create a login account for this staff member
+            temp_pwd = DEFAULT_STAFF_PASSWORD
+            new_user = User(
+                society_id           = data.society_id,
+                email                = data.email,
+                full_name            = data.full_name,
+                hashed_password      = hash_password(temp_pwd),
+                status               = UserStatus.ACTIVE,
+                must_change_password = True,
+                terms_accepted       = False,
+                setup_completed      = False,
+            )
+            self.db.add(new_user)
+            self.db.flush()
+
+            role_name = self._resolve_staff_role(staff)
+            if role_name:
+                role = self.db.query(Role).filter(Role.name == role_name).first()
+                if role:
+                    self.db.add(UserRole(user_id=new_user.id, role_id=role.id))
+
+            staff.user_id = new_user.id
+            self.db.commit()
+            self.db.refresh(staff)
+
         self._audit(AuditAction.CREATE, staff, "Staff", user, request,
-                    new_values={"employee_code": code, "name": data.full_name, "dept": data.department.value})
+                    new_values={"employee_code": code, "name": data.full_name,
+                                "dept": data.department.value, "user_created": temp_pwd is not None})
+
+        if temp_pwd:
+            staff.__dict__['temp_password'] = temp_pwd
         return staff
+
+    def _resolve_staff_role(self, staff: Staff) -> Optional[str]:
+        if staff.designation_id:
+            desg = self.db.query(StaffDesignation).filter(
+                StaffDesignation.id == staff.designation_id
+            ).first()
+            if desg and desg.name in _DESIGNATION_TO_ROLE:
+                return _DESIGNATION_TO_ROLE[desg.name]
+        return _DEPT_TO_ROLE.get(staff.department.value)
 
     def update_staff(self, staff_id: UUID, data: StaffUpdate, user: User, request=None) -> Staff:
         staff = self._staff_or_404(staff_id)
@@ -105,7 +204,15 @@ class StaffService:
             raise HTTPException(status_code=404, detail="No staff profile linked to this user")
         return staff
 
-    def list_staff(self, society_id: UUID, skip=0, limit=50) -> List[Staff]:
+    def list_staff(self, society_id: UUID, skip=0, limit=50,
+                   department: Optional[str] = None) -> List[Staff]:
+        if department:
+            from app.modules.staff.models.staff import StaffDepartment
+            try:
+                dept_enum = StaffDepartment(department)
+                return self.repo.get_by_department(society_id, dept_enum)
+            except ValueError:
+                pass
         return self.repo.get_by_society(society_id, skip, limit)
 
     def list_by_department(self, society_id: UUID, dept) -> List[Staff]:
@@ -241,28 +348,56 @@ class StaffService:
         return self.att_repo.get_pending_checkout(society_id, department)
 
     def get_attendance_summary(self, society_id: UUID, att_date: date) -> dict:
-        records = self.att_repo.get_by_society_date(society_id, att_date)
+        from datetime import timedelta
+        records    = self.att_repo.get_by_society_date(society_id, att_date)
         staff_list = self.repo.get_by_society(society_id, skip=0, limit=500)
+        staff_map  = {s.id: s for s in staff_list}
         total_staff = len(staff_list)
-        present = sum(1 for r in records if r.check_in_time is not None)
-        absent  = total_staff - present
-        pending_checkin  = sum(1 for r in records if not r.is_approved)
-        pending_checkout = sum(1 for r in records if r.check_out_time and not r.is_checkout_approved)
 
-        # department breakdown
+        present  = 0
+        late     = 0
+        pending_checkin  = 0
+        pending_checkout = 0
         dept_map: dict = {}
+
+        LATE_THRESHOLD_MINUTES = 30
+
         for r in records:
-            st = self.repo.get(r.staff_id)
+            if r.check_in_time is not None:
+                present += 1
+                # Late detection: compare check_in_time against assigned shift start
+                st = staff_map.get(r.staff_id)
+                if st and st.shift_id and st.shift:
+                    shift_start = st.shift.start_time
+                    # Build a datetime for today's shift start
+                    from datetime import datetime as dt
+                    shift_dt = dt.combine(att_date, shift_start)
+                    # For overnight shifts the start on att_date is correct
+                    if r.check_in_time > shift_dt + timedelta(minutes=LATE_THRESHOLD_MINUTES):
+                        late += 1
+
+            if not r.is_approved:
+                pending_checkin += 1
+            if r.check_out_time and not r.is_checkout_approved:
+                pending_checkout += 1
+
+            # dept breakdown
+            st = staff_map.get(r.staff_id)
             dept = st.department.value if st else "unknown"
             if dept not in dept_map:
-                dept_map[dept] = {"present": 0, "absent": 0}
+                dept_map[dept] = {"present": 0, "absent": 0, "late": 0}
             dept_map[dept]["present"] += 1
+            if st and st.shift and r.check_in_time:
+                pass  # late per dept could be added later
+
+        absent = total_staff - present
 
         return {
             "date": str(att_date),
             "total_staff": total_staff,
             "present": present,
             "absent": absent,
+            "late": late,
             "pending_checkin_approval": pending_checkin,
             "pending_checkout_approval": pending_checkout,
             "department_breakdown": dept_map,
@@ -273,6 +408,11 @@ class StaffService:
         attendance = self.att_repo.get(attendance_id)
         if not attendance:
             raise HTTPException(status_code=404, detail="Attendance record not found")
+        if user.society_id and str(attendance.society_id) != str(user.society_id):
+            raise HTTPException(status_code=403, detail="Cannot approve attendance from another society")
+        staff = self.repo.get(attendance.staff_id)
+        if staff:
+            self._check_dept_access(user, staff.department.value)
         if attendance.is_approved:
             raise HTTPException(status_code=409, detail="Attendance record already approved")
 
@@ -293,6 +433,11 @@ class StaffService:
         attendance = self.att_repo.get(attendance_id)
         if not attendance:
             raise HTTPException(status_code=404, detail="Attendance record not found")
+        if user.society_id and str(attendance.society_id) != str(user.society_id):
+            raise HTTPException(status_code=403, detail="Cannot approve attendance from another society")
+        staff = self.repo.get(attendance.staff_id)
+        if staff:
+            self._check_dept_access(user, staff.department.value)
         if not attendance.check_out_time:
             raise HTTPException(status_code=409, detail="Staff has not checked out yet")
         if attendance.is_checkout_approved:
@@ -306,6 +451,56 @@ class StaffService:
 
         self._audit(AuditAction.APPROVE, attendance, "StaffAttendance", user, request,
                     new_values={"checkout_approval_status": "approved"})
+        self.db.commit()
+        self.db.refresh(attendance)
+        return attendance
+
+    def reject_attendance(self, attendance_id: UUID, reason: Optional[str],
+                          user: User, request=None) -> StaffAttendance:
+        """Reject a pending punch-in. Deactivates the attendance record so staff
+        can check in again. Stores rejection reason in approval_notes."""
+        attendance = self.att_repo.get(attendance_id)
+        if not attendance:
+            raise HTTPException(status_code=404, detail="Attendance record not found")
+        if user.society_id and str(attendance.society_id) != str(user.society_id):
+            raise HTTPException(status_code=403, detail="Cannot reject attendance from another society")
+        staff = self.repo.get(attendance.staff_id)
+        if staff:
+            self._check_dept_access(user, staff.department.value)
+        if attendance.is_approved:
+            raise HTTPException(status_code=409, detail="Attendance already approved — cannot reject")
+
+        attendance.approval_notes = f"REJECTED by {user.email}: {reason or 'No reason given'}"
+        attendance.is_active      = False
+        self._audit(AuditAction.UPDATE, attendance, "StaffAttendance", user, request,
+                    new_values={"approval_status": "rejected", "reason": reason})
+        self.db.commit()
+        self.db.refresh(attendance)
+        return attendance
+
+    def reject_checkout(self, attendance_id: UUID, reason: Optional[str],
+                        user: User, request=None) -> StaffAttendance:
+        """Reject a pending punch-out. Clears checkout fields so staff can
+        re-check-out with a corrected timestamp."""
+        attendance = self.att_repo.get(attendance_id)
+        if not attendance:
+            raise HTTPException(status_code=404, detail="Attendance record not found")
+        if user.society_id and str(attendance.society_id) != str(user.society_id):
+            raise HTTPException(status_code=403, detail="Cannot reject attendance from another society")
+        staff = self.repo.get(attendance.staff_id)
+        if staff:
+            self._check_dept_access(user, staff.department.value)
+        if not attendance.check_out_time:
+            raise HTTPException(status_code=409, detail="No checkout recorded — nothing to reject")
+        if attendance.is_checkout_approved:
+            raise HTTPException(status_code=409, detail="Checkout already approved — cannot reject")
+
+        attendance.checkout_approval_notes = f"REJECTED by {user.email}: {reason or 'No reason given'}"
+        attendance.check_out_time          = None
+        attendance.working_hours           = None
+        attendance.overtime_hours          = None
+        self._audit(AuditAction.UPDATE, attendance, "StaffAttendance", user, request,
+                    new_values={"checkout_status": "rejected", "reason": reason})
         self.db.commit()
         self.db.refresh(attendance)
         return attendance
@@ -379,6 +574,14 @@ class StaffService:
     # ── Leave ─────────────────────────────────────────────────────────────────
 
     def apply_leave(self, data: LeaveCreate, staff_id: UUID, user: User) -> StaffLeave:
+        role_names = {ur.role.name for ur in user.user_roles if ur.role}
+        is_privileged = bool(role_names & _MANAGER_ROLES_SVC) or \
+                        bool(role_names & set(_SUPERVISOR_DEPT_ACCESS.keys()))
+        if not is_privileged:
+            own_staff = self.repo.get_by_user(user.id)
+            if not own_staff or str(own_staff.id) != str(staff_id):
+                raise HTTPException(status_code=403,
+                    detail="Staff can only apply leave for their own record")
         if self.leave_repo.has_conflict(staff_id, data.from_date, data.to_date):
             raise HTTPException(status_code=409,
                 detail="A leave request already exists for this date range")
@@ -423,6 +626,18 @@ class StaffService:
         return self.leave_repo.get_pending(society_id)
 
     def get_staff_leaves(self, staff_id: UUID, skip=0, limit=50) -> List[StaffLeave]:
+        return self.leave_repo.get_by_staff(staff_id, skip, limit)
+
+    def get_staff_leaves_checked(self, staff_id: UUID, skip: int, limit: int,
+                                  user: User) -> List[StaffLeave]:
+        role_names = {ur.role.name for ur in user.user_roles if ur.role}
+        is_privileged = bool(role_names & _MANAGER_ROLES_SVC) or \
+                        bool(role_names & set(_SUPERVISOR_DEPT_ACCESS.keys()))
+        if not is_privileged:
+            own_staff = self.repo.get_by_user(user.id)
+            if not own_staff or str(own_staff.id) != str(staff_id):
+                raise HTTPException(status_code=403,
+                    detail="Staff can only view their own leave records")
         return self.leave_repo.get_by_staff(staff_id, skip, limit)
 
     # ── Complaint Assignment ───────────────────────────────────────────────────

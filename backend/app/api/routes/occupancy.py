@@ -11,8 +11,8 @@ from app.core.dependencies import get_current_user, require_roles, require_admin
 from app.models.user import User
 from app.services.occupancy_service import OccupancyService
 from app.schemas.common import OrmBase, TimestampSchema
+from app.schemas.agreement import AgreementOut
 from app.models.occupancy_log import OccupancyEventType
-from app.models.agreement_tracker import AgreementStatus
 
 router = APIRouter(prefix="/occupancy", tags=["Occupancy & Agreement Tracking"])
 
@@ -36,12 +36,6 @@ class TenantMoveOutRequest(OrmBase):
 class OccupancyLogOut(TimestampSchema):
     flat_id: UUID; event_type: OccupancyEventType; event_date: date
     resident_id: Optional[UUID]; tenant_id: Optional[UUID]; notes: Optional[str]
-
-
-class AgreementOut(TimestampSchema):
-    flat_id: UUID; tenant_id: UUID; start_date: date; end_date: date
-    status: AgreementStatus; monthly_rent: Optional[float]
-    alert_sent_30: bool; alert_sent_7: bool
 
 
 @router.post("/resident/move-in", dependencies=[Depends(committee_or_admin)])
@@ -69,15 +63,15 @@ def tenant_move_out(data: TenantMoveOutRequest, db: Session = Depends(get_db),
     return OccupancyService(db).tenant_move_out(data.flat_id, data.tenant_id, data.move_out_date, user)
 
 
-@router.get("/flat/{flat_id}/history", response_model=List[OccupancyLogOut],
-            dependencies=[Depends(any_member)])
-def flat_history(flat_id: UUID, db: Session = Depends(get_db)):
-    return OccupancyService(db).get_flat_history(flat_id)
+@router.get("/flat/{flat_id}/history", response_model=List[OccupancyLogOut])
+def flat_history(flat_id: UUID, db: Session = Depends(get_db),
+                  user: User = Depends(any_member)):
+    return OccupancyService(db).get_flat_history(flat_id, user)
 
 
-@router.get("/agreements/expiring/{society_id}", response_model=List[AgreementOut],
-            dependencies=[Depends(committee_or_admin)])
+@router.get("/agreements/expiring/{society_id}", response_model=List[AgreementOut])
 def expiring_agreements(society_id: UUID,
                         days: int = Query(30, description="Look-ahead days"),
-                        db: Session = Depends(get_db)):
-    return OccupancyService(db).get_expiring_agreements(society_id, days)
+                        db: Session = Depends(get_db),
+                        user: User = Depends(committee_or_admin)):
+    return OccupancyService(db).get_expiring_agreements(society_id, days, user)

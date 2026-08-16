@@ -153,6 +153,10 @@ class Staff(Base, TimestampMixin):
     emergency_contact_name  = Column(String(255), nullable=True)
     emergency_contact_phone = Column(String(20), nullable=True)
 
+    # Additional info
+    address     = Column(Text, nullable=True)
+    notes       = Column(Text, nullable=True)
+
     # Payroll readiness
     bank_account_number = Column(String(50), nullable=True)
     bank_name           = Column(String(100), nullable=True)
@@ -247,6 +251,10 @@ class StaffAttendance(Base, TimestampMixin):
     marker           = relationship("User", foreign_keys=[marked_by])
     approver         = relationship("User", foreign_keys=[approved_by])
     checkout_approver = relationship("User", foreign_keys=[checkout_approved_by])
+
+    @property
+    def staff_name(self) -> str:
+        return self.staff.full_name if self.staff else ""
 
     def __repr__(self):
         return f"<Attendance staff={self.staff_id} date={self.attendance_date} {self.status}>"

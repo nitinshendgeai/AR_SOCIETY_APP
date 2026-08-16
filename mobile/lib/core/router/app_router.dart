@@ -1,7 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:ar_society_app/features/splash/presentation/screens/splash_screen.dart';
@@ -47,6 +47,13 @@ import 'package:ar_society_app/features/society_structure/presentation/screens/f
 import 'package:ar_society_app/features/society_structure/presentation/screens/flat_form_screen.dart';
 import 'package:ar_society_app/features/society_structure/presentation/screens/flat_detail_screen.dart';
 import 'package:ar_society_app/features/society_structure/presentation/screens/setup_wizard_screen.dart' as structure_wizard;
+import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/resident_list_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/resident_detail_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/resident_form_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_list_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_detail_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_form_screen.dart';
 
 class AppRoutes {
   static const splash             = '/';
@@ -101,46 +108,31 @@ class AppRoutes {
   static const flatDetail         = '/flats/detail';
   static const flatForm           = '/flats/form';
   static const structureWizard    = '/structure-wizard';
-}
-
-// ── Router notifier ───────────────────────────────────────────────────────────
-//
-// Bridges Riverpod state changes into GoRouter's ChangeNotifier-based
-// refresh mechanism. This keeps GoRouter as a single long-lived instance
-// rather than recreating it on every auth state change (which would reset
-// the navigation stack to initialLocation on every state transition).
-
-class _RouterNotifier extends ChangeNotifier {
-  final Ref _ref;
-
-  _RouterNotifier(this._ref) {
-    _ref.listen<AuthState>(authProvider, (previous, next) {
-      debugPrint('[ROUTE_REDIRECT] authProvider changed: '
-          '${previous.runtimeType} → ${next.runtimeType}');
-      notifyListeners();
-    });
-  }
+  // Resident Master (Phase M1.4)
+  static const residentsList      = '/residents';
+  static const residentDetail     = '/residents/detail';
+  static const residentForm       = '/residents/form';
+  static const tenantsList        = '/tenants';
+  static const tenantDetail       = '/tenants/detail';
+  static const tenantForm         = '/tenants/form';
 }
 
 // ── Router provider ───────────────────────────────────────────────────────────
 //
-// GoRouter is created ONCE. Auth state changes notify the router via
-// refreshListenable, which re-evaluates the redirect without rebuilding
-// the entire router or resetting the navigation stack.
+// appRouterProvider watches authProvider directly. Riverpod rebuilds the router
+// whenever auth state changes. This is the safe pattern: no ref.read() inside
+// GoRouter callbacks (which run outside Riverpod's build context and fail in
+// dart2js release builds with "Instance of 'minified:...'").
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final notifier = _RouterNotifier(ref);
-  ref.onDispose(notifier.dispose);
+  final authState = ref.watch(authProvider);
 
   final router = GoRouter(
     initialLocation: AppRoutes.splash,
-    debugLogDiagnostics: kDebugMode,
-    refreshListenable: notifier,
+    debugLogDiagnostics: false,
 
     redirect: (context, state) {
-      // Read current auth state at redirect time (not a stale closure capture)
-      final authState = ref.read(authProvider);
-      final path      = state.matchedLocation;
+      final path = state.matchedLocation;
 
       final isAuthenticated     = authState is AuthAuthenticated;
       final isOnSplash          = path == AppRoutes.splash;
@@ -195,7 +187,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         // 3. Once setup is complete, redirect away from auth/setup screens.
         if (!user.mustChangePassword && user.termsAccepted &&
             (isOnLogin || isOnSplash || isOnChangePassword || isOnSetupWizard)) {
-          final home = _roleHome(ref);
+          final home = _userRoleHome(user);
           debugPrint('[ROUTE_REDIRECT] → role home: $home');
           return home;
         }
@@ -210,7 +202,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: AppRoutes.login,  builder: (_, __) => const LoginScreen()),
       GoRoute(path: AppRoutes.changePassword,
           builder: (_, __) => const ChangePasswordScreen()),
-      GoRoute(path: AppRoutes.home,   redirect: (_, __) => _roleHome(ref)),
+      GoRoute(path: AppRoutes.home, redirect: (_, __) {
+        if (authState is AuthAuthenticated) {
+          return _userRoleHome((authState as AuthAuthenticated).user);
+        }
+        return AppRoutes.login;
+      }),
       GoRoute(path: AppRoutes.adminHome,
           builder: (_, __) => const AdminDashboardScreen()),
       GoRoute(path: AppRoutes.committeeHome,
@@ -228,8 +225,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.staffApprovals,
         builder: (_, state) {
-          final societyId = state.extra as String? ?? '';
-          return AttendanceApprovalScreen(societyId: societyId);
+          final extra = state.extra;
+          final String societyId;
+          final String? department;
+          if (extra is Map<String, dynamic>) {
+            societyId  = extra['societyId'] as String? ?? '';
+            department = extra['department'] as String?;
+          } else {
+            societyId  = extra as String? ?? '';
+            department = null;
+          }
+          return AttendanceApprovalScreen(societyId: societyId, department: department);
         },
       ),
       GoRoute(
@@ -252,6 +258,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Staff Master CRUD — literal /add before parameterised /:staffId/*
       GoRoute(
         path: AppRoutes.staffAdd,
+        redirect: (_, __) {
+          if (authState is AuthAuthenticated) {
+            final user = (authState as AuthAuthenticated).user;
+            if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
+          }
+          return null;
+        },
         builder: (_, __) => const StaffAddScreen(),
       ),
       GoRoute(
@@ -263,6 +276,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.staffEdit,
+        redirect: (_, __) {
+          if (authState is AuthAuthenticated) {
+            final user = (authState as AuthAuthenticated).user;
+            if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
+          }
+          return null;
+        },
         builder: (_, state) {
           final staff = state.extra as StaffEntity;
           return StaffEditScreen(staff: staff);
@@ -270,11 +290,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.staffAttendance,
-        builder: (_, state) {
-          final staffId = state.pathParameters['staffId']!;
-          ref.read(staffIdProvider.notifier).state = staffId;
-          return AttendanceScreen(staffId: staffId);
-        },
+        builder: (_, state) => AttendanceScreen(
+          staffId: state.pathParameters['staffId']!,
+        ),
       ),
       GoRoute(
         path: AppRoutes.staffDuties,
@@ -446,30 +464,70 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.structureWizard,
         builder: (_, __) => const structure_wizard.SetupWizardScreen(),
       ),
+      // Resident Master (Phase M1.4) — literal paths before /form and /detail
+      // carry all state via `extra` (mirrors the Flat routes above), so no
+      // path-parameter ordering conflicts.
+      GoRoute(
+        path: AppRoutes.residentsList,
+        builder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return ResidentListScreen(filterFlat: extra?['flat'] as FlatModel?);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.residentDetail,
+        builder: (_, state) => ResidentDetailScreen(resident: state.extra as ResidentModel),
+      ),
+      GoRoute(
+        path: AppRoutes.residentForm,
+        builder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return ResidentFormScreen(
+            resident: extra?['resident'] as ResidentModel?,
+            defaultFlat: extra?['flat'] as FlatModel?,
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.tenantsList,
+        builder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return TenantListScreen(filterFlat: extra?['flat'] as FlatModel?);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.tenantDetail,
+        builder: (_, state) => TenantDetailScreen(tenant: state.extra as TenantModel),
+      ),
+      GoRoute(
+        path: AppRoutes.tenantForm,
+        builder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return TenantFormScreen(
+            tenant: extra?['tenant'] as TenantModel?,
+            defaultFlat: extra?['flat'] as FlatModel?,
+          );
+        },
+      ),
     ],
     errorBuilder: (context, state) =>
         Scaffold(body: Center(child: Text('Route not found: ${state.uri}'))),
   );
 
+  ref.onDispose(router.dispose);
   return router;
 });
 
-String _roleHome(Ref ref) {
-  final user = ref.read(currentUserProvider);
-  debugPrint('[ROUTE_REDIRECT] _roleHome: user=${user?.email} '
-      'primaryRole=${user?.primaryRole}');
-  if (user == null) return AppRoutes.login;
-  switch (user.primaryRole) {
-    case 'Admin':
-    case 'Super Admin':
-    case 'Society Admin': return AppRoutes.adminHome;
-    case 'Committee':     return AppRoutes.committeeHome;
-    case 'Security':      return AppRoutes.securityHome;
-    case 'Manager':       return AppRoutes.managerHome;
-    case 'Security Supervisor':
-    case 'Housekeeping Supervisor':
-    case 'Supervisor':    return AppRoutes.supervisorHome;
-    case 'Staff':         return AppRoutes.staffHome;
-    default:              return AppRoutes.residentHome;
+String _userRoleHome(UserEntity user) {
+  if (user.isAdmin) return AppRoutes.adminHome;
+  if (user.isCommittee) return AppRoutes.committeeHome;
+  final roles = user.roles;
+  // Specific staff hierarchy roles — checked before generic contains() guards
+  if (roles.any((r) => r == 'Manager')) return AppRoutes.managerHome;
+  if (roles.any((r) => r.contains('Supervisor'))) return AppRoutes.supervisorHome;
+  if (roles.any((r) => r.contains('Staff') || r == 'Gym Trainer' || r.contains('Trainer'))) {
+    return AppRoutes.staffHome;
   }
+  if (user.isSecurity) return AppRoutes.securityHome;
+  return AppRoutes.residentHome;
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/complaint/domain/entities/complaint_entities.dart';
 import 'package:ar_society_app/features/complaint/presentation/providers/complaint_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
@@ -205,7 +206,9 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          final sid = widget.societyId ?? '';
+          final sid = (widget.societyId?.isNotEmpty == true)
+              ? widget.societyId!
+              : ref.read(currentUserProvider)?.societyId ?? '';
           context.push('/complaints/create?societyId=$sid');
         },
         backgroundColor: AppTheme.primary,

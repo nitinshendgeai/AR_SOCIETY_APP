@@ -15,6 +15,22 @@ class AppTheme {
   static const Color border = Color(0xFFE5E7EB);
   static const Color cardBg = Color(0xFFFFFFFF);
 
+  static TextTheme _safeTextTheme() {
+    try {
+      return GoogleFonts.interTextTheme();
+    } catch (_) {
+      return const TextTheme();
+    }
+  }
+
+  static TextStyle _safeInter(double size, FontWeight weight, [Color? color]) {
+    try {
+      return GoogleFonts.inter(fontSize: size, fontWeight: weight, color: color);
+    } catch (_) {
+      return TextStyle(fontSize: size, fontWeight: weight, color: color);
+    }
+  }
+
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
@@ -23,16 +39,12 @@ class AppTheme {
         brightness: Brightness.light,
       ),
       scaffoldBackgroundColor: surface,
-      textTheme: GoogleFonts.interTextTheme(),
+      textTheme: _safeTextTheme(),
       appBarTheme: AppBarTheme(
         backgroundColor: cardBg,
         elevation: 0,
         scrolledUnderElevation: 1,
-        titleTextStyle: GoogleFonts.inter(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: textPrimary,
-        ),
+        titleTextStyle: _safeInter(18, FontWeight.w600, textPrimary),
         iconTheme: const IconThemeData(color: textPrimary),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -43,10 +55,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: GoogleFonts.inter(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: _safeInter(16, FontWeight.w600),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -69,8 +78,8 @@ class AppTheme {
           borderSide: const BorderSide(color: error),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        labelStyle: GoogleFonts.inter(color: textSecondary),
-        hintStyle: GoogleFonts.inter(color: textSecondary),
+        labelStyle: _safeInter(14, FontWeight.w400, textSecondary),
+        hintStyle: _safeInter(14, FontWeight.w400, textSecondary),
       ),
       cardTheme: CardThemeData(
         color: cardBg,
