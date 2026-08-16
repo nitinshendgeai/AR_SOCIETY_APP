@@ -65,6 +65,29 @@ def test_read_one_tenant(client, db, society_a):
     assert r.json()["full_name"] == "Bob Tenant"
 
 
+def test_read_one_tenant_still_accessible_after_move_out(client, db, society_a):
+    """Regression for a real bug found in M1.4-R Postgres E2E verification:
+    TenantRepository.get() filters is_active=True, and move-out sets
+    Tenant.is_active=False — so GET /tenants/{id} 404'd for every moved-out
+    tenant, making their detail page (and agreement/occupancy history)
+    completely unreachable. get_or_404() must use get_any() instead."""
+    from datetime import date
+    created = client.post("/api/v1/tenants/", json={
+        "flat_id": str(society_a["flat"].id), "full_name": "Moved Out Tenant",
+        "move_in_date": str(date.today()),
+    }, headers=society_a["admin"]["headers"]).json()
+
+    r = client.post("/api/v1/occupancy/tenant/move-out", json={
+        "flat_id": str(society_a["flat"].id), "tenant_id": created["id"],
+        "move_out_date": str(date.today()),
+    }, headers=society_a["admin"]["headers"])
+    assert r.status_code == 200
+
+    detail = client.get(f"/api/v1/tenants/{created['id']}", headers=society_a["admin"]["headers"])
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["is_active"] is False
+
+
 def test_list_tenants_by_flat(client, db, society_a):
     other_flat = make_flat(db, society_a["wing"].id, "T-102")
     client.post("/api/v1/tenants/", json={

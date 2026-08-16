@@ -48,6 +48,15 @@ def update_tenant(tenant_id: UUID, data: TenantUpdate, db: Session = Depends(get
     return TenantService(db).update(tenant_id, data, current_user)
 
 
+@router.get("/{tenant_id}/agreements", response_model=List[AgreementOut])
+def list_tenant_agreements(tenant_id: UUID, db: Session = Depends(get_db),
+                            current_user: User = Depends(get_current_user)):
+    """Phase M1.4-R — full agreement history for a tenant (current +
+    historical), newest start_date first. Read access mirrors get_tenant/
+    list_tenants (any authenticated same-society member), not admin-gated."""
+    return TenantService(db).list_agreements(tenant_id, current_user)
+
+
 @router.post("/{tenant_id}/renew-agreement", response_model=AgreementOut, status_code=201)
 def renew_agreement(tenant_id: UUID, data: AgreementRenewalRequest, db: Session = Depends(get_db),
                      current_user: User = Depends(require_admin_committee)):

@@ -205,3 +205,104 @@ def test_audit_entries_generated_for_agreement_create_and_renew(client, db, rig)
     renewal_entries = db.query(AuditLog).filter(AuditLog.module == "agreement").all()
     # 1 for initial creation + 1 for old->renewed + 1 for new agreement creation
     assert len(renewal_entries) >= 3
+
+
+# ── Agreement history — GET /tenants/{id}/agreements (Phase M1.4-R) ────────
+
+class TestAgreementHistory:
+    def test_tenant_with_no_agreement_returns_empty_list(self, client, db, rig):
+        created = client.post("/api/v1/tenants/", json={
+            "flat_id": str(rig["flat"].id), "full_name": "No Agreement Tenant",
+        }, headers=rig["admin"]["headers"]).json()
+        r = client.get(f"/api/v1/tenants/{created['id']}/agreements", headers=rig["admin"]["headers"])
+        assert r.status_code == 200
+        assert r.json() == []
+
+    def test_tenant_with_one_agreement(self, client, rig):
+        tenant, start, end = _create_active_tenant(client, rig)
+        r = client.get(f"/api/v1/tenants/{tenant['id']}/agreements", headers=rig["admin"]["headers"])
+        assert r.status_code == 200
+        agreements = r.json()
+        assert len(agreements) == 1
+        assert agreements[0]["id"] == tenant["active_agreement_id"]
+        assert agreements[0]["status"] == "active"
+
+    def test_tenant_with_multiple_renewals_newest_first(self, client, rig):
+        """Renewal chain of 3 agreements — history must return all 3,
+        ordered by start_date descending (newest/current first)."""
+        tenant, start, end = _create_active_tenant(client, rig)
+        first_id = tenant["active_agreement_id"]
+
+        r2 = client.post(f"/api/v1/tenants/{tenant['id']}/renew-agreement", json={
+            "start_date": str(end), "end_date": str(end + timedelta(days=180)),
+        }, headers=rig["admin"]["headers"])
+        assert r2.status_code == 201
+        second = r2.json()
+
+        third_start = end + timedelta(days=180)
+        r3 = client.post(f"/api/v1/tenants/{tenant['id']}/renew-agreement", json={
+            "start_date": str(third_start), "end_date": str(third_start + timedelta(days=180)),
+        }, headers=rig["admin"]["headers"])
+        assert r3.status_code == 201
+        third = r3.json()
+
+        r = client.get(f"/api/v1/tenants/{tenant['id']}/agreements", headers=rig["admin"]["headers"])
+        assert r.status_code == 200
+        agreements = r.json()
+        assert len(agreements) == 3
+
+        # newest first
+        assert agreements[0]["id"] == third["id"]
+        assert agreements[1]["id"] == second["id"]
+        assert agreements[2]["id"] == first_id
+
+        # current-agreement identification
+        assert agreements[0]["status"] == "active"
+        assert agreements[1]["status"] == "renewed"
+        assert agreements[2]["status"] == "renewed"
+
+        # renewal chain preserved
+        assert agreements[0]["renewal_of_id"] == second["id"]
+        assert agreements[1]["renewal_of_id"] == first_id
+        assert agreements[2]["renewal_of_id"] is None
+
+    def test_own_tenant_agreement_history_allowed(self, client, rig):
+        tenant, _, _ = _create_active_tenant(client, rig)
+        r = client.get(f"/api/v1/tenants/{tenant['id']}/agreements", headers=rig["admin"]["headers"])
+        assert r.status_code == 200
+
+    def test_cross_society_agreement_history_denied(self, client, db, rig):
+        """Society A caller must not be able to read Society B's tenant's
+        agreement history — must fail closed (404), not leak data."""
+        tenant, _, _ = _create_active_tenant(client, rig)
+
+        society_b = make_society(db, "Agreement History Society B")
+        admin_b = make_user(db, "agrhistadmB@test.com", role="Society Admin")
+        _set_society(db, admin_b["user"], society_b.id)
+
+        r = client.get(f"/api/v1/tenants/{tenant['id']}/agreements", headers=admin_b["headers"])
+        assert r.status_code == 404, "a different society must not see this tenant's agreement history at all"
+
+    def test_agreement_history_accessible_after_tenant_moved_out(self, client, rig):
+        """Regression for a real bug found in M1.4-R Postgres E2E verification:
+        TenantRepository.get() filters is_active=True, and move-out sets
+        Tenant.is_active=False — so history must NOT go through get(), or a
+        moved-out tenant's history becomes 404 right when it matters most."""
+        tenant, start, end = _create_active_tenant(client, rig)
+        r = client.post("/api/v1/occupancy/tenant/move-out", json={
+            "flat_id": str(rig["flat"].id), "tenant_id": tenant["id"],
+            "move_out_date": str(end),
+        }, headers=rig["admin"]["headers"])
+        assert r.status_code == 200
+
+        history = client.get(f"/api/v1/tenants/{tenant['id']}/agreements", headers=rig["admin"]["headers"])
+        assert history.status_code == 200, history.text
+        assert len(history.json()) == 1
+        assert history.json()[0]["status"] == "terminated"
+
+    def test_cross_society_agreement_history_via_nonexistent_tenant_denied(self, client, db, rig):
+        """Same DENY outcome (404) whether the tenant genuinely doesn't
+        exist or merely isn't visible to the caller — no existence leak."""
+        import uuid
+        r = client.get(f"/api/v1/tenants/{uuid.uuid4()}/agreements", headers=rig["admin"]["headers"])
+        assert r.status_code == 404

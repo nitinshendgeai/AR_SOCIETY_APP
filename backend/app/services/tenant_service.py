@@ -76,7 +76,12 @@ class TenantService:
     # ── Read ─────────────────────────────────────────────────────────────────
 
     def get_or_404(self, id: UUID, current_user: User) -> TenantOut:
-        tenant = self.repo.get(id, society_id=current_user.society_id)
+        # get_any(), not get(): a moved-out tenant (is_active=False) must
+        # still be viewable — their detail page is exactly where agreement/
+        # occupancy history is reviewed. Found live in M1.4-R Postgres E2E
+        # testing; write access (update(), below) intentionally stays
+        # active-only.
+        tenant = self.repo.get_any(id, society_id=current_user.society_id)
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant not found")
         return self._enrich(tenant)
@@ -118,6 +123,27 @@ class TenantService:
             new_values={k: (v.value if hasattr(v, "value") else v) for k, v in patch.items()},
         )
         return self._enrich(updated)
+
+    # ── Agreement history (Phase M1.4-R) ────────────────────────────────────
+
+    def list_agreements(self, id: UUID, current_user: User) -> List[AgreementTracker]:
+        """All AgreementTracker rows for this tenant — current (ACTIVE) and
+        historical (RENEWED/EXPIRED/TERMINATED) — newest start_date first.
+        Uses get_any() rather than get() deliberately: a tenant who has
+        moved out is is_active=False, but their agreement history must
+        remain readable (that's precisely when history matters most) —
+        found live against real PostgreSQL during M1.4-R E2E verification.
+        Society scoping still applies, so cross-society/nonexistent tenants
+        both surface as an identical 404 (no existence leakage)."""
+        tenant = self.repo.get_any(id, society_id=current_user.society_id)
+        if not tenant:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+        return (
+            self.db.query(AgreementTracker)
+            .filter(AgreementTracker.tenant_id == id)
+            .order_by(AgreementTracker.start_date.desc())
+            .all()
+        )
 
     # ── Agreement renewal ────────────────────────────────────────────────────
 

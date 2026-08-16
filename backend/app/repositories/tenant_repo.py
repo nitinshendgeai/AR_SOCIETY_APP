@@ -24,6 +24,18 @@ class TenantRepository(BaseRepository[Tenant]):
                  .filter(Wing.society_id == society_id)
         return q.first()
 
+    def get_any(self, id, society_id=None) -> Optional[Tenant]:
+        """Like get(), but WITHOUT the is_active filter — a tenant who has
+        moved out (is_active=False, set by OccupancyService.tenant_move_out)
+        must still be look-up-able by history/audit-style reads (Phase
+        M1.4-R: GET /tenants/{id}/agreements). Society scoping is enforced
+        identically to get()."""
+        q = self.db.query(Tenant).filter(Tenant.id == id)
+        if society_id is not None:
+            q = q.join(Flat, Tenant.flat_id == Flat.id).join(Wing, Flat.wing_id == Wing.id) \
+                 .filter(Wing.society_id == society_id)
+        return q.first()
+
     def list_scoped(
         self,
         society_id: Optional[UUID],

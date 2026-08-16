@@ -82,7 +82,11 @@ class ResidentService:
     # ── Read ─────────────────────────────────────────────────────────────────
 
     def get_or_404(self, id: UUID, current_user: User) -> ResidentOut:
-        resident = self.repo.get(id, society_id=current_user.society_id)
+        # get_any(), not get(): a moved-out resident (is_active=False) must
+        # still be viewable — their detail page is exactly where occupancy
+        # history is reviewed. Found live in M1.4-R Postgres E2E testing;
+        # write access (update(), below) intentionally stays active-only.
+        resident = self.repo.get_any(id, society_id=current_user.society_id)
         if not resident:
             raise HTTPException(status_code=404, detail="Resident not found")
         return self._enrich(resident)

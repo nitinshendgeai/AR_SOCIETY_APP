@@ -68,6 +68,28 @@ def test_read_one_resident(client, db, society_a):
     assert r.json()["full_name"] == "Bob Owner"
 
 
+def test_read_one_resident_still_accessible_after_move_out(client, db, society_a):
+    """Regression for a real bug found in M1.4-R Postgres E2E verification:
+    ResidentRepository.get() filters is_active=True, and move-out sets
+    Resident.is_active=False — so GET /residents/{id} 404'd for every
+    moved-out resident, making their detail page (and occupancy history)
+    completely unreachable. get_or_404() must use get_any() instead."""
+    created = client.post("/api/v1/residents/", json={
+        "flat_id": str(society_a["flat"].id), "full_name": "Moved Out Owner",
+        "move_in_date": str(date.today()),
+    }, headers=society_a["admin"]["headers"]).json()
+
+    r = client.post("/api/v1/occupancy/resident/move-out", json={
+        "flat_id": str(society_a["flat"].id), "resident_id": created["id"],
+        "move_out_date": str(date.today()),
+    }, headers=society_a["admin"]["headers"])
+    assert r.status_code == 200
+
+    detail = client.get(f"/api/v1/residents/{created['id']}", headers=society_a["admin"]["headers"])
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["is_active"] is False
+
+
 def test_list_residents_by_flat(client, db, society_a):
     for name in ("Carol", "Dave"):
         client.post("/api/v1/residents/", json={

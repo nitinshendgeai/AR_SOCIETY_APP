@@ -25,6 +25,19 @@ class ResidentRepository(BaseRepository[Resident]):
                  .filter(Wing.society_id == society_id)
         return q.first()
 
+    def get_any(self, id, society_id=None) -> Optional[Resident]:
+        """Like get(), but WITHOUT the is_active filter — a resident who has
+        moved out (is_active=False, set by OccupancyService.resident_move_out)
+        must still be viewable (Phase M1.4-R: found live that GET
+        /residents/{id} 404'd for every moved-out resident, making their
+        detail page — and therefore their occupancy history — completely
+        unreachable). Society scoping is enforced identically to get()."""
+        q = self.db.query(Resident).filter(Resident.id == id)
+        if society_id is not None:
+            q = q.join(Flat, Resident.flat_id == Flat.id).join(Wing, Flat.wing_id == Wing.id) \
+                 .filter(Wing.society_id == society_id)
+        return q.first()
+
     def list_scoped(
         self,
         society_id: Optional[UUID],

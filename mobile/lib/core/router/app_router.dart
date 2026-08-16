@@ -47,6 +47,13 @@ import 'package:ar_society_app/features/society_structure/presentation/screens/f
 import 'package:ar_society_app/features/society_structure/presentation/screens/flat_form_screen.dart';
 import 'package:ar_society_app/features/society_structure/presentation/screens/flat_detail_screen.dart';
 import 'package:ar_society_app/features/society_structure/presentation/screens/setup_wizard_screen.dart' as structure_wizard;
+import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/resident_list_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/resident_detail_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/resident_form_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_list_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_detail_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_form_screen.dart';
 
 class AppRoutes {
   static const splash             = '/';
@@ -101,6 +108,13 @@ class AppRoutes {
   static const flatDetail         = '/flats/detail';
   static const flatForm           = '/flats/form';
   static const structureWizard    = '/structure-wizard';
+  // Resident Master (Phase M1.4)
+  static const residentsList      = '/residents';
+  static const residentDetail     = '/residents/detail';
+  static const residentForm       = '/residents/form';
+  static const tenantsList        = '/tenants';
+  static const tenantDetail       = '/tenants/detail';
+  static const tenantForm         = '/tenants/form';
 }
 
 // ── Router provider ───────────────────────────────────────────────────────────
@@ -449,6 +463,51 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.structureWizard,
         builder: (_, __) => const structure_wizard.SetupWizardScreen(),
+      ),
+      // Resident Master (Phase M1.4) — literal paths before /form and /detail
+      // carry all state via `extra` (mirrors the Flat routes above), so no
+      // path-parameter ordering conflicts.
+      GoRoute(
+        path: AppRoutes.residentsList,
+        builder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return ResidentListScreen(filterFlat: extra?['flat'] as FlatModel?);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.residentDetail,
+        builder: (_, state) => ResidentDetailScreen(resident: state.extra as ResidentModel),
+      ),
+      GoRoute(
+        path: AppRoutes.residentForm,
+        builder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return ResidentFormScreen(
+            resident: extra?['resident'] as ResidentModel?,
+            defaultFlat: extra?['flat'] as FlatModel?,
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.tenantsList,
+        builder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return TenantListScreen(filterFlat: extra?['flat'] as FlatModel?);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.tenantDetail,
+        builder: (_, state) => TenantDetailScreen(tenant: state.extra as TenantModel),
+      ),
+      GoRoute(
+        path: AppRoutes.tenantForm,
+        builder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return TenantFormScreen(
+            tenant: extra?['tenant'] as TenantModel?,
+            defaultFlat: extra?['flat'] as FlatModel?,
+          );
+        },
       ),
     ],
     errorBuilder: (context, state) =>

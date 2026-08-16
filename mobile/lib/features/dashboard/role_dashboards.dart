@@ -21,6 +21,8 @@ class _DashboardShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final menuItems = <_MenuItem>[
+      _MenuItem('Residents', Icons.people_outline_rounded, AppRoutes.residentsList),
+      _MenuItem('Tenants', Icons.groups_2_outlined, AppRoutes.tenantsList),
       _MenuItem('Users & Roles', Icons.people_rounded, AppRoutes.usersList),
       _MenuItem('Society Settings', Icons.apartment_rounded, AppRoutes.societySettings),
       _MenuItem('Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),

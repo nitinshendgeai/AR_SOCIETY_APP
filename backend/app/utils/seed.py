@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from datetime import date, timedelta, datetime
 from sqlalchemy.orm import Session
 
-from app.db.session import SessionLocal
+from app.db.session import get_session_factory
 from app.core.security import hash_password
 from app.models.user import User, UserRole, UserStatus
 from app.models.role import Role
@@ -34,7 +34,13 @@ from app.modules.staff.models.staff import (
     StaffDepartment, StaffStatus, ShiftType, AttendanceStatus,
 )
 
-ROLES    = ["Admin", "Committee", "Resident", "Security", "Staff"]
+# Canonical role names — must match EXTENDED_DEFAULT_ROLES in
+# app/modules/onboarding/services/onboarding_service.py and the _ROLES_*
+# tuples in app/core/dependencies.py. Using anything else (e.g. the previous
+# "Admin"/"Committee"/"Security"/"Staff") means require_admin_committee /
+# require_any_member never recognize the seeded users, since those
+# dependencies check literal role names, not a group/alias.
+ROLES    = ["Society Admin", "Committee Member", "Resident", "Security Staff", "Housekeeping Staff"]
 TODAY    = date.today()
 PASSWORD = "Test@12345"
 
@@ -66,7 +72,7 @@ def create_user(db: Session, email: str, full_name: str, role_name: str,
 
 
 def run_seed():
-    db = SessionLocal()
+    db = get_session_factory()()
     try:
         print("\n🌱 AR Society ERP — Seed Data Generator")
         print("=" * 50)
@@ -78,10 +84,10 @@ def run_seed():
 
         # ── Test Users ────────────────────────────────────────────────────────
         print("\n[2] Creating test users...")
-        admin     = create_user(db, "admin@arsociety.com",     "Admin User",     "Admin",     "9000000001")
-        committee = create_user(db, "committee@arsociety.com", "Committee User", "Committee", "9000000002")
-        security  = create_user(db, "security@arsociety.com",  "Security Guard", "Security",  "9000000003")
-        staff1    = create_user(db, "staff1@arsociety.com",    "Staff One",      "Staff",     "9000000004")
+        admin     = create_user(db, "admin@arsociety.com",     "Admin User",     "Society Admin",    "9000000001")
+        committee = create_user(db, "committee@arsociety.com", "Committee User", "Committee Member", "9000000002")
+        security  = create_user(db, "security@arsociety.com",  "Security Guard", "Security Staff",   "9000000003")
+        staff1    = create_user(db, "staff1@arsociety.com",    "Staff One",      "Housekeeping Staff","9000000004")
 
         residents_data = [
             ("res1@arsociety.com", "Rahul Sharma",   "9001001001"),
@@ -113,6 +119,16 @@ def run_seed():
             print(f"  [✓] Society: {society.name}")
         else:
             print(f"  [skip] Society already exists")
+
+        # Scope every seeded user to this society. Without this they keep
+        # society_id=None, which tenant_scope.py treats as an *unscoped
+        # platform admin* — the seeded "Society Admin" would then see every
+        # society's data rather than just their own, masking real
+        # cross-tenant isolation bugs during manual/demo testing.
+        for u in [admin, committee, security, staff1, *res_users]:
+            if u.society_id != society.id:
+                u.society_id = society.id
+        db.flush()
 
         # ── Wings ─────────────────────────────────────────────────────────────
         print("\n[4] Creating wings...")
@@ -242,10 +258,10 @@ def run_seed():
         print("\n📋 Test Credentials (password: Test@12345)")
         print("-" * 45)
         for email, role in [
-            ("admin@arsociety.com",     "Admin"),
-            ("committee@arsociety.com", "Committee"),
-            ("security@arsociety.com",  "Security"),
-            ("staff1@arsociety.com",    "Staff"),
+            ("admin@arsociety.com",     "Society Admin"),
+            ("committee@arsociety.com", "Committee Member"),
+            ("security@arsociety.com",  "Security Staff"),
+            ("staff1@arsociety.com",    "Housekeeping Staff"),
             ("res1@arsociety.com",      "Resident"),
         ]:
             print(f"  {role:12s}  {email}")
