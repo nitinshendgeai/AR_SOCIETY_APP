@@ -5,6 +5,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_settings/presentation/providers/society_settings_providers.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 class FloorFormScreen extends ConsumerStatefulWidget {
   final WingModel wing;
@@ -68,7 +69,7 @@ class _FloorFormScreenState extends ConsumerState<FloorFormScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Error: $e'), backgroundColor: AppTheme.error));
+            content: Text(structureFriendlyError(e)), backgroundColor: AppTheme.error));
       }
     } finally {
       if (mounted) setState(() => _saving = false);

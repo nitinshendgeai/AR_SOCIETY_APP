@@ -6,6 +6,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
 
 class FlatDetailScreen extends ConsumerWidget {
@@ -14,15 +15,26 @@ class FlatDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Read the live copy from flatsBySocietyProvider (already kept fresh by
+    // every mutation) rather than the possibly-stale `flat` this screen was
+    // pushed with — otherwise Save Changes on Edit Flat returns here via a
+    // plain pop and this screen keeps showing pre-edit field values.
+    final current = ref
+            .watch(flatsBySocietyProvider)
+            .valueOrNull
+            ?.where((f) => f.id == flat.id)
+            .firstOrNull ??
+        flat;
+
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(
-        title: Text('Flat ${flat.flatNumber}'),
+        title: Text('Flat ${current.flatNumber}'),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_rounded),
             tooltip: 'Edit',
-            onPressed: () => context.push(AppRoutes.flatForm, extra: {'flat': flat}),
+            onPressed: () => context.push(AppRoutes.flatForm, extra: {'flat': current}),
           ),
           PopupMenuButton<String>(
             onSelected: (v) => _onMenu(context, ref, v),
@@ -38,11 +50,11 @@ class FlatDetailScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          _HeaderCard(flat: flat),
+          _HeaderCard(flat: current),
           const SizedBox(height: 16),
-          _DetailsCard(flat: flat),
+          _DetailsCard(flat: current),
           const SizedBox(height: 16),
-          _PeopleCard(flat: flat),
+          _PeopleCard(flat: current),
         ],
       ),
     );
@@ -75,7 +87,7 @@ class FlatDetailScreen extends ConsumerWidget {
         } catch (e) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('Error: $e'),
+                content: Text(structureFriendlyError(e)),
                 backgroundColor: AppTheme.error));
           }
         }

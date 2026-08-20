@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 class WingFormScreen extends ConsumerStatefulWidget {
   final WingModel? wing;
@@ -72,7 +73,7 @@ class _WingFormScreenState extends ConsumerState<WingFormScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Error: $e'), backgroundColor: AppTheme.error));
+            content: Text(structureFriendlyError(e)), backgroundColor: AppTheme.error));
       }
     } finally {
       if (mounted) setState(() => _saving = false);

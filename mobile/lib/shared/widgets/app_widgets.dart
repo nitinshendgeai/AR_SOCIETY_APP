@@ -1,5 +1,17 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+
+/// Maps a caught error to a user-facing message — the society_structure
+/// (Wing/Floor/Flat) screens were displaying the raw exception's toString()
+/// (e.g. a full DioException dump) directly in error snackbars/banners.
+/// Reuses the same parseApiError() every other module (auth, staff,
+/// resident_master, ...) already relies on for this.
+String structureFriendlyError(Object e) {
+  if (e is DioException) return parseApiError(e);
+  return 'Something went wrong. Please try again.';
+}
 
 // ── Loading Overlay ───────────────────────────────────────────────────────────
 
