@@ -25,7 +25,16 @@ class ResidentListNotifier extends StateNotifier<ResidentListState> {
   final ResidentMasterRepository _repo;
   ResidentListNotifier(this._repo) : super(ResidentListInitial());
 
+  String? _lastResidentType;
+  bool? _lastIsActive = true;
+  String? _lastSearch;
+  String? _lastFlatId;
+
   Future<void> load({String? residentType, bool? isActive = true, String? search, String? flatId}) async {
+    _lastResidentType = residentType;
+    _lastIsActive = isActive;
+    _lastSearch = search;
+    _lastFlatId = flatId;
     state = ResidentListLoading();
     final result = await _repo.listResidents(
       flatId: flatId, residentType: residentType, isActive: isActive, search: search,
@@ -35,6 +44,16 @@ class ResidentListNotifier extends StateNotifier<ResidentListState> {
       case RmFailure(:final message, :final statusCode): state = ResidentListError(message, statusCode: statusCode);
     }
   }
+
+  // Re-runs load() with whatever filters were last used, instead of the
+  // caller needing to know the list screen's current filter state — used
+  // by the form screen after create/update so the list doesn't get stuck
+  // on ResidentListInitial (ref.invalidate() alone resets state but never
+  // re-fetches, since the list screen's _load() only runs from initState).
+  Future<void> refresh() => load(
+        residentType: _lastResidentType, isActive: _lastIsActive,
+        search: _lastSearch, flatId: _lastFlatId,
+      );
 }
 
 final residentListProvider = StateNotifierProvider<ResidentListNotifier, ResidentListState>((ref) {
@@ -131,7 +150,14 @@ class TenantListNotifier extends StateNotifier<TenantListState> {
   final ResidentMasterRepository _repo;
   TenantListNotifier(this._repo) : super(TenantListInitial());
 
+  bool? _lastIsActive = true;
+  String? _lastSearch;
+  String? _lastFlatId;
+
   Future<void> load({bool? isActive = true, String? search, String? flatId}) async {
+    _lastIsActive = isActive;
+    _lastSearch = search;
+    _lastFlatId = flatId;
     state = TenantListLoading();
     final result = await _repo.listTenants(flatId: flatId, isActive: isActive, search: search);
     switch (result) {
@@ -139,6 +165,9 @@ class TenantListNotifier extends StateNotifier<TenantListState> {
       case RmFailure(:final message, :final statusCode): state = TenantListError(message, statusCode: statusCode);
     }
   }
+
+  // See ResidentListNotifier.refresh() — same fix, same reason.
+  Future<void> refresh() => load(isActive: _lastIsActive, search: _lastSearch, flatId: _lastFlatId);
 }
 
 final tenantListProvider = StateNotifierProvider<TenantListNotifier, TenantListState>((ref) {

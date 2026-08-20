@@ -370,6 +370,53 @@ void main() {
       // The form screen was popped back to the trigger button.
       expect(find.text('open'), findsOneWidget);
     });
+
+    testWidgets(
+        'list screen shows the newly created resident without a manual refresh '
+        '(regression: ref.invalidate() on a StateNotifierProvider resets state '
+        'to Initial but never re-fetches, since the list only calls load() from '
+        'initState — found live in M1.8)', (tester) async {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final fakeDs = _FakeDataSource();
+      final repo = ResidentMasterRepository(ds: fakeDs);
+
+      // Real push-based navigation, mirroring the app: ResidentListScreen
+      // stays mounted underneath while ResidentFormScreen is pushed on top,
+      // so its initState does not re-run when the form pops back.
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(path: '/', builder: (_, __) => const ResidentListScreen()),
+          GoRoute(path: '/form', builder: (_, __) => ResidentFormScreen(defaultFlat: _flat())),
+        ],
+      );
+
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          currentUserProvider.overrideWithValue(_adminUser()),
+          flatsBySocietyProvider.overrideWith(() => _FakeFlatsNotifier([_flat()])),
+          wingsProvider.overrideWith(() => _FakeWingsNotifier([_wing()])),
+          residentMasterRepositoryProvider.overrideWithValue(repo),
+        ],
+        child: MaterialApp.router(theme: AppTheme.lightTheme, routerConfig: router),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('No residents found'), findsOneWidget);
+
+      router.push('/form');
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).first, 'Fresh Resident');
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add Resident'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Fresh Resident'), findsOneWidget);
+      expect(find.text('No residents found'), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
   });
 
   // ── Tenant list + form ─────────────────────────────────────────────────

@@ -150,7 +150,7 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
           backgroundColor: AppTheme.success,
           behavior: SnackBarBehavior.floating,
         ));
-        ref.invalidate(residentListProvider);
+        ref.read(residentListProvider.notifier).refresh();
         ref.invalidate(residentsByFlatProvider(next.resident.flatId));
         if (_isEdit) ref.invalidate(residentDetailProvider(next.resident.id));
         ref.read(residentFormProvider.notifier).reset();

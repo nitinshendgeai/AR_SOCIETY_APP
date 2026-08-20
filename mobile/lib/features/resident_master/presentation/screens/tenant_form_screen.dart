@@ -149,7 +149,7 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(next.message), backgroundColor: AppTheme.success, behavior: SnackBarBehavior.floating,
         ));
-        ref.invalidate(tenantListProvider);
+        ref.read(tenantListProvider.notifier).refresh();
         ref.invalidate(tenantsByFlatProvider(next.tenant.flatId));
         if (_isEdit) ref.invalidate(tenantDetailProvider(next.tenant.id));
         ref.invalidate(tenantAgreementsProvider(next.tenant.id));
