@@ -118,18 +118,31 @@ class _TenantDetailBody extends ConsumerWidget {
               if (tenant.agreementStartDate == null)
                 const Text('No agreement on file.', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary))
               else ...[
-                Row(children: [
-                  Expanded(
-                    child: AgreementStatusBadge(
-                      status: hasActiveAgreement
-                          ? AgreementStatus.active
-                          : (daysLeft != null && daysLeft < 0 ? AgreementStatus.expired : AgreementStatus.terminated),
+                // A tenant created with agreement dates but no move-in yet
+                // has those dates cached on the Tenant row only — no
+                // AgreementTracker exists (activeAgreementId stays null)
+                // until move-in creates one. Falling through to the
+                // active/expired/terminated badge here mislabeled this
+                // case "Terminated", even though nothing was ever active.
+                if (!hasActiveAgreement && tenant.moveInDate == null)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text('Not yet active — becomes effective when the tenant moves in.',
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontStyle: FontStyle.italic)),
+                  )
+                else
+                  Row(children: [
+                    Expanded(
+                      child: AgreementStatusBadge(
+                        status: hasActiveAgreement
+                            ? AgreementStatus.active
+                            : (daysLeft != null && daysLeft < 0 ? AgreementStatus.expired : AgreementStatus.terminated),
+                      ),
                     ),
-                  ),
-                  if (daysLeft != null && daysLeft >= 0 && daysLeft <= 30 && hasActiveAgreement)
-                    Text('Expires in $daysLeft day${daysLeft == 1 ? '' : 's'}',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.warning)),
-                ]),
+                    if (daysLeft != null && daysLeft >= 0 && daysLeft <= 30 && hasActiveAgreement)
+                      Text('Expires in $daysLeft day${daysLeft == 1 ? '' : 's'}',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.warning)),
+                  ]),
                 const SizedBox(height: 8),
                 RmRow(label: 'Start Date', value: rmFormatDate(tenant.agreementStartDate)),
                 RmRow(label: 'End Date', value: rmFormatDate(tenant.agreementEndDate)),

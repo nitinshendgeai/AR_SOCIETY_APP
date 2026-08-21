@@ -535,6 +535,35 @@ void main() {
     });
   });
 
+  // ── Agreement status badge before move-in (M1.9-R1) ─────────────────────
+  //
+  // A tenant created with agreement dates but no move-in yet has those
+  // dates cached on the Tenant row only — activeAgreementId stays null
+  // until move-in creates a real AgreementTracker. Found live: the badge
+  // fell through to the terminated/expired branch and showed "TERMINATED"
+  // for an agreement that was never active in the first place.
+  group('Tenant Detail agreement status badge', () {
+    testWidgets('shows a neutral pending message, not TERMINATED, before move-in', (tester) async {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final futureEnd = DateTime.now().add(const Duration(days: 300));
+      final iso = '${futureEnd.year}-${futureEnd.month.toString().padLeft(2, '0')}-${futureEnd.day.toString().padLeft(2, '0')}';
+      final repo = ResidentMasterRepository(
+        ds: _FakeDataSource()..tenants = [_tenant(id: 'ten-1', agreementEndDate: iso)],
+      );
+      await tester.pumpWidget(_wrap(
+        TenantDetailScreen(tenant: _tenant(id: 'ten-1', agreementEndDate: iso)),
+        overrides: [residentMasterRepositoryProvider.overrideWithValue(repo)],
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Not yet active — becomes effective when the tenant moves in.'), findsOneWidget);
+      expect(find.text('TERMINATED'), findsNothing);
+    });
+  });
+
   // ── Occupancy move-in sheet ─────────────────────────────────────────────
 
   group('Occupancy move-in', () {
