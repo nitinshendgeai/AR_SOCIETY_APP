@@ -1,8 +1,13 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_settings/data/models/society_settings_model.dart';
 import 'package:ar_society_app/features/society_settings/presentation/providers/society_settings_providers.dart';
+
+String _friendlySettingsError(Object e) =>
+    e is DioException ? parseApiError(e) : 'Something went wrong. Please try again.';
 
 class SocietySettingsScreen extends ConsumerWidget {
   const SocietySettingsScreen({super.key});
@@ -204,7 +209,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(_friendlySettingsError(e)),
             backgroundColor: AppTheme.error,
           ),
         );
@@ -339,7 +344,7 @@ class _ContactTabState extends ConsumerState<_ContactTab>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
+          content: Text(_friendlySettingsError(e)),
           backgroundColor: AppTheme.error,
         ));
       }
@@ -515,7 +520,7 @@ class _SecurityTabState extends ConsumerState<_SecurityTab>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
+          content: Text(_friendlySettingsError(e)),
           backgroundColor: AppTheme.error,
         ));
       }
