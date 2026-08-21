@@ -80,6 +80,24 @@ TenantModel _tenant({
       moveOutDate: moveOutDate,
     );
 
+VehicleModel _vehicle({
+  String id = 'veh-1',
+  String vehicleNumber = 'MH12AB1234',
+  String? tenantId,
+  String? residentId,
+  bool isActive = true,
+}) =>
+    VehicleModel(
+      id: id,
+      societyId: 'soc-1',
+      flatId: 'flat-1',
+      residentId: residentId,
+      tenantId: tenantId,
+      vehicleNumber: vehicleNumber,
+      vehicleType: VehicleType.car,
+      isActive: isActive,
+    );
+
 AgreementModel _agreement({
   String id = 'agr-1',
   String startDate = '2026-01-01',
@@ -108,9 +126,11 @@ class _FakeDataSource extends ResidentMasterRemoteDataSource {
   List<ResidentModel> residents = [];
   List<TenantModel> tenants = [];
   List<AgreementModel> agreements = [];
+  List<VehicleModel> vehicles = [];
   Object? throwOnCreateResident;
   Object? throwOnCreateTenant;
   Object? throwOnListAgreements;
+  Object? throwOnDeregisterVehicle;
 
   @override
   Future<List<ResidentModel>> listResidents({
@@ -163,7 +183,24 @@ class _FakeDataSource extends ResidentMasterRemoteDataSource {
   Future<List<OccupancyLogModel>> getFlatHistory(String flatId) async => [];
 
   @override
-  Future<List<VehicleModel>> vehiclesByFlat(String flatId) async => [];
+  Future<List<VehicleModel>> vehiclesByFlat(String flatId) async => vehicles;
+
+  @override
+  Future<VehicleModel> createVehicle(Map<String, dynamic> data) async {
+    final v = _vehicle(id: 'new-veh', vehicleNumber: data['vehicle_number'] as String);
+    vehicles = [...vehicles, v];
+    return v;
+  }
+
+  @override
+  Future<VehicleModel> updateVehicle(String id, Map<String, dynamic> data) async =>
+      vehicles.firstWhere((v) => v.id == id, orElse: () => _vehicle(id: id));
+
+  @override
+  Future<void> deregisterVehicle(String id) async {
+    if (throwOnDeregisterVehicle != null) throw throwOnDeregisterVehicle!;
+    vehicles = vehicles.where((v) => v.id != id).toList();
+  }
 }
 
 Widget _wrap(Widget child, {UserEntity? user, List<Override> overrides = const []}) {
@@ -371,6 +408,55 @@ void main() {
       expect(find.text('open'), findsOneWidget);
     });
 
+    // Same rmPhoneValidator as TenantFormScreen (M1.9-R3 Gap C) — verifies
+    // the rule is actually shared, not a second hand-copied regex.
+    group('Mobile validation (M1.9-R3 Gap C)', () {
+      testWidgets('alphabetic mobile is blocked client-side and never reaches the repository',
+          (tester) async {
+        tester.view.physicalSize = const Size(800, 3000);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        final ds = _FakeDataSource();
+        final repo = ResidentMasterRepository(ds: ds);
+        await tester.pumpWidget(_wrap(
+          ResidentFormScreen(defaultFlat: _flat()),
+          overrides: [residentMasterRepositoryProvider.overrideWithValue(repo)],
+        ));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byType(TextFormField).first, 'Phone Test Resident');
+        await tester.enterText(find.widgetWithText(TextFormField, '10-digit mobile number'), 'abcdefghij');
+        await tester.tap(find.widgetWithText(ElevatedButton, 'Add Resident'));
+        await tester.pump();
+
+        expect(find.text('Enter a valid 10-digit mobile number'), findsOneWidget);
+        expect(ds.residents, isEmpty, reason: 'an invalid mobile must never reach the repository');
+      });
+
+      testWidgets('a valid mobile with a +91 prefix and separators is accepted', (tester) async {
+        tester.view.physicalSize = const Size(800, 3000);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        final repo = ResidentMasterRepository(ds: _FakeDataSource());
+        await tester.pumpWidget(_wrap(
+          ResidentFormScreen(defaultFlat: _flat()),
+          overrides: [residentMasterRepositoryProvider.overrideWithValue(repo)],
+        ));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byType(TextFormField).first, 'Phone Test Resident');
+        await tester.enterText(
+            find.widgetWithText(TextFormField, '10-digit mobile number'), '+91 98765-43210');
+        await tester.pump();
+
+        expect(find.text('Enter a valid 10-digit mobile number'), findsNothing);
+      });
+    });
+
     testWidgets(
         'list screen shows the newly created resident without a manual refresh '
         '(regression: ref.invalidate() on a StateNotifierProvider resets state '
@@ -468,6 +554,57 @@ void main() {
       await tester.pump();
 
       expect(find.text('Name is required'), findsOneWidget);
+    });
+
+    // Mobile field previously only checked length (`length < 10`), so a
+    // ten-character alphabetic string satisfied it; and M1.9-R2 found that
+    // "abc123" reached the backend as a stored value at all. rmPhoneValidator
+    // (shared with ResidentFormScreen) now checks digit content too.
+    group('Mobile validation (M1.9-R3 Gap C)', () {
+      testWidgets('alphabetic mobile is blocked client-side and never reaches the repository',
+          (tester) async {
+        tester.view.physicalSize = const Size(800, 3000);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        final ds = _FakeDataSource();
+        final repo = ResidentMasterRepository(ds: ds);
+        await tester.pumpWidget(_wrap(
+          TenantFormScreen(defaultFlat: _flat()),
+          overrides: [residentMasterRepositoryProvider.overrideWithValue(repo)],
+        ));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.widgetWithText(TextFormField, 'Enter full name'), 'Phone Test Tenant');
+        await tester.enterText(find.widgetWithText(TextFormField, '10-digit mobile number'), 'abcdefghij');
+        await tester.tap(find.widgetWithText(ElevatedButton, 'Add Tenant'));
+        await tester.pump();
+
+        expect(find.text('Enter a valid 10-digit mobile number'), findsOneWidget);
+        expect(ds.tenants, isEmpty, reason: 'an invalid mobile must never reach the repository');
+      });
+
+      testWidgets('a valid mobile with a +91 prefix and separators is accepted', (tester) async {
+        tester.view.physicalSize = const Size(800, 3000);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        final repo = ResidentMasterRepository(ds: _FakeDataSource());
+        await tester.pumpWidget(_wrap(
+          TenantFormScreen(defaultFlat: _flat()),
+          overrides: [residentMasterRepositoryProvider.overrideWithValue(repo)],
+        ));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.widgetWithText(TextFormField, 'Enter full name'), 'Phone Test Tenant');
+        await tester.enterText(
+            find.widgetWithText(TextFormField, '10-digit mobile number'), '+91 98765-43210');
+        await tester.pump();
+
+        expect(find.text('Enter a valid 10-digit mobile number'), findsNothing);
+      });
     });
   });
 
@@ -598,6 +735,114 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Resident moved in successfully'), findsOneWidget);
+    });
+  });
+
+  // ── Vehicle deactivate (M1.9-R3 Gap F) ──────────────────────────────────
+
+  group('Vehicle deactivate', () {
+    testWidgets('successful deactivate removes the vehicle and shows a confirmation snackbar',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final ds = _FakeDataSource()
+        ..tenants = [_tenant(id: 'ten-1')]
+        ..vehicles = [_vehicle(id: 'veh-1', tenantId: 'ten-1')];
+      final repo = ResidentMasterRepository(ds: ds);
+
+      await tester.pumpWidget(_wrap(
+        TenantDetailScreen(tenant: _tenant(id: 'ten-1')),
+        overrides: [residentMasterRepositoryProvider.overrideWithValue(repo)],
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('MH12AB1234'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.edit_outlined));
+      await tester.pumpAndSettle();
+      expect(find.text('Edit Vehicle'), findsOneWidget);
+
+      await tester.tap(find.text('Deactivate Vehicle'));
+      await tester.pumpAndSettle();
+      expect(find.text('Deactivate vehicle?'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Deactivate'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Vehicle deactivated'), findsOneWidget);
+      expect(find.text('MH12AB1234'), findsNothing);
+      expect(find.text('No vehicles registered.'), findsOneWidget);
+    });
+
+    testWidgets('cancelling the confirmation dialog leaves the vehicle untouched', (tester) async {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final ds = _FakeDataSource()
+        ..tenants = [_tenant(id: 'ten-1')]
+        ..vehicles = [_vehicle(id: 'veh-1', tenantId: 'ten-1')];
+      final repo = ResidentMasterRepository(ds: ds);
+
+      await tester.pumpWidget(_wrap(
+        TenantDetailScreen(tenant: _tenant(id: 'ten-1')),
+        overrides: [residentMasterRepositoryProvider.overrideWithValue(repo)],
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.edit_outlined));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Deactivate Vehicle'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      // dialog is gone, the Edit Vehicle sheet is still open and untouched
+      expect(find.text('Deactivate vehicle?'), findsNothing);
+      expect(find.text('Edit Vehicle'), findsOneWidget);
+      expect(ds.vehicles, hasLength(1));
+    });
+
+    testWidgets('a failed deactivate shows a friendly error, not a raw exception, and keeps the vehicle',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final ds = _FakeDataSource()
+        ..tenants = [_tenant(id: 'ten-1')]
+        ..vehicles = [_vehicle(id: 'veh-1', tenantId: 'ten-1')]
+        ..throwOnDeregisterVehicle = DioException(
+          requestOptions: RequestOptions(path: '/vehicles/veh-1'),
+          response: Response(
+            requestOptions: RequestOptions(path: '/vehicles/veh-1'),
+            statusCode: 403,
+            data: {'detail': 'Access requires one of roles: Society Admin, Committee Member'},
+          ),
+        );
+      final repo = ResidentMasterRepository(ds: ds);
+
+      await tester.pumpWidget(_wrap(
+        TenantDetailScreen(tenant: _tenant(id: 'ten-1')),
+        overrides: [residentMasterRepositoryProvider.overrideWithValue(repo)],
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.edit_outlined));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Deactivate Vehicle'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Deactivate'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('You do not have permission to view this.'), findsOneWidget);
+      expect(find.textContaining('DioException'), findsNothing);
+      expect(find.textContaining('RequestOptions'), findsNothing);
+      expect(ds.vehicles, hasLength(1), reason: 'a rejected deactivate must not remove the vehicle locally');
+      expect(find.text('Edit Vehicle'), findsOneWidget, reason: 'sheet must stay open so the user can retry');
     });
   });
 

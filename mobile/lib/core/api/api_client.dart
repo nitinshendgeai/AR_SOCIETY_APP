@@ -176,3 +176,11 @@ String parseApiError(DioException e) {
       return 'Something went wrong. Please try again.';
   }
 }
+
+/// Wraps parseApiError for the common `AsyncValue.when(error: (e, _) => ...)`
+/// case, where `e` is `Object` rather than a known `DioException` (M1.9-R3
+/// Part 11 — a source-wide audit found several screens rendering
+/// `e.toString()` directly, the same raw-exception leak fixed for Society
+/// Settings' save handlers in M1.9-R2 but missed on these load-error paths).
+String friendlyErrorMessage(Object e) =>
+    e is DioException ? parseApiError(e) : 'Something went wrong. Please try again.';

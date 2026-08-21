@@ -5,6 +5,7 @@ from decimal import Decimal
 from pydantic import model_validator, field_validator
 from app.schemas.common import OrmBase, TimestampSchema
 from app.models.tenant import PoliceVerificationStatus
+from app.utils.phone import normalize_phone
 
 
 class TenantCreate(OrmBase):
@@ -41,6 +42,11 @@ class TenantCreate(OrmBase):
             raise ValueError("must not be negative")
         return v
 
+    @field_validator("phone", "emergency_contact_phone")
+    @classmethod
+    def valid_phone(cls, v):
+        return normalize_phone(v)
+
     @model_validator(mode="after")
     def check_agreement_dates(self):
         start, end = self.agreement_start_date, self.agreement_end_date
@@ -76,6 +82,11 @@ class TenantUpdate(OrmBase):
     emergency_contact_phone: Optional[str] = None
     remarks:          Optional[str] = None
     user_id:          Optional[UUID] = None
+
+    @field_validator("phone", "emergency_contact_phone")
+    @classmethod
+    def valid_phone(cls, v):
+        return normalize_phone(v)
 
 
 class TenantOut(TimestampSchema):

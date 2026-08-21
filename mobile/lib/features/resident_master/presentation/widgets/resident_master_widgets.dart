@@ -271,6 +271,31 @@ String rmFriendlyError(Object e) {
   return msg;
 }
 
+/// Canonical mobile-number rule for Resident/Tenant forms (M1.9-R3 Gap C),
+/// mirroring the backend's app/utils/phone.py exactly: optional field, but
+/// if non-empty must resolve to a 10-digit Indian mobile number (leading
+/// 6-9) once a +91/91/0 prefix and any separators are stripped. Both the
+/// Mobile and Emergency Contact Phone fields on the Tenant and Resident
+/// forms use this — previously only Mobile had a validator at all, and it
+/// checked length only (`"abcdefghij"`, ten letters, satisfied it).
+final _rmPhoneDigits = RegExp(r'[^0-9]');
+final _rmIndianMobile = RegExp(r'^[6-9]\d{9}$');
+
+String? rmPhoneValidator(String? v) {
+  if (v == null) return null;
+  final trimmed = v.trim();
+  if (trimmed.isEmpty) return null;
+
+  var digits = trimmed.replaceAll(_rmPhoneDigits, '');
+  if (digits.startsWith('91') && digits.length == 12) {
+    digits = digits.substring(2);
+  } else if (digits.startsWith('0') && digits.length == 11) {
+    digits = digits.substring(1);
+  }
+
+  return _rmIndianMobile.hasMatch(digits) ? null : 'Enter a valid 10-digit mobile number';
+}
+
 /// Days remaining until [dateStr]; negative if already past.
 int? rmDaysUntil(String? dateStr) {
   if (dateStr == null) return null;

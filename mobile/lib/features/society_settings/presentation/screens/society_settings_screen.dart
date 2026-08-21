@@ -37,7 +37,7 @@ class SocietySettingsScreen extends ConsumerWidget {
               const Icon(Icons.error_outline_rounded,
                   color: AppTheme.error, size: 40),
               const SizedBox(height: 12),
-              Text(e.toString(),
+              Text(_friendlySettingsError(e),
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: AppTheme.textSecondary)),
               const SizedBox(height: 16),

@@ -1,9 +1,10 @@
 from typing import Optional, List
 from uuid import UUID
 from datetime import date
-from pydantic import model_validator
+from pydantic import model_validator, field_validator
 from app.schemas.common import OrmBase, TimestampSchema
 from app.models.resident import ResidentType, CommunicationPreference
+from app.utils.phone import normalize_phone
 
 _PRIMARY_ALLOWED_TYPES = (ResidentType.OWNER, ResidentType.CO_OWNER)
 
@@ -33,6 +34,11 @@ class ResidentCreate(OrmBase):
     # occupancy-transition logic (audit log, OccupancyLog entry,
     # Flat.occupancy_status update all already exist there).
     move_in_date:     Optional[date] = None
+
+    @field_validator("phone", "emergency_contact_phone")
+    @classmethod
+    def valid_phone(cls, v):
+        return normalize_phone(v)
 
     @model_validator(mode="after")
     def check_primary_type(self):
@@ -66,6 +72,11 @@ class ResidentUpdate(OrmBase):
     comm_preference:  Optional[CommunicationPreference] = None
     photo_url:        Optional[str] = None
     user_id:          Optional[UUID] = None
+
+    @field_validator("phone", "emergency_contact_phone")
+    @classmethod
+    def valid_phone(cls, v):
+        return normalize_phone(v)
 
     @model_validator(mode="after")
     def check_primary_type_if_both_given(self):

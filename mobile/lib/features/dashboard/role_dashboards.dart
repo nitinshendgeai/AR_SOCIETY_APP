@@ -12,6 +12,44 @@ import 'package:ar_society_app/features/complaint/presentation/providers/complai
 
 // ── Shared scaffold wrapper ───────────────────────────────────────────────────
 
+/// Drawer visibility is a UX layer only — every route it links to still
+/// re-enforces its own backend permission independently (require_admin,
+/// require_admin_committee, ...); hiding an item here never substitutes for
+/// that check. Each exclusion below mirrors an existing backend dependency
+/// (see backend/app/core/dependencies.py) rather than inventing a new rule:
+///  - Users & Roles: every route requires `require_admin` (Platform/Society
+///    Admin only — not even Committee).
+///  - Society Settings: writes require `require_committee` (=admin+committee);
+///    Manager/Supervisor/Security/Resident can technically still GET it, but
+///    it's an admin/committee management screen, not resident-facing info.
+///  - Setup Wizard: `setup-progress` PATCH requires admin_or_committee, and
+///    the wizard has no browsing value for anyone who can't act on it.
+///  - Staff: self-adapts (shows a management section for Committee/Manager/
+///    Supervisor) but is a no-op for Resident, who has no staff record.
+/// Residents/Tenants/Visitors/Complaints stay visible to every role: their
+/// list/detail reads are intentionally broad (`get_current_user`), each
+/// screen already gates its own Add/Edit controls via `canEdit`, and hiding
+/// them would remove valid read-only functionality.
+List<_MenuItem> _visibleMenuItems(UserEntity? user) {
+  final isAdmin = user?.isAdmin ?? false;
+  final isCommittee = user?.isCommittee ?? false;
+  final isResident = user?.isResident ?? false;
+  final canManageSociety = isAdmin || isCommittee; // mirrors require_committee
+
+  return [
+    _MenuItem('Residents', Icons.people_outline_rounded, AppRoutes.residentsList),
+    _MenuItem('Tenants', Icons.groups_2_outlined, AppRoutes.tenantsList),
+    if (isAdmin) _MenuItem('Users & Roles', Icons.people_rounded, AppRoutes.usersList),
+    if (canManageSociety)
+      _MenuItem('Society Settings', Icons.apartment_rounded, AppRoutes.societySettings),
+    _MenuItem('Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
+    _MenuItem('Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
+    if (!isResident) _MenuItem('Staff', Icons.badge_rounded, AppRoutes.staffHome),
+    if (canManageSociety)
+      _MenuItem('Setup Wizard', Icons.checklist_rounded, AppRoutes.structureWizard),
+  ];
+}
+
 class _DashboardShell extends ConsumerWidget {
   final String title;
   final List<Widget> children;
@@ -20,16 +58,8 @@ class _DashboardShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final menuItems = <_MenuItem>[
-      _MenuItem('Residents', Icons.people_outline_rounded, AppRoutes.residentsList),
-      _MenuItem('Tenants', Icons.groups_2_outlined, AppRoutes.tenantsList),
-      _MenuItem('Users & Roles', Icons.people_rounded, AppRoutes.usersList),
-      _MenuItem('Society Settings', Icons.apartment_rounded, AppRoutes.societySettings),
-      _MenuItem('Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
-      _MenuItem('Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
-      _MenuItem('Staff', Icons.badge_rounded, AppRoutes.staffHome),
-      _MenuItem('Setup Wizard', Icons.checklist_rounded, AppRoutes.structureWizard),
-    ];
+    final user = ref.watch(currentUserProvider);
+    final menuItems = _visibleMenuItems(user);
 
     return Scaffold(
       backgroundColor: AppTheme.surface,

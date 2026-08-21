@@ -158,6 +158,70 @@ def test_tenant_move_out_unassigns_vehicle(client, db, rig):
     assert v.is_active is True
 
 
+# 6b. DELETE /vehicles/{id} is a soft deactivate, not a hard delete — the row
+#     survives with is_active=False, drops out of every read query, and its
+#     number frees up for re-registration (M1.9-R3 Gap F).
+def test_deregister_vehicle_deactivates_not_hard_deletes(client, db, rig):
+    veh = client.post("/api/v1/vehicles/", json={
+        "society_id": str(rig["society"].id), "flat_id": str(rig["flat"].id),
+        "resident_id": str(rig["resident"].id), "vehicle_number": "MH12AA0009",
+    }, headers=rig["admin"]["headers"]).json()
+
+    r = client.delete(f"/api/v1/vehicles/{veh['id']}", headers=rig["admin"]["headers"])
+    assert r.status_code == 204, r.text
+
+    from app.models.vehicle import Vehicle
+    v = db.query(Vehicle).filter(Vehicle.id == _to_uuid(veh["id"])).first()
+    assert v is not None, "row must still exist — this is a soft delete"
+    assert v.is_active is False
+
+    # gone from every read path
+    assert client.get(f"/api/v1/vehicles/{veh['id']}", headers=rig["admin"]["headers"]).status_code == 404
+    listed = client.get(f"/api/v1/vehicles/flat/{rig['flat'].id}", headers=rig["admin"]["headers"]).json()
+    assert veh["id"] not in [x["id"] for x in listed]
+
+    # the number is free again for a fresh registration (partial unique index
+    # only covers is_active=true rows)
+    r2 = client.post("/api/v1/vehicles/", json={
+        "society_id": str(rig["society"].id), "flat_id": str(rig["flat"].id),
+        "vehicle_number": "MH12AA0009",
+    }, headers=rig["admin"]["headers"])
+    assert r2.status_code == 201, r2.text
+
+
+def test_deregister_vehicle_writes_audit_log(client, db, rig):
+    veh = client.post("/api/v1/vehicles/", json={
+        "society_id": str(rig["society"].id), "vehicle_number": "MH12AA0010",
+    }, headers=rig["admin"]["headers"]).json()
+
+    r = client.delete(f"/api/v1/vehicles/{veh['id']}", headers=rig["admin"]["headers"])
+    assert r.status_code == 204, r.text
+
+    from app.models.audit_log import AuditLog, AuditAction
+    entry = db.query(AuditLog).filter(
+        AuditLog.module == "vehicle",
+        AuditLog.entity_id == veh["id"],
+        AuditLog.action == AuditAction.DELETE,
+    ).first()
+    assert entry is not None, "deactivating a vehicle must write an audit log entry"
+
+
+def test_deregister_vehicle_unauthorized_role_rejected(client, db, rig):
+    veh = client.post("/api/v1/vehicles/", json={
+        "society_id": str(rig["society"].id), "vehicle_number": "MH12AA0011",
+    }, headers=rig["admin"]["headers"]).json()
+
+    resident_user = make_user(db, "vh_res_unauth@test.com", role="Resident")
+    _set_society(db, resident_user["user"], rig["society"].id)
+
+    r = client.delete(f"/api/v1/vehicles/{veh['id']}", headers=resident_user["headers"])
+    assert r.status_code == 403
+
+    from app.models.vehicle import Vehicle
+    v = db.query(Vehicle).filter(Vehicle.id == _to_uuid(veh["id"])).first()
+    assert v.is_active is True, "rejected deactivation must not mutate the row"
+
+
 # 7. parking-module lookup/normalization now finds the same vehicle correctly
 #    (previously ViolationCreate/AccessLogCreate had NO normalizer at all,
 #    so the same physical number could be stored two different ways)

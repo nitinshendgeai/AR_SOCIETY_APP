@@ -56,6 +56,7 @@ class _VehicleFormSheetBodyState extends ConsumerState<_VehicleFormSheetBody> {
   String? _error;
 
   bool get _isEdit => widget.vehicle != null;
+  bool _deactivating = false;
 
   @override
   void initState() {
@@ -124,6 +125,42 @@ class _VehicleFormSheetBodyState extends ConsumerState<_VehicleFormSheetBody> {
     } catch (e) {
       if (mounted) setState(() { _submitting = false; _error = rmFriendlyError(e); });
       return;
+    }
+  }
+
+  Future<void> _confirmDeactivate() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Deactivate vehicle?'),
+        content: Text(
+            '${widget.vehicle!.vehicleNumber} will be removed from active vehicle lists. '
+            'This can be reversed by re-registering the vehicle.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Deactivate'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() { _deactivating = true; _error = null; });
+    try {
+      await ref.read(vehiclesByFlatProvider(widget.flatId).notifier).remove(widget.vehicle!.id);
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Vehicle deactivated'),
+          backgroundColor: AppTheme.success,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) {
+      if (mounted) setState(() { _deactivating = false; _error = rmFriendlyError(e); });
     }
   }
 
@@ -209,8 +246,29 @@ class _VehicleFormSheetBodyState extends ConsumerState<_VehicleFormSheetBody> {
                 AppPrimaryButton(
                   label: _isEdit ? 'Save Changes' : 'Add Vehicle',
                   isLoading: _submitting,
-                  onPressed: _submit,
+                  onPressed: _deactivating ? null : _submit,
                 ),
+                if (_isEdit) ...[
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.error,
+                        side: const BorderSide(color: AppTheme.error),
+                      ),
+                      icon: _deactivating
+                          ? const SizedBox(
+                              width: 18, height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2.5, color: AppTheme.error),
+                            )
+                          : const Icon(Icons.block_rounded, size: 18),
+                      label: Text(_deactivating ? 'Deactivating…' : 'Deactivate Vehicle'),
+                      onPressed: (_submitting || _deactivating) ? null : _confirmDeactivate,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

@@ -195,8 +195,7 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
                 controller: _phoneCtrl,
                 keyboardType: TextInputType.phone,
                 decoration: const InputDecoration(hintText: '10-digit mobile number'),
-                validator: (v) => (v != null && v.trim().isNotEmpty && v.trim().length < 10)
-                    ? 'Enter a valid mobile number' : null,
+                validator: rmPhoneValidator,
               ),
             ),
             RmFormField(
@@ -328,7 +327,11 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
             ),
             RmFormField(
               label: 'Contact Phone',
-              child: TextFormField(controller: _emergencyPhoneCtrl, keyboardType: TextInputType.phone),
+              child: TextFormField(
+                controller: _emergencyPhoneCtrl,
+                keyboardType: TextInputType.phone,
+                validator: rmPhoneValidator,
+              ),
             ),
 
             const SizedBox(height: 8),

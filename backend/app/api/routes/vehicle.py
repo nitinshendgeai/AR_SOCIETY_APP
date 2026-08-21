@@ -191,9 +191,13 @@ def get_vehicle(vehicle_id: UUID, db: Session = Depends(get_db),
 
 
 @router.delete("/{vehicle_id}", status_code=204)
-def deregister_vehicle(vehicle_id: UUID, db: Session = Depends(get_db),
+def deregister_vehicle(vehicle_id: UUID, request: Request, db: Session = Depends(get_db),
                         user: User = Depends(committee_or_admin)):
     v = _vehicle_query(db, user).filter(Vehicle.id == vehicle_id).first()
     if not v: raise HTTPException(status_code=404, detail="Vehicle not found")
     v.is_active = False
+    AuditService.log(db=db, action=AuditAction.DELETE, module="vehicle",
+                     entity_id=str(v.id), entity_type="Vehicle",
+                     user=user, request=request,
+                     old_values={"number": v.vehicle_number, "is_active": True})
     db.commit()
