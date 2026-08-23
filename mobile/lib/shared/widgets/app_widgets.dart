@@ -144,6 +144,7 @@ class AppTextField extends StatelessWidget {
   final TextInputType keyboardType;
   final String? Function(String?)? validator;
   final Widget? suffixIcon;
+  final Widget? prefixIcon;
   final bool autofocus;
   final TextInputAction textInputAction;
   final VoidCallback? onFieldSubmitted;
@@ -157,6 +158,7 @@ class AppTextField extends StatelessWidget {
     this.keyboardType = TextInputType.text,
     this.validator,
     this.suffixIcon,
+    this.prefixIcon,
     this.autofocus = false,
     this.textInputAction = TextInputAction.next,
     this.onFieldSubmitted,
@@ -175,6 +177,7 @@ class AppTextField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
+        prefixIcon: prefixIcon,
         suffixIcon: suffixIcon,
       ),
     );

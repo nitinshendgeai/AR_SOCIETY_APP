@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
-import 'package:ar_society_app/core/config/env.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
@@ -43,120 +42,283 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final errorMsg  = authState is AuthError ? authState.message : null;
 
     return Scaffold(
-      backgroundColor: AppTheme.surface,
-      body: SafeArea(
-        child: AppLoadingOverlay(
-          isLoading: isLoading,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 64),
+      body: Stack(
+        children: [
+          const Positioned.fill(child: _LoginBackground()),
+          SafeArea(
+            child: AppLoadingOverlay(
+              isLoading: isLoading,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final cardWidth = constraints.maxWidth < 480
+                      ? constraints.maxWidth * 0.92
+                      : 420.0;
 
-                // Header
-                _Header(),
-
-                const SizedBox(height: 40),
-
-                // Form card
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardBg,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppTheme.border),
-                  ),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Error banner
-                        if (errorMsg != null) ...[
-                          AppErrorBanner(
-                            message: errorMsg,
-                            onDismiss: () =>
-                                ref.read(authProvider.notifier).clearError(),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // Email
-                        AppTextField(
-                          label: 'Email address',
-                          hint: 'admin@arsociety.com',
-                          controller: _emailCtrl,
-                          keyboardType: TextInputType.emailAddress,
-                          textInputAction: TextInputAction.next,
-                          validator: (v) {
-                            if (v == null || v.trim().isEmpty) {
-                              return 'Email is required';
-                            }
-                            if (!v.contains('@')) return 'Enter a valid email';
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Password
-                        AppTextField(
-                          label: 'Password',
-                          controller: _passCtrl,
-                          obscureText: _obscurePass,
-                          textInputAction: TextInputAction.done,
-                          onFieldSubmitted: _submit,
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePass
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                              color: AppTheme.textSecondary,
-                              size: 20,
-                            ),
-                            onPressed: () =>
-                                setState(() => _obscurePass = !_obscurePass),
-                          ),
-                          validator: (v) {
-                            if (v == null || v.isEmpty) {
-                              return 'Password is required';
-                            }
-                            if (v.length < 6) {
-                              return 'Password is too short';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Login button
-                        AppPrimaryButton(
-                          label: 'Sign In',
-                          isLoading: isLoading,
-                          onPressed: _submit,
-                          icon: Icons.login_rounded,
-                        ),
-                      ],
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 40,
                     ),
-                  ),
-                ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: cardWidth),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Login card
+                            Container(
+                              padding:
+                                  const EdgeInsets.fromLTRB(28, 32, 28, 28),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cardBg,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color:
+                                        AppTheme.primaryDark.withOpacity(0.08),
+                                    blurRadius: 32,
+                                    offset: const Offset(0, 16),
+                                  ),
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.04),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                              child: Form(
+                                key: _formKey,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    const _BrandHeader(),
+                                    const SizedBox(height: 28),
 
-                const SizedBox(height: 24),
+                                    // Error banner
+                                    if (errorMsg != null) ...[
+                                      AppErrorBanner(
+                                        message: errorMsg,
+                                        onDismiss: () => ref
+                                            .read(authProvider.notifier)
+                                            .clearError(),
+                                      ),
+                                      const SizedBox(height: 16),
+                                    ],
 
-                // Register CTA
-                _RegisterCTA(),
+                                    // Email
+                                    AppTextField(
+                                      label: 'Email address',
+                                      hint: 'admin@arsociety.com',
+                                      controller: _emailCtrl,
+                                      keyboardType:
+                                          TextInputType.emailAddress,
+                                      textInputAction: TextInputAction.next,
+                                      prefixIcon: const Icon(
+                                        Icons.mail_outline_rounded,
+                                        color: AppTheme.textSecondary,
+                                        size: 20,
+                                      ),
+                                      validator: (v) {
+                                        if (v == null || v.trim().isEmpty) {
+                                          return 'Email is required';
+                                        }
+                                        if (!v.contains('@')) {
+                                          return 'Enter a valid email';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                    const SizedBox(height: 16),
 
-                const SizedBox(height: 16),
+                                    // Password
+                                    AppTextField(
+                                      label: 'Password',
+                                      controller: _passCtrl,
+                                      obscureText: _obscurePass,
+                                      textInputAction: TextInputAction.done,
+                                      onFieldSubmitted: _submit,
+                                      prefixIcon: const Icon(
+                                        Icons.lock_outline_rounded,
+                                        color: AppTheme.textSecondary,
+                                        size: 20,
+                                      ),
+                                      suffixIcon: IconButton(
+                                        tooltip: _obscurePass
+                                            ? 'Show password'
+                                            : 'Hide password',
+                                        icon: Icon(
+                                          _obscurePass
+                                              ? Icons.visibility_off_outlined
+                                              : Icons.visibility_outlined,
+                                          color: AppTheme.textSecondary,
+                                          size: 20,
+                                        ),
+                                        onPressed: () => setState(
+                                            () => _obscurePass = !_obscurePass),
+                                      ),
+                                      validator: (v) {
+                                        if (v == null || v.isEmpty) {
+                                          return 'Password is required';
+                                        }
+                                        if (v.length < 6) {
+                                          return 'Password is too short';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                    const SizedBox(height: 26),
 
-                // Demo format hint — always visible
-                _DemoFormatHint(),
+                                    // Login button
+                                    AppPrimaryButton(
+                                      label: 'Sign In',
+                                      isLoading: isLoading,
+                                      onPressed: _submit,
+                                      icon: Icons.login_rounded,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
 
-                const SizedBox(height: 40),
-              ],
+                            const SizedBox(height: 20),
+
+                            // Register CTA
+                            _RegisterCTA(),
+
+                            const SizedBox(height: 16),
+
+                            // Demo format hint — always visible
+                            _DemoFormatHint(),
+
+                            const SizedBox(height: 24),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
-        ),
+        ],
       ),
+    );
+  }
+}
+
+// ── Background ───────────────────────────────────────────────────────────────
+
+class _LoginBackground extends StatelessWidget {
+  const _LoginBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showDots = constraints.maxWidth >= 480;
+        return Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFF2F6FF), Color(0xFFFAFBFF)],
+            ),
+          ),
+          child: showDots
+              ? CustomPaint(
+                  painter: const _DotGridPainter(),
+                  size: Size.infinite,
+                )
+              : null,
+        );
+      },
+    );
+  }
+}
+
+class _DotGridPainter extends CustomPainter {
+  const _DotGridPainter();
+
+  static const double _spacing = 28;
+  static const double _dotRadius = 1.1;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = AppTheme.primary.withOpacity(0.05);
+    for (double y = 0; y < size.height; y += _spacing) {
+      for (double x = 0; x < size.width; x += _spacing) {
+        canvas.drawCircle(Offset(x, y), _dotRadius, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DotGridPainter oldDelegate) => false;
+}
+
+// ── Brand header (inside card) ─────────────────────────────────────────────────
+
+class _BrandHeader extends StatelessWidget {
+  const _BrandHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: AppTheme.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(
+            Icons.apartment_rounded,
+            color: AppTheme.primary,
+            size: 30,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'DuxOS Society',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary,
+                letterSpacing: -0.3,
+              ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'ENTERPRISE OPERATIONS PLATFORM',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textSecondary,
+            letterSpacing: 1.4,
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'Welcome back',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary,
+                letterSpacing: -0.4,
+              ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Sign in to continue',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppTheme.textSecondary,
+              ),
+        ),
+      ],
     );
   }
 }
@@ -178,7 +340,7 @@ class _RegisterCTA extends StatelessWidget {
               AppTheme.primaryDark.withOpacity(0.05),
             ],
           ),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AppTheme.primary.withOpacity(0.25)),
         ),
         child: Row(
@@ -221,48 +383,6 @@ class _RegisterCTA extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-// ── Header ────────────────────────────────────────────────────────────────────
-
-class _Header extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            color: AppTheme.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: const Icon(
-            Icons.apartment_rounded,
-            color: AppTheme.primary,
-            size: 28,
-          ),
-        ),
-        const SizedBox(height: 20),
-        Text(
-          'Welcome back',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary,
-                letterSpacing: -0.5,
-              ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Sign in to ${Env.appName}',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: AppTheme.textSecondary,
-              ),
-        ),
-      ],
     );
   }
 }
