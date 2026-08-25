@@ -181,4 +181,44 @@ void main() {
       expect(find.text('Check Out'), findsOneWidget);
     });
   });
+
+  // Backend RBAC is unaffected and remains authoritative — these tests only
+  // confirm the drawer no longer shows links a role's own permissions can
+  // never use (docs/RBAC_MATRIX.md), per the M1.9-R2 "drawer not role-scoped"
+  // known gap.
+  group('Role-filtered drawer', () {
+    Future<void> openDrawer(WidgetTester tester, Widget screen, UserEntity user) async {
+      await tester.pumpWidget(_wrapWithUser(screen, user));
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.menu_rounded));
+      await tester.pumpAndSettle();
+    }
+
+    // AdminDashboardScreen pulls in several live-data providers (staff list,
+    // society info, open-complaints count) that would need their own fake
+    // repository overrides to render in isolation — the two role-exclusion
+    // cases below already exercise the exact same _DashboardShell filtering
+    // logic those extra roles share, so that mocking cost isn't repeated here.
+
+    testWidgets('Resident only sees Visitors and Complaints, not admin/master links', (tester) async {
+      await openDrawer(tester, const ResidentDashboardScreen(), _makeUser(role: 'Resident'));
+
+      expect(find.text('Complaints'), findsOneWidget);
+      expect(find.text('Residents'), findsNothing);
+      expect(find.text('Tenants'), findsNothing);
+      expect(find.text('Users & Roles'), findsNothing);
+      expect(find.text('Society Settings'), findsNothing);
+      expect(find.text('Setup Wizard'), findsNothing);
+      expect(find.text('Staff'), findsNothing);
+    });
+
+    testWidgets('Security does not see Users & Roles or Society Settings', (tester) async {
+      await openDrawer(tester, const SecurityDashboardScreen(), _makeUser(role: 'Security'));
+
+      expect(find.text('Complaints'), findsOneWidget);
+      expect(find.text('Users & Roles'), findsNothing);
+      expect(find.text('Society Settings'), findsNothing);
+      expect(find.text('Residents'), findsNothing);
+    });
+  });
 }

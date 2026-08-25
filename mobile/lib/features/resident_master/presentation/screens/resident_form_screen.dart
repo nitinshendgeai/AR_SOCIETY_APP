@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -239,9 +240,10 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
               child: TextFormField(
                 controller: _phoneCtrl,
                 keyboardType: TextInputType.phone,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: const InputDecoration(hintText: '10-digit mobile number'),
-                validator: (v) => (v != null && v.trim().isNotEmpty && v.trim().length < 10)
-                    ? 'Enter a valid mobile number' : null,
+                validator: (v) => (v != null && v.trim().isNotEmpty && v.trim().length != 10)
+                    ? 'Enter a valid 10-digit mobile number' : null,
               ),
             ),
             RmFormField(

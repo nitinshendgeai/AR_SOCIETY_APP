@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
+import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
 
 // ── Resident type badge ──────────────────────────────────────────────────
 
@@ -269,6 +271,45 @@ String rmFriendlyError(Object e) {
   }
   if (lower.isEmpty) return 'Something went wrong. Please try again.';
   return msg;
+}
+
+/// Confirms and performs vehicle deregistration (backend soft-deactivates —
+/// `is_active = false`, restricted to committee/admin). Shared between
+/// Resident Detail and Tenant Detail, the two screens that list a flat's
+/// vehicles.
+Future<void> confirmDeactivateVehicle(
+    BuildContext context, WidgetRef ref, String flatId, VehicleModel vehicle) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Deregister Vehicle'),
+      content: Text(
+          'This will deregister ${vehicle.vehicleNumber}. It will no longer appear as an active vehicle for this flat.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Deregister'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true) return;
+  try {
+    await ref.read(vehiclesByFlatProvider(flatId).notifier).remove(vehicle.id);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vehicle deregistered')),
+      );
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(rmFriendlyError(e)), backgroundColor: AppTheme.error),
+      );
+    }
+  }
 }
 
 /// Days remaining until [dateStr]; negative if already past.

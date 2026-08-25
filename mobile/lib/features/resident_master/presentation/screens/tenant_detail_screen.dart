@@ -214,11 +214,17 @@ class _TenantDetailBody extends ConsumerWidget {
                                 ],
                               ),
                             ),
-                            if (canEdit)
+                            if (canEdit) ...[
                               IconButton(
                                 icon: const Icon(Icons.edit_outlined, size: 18),
                                 onPressed: () => showVehicleFormSheet(context, ref, flatId: tenant.flatId, tenantId: tenant.id, vehicle: v),
                               ),
+                              IconButton(
+                                icon: const Icon(Icons.remove_circle_outline_rounded, size: 18, color: AppTheme.error),
+                                tooltip: 'Deregister vehicle',
+                                onPressed: () => confirmDeactivateVehicle(context, ref, tenant.flatId, v),
+                              ),
+                            ],
                           ]),
                         )).toList(),
                   );

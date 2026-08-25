@@ -189,6 +189,8 @@ class _ResidentDetailBody extends ConsumerWidget {
                           canEdit: canEdit,
                           onEdit: () => showVehicleFormSheet(context, ref,
                               flatId: resident.flatId, residentId: resident.id, vehicle: v),
+                          onDeactivate: () => confirmDeactivateVehicle(
+                              context, ref, resident.flatId, v),
                         )).toList(),
                   );
                 },
@@ -337,7 +339,13 @@ class _VehicleTile extends StatelessWidget {
   final VehicleModel vehicle;
   final bool canEdit;
   final VoidCallback onEdit;
-  const _VehicleTile({required this.vehicle, required this.canEdit, required this.onEdit});
+  final VoidCallback onDeactivate;
+  const _VehicleTile({
+    required this.vehicle,
+    required this.canEdit,
+    required this.onEdit,
+    required this.onDeactivate,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -356,8 +364,14 @@ class _VehicleTile extends StatelessWidget {
             ],
           ),
         ),
-        if (canEdit)
+        if (canEdit) ...[
           IconButton(icon: const Icon(Icons.edit_outlined, size: 18), onPressed: onEdit),
+          IconButton(
+            icon: const Icon(Icons.remove_circle_outline_rounded, size: 18, color: AppTheme.error),
+            tooltip: 'Deregister vehicle',
+            onPressed: onDeactivate,
+          ),
+        ],
       ]),
     );
   }

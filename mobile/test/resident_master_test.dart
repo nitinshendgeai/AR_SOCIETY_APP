@@ -322,6 +322,35 @@ void main() {
       expect(find.text('Name is required'), findsOneWidget);
     });
 
+    testWidgets('mobile field strips non-digit characters and rejects a bad length', (tester) async {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final repo = ResidentMasterRepository(ds: _FakeDataSource());
+      await tester.pumpWidget(_wrap(
+        ResidentFormScreen(defaultFlat: _flat()),
+        overrides: [residentMasterRepositoryProvider.overrideWithValue(repo)],
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).at(0), 'Valid Name');
+      // "abc123abcd" mixes letters into a 10-character string — the old
+      // validator only checked string length (< 10), so this passed
+      // straight through to the API. The digitsOnly input formatter now
+      // strips the letters as they're typed, leaving just "123".
+      await tester.enterText(find.byType(TextFormField).at(1), 'abc123abcd');
+      await tester.pump();
+
+      expect(find.text('123'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add Resident'));
+      await tester.pump();
+
+      expect(find.text('Enter a valid 10-digit mobile number'), findsOneWidget);
+    });
+
     testWidgets('successful create shows success snackbar and pops', (tester) async {
       tester.view.physicalSize = const Size(800, 3000);
       tester.view.devicePixelRatio = 1.0;
@@ -468,6 +497,34 @@ void main() {
       await tester.pump();
 
       expect(find.text('Name is required'), findsOneWidget);
+    });
+
+    testWidgets('mobile field strips non-digit characters and rejects a bad length', (tester) async {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final repo = ResidentMasterRepository(ds: _FakeDataSource());
+      await tester.pumpWidget(_wrap(
+        TenantFormScreen(defaultFlat: _flat()),
+        overrides: [residentMasterRepositoryProvider.overrideWithValue(repo)],
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).at(0), 'Valid Name');
+      // Same length-only validator bug as ResidentFormScreen (see that
+      // test above) — "abc123abcd" is 10 characters, which the old
+      // `.length < 10` check let straight through to the API.
+      await tester.enterText(find.byType(TextFormField).at(1), 'abc123abcd');
+      await tester.pump();
+
+      expect(find.text('123'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add Tenant'));
+      await tester.pump();
+
+      expect(find.text('Enter a valid 10-digit mobile number'), findsOneWidget);
     });
   });
 

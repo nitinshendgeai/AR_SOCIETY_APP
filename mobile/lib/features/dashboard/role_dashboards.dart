@@ -20,15 +20,34 @@ class _DashboardShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
+    // Visibility follows docs/RBAC_MATRIX.md. The backend remains the
+    // authoritative enforcement point (every route below is independently
+    // guarded server-side) — this only avoids showing links that would
+    // otherwise just 403 for the signed-in role. Any role not clearly
+    // resolved by the existing UserEntity getters (e.g. Manager, which has
+    // no dedicated isX getter) falls through to "show", matching this
+    // drawer's behavior before this filtering existed.
+    final canManageMaster = user?.isAdminOrCommittee ?? true;
+    final canManageUsers = user?.isAdmin ?? true;
+    final canSeeVisitors = !(user?.isStaff ?? false);
+    final canSeeStaffPortal = !(user?.isResident ?? false);
     final menuItems = <_MenuItem>[
-      _MenuItem('Residents', Icons.people_outline_rounded, AppRoutes.residentsList),
-      _MenuItem('Tenants', Icons.groups_2_outlined, AppRoutes.tenantsList),
-      _MenuItem('Users & Roles', Icons.people_rounded, AppRoutes.usersList),
-      _MenuItem('Society Settings', Icons.apartment_rounded, AppRoutes.societySettings),
-      _MenuItem('Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
+      if (canManageMaster)
+        _MenuItem('Residents', Icons.people_outline_rounded, AppRoutes.residentsList),
+      if (canManageMaster)
+        _MenuItem('Tenants', Icons.groups_2_outlined, AppRoutes.tenantsList),
+      if (canManageUsers)
+        _MenuItem('Users & Roles', Icons.people_rounded, AppRoutes.usersList),
+      if (canManageMaster)
+        _MenuItem('Society Settings', Icons.apartment_rounded, AppRoutes.societySettings),
+      if (canSeeVisitors)
+        _MenuItem('Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
       _MenuItem('Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
-      _MenuItem('Staff', Icons.badge_rounded, AppRoutes.staffHome),
-      _MenuItem('Setup Wizard', Icons.checklist_rounded, AppRoutes.structureWizard),
+      if (canSeeStaffPortal)
+        _MenuItem('Staff', Icons.badge_rounded, AppRoutes.staffHome),
+      if (canManageMaster)
+        _MenuItem('Setup Wizard', Icons.checklist_rounded, AppRoutes.structureWizard),
     ];
 
     return Scaffold(
