@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_settings/data/models/society_settings_model.dart';
 import 'package:ar_society_app/features/society_settings/presentation/providers/society_settings_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 class SocietySettingsScreen extends ConsumerWidget {
   const SocietySettingsScreen({super.key});
@@ -204,7 +205,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(structureFriendlyError(e)),
             backgroundColor: AppTheme.error,
           ),
         );

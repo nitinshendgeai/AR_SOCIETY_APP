@@ -124,6 +124,15 @@ class AppRoutes {
 // GoRouter callbacks (which run outside Riverpod's build context and fail in
 // dart2js release builds with "Instance of 'minified:...'").
 
+// Remembers a deep-linked location (bookmark, shared link, browser refresh)
+// requested while auth state was still AuthInitial, so it can be restored
+// once the session check resolves — instead of being lost to the forced
+// splash hop below. Declared at file scope (not inside the provider) because
+// appRouterProvider rebuilds a brand-new GoRouter/closure on every auth
+// transition, so a variable local to the builder would not survive from
+// AuthInitial through to AuthAuthenticated.
+String? _pendingDeepLink;
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
 
@@ -149,6 +158,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Very first state before checkSession runs — hold on splash.
       // AuthLoading during login should NOT redirect away from login screen.
       if (authState is AuthInitial) {
+        if (!isOnSplash) _pendingDeepLink = path;
         debugPrint('[ROUTE_REDIRECT] → AuthInitial: '
             '${isOnSplash ? "stay on splash" : "→ splash"}');
         return isOnSplash ? null : AppRoutes.splash;
@@ -184,11 +194,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return AppRoutes.setupWizard;
         }
 
-        // 3. Once setup is complete, redirect away from auth/setup screens.
+        // 3. Once setup is complete, redirect away from auth/setup screens —
+        // restoring a pending deep link (see _pendingDeepLink) if one was
+        // captured, instead of always landing on the generic role home.
         if (!user.mustChangePassword && user.termsAccepted &&
             (isOnLogin || isOnSplash || isOnChangePassword || isOnSetupWizard)) {
-          final home = _userRoleHome(user);
-          debugPrint('[ROUTE_REDIRECT] → role home: $home');
+          final deepLink = _pendingDeepLink;
+          _pendingDeepLink = null;
+          final isDeepLinkUsable = deepLink != null &&
+              deepLink != AppRoutes.login &&
+              deepLink != AppRoutes.splash &&
+              deepLink != AppRoutes.changePassword &&
+              deepLink != AppRoutes.setupWizard &&
+              deepLink != AppRoutes.registerSociety &&
+              deepLink != AppRoutes.trialSuccess;
+          final home = isDeepLinkUsable ? deepLink : _userRoleHome(user);
+          debugPrint('[ROUTE_REDIRECT] → '
+              '${isDeepLinkUsable ? "restored deep link" : "role home"}: $home');
           return home;
         }
       }

@@ -506,13 +506,15 @@ class AdminDashboardScreen extends ConsumerWidget {
         trialBanner,
         const _SectionLabel('Summary'),
         const SizedBox(height: 10),
-        GridView.count(
-          crossAxisCount: 2,
+        GridView(
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 280,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            mainAxisExtent: 130,
+          ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 1.12,
           children: [
             _SummaryCard(icon: Icons.apartment_rounded, label: 'Total Flats', value: totalFlats, color: AppTheme.primary),
             _SummaryCard(icon: Icons.home_rounded, label: 'Occupied Flats', value: '--', color: AppTheme.success),
@@ -591,13 +593,15 @@ class CommitteeDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 18),
         const _SectionLabel('Overview'),
         const SizedBox(height: 10),
-        GridView.count(
-          crossAxisCount: 2,
+        GridView(
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 280,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            mainAxisExtent: 130,
+          ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 1.12,
           children: [
             _SummaryCard(icon: Icons.report_problem_rounded, label: 'Complaints', value: committeeComplaints, color: AppTheme.error),
             _SummaryCard(icon: Icons.campaign_rounded, label: 'Notices', value: '--', color: AppTheme.primary),
@@ -646,13 +650,15 @@ class SecurityDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 18),
         const _SectionLabel('Today'),
         const SizedBox(height: 10),
-        GridView.count(
-          crossAxisCount: 2,
+        GridView(
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 280,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            mainAxisExtent: 130,
+          ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 1.12,
           children: const [
             _SummaryCard(icon: Icons.people_rounded, label: 'Visitors Today', value: '--', color: AppTheme.primary),
             _SummaryCard(icon: Icons.login_rounded, label: 'Check-ins', value: '--', color: AppTheme.success),
@@ -705,13 +711,15 @@ class ResidentDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 18),
         const _SectionLabel('Summary'),
         const SizedBox(height: 10),
-        GridView.count(
-          crossAxisCount: 2,
+        GridView(
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 280,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            mainAxisExtent: 130,
+          ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 1.12,
           children: const [
             _SummaryCard(icon: Icons.report_problem_rounded, label: 'Open Complaints', value: '--', color: AppTheme.error),
             _SummaryCard(icon: Icons.campaign_rounded, label: 'Notices', value: '--', color: AppTheme.primary),
@@ -849,13 +857,15 @@ class ManagerDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 18),
         const _SectionLabel('Today\'s Attendance'),
         const SizedBox(height: 10),
-        GridView.count(
-          crossAxisCount: 2,
+        GridView(
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 280,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            mainAxisExtent: 130,
+          ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 1.12,
           children: [
             _SummaryCard(
               icon: Icons.login_rounded,
@@ -991,13 +1001,15 @@ class SupervisorDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 18),
         const _SectionLabel('Team Status'),
         const SizedBox(height: 10),
-        GridView.count(
-          crossAxisCount: 2,
+        GridView(
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 280,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            mainAxisExtent: 130,
+          ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 1.12,
           children: [
             _SummaryCard(icon: Icons.people_rounded, label: 'Staff Present', value: presentCount, color: AppTheme.success),
             _SummaryCard(icon: Icons.person_off_rounded, label: 'Staff Absent', value: absentCount, color: AppTheme.error),
