@@ -13,6 +13,31 @@ String structureFriendlyError(Object e) {
   return 'Something went wrong. Please try again.';
 }
 
+// ── Responsive Form Body ──────────────────────────────────────────────────────
+
+/// Caps data-entry form content to a comfortable editing width on tablet/
+/// laptop/desktop viewports, where a single-column Scaffold body would
+/// otherwise stretch every field edge-to-edge. No effect on narrower
+/// (mobile) widths — full-bleed layout there is unchanged. Mirrors the
+/// max-width treatment already used on the login card, generalized for
+/// forms (which need a wider column for labels + longer field content).
+class ResponsiveFormBody extends StatelessWidget {
+  final Widget child;
+  final double maxWidth;
+  const ResponsiveFormBody(
+      {super.key, required this.child, this.maxWidth = 640});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: child,
+      ),
+    );
+  }
+}
+
 // ── Loading Overlay ───────────────────────────────────────────────────────────
 
 class AppLoadingOverlay extends StatelessWidget {
@@ -173,7 +198,8 @@ class AppTextField extends StatelessWidget {
       validator: validator,
       autofocus: autofocus,
       textInputAction: textInputAction,
-      onFieldSubmitted: onFieldSubmitted != null ? (_) => onFieldSubmitted!() : null,
+      onFieldSubmitted:
+          onFieldSubmitted != null ? (_) => onFieldSubmitted!() : null,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,

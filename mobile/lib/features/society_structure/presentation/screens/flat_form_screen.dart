@@ -10,52 +10,63 @@ class FlatFormScreen extends ConsumerStatefulWidget {
   final FlatModel? flat;
   final WingModel? defaultWing;
   final FloorModel? defaultFloor;
-  const FlatFormScreen({super.key, this.flat, this.defaultWing, this.defaultFloor});
+  const FlatFormScreen(
+      {super.key, this.flat, this.defaultWing, this.defaultFloor});
 
   @override
   ConsumerState<FlatFormScreen> createState() => _FlatFormScreenState();
 }
 
 class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
-  final _formKey      = GlobalKey<FormState>();
-  final _flatNumber   = TextEditingController();
-  final _area         = TextEditingController();
-  final _remarks      = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final _flatNumber = TextEditingController();
+  final _area = TextEditingController();
+  final _remarks = TextEditingController();
 
   String? _selectedWingId;
   String? _selectedFlatType;
   String? _selectedOccupancy;
-  int?    _selectedFloor;
+  int? _selectedFloor;
   bool _saving = false;
 
   bool get _isEdit => widget.flat != null;
 
   static const _flatTypes = [
-    '1BHK', '2BHK', '3BHK', '4BHK', 'Studio', 'Duplex', 'Penthouse', 'Shop', 'Office',
+    '1BHK',
+    '2BHK',
+    '3BHK',
+    '4BHK',
+    'Studio',
+    'Duplex',
+    'Penthouse',
+    'Shop',
+    'Office',
   ];
 
   static const _occupancyStatuses = [
-    'vacant', 'owner_occupied', 'tenant_occupied',
+    'vacant',
+    'owner_occupied',
+    'tenant_occupied',
   ];
 
   @override
   void initState() {
     super.initState();
     if (_isEdit) {
-      _flatNumber.text   = widget.flat!.flatNumber;
-      _area.text         = widget.flat!.areaSqft?.toStringAsFixed(0) ?? '';
-      _remarks.text      = widget.flat!.remarks ?? '';
-      _selectedWingId    = widget.flat!.wingId;
-      _selectedFlatType  = widget.flat!.flatType;
+      _flatNumber.text = widget.flat!.flatNumber;
+      _area.text = widget.flat!.areaSqft?.toStringAsFixed(0) ?? '';
+      _remarks.text = widget.flat!.remarks ?? '';
+      _selectedWingId = widget.flat!.wingId;
+      _selectedFlatType = widget.flat!.flatType;
       // Occupancy status is deliberately NOT loaded here — it is display-only
       // in edit mode. See the removed dropdown below and
       // backend/app/schemas/flat.py's FlatUpdate (Phase M1.3 §5 / M1.4 §5):
       // a flat's occupancy is changed only through the canonical
       // Occupancy move-in/move-out workflow, never a generic Flat PATCH.
-      _selectedFloor     = widget.flat!.floor;
+      _selectedFloor = widget.flat!.floor;
     } else {
-      _selectedWingId    = widget.defaultWing?.id;
-      _selectedFloor     = widget.defaultFloor?.floorNumber;
+      _selectedWingId = widget.defaultWing?.id;
+      _selectedFloor = widget.defaultFloor?.floorNumber;
     }
   }
 
@@ -70,8 +81,8 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedWingId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Please select a wing')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Please select a wing')));
       return;
     }
     setState(() => _saving = true);
@@ -87,31 +98,31 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
           // occupancy_status intentionally omitted — FlatUpdate no longer
           // accepts it (Phase M1.3). Occupancy changes go through the
           // Occupancy move-in/move-out actions on Resident/Tenant detail.
-          'remarks': _remarks.text.trim().isEmpty
-              ? null
-              : _remarks.text.trim(),
+          'remarks': _remarks.text.trim().isEmpty ? null : _remarks.text.trim(),
         };
-        await ref.read(flatsBySocietyProvider.notifier).updateFlat(widget.flat!.id, data);
+        await ref
+            .read(flatsBySocietyProvider.notifier)
+            .updateFlat(widget.flat!.id, data);
       } else {
         await ref.read(flatsBySocietyProvider.notifier).create(
-          flatNumber: _flatNumber.text.trim(),
-          wingId: _selectedWingId!,
-          floor: _selectedFloor,
-          flatType: _selectedFlatType,
-          areaSqft: _area.text.trim().isEmpty
-              ? null
-              : double.parse(_area.text.trim()),
-          occupancyStatus: _selectedOccupancy,
-          remarks: _remarks.text.trim().isEmpty
-              ? null
-              : _remarks.text.trim(),
-        );
+              flatNumber: _flatNumber.text.trim(),
+              wingId: _selectedWingId!,
+              floor: _selectedFloor,
+              flatType: _selectedFlatType,
+              areaSqft: _area.text.trim().isEmpty
+                  ? null
+                  : double.parse(_area.text.trim()),
+              occupancyStatus: _selectedOccupancy,
+              remarks:
+                  _remarks.text.trim().isEmpty ? null : _remarks.text.trim(),
+            );
       }
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(structureFriendlyError(e)), backgroundColor: AppTheme.error));
+            content: Text(structureFriendlyError(e)),
+            backgroundColor: AppTheme.error));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -125,141 +136,147 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(title: Text(_isEdit ? 'Edit Flat' : 'Add Flat')),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            // Wing selector
-            wingsAsync.when(
-              loading: () => const LinearProgressIndicator(),
-              error: (_, __) => const SizedBox.shrink(),
-              data: (wings) {
-                final active = wings.where((w) => w.isActive).toList();
-                return DropdownButtonFormField<String>(
-                  value: _selectedWingId,
-                  decoration: const InputDecoration(labelText: 'Wing *'),
-                  hint: const Text('Select wing'),
-                  items: active
-                      .map((w) => DropdownMenuItem(
-                          value: w.id, child: Text(w.displayName)))
-                      .toList(),
-                  onChanged: (v) => setState(() {
-                    _selectedWingId = v;
-                    _selectedFloor  = null;
-                  }),
-                  validator: (v) =>
-                      v == null ? 'Wing is required' : null,
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _flatNumber,
-              decoration: const InputDecoration(
-                labelText: 'Flat Number *',
-                hintText: 'e.g. 101, A-101',
+      body: ResponsiveFormBody(
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              // Wing selector
+              wingsAsync.when(
+                loading: () => const LinearProgressIndicator(),
+                error: (_, __) => const SizedBox.shrink(),
+                data: (wings) {
+                  final active = wings.where((w) => w.isActive).toList();
+                  return DropdownButtonFormField<String>(
+                    value: _selectedWingId,
+                    decoration: const InputDecoration(labelText: 'Wing *'),
+                    hint: const Text('Select wing'),
+                    items: active
+                        .map((w) => DropdownMenuItem(
+                            value: w.id, child: Text(w.displayName)))
+                        .toList(),
+                    onChanged: (v) => setState(() {
+                      _selectedWingId = v;
+                      _selectedFloor = null;
+                    }),
+                    validator: (v) => v == null ? 'Wing is required' : null,
+                  );
+                },
               ),
-              validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Flat number is required' : null,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              initialValue: _selectedFloor?.toString(),
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^-?\d*')),
-              ],
-              decoration: const InputDecoration(
-                labelText: 'Floor Number',
-                hintText: '0 = Ground (optional)',
-              ),
-              onChanged: (v) =>
-                  _selectedFloor = v.trim().isEmpty ? null : int.tryParse(v.trim()),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _selectedFlatType,
-              decoration: const InputDecoration(labelText: 'Flat Type'),
-              hint: const Text('Select type (optional)'),
-              items: _flatTypes
-                  .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                  .toList(),
-              onChanged: (v) => setState(() => _selectedFlatType = v),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _area,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-              ],
-              decoration: const InputDecoration(
-                labelText: 'Area (sq ft)',
-                hintText: 'e.g. 850 (optional)',
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (_isEdit) ...[
-              // Occupancy status is display-only once a flat exists — it is
-              // changed exclusively through the Occupancy move-in/move-out
-              // workflow (Resident/Tenant detail screens), never by editing
-              // the flat directly. See Phase M1.3 §5 / M1.4 §5.
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppTheme.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.border),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _flatNumber,
+                decoration: const InputDecoration(
+                  labelText: 'Flat Number *',
+                  hintText: 'e.g. 101, A-101',
                 ),
-                child: Row(children: [
-                  const Icon(Icons.info_outline_rounded, size: 18, color: AppTheme.textSecondary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Occupancy status: ${_occupancyLabel(widget.flat!.occupancyStatus ?? 'vacant')} '
-                      '— change this via Move In / Move Out on the resident or tenant, not here.',
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                    ),
-                  ),
-                ]),
+                validator: (v) => v == null || v.trim().isEmpty
+                    ? 'Flat number is required'
+                    : null,
               ),
-            ] else
+              const SizedBox(height: 16),
+              TextFormField(
+                initialValue: _selectedFloor?.toString(),
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^-?\d*')),
+                ],
+                decoration: const InputDecoration(
+                  labelText: 'Floor Number',
+                  hintText: '0 = Ground (optional)',
+                ),
+                onChanged: (v) => _selectedFloor =
+                    v.trim().isEmpty ? null : int.tryParse(v.trim()),
+              ),
+              const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _selectedOccupancy,
-                decoration: const InputDecoration(labelText: 'Occupancy Status'),
-                hint: const Text('Select status (optional)'),
-                items: _occupancyStatuses
-                    .map((s) => DropdownMenuItem(
-                        value: s, child: Text(_occupancyLabel(s))))
+                value: _selectedFlatType,
+                decoration: const InputDecoration(labelText: 'Flat Type'),
+                hint: const Text('Select type (optional)'),
+                items: _flatTypes
+                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                     .toList(),
-                onChanged: (v) => setState(() => _selectedOccupancy = v),
+                onChanged: (v) => setState(() => _selectedFlatType = v),
               ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _remarks,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                labelText: 'Remarks',
-                hintText: 'Optional notes about this flat',
-                alignLabelWithHint: true,
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _area,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                ],
+                decoration: const InputDecoration(
+                  labelText: 'Area (sq ft)',
+                  hintText: 'e.g. 850 (optional)',
+                ),
               ),
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              height: 48,
-              child: ElevatedButton(
-                onPressed: _saving ? null : _submit,
-                child: _saving
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
-                    : Text(_isEdit ? 'Save Changes' : 'Add Flat'),
+              const SizedBox(height: 16),
+              if (_isEdit) ...[
+                // Occupancy status is display-only once a flat exists — it is
+                // changed exclusively through the Occupancy move-in/move-out
+                // workflow (Resident/Tenant detail screens), never by editing
+                // the flat directly. See Phase M1.3 §5 / M1.4 §5.
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.info_outline_rounded,
+                        size: 18, color: AppTheme.textSecondary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Occupancy status: ${_occupancyLabel(widget.flat!.occupancyStatus ?? 'vacant')} '
+                        '— change this via Move In / Move Out on the resident or tenant, not here.',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppTheme.textSecondary),
+                      ),
+                    ),
+                  ]),
+                ),
+              ] else
+                DropdownButtonFormField<String>(
+                  value: _selectedOccupancy,
+                  decoration:
+                      const InputDecoration(labelText: 'Occupancy Status'),
+                  hint: const Text('Select status (optional)'),
+                  items: _occupancyStatuses
+                      .map((s) => DropdownMenuItem(
+                          value: s, child: Text(_occupancyLabel(s))))
+                      .toList(),
+                  onChanged: (v) => setState(() => _selectedOccupancy = v),
+                ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _remarks,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Remarks',
+                  hintText: 'Optional notes about this flat',
+                  alignLabelWithHint: true,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 32),
+              SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: _saving ? null : _submit,
+                  child: _saving
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                      : Text(_isEdit ? 'Save Changes' : 'Add Flat'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -267,10 +284,14 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
 
   String _occupancyLabel(String s) {
     switch (s) {
-      case 'owner_occupied': return 'Owner Occupied';
-      case 'tenant_occupied': return 'Tenant Occupied';
-      case 'vacant': return 'Vacant';
-      default: return s;
+      case 'owner_occupied':
+        return 'Owner Occupied';
+      case 'tenant_occupied':
+        return 'Tenant Occupied';
+      case 'vacant':
+        return 'Vacant';
+      default:
+        return s;
     }
   }
 }
