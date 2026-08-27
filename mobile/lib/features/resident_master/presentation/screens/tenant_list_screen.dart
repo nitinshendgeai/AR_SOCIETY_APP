@@ -10,6 +10,7 @@ import 'package:ar_society_app/features/resident_master/presentation/providers/r
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// Tenant Master list — every tenant currently or previously on record,
 /// with agreement status/expiry surfaced so "who's renting and until when"
@@ -80,7 +81,7 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
               label: const Text('Add Tenant'),
             )
           : null,
-      body: Column(children: [
+      body: ResponsiveBody(child: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Column(children: [
@@ -161,7 +162,7 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
                   ),
           },
         ),
-      ]),
+      ])),
     );
   }
 }

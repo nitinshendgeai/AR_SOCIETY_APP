@@ -176,3 +176,14 @@ String parseApiError(DioException e) {
       return 'Something went wrong. Please try again.';
   }
 }
+
+/// Friendly error text for any caught exception, for screens whose
+/// repository layer doesn't already wrap failures (e.g. society_structure,
+/// society_settings — those repositories forward DioException as-is rather
+/// than mapping it to a result type). Always prefer this over interpolating
+/// a caught exception directly into user-facing text, which would otherwise
+/// leak raw DioException/RequestOptions dumps to the user.
+String friendlyErrorMessage(Object e) {
+  if (e is DioException) return parseApiError(e);
+  return 'Something went wrong. Please try again.';
+}

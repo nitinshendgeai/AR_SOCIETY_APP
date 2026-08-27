@@ -11,6 +11,7 @@ import 'package:ar_society_app/features/resident_master/presentation/widgets/occ
 import 'package:ar_society_app/features/resident_master/presentation/widgets/vehicle_form_sheet.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// Canonical Resident Detail screen — answers "who is this person, where do
 /// they live, who else lives there, is it rented, and what vehicles do they
@@ -70,7 +71,7 @@ class _ResidentDetailBody extends ConsumerWidget {
             ),
         ],
       ),
-      body: ListView(
+      body: ResponsiveBody(child: ListView(
         padding: const EdgeInsets.all(20),
         children: [
           _HeaderCard(resident: resident),
@@ -249,7 +250,7 @@ class _ResidentDetailBody extends ConsumerWidget {
           ],
           const SizedBox(height: 24),
         ],
-      ),
+      )),
     );
   }
 }
@@ -357,7 +358,11 @@ class _VehicleTile extends StatelessWidget {
           ),
         ),
         if (canEdit)
-          IconButton(icon: const Icon(Icons.edit_outlined, size: 18), onPressed: onEdit),
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            tooltip: 'Edit vehicle',
+            onPressed: onEdit,
+          ),
       ]),
     );
   }

@@ -309,6 +309,43 @@ def test_negative_monthly_rent_rejected(client, db, society_a):
     assert r.status_code == 422
 
 
+# ── PHONE VALIDATION (certification gap: "abc123" previously accepted) ──────
+
+@pytest.mark.parametrize("bad_phone", ["abc123", "12345", "12345678901", "0123456789", "98765abcde"])
+def test_create_tenant_rejects_malformed_phone(client, db, society_a, bad_phone):
+    r = client.post("/api/v1/tenants/", json={
+        "flat_id": str(society_a["flat"].id), "full_name": "Bad Phone Tenant",
+        "phone": bad_phone,
+    }, headers=society_a["admin"]["headers"])
+    assert r.status_code == 422
+
+
+def test_create_tenant_accepts_valid_phone(client, db, society_a):
+    r = client.post("/api/v1/tenants/", json={
+        "flat_id": str(society_a["flat"].id), "full_name": "Good Phone Tenant",
+        "phone": "9876543210",
+    }, headers=society_a["admin"]["headers"])
+    assert r.status_code == 201, r.text
+    assert r.json()["phone"] == "9876543210"
+
+
+def test_update_tenant_rejects_malformed_phone(client, db, society_a):
+    created = client.post("/api/v1/tenants/", json={
+        "flat_id": str(society_a["flat"].id), "full_name": "Update Phone Tenant",
+    }, headers=society_a["admin"]["headers"]).json()
+    r = client.patch(f"/api/v1/tenants/{created['id']}", json={"phone": "abc123"},
+                      headers=society_a["admin"]["headers"])
+    assert r.status_code == 422
+
+
+def test_create_tenant_allows_omitted_phone(client, db, society_a):
+    r = client.post("/api/v1/tenants/", json={
+        "flat_id": str(society_a["flat"].id), "full_name": "No Phone Tenant",
+    }, headers=society_a["admin"]["headers"])
+    assert r.status_code == 201, r.text
+    assert r.json()["phone"] is None
+
+
 # ── AGREEMENT CREATION / MOVE-IN / MOVE-OUT ──────────────────────────────
 
 def test_create_with_move_in_date_and_agreement_dates_creates_agreement(client, db, society_a):

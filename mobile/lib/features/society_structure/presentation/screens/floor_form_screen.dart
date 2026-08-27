@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_settings/presentation/providers/society_settings_providers.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 class FloorFormScreen extends ConsumerStatefulWidget {
   final WingModel wing;
@@ -68,7 +70,7 @@ class _FloorFormScreenState extends ConsumerState<FloorFormScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Error: $e'), backgroundColor: AppTheme.error));
+            content: Text(friendlyErrorMessage(e)), backgroundColor: AppTheme.error));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -91,7 +93,7 @@ class _FloorFormScreenState extends ConsumerState<FloorFormScreen> {
           ],
         ),
       ),
-      body: Form(
+      body: ResponsiveBody(child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -154,7 +156,7 @@ class _FloorFormScreenState extends ConsumerState<FloorFormScreen> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }

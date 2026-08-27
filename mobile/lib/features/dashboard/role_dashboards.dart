@@ -20,16 +20,8 @@ class _DashboardShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final menuItems = <_MenuItem>[
-      _MenuItem('Residents', Icons.people_outline_rounded, AppRoutes.residentsList),
-      _MenuItem('Tenants', Icons.groups_2_outlined, AppRoutes.tenantsList),
-      _MenuItem('Users & Roles', Icons.people_rounded, AppRoutes.usersList),
-      _MenuItem('Society Settings', Icons.apartment_rounded, AppRoutes.societySettings),
-      _MenuItem('Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
-      _MenuItem('Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
-      _MenuItem('Staff', Icons.badge_rounded, AppRoutes.staffHome),
-      _MenuItem('Setup Wizard', Icons.checklist_rounded, AppRoutes.structureWizard),
-    ];
+    final user = ref.watch(currentUserProvider);
+    final menuItems = _visibleMenuItems(user);
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
@@ -112,6 +104,45 @@ class _MenuItem {
   final String? route;
 
   const _MenuItem(this.label, this.icon, this.route);
+}
+
+/// Role-aware drawer menu — mirrors the backend's `require_admin`/
+/// `require_admin_committee`/`require_security`/`require_any_staff`
+/// hierarchy in backend/app/core/dependencies.py (see docs/USERS_AND_ROLES.md
+/// for the human-readable matrix) rather than guessing from screen names.
+/// This is a UX/least-privilege improvement only — the backend remains the
+/// authority and still rejects unauthorized reads/writes with a 403
+/// regardless of what the drawer shows.
+List<_MenuItem> _visibleMenuItems(UserEntity? user) {
+  if (user == null) return const [];
+  final isAdmin = user.isAdmin;
+  final isAdminOrCommittee = user.isAdminOrCommittee;
+
+  return [
+    // Resident/Tenant master data — Society Admin + Committee only
+    // (require_admin_committee on the write endpoints).
+    if (isAdminOrCommittee) ...[
+      _MenuItem('Residents', Icons.people_outline_rounded, AppRoutes.residentsList),
+      _MenuItem('Tenants', Icons.groups_2_outlined, AppRoutes.tenantsList),
+    ],
+    // Users & Roles — Society Admin only (require_admin); even Committee
+    // is excluded per docs/USERS_AND_ROLES.md.
+    if (isAdmin)
+      _MenuItem('Users & Roles', Icons.people_rounded, AppRoutes.usersList),
+    // Society Settings write — Society Admin + Committee (require_committee).
+    if (isAdminOrCommittee)
+      _MenuItem('Society Settings', Icons.apartment_rounded, AppRoutes.societySettings),
+    // Operational features open to every role.
+    _MenuItem('Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
+    _MenuItem('Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
+    // Staff module — admins/committee (master records), plus security/staff
+    // roles who use it for their own duties/attendance/approvals.
+    if (isAdminOrCommittee || user.isSecurity || user.isStaff)
+      _MenuItem('Staff', Icons.badge_rounded, AppRoutes.staffHome),
+    // Setup/Structure Wizard — Society Admin + Committee only.
+    if (isAdminOrCommittee)
+      _MenuItem('Setup Wizard', Icons.checklist_rounded, AppRoutes.structureWizard),
+  ];
 }
 
 class _GreetingCard extends ConsumerWidget {

@@ -124,6 +124,35 @@ def test_update_resident(client, db, society_a):
     assert r.json()["phone"] == "9000000002"
 
 
+# ── PHONE VALIDATION (certification gap: "abc123" previously accepted;
+# Resident kept consistent with Tenant — see test_tenant.py) ────────────────
+
+@pytest.mark.parametrize("bad_phone", ["abc123", "12345", "12345678901", "0123456789", "98765abcde"])
+def test_create_resident_rejects_malformed_phone(client, db, society_a, bad_phone):
+    r = client.post("/api/v1/residents/", json={
+        "flat_id": str(society_a["flat"].id), "full_name": "Bad Phone Resident",
+        "phone": bad_phone,
+    }, headers=society_a["admin"]["headers"])
+    assert r.status_code == 422
+
+
+def test_update_resident_rejects_malformed_phone(client, db, society_a):
+    created = client.post("/api/v1/residents/", json={
+        "flat_id": str(society_a["flat"].id), "full_name": "Update Phone Resident",
+    }, headers=society_a["admin"]["headers"]).json()
+    r = client.patch(f"/api/v1/residents/{created['id']}", json={"phone": "abc123"},
+                      headers=society_a["admin"]["headers"])
+    assert r.status_code == 422
+
+
+def test_create_resident_allows_omitted_phone(client, db, society_a):
+    r = client.post("/api/v1/residents/", json={
+        "flat_id": str(society_a["flat"].id), "full_name": "No Phone Resident",
+    }, headers=society_a["admin"]["headers"])
+    assert r.status_code == 201, r.text
+    assert r.json()["phone"] is None
+
+
 # ── CROSS-SOCIETY DENIAL ──────────────────────────────────────────────────────
 
 def test_cross_society_read_denied(client, db, society_a, society_b):

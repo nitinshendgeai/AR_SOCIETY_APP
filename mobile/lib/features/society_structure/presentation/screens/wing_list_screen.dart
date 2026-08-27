@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 class WingListScreen extends ConsumerStatefulWidget {
   const WingListScreen({super.key});
@@ -49,7 +51,7 @@ class _WingListScreenState extends ConsumerState<WingListScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: ResponsiveBody(child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -89,7 +91,7 @@ class _WingListScreenState extends ConsumerState<WingListScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Error: $e',
+                    Text(friendlyErrorMessage(e),
                         textAlign: TextAlign.center,
                         style: const TextStyle(color: AppTheme.error)),
                     const SizedBox(height: 12),
@@ -138,7 +140,7 @@ class _WingListScreenState extends ConsumerState<WingListScreen> {
             ),
           ),
         ],
-      ),
+      )),
     );
   }
 }
@@ -278,7 +280,7 @@ class _WingCard extends ConsumerWidget {
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.error));
+              SnackBar(content: Text(friendlyErrorMessage(e)), backgroundColor: AppTheme.error));
         }
       }
       return;
@@ -309,7 +311,7 @@ class _WingCard extends ConsumerWidget {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                    content: Text('Error: $e'),
+                    content: Text(friendlyErrorMessage(e)),
                     backgroundColor: AppTheme.error));
           }
         }

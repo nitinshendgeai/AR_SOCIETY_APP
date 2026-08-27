@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -169,7 +170,7 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(title: Text(_isEdit ? 'Edit Tenant' : 'Add Tenant')),
-      body: Form(
+      body: ResponsiveBody(child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -194,9 +195,10 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
               child: TextFormField(
                 controller: _phoneCtrl,
                 keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.next,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
                 decoration: const InputDecoration(hintText: '10-digit mobile number'),
-                validator: (v) => (v != null && v.trim().isNotEmpty && v.trim().length < 10)
-                    ? 'Enter a valid mobile number' : null,
+                validator: rmPhoneValidator,
               ),
             ),
             RmFormField(
@@ -328,7 +330,12 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
             ),
             RmFormField(
               label: 'Contact Phone',
-              child: TextFormField(controller: _emergencyPhoneCtrl, keyboardType: TextInputType.phone),
+              child: TextFormField(
+                controller: _emergencyPhoneCtrl,
+                keyboardType: TextInputType.phone,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+                validator: rmPhoneValidator,
+              ),
             ),
 
             const SizedBox(height: 8),
@@ -380,7 +387,7 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }
