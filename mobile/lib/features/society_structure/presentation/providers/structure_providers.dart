@@ -94,6 +94,17 @@ class FloorsByWingNotifier
   }
 }
 
+// ── Flats per wing ────────────────────────────────────────────────────────────
+
+final flatsByWingProvider = AsyncNotifierProviderFamily<FlatsByWingNotifier,
+    List<FlatModel>, String>(FlatsByWingNotifier.new);
+
+class FlatsByWingNotifier extends FamilyAsyncNotifier<List<FlatModel>, String> {
+  @override
+  Future<List<FlatModel>> build(String wingId) =>
+      ref.read(structureRepoProvider).getFlatsByWing(wingId);
+}
+
 // ── Flats per society ─────────────────────────────────────────────────────────
 
 final flatsBySocietyProvider =
