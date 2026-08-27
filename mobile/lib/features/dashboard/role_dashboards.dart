@@ -414,7 +414,7 @@ class _TrialStatusWidget extends StatelessWidget {
       bannerColor = AppTheme.error;
       bannerIcon  = Icons.warning_amber_rounded;
       bannerTitle = 'Trial Expired';
-      bannerSubtitle = 'Contact support to continue using AR Society.';
+      bannerSubtitle = 'Contact support to continue using DUX OS.';
     } else if (isCritical) {
       bannerColor = AppTheme.error;
       bannerIcon  = Icons.timer_rounded;

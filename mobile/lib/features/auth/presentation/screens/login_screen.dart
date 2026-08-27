@@ -49,7 +49,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           isLoading: isLoading,
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
+            child: ResponsiveBody(maxWidth: 480, child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 64),
@@ -153,7 +153,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                 const SizedBox(height: 40),
               ],
-            ),
+            )),
           ),
         ),
       ),
@@ -230,25 +230,24 @@ class _RegisterCTA extends StatelessWidget {
 class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            color: AppTheme.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: const Icon(
-            Icons.apartment_rounded,
-            color: AppTheme.primary,
-            size: 28,
+        ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Image.asset(
+            'assets/branding/duxos_logo.png',
+            width: 96,
+            height: 96,
+            fit: BoxFit.cover,
           ),
         ),
         const SizedBox(height: 20),
         Text(
           'Welcome back',
+          textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.w700,
                 color: AppTheme.textPrimary,
@@ -258,11 +257,13 @@ class _Header extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           'Sign in to ${Env.appName}',
+          textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: AppTheme.textSecondary,
               ),
         ),
       ],
+      ),
     );
   }
 }

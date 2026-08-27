@@ -1,5 +1,5 @@
 name: ar_society_app
-description: AR Society ERP - Mobile Application
+description: DUX OS - Society ERP Mobile Application
 version: 1.0.0+1
 publish_to: none
 
@@ -30,7 +30,6 @@ dependencies:
   flutter_dotenv: ^5.2.1
 
   # UI
-  google_fonts: ^6.2.1
   flutter_svg: ^2.0.10+1
   cached_network_image: ^3.4.1
 
@@ -55,5 +54,11 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - assets/branding/
     - .env
     - .env.production
+
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Variable.ttf
