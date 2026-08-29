@@ -21,7 +21,9 @@ class _FloorFormScreenState extends ConsumerState<FloorFormScreen> {
   final _formKey     = GlobalKey<FormState>();
   final _floorNumber = TextEditingController();
   final _floorName   = TextEditingController();
+  final _unitsCtrl   = TextEditingController();
   bool _saving = false;
+  String? _savingLabel;
 
   bool get _isEdit => widget.floor != null;
 
@@ -38,12 +40,23 @@ class _FloorFormScreenState extends ConsumerState<FloorFormScreen> {
   void dispose() {
     _floorNumber.dispose();
     _floorName.dispose();
+    _unitsCtrl.dispose();
     super.dispose();
+  }
+
+  /// Auto-generated flat number for the Nth unit on [floor] — unique within
+  /// the wing since assert_unique_flat_number scopes uniqueness per wing,
+  /// not per floor, and the floor digit(s) are always part of the string.
+  static String _autoFlatNumber(int floor, int unit) {
+    final unitStr = unit.toString().padLeft(2, '0');
+    if (floor == 0) return 'G$unitStr';
+    if (floor < 0) return 'B${-floor}$unitStr';
+    return '$floor$unitStr';
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _saving = true);
+    setState(() { _saving = true; _savingLabel = null; });
     try {
       final society = await ref.read(currentSocietyProvider.future);
       if (_isEdit) {
@@ -58,13 +71,49 @@ class _FloorFormScreenState extends ConsumerState<FloorFormScreen> {
             .updateFloor(widget.floor!.id, data);
         ref.read(floorsByWingProvider(widget.wing.id).notifier).refresh();
       } else {
+        final floorNumber = int.parse(_floorNumber.text.trim());
         await ref.read(floorsByWingProvider(widget.wing.id).notifier).create(
-              floorNumber: int.parse(_floorNumber.text.trim()),
+              floorNumber: floorNumber,
               societyId: society.id,
               floorName: _floorName.text.trim().isEmpty
                   ? null
                   : _floorName.text.trim(),
             );
+
+        final units = int.tryParse(_unitsCtrl.text.trim()) ?? 0;
+        if (units > 0) {
+          var created = 0;
+          try {
+            for (var i = 1; i <= units; i++) {
+              if (mounted) {
+                setState(() => _savingLabel = 'Creating flat $i of $units…');
+              }
+              await ref.read(flatsBySocietyProvider.notifier).create(
+                    flatNumber: _autoFlatNumber(floorNumber, i),
+                    wingId: widget.wing.id,
+                    floor: floorNumber,
+                  );
+              created++;
+            }
+          } catch (e) {
+            // The floor and any flats created before the failure already
+            // exist server-side — pop back to the floor list (where the
+            // partial flat count is visible) rather than stranding the user
+            // on a form for a floor that was, in fact, created.
+            ref.read(floorsByWingProvider(widget.wing.id).notifier).refresh();
+            if (mounted) {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(
+                    'Floor created. $created of $units flats created before '
+                    'an error: ${friendlyErrorMessage(e)}'),
+                backgroundColor: AppTheme.error,
+              ));
+            }
+            return;
+          }
+          ref.read(floorsByWingProvider(widget.wing.id).notifier).refresh();
+        }
       }
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -73,7 +122,7 @@ class _FloorFormScreenState extends ConsumerState<FloorFormScreen> {
             content: Text(friendlyErrorMessage(e)), backgroundColor: AppTheme.error));
       }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) setState(() { _saving = false; _savingLabel = null; });
     }
   }
 
@@ -140,7 +189,39 @@ class _FloorFormScreenState extends ConsumerState<FloorFormScreen> {
                 hintText: 'e.g. Ground Floor, Mezzanine (optional)',
               ),
             ),
+            if (!_isEdit) ...[
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _unitsCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: 'Units on this Floor',
+                  hintText: 'e.g. 4 (optional — auto-creates that many flats)',
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return null;
+                  final n = int.tryParse(v.trim());
+                  if (n == null || n <= 0) return 'Enter a valid number';
+                  if (n > 100) return 'Add up to 100 units at a time';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Flats will be auto-numbered (e.g. 101, 102, …) and can be '
+                'renamed individually afterwards from the Flats list.',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+            ],
             const SizedBox(height: 32),
+            if (_savingLabel != null) ...[
+              Text(_savingLabel!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      fontSize: 12, color: AppTheme.textSecondary)),
+              const SizedBox(height: 10),
+            ],
             SizedBox(
               height: 48,
               child: ElevatedButton(
