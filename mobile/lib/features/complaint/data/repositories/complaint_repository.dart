@@ -94,6 +94,35 @@ class ComplaintRepository {
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
+  Future<ComplaintResult<ComplaintEntity>> assignComplaint(
+    String id, {
+    required String assignedTo,
+    DateTime? dueDate,
+    String? notes,
+  }) async {
+    try {
+      final m = await _ds.assignComplaint(
+        id,
+        assignedTo: assignedTo,
+        dueDate: dueDate?.toIso8601String(),
+        notes: notes,
+      );
+      return ComplaintSuccess(m.toEntity());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  Future<ComplaintResult<ComplaintEntity>> reopenComplaint(
+      String id, String reason) async {
+    try {
+      final m = await _ds.reopenComplaint(id, reason);
+      return ComplaintSuccess(m.toEntity());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
   Future<ComplaintResult<ComplaintEntity>> updateStatus(
     String id,
     String status, {

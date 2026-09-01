@@ -62,6 +62,30 @@ class ComplaintRemoteDataSource {
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
+  /// POST /complaints/{id}/assign
+  Future<ComplaintModel> assignComplaint(
+    String id, {
+    required String assignedTo,
+    String? dueDate,
+    String? notes,
+  }) async {
+    final r = await _dio.post(
+      '/complaints/$id/assign',
+      data: {
+        'assigned_to': assignedTo,
+        if (dueDate != null) 'due_date': dueDate,
+        if (notes != null) 'notes': notes,
+      },
+    );
+    return ComplaintModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// POST /complaints/{id}/reopen
+  Future<ComplaintModel> reopenComplaint(String id, String reason) async {
+    final r = await _dio.post('/complaints/$id/reopen', data: {'reason': reason});
+    return ComplaintModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
   /// POST /complaints/{id}/status
   Future<ComplaintModel> updateStatus(
     String id, {

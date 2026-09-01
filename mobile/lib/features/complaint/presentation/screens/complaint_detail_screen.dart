@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/complaint/domain/entities/complaint_entities.dart';
 import 'package:ar_society_app/features/complaint/presentation/providers/complaint_providers.dart';
+import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
+import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
@@ -169,6 +172,14 @@ class _ComplaintDetailScreenState
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(complaintDetailProvider.notifier).load(widget.complaintId);
+      // Staff list backs the Assign picker — only fetch it for roles that
+      // can actually reach GET /staff/society/{id} (supervisor_above), so a
+      // resident opening this screen never fires a 403 in the background.
+      final user = ref.read(currentUserProvider);
+      final societyId = user?.societyId;
+      if (societyId != null && (user!.isAdminOrCommittee)) {
+        ref.read(staffListProvider.notifier).load(societyId);
+      }
     });
   }
 
@@ -322,6 +333,11 @@ class _ComplaintDetailScreenState
                     ],
                   ),
                 ),
+                const SizedBox(height: 12),
+
+                // Workflow actions — assign / status transitions / reopen,
+                // gated by role and the complaint's current status.
+                _ActionsBar(complaint: complaint),
                 const SizedBox(height: 12),
 
                 // Description card
@@ -480,5 +496,349 @@ class _ComplaintDetailScreenState
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+  }
+}
+
+// ── Workflow actions ─────────────────────────────────────────────────────────
+//
+// Mirrors the backend's VALID_TRANSITIONS FSM (app/modules/complaint/models/
+// complaint.py): Assign is its own flow (POST /assign, picks a staff
+// member) offered on OPEN/REOPENED; every other transition goes through
+// ComplaintEntity.nextStatuses via the generic status dialog; Reopen is a
+// third, separate flow only offered on RESOLVED.
+
+class _ActionsBar extends ConsumerWidget {
+  final ComplaintEntity complaint;
+  const _ActionsBar({required this.complaint});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
+    if (user == null) return const SizedBox.shrink();
+
+    final canManageStatus = user.isAdminOrCommittee || user.isStaff || user.isSecurity;
+    final canAssign = user.isAdminOrCommittee && complaint.status.canAssign;
+    final canReopen = complaint.status.canReopen;
+
+    final buttons = <Widget>[
+      if (canAssign)
+        _ActionChip(
+          label: 'Assign',
+          icon: Icons.assignment_ind_rounded,
+          color: AppTheme.secondary,
+          onTap: () => _openAssignSheet(context, ref, complaint),
+        ),
+      if (canManageStatus)
+        for (final target in complaint.status.nextStatuses)
+          _ActionChip(
+            label: _statusActionLabel(target),
+            icon: _statusActionIcon(target),
+            color: target == ComplaintStatus.rejected ? AppTheme.error : AppTheme.primary,
+            onTap: () => _openStatusDialog(context, ref, complaint, target),
+          ),
+      if (canReopen)
+        _ActionChip(
+          label: 'Reopen',
+          icon: Icons.replay_rounded,
+          color: AppTheme.warning,
+          onTap: () => _openReopenDialog(context, ref, complaint),
+        ),
+    ];
+
+    if (buttons.isEmpty) return const SizedBox.shrink();
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(title: 'Actions'),
+          const SizedBox(height: 10),
+          Wrap(spacing: 8, runSpacing: 8, children: buttons),
+        ],
+      ),
+    );
+  }
+}
+
+String _statusActionLabel(ComplaintStatus target) {
+  switch (target) {
+    case ComplaintStatus.inProgress: return 'Start Progress';
+    case ComplaintStatus.resolved:   return 'Mark Resolved';
+    case ComplaintStatus.rejected:   return 'Reject';
+    case ComplaintStatus.closed:     return 'Close';
+    default:                         return target.label;
+  }
+}
+
+IconData _statusActionIcon(ComplaintStatus target) {
+  switch (target) {
+    case ComplaintStatus.inProgress: return Icons.play_circle_outline_rounded;
+    case ComplaintStatus.resolved:   return Icons.check_circle_outline_rounded;
+    case ComplaintStatus.rejected:   return Icons.cancel_outlined;
+    case ComplaintStatus.closed:     return Icons.lock_outline_rounded;
+    default:                         return Icons.arrow_forward_rounded;
+  }
+}
+
+class _ActionChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  const _ActionChip({
+    required this.label, required this.icon, required this.color, required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 16, color: color),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color.withOpacity(0.4)),
+      ),
+    );
+  }
+}
+
+/// Generic status-change dialog: a single notes field, required for
+/// RESOLVED (resolution_notes) and REJECTED (rejection_reason), optional
+/// otherwise, sent to the field POST /status actually expects for that
+/// target status.
+Future<void> _openStatusDialog(
+  BuildContext context, WidgetRef ref, ComplaintEntity complaint, ComplaintStatus target,
+) async {
+  final requiresNotes = target == ComplaintStatus.resolved || target == ComplaintStatus.rejected;
+  final label = target == ComplaintStatus.resolved
+      ? 'Resolution notes'
+      : target == ComplaintStatus.rejected
+          ? 'Rejection reason'
+          : 'Notes (optional)';
+  final ctrl = TextEditingController();
+  final formKey = GlobalKey<FormState>();
+
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text('${_statusActionLabel(target)} Complaint?'),
+      content: Form(
+        key: formKey,
+        child: TextFormField(
+          controller: ctrl,
+          maxLines: 3,
+          autofocus: requiresNotes,
+          decoration: InputDecoration(labelText: requiresNotes ? '$label *' : label),
+          validator: requiresNotes
+              ? (v) => (v == null || v.trim().isEmpty) ? 'Required' : null
+              : null,
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        ElevatedButton(
+          style: target == ComplaintStatus.rejected
+              ? ElevatedButton.styleFrom(backgroundColor: AppTheme.error)
+              : null,
+          onPressed: () {
+            if (formKey.currentState?.validate() ?? true) Navigator.pop(ctx, true);
+          },
+          child: Text(_statusActionLabel(target)),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true) return;
+
+  final text = ctrl.text.trim().isEmpty ? null : ctrl.text.trim();
+  await ref.read(complaintDetailProvider.notifier).updateStatus(
+        complaint.id,
+        target.value,
+        notes: !requiresNotes ? text : null,
+        resolutionNotes: target == ComplaintStatus.resolved ? text : null,
+        rejectionReason: target == ComplaintStatus.rejected ? text : null,
+      );
+}
+
+Future<void> _openReopenDialog(
+  BuildContext context, WidgetRef ref, ComplaintEntity complaint,
+) async {
+  final ctrl = TextEditingController();
+  final formKey = GlobalKey<FormState>();
+
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Reopen Complaint?'),
+      content: Form(
+        key: formKey,
+        child: TextFormField(
+          controller: ctrl,
+          maxLines: 3,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Reason *'),
+          validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        ElevatedButton(
+          onPressed: () {
+            if (formKey.currentState?.validate() ?? true) Navigator.pop(ctx, true);
+          },
+          child: const Text('Reopen'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true) return;
+
+  await ref.read(complaintDetailProvider.notifier).reopen(complaint.id, ctrl.text.trim());
+}
+
+Future<void> _openAssignSheet(
+  BuildContext context, WidgetRef ref, ComplaintEntity complaint,
+) {
+  return showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    constraints: const BoxConstraints(maxWidth: 480),
+    builder: (_) => _AssignSheetBody(complaint: complaint),
+  );
+}
+
+class _AssignSheetBody extends ConsumerStatefulWidget {
+  final ComplaintEntity complaint;
+  const _AssignSheetBody({required this.complaint});
+
+  @override
+  ConsumerState<_AssignSheetBody> createState() => _AssignSheetBodyState();
+}
+
+class _AssignSheetBodyState extends ConsumerState<_AssignSheetBody> {
+  String? _selectedUserId;
+  DateTime? _dueDate;
+  final _notesCtrl = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDueDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (picked != null) setState(() => _dueDate = picked);
+  }
+
+  Future<void> _submit() async {
+    if (_selectedUserId == null) return;
+    setState(() => _submitting = true);
+    await ref.read(complaintDetailProvider.notifier).assign(
+          widget.complaint.id,
+          assignedTo: _selectedUserId!,
+          dueDate: _dueDate,
+          notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+        );
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final staffState = ref.watch(staffListProvider);
+    final assignable = staffState is StaffListLoaded
+        ? staffState.staff.where((s) => s.userId != null).toList()
+        : <StaffEntity>[];
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+        decoration: const BoxDecoration(
+          color: AppTheme.cardBg,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                      color: AppTheme.border, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const Text('Assign Complaint',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 16),
+              if (staffState is StaffListLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                )
+              else if (assignable.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'No staff with a login account are available to assign yet.',
+                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                  ),
+                )
+              else
+                DropdownButtonFormField<String>(
+                  value: _selectedUserId,
+                  decoration: const InputDecoration(labelText: 'Assign to *'),
+                  hint: const Text('Select staff member'),
+                  items: assignable
+                      .map((s) => DropdownMenuItem(
+                            value: s.userId,
+                            child: Text(s.designationName != null
+                                ? '${s.fullName} — ${s.designationName}'
+                                : s.fullName),
+                          ))
+                      .toList(),
+                  onChanged: (v) => setState(() => _selectedUserId = v),
+                ),
+              const SizedBox(height: 14),
+              InkWell(
+                onTap: _pickDueDate,
+                child: InputDecorator(
+                  decoration: const InputDecoration(labelText: 'Due date (optional)'),
+                  child: Text(
+                    _dueDate == null
+                        ? 'Not set'
+                        : '${_dueDate!.day}/${_dueDate!.month}/${_dueDate!.year}',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _notesCtrl,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Notes (optional)'),
+              ),
+              const SizedBox(height: 20),
+              AppPrimaryButton(
+                label: 'Assign',
+                isLoading: _submitting,
+                onPressed:
+                    (_selectedUserId == null || _submitting) ? null : _submit,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

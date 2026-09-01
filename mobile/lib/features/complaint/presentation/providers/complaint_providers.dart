@@ -112,11 +112,49 @@ class ComplaintDetailNotifier extends StateNotifier<ComplaintDetailState> {
     }
   }
 
-  Future<void> updateStatus(String id, String status, {String? notes, String? resolutionNotes}) async {
-    final result = await _repo.updateStatus(id, status, notes: notes, resolutionNotes: resolutionNotes);
+  Future<void> updateStatus(
+    String id,
+    String status, {
+    String? notes,
+    String? resolutionNotes,
+    String? rejectionReason,
+  }) async {
+    final result = await _repo.updateStatus(
+      id, status,
+      notes: notes,
+      resolutionNotes: resolutionNotes,
+      rejectionReason: rejectionReason,
+    );
     switch (result) {
       case ComplaintSuccess(:final data):
         state = ComplaintDetailActionSuccess(data, 'Status updated to ${data.status.label}');
+      case ComplaintFailure(:final message):
+        state = ComplaintDetailError(message);
+    }
+  }
+
+  Future<void> assign(
+    String id, {
+    required String assignedTo,
+    DateTime? dueDate,
+    String? notes,
+  }) async {
+    final result = await _repo.assignComplaint(
+      id, assignedTo: assignedTo, dueDate: dueDate, notes: notes,
+    );
+    switch (result) {
+      case ComplaintSuccess(:final data):
+        state = ComplaintDetailActionSuccess(data, 'Complaint assigned');
+      case ComplaintFailure(:final message):
+        state = ComplaintDetailError(message);
+    }
+  }
+
+  Future<void> reopen(String id, String reason) async {
+    final result = await _repo.reopenComplaint(id, reason);
+    switch (result) {
+      case ComplaintSuccess(:final data):
+        state = ComplaintDetailActionSuccess(data, 'Complaint reopened');
       case ComplaintFailure(:final message):
         state = ComplaintDetailError(message);
     }
