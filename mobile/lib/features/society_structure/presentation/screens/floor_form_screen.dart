@@ -5,6 +5,7 @@ import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_settings/presentation/providers/society_settings_providers.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
+import 'package:ar_society_app/features/society_structure/domain/flat_numbering.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
@@ -44,16 +45,6 @@ class _FloorFormScreenState extends ConsumerState<FloorFormScreen> {
     super.dispose();
   }
 
-  /// Auto-generated flat number for the Nth unit on [floor] — unique within
-  /// the wing since assert_unique_flat_number scopes uniqueness per wing,
-  /// not per floor, and the floor digit(s) are always part of the string.
-  static String _autoFlatNumber(int floor, int unit) {
-    final unitStr = unit.toString().padLeft(2, '0');
-    if (floor == 0) return 'G$unitStr';
-    if (floor < 0) return 'B${-floor}$unitStr';
-    return '$floor$unitStr';
-  }
-
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() { _saving = true; _savingLabel = null; });
@@ -89,7 +80,7 @@ class _FloorFormScreenState extends ConsumerState<FloorFormScreen> {
                 setState(() => _savingLabel = 'Creating flat $i of $units…');
               }
               await ref.read(flatsBySocietyProvider.notifier).create(
-                    flatNumber: _autoFlatNumber(floorNumber, i),
+                    flatNumber: autoFlatNumber(floorNumber, i),
                     wingId: widget.wing.id,
                     floor: floorNumber,
                   );
