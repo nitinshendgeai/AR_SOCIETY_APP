@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/core/auth/biometric_preference.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:ar_society_app/features/auth/presentation/providers/biometric_provider.dart';
 import 'package:ar_society_app/features/onboarding/presentation/providers/trial_status_provider.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
@@ -68,7 +70,7 @@ class _DashboardShell extends ConsumerWidget {
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
-          children: children,
+          children: [const _BiometricEnrollTrigger(), ...children],
         ),
       ),
     );
@@ -94,6 +96,77 @@ class _DashboardShell extends ConsumerWidget {
     );
     if (ok == true) ref.read(authProvider.notifier).logout();
   }
+}
+
+// ── Biometric enrollment offer ────────────────────────────────────────────────
+//
+// Zero-UI widget dropped into _DashboardShell's body: on first mount, if
+// ChangePasswordScreen just flagged a pending offer (i.e. the user was an
+// auto-provisioned resident/tenant who just completed their forced password
+// change) AND this device actually has usable biometric hardware, ask once
+// whether to enable fingerprint/face unlock. A ConsumerWidget can't use
+// initState, so this is its own tiny StatefulWidget rather than living
+// directly in _DashboardShell.build(), which reruns on every rebuild.
+class _BiometricEnrollTrigger extends ConsumerStatefulWidget {
+  const _BiometricEnrollTrigger();
+
+  @override
+  ConsumerState<_BiometricEnrollTrigger> createState() => _BiometricEnrollTriggerState();
+}
+
+class _BiometricEnrollTriggerState extends ConsumerState<_BiometricEnrollTrigger> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybePrompt());
+  }
+
+  Future<void> _maybePrompt() async {
+    final pending = await BiometricPreference.consumePromptPending();
+    if (!pending || !mounted) return;
+
+    final available = await ref.read(biometricServiceProvider).isAvailable();
+    if (!available || !mounted) return;
+
+    final enable = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Enable Biometric Unlock?'),
+        content: const Text(
+          'Use your fingerprint or face to unlock the app next time, '
+          'instead of typing your password.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Not now'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
+    if (enable != true || !mounted) return;
+
+    final confirmed = await ref
+        .read(biometricServiceProvider)
+        .authenticate('Confirm to enable biometric unlock');
+    if (confirmed) {
+      await BiometricPreference.setEnabled(true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Biometric unlock enabled'),
+          backgroundColor: AppTheme.success,
+        ));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
 // ── Shared components ─────────────────────────────────────────────────────────

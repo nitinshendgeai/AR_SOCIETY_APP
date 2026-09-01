@@ -56,7 +56,11 @@ def test_create_resident(client, db, society_a):
     assert body["full_name"] == "Alice Owner"
     assert body["is_primary"] is True
     assert body["family_member_count"] == 0
-    assert body["warnings"] == []
+    # No phone was given, so no login account could be auto-provisioned
+    # (see ResidentService.create() / user_provisioning.py) — surfaced as a
+    # warning rather than left silent, since it means this resident can't
+    # sign in to the app yet.
+    assert any("mobile number" in w.lower() for w in body["warnings"])
 
 
 def test_read_one_resident(client, db, society_a):
@@ -329,7 +333,12 @@ def test_no_warning_for_unique_contact_info(client, db, society_a):
         "phone": "9000009999", "email": "unique-contact@example.com",
     }, headers=society_a["admin"]["headers"])
     assert r.status_code == 201
-    assert r.json()["warnings"] == []
+    # A fresh phone number still produces exactly one warning — the
+    # (expected, non-duplicate) login-provisioning notice carrying the
+    # initial password — but never a duplicate-contact-info warning.
+    warnings = r.json()["warnings"]
+    assert not any("already uses" in w or "same ID proof" in w for w in warnings)
+    assert any("Login created" in w for w in warnings)
 
 
 # ── INACTIVE RESIDENT ─────────────────────────────────────────────────────────

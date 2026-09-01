@@ -20,6 +20,8 @@ import 'package:ar_society_app/features/staff/presentation/screens/staff_detail_
 import 'package:ar_society_app/features/staff/presentation/screens/staff_edit_screen.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/auth/presentation/screens/change_password_screen.dart';
+import 'package:ar_society_app/features/auth/presentation/screens/biometric_lock_screen.dart';
+import 'package:ar_society_app/features/auth/presentation/providers/biometric_provider.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/visitor/presentation/screens/visitor_list_screen.dart';
 import 'package:ar_society_app/features/visitor/presentation/screens/create_visitor_screen.dart';
@@ -59,6 +61,7 @@ class AppRoutes {
   static const splash             = '/';
   static const login              = '/login';
   static const changePassword     = '/change-password';
+  static const biometricLock      = '/biometric-lock';
   static const home               = '/home';
   static const adminHome          = '/admin';
   static const committeeHome      = '/committee';
@@ -126,6 +129,7 @@ class AppRoutes {
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
+  final isBiometricLocked = ref.watch(biometricLockProvider);
 
   final router = GoRouter(
     initialLocation: AppRoutes.splash,
@@ -138,6 +142,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isOnSplash          = path == AppRoutes.splash;
       final isOnLogin           = path == AppRoutes.login;
       final isOnChangePassword  = path == AppRoutes.changePassword;
+      final isOnBiometricLock   = path == AppRoutes.biometricLock;
       final isOnSetupWizard     = path == AppRoutes.setupWizard;
       final isPublicRoute       = path == AppRoutes.registerSociety ||
                                   path == AppRoutes.trialSuccess;
@@ -172,6 +177,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             'roles=${user.roles} primaryRole=${user.primaryRole} '
             'mustChangePassword=${user.mustChangePassword}');
 
+        // 0. Biometric re-confirmation for a restored session gates
+        // everything else — set only by checkSession(), never by an
+        // interactive login().
+        if (isBiometricLocked && !isOnBiometricLock) {
+          debugPrint('[ROUTE_REDIRECT] → biometric lock');
+          return AppRoutes.biometricLock;
+        }
+
         // 1. Force password change before anything else.
         if (user.mustChangePassword && !isOnChangePassword) {
           debugPrint('[ROUTE_REDIRECT] → must change password');
@@ -186,7 +199,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
         // 3. Once setup is complete, redirect away from auth/setup screens.
         if (!user.mustChangePassword && user.termsAccepted &&
-            (isOnLogin || isOnSplash || isOnChangePassword || isOnSetupWizard)) {
+            (isOnLogin || isOnSplash || isOnChangePassword || isOnSetupWizard ||
+                isOnBiometricLock)) {
           final home = _userRoleHome(user);
           debugPrint('[ROUTE_REDIRECT] → role home: $home');
           return home;
@@ -202,6 +216,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: AppRoutes.login,  builder: (_, __) => const LoginScreen()),
       GoRoute(path: AppRoutes.changePassword,
           builder: (_, __) => const ChangePasswordScreen()),
+      GoRoute(path: AppRoutes.biometricLock,
+          builder: (_, __) => const BiometricLockScreen()),
       GoRoute(path: AppRoutes.home, redirect: (_, __) {
         if (authState is AuthAuthenticated) {
           return _userRoleHome((authState as AuthAuthenticated).user);

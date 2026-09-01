@@ -5,6 +5,8 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/config/env.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart'
+    show rmPhoneValidator;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -82,19 +84,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           const SizedBox(height: 16),
                         ],
 
-                        // Email
+                        // Email or mobile number — admin/committee/staff
+                        // accounts use email, resident/tenant accounts are
+                        // auto-provisioned by mobile number (see backend's
+                        // AuthService.login()/get_by_email_or_phone()).
                         AppTextField(
-                          label: 'Email address',
-                          hint: 'admin@arsociety.com',
+                          label: 'Email or Mobile Number',
+                          hint: 'admin@arsociety.com or 9876543210',
                           controller: _emailCtrl,
-                          keyboardType: TextInputType.emailAddress,
+                          keyboardType: TextInputType.text,
                           textInputAction: TextInputAction.next,
                           validator: (v) {
                             if (v == null || v.trim().isEmpty) {
-                              return 'Email is required';
+                              return 'Email or mobile number is required';
                             }
-                            if (!v.contains('@')) return 'Enter a valid email';
-                            return null;
+                            final input = v.trim();
+                            if (input.contains('@')) {
+                              if (!input.contains('.')) return 'Enter a valid email';
+                              return null;
+                            }
+                            return rmPhoneValidator(input);
                           },
                         ),
                         const SizedBox(height: 16),
@@ -341,6 +350,13 @@ class _DemoFormatHintState extends State<_DemoFormatHint> {
                     color: AppTheme.textSecondary,
                     fontStyle: FontStyle.italic,
                   ),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Residents and tenants added by the society sign in with '
+                  'their mobile number and password 1234, then must set a '
+                  'new password on first login.',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),
               ],
             ),

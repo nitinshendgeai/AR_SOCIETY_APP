@@ -17,7 +17,11 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email:    EmailStr
+    # Accepts either an email (admin/committee/staff accounts) or a mobile
+    # number (resident/tenant accounts auto-provisioned by phone — see
+    # app/services/user_provisioning.py) — kept as a plain str rather than
+    # EmailStr since a phone number is not a valid email format.
+    email:    str
     password: str
 
 
