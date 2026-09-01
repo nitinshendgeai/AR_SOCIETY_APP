@@ -77,6 +77,15 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
       appBar: AppBar(
         title: Text(widget.filterFlat != null ? 'Residents — ${widget.filterFlat!.displayName}' : 'Residents'),
         actions: [
+          if (widget.filterFlat == null && (user?.isAdminOrCommittee ?? false))
+            IconButton(
+              icon: const Icon(Icons.upload_file_rounded),
+              tooltip: 'Import Residents',
+              onPressed: () async {
+                final imported = await context.push<bool>(AppRoutes.residentImport);
+                if (imported == true) _load();
+              },
+            ),
           IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
         ],
       ),

@@ -53,6 +53,7 @@ import 'package:ar_society_app/features/resident_master/data/models/resident_mas
 import 'package:ar_society_app/features/resident_master/presentation/screens/resident_list_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/resident_detail_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/resident_form_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/resident_import_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_list_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_detail_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_form_screen.dart';
@@ -115,6 +116,7 @@ class AppRoutes {
   static const residentsList      = '/residents';
   static const residentDetail     = '/residents/detail';
   static const residentForm       = '/residents/form';
+  static const residentImport     = '/residents/import';
   static const tenantsList        = '/tenants';
   static const tenantDetail       = '/tenants/detail';
   static const tenantForm         = '/tenants/form';
@@ -503,6 +505,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             defaultFlat: extra?['flat'] as FlatModel?,
           );
         },
+      ),
+      GoRoute(
+        path: AppRoutes.residentImport,
+        builder: (_, __) => const ResidentImportScreen(),
       ),
       GoRoute(
         path: AppRoutes.tenantsList,
