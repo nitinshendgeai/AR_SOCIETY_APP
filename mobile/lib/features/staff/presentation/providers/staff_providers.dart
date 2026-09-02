@@ -546,7 +546,8 @@ class DutyAssignError   extends DutyAssignState { final String message; DutyAssi
 
 class DutyAssignNotifier extends StateNotifier<DutyAssignState> {
   final StaffRepository _repo;
-  DutyAssignNotifier(this._repo) : super(DutyAssignInitial());
+  final Ref _ref;
+  DutyAssignNotifier(this._repo, this._ref) : super(DutyAssignInitial());
 
   Future<void> assign({
     required String staffId,
@@ -565,8 +566,16 @@ class DutyAssignNotifier extends StateNotifier<DutyAssignState> {
       startTime: startTime, endTime: endTime,
     );
     switch (result) {
-      case StaffSuccess(:final data): state = DutyAssignSuccess(data);
-      case StaffFailure(:final message): state = DutyAssignError(message);
+      case StaffSuccess(:final data):
+        state = DutyAssignSuccess(data);
+        // Every call site pushes this screen without awaiting the pop
+        // result, so the dashboard's duty-count summary (societyDutiesProvider,
+        // a cached FutureProvider.family) would otherwise stay stale until
+        // a manual pull-to-refresh — invalidate it here instead of depending
+        // on each current (and future) call site to remember to.
+        _ref.invalidate(societyDutiesProvider(societyId));
+      case StaffFailure(:final message):
+        state = DutyAssignError(message);
     }
   }
 
@@ -574,7 +583,7 @@ class DutyAssignNotifier extends StateNotifier<DutyAssignState> {
 }
 
 final dutyAssignProvider = StateNotifierProvider<DutyAssignNotifier, DutyAssignState>((ref) {
-  return DutyAssignNotifier(ref.read(staffRepositoryProvider));
+  return DutyAssignNotifier(ref.read(staffRepositoryProvider), ref);
 });
 
 // ── Daily society duties provider (dashboard summary) ─────────────────────────
