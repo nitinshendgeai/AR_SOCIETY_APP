@@ -48,6 +48,7 @@ class StaffCreate(OrmBase):
 class StaffUpdate(OrmBase):
     full_name:     Optional[str]            = None
     mobile:        Optional[str]            = None
+    email:         Optional[str]            = None
     department:    Optional[StaffDepartment]= None
     designation_id:Optional[UUID]           = None
     shift_id:      Optional[UUID]           = None
