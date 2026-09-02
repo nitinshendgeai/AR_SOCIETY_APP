@@ -169,6 +169,60 @@ class StaffRepository {
     } catch (e) { return _handle(e); }
   }
 
+  // ── Attendance Correction ──────────────────────────────────────────────────
+
+  Future<StaffResult<AttendanceCorrectionEntity>> requestCorrection({
+    required String societyId,
+    required String staffId,
+    required String attendanceId,
+    required String correctionDate,
+    required String reason,
+    String? requestedStatus,
+    String? requestedCheckIn,
+    String? requestedCheckOut,
+  }) async {
+    try {
+      final m = await _ds.requestCorrection(
+        societyId: societyId, staffId: staffId, attendanceId: attendanceId,
+        correctionDate: correctionDate, reason: reason,
+        requestedStatus: requestedStatus,
+        requestedCheckIn: requestedCheckIn,
+        requestedCheckOut: requestedCheckOut,
+      );
+      return StaffSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<List<AttendanceCorrectionEntity>>> listCorrectionsByStaff(String staffId) async {
+    try {
+      final list = await _ds.listCorrectionsByStaff(staffId);
+      return StaffSuccess(list.map((m) => m.toEntity()).toList());
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<List<AttendanceCorrectionEntity>>> listCorrectionsBySociety(
+    String societyId, {String? status}
+  ) async {
+    try {
+      final list = await _ds.listCorrectionsBySociety(societyId, status: status);
+      return StaffSuccess(list.map((m) => m.toEntity()).toList());
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<AttendanceCorrectionEntity>> approveCorrection(String correctionId) async {
+    try {
+      final m = await _ds.approveCorrection(correctionId);
+      return StaffSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<AttendanceCorrectionEntity>> rejectCorrection(String correctionId, String reason) async {
+    try {
+      final m = await _ds.rejectCorrection(correctionId, reason);
+      return StaffSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
   // ── Duties ─────────────────────────────────────────────────────────────────
 
   Future<StaffResult<List<DutyEntity>>> getMyDuties(String staffId) async {

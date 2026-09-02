@@ -135,6 +135,19 @@ enum AttendanceStatus {
       default:          return AttendanceStatus.offDuty;
     }
   }
+
+  /// Backend wire value, needed when sending a requested status back
+  /// (e.g. on an attendance correction request).
+  String get value {
+    switch (this) {
+      case AttendanceStatus.present:  return 'present';
+      case AttendanceStatus.absent:   return 'absent';
+      case AttendanceStatus.halfDay:  return 'half_day';
+      case AttendanceStatus.leave:    return 'leave';
+      case AttendanceStatus.overtime: return 'overtime';
+      case AttendanceStatus.offDuty:  return 'off_duty';
+    }
+  }
 }
 
 // ── Attendance entity ─────────────────────────────────────────────────────────
@@ -177,6 +190,70 @@ class AttendanceEntity {
   bool get isComplete   => isCheckedIn && isCheckedOut;
   bool get needsCheckinApproval  => isCheckedIn && !isApproved;
   bool get needsCheckoutApproval => isCheckedOut && !isCheckoutApproved;
+}
+
+// ── Attendance correction ─────────────────────────────────────────────────────
+
+enum CorrectionStatus {
+  pending,
+  approved,
+  rejected;
+
+  String get label {
+    switch (this) {
+      case CorrectionStatus.pending:  return 'Pending';
+      case CorrectionStatus.approved: return 'Approved';
+      case CorrectionStatus.rejected: return 'Rejected';
+    }
+  }
+
+  static CorrectionStatus fromString(String s) {
+    switch (s.toLowerCase()) {
+      case 'approved': return CorrectionStatus.approved;
+      case 'rejected': return CorrectionStatus.rejected;
+      default:         return CorrectionStatus.pending;
+    }
+  }
+}
+
+class AttendanceCorrectionEntity {
+  final String id;
+  final String societyId;
+  final String staffId;
+  final String? staffName;
+  final String attendanceId;
+  final String correctionDate;
+  final String? originalStatus;
+  final String? requestedStatus;
+  final String? originalCheckIn;
+  final String? requestedCheckIn;
+  final String? originalCheckOut;
+  final String? requestedCheckOut;
+  final String reason;
+  final CorrectionStatus status;
+  final String? rejectionReason;
+  final DateTime createdAt;
+
+  const AttendanceCorrectionEntity({
+    required this.id,
+    required this.societyId,
+    required this.staffId,
+    this.staffName,
+    required this.attendanceId,
+    required this.correctionDate,
+    this.originalStatus,
+    this.requestedStatus,
+    this.originalCheckIn,
+    this.requestedCheckIn,
+    this.originalCheckOut,
+    this.requestedCheckOut,
+    required this.reason,
+    required this.status,
+    this.rejectionReason,
+    required this.createdAt,
+  });
+
+  bool get isPending => status == CorrectionStatus.pending;
 }
 
 // ── Duty entity ───────────────────────────────────────────────────────────────

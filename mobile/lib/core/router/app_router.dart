@@ -15,6 +15,7 @@ import 'package:ar_society_app/features/staff/presentation/screens/handover_scre
 import 'package:ar_society_app/features/staff/presentation/screens/approval_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/duty_assign_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/duty_overview_screen.dart';
+import 'package:ar_society_app/features/staff/presentation/screens/attendance_correction_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_list_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_add_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_detail_screen.dart';
@@ -76,6 +77,7 @@ class AppRoutes {
   static const staffApprovals     = '/staff/approvals';
   static const staffAssignDuty    = '/staff/assign-duty';
   static const staffDutyOverview  = '/staff/duties/overview';
+  static const staffAttendanceCorrections = '/staff/attendance-corrections';
   static const staffList          = '/staff/list';
   static const staffAdd           = '/staff/add';
   static const staffDetail        = '/staff/:staffId/detail';
@@ -272,6 +274,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.staffDutyOverview,
         builder: (_, state) => DutyOverviewScreen(
+          societyId: state.extra as String? ?? '',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.staffAttendanceCorrections,
+        builder: (_, state) => AttendanceCorrectionScreen(
           societyId: state.extra as String? ?? '',
         ),
       ),

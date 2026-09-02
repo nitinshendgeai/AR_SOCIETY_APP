@@ -228,6 +228,85 @@ class AttendanceModel {
       );
 }
 
+// ── Attendance correction model ───────────────────────────────────────────────
+
+class AttendanceCorrectionModel {
+  final String id;
+  final String societyId;
+  final String staffId;
+  final String? staffName;
+  final String attendanceId;
+  final String correctionDate;
+  final String? originalStatus;
+  final String? requestedStatus;
+  final String? originalCheckIn;
+  final String? requestedCheckIn;
+  final String? originalCheckOut;
+  final String? requestedCheckOut;
+  final String reason;
+  final String status;
+  final String? rejectionReason;
+  final String createdAt;
+
+  const AttendanceCorrectionModel({
+    required this.id,
+    required this.societyId,
+    required this.staffId,
+    this.staffName,
+    required this.attendanceId,
+    required this.correctionDate,
+    this.originalStatus,
+    this.requestedStatus,
+    this.originalCheckIn,
+    this.requestedCheckIn,
+    this.originalCheckOut,
+    this.requestedCheckOut,
+    required this.reason,
+    required this.status,
+    this.rejectionReason,
+    required this.createdAt,
+  });
+
+  factory AttendanceCorrectionModel.fromJson(Map<String, dynamic> j) =>
+      AttendanceCorrectionModel(
+        id: j['id'] as String,
+        societyId: j['society_id'] as String,
+        staffId: j['staff_id'] as String,
+        staffName: j['staff_name'] as String?,
+        attendanceId: j['attendance_id'] as String,
+        correctionDate: j['correction_date'] as String,
+        originalStatus: j['original_status'] as String?,
+        requestedStatus: j['requested_status'] as String?,
+        originalCheckIn: j['original_check_in'] as String?,
+        requestedCheckIn: j['requested_check_in'] as String?,
+        originalCheckOut: j['original_check_out'] as String?,
+        requestedCheckOut: j['requested_check_out'] as String?,
+        reason: j['reason'] as String,
+        status: j['status'] as String,
+        rejectionReason: j['rejection_reason'] as String?,
+        createdAt: j['created_at'] as String,
+      );
+
+  AttendanceCorrectionEntity toEntity() => AttendanceCorrectionEntity(
+        id: id,
+        societyId: societyId,
+        staffId: staffId,
+        staffName: staffName,
+        attendanceId: attendanceId,
+        correctionDate: correctionDate,
+        originalStatus: originalStatus,
+        requestedStatus: requestedStatus,
+        originalCheckIn: originalCheckIn,
+        requestedCheckIn: requestedCheckIn,
+        originalCheckOut: originalCheckOut,
+        requestedCheckOut: requestedCheckOut,
+        reason: reason,
+        status: CorrectionStatus.fromString(status),
+        rejectionReason: rejectionReason,
+        createdAt: DateTime.parse(createdAt),
+      );
+}
+
 // ── Duty model ────────────────────────────────────────────────────────────────
 
 class DutyModel {
