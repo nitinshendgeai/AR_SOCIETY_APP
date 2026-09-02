@@ -164,6 +164,46 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
     }
   }
 
+  /// Exports every row that didn't make it in — whether it failed
+  /// validation up front (_RowStatus.error) or was sent but rejected by the
+  /// backend (_RowStatus.failed) — as a CSV in the same column layout as
+  /// the template, plus a trailing Error column explaining what to fix.
+  /// The user corrects just those rows and re-imports that smaller file.
+  Future<void> _exportErrorRows() async {
+    final badRows = (_rows ?? [])
+        .where((r) => r.status == _RowStatus.error || r.status == _RowStatus.failed)
+        .toList();
+    if (badRows.isEmpty) return;
+
+    List<String> paddedRaw(List<String> raw) {
+      final padded = List<String>.from(raw);
+      while (padded.length < _templateHeader.length) {
+        padded.add('');
+      }
+      return padded.sublist(0, _templateHeader.length);
+    }
+
+    try {
+      final csvRows = [
+        [..._templateHeader, 'Error'],
+        for (final r in badRows) [...paddedRaw(r.raw), r.message ?? 'Import failed'],
+      ];
+      final csvString = const ListToCsvConverter().convert(csvRows);
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/resident_import_errors.csv');
+      await file.writeAsBytes(utf8.encode(csvString));
+      await Share.shareXFiles([XFile(file.path)],
+          subject: 'Resident Import Errors');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Could not export error rows: $e'),
+          backgroundColor: AppTheme.error,
+        ));
+      }
+    }
+  }
+
   Future<void> _pickFile() async {
     setState(() => _fileError = null);
     final result = await FilePicker.platform.pickFiles(
@@ -393,17 +433,35 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
         ),
       ),
       Padding(
-        padding: const EdgeInsets.all(20),
-        child: _done
-            ? AppPrimaryButton(label: 'Done', onPressed: () => Navigator.pop(context, true))
-            : AppPrimaryButton(
-                label: _importing
-                    ? 'Importing…'
-                    : 'Import $validCount Resident${validCount == 1 ? '' : 's'}',
-                icon: Icons.file_download_done_rounded,
-                isLoading: _importing,
-                onPressed: (_importing || !_hasValidRows) ? null : _runImport,
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        child: Column(children: [
+          // Rows that failed validation (never sent) or failed on the
+          // backend (e.g. a duplicate) are never silently dropped — the
+          // user can pull them back out as a CSV, fix just those, and
+          // re-import that smaller file rather than redoing the whole batch.
+          if (errorCount > 0 || failedCount > 0) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _exportErrorRows,
+                icon: const Icon(Icons.download_rounded),
+                label: Text(
+                    'Export ${errorCount + failedCount} Error Row${errorCount + failedCount == 1 ? '' : 's'} to Fix'),
               ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          _done
+              ? AppPrimaryButton(label: 'Done', onPressed: () => Navigator.pop(context, true))
+              : AppPrimaryButton(
+                  label: _importing
+                      ? 'Importing…'
+                      : 'Import $validCount Resident${validCount == 1 ? '' : 's'}',
+                  icon: Icons.file_download_done_rounded,
+                  isLoading: _importing,
+                  onPressed: (_importing || !_hasValidRows) ? null : _runImport,
+                ),
+        ]),
       ),
     ]);
   }
