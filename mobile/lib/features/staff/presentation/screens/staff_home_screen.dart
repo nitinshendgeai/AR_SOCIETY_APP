@@ -205,6 +205,17 @@ class StaffHomeScreen extends ConsumerWidget {
                         color: AppTheme.warning,
                         onTap: () => context.push('/complaints'),
                       ),
+                    if (isManager)
+                      _ModuleCard(
+                        icon: Icons.edit_note_rounded,
+                        label: 'Corrections',
+                        subtitle: 'Attendance fixes',
+                        color: AppTheme.secondary,
+                        onTap: () => context.push(
+                          '/staff/attendance-corrections',
+                          extra: societyId,
+                        ),
+                      ),
                   ],
                 ),
               ],

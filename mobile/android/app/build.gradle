@@ -29,8 +29,15 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.debug
-            minifyEnabled true
-            shrinkResources true
+            // R8 minification was enabled with no proguard-rules.pro and no
+            // default Flutter/Android keep rules — R8 could freely rename or
+            // strip Java/Kotlin classes that native plugin code (sqflite,
+            // flutter_secure_storage) looks up by hardcoded name via JNI,
+            // causing a native crash on startup on real devices even though
+            // debug builds (which skip R8) work fine. Disabled until proper
+            // keep rules are authored and verified against a real device.
+            minifyEnabled false
+            shrinkResources false
         }
     }
 }

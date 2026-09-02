@@ -1,35 +1,35 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 
-/// Maps a caught error to a user-facing message — the society_structure
-/// (Wing/Floor/Flat) screens were displaying the raw exception's toString()
-/// (e.g. a full DioException dump) directly in error snackbars/banners.
-/// Reuses the same parseApiError() every other module (auth, staff,
-/// resident_master, ...) already relies on for this.
-String structureFriendlyError(Object e) {
-  if (e is DioException) return parseApiError(e);
-  return 'Something went wrong. Please try again.';
-}
-
-// ── Responsive Form Body ──────────────────────────────────────────────────────
-
-/// Caps data-entry form content to a comfortable editing width on tablet/
-/// laptop/desktop viewports, where a single-column Scaffold body would
-/// otherwise stretch every field edge-to-edge. No effect on narrower
-/// (mobile) widths — full-bleed layout there is unchanged. Mirrors the
-/// max-width treatment already used on the login card, generalized for
-/// forms (which need a wider column for labels + longer field content).
-class ResponsiveFormBody extends StatelessWidget {
+// ── Responsive body wrapper ───────────────────────────────────────────────
+//
+// Every Master screen was built mobile-first with a full-bleed body — fine
+// on phones, but a single ListView/Form stretched across a 1440px desktop
+// window reads as unfinished (fields become absurdly wide, cards stretch
+// edge to edge). Rather than rewriting each screen's layout per breakpoint,
+// wrap the existing body once: below [breakpoint] nothing changes; above it,
+// content is centered and capped at [maxWidth] so desktop/laptop/wide-tablet
+// windows get a professional reading width while phones/narrow tablets are
+// completely unaffected. Uses MediaQuery rather than a hard-coded per-device
+// hack, per the Master Form responsive guidelines.
+class ResponsiveBody extends StatelessWidget {
   final Widget child;
   final double maxWidth;
-  const ResponsiveFormBody(
-      {super.key, required this.child, this.maxWidth = 640});
+  final double breakpoint;
+
+  const ResponsiveBody({
+    super.key,
+    required this.child,
+    this.maxWidth = 720,
+    this.breakpoint = 840,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    final width = MediaQuery.sizeOf(context).width;
+    if (width < breakpoint) return child;
+    return Align(
+      alignment: Alignment.topCenter,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxWidth),
         child: child,

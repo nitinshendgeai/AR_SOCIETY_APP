@@ -12,6 +12,7 @@ import 'package:ar_society_app/features/resident_master/presentation/widgets/veh
 import 'package:ar_society_app/features/resident_master/presentation/widgets/agreement_renewal_sheet.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// Canonical Tenant Detail screen — the flat's tenancy at a glance: who the
 /// tenant is, what the current agreement says, and when it needs renewal.
@@ -70,7 +71,7 @@ class _TenantDetailBody extends ConsumerWidget {
             ),
         ],
       ),
-      body: ListView(
+      body: ResponsiveBody(child: ListView(
         padding: const EdgeInsets.all(20),
         children: [
           _HeaderCard(tenant: tenant),
@@ -217,6 +218,7 @@ class _TenantDetailBody extends ConsumerWidget {
                             if (canEdit) ...[
                               IconButton(
                                 icon: const Icon(Icons.edit_outlined, size: 18),
+                                tooltip: 'Edit vehicle',
                                 onPressed: () => showVehicleFormSheet(context, ref, flatId: tenant.flatId, tenantId: tenant.id, vehicle: v),
                               ),
                               IconButton(
@@ -285,7 +287,7 @@ class _TenantDetailBody extends ConsumerWidget {
           ],
           const SizedBox(height: 24),
         ],
-      ),
+      )),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/complaint/domain/entities/complaint_entities.dart';
 import 'package:ar_society_app/features/complaint/data/repositories/complaint_repository.dart';
 import 'package:ar_society_app/features/complaint/presentation/providers/complaint_providers.dart';
+import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 class CreateComplaintScreen extends ConsumerStatefulWidget {
@@ -24,6 +25,8 @@ class _CreateComplaintScreenState
 
   ComplaintCategory? _selectedCategory;
   ComplaintPriority _selectedPriority = ComplaintPriority.medium;
+  String? _selectedWingId;
+  String? _selectedFlatId;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -52,6 +55,7 @@ class _CreateComplaintScreenState
       'category': _selectedCategory!.name,
       'priority': _selectedPriority.name,
       'society_id': widget.societyId,
+      if (_selectedFlatId != null) 'flat_id': _selectedFlatId,
     };
 
     final result =
@@ -121,6 +125,64 @@ class _CreateComplaintScreenState
                 ),
               ),
               const SizedBox(height: 14),
+
+              // Wing / Flat (optional — leave blank for a common-area complaint)
+              Consumer(
+                builder: (context, ref, _) {
+                  final wingsAsync = ref.watch(wingsProvider);
+                  return wingsAsync.when(
+                    loading: () => const LinearProgressIndicator(minHeight: 2),
+                    error: (_, __) => const SizedBox.shrink(),
+                    data: (wings) => DropdownButtonFormField<String>(
+                      value: _selectedWingId,
+                      decoration: const InputDecoration(
+                        labelText: 'Wing',
+                        hintText: 'Optional — leave blank for a society-wide issue',
+                      ),
+                      items: wings
+                          .map((w) => DropdownMenuItem(
+                                value: w.id,
+                                child: Text(w.displayName),
+                              ))
+                          .toList(),
+                      onChanged: (v) => setState(() {
+                        _selectedWingId = v;
+                        _selectedFlatId = null;
+                      }),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+
+              if (_selectedWingId != null) ...[
+                Consumer(
+                  builder: (context, ref, _) {
+                    final flatsAsync =
+                        ref.watch(flatsByWingProvider(_selectedWingId!));
+                    return flatsAsync.when(
+                      loading: () =>
+                          const LinearProgressIndicator(minHeight: 2),
+                      error: (_, __) => const SizedBox.shrink(),
+                      data: (flats) => DropdownButtonFormField<String>(
+                        value: _selectedFlatId,
+                        decoration:
+                            const InputDecoration(labelText: 'Flat Number'),
+                        hint: const Text('Select flat number'),
+                        items: flats
+                            .map((f) => DropdownMenuItem(
+                                  value: f.id,
+                                  child: Text(f.flatNumber),
+                                ))
+                            .toList(),
+                        onChanged: (v) =>
+                            setState(() => _selectedFlatId = v),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 14),
+              ],
 
               // Category
               DropdownButtonFormField<ComplaintCategory>(

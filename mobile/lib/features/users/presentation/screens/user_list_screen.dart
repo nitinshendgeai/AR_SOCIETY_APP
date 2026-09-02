@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/features/users/data/models/user_admin_models.dart';
@@ -57,7 +58,7 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
               loading: () =>
                   const Center(child: CircularProgressIndicator()),
               error: (e, _) => _ErrorView(
-                message: e.toString(),
+                message: friendlyErrorMessage(e),
                 onRetry: () =>
                     ref.read(usersListProvider.notifier).refresh(),
               ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_settings/data/models/society_settings_model.dart';
 import 'package:ar_society_app/features/society_settings/presentation/providers/society_settings_providers.dart';
@@ -33,7 +34,7 @@ class SocietySettingsScreen extends ConsumerWidget {
               const Icon(Icons.error_outline_rounded,
                   color: AppTheme.error, size: 40),
               const SizedBox(height: 12),
-              Text(e.toString(),
+              Text(friendlyErrorMessage(e),
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: AppTheme.textSecondary)),
               const SizedBox(height: 16),
@@ -45,40 +46,37 @@ class SocietySettingsScreen extends ConsumerWidget {
             ],
           ),
         ),
-        data: (society) => ResponsiveFormBody(
-          maxWidth: 800,
-          child: DefaultTabController(
-            length: 4,
-            child: Column(
-              children: [
-                _SubscriptionBanner(society: society),
-                const TabBar(
-                  isScrollable: true,
-                  labelColor: AppTheme.primary,
-                  unselectedLabelColor: AppTheme.textSecondary,
-                  indicatorColor: AppTheme.primary,
-                  tabAlignment: TabAlignment.start,
-                  tabs: [
-                    Tab(text: 'General'),
-                    Tab(text: 'Contact'),
-                    Tab(text: 'Subscription'),
-                    Tab(text: 'Security'),
+        data: (society) => ResponsiveBody(child: DefaultTabController(
+          length: 4,
+          child: Column(
+            children: [
+              _SubscriptionBanner(society: society),
+              const TabBar(
+                isScrollable: true,
+                labelColor: AppTheme.primary,
+                unselectedLabelColor: AppTheme.textSecondary,
+                indicatorColor: AppTheme.primary,
+                tabAlignment: TabAlignment.start,
+                tabs: [
+                  Tab(text: 'General'),
+                  Tab(text: 'Contact'),
+                  Tab(text: 'Subscription'),
+                  Tab(text: 'Security'),
+                ],
+              ),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    _GeneralTab(society: society),
+                    _ContactTab(society: society),
+                    _SubscriptionTab(society: society),
+                    _SecurityTab(society: society),
                   ],
                 ),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      _GeneralTab(society: society),
-                      _ContactTab(society: society),
-                      _SubscriptionTab(society: society),
-                      _SecurityTab(society: society),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ),
+        )),
       ),
     );
   }
@@ -149,34 +147,25 @@ class _GeneralTabState extends ConsumerState<_GeneralTab>
   @override
   void initState() {
     super.initState();
-    _nameCtrl = TextEditingController(text: widget.society.name);
-    _addressCtrl = TextEditingController(text: widget.society.address ?? '');
-    _cityCtrl = TextEditingController(text: widget.society.city ?? '');
-    _stateCtrl = TextEditingController(text: widget.society.state ?? '');
-    _pincodeCtrl = TextEditingController(text: widget.society.pincode ?? '');
-    _countryCtrl =
-        TextEditingController(text: widget.society.country ?? 'India');
-    _websiteCtrl = TextEditingController(text: widget.society.website ?? '');
-    _regNumberCtrl =
-        TextEditingController(text: widget.society.registrationNumber ?? '');
-    _gstCtrl = TextEditingController(text: widget.society.gstNumber ?? '');
-    _panCtrl = TextEditingController(text: widget.society.panNumber ?? '');
+    _nameCtrl      = TextEditingController(text: widget.society.name);
+    _addressCtrl   = TextEditingController(text: widget.society.address ?? '');
+    _cityCtrl      = TextEditingController(text: widget.society.city ?? '');
+    _stateCtrl     = TextEditingController(text: widget.society.state ?? '');
+    _pincodeCtrl   = TextEditingController(text: widget.society.pincode ?? '');
+    _countryCtrl   = TextEditingController(
+        text: widget.society.country ?? 'India');
+    _websiteCtrl   = TextEditingController(text: widget.society.website ?? '');
+    _regNumberCtrl = TextEditingController(
+        text: widget.society.registrationNumber ?? '');
+    _gstCtrl       = TextEditingController(text: widget.society.gstNumber ?? '');
+    _panCtrl       = TextEditingController(text: widget.society.panNumber ?? '');
   }
 
   @override
   void dispose() {
-    for (final c in [
-      _nameCtrl,
-      _addressCtrl,
-      _cityCtrl,
-      _stateCtrl,
-      _pincodeCtrl,
-      _countryCtrl,
-      _websiteCtrl,
-      _regNumberCtrl,
-      _gstCtrl,
-      _panCtrl
-    ]) {
+    for (final c in [_nameCtrl, _addressCtrl, _cityCtrl, _stateCtrl,
+        _pincodeCtrl, _countryCtrl, _websiteCtrl,
+        _regNumberCtrl, _gstCtrl, _panCtrl]) {
       c.dispose();
     }
     super.dispose();
@@ -187,24 +176,27 @@ class _GeneralTabState extends ConsumerState<_GeneralTab>
     setState(() => _saving = true);
     try {
       await ref.read(currentSocietyProvider.notifier).updateSettings({
-        'name': _nameCtrl.text.trim(),
-        'address':
-            _addressCtrl.text.trim().isEmpty ? null : _addressCtrl.text.trim(),
-        'city': _cityCtrl.text.trim().isEmpty ? null : _cityCtrl.text.trim(),
-        'state': _stateCtrl.text.trim().isEmpty ? null : _stateCtrl.text.trim(),
-        'pincode':
-            _pincodeCtrl.text.trim().isEmpty ? null : _pincodeCtrl.text.trim(),
-        'country':
-            _countryCtrl.text.trim().isEmpty ? null : _countryCtrl.text.trim(),
-        'website':
-            _websiteCtrl.text.trim().isEmpty ? null : _websiteCtrl.text.trim(),
-        'registration_number': _regNumberCtrl.text.trim().isEmpty
+        'name':    _nameCtrl.text.trim(),
+        'address': _addressCtrl.text.trim().isEmpty
             ? null
-            : _regNumberCtrl.text.trim(),
-        'gst_number':
-            _gstCtrl.text.trim().isEmpty ? null : _gstCtrl.text.trim(),
-        'pan_number':
-            _panCtrl.text.trim().isEmpty ? null : _panCtrl.text.trim(),
+            : _addressCtrl.text.trim(),
+        'city':    _cityCtrl.text.trim().isEmpty ? null : _cityCtrl.text.trim(),
+        'state':   _stateCtrl.text.trim().isEmpty ? null : _stateCtrl.text.trim(),
+        'pincode': _pincodeCtrl.text.trim().isEmpty
+            ? null
+            : _pincodeCtrl.text.trim(),
+        'country': _countryCtrl.text.trim().isEmpty
+            ? null
+            : _countryCtrl.text.trim(),
+        'website': _websiteCtrl.text.trim().isEmpty
+            ? null
+            : _websiteCtrl.text.trim(),
+        'registration_number': _regNumberCtrl.text.trim().isEmpty
+            ? null : _regNumberCtrl.text.trim(),
+        'gst_number': _gstCtrl.text.trim().isEmpty
+            ? null : _gstCtrl.text.trim(),
+        'pan_number': _panCtrl.text.trim().isEmpty
+            ? null : _panCtrl.text.trim(),
       });
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -214,7 +206,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(structureFriendlyError(e)),
+            content: Text(friendlyErrorMessage(e)),
             backgroundColor: AppTheme.error,
           ),
         );
@@ -254,7 +246,8 @@ class _GeneralTabState extends ConsumerState<_GeneralTab>
               ],
             ),
             _Field('Website', _websiteCtrl,
-                hint: 'https://example.com', keyboardType: TextInputType.url),
+                hint: 'https://example.com',
+                keyboardType: TextInputType.url),
             const SizedBox(height: 16),
             _SectionHeader('Legal / Registration'),
             _Field('Registration Number', _regNumberCtrl,
@@ -266,7 +259,8 @@ class _GeneralTabState extends ConsumerState<_GeneralTab>
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _Field('PAN Number', _panCtrl, hint: 'e.g. AAAAA0000A'),
+                child: _Field('PAN Number', _panCtrl,
+                    hint: 'e.g. AAAAA0000A'),
               ),
             ]),
             const SizedBox(height: 24),
@@ -304,24 +298,20 @@ class _ContactTabState extends ConsumerState<_ContactTab>
   @override
   void initState() {
     super.initState();
-    _emailCtrl = TextEditingController(text: widget.society.contactEmail ?? '');
-    _phoneCtrl = TextEditingController(text: widget.society.contactPhone ?? '');
-    _personCtrl =
-        TextEditingController(text: widget.society.contactPersonName ?? '');
-    _emgNameCtrl =
-        TextEditingController(text: widget.society.emergencyContactName ?? '');
-    _emgPhoneCtrl =
-        TextEditingController(text: widget.society.emergencyContactPhone ?? '');
+    _emailCtrl   = TextEditingController(text: widget.society.contactEmail ?? '');
+    _phoneCtrl   = TextEditingController(text: widget.society.contactPhone ?? '');
+    _personCtrl  = TextEditingController(
+        text: widget.society.contactPersonName ?? '');
+    _emgNameCtrl = TextEditingController(
+        text: widget.society.emergencyContactName ?? '');
+    _emgPhoneCtrl = TextEditingController(
+        text: widget.society.emergencyContactPhone ?? '');
   }
 
   @override
   void dispose() {
     for (final c in [
-      _emailCtrl,
-      _phoneCtrl,
-      _personCtrl,
-      _emgNameCtrl,
-      _emgPhoneCtrl
+      _emailCtrl, _phoneCtrl, _personCtrl, _emgNameCtrl, _emgPhoneCtrl
     ]) {
       c.dispose();
     }
@@ -333,17 +323,16 @@ class _ContactTabState extends ConsumerState<_ContactTab>
     setState(() => _saving = true);
     try {
       await ref.read(currentSocietyProvider.notifier).updateSettings({
-        'contact_email':
-            _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
-        'contact_phone':
-            _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
-        'contact_person_name':
-            _personCtrl.text.trim().isEmpty ? null : _personCtrl.text.trim(),
-        'emergency_contact_name':
-            _emgNameCtrl.text.trim().isEmpty ? null : _emgNameCtrl.text.trim(),
+        'contact_email':           _emailCtrl.text.trim().isEmpty
+            ? null : _emailCtrl.text.trim(),
+        'contact_phone':           _phoneCtrl.text.trim().isEmpty
+            ? null : _phoneCtrl.text.trim(),
+        'contact_person_name':     _personCtrl.text.trim().isEmpty
+            ? null : _personCtrl.text.trim(),
+        'emergency_contact_name':  _emgNameCtrl.text.trim().isEmpty
+            ? null : _emgNameCtrl.text.trim(),
         'emergency_contact_phone': _emgPhoneCtrl.text.trim().isEmpty
-            ? null
-            : _emgPhoneCtrl.text.trim(),
+            ? null : _emgPhoneCtrl.text.trim(),
       });
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -352,7 +341,7 @@ class _ContactTabState extends ConsumerState<_ContactTab>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
+          content: Text(friendlyErrorMessage(e)),
           backgroundColor: AppTheme.error,
         ));
       }
@@ -443,7 +432,8 @@ class _SubscriptionTab extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppTheme.primary.withOpacity(0.05),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.primary.withOpacity(0.2)),
+              border: Border.all(
+                  color: AppTheme.primary.withOpacity(0.2)),
             ),
             child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -456,7 +446,8 @@ class _SubscriptionTab extends StatelessWidget {
                 SizedBox(height: 4),
                 Text(
                   'Contact support to upgrade your subscription and unlock more users, flats, and features.',
-                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                  style: TextStyle(
+                      fontSize: 13, color: AppTheme.textSecondary),
                 ),
               ],
             ),
@@ -491,7 +482,7 @@ class _SecurityTabState extends ConsumerState<_SecurityTab>
   @override
   void initState() {
     super.initState();
-    _allowTenantPortal = widget.society.allowTenantPortal;
+    _allowTenantPortal     = widget.society.allowTenantPortal;
     _requireVisitorApproval = widget.society.requireVisitorApproval;
     _maintenanceDayCtrl = TextEditingController(
         text: widget.society.maintenanceDay?.toString() ?? '');
@@ -510,7 +501,7 @@ class _SecurityTabState extends ConsumerState<_SecurityTab>
     setState(() => _saving = true);
     try {
       await ref.read(currentSocietyProvider.notifier).updateSettings({
-        'allow_tenant_portal': _allowTenantPortal,
+        'allow_tenant_portal':      _allowTenantPortal,
         'require_visitor_approval': _requireVisitorApproval,
         'maintenance_day': _maintenanceDayCtrl.text.trim().isEmpty
             ? null
@@ -526,7 +517,7 @@ class _SecurityTabState extends ConsumerState<_SecurityTab>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
+          content: Text(friendlyErrorMessage(e)),
           backgroundColor: AppTheme.error,
         ));
       }
@@ -555,14 +546,17 @@ class _SecurityTabState extends ConsumerState<_SecurityTab>
             title: 'Visitor Approval Required',
             subtitle: 'Require resident approval before visitor entry',
             value: _requireVisitorApproval,
-            onChanged: (v) => setState(() => _requireVisitorApproval = v),
+            onChanged: (v) =>
+                setState(() => _requireVisitorApproval = v),
           ),
           const SizedBox(height: 16),
           _SectionHeader('Billing Settings'),
           _Field('Maintenance Day (1–28)', _maintenanceDayCtrl,
-              hint: 'e.g. 1', keyboardType: TextInputType.number),
+              hint: 'e.g. 1',
+              keyboardType: TextInputType.number),
           _Field('Late Fee %', _lateFeeCtrl,
-              hint: 'e.g. 5', keyboardType: TextInputType.number),
+              hint: 'e.g. 5',
+              keyboardType: TextInputType.number),
           const SizedBox(height: 24),
           _SaveButton(saving: _saving, onSave: _save),
         ],
@@ -620,8 +614,8 @@ class _Field extends StatelessWidget {
             validator: validator,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle:
-                  const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+              hintStyle: const TextStyle(
+                  color: AppTheme.textSecondary, fontSize: 13),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               filled: true,

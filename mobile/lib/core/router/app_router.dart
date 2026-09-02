@@ -14,12 +14,16 @@ import 'package:ar_society_app/features/staff/presentation/screens/duties_screen
 import 'package:ar_society_app/features/staff/presentation/screens/handover_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/approval_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/duty_assign_screen.dart';
+import 'package:ar_society_app/features/staff/presentation/screens/duty_overview_screen.dart';
+import 'package:ar_society_app/features/staff/presentation/screens/attendance_correction_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_list_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_add_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_detail_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_edit_screen.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/auth/presentation/screens/change_password_screen.dart';
+import 'package:ar_society_app/features/auth/presentation/screens/biometric_lock_screen.dart';
+import 'package:ar_society_app/features/auth/presentation/providers/biometric_provider.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/visitor/presentation/screens/visitor_list_screen.dart';
 import 'package:ar_society_app/features/visitor/presentation/screens/create_visitor_screen.dart';
@@ -51,6 +55,7 @@ import 'package:ar_society_app/features/resident_master/data/models/resident_mas
 import 'package:ar_society_app/features/resident_master/presentation/screens/resident_list_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/resident_detail_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/resident_form_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/resident_import_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_list_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_detail_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_form_screen.dart';
@@ -59,6 +64,7 @@ class AppRoutes {
   static const splash             = '/';
   static const login              = '/login';
   static const changePassword     = '/change-password';
+  static const biometricLock      = '/biometric-lock';
   static const home               = '/home';
   static const adminHome          = '/admin';
   static const committeeHome      = '/committee';
@@ -70,6 +76,8 @@ class AppRoutes {
   static const staffHandover      = '/staff/handover/:staffId';
   static const staffApprovals     = '/staff/approvals';
   static const staffAssignDuty    = '/staff/assign-duty';
+  static const staffDutyOverview  = '/staff/duties/overview';
+  static const staffAttendanceCorrections = '/staff/attendance-corrections';
   static const staffList          = '/staff/list';
   static const staffAdd           = '/staff/add';
   static const staffDetail        = '/staff/:staffId/detail';
@@ -88,6 +96,7 @@ class AppRoutes {
   // Complaint routes
   static const complaints         = '/complaints';
   static const complaintsCreate   = '/complaints/create';
+  static const complaintsAssigned = '/complaints/assigned';
   static const complaintsDetail   = '/complaints/:complaintId';
   static const complaintsSociety  = '/complaints/society/:societyId';
   // Users & Roles
@@ -112,6 +121,7 @@ class AppRoutes {
   static const residentsList      = '/residents';
   static const residentDetail     = '/residents/detail';
   static const residentForm       = '/residents/form';
+  static const residentImport     = '/residents/import';
   static const tenantsList        = '/tenants';
   static const tenantDetail       = '/tenants/detail';
   static const tenantForm         = '/tenants/form';
@@ -135,6 +145,7 @@ String? _pendingDeepLink;
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
+  final isBiometricLocked = ref.watch(biometricLockProvider);
 
   final router = GoRouter(
     initialLocation: AppRoutes.splash,
@@ -147,6 +158,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isOnSplash          = path == AppRoutes.splash;
       final isOnLogin           = path == AppRoutes.login;
       final isOnChangePassword  = path == AppRoutes.changePassword;
+      final isOnBiometricLock   = path == AppRoutes.biometricLock;
       final isOnSetupWizard     = path == AppRoutes.setupWizard;
       final isPublicRoute       = path == AppRoutes.registerSociety ||
                                   path == AppRoutes.trialSuccess;
@@ -182,6 +194,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             'roles=${user.roles} primaryRole=${user.primaryRole} '
             'mustChangePassword=${user.mustChangePassword}');
 
+        // 0. Biometric re-confirmation for a restored session gates
+        // everything else — set only by checkSession(), never by an
+        // interactive login().
+        if (isBiometricLocked && !isOnBiometricLock) {
+          debugPrint('[ROUTE_REDIRECT] → biometric lock');
+          return AppRoutes.biometricLock;
+        }
+
         // 1. Force password change before anything else.
         if (user.mustChangePassword && !isOnChangePassword) {
           debugPrint('[ROUTE_REDIRECT] → must change password');
@@ -198,7 +218,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         // restoring a pending deep link (see _pendingDeepLink) if one was
         // captured, instead of always landing on the generic role home.
         if (!user.mustChangePassword && user.termsAccepted &&
-            (isOnLogin || isOnSplash || isOnChangePassword || isOnSetupWizard)) {
+            (isOnLogin || isOnSplash || isOnChangePassword || isOnSetupWizard ||
+                isOnBiometricLock)) {
           final deepLink = _pendingDeepLink;
           _pendingDeepLink = null;
           final isDeepLinkUsable = deepLink != null &&
@@ -206,6 +227,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               deepLink != AppRoutes.splash &&
               deepLink != AppRoutes.changePassword &&
               deepLink != AppRoutes.setupWizard &&
+              deepLink != AppRoutes.biometricLock &&
               deepLink != AppRoutes.registerSociety &&
               deepLink != AppRoutes.trialSuccess;
           final home = isDeepLinkUsable ? deepLink : _userRoleHome(user);
@@ -224,6 +246,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: AppRoutes.login,  builder: (_, __) => const LoginScreen()),
       GoRoute(path: AppRoutes.changePassword,
           builder: (_, __) => const ChangePasswordScreen()),
+      GoRoute(path: AppRoutes.biometricLock,
+          builder: (_, __) => const BiometricLockScreen()),
       GoRoute(path: AppRoutes.home, redirect: (_, __) {
         if (authState is AuthAuthenticated) {
           return _userRoleHome((authState as AuthAuthenticated).user);
@@ -269,6 +293,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             preSelectedStaffId: extra['staffId'] as String?,
           );
         },
+      ),
+      GoRoute(
+        path: AppRoutes.staffDutyOverview,
+        builder: (_, state) => DutyOverviewScreen(
+          societyId: state.extra as String? ?? '',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.staffAttendanceCorrections,
+        builder: (_, state) => AttendanceCorrectionScreen(
+          societyId: state.extra as String? ?? '',
+        ),
       ),
       GoRoute(
         path: AppRoutes.staffList,
@@ -361,6 +397,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => CreateComplaintScreen(
           societyId: state.uri.queryParameters['societyId'] ?? '',
         ),
+      ),
+      GoRoute(
+        path: AppRoutes.complaintsAssigned,
+        builder: (_, __) =>
+            const ComplaintListScreen(isMy: false, assignedToMe: true),
       ),
       GoRoute(
         path: AppRoutes.complaintsSociety,
@@ -509,6 +550,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             defaultFlat: extra?['flat'] as FlatModel?,
           );
         },
+      ),
+      GoRoute(
+        path: AppRoutes.residentImport,
+        builder: (_, __) => const ResidentImportScreen(),
       ),
       GoRoute(
         path: AppRoutes.tenantsList,

@@ -91,9 +91,9 @@ class _RegisterSocietyScreenState
         isLoading: isLoading,
         child: Column(
           children: [
-            _StepIndicator(current: _page, total: 3),
+            ResponsiveBody(maxWidth: 480, child: _StepIndicator(current: _page, total: 3)),
             Expanded(
-              child: PageView(
+              child: ResponsiveBody(maxWidth: 480, child: PageView(
                 controller: _pageCtrl,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
@@ -119,7 +119,7 @@ class _RegisterSocietyScreenState
                     onSubmit: _submit,
                   ),
                 ],
-              ),
+              )),
             ),
           ],
         ),

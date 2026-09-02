@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ar_society_app/core/auth/biometric_preference.dart';
 import 'package:ar_society_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
+import 'package:ar_society_app/features/auth/presentation/providers/biometric_provider.dart';
 
 // ── Auth State ────────────────────────────────────────────────────────────────
 
@@ -33,10 +35,14 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthRepository _repo;
+  final Ref _ref;
 
-  AuthNotifier(this._repo) : super(AuthInitial());
+  AuthNotifier(this._repo, this._ref) : super(AuthInitial());
 
-  /// Called on app startup — validates existing session.
+  /// Called on app startup — validates existing session. Unlike login(),
+  /// this is a *restored* session the user didn't just re-enter a password
+  /// for, so it's the one path that gates on biometric re-confirmation
+  /// (when the device has opted in — see BiometricEnrollTrigger).
   Future<void> checkSession() async {
     debugPrint('[AUTH_STATE] checkSession → AuthLoading');
     state = AuthLoading();
@@ -45,6 +51,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       case AuthSuccess(:final data):
         debugPrint('[AUTH_STATE] checkSession → AuthAuthenticated(${data.email})');
         state = AuthAuthenticated(data);
+        if (!data.mustChangePassword && await BiometricPreference.isEnabled()) {
+          _ref.read(biometricLockProvider.notifier).lock();
+        }
       case AuthFailure(:final message):
         debugPrint('[AUTH_STATE] checkSession → AuthUnauthenticated ($message)');
         state = AuthUnauthenticated();
@@ -100,6 +109,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Logout — clears tokens and redirects to login.
   Future<void> logout() async {
     await _repo.logout();
+    _ref.read(biometricLockProvider.notifier).unlock();
     state = AuthUnauthenticated();
   }
 
@@ -119,7 +129,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final repo = ref.watch(authRepositoryProvider);
-  return AuthNotifier(repo);
+  return AuthNotifier(repo, ref);
 });
 
 /// Convenience provider — returns current user or null.

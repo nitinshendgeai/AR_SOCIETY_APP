@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ar_society_app/core/auth/biometric_preference.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
@@ -41,8 +42,14 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
     if (result is AuthFailure) {
       setState(() => _error = result.message);
+      return;
     }
-    // On success, router redirect will navigate away (mustChangePassword = false)
+    // On success, router redirect will navigate away (mustChangePassword =
+    // false). Flag a one-time biometric-unlock offer for whichever screen
+    // the user lands on next (see BiometricEnrollTrigger in role_dashboards
+    // .dart) — this is the one guaranteed moment every auto-provisioned
+    // resident/tenant account passes through.
+    await BiometricPreference.setPromptPending(true);
   }
 
   @override

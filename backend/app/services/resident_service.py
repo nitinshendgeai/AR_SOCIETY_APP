@@ -11,6 +11,7 @@ from app.repositories.flat_repo import FlatRepository
 from app.schemas.resident import ResidentCreate, ResidentUpdate, ResidentOut, ResidentCreateOut
 from app.services.audit_service import AuditService
 from app.services.occupancy_service import OccupancyService
+from app.services.user_provisioning import provision_login_by_phone
 
 _PRIMARY_ALLOWED_TYPES = (ResidentType.OWNER, ResidentType.CO_OWNER)
 
@@ -73,6 +74,30 @@ class ResidentService:
                 data.flat_id, created.id, data.move_in_date, current_user,
             )
             self.db.refresh(created)
+
+        # 10: auto-provision app login by mobile number, unless the caller
+        # already linked an existing account via ResidentCreate.user_id.
+        # Inserted at the front of `warnings` (mobile UI currently only
+        # surfaces warnings[0] in its post-save snackbar) since this message
+        # carries the one-time initial password — it must never be
+        # eclipsed by an unrelated duplicate-phone/email notice.
+        if created.user_id is None:
+            if created.phone:
+                user, message = provision_login_by_phone(
+                    self.db, society_id=current_user.society_id,
+                    phone=created.phone, full_name=created.full_name,
+                    role_name="Resident",
+                )
+                created.user_id = user.id
+                self.db.commit()
+                self.db.refresh(created)
+                warnings.insert(0, message)
+            else:
+                warnings.insert(0,
+                    "No mobile number provided — a login account was not "
+                    "created for this resident. Add a mobile number and "
+                    "re-save to enable app login."
+                )
 
         out = ResidentCreateOut.model_validate(created)
         out.family_member_count = self.repo.count_family_members(created.flat_id)

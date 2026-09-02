@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches the DUX OS logo's own canvas color, so the adaptive-icon
+         mask (circle/squircle/rounded-square, varies by launcher) shows a
+         seamless background behind the foreground mark. -->
+    <color name="ic_launcher_background">#000000</color>
+</resources>
