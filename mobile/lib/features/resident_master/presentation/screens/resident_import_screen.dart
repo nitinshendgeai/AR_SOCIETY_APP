@@ -168,9 +168,10 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
     if (picked == null) return;
 
     try {
-      final content = picked.path != null
-          ? await File(picked.path!).readAsString()
-          : utf8.decode(picked.bytes!);
+      final bytes = picked.path != null
+          ? await File(picked.path!).readAsBytes()
+          : picked.bytes!;
+      final content = _decodeCsvBytes(bytes);
       final rows = _parseAndValidate(content);
       if (rows.isEmpty) {
         setState(() => _fileError = 'No data rows found in that file.');
@@ -179,6 +180,25 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
       setState(() => _rows = rows);
     } catch (e) {
       setState(() => _fileError = 'Could not read that file: $e');
+    }
+  }
+
+  /// Decodes CSV bytes as UTF-8 when possible, falling back to Latin-1
+  /// when the file was saved with a non-UTF-8 encoding — Excel's default
+  /// "CSV (Comma delimited)" export on Windows uses the system codepage
+  /// rather than UTF-8, which otherwise throws on any non-ASCII byte
+  /// (accented names, curly quotes, etc.). A leading UTF-8 byte-order mark,
+  /// which Excel's "CSV UTF-8" export adds, is stripped either way so it
+  /// doesn't get parsed as part of the header's first cell.
+  String _decodeCsvBytes(List<int> bytes) {
+    var b = bytes;
+    if (b.length >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF) {
+      b = b.sublist(3);
+    }
+    try {
+      return utf8.decode(b);
+    } on FormatException {
+      return latin1.decode(b);
     }
   }
 
