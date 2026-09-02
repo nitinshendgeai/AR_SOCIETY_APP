@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_settings/data/models/society_settings_model.dart';
 import 'package:ar_society_app/features/society_settings/presentation/providers/society_settings_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 class SocietySettingsScreen extends ConsumerWidget {
   const SocietySettingsScreen({super.key});
@@ -32,7 +34,7 @@ class SocietySettingsScreen extends ConsumerWidget {
               const Icon(Icons.error_outline_rounded,
                   color: AppTheme.error, size: 40),
               const SizedBox(height: 12),
-              Text(e.toString(),
+              Text(friendlyErrorMessage(e),
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: AppTheme.textSecondary)),
               const SizedBox(height: 16),
@@ -44,7 +46,7 @@ class SocietySettingsScreen extends ConsumerWidget {
             ],
           ),
         ),
-        data: (society) => DefaultTabController(
+        data: (society) => ResponsiveBody(child: DefaultTabController(
           length: 4,
           child: Column(
             children: [
@@ -74,7 +76,7 @@ class SocietySettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
-        ),
+        )),
       ),
     );
   }
@@ -204,7 +206,7 @@ class _GeneralTabState extends ConsumerState<_GeneralTab>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(friendlyErrorMessage(e)),
             backgroundColor: AppTheme.error,
           ),
         );
@@ -339,7 +341,7 @@ class _ContactTabState extends ConsumerState<_ContactTab>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
+          content: Text(friendlyErrorMessage(e)),
           backgroundColor: AppTheme.error,
         ));
       }
@@ -515,7 +517,7 @@ class _SecurityTabState extends ConsumerState<_SecurityTab>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
+          content: Text(friendlyErrorMessage(e)),
           backgroundColor: AppTheme.error,
         ));
       }

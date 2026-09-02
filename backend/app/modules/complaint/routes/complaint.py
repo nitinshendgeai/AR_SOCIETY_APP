@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.core.dependencies import (
     get_current_user, require_roles,
-    require_admin_committee, require_supervisor_above, require_any_staff, require_any_member,
+    require_admin_committee, require_manager_above, require_supervisor_above,
+    require_any_staff, require_any_member,
 )
 from app.models.user import User
 from app.modules.complaint.schemas.complaint import (
@@ -21,6 +22,7 @@ router = APIRouter(prefix="/complaints", tags=["Complaint Management"])
 
 staff_or_above     = require_any_staff
 committee_or_admin = require_admin_committee
+manager_or_above   = require_manager_above
 any_member         = require_any_member
 
 
@@ -50,7 +52,7 @@ def assign_complaint(
     data:    ComplaintAssignRequest,
     request: Request,
     db:      Session = Depends(get_db),
-    user:    User    = Depends(committee_or_admin),
+    user:    User    = Depends(manager_or_above),
 ):
     return ComplaintService(db).assign_complaint(complaint_id, data, user, request)
 
@@ -109,7 +111,7 @@ def list_society_complaints(
     society_id: UUID,
     skip: int = 0, limit: int = 50,
     db:   Session = Depends(get_db),
-    user: User    = Depends(committee_or_admin),
+    user: User    = Depends(manager_or_above),
 ):
     return ComplaintService(db).list_by_society(society_id, skip, limit)
 
@@ -118,7 +120,7 @@ def list_society_complaints(
 def list_open_complaints(
     society_id: UUID,
     db:   Session = Depends(get_db),
-    user: User    = Depends(committee_or_admin),
+    user: User    = Depends(manager_or_above),
 ):
     return ComplaintService(db).list_open(society_id)
 

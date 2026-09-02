@@ -1,6 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 
+// ── Responsive body wrapper ───────────────────────────────────────────────
+//
+// Every Master screen was built mobile-first with a full-bleed body — fine
+// on phones, but a single ListView/Form stretched across a 1440px desktop
+// window reads as unfinished (fields become absurdly wide, cards stretch
+// edge to edge). Rather than rewriting each screen's layout per breakpoint,
+// wrap the existing body once: below [breakpoint] nothing changes; above it,
+// content is centered and capped at [maxWidth] so desktop/laptop/wide-tablet
+// windows get a professional reading width while phones/narrow tablets are
+// completely unaffected. Uses MediaQuery rather than a hard-coded per-device
+// hack, per the Master Form responsive guidelines.
+class ResponsiveBody extends StatelessWidget {
+  final Widget child;
+  final double maxWidth;
+  final double breakpoint;
+
+  const ResponsiveBody({
+    super.key,
+    required this.child,
+    this.maxWidth = 720,
+    this.breakpoint = 840,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width < breakpoint) return child;
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: child,
+      ),
+    );
+  }
+}
+
 // ── Loading Overlay ───────────────────────────────────────────────────────────
 
 class AppLoadingOverlay extends StatelessWidget {

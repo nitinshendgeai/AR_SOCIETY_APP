@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/features/users/data/models/user_admin_models.dart';
@@ -47,7 +48,7 @@ class UserDetailScreen extends ConsumerWidget {
               const Icon(Icons.error_outline_rounded,
                   color: AppTheme.error, size: 40),
               const SizedBox(height: 12),
-              Text(e.toString(),
+              Text(friendlyErrorMessage(e),
                   style: const TextStyle(color: AppTheme.textSecondary)),
               TextButton(
                 onPressed: () =>

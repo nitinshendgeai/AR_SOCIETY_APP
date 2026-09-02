@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.core.dependencies import (
     get_current_user, require_roles,
     require_admin_committee, require_supervisor_above, require_admin,
+    require_any_staff, require_manager_above,
 )
 from app.models.user import User
 from app.modules.staff.services.payroll_service import PayrollService
@@ -23,6 +24,8 @@ router = APIRouter(prefix="/payroll", tags=["Payroll Readiness"])
 admin_only         = require_admin
 committee_or_admin = require_admin_committee
 supervisor_above   = require_supervisor_above
+any_staff          = require_any_staff
+manager_or_above   = require_manager_above
 
 
 # ── Salary Structure ──────────────────────────────────────────────────────────
@@ -72,8 +75,12 @@ class CorrectionRequest(OrmBase):
 
 
 class CorrectionOut(TimestampSchema):
-    society_id: UUID; staff_id: UUID; correction_date: date
-    requested_status: Optional[str]; reason: str
+    society_id: UUID; staff_id: UUID; staff_name: Optional[str] = None
+    attendance_id: UUID; correction_date: date
+    original_status: Optional[str]; requested_status: Optional[str]
+    original_check_in: Optional[str]; requested_check_in: Optional[str]
+    original_check_out: Optional[str]; requested_check_out: Optional[str]
+    reason: str
     status: AttendanceCorrectionStatus; rejection_reason: Optional[str]
 
 
@@ -83,28 +90,34 @@ class RejectCorrectionRequest(OrmBase):
 
 @router.post("/attendance-correction", response_model=CorrectionOut, status_code=201)
 def request_correction(data: CorrectionRequest, db: Session = Depends(get_db),
-                        user: User = Depends(supervisor_above)):
+                        user: User = Depends(any_staff)):
     return PayrollService(db).request_correction(data.model_dump(), user)
 
 
 @router.post("/attendance-correction/{correction_id}/approve", response_model=CorrectionOut)
 def approve_correction(correction_id: UUID, db: Session = Depends(get_db),
-                        user: User = Depends(committee_or_admin)):
+                        user: User = Depends(manager_or_above)):
     return PayrollService(db).approve_correction(correction_id, user)
 
 
 @router.post("/attendance-correction/{correction_id}/reject", response_model=CorrectionOut)
 def reject_correction(correction_id: UUID, data: RejectCorrectionRequest,
                        db: Session = Depends(get_db),
-                       user: User = Depends(committee_or_admin)):
+                       user: User = Depends(manager_or_above)):
     return PayrollService(db).reject_correction(correction_id, data.reason, user)
 
 
 @router.get("/attendance-correction/society/{society_id}", response_model=List[CorrectionOut],
-            dependencies=[Depends(committee_or_admin)])
+            dependencies=[Depends(manager_or_above)])
 def list_corrections(society_id: UUID, status: Optional[str] = None,
                      db: Session = Depends(get_db)):
     return PayrollService(db).list_corrections(society_id, status)
+
+
+@router.get("/attendance-correction/staff/{staff_id}", response_model=List[CorrectionOut],
+            dependencies=[Depends(any_staff)])
+def list_my_corrections(staff_id: UUID, db: Session = Depends(get_db)):
+    return PayrollService(db).list_by_staff(staff_id)
 
 
 # ── Monthly Attendance Summary ────────────────────────────────────────────────

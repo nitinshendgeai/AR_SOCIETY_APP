@@ -7,6 +7,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/onboarding/presentation/providers/setup_wizard_provider.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 class SetupWizardScreen extends ConsumerStatefulWidget {
   const SetupWizardScreen({super.key});
@@ -114,9 +115,9 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _WizardHeader(step: _step, totalSteps: _totalSteps),
+            ResponsiveBody(maxWidth: 560, child: _WizardHeader(step: _step, totalSteps: _totalSteps)),
             Expanded(
-              child: PageView(
+              child: ResponsiveBody(maxWidth: 560, child: PageView(
                 controller: _pageController,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
@@ -140,7 +141,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
                     onFinish: _onFinish,
                   ),
                 ],
-              ),
+              )),
             ),
           ],
         ),
@@ -257,7 +258,7 @@ class _TermsStep extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text(
-            'Welcome to AR Society',
+            'Welcome to DUX OS',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w800,
               color: AppTheme.textPrimary,
@@ -312,7 +313,7 @@ class _TermsStep extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          TextSpan(text: ' of AR Society.'),
+                          TextSpan(text: ' of DUX OS.'),
                         ],
                       ),
                     ),
@@ -374,7 +375,7 @@ class _TermsCardState extends State<_TermsCard> {
   bool _expanded = false;
 
   static const _summary = [
-    ('Data Usage', 'Your society data is stored securely and used only to deliver AR Society services.'),
+    ('Data Usage', 'Your society data is stored securely and used only to deliver DUX OS services.'),
     ('Privacy', 'We do not sell or share your personal information with third parties.'),
     ('Fair Use', 'The platform must be used for legitimate society management purposes only.'),
     ('Trial', 'Free trial accounts have a 30-day evaluation period after which a subscription is required.'),
@@ -713,7 +714,7 @@ class _DoneStep extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           const Text(
-            'Your account setup is complete. Welcome to AR Society — your smart society management platform.',
+            'Your account setup is complete. Welcome to DUX OS — your smart society management platform.',
             style: TextStyle(
               color: AppTheme.textSecondary,
               fontSize: 15,

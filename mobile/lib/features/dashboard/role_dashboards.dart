@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/core/auth/biometric_preference.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:ar_society_app/features/auth/presentation/providers/biometric_provider.dart';
 import 'package:ar_society_app/features/onboarding/presentation/providers/trial_status_provider.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
@@ -20,16 +22,8 @@ class _DashboardShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final menuItems = <_MenuItem>[
-      _MenuItem('Residents', Icons.people_outline_rounded, AppRoutes.residentsList),
-      _MenuItem('Tenants', Icons.groups_2_outlined, AppRoutes.tenantsList),
-      _MenuItem('Users & Roles', Icons.people_rounded, AppRoutes.usersList),
-      _MenuItem('Society Settings', Icons.apartment_rounded, AppRoutes.societySettings),
-      _MenuItem('Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
-      _MenuItem('Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
-      _MenuItem('Staff', Icons.badge_rounded, AppRoutes.staffHome),
-      _MenuItem('Setup Wizard', Icons.checklist_rounded, AppRoutes.structureWizard),
-    ];
+    final user = ref.watch(currentUserProvider);
+    final menuItems = _visibleMenuItems(user);
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
@@ -76,7 +70,7 @@ class _DashboardShell extends ConsumerWidget {
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
-          children: children,
+          children: [const _BiometricEnrollTrigger(), ...children],
         ),
       ),
     );
@@ -104,6 +98,77 @@ class _DashboardShell extends ConsumerWidget {
   }
 }
 
+// ── Biometric enrollment offer ────────────────────────────────────────────────
+//
+// Zero-UI widget dropped into _DashboardShell's body: on first mount, if
+// ChangePasswordScreen just flagged a pending offer (i.e. the user was an
+// auto-provisioned resident/tenant who just completed their forced password
+// change) AND this device actually has usable biometric hardware, ask once
+// whether to enable fingerprint/face unlock. A ConsumerWidget can't use
+// initState, so this is its own tiny StatefulWidget rather than living
+// directly in _DashboardShell.build(), which reruns on every rebuild.
+class _BiometricEnrollTrigger extends ConsumerStatefulWidget {
+  const _BiometricEnrollTrigger();
+
+  @override
+  ConsumerState<_BiometricEnrollTrigger> createState() => _BiometricEnrollTriggerState();
+}
+
+class _BiometricEnrollTriggerState extends ConsumerState<_BiometricEnrollTrigger> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybePrompt());
+  }
+
+  Future<void> _maybePrompt() async {
+    final pending = await BiometricPreference.consumePromptPending();
+    if (!pending || !mounted) return;
+
+    final available = await ref.read(biometricServiceProvider).isAvailable();
+    if (!available || !mounted) return;
+
+    final enable = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Enable Biometric Unlock?'),
+        content: const Text(
+          'Use your fingerprint or face to unlock the app next time, '
+          'instead of typing your password.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Not now'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
+    if (enable != true || !mounted) return;
+
+    final confirmed = await ref
+        .read(biometricServiceProvider)
+        .authenticate('Confirm to enable biometric unlock');
+    if (confirmed) {
+      await BiometricPreference.setEnabled(true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Biometric unlock enabled'),
+          backgroundColor: AppTheme.success,
+        ));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
 // ── Shared components ─────────────────────────────────────────────────────────
 
 class _MenuItem {
@@ -112,6 +177,45 @@ class _MenuItem {
   final String? route;
 
   const _MenuItem(this.label, this.icon, this.route);
+}
+
+/// Role-aware drawer menu — mirrors the backend's `require_admin`/
+/// `require_admin_committee`/`require_security`/`require_any_staff`
+/// hierarchy in backend/app/core/dependencies.py (see docs/USERS_AND_ROLES.md
+/// for the human-readable matrix) rather than guessing from screen names.
+/// This is a UX/least-privilege improvement only — the backend remains the
+/// authority and still rejects unauthorized reads/writes with a 403
+/// regardless of what the drawer shows.
+List<_MenuItem> _visibleMenuItems(UserEntity? user) {
+  if (user == null) return const [];
+  final isAdmin = user.isAdmin;
+  final isAdminOrCommittee = user.isAdminOrCommittee;
+
+  return [
+    // Resident/Tenant master data — Society Admin + Committee only
+    // (require_admin_committee on the write endpoints).
+    if (isAdminOrCommittee) ...[
+      _MenuItem('Residents', Icons.people_outline_rounded, AppRoutes.residentsList),
+      _MenuItem('Tenants', Icons.groups_2_outlined, AppRoutes.tenantsList),
+    ],
+    // Users & Roles — Society Admin only (require_admin); even Committee
+    // is excluded per docs/USERS_AND_ROLES.md.
+    if (isAdmin)
+      _MenuItem('Users & Roles', Icons.people_rounded, AppRoutes.usersList),
+    // Society Settings write — Society Admin + Committee (require_committee).
+    if (isAdminOrCommittee)
+      _MenuItem('Society Settings', Icons.apartment_rounded, AppRoutes.societySettings),
+    // Operational features open to every role.
+    _MenuItem('Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
+    _MenuItem('Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
+    // Staff module — admins/committee (master records), plus security/staff
+    // roles who use it for their own duties/attendance/approvals.
+    if (isAdminOrCommittee || user.isSecurity || user.isStaff)
+      _MenuItem('Staff', Icons.badge_rounded, AppRoutes.staffHome),
+    // Setup/Structure Wizard — Society Admin + Committee only.
+    if (isAdminOrCommittee)
+      _MenuItem('Setup Wizard', Icons.checklist_rounded, AppRoutes.structureWizard),
+  ];
 }
 
 class _GreetingCard extends ConsumerWidget {
@@ -201,31 +305,41 @@ class _SummaryCard extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
+  final VoidCallback? onTap;
 
-  const _SummaryCard({required this.icon, required this.label, required this.value, required this.color});
+  const _SummaryCard({
+    required this.icon, required this.label, required this.value, required this.color, this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.cardBg,
+    return Material(
+      color: AppTheme.cardBg,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Container(width: 36, height: 36, decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: color, size: 18)),
-            const Spacer(),
-            Icon(Icons.trending_up_rounded, color: color.withOpacity(0.8), size: 14),
-          ]),
-          const SizedBox(height: 10),
-          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-          const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-        ],
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Container(width: 36, height: 36, decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: color, size: 18)),
+                const Spacer(),
+                Icon(onTap != null ? Icons.chevron_right_rounded : Icons.trending_up_rounded, color: color.withOpacity(0.8), size: 14),
+              ]),
+              const SizedBox(height: 10),
+              Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+              const SizedBox(height: 2),
+              Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -383,7 +497,7 @@ class _TrialStatusWidget extends StatelessWidget {
       bannerColor = AppTheme.error;
       bannerIcon  = Icons.warning_amber_rounded;
       bannerTitle = 'Trial Expired';
-      bannerSubtitle = 'Contact support to continue using AR Society.';
+      bannerSubtitle = 'Contact support to continue using DUX OS.';
     } else if (isCritical) {
       bannerColor = AppTheme.error;
       bannerIcon  = Icons.timer_rounded;
@@ -887,12 +1001,16 @@ class ManagerDashboardScreen extends ConsumerWidget {
               label: 'Open Complaints',
               value: openComplaints,
               color: openComplaints != '0' && openComplaints != '--' ? AppTheme.error : AppTheme.success,
+              onTap: () => context.push(AppRoutes.complaintsAssigned),
             ),
             _SummaryCard(
               icon: Icons.assignment_late_rounded,
               label: 'Duty Queue',
               value: dutiesAsync.isLoading ? '--' : '$pendingDuties',
               color: pendingDuties > 0 ? AppTheme.warning : AppTheme.success,
+              onTap: societyId != null
+                  ? () => context.push(AppRoutes.staffDutyOverview, extra: societyId)
+                  : null,
             ),
           ],
         ),
@@ -933,7 +1051,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
                 : null,
           ),
           const SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: AppRoutes.complaints),
+          _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: AppRoutes.complaintsAssigned),
         ]),
         const SizedBox(height: 18),
         _StatusBar(user: user),
@@ -1018,12 +1136,18 @@ class SupervisorDashboardScreen extends ConsumerWidget {
               label: 'Duties Pending',
               value: dutiesAsync.isLoading ? '--' : '$pendingDuties',
               color: pendingDuties > 0 ? AppTheme.warning : AppTheme.success,
+              onTap: societyId != null
+                  ? () => context.push(AppRoutes.staffDutyOverview, extra: societyId)
+                  : null,
             ),
             _SummaryCard(
               icon: Icons.assignment_turned_in_rounded,
               label: 'Duties Done',
               value: dutiesAsync.isLoading ? '--' : '$completedDuties',
               color: AppTheme.success,
+              onTap: societyId != null
+                  ? () => context.push(AppRoutes.staffDutyOverview, extra: societyId)
+                  : null,
             ),
           ],
         ),

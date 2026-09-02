@@ -64,7 +64,21 @@ class PayrollService:
     # ── Attendance Correction ─────────────────────────────────────────────────
 
     def request_correction(self, data: dict, requester: User) -> AttendanceCorrection:
-        correction = AttendanceCorrection(**data, requested_by=requester.id)
+        att = self.db.query(StaffAttendance).filter(
+            StaffAttendance.id == data["attendance_id"]
+        ).first()
+        if not att:
+            raise HTTPException(status_code=404, detail="Attendance record not found")
+        if str(att.staff_id) != str(data["staff_id"]):
+            raise HTTPException(status_code=400,
+                detail="Attendance record does not belong to this staff member")
+
+        correction = AttendanceCorrection(
+            **data, requested_by=requester.id,
+            original_status=att.status.value if att.status else None,
+            original_check_in=att.check_in_time.strftime("%H:%M") if att.check_in_time else None,
+            original_check_out=att.check_out_time.strftime("%H:%M") if att.check_out_time else None,
+        )
         self.db.add(correction)
         self.db.commit()
         self.db.refresh(correction)
@@ -118,6 +132,11 @@ class PayrollService:
         q = self.db.query(AttendanceCorrection).filter(AttendanceCorrection.society_id == society_id)
         if status: q = q.filter(AttendanceCorrection.status == status)
         return q.order_by(AttendanceCorrection.correction_date.desc()).limit(100).all()
+
+    def list_by_staff(self, staff_id: UUID) -> list:
+        return self.db.query(AttendanceCorrection).filter(
+            AttendanceCorrection.staff_id == staff_id
+        ).order_by(AttendanceCorrection.correction_date.desc()).limit(100).all()
 
     # ── Monthly Attendance Aggregation ────────────────────────────────────────
 

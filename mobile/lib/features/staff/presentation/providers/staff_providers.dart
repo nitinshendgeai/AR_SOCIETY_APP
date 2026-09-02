@@ -358,6 +358,102 @@ final approvalProvider = StateNotifierProvider<ApprovalNotifier, ApprovalState>(
   return ApprovalNotifier(ref.read(staffRepositoryProvider));
 });
 
+// ── Attendance correction state ───────────────────────────────────────────────
+
+sealed class CorrectionState {}
+class CorrectionInitial extends CorrectionState {}
+class CorrectionLoading extends CorrectionState {}
+class CorrectionLoaded  extends CorrectionState {
+  final List<AttendanceCorrectionEntity> corrections;
+  CorrectionLoaded(this.corrections);
+}
+class CorrectionActionSuccess extends CorrectionState {
+  final List<AttendanceCorrectionEntity> corrections;
+  final String message;
+  CorrectionActionSuccess(this.corrections, this.message);
+}
+class CorrectionError extends CorrectionState {
+  final String message;
+  CorrectionError(this.message);
+}
+
+class CorrectionNotifier extends StateNotifier<CorrectionState> {
+  final StaffRepository _repo;
+  CorrectionNotifier(this._repo) : super(CorrectionInitial());
+
+  Future<void> loadMine(String staffId) async {
+    state = CorrectionLoading();
+    final result = await _repo.listCorrectionsByStaff(staffId);
+    switch (result) {
+      case StaffSuccess(:final data): state = CorrectionLoaded(data);
+      case StaffFailure(:final message): state = CorrectionError(message);
+    }
+  }
+
+  Future<void> loadForSociety(String societyId, {String? status}) async {
+    state = CorrectionLoading();
+    final result = await _repo.listCorrectionsBySociety(societyId, status: status);
+    switch (result) {
+      case StaffSuccess(:final data): state = CorrectionLoaded(data);
+      case StaffFailure(:final message): state = CorrectionError(message);
+    }
+  }
+
+  Future<void> request({
+    required String societyId,
+    required String staffId,
+    required String attendanceId,
+    required String correctionDate,
+    required String reason,
+    String? requestedStatus,
+    String? requestedCheckIn,
+    String? requestedCheckOut,
+  }) async {
+    final result = await _repo.requestCorrection(
+      societyId: societyId, staffId: staffId, attendanceId: attendanceId,
+      correctionDate: correctionDate, reason: reason,
+      requestedStatus: requestedStatus,
+      requestedCheckIn: requestedCheckIn,
+      requestedCheckOut: requestedCheckOut,
+    );
+    switch (result) {
+      case StaffSuccess():
+        await loadMine(staffId);
+      case StaffFailure(:final message): state = CorrectionError(message);
+    }
+  }
+
+  Future<void> approve(String correctionId, String societyId) async {
+    final result = await _repo.approveCorrection(correctionId);
+    switch (result) {
+      case StaffSuccess():
+        final refreshed = await _repo.listCorrectionsBySociety(societyId);
+        state = switch (refreshed) {
+          StaffSuccess(:final data) => CorrectionActionSuccess(data, 'Correction approved'),
+          StaffFailure(:final message) => CorrectionError(message),
+        };
+      case StaffFailure(:final message): state = CorrectionError(message);
+    }
+  }
+
+  Future<void> reject(String correctionId, String societyId, String reason) async {
+    final result = await _repo.rejectCorrection(correctionId, reason);
+    switch (result) {
+      case StaffSuccess():
+        final refreshed = await _repo.listCorrectionsBySociety(societyId);
+        state = switch (refreshed) {
+          StaffSuccess(:final data) => CorrectionActionSuccess(data, 'Correction rejected'),
+          StaffFailure(:final message) => CorrectionError(message),
+        };
+      case StaffFailure(:final message): state = CorrectionError(message);
+    }
+  }
+}
+
+final correctionProvider = StateNotifierProvider<CorrectionNotifier, CorrectionState>((ref) {
+  return CorrectionNotifier(ref.read(staffRepositoryProvider));
+});
+
 // ── Designations provider ─────────────────────────────────────────────────────
 
 final designationsProvider = FutureProvider.family<List<DesignationEntity>, String>((ref, societyId) async {
@@ -496,3 +592,56 @@ final societyDutiesProvider = FutureProvider.family<List<DutyEntity>, String>(
     };
   },
 );
+
+// ── Duty overview (supervisor screen — date-navigable, drives Verify) ────────
+//
+// Separate from societyDutiesProvider above (which only ever shows today, for
+// the dashboard's summary counts): this backs a real screen where a
+// supervisor picks a date and verifies completed duties, so it needs its own
+// mutable state rather than a FutureProvider.family keyed only by society.
+
+sealed class DutyOverviewState {}
+class DutyOverviewInitial extends DutyOverviewState {}
+class DutyOverviewLoading extends DutyOverviewState {}
+class DutyOverviewLoaded extends DutyOverviewState {
+  final List<DutyEntity> duties;
+  DutyOverviewLoaded(this.duties);
+}
+class DutyOverviewError extends DutyOverviewState {
+  final String message;
+  DutyOverviewError(this.message);
+}
+
+class DutyOverviewNotifier extends StateNotifier<DutyOverviewState> {
+  final StaffRepository _repo;
+  DutyOverviewNotifier(this._repo) : super(DutyOverviewInitial());
+
+  Future<void> load(String societyId, String dateStr) async {
+    state = DutyOverviewLoading();
+    final result = await _repo.getDailyDuties(societyId, dateStr);
+    switch (result) {
+      case StaffSuccess(:final data): state = DutyOverviewLoaded(data);
+      case StaffFailure(:final message): state = DutyOverviewError(message);
+    }
+  }
+
+  Future<void> verify(
+    String dutyId, {
+    required String societyId,
+    required String dateStr,
+    String? notes,
+  }) async {
+    final result = await _repo.verifyDuty(dutyId, notes: notes);
+    switch (result) {
+      case StaffSuccess():
+        await load(societyId, dateStr);
+      case StaffFailure(:final message):
+        state = DutyOverviewError(message);
+    }
+  }
+}
+
+final dutyOverviewProvider =
+    StateNotifierProvider<DutyOverviewNotifier, DutyOverviewState>((ref) {
+  return DutyOverviewNotifier(ref.read(staffRepositoryProvider));
+});

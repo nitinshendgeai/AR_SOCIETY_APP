@@ -24,6 +24,10 @@ Future<void> showVehicleFormSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
+    // On desktop/laptop-width windows, a bottom sheet spanning the full
+    // window looks unfinished — cap it to a comfortable reading width;
+    // narrower screens are unaffected since the sheet is already <480px.
+    constraints: const BoxConstraints(maxWidth: 480),
     builder: (ctx) => _VehicleFormSheetBody(
       flatId: flatId, residentId: residentId, tenantId: tenantId, vehicle: vehicle,
     ),
@@ -53,6 +57,7 @@ class _VehicleFormSheetBodyState extends ConsumerState<_VehicleFormSheetBody> {
   final _slotCtrl = TextEditingController();
   VehicleType _type = VehicleType.car;
   bool _submitting = false;
+  bool _deactivating = false;
   String? _error;
 
   bool get _isEdit => widget.vehicle != null;
@@ -127,6 +132,49 @@ class _VehicleFormSheetBodyState extends ConsumerState<_VehicleFormSheetBody> {
     }
   }
 
+  Future<void> _deactivate() async {
+    final vehicle = widget.vehicle;
+    if (vehicle == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Deactivate Vehicle?'),
+        content: Text(
+          'This will remove "${vehicle.vehicleNumber}" from the active vehicle '
+          'list for this flat. It will no longer appear in resident, tenant, '
+          'or security records. This cannot be undone from the app.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Deactivate'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() { _deactivating = true; _error = null; });
+    try {
+      await ref.read(vehiclesByFlatProvider(widget.flatId).notifier).remove(vehicle.id);
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('${vehicle.vehicleNumber} has been deactivated'),
+          backgroundColor: AppTheme.success,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) {
+      if (mounted) setState(() { _deactivating = false; _error = rmFriendlyError(e); });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -150,8 +198,20 @@ class _VehicleFormSheetBodyState extends ConsumerState<_VehicleFormSheetBody> {
                     decoration: BoxDecoration(color: AppTheme.border, borderRadius: BorderRadius.circular(2)),
                   ),
                 ),
-                Text(_isEdit ? 'Edit Vehicle' : 'Add Vehicle',
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(_isEdit ? 'Edit Vehicle' : 'Add Vehicle',
+                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+                    ),
+                    if (_isEdit)
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline_rounded, color: AppTheme.error),
+                        tooltip: 'Deactivate vehicle',
+                        onPressed: (_submitting || _deactivating) ? null : _deactivate,
+                      ),
+                  ],
+                ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _numberCtrl,
@@ -209,8 +269,29 @@ class _VehicleFormSheetBodyState extends ConsumerState<_VehicleFormSheetBody> {
                 AppPrimaryButton(
                   label: _isEdit ? 'Save Changes' : 'Add Vehicle',
                   isLoading: _submitting,
-                  onPressed: _submit,
+                  onPressed: _deactivating ? null : _submit,
                 ),
+                if (_isEdit) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      onPressed: _submitting ? null : _deactivate,
+                      icon: _deactivating
+                          ? const SizedBox(
+                              width: 16, height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.error),
+                            )
+                          : const Icon(Icons.no_crash_outlined, size: 18),
+                      label: Text(_deactivating ? 'Deactivating…' : 'Deactivate Vehicle'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.error,
+                        side: const BorderSide(color: AppTheme.error),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

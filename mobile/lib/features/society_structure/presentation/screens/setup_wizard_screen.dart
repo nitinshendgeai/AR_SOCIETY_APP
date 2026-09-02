@@ -5,6 +5,7 @@ import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_settings/presentation/providers/society_settings_providers.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 class SetupWizardScreen extends ConsumerStatefulWidget {
   const SetupWizardScreen({super.key});
@@ -75,7 +76,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(title: const Text('Society Setup Wizard')),
-      body: ListView(
+      body: ResponsiveBody(child: ListView(
         padding: const EdgeInsets.all(20),
         children: [
           _ProgressHeader(percent: percent, completed: completedCount, total: _steps.length),
@@ -136,7 +137,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
             ),
           ],
         ],
-      ),
+      )),
     );
   }
 }

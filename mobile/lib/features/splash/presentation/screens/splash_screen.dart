@@ -63,17 +63,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // App icon / logo
-                  Container(
-                    width: 88,
-                    height: 88,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: const Icon(
-                      Icons.apartment_rounded,
-                      color: Colors.white,
-                      size: 48,
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: Image.asset(
+                      'assets/branding/duxos_logo.png',
+                      width: 88,
+                      height: 88,
+                      fit: BoxFit.cover,
                     ),
                   ),
                   const SizedBox(height: 24),

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 class FlatDetailScreen extends ConsumerWidget {
   final FlatModel flat;
@@ -35,7 +37,7 @@ class FlatDetailScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: ListView(
+      body: ResponsiveBody(child: ListView(
         padding: const EdgeInsets.all(20),
         children: [
           _HeaderCard(flat: flat),
@@ -44,7 +46,7 @@ class FlatDetailScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           _PeopleCard(flat: flat),
         ],
-      ),
+      )),
     );
   }
 
@@ -75,7 +77,7 @@ class FlatDetailScreen extends ConsumerWidget {
         } catch (e) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('Error: $e'),
+                content: Text(friendlyErrorMessage(e)),
                 backgroundColor: AppTheme.error));
           }
         }

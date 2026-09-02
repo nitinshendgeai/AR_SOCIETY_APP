@@ -56,7 +56,11 @@ def test_create_resident(client, db, society_a):
     assert body["full_name"] == "Alice Owner"
     assert body["is_primary"] is True
     assert body["family_member_count"] == 0
-    assert body["warnings"] == []
+    # No phone was given, so no login account could be auto-provisioned
+    # (see ResidentService.create() / user_provisioning.py) — surfaced as a
+    # warning rather than left silent, since it means this resident can't
+    # sign in to the app yet.
+    assert any("mobile number" in w.lower() for w in body["warnings"])
 
 
 def test_read_one_resident(client, db, society_a):
@@ -122,6 +126,35 @@ def test_update_resident(client, db, society_a):
                       headers=society_a["admin"]["headers"])
     assert r.status_code == 200
     assert r.json()["phone"] == "9000000002"
+
+
+# ── PHONE VALIDATION (certification gap: "abc123" previously accepted;
+# Resident kept consistent with Tenant — see test_tenant.py) ────────────────
+
+@pytest.mark.parametrize("bad_phone", ["abc123", "12345", "12345678901", "0123456789", "98765abcde"])
+def test_create_resident_rejects_malformed_phone(client, db, society_a, bad_phone):
+    r = client.post("/api/v1/residents/", json={
+        "flat_id": str(society_a["flat"].id), "full_name": "Bad Phone Resident",
+        "phone": bad_phone,
+    }, headers=society_a["admin"]["headers"])
+    assert r.status_code == 422
+
+
+def test_update_resident_rejects_malformed_phone(client, db, society_a):
+    created = client.post("/api/v1/residents/", json={
+        "flat_id": str(society_a["flat"].id), "full_name": "Update Phone Resident",
+    }, headers=society_a["admin"]["headers"]).json()
+    r = client.patch(f"/api/v1/residents/{created['id']}", json={"phone": "abc123"},
+                      headers=society_a["admin"]["headers"])
+    assert r.status_code == 422
+
+
+def test_create_resident_allows_omitted_phone(client, db, society_a):
+    r = client.post("/api/v1/residents/", json={
+        "flat_id": str(society_a["flat"].id), "full_name": "No Phone Resident",
+    }, headers=society_a["admin"]["headers"])
+    assert r.status_code == 201, r.text
+    assert r.json()["phone"] is None
 
 
 # ── CROSS-SOCIETY DENIAL ──────────────────────────────────────────────────────
@@ -300,7 +333,12 @@ def test_no_warning_for_unique_contact_info(client, db, society_a):
         "phone": "9000009999", "email": "unique-contact@example.com",
     }, headers=society_a["admin"]["headers"])
     assert r.status_code == 201
-    assert r.json()["warnings"] == []
+    # A fresh phone number still produces exactly one warning — the
+    # (expected, non-duplicate) login-provisioning notice carrying the
+    # initial password — but never a duplicate-contact-info warning.
+    warnings = r.json()["warnings"]
+    assert not any("already uses" in w or "same ID proof" in w for w in warnings)
+    assert any("Login created" in w for w in warnings)
 
 
 # ── INACTIVE RESIDENT ─────────────────────────────────────────────────────────

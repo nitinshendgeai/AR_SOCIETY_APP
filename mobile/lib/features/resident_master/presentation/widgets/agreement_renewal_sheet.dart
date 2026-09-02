@@ -16,6 +16,9 @@ Future<void> showAgreementRenewalSheet(BuildContext context, WidgetRef ref, {req
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
+    // Cap the sheet's width on desktop/laptop-width windows so it doesn't
+    // stretch full-bleed; narrower screens are unaffected.
+    constraints: const BoxConstraints(maxWidth: 480),
     builder: (ctx) => _RenewalSheetBody(tenant: tenant),
   );
 }
