@@ -24,7 +24,8 @@ from app.modules.complaint.repositories.complaint_repo import (
     ComplaintRepository, ComplaintCommentRepository,
     ComplaintAttachmentRepository, ComplaintStatusHistoryRepository,
 )
-from app.models.user import User
+from app.models.user import User, UserRole
+from app.models.role import Role
 from app.models.audit_log import AuditAction
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
@@ -57,14 +58,29 @@ class ComplaintService:
                        f"Allowed: {[s.value for s in allowed] or 'none'}"
             )
 
-    def _record_transition(self, complaint: Complaint, new_status: ComplaintStatus,
-                           user: User, notes: Optional[str] = None):
+    def _record_transition(self, complaint: Complaint, from_status: Optional[ComplaintStatus],
+                           new_status: ComplaintStatus, user: User, notes: Optional[str] = None):
         self.history_repo.append(
             complaint_id=complaint.id,
-            from_status=complaint.status,
+            from_status=from_status,
             to_status=new_status,
             changed_by=user.id,
             notes=notes,
+        )
+
+    def _find_manager(self, society_id: UUID) -> Optional[User]:
+        """First active Manager in the society — the default assignee for new complaints."""
+        return (
+            self.db.query(User)
+            .join(UserRole, UserRole.user_id == User.id)
+            .join(Role, Role.id == UserRole.role_id)
+            .filter(
+                Role.name == "Manager",
+                User.society_id == society_id,
+                User.is_active == True,
+            )
+            .order_by(User.created_at.asc())
+            .first()
         )
 
     def _audit(self, action: AuditAction, complaint: Complaint,
@@ -120,6 +136,25 @@ class ComplaintService:
                     new_values={"number": number, "title": data.title,
                                 "category": data.category.value, "priority": data.priority.value})
 
+        # Auto-assign to the society's FMC Manager, who can reassign to staff later.
+        manager = self._find_manager(data.society_id)
+        if manager:
+            complaint.status      = ComplaintStatus.ASSIGNED
+            complaint.assigned_to = manager.id
+            complaint.assigned_by = reporter.id
+            complaint.assigned_at = datetime.utcnow()
+
+            self._record_transition(complaint, ComplaintStatus.OPEN, ComplaintStatus.ASSIGNED,
+                                    reporter, notes="Auto-assigned to FMC Manager")
+
+            NotificationService.send(
+                db=self.db, user_id=manager.id,
+                title="New Complaint Assigned",
+                body=f"Complaint #{number} — {data.title} has been auto-assigned to you.",
+                type=NotificationType.ALERT, channel=NotificationChannel.IN_APP,
+                module="complaint", entity_id=str(complaint.id),
+            )
+
         self.db.commit()
         self.db.refresh(complaint)
         return complaint
@@ -127,21 +162,30 @@ class ComplaintService:
     def assign_complaint(self, complaint_id: UUID, data: ComplaintAssignRequest,
                          assigner: User, request: Optional[Request] = None) -> Complaint:
         complaint = self._get_or_404(complaint_id)
-        self._validate_transition(complaint, ComplaintStatus.ASSIGNED)
 
-        prev_status       = complaint.status
-        complaint.status      = ComplaintStatus.ASSIGNED
-        complaint.assigned_to = data.assigned_to
-        complaint.assigned_at = datetime.utcnow()
+        # A complaint already ASSIGNED can be reassigned to a different staff member
+        # (e.g. the FMC Manager routing it on) without going through the strict FSM,
+        # since ASSIGNED -> ASSIGNED isn't itself a "status" transition.
+        reassigning = complaint.status == ComplaintStatus.ASSIGNED
+        if not reassigning:
+            self._validate_transition(complaint, ComplaintStatus.ASSIGNED)
+
+        prev_status            = complaint.status
+        previous_assignee      = complaint.assigned_to
+        complaint.status       = ComplaintStatus.ASSIGNED
+        complaint.assigned_to  = data.assigned_to
+        complaint.assigned_by  = assigner.id
+        complaint.assigned_at  = datetime.utcnow()
         if data.due_date:
             complaint.due_date = data.due_date
 
-        self._record_transition(complaint, ComplaintStatus.ASSIGNED, assigner, data.notes)
+        history_notes = data.notes or ("Reassigned" if reassigning else None)
+        self._record_transition(complaint, prev_status, ComplaintStatus.ASSIGNED, assigner, history_notes)
         self._audit(AuditAction.UPDATE, complaint, assigner, request,
-                    old_values={"status": prev_status.value},
+                    old_values={"status": prev_status.value, "assigned_to": str(previous_assignee) if previous_assignee else None},
                     new_values={"status": "assigned", "assigned_to": str(data.assigned_to)})
 
-        # Notify assignee
+        # Notify new assignee
         NotificationService.send(
             db=self.db, user_id=data.assigned_to,
             title="Complaint Assigned",
@@ -186,7 +230,7 @@ class ComplaintService:
                 body=f"Your complaint #{complaint.complaint_number} was rejected. Reason: {data.rejection_reason}",
                 type=NotificationType.WARNING)
 
-        self._record_transition(complaint, data.status, user, data.notes)
+        self._record_transition(complaint, prev_status, data.status, user, data.notes)
         self._audit(AuditAction.UPDATE, complaint, user, request,
                     old_values={"status": prev_status.value},
                     new_values={"status": data.status.value, "notes": data.notes})
@@ -202,11 +246,12 @@ class ComplaintService:
             raise HTTPException(status_code=409,
                 detail=f"Only resolved complaints can be reopened (current: {complaint.status.value})")
 
+        prev_status             = complaint.status
         complaint.status       = ComplaintStatus.REOPENED
         complaint.resolved_at  = None
         complaint.reopen_count += 1
 
-        self._record_transition(complaint, ComplaintStatus.REOPENED, user, data.reason)
+        self._record_transition(complaint, prev_status, ComplaintStatus.REOPENED, user, data.reason)
         self._audit(AuditAction.UPDATE, complaint, user, request,
                     new_values={"status": "reopened", "reason": data.reason,
                                 "reopen_count": complaint.reopen_count})

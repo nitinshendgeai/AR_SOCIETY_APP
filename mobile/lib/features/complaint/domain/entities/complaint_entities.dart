@@ -47,6 +47,47 @@ enum ComplaintStatus {
       default:            return ComplaintStatus.open;
     }
   }
+
+  /// Backend wire value — the inverse of fromString(), needed to send a
+  /// target status back on POST /complaints/{id}/status.
+  String get value {
+    switch (this) {
+      case ComplaintStatus.open:       return 'open';
+      case ComplaintStatus.assigned:   return 'assigned';
+      case ComplaintStatus.inProgress: return 'in_progress';
+      case ComplaintStatus.resolved:   return 'resolved';
+      case ComplaintStatus.reopened:   return 'reopened';
+      case ComplaintStatus.closed:     return 'closed';
+      case ComplaintStatus.rejected:   return 'rejected';
+    }
+  }
+
+  /// Statuses reachable from this one via POST /status — mirrors the
+  /// backend's VALID_TRANSITIONS (app/modules/complaint/models/complaint.py)
+  /// minus ASSIGNED, which always goes through the dedicated Assign flow
+  /// (POST /assign, picks an assignee) rather than a plain status change.
+  List<ComplaintStatus> get nextStatuses {
+    switch (this) {
+      case ComplaintStatus.open:       return [ComplaintStatus.rejected];
+      case ComplaintStatus.assigned:   return [ComplaintStatus.inProgress, ComplaintStatus.rejected];
+      case ComplaintStatus.inProgress: return [ComplaintStatus.resolved, ComplaintStatus.rejected];
+      case ComplaintStatus.resolved:   return [ComplaintStatus.closed];
+      case ComplaintStatus.reopened:   return [ComplaintStatus.rejected];
+      case ComplaintStatus.closed:     return [];
+      case ComplaintStatus.rejected:   return [];
+    }
+  }
+
+  /// Whether the Assign flow is offered for this status. OPEN and REOPENED
+  /// transition to ASSIGNED per VALID_TRANSITIONS; ASSIGNED is also included
+  /// so a Manager can reassign an already-assigned complaint to staff.
+  bool get canAssign =>
+      this == ComplaintStatus.open ||
+      this == ComplaintStatus.reopened ||
+      this == ComplaintStatus.assigned;
+
+  /// Whether Reopen is offered — only a RESOLVED complaint can be reopened.
+  bool get canReopen => this == ComplaintStatus.resolved;
 }
 
 // ── Complaint Priority ────────────────────────────────────────────────────────
@@ -159,6 +200,7 @@ class ComplaintListEntity {
   final String societyId;
   final String raisedBy;
   final String? assignedTo;
+  final String? assignedToName;
   final DateTime? resolvedAt;
   final DateTime? closedAt;
   final DateTime createdAt;
@@ -173,6 +215,7 @@ class ComplaintListEntity {
     required this.societyId,
     required this.raisedBy,
     this.assignedTo,
+    this.assignedToName,
     this.resolvedAt,
     this.closedAt,
     required this.createdAt,
@@ -193,6 +236,7 @@ class ComplaintEntity {
   final String? flatId;
   final String raisedBy;
   final String? assignedTo;
+  final String? assignedToName;
   final DateTime? resolvedAt;
   final DateTime? closedAt;
   final DateTime? dueDate;
@@ -214,6 +258,7 @@ class ComplaintEntity {
     this.flatId,
     required this.raisedBy,
     this.assignedTo,
+    this.assignedToName,
     this.resolvedAt,
     this.closedAt,
     this.dueDate,

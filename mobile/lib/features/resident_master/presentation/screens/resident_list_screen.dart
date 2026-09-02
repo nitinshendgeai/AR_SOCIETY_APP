@@ -10,6 +10,7 @@ import 'package:ar_society_app/features/resident_master/presentation/providers/r
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// Resident Master list — the canonical, searchable roster of every
 /// resident (owner / co-owner / family / dependent) across the society.
@@ -76,6 +77,15 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
       appBar: AppBar(
         title: Text(widget.filterFlat != null ? 'Residents — ${widget.filterFlat!.displayName}' : 'Residents'),
         actions: [
+          if (widget.filterFlat == null && (user?.isAdminOrCommittee ?? false))
+            IconButton(
+              icon: const Icon(Icons.upload_file_rounded),
+              tooltip: 'Import Residents',
+              onPressed: () async {
+                final imported = await context.push<bool>(AppRoutes.residentImport);
+                if (imported == true) _load();
+              },
+            ),
           IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
         ],
       ),
@@ -91,7 +101,7 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
               label: const Text('Add Resident'),
             )
           : null,
-      body: Column(children: [
+      body: ResponsiveBody(child: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Column(children: [
@@ -212,7 +222,7 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
                   ),
           },
         ),
-      ]),
+      ])),
     );
   }
 }

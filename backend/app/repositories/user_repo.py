@@ -1,6 +1,7 @@
 from typing import Optional, List
 from uuid import UUID
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from app.models.user import User, UserRole
 from app.models.role import Role
 from app.repositories.base import BaseRepository
@@ -49,6 +50,14 @@ class UserRepository(BaseRepository[User]):
 
     def get_by_phone(self, phone: str) -> Optional[User]:
         return self.db.query(User).filter(User.phone == phone).first()
+
+    def get_by_email_or_phone(self, identifier: str) -> Optional[User]:
+        """Login lookup: residents/tenants sign in with their mobile number,
+        admin/committee/staff accounts sign in with email — accept either in
+        the same field rather than making the client classify it first."""
+        return self.db.query(User).filter(
+            or_(User.email == identifier, User.phone == identifier)
+        ).first()
 
     # ── Role management ───────────────────────────────────────────────────────
 

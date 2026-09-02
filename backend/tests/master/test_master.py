@@ -48,6 +48,39 @@ def test_wing_invalid_society(client, db):
     assert r.status_code == 404
 
 
+def test_duplicate_active_wing_name_rejected(client, db):
+    admin   = make_user(db, "adm-wdup@master.com", role="Society Admin")
+    society = make_society(db, "Wing Dup Society")
+    payload = {"name": "A Wing", "society_id": str(society.id)}
+    r1 = client.post("/api/v1/wings/", json=payload, headers=admin["headers"])
+    assert r1.status_code == 201
+    r2 = client.post("/api/v1/wings/", json=payload, headers=admin["headers"])
+    assert r2.status_code == 409
+
+
+def test_wing_name_reusable_after_delete(client, db):
+    """A soft-deleted wing must free up its name/code for reuse — the DB-level
+    constraint used to be a plain UniqueConstraint (not scoped to is_active),
+    so re-creating a wing with the same name after deleting the old one
+    raised a raw IntegrityError -> generic 409, even though the app-level
+    duplicate check (which only looks at active rows) would have allowed it.
+    """
+    admin   = make_user(db, "adm-wdel@master.com", role="Society Admin")
+    society = make_society(db, "Wing Reuse Society")
+    payload = {"name": "A Wing", "code": "A", "society_id": str(society.id)}
+
+    r1 = client.post("/api/v1/wings/", json=payload, headers=admin["headers"])
+    assert r1.status_code == 201
+    wing_id = r1.json()["id"]
+
+    r_del = client.delete(f"/api/v1/wings/{wing_id}", headers=admin["headers"])
+    assert r_del.status_code == 204
+
+    r2 = client.post("/api/v1/wings/", json=payload, headers=admin["headers"])
+    assert r2.status_code == 201
+    assert r2.json()["id"] != wing_id
+
+
 # ── Flat ──────────────────────────────────────────────────────────────────────
 
 def test_create_flat(client, db):
@@ -67,6 +100,28 @@ def test_flat_invalid_wing(client, db):
         "flat_number": "202", "wing_id": str(uuid.uuid4())
     }, headers=admin["headers"])
     assert r.status_code == 404
+
+
+# ── Floor ─────────────────────────────────────────────────────────────────────
+
+def test_floor_number_reusable_after_delete(client, db):
+    """Same soft-delete/unique-index bug as wings — see
+    test_wing_name_reusable_after_delete."""
+    admin   = make_user(db, "adm-fdel@master.com", role="Society Admin")
+    society = make_society(db, "Floor Reuse Society")
+    wing    = make_wing(db, society.id, "Floor Reuse Wing")
+    payload = {"floor_number": 1, "wing_id": str(wing.id), "society_id": str(society.id)}
+
+    r1 = client.post("/api/v1/floors/", json=payload, headers=admin["headers"])
+    assert r1.status_code == 201
+    floor_id = r1.json()["id"]
+
+    r_del = client.delete(f"/api/v1/floors/{floor_id}", headers=admin["headers"])
+    assert r_del.status_code == 204
+
+    r2 = client.post("/api/v1/floors/", json=payload, headers=admin["headers"])
+    assert r2.status_code == 201
+    assert r2.json()["id"] != floor_id
 
 
 # ── Vehicle ───────────────────────────────────────────────────────────────────

@@ -144,6 +144,113 @@ class _Body extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: 10),
               child: _AttendanceHistoryTile(record: a),
             )),
+          const SizedBox(height: 24),
+          // My correction requests
+          const SectionHeader(title: 'My Correction Requests'),
+          const SizedBox(height: 12),
+          _MyCorrectionsSection(staffId: staffId),
+        ],
+      ),
+    );
+  }
+}
+
+// ── My correction requests ────────────────────────────────────────────────────
+
+class _MyCorrectionsSection extends ConsumerStatefulWidget {
+  final String staffId;
+  const _MyCorrectionsSection({required this.staffId});
+
+  @override
+  ConsumerState<_MyCorrectionsSection> createState() => _MyCorrectionsSectionState();
+}
+
+class _MyCorrectionsSectionState extends ConsumerState<_MyCorrectionsSection> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(correctionProvider.notifier).loadMine(widget.staffId);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(correctionProvider);
+    if (state is CorrectionLoading || state is CorrectionInitial) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+    final corrections = state is CorrectionLoaded
+        ? state.corrections
+        : state is CorrectionActionSuccess
+            ? state.corrections
+            : <AttendanceCorrectionEntity>[];
+    if (corrections.isEmpty) {
+      return const EmptyState(
+        icon: Icons.edit_note_rounded,
+        title: 'No correction requests',
+        subtitle: 'Request a fix on a past record if it looks wrong',
+      );
+    }
+    return Column(
+      children: corrections
+          .map((c) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _CorrectionTile(correction: c),
+              ))
+          .toList(),
+    );
+  }
+}
+
+class _CorrectionTile extends StatelessWidget {
+  final AttendanceCorrectionEntity correction;
+  const _CorrectionTile({required this.correction});
+
+  Color get _statusColor {
+    switch (correction.status) {
+      case CorrectionStatus.pending:  return AppTheme.warning;
+      case CorrectionStatus.approved: return AppTheme.success;
+      case CorrectionStatus.rejected: return AppTheme.error;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(formatDate(correction.correctionDate),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimary)),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _statusColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: _statusColor.withOpacity(0.3)),
+                ),
+                child: Text(correction.status.label,
+                    style: TextStyle(color: _statusColor, fontSize: 12, fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(correction.reason,
+              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          if (correction.status == CorrectionStatus.rejected && correction.rejectionReason != null) ...[
+            const SizedBox(height: 6),
+            Text('Reason: ${correction.rejectionReason}',
+                style: const TextStyle(fontSize: 12, color: AppTheme.error, fontStyle: FontStyle.italic)),
+          ],
         ],
       ),
     );
@@ -361,44 +468,135 @@ class _ActionButton extends StatelessWidget {
 
 // ── History tile ──────────────────────────────────────────────────────────────
 
-class _AttendanceHistoryTile extends StatelessWidget {
+class _AttendanceHistoryTile extends ConsumerWidget {
   final AttendanceEntity record;
   const _AttendanceHistoryTile({required this.record});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return AppCard(
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(formatDate(record.attendanceDate),
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimary)),
-                const SizedBox(height: 4),
-                Row(
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '${formatTime(record.checkInTime)} → ${formatTime(record.checkOutTime)}',
-                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                    Text(formatDate(record.attendanceDate),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimary)),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Text(
+                          '${formatTime(record.checkInTime)} → ${formatTime(record.checkOutTime)}',
+                          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                        ),
+                        if (record.workingHours != null) ...[
+                          const Text(' · ', style: TextStyle(color: AppTheme.textSecondary)),
+                          Text(formatHours(record.workingHours),
+                              style: const TextStyle(
+                                  color: AppTheme.primary, fontSize: 12, fontWeight: FontWeight.w600)),
+                        ],
+                      ],
                     ),
-                    if (record.workingHours != null) ...[
-                      const Text(' · ', style: TextStyle(color: AppTheme.textSecondary)),
-                      Text(formatHours(record.workingHours),
-                          style: const TextStyle(
-                              color: AppTheme.primary, fontSize: 12, fontWeight: FontWeight.w600)),
-                    ],
                   ],
                 ),
-              ],
+              ),
+              const SizedBox(width: 8),
+              AttendanceStatusBadge(status: record.status),
+            ],
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => _openCorrectionDialog(context, ref, record),
+              icon: const Icon(Icons.edit_note_rounded, size: 16),
+              label: const Text('Request Correction', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
             ),
           ),
-          const SizedBox(width: 8),
-          AttendanceStatusBadge(status: record.status),
         ],
       ),
     );
+  }
+}
+
+Future<void> _openCorrectionDialog(
+  BuildContext context, WidgetRef ref, AttendanceEntity record,
+) async {
+  AttendanceStatus selected = record.status;
+  final reasonCtrl = TextEditingController();
+  final formKey = GlobalKey<FormState>();
+
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: const Text('Request Attendance Correction'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(formatDate(record.attendanceDate),
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<AttendanceStatus>(
+                value: selected,
+                decoration: const InputDecoration(labelText: 'Correct status to'),
+                items: AttendanceStatus.values
+                    .map((s) => DropdownMenuItem(value: s, child: Text(s.label)))
+                    .toList(),
+                onChanged: (v) => setState(() => selected = v ?? selected),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: reasonCtrl,
+                maxLines: 3,
+                autofocus: true,
+                decoration: const InputDecoration(labelText: 'Reason *'),
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? true) Navigator.pop(ctx, true);
+            },
+            child: const Text('Submit'),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (confirmed != true) return;
+
+  await ref.read(correctionProvider.notifier).request(
+        societyId: record.societyId,
+        staffId: record.staffId,
+        attendanceId: record.id,
+        correctionDate: record.attendanceDate,
+        reason: reasonCtrl.text.trim(),
+        requestedStatus: selected.value,
+      );
+
+  if (context.mounted) {
+    final state = ref.read(correctionProvider);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(state is CorrectionError ? state.message : 'Correction request submitted'),
+      backgroundColor: state is CorrectionError ? AppTheme.error : AppTheme.success,
+      behavior: SnackBarBehavior.floating,
+    ));
   }
 }

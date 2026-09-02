@@ -271,6 +271,30 @@ String rmFriendlyError(Object e) {
   return msg;
 }
 
+// ── Phone validation (certification gap: "abc123" previously accepted) ─────
+//
+// Mirrors the backend's validate_mobile_number (app/utils/phone.py): if
+// provided, a phone number must reduce to a 10-digit number starting with
+// 6-9, ignoring spaces/dashes and an optional +91/91/0 prefix. Shared by
+// the Resident and Tenant forms so both stay consistent (Phase M1.9-R2 §3).
+final RegExp _rmMobileRegExp = RegExp(r'^[6-9]\d{9}$');
+
+String? rmPhoneValidator(String? v) {
+  if (v == null || v.trim().isEmpty) return null;
+  var digits = v.trim().replaceAll(RegExp(r'[\s\-()]'), '');
+  if (digits.startsWith('+91')) {
+    digits = digits.substring(3);
+  } else if (digits.startsWith('91') && digits.length == 12) {
+    digits = digits.substring(2);
+  } else if (digits.startsWith('0') && digits.length == 11) {
+    digits = digits.substring(1);
+  }
+  if (!_rmMobileRegExp.hasMatch(digits)) {
+    return 'Enter a valid 10-digit mobile number';
+  }
+  return null;
+}
+
 /// Days remaining until [dateStr]; negative if already past.
 int? rmDaysUntil(String? dateStr) {
   if (dateStr == null) return null;

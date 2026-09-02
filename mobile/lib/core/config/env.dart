@@ -36,7 +36,7 @@ class Env {
 
   static String get appName {
     final v = _dotenvGet('APP_NAME');
-    return v.isNotEmpty ? v : 'AR Society';
+    return v.isNotEmpty ? v : 'DUX OS';
   }
 
   static String get appEnv {

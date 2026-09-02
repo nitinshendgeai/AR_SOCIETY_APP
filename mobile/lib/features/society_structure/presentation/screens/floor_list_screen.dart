@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
+import 'package:ar_society_app/features/society_structure/domain/flat_numbering.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
@@ -30,13 +32,13 @@ class FloorListScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: async.when(
+      body: ResponsiveBody(child: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(structureFriendlyError(e),
+              Text(friendlyErrorMessage(e),
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: AppTheme.error)),
               const SizedBox(height: 12),
@@ -78,7 +80,7 @@ class FloorListScreen extends ConsumerWidget {
             ),
           );
         },
-      ),
+      )),
     );
   }
 }
@@ -152,6 +154,8 @@ class _FloorCard extends ConsumerWidget {
               itemBuilder: (_) => [
                 const PopupMenuItem(value: 'edit', child: Text('Edit')),
                 const PopupMenuItem(
+                    value: 'add_flats', child: Text('Add Flats')),
+                const PopupMenuItem(
                   value: 'delete',
                   child: Text('Delete',
                       style: TextStyle(color: AppTheme.error)),
@@ -171,6 +175,10 @@ class _FloorCard extends ConsumerWidget {
         AppRoutes.floorForm.replaceFirst(':wingId', wing.id),
         extra: {'wing': wing, 'floor': floor},
       );
+      return;
+    }
+    if (action == 'add_flats') {
+      await _addFlats(context, ref);
       return;
     }
     if (action == 'delete') {
@@ -200,11 +208,109 @@ class _FloorCard extends ConsumerWidget {
         } catch (e) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(structureFriendlyError(e)),
+                content: Text(friendlyErrorMessage(e)),
                 backgroundColor: AppTheme.error));
           }
         }
       }
+    }
+  }
+
+  /// Bulk-adds flats to an EXISTING floor — for floors that were already
+  /// created without using the "Units on this Floor" field on Add Floor
+  /// (which only bulk-generates at creation time, not afterwards).
+  /// Auto-numbered the same way (nextFlatNumbers), skipping any unit index
+  /// that would collide with a flat already on this floor.
+  Future<void> _addFlats(BuildContext context, WidgetRef ref) async {
+    final countCtrl = TextEditingController();
+    final count = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Add Flats to ${floor.displayName}'),
+        content: TextField(
+          controller: countCtrl,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Number of flats to add',
+            hintText: 'e.g. 5',
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              final n = int.tryParse(countCtrl.text.trim());
+              if (n != null && n > 0 && n <= 100) Navigator.pop(ctx, n);
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+    if (count == null || !context.mounted) return;
+
+    final allFlats = await ref.read(flatsBySocietyProvider.future);
+    final existingNumbers = allFlats
+        .where((f) => f.wingId == wing.id && f.floor == floor.floorNumber)
+        .map((f) => f.flatNumber)
+        .toSet();
+    final numbers = nextFlatNumbers(floor.floorNumber, count, existingNumbers);
+
+    if (!context.mounted) return;
+    var progressLabel = 'Creating flat 1 of ${numbers.length}…';
+    StateSetter? setProgress;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) {
+          setProgress = setState;
+          return AlertDialog(
+            content: Row(children: [
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 16),
+              Expanded(child: Text(progressLabel)),
+            ]),
+          );
+        },
+      ),
+    );
+
+    var created = 0;
+    String? error;
+    for (var i = 0; i < numbers.length; i++) {
+      progressLabel = 'Creating flat ${i + 1} of ${numbers.length}…';
+      setProgress?.call(() {});
+      try {
+        await ref.read(flatsBySocietyProvider.notifier).create(
+              flatNumber: numbers[i],
+              wingId: wing.id,
+              floor: floor.floorNumber,
+            );
+        created++;
+      } catch (e) {
+        error = friendlyErrorMessage(e);
+        break;
+      }
+    }
+
+    ref.read(floorsByWingProvider(wing.id).notifier).refresh();
+    if (context.mounted) Navigator.pop(context); // close progress dialog
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(error == null
+            ? '$created flat${created == 1 ? '' : 's'} added to ${floor.displayName}'
+            : 'Added $created of ${numbers.length} flats before an error: $error'),
+        backgroundColor: error == null ? AppTheme.success : AppTheme.error,
+      ));
     }
   }
 }

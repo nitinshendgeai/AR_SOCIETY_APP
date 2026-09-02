@@ -160,11 +160,13 @@ class _ComplaintListTile extends StatelessWidget {
 class ComplaintListScreen extends ConsumerStatefulWidget {
   final bool isMy;
   final String? societyId;
+  final bool assignedToMe;
 
   const ComplaintListScreen({
     super.key,
     required this.isMy,
     this.societyId,
+    this.assignedToMe = false,
   });
 
   @override
@@ -180,7 +182,9 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
   }
 
   Future<void> _load() async {
-    if (widget.isMy) {
+    if (widget.assignedToMe) {
+      await ref.read(complaintListProvider.notifier).loadAssignedToMe();
+    } else if (widget.isMy) {
       await ref.read(complaintListProvider.notifier).loadMyComplaints();
     } else if (widget.societyId != null) {
       await ref
@@ -196,7 +200,11 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(
-        title: Text(widget.isMy ? 'My Complaints' : 'Society Complaints'),
+        title: Text(widget.assignedToMe
+            ? 'Assigned to Me'
+            : widget.isMy
+                ? 'My Complaints'
+                : 'Society Complaints'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -248,10 +256,16 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           child: EmptyState(
             icon: Icons.inbox_rounded,
-            title: widget.isMy ? 'No complaints yet' : 'No complaints',
-            subtitle: widget.isMy
-                ? 'Tap + to raise a new complaint'
-                : 'No complaints have been raised in this society',
+            title: widget.assignedToMe
+                ? 'Nothing assigned to you'
+                : widget.isMy
+                    ? 'No complaints yet'
+                    : 'No complaints',
+            subtitle: widget.assignedToMe
+                ? 'Complaints assigned to you will show up here'
+                : widget.isMy
+                    ? 'Tap + to raise a new complaint'
+                    : 'No complaints have been raised in this society',
           ),
         );
       }

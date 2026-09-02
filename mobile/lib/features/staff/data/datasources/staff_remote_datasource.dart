@@ -134,6 +134,69 @@ class StaffRemoteDataSource {
     return r.data as Map<String, dynamic>;
   }
 
+  // ── Attendance Correction (payroll readiness) ───────────────────────────────
+
+  /// POST /payroll/attendance-correction
+  Future<AttendanceCorrectionModel> requestCorrection({
+    required String societyId,
+    required String staffId,
+    required String attendanceId,
+    required String correctionDate,
+    required String reason,
+    String? requestedStatus,
+    String? requestedCheckIn,
+    String? requestedCheckOut,
+  }) async {
+    final r = await _dio.post('/payroll/attendance-correction', data: {
+      'society_id': societyId,
+      'staff_id': staffId,
+      'attendance_id': attendanceId,
+      'correction_date': correctionDate,
+      'reason': reason,
+      if (requestedStatus != null) 'requested_status': requestedStatus,
+      if (requestedCheckIn != null) 'requested_check_in': requestedCheckIn,
+      if (requestedCheckOut != null) 'requested_check_out': requestedCheckOut,
+    });
+    return AttendanceCorrectionModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// GET /payroll/attendance-correction/staff/{staff_id}
+  Future<List<AttendanceCorrectionModel>> listCorrectionsByStaff(String staffId) async {
+    final r = await _dio.get('/payroll/attendance-correction/staff/$staffId');
+    return (r.data as List)
+        .map((e) => AttendanceCorrectionModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// GET /payroll/attendance-correction/society/{society_id}
+  Future<List<AttendanceCorrectionModel>> listCorrectionsBySociety(
+    String societyId, {
+    String? status,
+  }) async {
+    final r = await _dio.get(
+      '/payroll/attendance-correction/society/$societyId',
+      queryParameters: status != null ? {'status': status} : null,
+    );
+    return (r.data as List)
+        .map((e) => AttendanceCorrectionModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// POST /payroll/attendance-correction/{id}/approve
+  Future<AttendanceCorrectionModel> approveCorrection(String correctionId) async {
+    final r = await _dio.post('/payroll/attendance-correction/$correctionId/approve');
+    return AttendanceCorrectionModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// POST /payroll/attendance-correction/{id}/reject
+  Future<AttendanceCorrectionModel> rejectCorrection(String correctionId, String reason) async {
+    final r = await _dio.post(
+      '/payroll/attendance-correction/$correctionId/reject',
+      data: {'reason': reason},
+    );
+    return AttendanceCorrectionModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
   // ── Staff CRUD ────────────────────────────────────────────────────────────
 
   /// GET /staff/{staff_id}
@@ -257,6 +320,15 @@ class StaffRemoteDataSource {
   /// POST /staff/duties/{duty_id}/complete
   Future<DutyModel> completeDuty(String dutyId) async {
     final r = await _dio.post('/staff/duties/$dutyId/complete');
+    return DutyModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// POST /staff/duties/{duty_id}/verify
+  Future<DutyModel> verifyDuty(String dutyId, {String? notes}) async {
+    final r = await _dio.post(
+      '/staff/duties/$dutyId/verify',
+      data: {if (notes != null) 'notes': notes},
+    );
     return DutyModel.fromJson(r.data as Map<String, dynamic>);
   }
 

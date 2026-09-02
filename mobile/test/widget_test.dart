@@ -1,9 +1,13 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/dashboard/role_dashboards.dart';
+import 'package:ar_society_app/features/staff/data/datasources/staff_remote_datasource.dart';
+import 'package:ar_society_app/features/staff/data/repositories/staff_repository.dart';
+import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities.dart';
 import 'package:ar_society_app/features/complaint/domain/entities/complaint_entities.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -22,6 +26,15 @@ Widget _wrapWithUser(Widget child, UserEntity user) {
     overrides: [
       // Override only the derived provider — avoids needing real platform channels
       currentUserProvider.overrideWithValue(user),
+      // AdminDashboardScreen/CommitteeDashboardScreen unconditionally watch
+      // staffListProvider/approvalProvider, both of which eagerly read
+      // staffRepositoryProvider. Its default StaffRepository() reaches for
+      // ApiClient.instance, which is never initialized in a widget test
+      // (that only happens in main.dart) and throws synchronously,
+      // crashing the whole build. Route it through a repository built on a
+      // plain Dio() instead — nothing calls .load() without a societyId, so
+      // this is purely there to dodge the crash, not to fake real data.
+      staffRepositoryProvider.overrideWithValue(StaffRepository(ds: StaffRemoteDataSource(dio: Dio()))),
     ],
     child: MaterialApp(
       theme: AppTheme.lightTheme,
@@ -151,6 +164,72 @@ void main() {
         createdAt: DateTime.now(),
       );
       expect(closed.isActive, isFalse);
+    });
+  });
+
+  // ── Role-aware drawer navigation (certification gap: the shared drawer
+  // previously showed every admin-oriented item to every role) ────────────
+
+  group('Role-aware navigation drawer', () {
+    Future<void> openDrawer(WidgetTester tester) async {
+      await tester.tap(find.byTooltip('Open menu'));
+      await tester.pumpAndSettle();
+    }
+
+    // Several menu labels (Complaints, Visitors, Staff, ...) are also shown
+    // as "Quick Actions" chips on the dashboard body itself, so a plain
+    // find.text() would double-count once the drawer overlays the body.
+    // Scope the presence checks to inside the open Drawer specifically.
+    Finder inDrawer(String label) =>
+        find.descendant(of: find.byType(Drawer), matching: find.text(label));
+
+    testWidgets('Society Admin sees the full administrative menu', (tester) async {
+      await tester.pumpWidget(_wrapWithUser(const AdminDashboardScreen(), _makeUser(role: 'Society Admin')));
+      await tester.pump();
+      await openDrawer(tester);
+
+      for (final label in [
+        'Residents', 'Tenants', 'Users & Roles', 'Society Settings',
+        'Visitors', 'Complaints', 'Staff', 'Setup Wizard',
+      ]) {
+        expect(inDrawer(label), findsOneWidget, reason: '$label should be visible to Society Admin');
+      }
+    });
+
+    testWidgets('Committee sees admin-committee items but not Users & Roles', (tester) async {
+      await tester.pumpWidget(_wrapWithUser(const CommitteeDashboardScreen(), _makeUser(role: 'Committee')));
+      await tester.pump();
+      await openDrawer(tester);
+
+      for (final label in ['Residents', 'Tenants', 'Society Settings', 'Visitors', 'Complaints', 'Staff', 'Setup Wizard']) {
+        expect(inDrawer(label), findsOneWidget, reason: '$label should be visible to Committee');
+      }
+      expect(inDrawer('Users & Roles'), findsNothing);
+    });
+
+    testWidgets('Security Staff sees operational items only, no admin configuration screens', (tester) async {
+      await tester.pumpWidget(_wrapWithUser(const SecurityDashboardScreen(), _makeUser(role: 'Security')));
+      await tester.pump();
+      await openDrawer(tester);
+
+      expect(inDrawer('Visitors'), findsOneWidget);
+      expect(inDrawer('Complaints'), findsOneWidget);
+      expect(inDrawer('Staff'), findsOneWidget);
+      for (final label in ['Residents', 'Tenants', 'Users & Roles', 'Society Settings', 'Setup Wizard']) {
+        expect(inDrawer(label), findsNothing, reason: '$label must not be visible to Security');
+      }
+    });
+
+    testWidgets('Resident sees only resident-facing navigation', (tester) async {
+      await tester.pumpWidget(_wrapWithUser(const ResidentDashboardScreen(), _makeUser(role: 'Resident')));
+      await tester.pump();
+      await openDrawer(tester);
+
+      expect(inDrawer('Visitors'), findsOneWidget);
+      expect(inDrawer('Complaints'), findsOneWidget);
+      for (final label in ['Residents', 'Tenants', 'Users & Roles', 'Society Settings', 'Staff', 'Setup Wizard']) {
+        expect(inDrawer(label), findsNothing, reason: '$label must not be visible to Resident');
+      }
     });
   });
 

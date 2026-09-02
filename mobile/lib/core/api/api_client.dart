@@ -130,7 +130,12 @@ class _LogInterceptor extends Interceptor {
 String parseApiError(DioException e) {
   final statusCode = e.response?.statusCode;
 
-  // Try to extract server-supplied detail from JSON body first
+  // Try to extract server-supplied detail from JSON body first. Most routes
+  // raise HTTPException(detail=...), but errors converted by a global
+  // exception handler (app/utils/exceptions.py — validation errors, DB
+  // IntegrityErrors) use ErrorResponse's `message` field instead, so that's
+  // checked as a fallback rather than falling through to a generic
+  // "Request failed" text that discards a perfectly informative message.
   if (e.response?.data is Map) {
     final data = e.response!.data as Map<String, dynamic>;
     final detail = data['detail'];
@@ -139,6 +144,10 @@ String parseApiError(DioException e) {
       if (!detail.startsWith('Not Found') && !detail.startsWith('Internal Server')) {
         return detail;
       }
+    }
+    final message = data['message'];
+    if (message is String && message.isNotEmpty) {
+      return message;
     }
   }
 
@@ -175,4 +184,15 @@ String parseApiError(DioException e) {
     default:
       return 'Something went wrong. Please try again.';
   }
+}
+
+/// Friendly error text for any caught exception, for screens whose
+/// repository layer doesn't already wrap failures (e.g. society_structure,
+/// society_settings — those repositories forward DioException as-is rather
+/// than mapping it to a result type). Always prefer this over interpolating
+/// a caught exception directly into user-facing text, which would otherwise
+/// leak raw DioException/RequestOptions dumps to the user.
+String friendlyErrorMessage(Object e) {
+  if (e is DioException) return parseApiError(e);
+  return 'Something went wrong. Please try again.';
 }

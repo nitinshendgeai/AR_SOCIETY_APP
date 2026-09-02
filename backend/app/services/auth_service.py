@@ -45,14 +45,14 @@ class AuthService:
         return user
 
     def login(self, data: LoginRequest, request: Optional[Request] = None) -> TokenResponse:
-        user = self.repo.get_by_email(data.email)
+        user = self.repo.get_by_email_or_phone(data.email)
 
         # Avoid timing oracle — always verify even on not-found
         if not user:
             verify_password(data.password, "$2b$12$KIXoRuQ5zGMVPLNNWqaT5OGqb0ZjU8emfJQQn5PxbWm94PdADk6Ou")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid email or password",
+                detail="Invalid email/mobile number or password",
             )
 
         if not verify_password(data.password, user.hashed_password):
@@ -65,7 +65,7 @@ class AuthService:
             logger.warning(f"[auth] Failed login attempt: {data.email}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid email or password",
+                detail="Invalid email/mobile number or password",
             )
 
         if user.status != UserStatus.ACTIVE:

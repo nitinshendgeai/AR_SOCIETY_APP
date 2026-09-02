@@ -88,6 +88,7 @@ class ComplaintOut(TimestampSchema):
     flat_id:          Optional[UUID]
     raised_by:        UUID
     assigned_to:      Optional[UUID]
+    assigned_to_name: Optional[str]      = None
     assigned_at:      Optional[datetime]
     resolved_at:      Optional[datetime]
     closed_at:        Optional[datetime]
@@ -110,5 +111,6 @@ class ComplaintListOut(TimestampSchema):
     society_id:       UUID
     raised_by:        UUID
     assigned_to:      Optional[UUID]
+    assigned_to_name: Optional[str]      = None
     resolved_at:      Optional[datetime]
     closed_at:        Optional[datetime]

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
@@ -73,7 +74,7 @@ class _WingFormScreenState extends ConsumerState<WingFormScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(structureFriendlyError(e)), backgroundColor: AppTheme.error));
+            content: Text(friendlyErrorMessage(e)), backgroundColor: AppTheme.error));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -85,7 +86,7 @@ class _WingFormScreenState extends ConsumerState<WingFormScreen> {
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(title: Text(_isEdit ? 'Edit Wing' : 'Add Wing')),
-      body: Form(
+      body: ResponsiveBody(child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -151,7 +152,7 @@ class _WingFormScreenState extends ConsumerState<WingFormScreen> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }

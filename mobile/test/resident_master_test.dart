@@ -19,6 +19,7 @@ import 'package:ar_society_app/features/resident_master/presentation/screens/ten
 import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_list_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/occupancy_action_sheets.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
+import 'package:ar_society_app/features/resident_master/presentation/widgets/vehicle_form_sheet.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/features/society_structure/presentation/screens/flat_form_screen.dart';
@@ -80,6 +81,22 @@ TenantModel _tenant({
       moveOutDate: moveOutDate,
     );
 
+VehicleModel _vehicle({
+  String id = 'veh-1',
+  String vehicleNumber = 'MH12AB1234',
+  String? residentId,
+  String? tenantId,
+}) =>
+    VehicleModel(
+      id: id,
+      societyId: 'soc-1',
+      flatId: 'flat-1',
+      residentId: residentId,
+      tenantId: tenantId,
+      vehicleNumber: vehicleNumber,
+      vehicleType: VehicleType.car,
+    );
+
 AgreementModel _agreement({
   String id = 'agr-1',
   String startDate = '2026-01-01',
@@ -108,9 +125,11 @@ class _FakeDataSource extends ResidentMasterRemoteDataSource {
   List<ResidentModel> residents = [];
   List<TenantModel> tenants = [];
   List<AgreementModel> agreements = [];
+  List<VehicleModel> vehicles = [];
   Object? throwOnCreateResident;
   Object? throwOnCreateTenant;
   Object? throwOnListAgreements;
+  Object? throwOnDeregisterVehicle;
 
   @override
   Future<List<ResidentModel>> listResidents({
@@ -163,7 +182,30 @@ class _FakeDataSource extends ResidentMasterRemoteDataSource {
   Future<List<OccupancyLogModel>> getFlatHistory(String flatId) async => [];
 
   @override
-  Future<List<VehicleModel>> vehiclesByFlat(String flatId) async => [];
+  Future<List<VehicleModel>> vehiclesByFlat(String flatId) async => vehicles;
+
+  @override
+  Future<VehicleModel> updateVehicle(String id, Map<String, dynamic> data) async {
+    final existing = vehicles.firstWhere((v) => v.id == id);
+    final updated = VehicleModel(
+      id: existing.id,
+      societyId: existing.societyId,
+      flatId: existing.flatId,
+      residentId: existing.residentId,
+      tenantId: existing.tenantId,
+      vehicleNumber: existing.vehicleNumber,
+      vehicleType: existing.vehicleType,
+      parkingSlot: data['parking_slot'] as String? ?? existing.parkingSlot,
+    );
+    vehicles = vehicles.map((v) => v.id == id ? updated : v).toList();
+    return updated;
+  }
+
+  @override
+  Future<void> deregisterVehicle(String id) async {
+    if (throwOnDeregisterVehicle != null) throw throwOnDeregisterVehicle!;
+    vehicles = vehicles.where((v) => v.id != id).toList();
+  }
 }
 
 Widget _wrap(Widget child, {UserEntity? user, List<Override> overrides = const []}) {
@@ -245,6 +287,37 @@ void main() {
 
     test('rmFormatDate falls back to raw string on parse failure', () {
       expect(rmFormatDate('not-a-date'), 'not-a-date');
+    });
+  });
+
+  group('rmPhoneValidator (certification gap: "abc123" previously accepted)', () {
+    test('accepts empty/null — phone remains optional', () {
+      expect(rmPhoneValidator(null), isNull);
+      expect(rmPhoneValidator(''), isNull);
+      expect(rmPhoneValidator('   '), isNull);
+    });
+
+    test('accepts a plain 10-digit mobile number starting with 6-9', () {
+      expect(rmPhoneValidator('9876543210'), isNull);
+      expect(rmPhoneValidator('6000000000'), isNull);
+    });
+
+    test('accepts a number with a +91/91/0 prefix or separators', () {
+      expect(rmPhoneValidator('+91 98765 43210'), isNull);
+      expect(rmPhoneValidator('919876543210'), isNull);
+      expect(rmPhoneValidator('09876543210'), isNull);
+      expect(rmPhoneValidator('98765-43210'), isNull);
+    });
+
+    test('rejects alphabetic characters', () {
+      expect(rmPhoneValidator('abc123'), isNotNull);
+      expect(rmPhoneValidator('98765abcde'), isNotNull);
+    });
+
+    test('rejects obviously malformed values', () {
+      expect(rmPhoneValidator('12345'), isNotNull); // too short
+      expect(rmPhoneValidator('12345678901'), isNotNull); // too long, no valid prefix
+      expect(rmPhoneValidator('1234567890'), isNotNull); // doesn't start 6-9
     });
   });
 
@@ -598,6 +671,116 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Resident moved in successfully'), findsOneWidget);
+    });
+  });
+
+  // ── Vehicle deactivation (certification gap: no delete/deactivate entry
+  // point previously existed in the Vehicle edit UI) ─────────────────────
+
+  group('Vehicle deactivation', () {
+    Widget wrapSheet(ResidentMasterRepository repo, {VehicleModel? vehicle}) {
+      return ProviderScope(
+        overrides: [
+          currentUserProvider.overrideWithValue(_adminUser()),
+          residentMasterRepositoryProvider.overrideWithValue(repo),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: Consumer(builder: (context, ref, _) => ElevatedButton(
+                  onPressed: () => showVehicleFormSheet(
+                    context, ref,
+                    flatId: 'flat-1', residentId: 'res-1', vehicle: vehicle,
+                  ),
+                  child: const Text('open sheet'),
+                )),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('edit sheet exposes a Deactivate Vehicle action with a confirmation dialog', (tester) async {
+      final ds = _FakeDataSource()..vehicles = [_vehicle(residentId: 'res-1')];
+      final repo = ResidentMasterRepository(ds: ds);
+
+      await tester.pumpWidget(wrapSheet(repo, vehicle: _vehicle(residentId: 'res-1')));
+      await tester.tap(find.text('open sheet'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Deactivate Vehicle'), findsOneWidget);
+      await tester.tap(find.text('Deactivate Vehicle'));
+      await tester.pumpAndSettle();
+
+      // Confirmation dialog explains the consequence before anything happens.
+      expect(find.text('Deactivate Vehicle?'), findsOneWidget);
+      expect(find.textContaining('cannot be undone'), findsOneWidget);
+      expect(ds.vehicles, hasLength(1)); // nothing removed yet
+    });
+
+    testWidgets('cancelling the confirmation leaves the vehicle untouched and the sheet open', (tester) async {
+      final ds = _FakeDataSource()..vehicles = [_vehicle(residentId: 'res-1')];
+      final repo = ResidentMasterRepository(ds: ds);
+
+      await tester.pumpWidget(wrapSheet(repo, vehicle: _vehicle(residentId: 'res-1')));
+      await tester.tap(find.text('open sheet'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Deactivate Vehicle'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      // Dialog is gone, sheet is still open, vehicle still present.
+      expect(find.text('Deactivate Vehicle?'), findsNothing);
+      expect(find.text('Edit Vehicle'), findsOneWidget);
+      expect(ds.vehicles, hasLength(1));
+    });
+
+    testWidgets('confirming deactivation removes the vehicle, closes the sheet, and shows success feedback',
+        (tester) async {
+      final ds = _FakeDataSource()..vehicles = [_vehicle(residentId: 'res-1')];
+      final repo = ResidentMasterRepository(ds: ds);
+
+      await tester.pumpWidget(wrapSheet(repo, vehicle: _vehicle(residentId: 'res-1')));
+      await tester.tap(find.text('open sheet'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Deactivate Vehicle'));
+      await tester.pumpAndSettle();
+      // Two "Deactivate"-labelled controls exist now (the sheet's own button,
+      // already tapped, plus the dialog's) — target the dialog's action.
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Deactivate'));
+      await tester.pump(); // dialog pop + async gap: notifier.remove() + sheet pop begins
+      // Deliberately NOT pumpAndSettle(): the success SnackBar's auto-dismiss
+      // timer schedules further frames, so pumpAndSettle would pump straight
+      // through its lifecycle. Instead, pump past the bottom sheet's ~250ms
+      // exit animation in bounded steps.
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(ds.vehicles, isEmpty); // provider state + backend agree — no stale vehicle
+      expect(find.text('Edit Vehicle'), findsNothing); // sheet closed
+      expect(find.textContaining('has been deactivated'), findsOneWidget);
+    });
+
+    testWidgets('a friendly message is shown, not a raw exception, when deactivation fails', (tester) async {
+      final ds = _FakeDataSource()
+        ..vehicles = [_vehicle(residentId: 'res-1')]
+        ..throwOnDeregisterVehicle = Exception('Access requires one of roles: Society Admin, ...');
+      final repo = ResidentMasterRepository(ds: ds);
+
+      await tester.pumpWidget(wrapSheet(repo, vehicle: _vehicle(residentId: 'res-1')));
+      await tester.tap(find.text('open sheet'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Deactivate Vehicle'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Deactivate'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('You do not have permission to view this.'), findsOneWidget);
+      expect(find.textContaining('Access requires one of roles'), findsNothing);
+      expect(find.text('Edit Vehicle'), findsOneWidget); // sheet stays open on failure
     });
   });
 

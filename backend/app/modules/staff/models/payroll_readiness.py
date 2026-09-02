@@ -115,6 +115,10 @@ class AttendanceCorrection(Base, TimestampMixin):
     requester  = relationship("User", foreign_keys=[requested_by])
     approver   = relationship("User", foreign_keys=[approved_by])
 
+    @property
+    def staff_name(self):
+        return self.staff.full_name if self.staff else None
+
     def __repr__(self):
         return f"<AttendanceCorrection staff={self.staff_id} date={self.correction_date} [{self.status}]>"
 
