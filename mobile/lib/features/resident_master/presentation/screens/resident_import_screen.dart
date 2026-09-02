@@ -65,6 +65,7 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
   String? _fileError;
   bool _importing = false;
   bool _done = false;
+  bool _pickingFile = false;
 
   bool get _hasValidRows => (_rows ?? []).any((r) => r.status == _RowStatus.valid);
 
@@ -126,6 +127,7 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
         AppPrimaryButton(
           label: 'Choose CSV File',
           icon: Icons.upload_file_rounded,
+          isLoading: _pickingFile,
           onPressed: _pickFile,
         ),
         if (_fileError != null) ...[
@@ -167,12 +169,21 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
     final picked = result?.files.single;
     if (picked == null) return;
 
+    setState(() => _pickingFile = true);
     try {
       final bytes = picked.path != null
           ? await File(picked.path!).readAsBytes()
           : picked.bytes!;
       final content = _decodeCsvBytes(bytes);
-      final rows = _parseAndValidate(content);
+
+      // Await the wing/flat reference data rather than reading whatever
+      // snapshot happens to be cached — a plain ref.read() here could race
+      // an in-flight (or not-yet-started) fetch and see an empty list,
+      // failing every row with a false "wing doesn't exist" error.
+      final wings = await ref.read(wingsProvider.future);
+      final flats = await ref.read(flatsBySocietyProvider.future);
+
+      final rows = _parseAndValidate(content, wings, flats);
       if (rows.isEmpty) {
         setState(() => _fileError = 'No data rows found in that file.');
         return;
@@ -180,6 +191,8 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
       setState(() => _rows = rows);
     } catch (e) {
       setState(() => _fileError = 'Could not read that file: $e');
+    } finally {
+      if (mounted) setState(() => _pickingFile = false);
     }
   }
 
@@ -204,7 +217,11 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
 
   // ── Parsing + validation ─────────────────────────────────────────────────
 
-  List<_ImportRow> _parseAndValidate(String csvString) {
+  List<_ImportRow> _parseAndValidate(
+    String csvString,
+    List<WingModel> wings,
+    List<FlatModel> flats,
+  ) {
     final table = const CsvToListConverter(shouldParseNumbers: false)
         .convert(csvString)
         .where((r) => r.any((c) => c.toString().trim().isNotEmpty))
@@ -218,9 +235,6 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
         table.first.isNotEmpty && table.first[0].toString().trim().toLowerCase() == 'wing'
             ? 1
             : 0;
-
-    final wings = ref.read(wingsProvider).valueOrNull ?? const <WingModel>[];
-    final flats = ref.read(flatsBySocietyProvider).valueOrNull ?? const <FlatModel>[];
 
     final result = <_ImportRow>[];
     for (var i = startIndex; i < table.length; i++) {
