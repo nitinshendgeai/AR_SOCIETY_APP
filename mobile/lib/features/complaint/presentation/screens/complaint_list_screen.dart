@@ -213,11 +213,17 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
+        onPressed: () async {
           final sid = (widget.societyId?.isNotEmpty == true)
               ? widget.societyId!
               : ref.read(currentUserProvider)?.societyId ?? '';
-          context.push('/complaints/create?societyId=$sid');
+          // CreateComplaintScreen pops with `true` on a successful submit —
+          // this screen isn't rebuilt by that pop (it's the same widget
+          // instance, not re-pushed), so without this the newly created
+          // complaint wouldn't appear until a manual pull-to-refresh.
+          final created =
+              await context.push<bool>('/complaints/create?societyId=$sid');
+          if (created == true) _load();
         },
         backgroundColor: AppTheme.primary,
         foregroundColor: Colors.white,
