@@ -82,8 +82,15 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
       floatingActionButton: widget.isMy
           ? null
           : FloatingActionButton.extended(
-              onPressed: () =>
-                  context.push('/visitors/create', extra: widget.societyId),
+              onPressed: () async {
+                // CreateVisitorScreen pops with `true` on a successful log —
+                // this screen isn't rebuilt by that pop (same widget
+                // instance), so without awaiting it the newly logged visitor
+                // wouldn't appear until a manual pull-to-refresh.
+                final logged = await context.push<bool>(
+                    '/visitors/create', extra: widget.societyId);
+                if (logged == true) _reload();
+              },
               backgroundColor: AppTheme.primary,
               foregroundColor: Colors.white,
               icon: const Icon(Icons.person_add_rounded),
