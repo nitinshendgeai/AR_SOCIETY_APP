@@ -19,7 +19,7 @@ import 'package:ar_society_app/features/society_structure/presentation/providers
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 const _templateHeader = [
-  'Wing', 'Floor', 'Flat Number', 'Full Name', 'Resident Type', 'Is Primary', 'Phone', 'Email',
+  'Wing', 'Flat Number', 'Full Name', 'Resident Type', 'Is Primary', 'Phone', 'Email', 'Floor',
 ];
 
 enum _RowStatus { valid, error, pending, created, failed }
@@ -146,7 +146,7 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
     try {
       final rows = [
         _templateHeader,
-        ['A Wing', '1', '101', 'Ramesh Kumar', 'owner', 'yes', '9876543210', 'ramesh@example.com'],
+        ['A Wing', '101', 'Ramesh Kumar', 'owner', 'yes', '9876543210', 'ramesh@example.com', '1'],
       ];
       final csvString = const ListToCsvConverter().convert(rows);
       final dir = await getTemporaryDirectory();
@@ -248,13 +248,16 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
       String cell(int idx) => idx < raw.length ? raw[idx] : '';
 
       final wingText = cell(0);
-      final floorText = cell(1);
-      final flatText = cell(2);
-      final fullName = cell(3);
-      final typeText = cell(4);
-      final primaryText = cell(5);
-      final phone = cell(6);
-      final email = cell(7);
+      final flatText = cell(1);
+      final fullName = cell(2);
+      final typeText = cell(3);
+      final primaryText = cell(4);
+      final phone = cell(5);
+      final email = cell(6);
+      // Trailing, optional column — appended rather than inserted so a CSV
+      // exported before Floor existed (just the original 7 columns) keeps
+      // parsing identically; a missing column 7 reads as ''.
+      final floorText = cell(7);
 
       String? error;
 
@@ -521,10 +524,10 @@ class _RowTile extends StatelessWidget {
       _RowStatus.created => (AppTheme.success, Icons.check_circle_rounded),
       _RowStatus.failed => (AppTheme.error, Icons.cancel_rounded),
     };
-    final name = row.raw.length > 3 && row.raw[3].isNotEmpty ? row.raw[3] : '(no name)';
+    final name = row.raw.length > 2 && row.raw[2].isNotEmpty ? row.raw[2] : '(no name)';
     final location = [
       if (row.raw.isNotEmpty) row.raw[0],
-      if (row.raw.length > 2) row.raw[2],
+      if (row.raw.length > 1) row.raw[1],
     ].where((s) => s.isNotEmpty).join(' — ');
 
     return Container(
