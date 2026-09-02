@@ -94,6 +94,7 @@ class AppRoutes {
   // Complaint routes
   static const complaints         = '/complaints';
   static const complaintsCreate   = '/complaints/create';
+  static const complaintsAssigned = '/complaints/assigned';
   static const complaintsDetail   = '/complaints/:complaintId';
   static const complaintsSociety  = '/complaints/society/:societyId';
   // Users & Roles
@@ -365,6 +366,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => CreateComplaintScreen(
           societyId: state.uri.queryParameters['societyId'] ?? '',
         ),
+      ),
+      GoRoute(
+        path: AppRoutes.complaintsAssigned,
+        builder: (_, __) =>
+            const ComplaintListScreen(isMy: false, assignedToMe: true),
       ),
       GoRoute(
         path: AppRoutes.complaintsSociety,

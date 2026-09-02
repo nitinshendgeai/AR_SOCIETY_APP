@@ -60,6 +60,20 @@ class ComplaintRemoteDataSource {
         .toList();
   }
 
+  /// GET /complaints/me/assigned?skip&limit
+  Future<List<ComplaintListModel>> listAssignedToMe({
+    int skip = 0,
+    int limit = 50,
+  }) async {
+    final r = await _dio.get(
+      '/complaints/me/assigned',
+      queryParameters: {'skip': skip, 'limit': limit},
+    );
+    return (r.data as List)
+        .map((e) => ComplaintListModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   // ── Actions ────────────────────────────────────────────────────────────────
 
   /// POST /complaints/{id}/assign

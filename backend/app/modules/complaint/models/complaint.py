@@ -94,6 +94,10 @@ class Complaint(Base, TimestampMixin):
     attachments    = relationship("ComplaintAttachment", back_populates="complaint", cascade="all, delete-orphan")
     status_history = relationship("ComplaintStatusHistory", back_populates="complaint", cascade="all, delete-orphan", order_by="ComplaintStatusHistory.created_at")
 
+    @property
+    def assigned_to_name(self):
+        return self.assignee.full_name if self.assignee else None
+
     def __repr__(self):
         return f"<Complaint #{self.complaint_number} [{self.status}]>"
 

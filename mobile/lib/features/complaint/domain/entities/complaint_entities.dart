@@ -78,9 +78,13 @@ enum ComplaintStatus {
     }
   }
 
-  /// Whether the Assign flow is offered for this status (OPEN and REOPENED
-  /// both allow a transition to ASSIGNED per VALID_TRANSITIONS).
-  bool get canAssign => this == ComplaintStatus.open || this == ComplaintStatus.reopened;
+  /// Whether the Assign flow is offered for this status. OPEN and REOPENED
+  /// transition to ASSIGNED per VALID_TRANSITIONS; ASSIGNED is also included
+  /// so a Manager can reassign an already-assigned complaint to staff.
+  bool get canAssign =>
+      this == ComplaintStatus.open ||
+      this == ComplaintStatus.reopened ||
+      this == ComplaintStatus.assigned;
 
   /// Whether Reopen is offered — only a RESOLVED complaint can be reopened.
   bool get canReopen => this == ComplaintStatus.resolved;
@@ -196,6 +200,7 @@ class ComplaintListEntity {
   final String societyId;
   final String raisedBy;
   final String? assignedTo;
+  final String? assignedToName;
   final DateTime? resolvedAt;
   final DateTime? closedAt;
   final DateTime createdAt;
@@ -210,6 +215,7 @@ class ComplaintListEntity {
     required this.societyId,
     required this.raisedBy,
     this.assignedTo,
+    this.assignedToName,
     this.resolvedAt,
     this.closedAt,
     required this.createdAt,
@@ -230,6 +236,7 @@ class ComplaintEntity {
   final String? flatId;
   final String raisedBy;
   final String? assignedTo;
+  final String? assignedToName;
   final DateTime? resolvedAt;
   final DateTime? closedAt;
   final DateTime? dueDate;
@@ -251,6 +258,7 @@ class ComplaintEntity {
     this.flatId,
     required this.raisedBy,
     this.assignedTo,
+    this.assignedToName,
     this.resolvedAt,
     this.closedAt,
     this.dueDate,

@@ -289,6 +289,60 @@ def test_list_my_complaints(client, db):
     assert len(r.json()) >= 2
 
 
+# ── FMC Manager auto-assignment ──────────────────────────────────────────────
+
+def test_auto_assign_to_fmc_manager_on_create(client, db):
+    resident = make_user(db, "res6@cmp.com", role="Resident")
+    society  = make_society(db, "Complaint Society 15")
+    manager  = make_user(db, "mgr1@cmp.com", role="Manager")
+    manager["user"].society_id = society.id
+    db.commit()
+
+    r = client.post("/api/v1/complaints/",
+                    json=_complaint_payload(society.id),
+                    headers=resident["headers"])
+    assert r.status_code == 201
+    data = r.json()
+    assert data["status"] == "assigned"
+    assert data["assigned_to"] == str(manager["user"].id)
+    assert data["assigned_to_name"] == manager["user"].full_name
+
+
+def test_manager_can_reassign_to_staff(client, db):
+    resident = make_user(db, "res7@cmp.com", role="Resident")
+    society  = make_society(db, "Complaint Society 16")
+    manager  = make_user(db, "mgr2@cmp.com", role="Manager")
+    manager["user"].society_id = society.id
+    db.commit()
+    staff = make_user(db, "stf7@cmp.com", role="Security Staff")
+
+    r = client.post("/api/v1/complaints/",
+                    json=_complaint_payload(society.id),
+                    headers=resident["headers"])
+    cid = r.json()["id"]
+    assert r.json()["assigned_to"] == str(manager["user"].id)
+
+    r2 = client.post(f"/api/v1/complaints/{cid}/assign",
+                     json={"assigned_to": str(staff["user"].id), "notes": "Handle this"},
+                     headers=manager["headers"])
+    assert r2.status_code == 200
+    data = r2.json()
+    assert data["status"] == "assigned"
+    assert data["assigned_to"] == str(staff["user"].id)
+
+
+def test_no_auto_assign_when_no_manager_in_society(client, db):
+    resident = make_user(db, "res8@cmp.com", role="Resident")
+    society  = make_society(db, "Complaint Society 17")
+
+    r = client.post("/api/v1/complaints/",
+                    json=_complaint_payload(society.id),
+                    headers=resident["headers"])
+    assert r.status_code == 201
+    assert r.json()["status"] == "open"
+    assert r.json()["assigned_to"] is None
+
+
 def test_reject_complaint(client, db):
     admin   = make_user(db, "adm9@cmp.com", role="Society Admin")
     society = make_society(db, "Complaint Society 14")

@@ -43,6 +43,8 @@ class UserEntity {
   bool get isStaff => roles.contains(AppConstants.roleStaff) ||
       roles.any((r) => r.contains('Staff') || r.contains('Supervisor'));
 
+  bool get isManager => roles.contains(AppConstants.roleManager);
+
   bool get isAdminOrCommittee => isAdmin || isCommittee;
 
   /// Returns the primary role for routing decisions.

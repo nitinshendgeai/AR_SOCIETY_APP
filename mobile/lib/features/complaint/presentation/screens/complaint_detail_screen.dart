@@ -177,7 +177,7 @@ class _ComplaintDetailScreenState
       // resident opening this screen never fires a 403 in the background.
       final user = ref.read(currentUserProvider);
       final societyId = user?.societyId;
-      if (societyId != null && (user!.isAdminOrCommittee)) {
+      if (societyId != null && (user!.isAdminOrCommittee || user.isManager)) {
         ref.read(staffListProvider.notifier).load(societyId);
       }
     });
@@ -373,7 +373,7 @@ class _ComplaintDetailScreenState
                         InfoRow(
                           icon: Icons.assignment_ind_outlined,
                           label: 'Assigned to',
-                          value: complaint.assignedTo!,
+                          value: complaint.assignedToName ?? complaint.assignedTo!,
                         ),
                       InfoRow(
                         icon: Icons.calendar_today_rounded,
@@ -517,13 +517,14 @@ class _ActionsBar extends ConsumerWidget {
     if (user == null) return const SizedBox.shrink();
 
     final canManageStatus = user.isAdminOrCommittee || user.isStaff || user.isSecurity;
-    final canAssign = user.isAdminOrCommittee && complaint.status.canAssign;
+    final canAssign = (user.isAdminOrCommittee || user.isManager) && complaint.status.canAssign;
+    final isReassign = complaint.status == ComplaintStatus.assigned;
     final canReopen = complaint.status.canReopen;
 
     final buttons = <Widget>[
       if (canAssign)
         _ActionChip(
-          label: 'Assign',
+          label: isReassign ? 'Reassign' : 'Assign',
           icon: Icons.assignment_ind_rounded,
           color: AppTheme.secondary,
           onTap: () => _openAssignSheet(context, ref, complaint),
@@ -758,6 +759,7 @@ class _AssignSheetBodyState extends ConsumerState<_AssignSheetBody> {
     final assignable = staffState is StaffListLoaded
         ? staffState.staff.where((s) => s.userId != null).toList()
         : <StaffEntity>[];
+    final isReassign = widget.complaint.status == ComplaintStatus.assigned;
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -779,8 +781,15 @@ class _AssignSheetBodyState extends ConsumerState<_AssignSheetBody> {
                       color: AppTheme.border, borderRadius: BorderRadius.circular(2)),
                 ),
               ),
-              const Text('Assign Complaint',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+              Text(isReassign ? 'Reassign Complaint' : 'Assign Complaint',
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+              if (isReassign && widget.complaint.assignedToName != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Currently with ${widget.complaint.assignedToName}',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                ),
+              ],
               const SizedBox(height: 16),
               if (staffState is StaffListLoading)
                 const Padding(
@@ -830,7 +839,7 @@ class _AssignSheetBodyState extends ConsumerState<_AssignSheetBody> {
               ),
               const SizedBox(height: 20),
               AppPrimaryButton(
-                label: 'Assign',
+                label: isReassign ? 'Reassign' : 'Assign',
                 isLoading: _submitting,
                 onPressed:
                     (_selectedUserId == null || _submitting) ? null : _submit,

@@ -1001,6 +1001,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
               label: 'Open Complaints',
               value: openComplaints,
               color: openComplaints != '0' && openComplaints != '--' ? AppTheme.error : AppTheme.success,
+              onTap: () => context.push(AppRoutes.complaintsAssigned),
             ),
             _SummaryCard(
               icon: Icons.assignment_late_rounded,
@@ -1050,7 +1051,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
                 : null,
           ),
           const SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: AppRoutes.complaints),
+          _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: AppRoutes.complaintsAssigned),
         ]),
         const SizedBox(height: 18),
         _StatusBar(user: user),

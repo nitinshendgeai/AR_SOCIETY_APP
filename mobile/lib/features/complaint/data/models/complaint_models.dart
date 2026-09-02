@@ -53,6 +53,7 @@ class ComplaintModel {
   final String? flatId;
   final String raisedBy;
   final String? assignedTo;
+  final String? assignedToName;
   final String? resolvedAt;
   final String? closedAt;
   final String? dueDate;
@@ -74,6 +75,7 @@ class ComplaintModel {
     this.flatId,
     required this.raisedBy,
     this.assignedTo,
+    this.assignedToName,
     this.resolvedAt,
     this.closedAt,
     this.dueDate,
@@ -96,6 +98,7 @@ class ComplaintModel {
         flatId: j['flat_id'] as String?,
         raisedBy: j['raised_by'] as String,
         assignedTo: j['assigned_to'] as String?,
+        assignedToName: j['assigned_to_name'] as String?,
         resolvedAt: j['resolved_at'] as String?,
         closedAt: j['closed_at'] as String?,
         dueDate: j['due_date'] as String?,
@@ -121,6 +124,7 @@ class ComplaintModel {
         flatId: flatId,
         raisedBy: raisedBy,
         assignedTo: assignedTo,
+        assignedToName: assignedToName,
         resolvedAt: resolvedAt != null ? DateTime.tryParse(resolvedAt!) : null,
         closedAt: closedAt != null ? DateTime.tryParse(closedAt!) : null,
         dueDate: dueDate != null ? DateTime.tryParse(dueDate!) : null,
@@ -144,6 +148,7 @@ class ComplaintListModel {
   final String societyId;
   final String raisedBy;
   final String? assignedTo;
+  final String? assignedToName;
   final String? resolvedAt;
   final String? closedAt;
   final String createdAt;
@@ -158,6 +163,7 @@ class ComplaintListModel {
     required this.societyId,
     required this.raisedBy,
     this.assignedTo,
+    this.assignedToName,
     this.resolvedAt,
     this.closedAt,
     required this.createdAt,
@@ -174,6 +180,7 @@ class ComplaintListModel {
         societyId: j['society_id'] as String,
         raisedBy: j['raised_by'] as String,
         assignedTo: j['assigned_to'] as String?,
+        assignedToName: j['assigned_to_name'] as String?,
         resolvedAt: j['resolved_at'] as String?,
         closedAt: j['closed_at'] as String?,
         createdAt: j['created_at'] as String,
@@ -189,6 +196,7 @@ class ComplaintListModel {
         societyId: societyId,
         raisedBy: raisedBy,
         assignedTo: assignedTo,
+        assignedToName: assignedToName,
         resolvedAt: resolvedAt != null ? DateTime.tryParse(resolvedAt!) : null,
         closedAt: closedAt != null ? DateTime.tryParse(closedAt!) : null,
         createdAt: DateTime.parse(createdAt),

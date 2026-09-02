@@ -53,6 +53,17 @@ class ComplaintListNotifier extends StateNotifier<ComplaintListState> {
         state = ComplaintListError(message);
     }
   }
+
+  Future<void> loadAssignedToMe() async {
+    state = ComplaintListLoading();
+    final result = await _repo.listAssignedToMe();
+    switch (result) {
+      case ComplaintSuccess(:final data):
+        state = ComplaintListLoaded(data);
+      case ComplaintFailure(:final message):
+        state = ComplaintListError(message);
+    }
+  }
 }
 
 final complaintListProvider =

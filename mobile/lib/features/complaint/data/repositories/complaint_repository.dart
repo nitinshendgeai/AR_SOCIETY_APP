@@ -83,6 +83,15 @@ class ComplaintRepository {
     }
   }
 
+  Future<ComplaintResult<List<ComplaintListEntity>>> listAssignedToMe() async {
+    try {
+      final list = await _ds.listAssignedToMe();
+      return ComplaintSuccess(list.map((m) => m.toEntity()).toList());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
   Future<ComplaintResult<int>> openComplaintsCount(String societyId) async {
     try {
       final list = await _ds.listOpenComplaints(societyId);
