@@ -185,6 +185,13 @@ class StaffRepository {
     } catch (e) { return _handle(e); }
   }
 
+  Future<StaffResult<DutyEntity>> verifyDuty(String dutyId, {String? notes}) async {
+    try {
+      final m = await _ds.verifyDuty(dutyId, notes: notes);
+      return StaffSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
   Future<StaffResult<DutyEntity>> assignDuty({
     required String staffId,
     required String societyId,

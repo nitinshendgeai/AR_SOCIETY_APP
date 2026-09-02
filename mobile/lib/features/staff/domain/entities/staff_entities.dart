@@ -194,6 +194,8 @@ class DutyEntity {
   final bool isCompleted;
   final bool isRecurring;
   final DateTime? completedAt;
+  final String? verifiedBy;
+  final DateTime? verifiedAt;
   final String? notes;
 
   const DutyEntity({
@@ -209,8 +211,15 @@ class DutyEntity {
     required this.isCompleted,
     this.isRecurring = false,
     this.completedAt,
+    this.verifiedBy,
+    this.verifiedAt,
     this.notes,
   });
+
+  /// Completed but not yet verified by a supervisor — see
+  /// StaffService.verify_duty() on the backend.
+  bool get isVerified => verifiedAt != null;
+  bool get needsVerification => isCompleted && !isVerified;
 }
 
 // ── Handover status ───────────────────────────────────────────────────────────

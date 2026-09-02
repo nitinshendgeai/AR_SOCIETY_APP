@@ -243,6 +243,8 @@ class DutyModel {
   final bool isCompleted;
   final bool isRecurring;
   final String? completedAt;
+  final String? verifiedBy;
+  final String? verifiedAt;
   final String? notes;
 
   const DutyModel({
@@ -258,6 +260,8 @@ class DutyModel {
     required this.isCompleted,
     this.isRecurring = false,
     this.completedAt,
+    this.verifiedBy,
+    this.verifiedAt,
     this.notes,
   });
 
@@ -274,6 +278,8 @@ class DutyModel {
         isCompleted: j['is_completed'] as bool? ?? false,
         isRecurring: j['is_recurring'] as bool? ?? false,
         completedAt: j['completed_at'] as String?,
+        verifiedBy: j['verified_by'] as String?,
+        verifiedAt: j['verified_at'] as String?,
         notes: j['notes'] as String?,
       );
 
@@ -284,6 +290,8 @@ class DutyModel {
         startTime: startTime, endTime: endTime,
         isCompleted: isCompleted, isRecurring: isRecurring,
         completedAt: completedAt != null ? DateTime.tryParse(completedAt!) : null,
+        verifiedBy: verifiedBy,
+        verifiedAt: verifiedAt != null ? DateTime.tryParse(verifiedAt!) : null,
         notes: notes,
       );
 }

@@ -305,31 +305,41 @@ class _SummaryCard extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
+  final VoidCallback? onTap;
 
-  const _SummaryCard({required this.icon, required this.label, required this.value, required this.color});
+  const _SummaryCard({
+    required this.icon, required this.label, required this.value, required this.color, this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.cardBg,
+    return Material(
+      color: AppTheme.cardBg,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Container(width: 36, height: 36, decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: color, size: 18)),
-            const Spacer(),
-            Icon(Icons.trending_up_rounded, color: color.withOpacity(0.8), size: 14),
-          ]),
-          const SizedBox(height: 10),
-          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-          const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-        ],
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Container(width: 36, height: 36, decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: color, size: 18)),
+                const Spacer(),
+                Icon(onTap != null ? Icons.chevron_right_rounded : Icons.trending_up_rounded, color: color.withOpacity(0.8), size: 14),
+              ]),
+              const SizedBox(height: 10),
+              Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+              const SizedBox(height: 2),
+              Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -997,6 +1007,9 @@ class ManagerDashboardScreen extends ConsumerWidget {
               label: 'Duty Queue',
               value: dutiesAsync.isLoading ? '--' : '$pendingDuties',
               color: pendingDuties > 0 ? AppTheme.warning : AppTheme.success,
+              onTap: societyId != null
+                  ? () => context.push(AppRoutes.staffDutyOverview, extra: societyId)
+                  : null,
             ),
           ],
         ),
@@ -1122,12 +1135,18 @@ class SupervisorDashboardScreen extends ConsumerWidget {
               label: 'Duties Pending',
               value: dutiesAsync.isLoading ? '--' : '$pendingDuties',
               color: pendingDuties > 0 ? AppTheme.warning : AppTheme.success,
+              onTap: societyId != null
+                  ? () => context.push(AppRoutes.staffDutyOverview, extra: societyId)
+                  : null,
             ),
             _SummaryCard(
               icon: Icons.assignment_turned_in_rounded,
               label: 'Duties Done',
               value: dutiesAsync.isLoading ? '--' : '$completedDuties',
               color: AppTheme.success,
+              onTap: societyId != null
+                  ? () => context.push(AppRoutes.staffDutyOverview, extra: societyId)
+                  : null,
             ),
           ],
         ),

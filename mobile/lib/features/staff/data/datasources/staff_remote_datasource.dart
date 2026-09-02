@@ -260,6 +260,15 @@ class StaffRemoteDataSource {
     return DutyModel.fromJson(r.data as Map<String, dynamic>);
   }
 
+  /// POST /staff/duties/{duty_id}/verify
+  Future<DutyModel> verifyDuty(String dutyId, {String? notes}) async {
+    final r = await _dio.post(
+      '/staff/duties/$dutyId/verify',
+      data: {if (notes != null) 'notes': notes},
+    );
+    return DutyModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
   // ── Handovers ──────────────────────────────────────────────────────────────
 
   /// POST /handovers/

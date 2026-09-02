@@ -496,3 +496,56 @@ final societyDutiesProvider = FutureProvider.family<List<DutyEntity>, String>(
     };
   },
 );
+
+// ── Duty overview (supervisor screen — date-navigable, drives Verify) ────────
+//
+// Separate from societyDutiesProvider above (which only ever shows today, for
+// the dashboard's summary counts): this backs a real screen where a
+// supervisor picks a date and verifies completed duties, so it needs its own
+// mutable state rather than a FutureProvider.family keyed only by society.
+
+sealed class DutyOverviewState {}
+class DutyOverviewInitial extends DutyOverviewState {}
+class DutyOverviewLoading extends DutyOverviewState {}
+class DutyOverviewLoaded extends DutyOverviewState {
+  final List<DutyEntity> duties;
+  DutyOverviewLoaded(this.duties);
+}
+class DutyOverviewError extends DutyOverviewState {
+  final String message;
+  DutyOverviewError(this.message);
+}
+
+class DutyOverviewNotifier extends StateNotifier<DutyOverviewState> {
+  final StaffRepository _repo;
+  DutyOverviewNotifier(this._repo) : super(DutyOverviewInitial());
+
+  Future<void> load(String societyId, String dateStr) async {
+    state = DutyOverviewLoading();
+    final result = await _repo.getDailyDuties(societyId, dateStr);
+    switch (result) {
+      case StaffSuccess(:final data): state = DutyOverviewLoaded(data);
+      case StaffFailure(:final message): state = DutyOverviewError(message);
+    }
+  }
+
+  Future<void> verify(
+    String dutyId, {
+    required String societyId,
+    required String dateStr,
+    String? notes,
+  }) async {
+    final result = await _repo.verifyDuty(dutyId, notes: notes);
+    switch (result) {
+      case StaffSuccess():
+        await load(societyId, dateStr);
+      case StaffFailure(:final message):
+        state = DutyOverviewError(message);
+    }
+  }
+}
+
+final dutyOverviewProvider =
+    StateNotifierProvider<DutyOverviewNotifier, DutyOverviewState>((ref) {
+  return DutyOverviewNotifier(ref.read(staffRepositoryProvider));
+});
