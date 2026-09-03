@@ -285,15 +285,18 @@ class _ComplaintDetailScreenState
                     children: [
                       Row(
                         children: [
-                          Text(
-                            '#${complaint.complaintNumber}',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.primary,
+                          Expanded(
+                            child: Text(
+                              _numberWithFlat(complaint),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.primary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const Spacer(),
+                          const SizedBox(width: 8),
                           _StatusBadge(complaint.status),
                         ],
                       ),
@@ -559,6 +562,14 @@ class _ActionsBar extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _numberWithFlat(ComplaintEntity c) {
+  final flat = [
+    if (c.wingName != null) c.wingName,
+    if (c.flatNumber != null) c.flatNumber,
+  ].join(' — ');
+  return flat.isEmpty ? '#${c.complaintNumber}' : '#${c.complaintNumber} · $flat';
 }
 
 String _statusActionLabel(ComplaintStatus target) {
