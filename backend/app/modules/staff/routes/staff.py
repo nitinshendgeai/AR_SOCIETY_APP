@@ -178,11 +178,10 @@ def manual_attendance(data: AttendanceManualEntry, db: Session = Depends(get_db)
                       user: User = Depends(get_current_user)):
     return StaffService(db).manual_attendance(data, user)
 
-@router.get("/attendance/{staff_id}", response_model=List[AttendanceOut],
-            dependencies=[Depends(any_staff)])
+@router.get("/attendance/{staff_id}", response_model=List[AttendanceOut])
 def get_attendance(staff_id: UUID, skip: int = 0, limit: int = 50,
-                   db: Session = Depends(get_db)):
-    return StaffService(db).get_attendance(staff_id, skip, limit)
+                   db: Session = Depends(get_db), user: User = Depends(any_staff)):
+    return StaffService(db).get_attendance(staff_id, user, skip, limit)
 
 @router.get("/attendance/daily/{society_id}", response_model=List[AttendanceOut],
             dependencies=[Depends(admin_or_committee)])
