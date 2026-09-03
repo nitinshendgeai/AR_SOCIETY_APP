@@ -20,6 +20,7 @@ import 'package:ar_society_app/features/staff/presentation/screens/staff_list_sc
 import 'package:ar_society_app/features/staff/presentation/screens/staff_add_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_import_screen.dart';
 import 'package:ar_society_app/features/parking/presentation/screens/gate_check_screen.dart';
+import 'package:ar_society_app/features/parking/presentation/screens/parking_management_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_detail_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_edit_screen.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
@@ -86,6 +87,7 @@ class AppRoutes {
   static const staffAdd           = '/staff/add';
   static const staffImport        = '/staff/import';
   static const parkingGateCheck   = '/parking/gate-check';
+  static const parkingManagement  = '/parking/management';
   static const staffDetail        = '/staff/:staffId/detail';
   static const staffEdit          = '/staff/:staffId/edit';
   static const managerHome        = '/manager';
@@ -272,6 +274,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.parkingGateCheck,
         builder: (_, __) => const GateCheckScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.parkingManagement,
+        redirect: (_, __) {
+          if (authState is AuthAuthenticated) {
+            final user = (authState as AuthAuthenticated).user;
+            if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
+          }
+          return null;
+        },
+        builder: (_, __) => const ParkingManagementScreen(),
       ),
       GoRoute(
         path: AppRoutes.staffAssignDuty,

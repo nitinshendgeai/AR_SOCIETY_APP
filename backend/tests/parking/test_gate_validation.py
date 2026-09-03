@@ -46,11 +46,12 @@ def _validate(client, guard_headers, society_id, vehicle_number):
     )
 
 
-# 1. Registered resident vehicle → authorized, category resident, flat/owner details
-def test_resident_vehicle_authorized(client, db, rig):
+# 1. Registered resident vehicle WITH allotted parking → authorized, category resident, flat/owner/slot details
+def test_resident_vehicle_with_allotment_authorized(client, db, rig):
     client.post("/api/v1/vehicles/", json={
         "society_id": str(rig["society"].id), "flat_id": str(rig["flat"].id),
         "resident_id": str(rig["resident"].id), "vehicle_number": "MH12BB0001",
+        "parking_slot": "P-101",
     }, headers=rig["admin"]["headers"])
 
     r = _validate(client, rig["guard"]["headers"], rig["society"].id, "MH12BB0001")
@@ -61,13 +62,15 @@ def test_resident_vehicle_authorized(client, db, rig):
     assert body["flat_number"] == "G-101"
     assert body["wing_name"] == "Wing G"
     assert body["owner_name"] == "Gate Resident"
+    assert body["parking_slot"] == "P-101"
 
 
-# 2. Registered tenant vehicle → category tenant
-def test_tenant_vehicle_authorized(client, db, rig):
+# 2. Registered tenant vehicle WITH allotted parking → category tenant
+def test_tenant_vehicle_with_allotment_authorized(client, db, rig):
     client.post("/api/v1/vehicles/", json={
         "society_id": str(rig["society"].id), "flat_id": str(rig["flat"].id),
         "tenant_id": str(rig["tenant"].id), "vehicle_number": "MH12BB0002",
+        "parking_slot": "P-102",
     }, headers=rig["admin"]["headers"])
 
     r = _validate(client, rig["guard"]["headers"], rig["society"].id, "MH12BB0002")
@@ -83,12 +86,64 @@ def test_lookup_normalizes_vehicle_number(client, db, rig):
     client.post("/api/v1/vehicles/", json={
         "society_id": str(rig["society"].id), "flat_id": str(rig["flat"].id),
         "resident_id": str(rig["resident"].id), "vehicle_number": "MH12BB0003",
+        "parking_slot": "P-103",
     }, headers=rig["admin"]["headers"])
 
     r = _validate(client, rig["guard"]["headers"], rig["society"].id, "mh12-bb 0003")
     assert r.status_code == 200, r.text
     assert r.json()["authorized"] is True
     assert r.json()["vehicle_number"] == "MH12BB0003"
+
+
+# 3b. Registered vehicle WITHOUT any allotted/rented parking → not authorized,
+#     even though it belongs to a known resident — a household's un-allotted
+#     second car should be flagged, not waved through.
+def test_registered_vehicle_without_allotment_not_authorized(client, db, rig):
+    client.post("/api/v1/vehicles/", json={
+        "society_id": str(rig["society"].id), "flat_id": str(rig["flat"].id),
+        "resident_id": str(rig["resident"].id), "vehicle_number": "MH12BB0009",
+    }, headers=rig["admin"]["headers"])
+
+    r = _validate(client, rig["guard"]["headers"], rig["society"].id, "MH12BB0009")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["authorized"] is False
+    assert body["category"] == "resident"
+    assert body["owner_name"] == "Gate Resident"
+    assert body["parking_slot"] is None
+
+
+# 3c. A formal ParkingAllocation (no Vehicle.parking_slot set directly) also
+#     counts as "allotted" — the two mechanisms are equivalent.
+def test_active_allocation_counts_as_allotted(client, db, rig):
+    vr = client.post("/api/v1/vehicles/", json={
+        "society_id": str(rig["society"].id), "flat_id": str(rig["flat"].id),
+        "resident_id": str(rig["resident"].id), "vehicle_number": "MH12BB0010",
+    }, headers=rig["admin"]["headers"])
+    vehicle_id = vr.json()["id"]
+
+    zr = client.post("/api/v1/parking/zones", json={
+        "society_id": str(rig["society"].id), "name": "Zone G",
+    }, headers=rig["admin"]["headers"])
+    zone_id = zr.json()["id"]
+    sr = client.post("/api/v1/parking/slots", json={
+        "society_id": str(rig["society"].id), "zone_id": zone_id, "slot_number": "G-P1",
+    }, headers=rig["admin"]["headers"])
+    slot_id = sr.json()["id"]
+
+    from datetime import date
+    ar = client.post("/api/v1/parking/allocations", json={
+        "society_id": str(rig["society"].id), "slot_id": slot_id,
+        "flat_id": str(rig["flat"].id), "vehicle_id": vehicle_id,
+        "allocation_type": "resident", "start_date": str(date.today()),
+    }, headers=rig["admin"]["headers"])
+    assert ar.status_code == 201, ar.text
+
+    r = _validate(client, rig["guard"]["headers"], rig["society"].id, "MH12BB0010")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["authorized"] is True
+    assert body["parking_slot"] == "G-P1"
 
 
 # 4. Active visitor parking vehicle → authorized, category visitor
@@ -140,9 +195,10 @@ def test_access_log_derives_authorization_serverside(client, db, rig):
     client.post("/api/v1/vehicles/", json={
         "society_id": str(rig["society"].id), "flat_id": str(rig["flat"].id),
         "resident_id": str(rig["resident"].id), "vehicle_number": "MH12BB0005",
+        "parking_slot": "P-105",
     }, headers=rig["admin"]["headers"])
 
-    # Registered vehicle -> log should be authorized
+    # Registered vehicle with allotted parking -> log should be authorized
     r1 = client.post("/api/v1/parking/access-log", json={
         "society_id": str(rig["society"].id),
         "vehicle_number": "MH12BB0005",
@@ -161,3 +217,19 @@ def test_access_log_derives_authorization_serverside(client, db, rig):
     }, headers=rig["guard"]["headers"])
     assert r2.status_code == 201, r2.text
     assert r2.json()["is_authorized"] is False
+
+
+# Registered vehicle with NO allotted parking -> log should be unauthorized too.
+def test_access_log_unauthorized_when_no_allotment(client, db, rig):
+    client.post("/api/v1/vehicles/", json={
+        "society_id": str(rig["society"].id), "flat_id": str(rig["flat"].id),
+        "resident_id": str(rig["resident"].id), "vehicle_number": "MH12BB0011",
+    }, headers=rig["admin"]["headers"])
+
+    r = client.post("/api/v1/parking/access-log", json={
+        "society_id": str(rig["society"].id),
+        "vehicle_number": "MH12BB0011",
+        "access_type": "entry",
+    }, headers=rig["guard"]["headers"])
+    assert r.status_code == 201, r.text
+    assert r.json()["is_authorized"] is False

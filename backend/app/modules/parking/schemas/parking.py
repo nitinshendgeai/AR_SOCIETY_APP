@@ -66,6 +66,10 @@ class AllocationOut(TimestampSchema):
     vehicle_id: Optional[UUID]; allocation_type: SlotType
     status: AllocationStatus; start_date: date; end_date: Optional[date]
     monthly_charge: Optional[int]; released_at: Optional[datetime]
+    slot_number: Optional[str] = None
+    vehicle_number: Optional[str] = None
+    flat_number: Optional[str] = None
+    wing_name: Optional[str] = None
 
 
 class VisitorParkingCreate(OrmBase):

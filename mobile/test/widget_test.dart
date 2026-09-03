@@ -183,6 +183,23 @@ void main() {
     Finder inDrawer(String label) =>
         find.descendant(of: find.byType(Drawer), matching: find.text(label));
 
+    // The drawer's menu ListView only lazily builds items within its
+    // viewport — for a role with enough items that the list doesn't fit
+    // on screen without scrolling (Admin/Committee, once Parking
+    // Management joined the menu), a plain findsOneWidget on a later item
+    // sees nothing built yet. Scroll forward until each label appears;
+    // since callers check labels in the order they appear top-to-bottom,
+    // scrolling only ever moves forward and never has to re-find an
+    // earlier, now off-screen, item.
+    Future<void> expectVisibleInDrawer(WidgetTester tester, String label) async {
+      await tester.dragUntilVisible(
+        inDrawer(label),
+        find.descendant(of: find.byType(Drawer), matching: find.byType(ListView)),
+        const Offset(0, -60),
+      );
+      expect(inDrawer(label), findsOneWidget, reason: '$label should be visible in the drawer');
+    }
+
     testWidgets('Society Admin sees the full administrative menu', (tester) async {
       await tester.pumpWidget(_wrapWithUser(const AdminDashboardScreen(), _makeUser(role: 'Society Admin')));
       await tester.pump();
@@ -190,9 +207,9 @@ void main() {
 
       for (final label in [
         'Residents', 'Tenants', 'Users & Roles', 'Society Settings',
-        'Visitors', 'Complaints', 'Staff', 'Setup Wizard',
+        'Visitors', 'Complaints', 'Staff', 'Parking Management', 'Setup Wizard',
       ]) {
-        expect(inDrawer(label), findsOneWidget, reason: '$label should be visible to Society Admin');
+        await expectVisibleInDrawer(tester, label);
       }
     });
 
@@ -201,8 +218,11 @@ void main() {
       await tester.pump();
       await openDrawer(tester);
 
-      for (final label in ['Residents', 'Tenants', 'Society Settings', 'Visitors', 'Complaints', 'Staff', 'Setup Wizard']) {
-        expect(inDrawer(label), findsOneWidget, reason: '$label should be visible to Committee');
+      for (final label in [
+        'Residents', 'Tenants', 'Society Settings', 'Visitors', 'Complaints',
+        'Staff', 'Parking Management', 'Setup Wizard',
+      ]) {
+        await expectVisibleInDrawer(tester, label);
       }
       expect(inDrawer('Users & Roles'), findsNothing);
     });
