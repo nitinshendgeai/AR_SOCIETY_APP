@@ -298,9 +298,20 @@ class _PeopleRow extends StatelessWidget {
           Icon(icon, size: 16, color: AppTheme.textSecondary),
           const SizedBox(width: 10),
           Expanded(
+            flex: 2,
             child: Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           ),
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+            ),
+          ),
           if (onTap != null) ...[
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right_rounded, size: 16, color: AppTheme.textSecondary),
