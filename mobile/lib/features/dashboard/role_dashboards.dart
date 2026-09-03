@@ -803,8 +803,12 @@ class SecurityDashboardScreen extends ConsumerWidget {
           const _QuickActionChip(icon: Icons.login_rounded, label: 'Check In', route: AppRoutes.visitorsPending),
           const SizedBox(width: 8),
           const _QuickActionChip(icon: Icons.logout_rounded, label: 'Check Out', route: AppRoutes.visitorsMy),
-          const SizedBox(width: 8),
+        ]),
+        const SizedBox(height: 8),
+        Row(children: [
           const _QuickActionChip(icon: Icons.list_alt_rounded, label: 'Visitor Log', route: AppRoutes.visitorsMy),
+          const SizedBox(width: 8),
+          const _QuickActionChip(icon: Icons.local_parking_rounded, label: 'Vehicle Gate', route: AppRoutes.parkingGateCheck),
         ]),
         const SizedBox(height: 18),
         _OperationalPanel(title: 'Shift Notes', children: const [

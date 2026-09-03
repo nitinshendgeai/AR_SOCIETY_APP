@@ -19,10 +19,15 @@ from app.modules.parking.repositories.parking_repo import (
     ParkingAllocationRepo, VisitorParkingRepo, ParkingAccessLogRepo,
 )
 from app.models.user import User
+from app.models.vehicle import Vehicle
+from app.models.resident import Resident
+from app.models.tenant import Tenant
+from app.models.flat import Flat
 from app.models.audit_log import AuditAction
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
 from app.models.notification import NotificationType, NotificationChannel
+from app.utils.vehicle_number import normalize_vehicle_number
 
 
 class ParkingService:
@@ -229,6 +234,83 @@ class ParkingService:
         if unresolved_only: q = q.filter(ParkingViolation.is_resolved==False)
         return q.order_by(ParkingViolation.created_at.desc()).limit(100).all()
 
+    # ── Gate validation ───────────────────────────────────────────────────────
+
+    def _lookup_gate_status(self, society_id: UUID, normalized_number: str):
+        """The single source of truth for "is this vehicle allowed in" —
+        shared by the read-only pre-entry check (validate_vehicle_at_gate)
+        and log_access, so a client can never talk the access log into
+        recording an authorization the lookup itself didn't grant.
+        Returns (authorized, vehicle_or_None, visitor_parking_or_None)."""
+        vehicle = self.db.query(Vehicle).filter(
+            Vehicle.society_id == society_id,
+            Vehicle.vehicle_number == normalized_number,
+            Vehicle.is_active == True,
+        ).first()
+        if vehicle:
+            return True, vehicle, None
+
+        visitor = self.visitor_repo.get_active_by_vehicle(society_id, normalized_number)
+        if visitor:
+            return True, None, visitor
+
+        return False, None, None
+
+    def validate_vehicle_at_gate(self, society_id: UUID, vehicle_number: str) -> dict:
+        normalized = normalize_vehicle_number(vehicle_number)
+        authorized, vehicle, visitor = self._lookup_gate_status(society_id, normalized)
+
+        if vehicle:
+            owner_name, category = None, "resident"
+            if vehicle.resident_id:
+                resident = self.db.query(Resident).filter(Resident.id == vehicle.resident_id).first()
+                owner_name, category = (resident.full_name if resident else None), "resident"
+            elif vehicle.tenant_id:
+                tenant = self.db.query(Tenant).filter(Tenant.id == vehicle.tenant_id).first()
+                owner_name, category = (tenant.full_name if tenant else None), "tenant"
+
+            flat = self.db.query(Flat).filter(Flat.id == vehicle.flat_id).first() if vehicle.flat_id else None
+            parking_slot = vehicle.parking_slot
+            if not parking_slot:
+                alloc = self.alloc_repo.get_active_by_vehicle(vehicle.id)
+                if alloc:
+                    slot = self.slot_repo.get(alloc.slot_id)
+                    parking_slot = slot.slot_number if slot else None
+
+            return {
+                "vehicle_number": normalized,
+                "authorized":     True,
+                "category":       category,
+                "vehicle_type":   vehicle.vehicle_type.value,
+                "flat_number":    flat.flat_number if flat else None,
+                "wing_name":      flat.wing.name if flat and flat.wing else None,
+                "owner_name":     owner_name,
+                "parking_slot":   parking_slot,
+                "message":        "Registered vehicle — access granted",
+            }
+
+        if visitor:
+            host_flat = self.db.query(Flat).filter(Flat.id == visitor.host_flat_id).first() \
+                if visitor.host_flat_id else None
+            return {
+                "vehicle_number":         normalized,
+                "authorized":             True,
+                "category":               "visitor",
+                "vehicle_type":           visitor.vehicle_type,
+                "flat_number":            host_flat.flat_number if host_flat else None,
+                "wing_name":              host_flat.wing.name if host_flat and host_flat.wing else None,
+                "visitor_purpose":        visitor.purpose,
+                "visitor_check_in_time":  visitor.check_in_time,
+                "message":                "Active visitor parking — access granted",
+            }
+
+        return {
+            "vehicle_number": normalized,
+            "authorized":     False,
+            "category":       "unregistered",
+            "message":        "Vehicle not registered — verify manually before allowing entry",
+        }
+
     # ── Access logging ────────────────────────────────────────────────────────
 
     def _log_access(self, society_id, vehicle_number, access_type, access_method,
@@ -242,7 +324,15 @@ class ParkingService:
         self.db.add(log)
 
     def log_access(self, data: AccessLogCreate, user: User) -> ParkingAccessLog:
-        log = ParkingAccessLog(**data.model_dump(), user_id=user.id, access_time=datetime.utcnow())
+        normalized = normalize_vehicle_number(data.vehicle_number)
+        authorized, vehicle, _ = self._lookup_gate_status(data.society_id, normalized)
+        log = ParkingAccessLog(
+            society_id=data.society_id, vehicle_number=normalized,
+            access_type=data.access_type, access_method=data.access_method,
+            slot_id=data.slot_id, gate_id=data.gate_id, rfid_tag=data.rfid_tag,
+            notes=data.notes, vehicle_id=vehicle.id if vehicle else None,
+            is_authorized=authorized, user_id=user.id, access_time=datetime.utcnow(),
+        )
         self.db.add(log)
         self.db.commit()
         self.db.refresh(log)

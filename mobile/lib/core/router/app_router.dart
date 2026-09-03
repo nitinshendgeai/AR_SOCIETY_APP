@@ -19,6 +19,7 @@ import 'package:ar_society_app/features/staff/presentation/screens/attendance_co
 import 'package:ar_society_app/features/staff/presentation/screens/staff_list_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_add_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_import_screen.dart';
+import 'package:ar_society_app/features/parking/presentation/screens/gate_check_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_detail_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_edit_screen.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
@@ -84,6 +85,7 @@ class AppRoutes {
   static const staffList          = '/staff/list';
   static const staffAdd           = '/staff/add';
   static const staffImport        = '/staff/import';
+  static const parkingGateCheck   = '/parking/gate-check';
   static const staffDetail        = '/staff/:staffId/detail';
   static const staffEdit          = '/staff/:staffId/edit';
   static const managerHome        = '/manager';
@@ -289,6 +291,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           }
           return AttendanceApprovalScreen(societyId: societyId, department: department);
         },
+      ),
+      GoRoute(
+        path: AppRoutes.parkingGateCheck,
+        builder: (_, __) => const GateCheckScreen(),
       ),
       GoRoute(
         path: AppRoutes.staffAssignDuty,

@@ -62,6 +62,13 @@ class ParkingAllocationRepo(BaseRepository[ParkingAllocation]):
             ParkingAllocation.is_active==True,
         ).all()
 
+    def get_active_by_vehicle(self, vehicle_id: UUID) -> Optional[ParkingAllocation]:
+        return self.db.query(ParkingAllocation).filter(
+            ParkingAllocation.vehicle_id==vehicle_id,
+            ParkingAllocation.status==AllocationStatus.ACTIVE,
+            ParkingAllocation.is_active==True,
+        ).first()
+
     def get_by_society(self, sid: UUID, skip=0, limit=50) -> List[ParkingAllocation]:
         return self.db.query(ParkingAllocation).filter(
             ParkingAllocation.society_id==sid, ParkingAllocation.is_active==True,
