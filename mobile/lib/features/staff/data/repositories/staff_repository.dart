@@ -84,6 +84,21 @@ class StaffRepository {
     } catch (e) { return _handle(e); }
   }
 
+  Future<StaffResult<DesignationEntity>> createDesignation({
+    required String societyId,
+    required String name,
+    required String department,
+    String? description,
+  }) async {
+    try {
+      final m = await _ds.createDesignation(
+        societyId: societyId, name: name, department: department,
+        description: description,
+      );
+      return StaffSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
   Future<StaffResult<List<ShiftEntity>>> listShifts(String societyId) async {
     try {
       final list = await _ds.listShifts(societyId);

@@ -18,6 +18,7 @@ import 'package:ar_society_app/features/staff/presentation/screens/duty_overview
 import 'package:ar_society_app/features/staff/presentation/screens/attendance_correction_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_list_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_add_screen.dart';
+import 'package:ar_society_app/features/staff/presentation/screens/staff_import_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_detail_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_edit_screen.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
@@ -82,6 +83,7 @@ class AppRoutes {
   static const staffAttendanceCorrections = '/staff/attendance-corrections';
   static const staffList          = '/staff/list';
   static const staffAdd           = '/staff/add';
+  static const staffImport        = '/staff/import';
   static const staffDetail        = '/staff/:staffId/detail';
   static const staffEdit          = '/staff/:staffId/edit';
   static const managerHome        = '/manager';
@@ -328,6 +330,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return null;
         },
         builder: (_, __) => const StaffAddScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.staffImport,
+        redirect: (_, __) {
+          if (authState is AuthAuthenticated) {
+            final user = (authState as AuthAuthenticated).user;
+            if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
+          }
+          return null;
+        },
+        builder: (_, __) => const StaffImportScreen(),
       ),
       GoRoute(
         path: AppRoutes.staffDetail,
