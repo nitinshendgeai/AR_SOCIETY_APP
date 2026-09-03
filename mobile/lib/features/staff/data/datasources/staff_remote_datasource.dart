@@ -244,6 +244,22 @@ class StaffRemoteDataSource {
         .toList();
   }
 
+  /// POST /staff/designations
+  Future<DesignationModel> createDesignation({
+    required String societyId,
+    required String name,
+    required String department,
+    String? description,
+  }) async {
+    final r = await _dio.post('/staff/designations', data: {
+      'society_id': societyId,
+      'name': name,
+      'department': department,
+      if (description != null) 'description': description,
+    });
+    return DesignationModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
   // ── Shifts ────────────────────────────────────────────────────────────────
 
   /// GET /staff/shifts/{society_id}
