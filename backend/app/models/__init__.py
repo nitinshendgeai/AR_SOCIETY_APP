@@ -5,6 +5,7 @@ from app.models.flat         import Flat, FlatType, OccupancyStatus, Maintenance
 from app.models.role         import Role
 from app.models.user         import User, UserRole, UserStatus
 from app.models.resident     import Resident, ResidentType, CommunicationPreference
+from app.models.resident_edit_request import ResidentEditRequest, ResidentEditRequestStatus
 from app.models.tenant       import Tenant, PoliceVerificationStatus
 from app.models.vehicle      import Vehicle, VehicleType
 from app.models.audit_log    import AuditLog, AuditAction
