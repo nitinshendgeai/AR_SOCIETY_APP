@@ -91,6 +91,9 @@ class ParkingService:
     def get_available_slots(self, society_id: UUID, slot_type=None) -> List[ParkingSlot]:
         return self.slot_repo.get_available(society_id, slot_type)
 
+    def list_slots_by_society(self, society_id: UUID) -> List[ParkingSlot]:
+        return self.slot_repo.get_by_society(society_id)
+
     # ── Allocation workflow ───────────────────────────────────────────────────
 
     def allocate_slot(self, data: AllocationCreate, user: User, request=None) -> ParkingAllocation:
@@ -236,29 +239,51 @@ class ParkingService:
 
     # ── Gate validation ───────────────────────────────────────────────────────
 
+    def _resolve_parking_slot(self, vehicle: Vehicle) -> Optional[str]:
+        """A vehicle counts as having parking allotted/rented either way this
+        society manages it: the simple Vehicle.parking_slot field some
+        societies set directly, or a formal active ParkingAllocation row.
+        Returns the slot number if either is present, else None."""
+        if vehicle.parking_slot:
+            return vehicle.parking_slot
+        alloc = self.alloc_repo.get_active_by_vehicle(vehicle.id)
+        if alloc:
+            slot = self.slot_repo.get(alloc.slot_id)
+            return slot.slot_number if slot else None
+        return None
+
     def _lookup_gate_status(self, society_id: UUID, normalized_number: str):
         """The single source of truth for "is this vehicle allowed in" —
         shared by the read-only pre-entry check (validate_vehicle_at_gate)
         and log_access, so a client can never talk the access log into
         recording an authorization the lookup itself didn't grant.
-        Returns (authorized, vehicle_or_None, visitor_parking_or_None)."""
+
+        A resident/tenant vehicle is only authorized if it has parking
+        actually allotted or rented (see _resolve_parking_slot) — being
+        registered to a flat is not, on its own, permission to park; a
+        household's un-allotted second/third car should be flagged so the
+        guard can send it elsewhere, not waved through.
+
+        Returns (authorized, vehicle_or_None, visitor_parking_or_None,
+        parking_slot_or_None)."""
         vehicle = self.db.query(Vehicle).filter(
             Vehicle.society_id == society_id,
             Vehicle.vehicle_number == normalized_number,
             Vehicle.is_active == True,
         ).first()
         if vehicle:
-            return True, vehicle, None
+            parking_slot = self._resolve_parking_slot(vehicle)
+            return bool(parking_slot), vehicle, None, parking_slot
 
         visitor = self.visitor_repo.get_active_by_vehicle(society_id, normalized_number)
         if visitor:
-            return True, None, visitor
+            return True, None, visitor, None
 
-        return False, None, None
+        return False, None, None, None
 
     def validate_vehicle_at_gate(self, society_id: UUID, vehicle_number: str) -> dict:
         normalized = normalize_vehicle_number(vehicle_number)
-        authorized, vehicle, visitor = self._lookup_gate_status(society_id, normalized)
+        authorized, vehicle, visitor, parking_slot = self._lookup_gate_status(society_id, normalized)
 
         if vehicle:
             owner_name, category = None, "resident"
@@ -270,23 +295,21 @@ class ParkingService:
                 owner_name, category = (tenant.full_name if tenant else None), "tenant"
 
             flat = self.db.query(Flat).filter(Flat.id == vehicle.flat_id).first() if vehicle.flat_id else None
-            parking_slot = vehicle.parking_slot
-            if not parking_slot:
-                alloc = self.alloc_repo.get_active_by_vehicle(vehicle.id)
-                if alloc:
-                    slot = self.slot_repo.get(alloc.slot_id)
-                    parking_slot = slot.slot_number if slot else None
+            message = (
+                "Registered vehicle with allotted parking — access granted" if authorized
+                else "Registered vehicle has no allotted/rented parking — access not authorized"
+            )
 
             return {
                 "vehicle_number": normalized,
-                "authorized":     True,
+                "authorized":     authorized,
                 "category":       category,
                 "vehicle_type":   vehicle.vehicle_type.value,
                 "flat_number":    flat.flat_number if flat else None,
                 "wing_name":      flat.wing.name if flat and flat.wing else None,
                 "owner_name":     owner_name,
                 "parking_slot":   parking_slot,
-                "message":        "Registered vehicle — access granted",
+                "message":        message,
             }
 
         if visitor:
@@ -325,7 +348,7 @@ class ParkingService:
 
     def log_access(self, data: AccessLogCreate, user: User) -> ParkingAccessLog:
         normalized = normalize_vehicle_number(data.vehicle_number)
-        authorized, vehicle, _ = self._lookup_gate_status(data.society_id, normalized)
+        authorized, vehicle, _, _ = self._lookup_gate_status(data.society_id, normalized)
         log = ParkingAccessLog(
             society_id=data.society_id, vehicle_number=normalized,
             access_type=data.access_type, access_method=data.access_method,

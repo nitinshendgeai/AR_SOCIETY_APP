@@ -221,6 +221,11 @@ List<_MenuItem> _visibleMenuItems(UserEntity? user) {
     // roles who use it for their own duties/attendance/approvals.
     if (isAdminOrCommittee || user.isSecurity || user.isStaff)
       _MenuItem('Staff', Icons.badge_rounded, AppRoutes.staffHome),
+    // Parking zones/slots/allocations — Society Admin + Committee only
+    // (require_admin_committee on the write endpoints); gate validation
+    // itself is a separate, security-role screen (see Vehicle Gate above).
+    if (isAdminOrCommittee)
+      _MenuItem('Parking Management', Icons.local_parking_rounded, AppRoutes.parkingManagement),
     // Setup/Structure Wizard — Society Admin + Committee only.
     if (isAdminOrCommittee)
       _MenuItem('Setup Wizard', Icons.checklist_rounded, AppRoutes.structureWizard),

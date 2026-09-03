@@ -63,4 +63,107 @@ class ParkingRepository {
       return _handle(e);
     }
   }
+
+  // ── Zones ──────────────────────────────────────────────────────────────────
+
+  Future<ParkingResult<List<ParkingZoneEntity>>> listZones(String societyId) async {
+    try {
+      final list = await _ds.listZones(societyId);
+      return ParkingSuccess(list.map((m) => m.toEntity()).toList());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  Future<ParkingResult<ParkingZoneEntity>> createZone({
+    required String societyId,
+    required String name,
+    String? code,
+  }) async {
+    try {
+      final m = await _ds.createZone(societyId: societyId, name: name, code: code);
+      return ParkingSuccess(m.toEntity());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  // ── Slots ──────────────────────────────────────────────────────────────────
+
+  Future<ParkingResult<List<ParkingSlotEntity>>> listSlotsBySociety(String societyId) async {
+    try {
+      final list = await _ds.listSlotsBySociety(societyId);
+      return ParkingSuccess(list.map((m) => m.toEntity()).toList());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  Future<ParkingResult<List<ParkingSlotEntity>>> listAvailableSlots(String societyId) async {
+    try {
+      final list = await _ds.listAvailableSlots(societyId);
+      return ParkingSuccess(list.map((m) => m.toEntity()).toList());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  Future<ParkingResult<ParkingSlotEntity>> createSlot({
+    required String societyId,
+    required String zoneId,
+    required String slotNumber,
+    String slotType = 'resident',
+    bool isCovered = false,
+    bool isEvCharging = false,
+  }) async {
+    try {
+      final m = await _ds.createSlot(
+        societyId: societyId, zoneId: zoneId, slotNumber: slotNumber,
+        slotType: slotType, isCovered: isCovered, isEvCharging: isEvCharging,
+      );
+      return ParkingSuccess(m.toEntity());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  // ── Allocations ────────────────────────────────────────────────────────────
+
+  Future<ParkingResult<List<ParkingAllocationEntity>>> listAllocations(String societyId) async {
+    try {
+      final list = await _ds.listAllocations(societyId);
+      return ParkingSuccess(list.map((m) => m.toEntity()).toList());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  Future<ParkingResult<ParkingAllocationEntity>> createAllocation({
+    required String societyId,
+    required String slotId,
+    String? flatId,
+    String? vehicleId,
+    required String allocationType,
+    required String startDate,
+    int? monthlyCharge,
+  }) async {
+    try {
+      final m = await _ds.createAllocation(
+        societyId: societyId, slotId: slotId, flatId: flatId, vehicleId: vehicleId,
+        allocationType: allocationType, startDate: startDate, monthlyCharge: monthlyCharge,
+      );
+      return ParkingSuccess(m.toEntity());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  Future<ParkingResult<ParkingAllocationEntity>> releaseAllocation(String allocationId) async {
+    try {
+      final m = await _ds.releaseAllocation(allocationId);
+      return ParkingSuccess(m.toEntity());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
 }

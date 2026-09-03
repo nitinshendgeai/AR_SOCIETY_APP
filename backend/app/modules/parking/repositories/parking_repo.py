@@ -37,6 +37,11 @@ class ParkingSlotRepo(BaseRepository[ParkingSlot]):
         if slot_type: q = q.filter(ParkingSlot.slot_type==slot_type)
         return q.all()
 
+    def get_by_society(self, society_id: UUID) -> List[ParkingSlot]:
+        return self.db.query(ParkingSlot).filter(
+            ParkingSlot.society_id==society_id, ParkingSlot.is_active==True,
+        ).all()
+
     def get_by_number(self, society_id: UUID, slot_number: str) -> Optional[ParkingSlot]:
         return self.db.query(ParkingSlot).filter(
             ParkingSlot.society_id==society_id,

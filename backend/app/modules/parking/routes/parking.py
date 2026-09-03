@@ -65,6 +65,13 @@ def slots_by_zone(zone_id: UUID, db: Session = Depends(get_db)):
 def available_slots(society_id: UUID, slot_type: Optional[SlotType] = None, db: Session = Depends(get_db)):
     return ParkingService(db).get_available_slots(society_id, slot_type)
 
+@router.get("/slots/society/{society_id}", response_model=List[SlotOut], dependencies=[Depends(admin_committee)])
+def slots_by_society(society_id: UUID, db: Session = Depends(get_db)):
+    """All slots for the society regardless of status — for the parking
+    management screen, where an admin needs to see occupied/blocked slots
+    too, not just what's currently available for a new allocation."""
+    return ParkingService(db).list_slots_by_society(society_id)
+
 
 # ── Allocations ───────────────────────────────────────────────────────────────
 @router.post("/allocations", response_model=AllocationOut, status_code=201)
