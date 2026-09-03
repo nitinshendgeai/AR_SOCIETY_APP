@@ -98,6 +98,18 @@ class StaffService:
                          entity_id=str(entity.id), entity_type=entity_type,
                          user=user, request=request, **kw)
 
+    def _assert_self_or_supervisor(self, user: User, staff: Staff) -> None:
+        """Attendance punch/read: a supervisor-or-above may act on any staff
+        member (kiosk / on-behalf punching — the existing, tested behavior),
+        but a plain staff member may only punch or view their own record.
+        Without this, any authenticated staff-or-above user could check
+        in/out or read the attendance history of an arbitrary staff_id."""
+        role_names = {ur.role.name for ur in user.user_roles if ur.role}
+        if role_names & _MANAGER_ROLES_SVC or role_names & set(_SUPERVISOR_DEPT_ACCESS.keys()):
+            return
+        if staff.user_id != user.id:
+            raise HTTPException(status_code=403, detail="You can only manage your own attendance")
+
     def _check_dept_access(self, user: User, staff_department: str) -> None:
         """Raise 403 if a supervisor is not authorised to act on the given department.
         Managers/admins bypass this check entirely."""
@@ -268,13 +280,15 @@ class StaffService:
 
     def check_in(self, staff_id: UUID, data: AttendanceCheckIn,
                  user: User, request=None) -> StaffAttendance:
+        staff = self._staff_or_404(staff_id)
+        self._assert_self_or_supervisor(user, staff)
         today = date.today()
         existing = self.att_repo.get_today(staff_id, today)
         if existing:
             raise HTTPException(status_code=409,
                 detail=f"Attendance already marked for today (status: {existing.status.value})")
         att = StaffAttendance(
-            society_id=self._staff_or_404(staff_id).society_id,
+            society_id=staff.society_id,
             staff_id=staff_id,
             attendance_date=today,
             status=AttendanceStatus.PRESENT,
@@ -289,6 +303,8 @@ class StaffService:
 
     def check_out(self, staff_id: UUID, data: AttendanceCheckOut,
                   user: User, request=None) -> StaffAttendance:
+        staff = self._staff_or_404(staff_id)
+        self._assert_self_or_supervisor(user, staff)
         today = date.today()
         att = self.att_repo.get_today(staff_id, today)
         if not att:
@@ -328,7 +344,9 @@ class StaffService:
         att = StaffAttendance(**data.model_dump(), marked_by=user.id, is_manual_entry=True)
         return self.att_repo.create(att)
 
-    def get_attendance(self, staff_id: UUID, skip=0, limit=50) -> List[StaffAttendance]:
+    def get_attendance(self, staff_id: UUID, user: User, skip=0, limit=50) -> List[StaffAttendance]:
+        staff = self._staff_or_404(staff_id)
+        self._assert_self_or_supervisor(user, staff)
         return self.att_repo.get_by_staff(staff_id, skip, limit)
 
     def get_daily_attendance(self, society_id: UUID, att_date: date) -> List[StaffAttendance]:

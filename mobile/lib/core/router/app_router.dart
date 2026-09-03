@@ -240,7 +240,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               deepLink != AppRoutes.biometricLock &&
               deepLink != AppRoutes.registerSociety &&
               deepLink != AppRoutes.trialSuccess;
-          final home = isDeepLinkUsable ? deepLink : _userRoleHome(user);
+          final home = isDeepLinkUsable ? deepLink : userRoleHome(user);
           debugPrint('[ROUTE_REDIRECT] → '
               '${isDeepLinkUsable ? "restored deep link" : "role home"}: $home');
           return home;
@@ -260,7 +260,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (_, __) => const BiometricLockScreen()),
       GoRoute(path: AppRoutes.home, redirect: (_, __) {
         if (authState is AuthAuthenticated) {
-          return _userRoleHome((authState as AuthAuthenticated).user);
+          return userRoleHome((authState as AuthAuthenticated).user);
         }
         return AppRoutes.login;
       }),
@@ -629,7 +629,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return router;
 });
 
-String _userRoleHome(UserEntity user) {
+/// Public (not library-private) so setup_wizard_screen.dart's post-onboarding
+/// redirect can reuse the exact same priority order instead of maintaining a
+/// second switch on `primaryRole` — that duplicate previously routed a
+/// freshly-provisioned "Security Staff" user (which matches `isSecurity` in
+/// `primaryRole`, checked there before `isStaff`) to the Security dashboard
+/// instead of Staff Home on first login, with no way to reach Attendance
+/// until the app was restarted and this router's redirect re-fired.
+String userRoleHome(UserEntity user) {
   if (user.isAdmin) return AppRoutes.adminHome;
   if (user.isCommittee) return AppRoutes.committeeHome;
   final roles = user.roles;
