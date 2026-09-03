@@ -208,6 +208,15 @@ List<_MenuItem> _visibleMenuItems(UserEntity? user) {
     // Operational features open to every role.
     _MenuItem('Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
     _MenuItem('Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
+    // Resident self-service profile edit — Resident role only; the request
+    // it creates still needs Admin/Committee approval (see
+    // edit_my_profile_screen.dart) before it takes effect.
+    if (user.isResident)
+      _MenuItem('Edit My Info', Icons.edit_note_rounded, AppRoutes.editMyProfile),
+    // Review queue for the above — Society Admin + Committee, mirroring the
+    // require_admin_committee gate on the direct Resident PATCH.
+    if (isAdminOrCommittee)
+      _MenuItem('Pending Resident Changes', Icons.fact_check_outlined, AppRoutes.pendingResidentChanges),
     // Staff module — admins/committee (master records), plus security/staff
     // roles who use it for their own duties/attendance/approvals.
     if (isAdminOrCommittee || user.isSecurity || user.isStaff)
@@ -839,9 +848,13 @@ class ResidentDashboardScreen extends ConsumerWidget {
         Row(children: const [
           _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaint', route: AppRoutes.complaints),
           SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.settings_outlined, label: 'Society Info', route: AppRoutes.societySettings),
+          _QuickActionChip(icon: Icons.edit_note_rounded, label: 'Edit My Info', route: AppRoutes.editMyProfile),
           SizedBox(width: 8),
           _QuickActionChip(icon: Icons.person_rounded, label: 'Visitors', route: AppRoutes.visitorsMy),
+        ]),
+        const SizedBox(height: 8),
+        Row(children: const [
+          _QuickActionChip(icon: Icons.settings_outlined, label: 'Society Info', route: AppRoutes.societySettings),
           SizedBox(width: 8),
           _QuickActionChip(icon: Icons.pending_actions_rounded, label: 'Approvals', route: AppRoutes.visitorsPending),
         ]),
