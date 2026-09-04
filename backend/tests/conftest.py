@@ -65,9 +65,10 @@ def create_tables():
     # this, every require_admin/require_any_member/etc. guard would 403
     # everyone: the Role.after_insert auto-grant listener looks these rows
     # up by code and silently no-ops if the permissions table is empty.
-    from app.core.rbac_seed import seed_permission_definitions
+    from app.core.rbac_seed import seed_permission_definitions, seed_form_definitions
     with engine.connect() as conn:
         seed_permission_definitions(conn)
+        seed_form_definitions(conn)
         conn.commit()
 
     yield

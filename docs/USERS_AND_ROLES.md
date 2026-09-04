@@ -152,6 +152,44 @@ user's roles against the `role_permissions` table:
 `require_platform_admin` is unaffected by the matrix — it checks the
 `is_superadmin` boolean flag on the user record directly, not a role grant.
 
+### Dynamic Forms Matrix (navigation)
+
+A second, independent matrix controls which top-level mobile screens
+(drawer items) each role can see — separate from the permission tiers
+above, which gate backend API access. It lives in the `forms` /
+`role_forms` tables, editable via **Forms Matrix** (drawer menu, Admin
+only) or `GET/PUT /api/v1/roles/form-matrix` and
+`PUT /api/v1/roles/{role_id}/forms`. On login the mobile app calls
+`GET /api/v1/roles/forms/mine` and renders the drawer purely from the
+returned form codes — no role-name checks are hardcoded client-side
+anymore. As with the Permission Matrix, the default seed (the
+`forms_matrix` Alembic migration, auto-granted to new roles via the same
+`Role.after_insert` listener) reproduces the pre-existing drawer behavior
+exactly:
+
+| Form code | Screen | Default roles |
+|-----------|--------|----------------|
+| `residents` | Residents | Society Admin, all Committee roles |
+| `tenants` | Tenants | Society Admin, all Committee roles |
+| `users_roles` | Users & Roles | Society Admin |
+| `permission_matrix` | Permission Matrix | Society Admin |
+| `forms_matrix` | Forms Matrix | Society Admin |
+| `society_settings` | Society Settings | Society Admin, all Committee roles |
+| `visitors` | Visitors | Everyone |
+| `complaints` | Complaints | Everyone |
+| `edit_my_info` | Edit My Info | Resident |
+| `pending_resident_changes` | Pending Resident Changes | Society Admin, all Committee roles |
+| `staff` | Staff | Society Admin, Committee, Security/Housekeeping/Technical Supervisor, Security/Housekeeping/Technical Staff |
+| `parking_management` | Parking Management | Society Admin, all Committee roles |
+| `setup_wizard` | Setup Wizard | Society Admin, all Committee roles |
+
+Note: this reproduces the *exact* pre-existing drawer logic, gaps
+included — Platform Admin, Manager, Gym Trainer, and Tenant only ever saw
+the two unconditional items (Visitors, Complaints) before this matrix
+existed, since none of them matched the old Dart `isAdmin`/`isStaff`
+string checks. An Admin can now close those gaps from the Forms Matrix
+screen without a code change.
+
 ### Multi-Tenant Isolation
 
 - Every endpoint enforces `society_id` scoping from the authenticated user's token.

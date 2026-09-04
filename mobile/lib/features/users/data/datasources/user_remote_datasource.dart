@@ -88,4 +88,32 @@ class UserRemoteDataSource {
         data: {'permission_codes': permissionCodes});
     return RolePermissionMatrixRow.fromJson(r.data as Map<String, dynamic>);
   }
+
+  Future<List<String>> getMyForms() async {
+    final r = await _dio.get('/roles/forms/mine');
+    return ((r.data as Map<String, dynamic>)['form_codes'] as List<dynamic>)
+        .map((e) => e as String)
+        .toList();
+  }
+
+  Future<List<FormModel>> listForms() async {
+    final r = await _dio.get('/roles/forms');
+    return (r.data as List)
+        .map((e) => FormModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<RoleFormMatrixRow>> getFormMatrix() async {
+    final r = await _dio.get('/roles/form-matrix');
+    return (r.data as List)
+        .map((e) => RoleFormMatrixRow.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<RoleFormMatrixRow> updateRoleForms(
+      String roleId, List<String> formCodes) async {
+    final r = await _dio.put('/roles/$roleId/forms',
+        data: {'form_codes': formCodes});
+    return RoleFormMatrixRow.fromJson(r.data as Map<String, dynamic>);
+  }
 }
