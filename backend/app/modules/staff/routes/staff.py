@@ -19,6 +19,8 @@ from app.modules.staff.schemas.staff import (
     AttendanceRejectRequest, AttendanceOut,
     TaskCreate, TaskOut, TaskStatusUpdate, WorkLogCreate,
     LeaveCreate, LeaveOut, LeaveApproveRequest, LeaveRejectRequest,
+    ChecklistTemplateCreate, ChecklistTemplateUpdate, ChecklistTemplateOut,
+    DutyChecklistItemOut, DutyChecklistItemCompleteRequest,
 )
 from app.modules.staff.models.staff import StaffDepartment
 from app.modules.staff.services.staff_service import StaffService
@@ -159,6 +161,49 @@ def duties_by_date(society_id: UUID,
             dependencies=[Depends(any_staff)])
 def my_duties(staff_id: UUID, db: Session = Depends(get_db)):
     return StaffService(db).get_my_duties(staff_id)
+
+
+# ── Duty Checklist ────────────────────────────────────────────────────────────
+@router.get("/duties/{duty_id}/checklist", response_model=List[DutyChecklistItemOut],
+            dependencies=[Depends(any_staff)])
+def get_duty_checklist(duty_id: UUID, db: Session = Depends(get_db)):
+    return StaffService(db).get_duty_checklist(duty_id)
+
+@router.post("/duties/{duty_id}/checklist/{item_id}/complete", response_model=DutyChecklistItemOut)
+def complete_checklist_item(duty_id: UUID, item_id: UUID, data: DutyChecklistItemCompleteRequest,
+                            db: Session = Depends(get_db), user: User = Depends(any_staff)):
+    return StaffService(db).complete_checklist_item(duty_id, item_id, data, user)
+
+
+# ── Checklist Templates ───────────────────────────────────────────────────────
+@router.post("/checklist-templates", response_model=ChecklistTemplateOut, status_code=201,
+             dependencies=[Depends(admin_or_committee)])
+def create_checklist_template(data: ChecklistTemplateCreate, db: Session = Depends(get_db),
+                              user: User = Depends(get_current_user)):
+    return StaffService(db).create_checklist_template(data, user)
+
+@router.get("/checklist-templates/society/{society_id}", response_model=List[ChecklistTemplateOut],
+            dependencies=[Depends(supervisor_above)])
+def list_checklist_templates(society_id: UUID,
+                             department: Optional[str] = Query(None, description="Filter by department"),
+                             db: Session = Depends(get_db)):
+    return StaffService(db).list_checklist_templates(society_id, department)
+
+@router.get("/checklist-templates/{template_id}", response_model=ChecklistTemplateOut,
+            dependencies=[Depends(supervisor_above)])
+def get_checklist_template(template_id: UUID, db: Session = Depends(get_db)):
+    return StaffService(db).get_checklist_template(template_id)
+
+@router.patch("/checklist-templates/{template_id}", response_model=ChecklistTemplateOut,
+              dependencies=[Depends(admin_or_committee)])
+def update_checklist_template(template_id: UUID, data: ChecklistTemplateUpdate,
+                              db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return StaffService(db).update_checklist_template(template_id, data, user)
+
+@router.delete("/checklist-templates/{template_id}", status_code=204,
+               dependencies=[Depends(admin_or_committee)])
+def delete_checklist_template(template_id: UUID, db: Session = Depends(get_db)):
+    StaffService(db).delete_checklist_template(template_id)
 
 
 # ── Attendance ────────────────────────────────────────────────────────────────
@@ -339,6 +384,7 @@ class ComplaintDeptAssignOut(_BM):
     complaint_id: str
     department: str
     assigned_by: str
+    assigned_to: Optional[str] = None
     message: str
 
 @router.post("/complaints/assign-department", response_model=ComplaintDeptAssignOut)

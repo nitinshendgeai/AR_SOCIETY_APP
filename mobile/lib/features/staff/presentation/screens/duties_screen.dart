@@ -216,6 +216,10 @@ class _DutyCard extends ConsumerWidget {
                 style: const TextStyle(
                     fontSize: 13, color: AppTheme.textSecondary, height: 1.4)),
           ],
+          if (duty.checklistItems.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _ChecklistSection(duty: duty, staffId: staffId, interactive: showComplete),
+          ],
           const SizedBox(height: 10),
           Row(
             children: [
@@ -235,6 +239,17 @@ class _DutyCard extends ConsumerWidget {
               if (showComplete)
                 TextButton(
                   onPressed: () async {
+                    if (!duty.canComplete) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(
+                          'Complete all required checklist items first: '
+                          '${duty.incompleteRequiredItems.map((i) => i.title).join(', ')}',
+                        ),
+                        backgroundColor: AppTheme.error,
+                        behavior: SnackBarBehavior.floating,
+                      ));
+                      return;
+                    }
                     final confirmed = await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
@@ -265,6 +280,55 @@ class _DutyCard extends ConsumerWidget {
                 ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChecklistSection extends ConsumerWidget {
+  final DutyEntity duty;
+  final String staffId;
+  final bool interactive;
+  const _ChecklistSection({required this.duty, required this.staffId, required this.interactive});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final done = duty.checklistItems.where((i) => i.isCompleted).length;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Checklist ($done/${duty.checklistItems.length})',
+              style: const TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
+          const SizedBox(height: 4),
+          for (final item in duty.checklistItems)
+            CheckboxListTile(
+              value: item.isCompleted,
+              onChanged: !interactive
+                  ? null
+                  : (v) => ref.read(dutyProvider.notifier).toggleChecklistItem(
+                        duty.id, item.id, staffId, isCompleted: v ?? false,
+                      ),
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              title: Text(
+                item.title + (item.isRequired ? ' *' : ''),
+                style: TextStyle(
+                  fontSize: 13,
+                  decoration: item.isCompleted ? TextDecoration.lineThrough : null,
+                  color: item.isCompleted ? AppTheme.textSecondary : AppTheme.textPrimary,
+                ),
+              ),
+            ),
         ],
       ),
     );

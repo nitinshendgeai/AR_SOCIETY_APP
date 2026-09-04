@@ -79,12 +79,49 @@ class StaffOut(TimestampSchema):
     photo_url:     Optional[str] = None
 
 
+# ── Checklist Templates ───────────────────────────────────────────────────────
+class ChecklistTemplateItemCreate(OrmBase):
+    title: str; description: Optional[str] = None
+    is_required: bool = True; sequence: int = 0
+
+class ChecklistTemplateItemOut(TimestampSchema):
+    template_id: UUID; sequence: int; title: str
+    description: Optional[str]; is_required: bool
+
+class ChecklistTemplateCreate(OrmBase):
+    society_id:  UUID; department: StaffDepartment; name: str
+    description: Optional[str] = None
+    items:       List[ChecklistTemplateItemCreate] = []
+
+class ChecklistTemplateUpdate(OrmBase):
+    name:        Optional[str] = None
+    description: Optional[str] = None
+    department:  Optional[StaffDepartment] = None
+    # When provided, replaces the template's entire item list.
+    items:       Optional[List[ChecklistTemplateItemCreate]] = None
+
+class ChecklistTemplateOut(TimestampSchema):
+    society_id:  UUID; department: StaffDepartment; name: str
+    description: Optional[str]
+    items:       List[ChecklistTemplateItemOut] = []
+
+
 # ── Duty ──────────────────────────────────────────────────────────────────────
+class DutyChecklistItemOut(TimestampSchema):
+    duty_id: UUID; template_item_id: Optional[UUID]; sequence: int
+    title: str; description: Optional[str]; is_required: bool
+    is_completed: bool; completed_at: Optional[datetime]; notes: Optional[str]
+
+class DutyChecklistItemCompleteRequest(OrmBase):
+    is_completed: bool = True
+    notes: Optional[str] = None
+
 class DutyCreate(OrmBase):
     staff_id:    UUID; society_id: UUID; duty_name: str
     description: Optional[str] = None; location: Optional[str] = None
     duty_date:   date; start_time: Optional[time] = None; end_time: Optional[time] = None
     shift_id:    Optional[UUID] = None; is_recurring: bool = False; notes: Optional[str] = None
+    checklist_template_id: Optional[UUID] = None
 
 class DutyVerifyRequest(OrmBase):
     notes: Optional[str] = None
@@ -95,6 +132,8 @@ class DutyOut(TimestampSchema):
     end_time: Optional[time]; is_completed: bool; completed_at: Optional[datetime]
     verified_by: Optional[UUID] = None; verified_at: Optional[datetime] = None
     is_recurring: bool; notes: Optional[str]
+    checklist_template_id: Optional[UUID] = None
+    checklist_items: List[DutyChecklistItemOut] = []
 
 
 # ── Attendance ────────────────────────────────────────────────────────────────

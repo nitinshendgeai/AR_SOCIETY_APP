@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 from app.modules.staff.models.staff import (
     Staff, StaffDesignation, StaffShift, DutyAssignment,
     StaffAttendance, StaffTask, StaffLeave, StaffWorkLog,
-    AttendanceStatus, TaskStatus, LeaveStatus, TASK_TRANSITIONS,
+    AttendanceStatus, TaskStatus, LeaveStatus, TASK_TRANSITIONS, StaffDepartment,
+    ChecklistTemplate, ChecklistTemplateItem, DutyChecklistItem,
 )
 from app.modules.staff.schemas.staff import (
     StaffCreate, StaffUpdate, DesignationCreate, ShiftCreate,
@@ -15,10 +16,13 @@ from app.modules.staff.schemas.staff import (
     AttendanceManualEntry, AttendanceApprovalRequest, AttendanceCheckoutApprovalRequest,
     TaskCreate, TaskStatusUpdate, WorkLogCreate,
     LeaveCreate, LeaveApproveRequest, LeaveRejectRequest,
+    ChecklistTemplateCreate, ChecklistTemplateUpdate,
+    DutyChecklistItemCompleteRequest,
 )
 from app.modules.staff.repositories.staff_repo import (
     StaffRepository, StaffDesignationRepo, StaffShiftRepo,
     DutyRepository, AttendanceRepository, TaskRepository, LeaveRepository,
+    ChecklistTemplateRepo,
 )
 from app.models.user import User, UserRole, UserStatus
 from app.models.role import Role
@@ -80,6 +84,7 @@ class StaffService:
         self.att_repo    = AttendanceRepository(db)
         self.task_repo   = TaskRepository(db)
         self.leave_repo  = LeaveRepository(db)
+        self.checklist_repo = ChecklistTemplateRepo(db)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -234,9 +239,25 @@ class StaffService:
 
     def assign_duty(self, data: DutyCreate, assigner: User, request=None) -> DutyAssignment:
         staff = self._staff_or_404(data.staff_id)
+        if data.checklist_template_id:
+            template = self.checklist_repo.get(data.checklist_template_id)
+            if not template:
+                raise HTTPException(status_code=404, detail="Checklist template not found")
+
         duty = DutyAssignment(**data.model_dump(), assigned_by=assigner.id)
         self.db.add(duty)
         self.db.flush()
+
+        # Snapshot the template's items onto this duty so later template
+        # edits never retroactively change an already-assigned checklist.
+        if data.checklist_template_id:
+            for item in template.items:
+                self.db.add(DutyChecklistItem(
+                    duty_id=duty.id, template_item_id=item.id, sequence=item.sequence,
+                    title=item.title, description=item.description, is_required=item.is_required,
+                ))
+            self.db.flush()
+
         self._audit(AuditAction.CREATE, duty, "DutyAssignment", assigner, request,
                     new_values={"staff": str(data.staff_id), "duty": data.duty_name, "date": str(data.duty_date)})
         # Notify staff if linked to user
@@ -252,11 +273,104 @@ class StaffService:
         duty = self.duty_repo.get(duty_id)
         if not duty: raise HTTPException(status_code=404, detail="Duty not found")
         if duty.is_completed: raise HTTPException(status_code=409, detail="Duty already completed")
+        incomplete_required = [
+            i.title for i in duty.checklist_items if i.is_required and not i.is_completed
+        ]
+        if incomplete_required:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Complete all required checklist items first: {', '.join(incomplete_required)}",
+            )
         duty.is_completed = True
         duty.completed_at = datetime.utcnow()
         self.db.commit()
         self.db.refresh(duty)
         return duty
+
+    # ── Duty Checklist ────────────────────────────────────────────────────────
+
+    def get_duty_checklist(self, duty_id: UUID) -> List[DutyChecklistItem]:
+        duty = self.duty_repo.get(duty_id)
+        if not duty: raise HTTPException(status_code=404, detail="Duty not found")
+        return duty.checklist_items
+
+    def complete_checklist_item(
+        self, duty_id: UUID, item_id: UUID, data: DutyChecklistItemCompleteRequest, user: User,
+    ) -> DutyChecklistItem:
+        duty = self.duty_repo.get(duty_id)
+        if not duty: raise HTTPException(status_code=404, detail="Duty not found")
+
+        item = next((i for i in duty.checklist_items if i.id == item_id), None)
+        if not item:
+            raise HTTPException(status_code=404, detail="Checklist item not found on this duty")
+
+        item.is_completed = data.is_completed
+        item.completed_at = datetime.utcnow() if data.is_completed else None
+        if data.notes is not None:
+            item.notes = data.notes
+        self.db.commit()
+        self.db.refresh(item)
+        return item
+
+    # ── Checklist Templates ───────────────────────────────────────────────────
+
+    def create_checklist_template(self, data: ChecklistTemplateCreate, user: User) -> ChecklistTemplate:
+        template = ChecklistTemplate(
+            society_id=data.society_id, department=data.department,
+            name=data.name, description=data.description, created_by=user.id,
+        )
+        self.db.add(template)
+        self.db.flush()
+        for idx, item in enumerate(data.items):
+            self.db.add(ChecklistTemplateItem(
+                template_id=template.id, sequence=item.sequence or idx,
+                title=item.title, description=item.description, is_required=item.is_required,
+            ))
+        self.db.commit()
+        self.db.refresh(template)
+        return template
+
+    def list_checklist_templates(self, society_id: UUID, department=None) -> List[ChecklistTemplate]:
+        dept_enum = None
+        if department:
+            try:
+                dept_enum = StaffDepartment(department)
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Unknown department: {department}")
+        return self.checklist_repo.get_by_society(society_id, dept_enum)
+
+    def get_checklist_template(self, template_id: UUID) -> ChecklistTemplate:
+        template = self.checklist_repo.get(template_id)
+        if not template:
+            raise HTTPException(status_code=404, detail="Checklist template not found")
+        return template
+
+    def update_checklist_template(
+        self, template_id: UUID, data: ChecklistTemplateUpdate, user: User,
+    ) -> ChecklistTemplate:
+        template = self.get_checklist_template(template_id)
+        if data.name is not None:
+            template.name = data.name
+        if data.description is not None:
+            template.description = data.description
+        if data.department is not None:
+            template.department = data.department
+        if data.items is not None:
+            for item in list(template.items):
+                self.db.delete(item)
+            self.db.flush()
+            for idx, item in enumerate(data.items):
+                self.db.add(ChecklistTemplateItem(
+                    template_id=template.id, sequence=item.sequence or idx,
+                    title=item.title, description=item.description, is_required=item.is_required,
+                ))
+        self.db.commit()
+        self.db.refresh(template)
+        return template
+
+    def delete_checklist_template(self, template_id: UUID) -> None:
+        template = self.get_checklist_template(template_id)
+        self.checklist_repo.soft_delete(template)
 
     def verify_duty(self, duty_id: UUID, data: DutyVerifyRequest, verifier: User) -> DutyAssignment:
         duty = self.duty_repo.get(duty_id)
@@ -660,28 +774,67 @@ class StaffService:
 
     # ── Complaint Assignment ───────────────────────────────────────────────────
 
+    def _find_on_duty_staff_user(self, society_id: UUID, department: StaffDepartment) -> Optional[User]:
+        """First staff member in the department who is currently checked in
+        and not yet checked out today, with a linked login account."""
+        today = date.today()
+        return (
+            self.db.query(User)
+            .join(Staff, Staff.user_id == User.id)
+            .join(StaffAttendance, StaffAttendance.staff_id == Staff.id)
+            .filter(
+                Staff.society_id == society_id,
+                Staff.department == department,
+                Staff.is_active == True,
+                User.is_active == True,
+                StaffAttendance.attendance_date == today,
+                StaffAttendance.check_in_time.isnot(None),
+                StaffAttendance.check_out_time.is_(None),
+            )
+            .order_by(StaffAttendance.check_in_time.asc())
+            .first()
+        )
+
     def assign_complaint_to_department(
         self, complaint_id: UUID, department: str, notes: Optional[str], user: User
     ) -> dict:
-        from app.modules.complaint.models.complaint import Complaint
+        from app.modules.complaint.models.complaint import Complaint, ComplaintStatus
         complaint = self.db.query(Complaint).filter(Complaint.id == complaint_id).first()
         if not complaint:
             raise HTTPException(status_code=404, detail="Complaint not found")
-        valid_depts = {"security", "housekeeping", "technical"}
-        if department not in valid_depts:
-            raise HTTPException(status_code=400, detail=f"department must be one of: {valid_depts}")
+        try:
+            dept_enum = StaffDepartment(department)
+        except ValueError:
+            valid_depts = {d.value for d in StaffDepartment}
+            raise HTTPException(status_code=400, detail=f"department must be one of: {sorted(valid_depts)}")
+
+        on_duty = self._find_on_duty_staff_user(complaint.society_id, dept_enum)
 
         complaint.assigned_department = department
         complaint.assigned_by = user.id
         complaint.assigned_at = datetime.utcnow()
+        if on_duty:
+            complaint.assigned_to = on_duty.id
+            # Only move OPEN/REOPENED complaints into ASSIGNED — a complaint
+            # already IN_PROGRESS/RESOLVED/etc. keeps its status; department
+            # tagging + reassignment shouldn't regress a further-along complaint.
+            if complaint.status in (ComplaintStatus.OPEN, ComplaintStatus.REOPENED, ComplaintStatus.ASSIGNED):
+                complaint.status = ComplaintStatus.ASSIGNED
         if notes:
             complaint.resolution_notes = (complaint.resolution_notes or "") + f"\n[Dept Assignment] {notes}"
         self.db.commit()
+
+        message = (
+            f"Complaint assigned to on-duty {department} staff"
+            if on_duty else
+            f"Complaint tagged to {department} department — no one is currently on duty"
+        )
         return {
             "complaint_id": str(complaint_id),
             "department": department,
             "assigned_by": str(user.id),
-            "message": f"Complaint assigned to {department} department",
+            "assigned_to": str(on_duty.id) if on_duty else None,
+            "message": message,
         }
 
     def get_complaints_for_department(self, society_id: UUID, department: str) -> list:

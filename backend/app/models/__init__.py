@@ -35,6 +35,7 @@ from app.modules.staff.models.staff import (
     Staff, StaffDesignation, StaffShift, DutyAssignment,
     StaffAttendance, StaffTask, StaffLeave, StaffWorkLog,
     StaffRoster, StaffLeaveBalance,
+    ChecklistTemplate, ChecklistTemplateItem, DutyChecklistItem,
     StaffDepartment, StaffStatus, AttendanceStatus,
     TaskStatus, LeaveType, LeaveStatus, ShiftType, RosterStatus,
 )
