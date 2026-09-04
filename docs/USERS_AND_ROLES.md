@@ -93,6 +93,29 @@ Platform Admin
 | View own duties | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Shift handover | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Payroll management | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Manage checklist templates | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Complete duty checklist items | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+### Checklist Templates & On-Duty Complaint Routing
+
+**Checklist Templates** (`checklist_templates` form, Admin/Committee only,
+drawer menu): a reusable, department-scoped checklist (e.g. "Security Gate
+Round", "Room Turnover") with an ordered list of items, each optionally
+required. Assigning a duty from a template (Assign Duty screen) snapshots
+its items onto that duty — later template edits never retroactively change
+an already-assigned staff member's checklist. A duty with required
+checklist items cannot be marked complete until all of them are checked
+off (`StaffService.complete_duty`).
+
+**On-duty, department-aware complaint routing**: a new complaint's
+category maps to a staff department (plumbing → Plumbing, security →
+Security, lift → Technical, etc.) and auto-assigns to the first staff
+member in that department who is currently checked in and not yet checked
+out — not just any registered staff member. If nobody in that department
+is on duty (or the category has no department mapping, e.g. "Other"), it
+falls back to the society's FMC Manager, as before. The Manager's manual
+"assign to department" action (`POST /staff/complaints/assign-department`)
+uses the same on-duty lookup.
 
 ---
 

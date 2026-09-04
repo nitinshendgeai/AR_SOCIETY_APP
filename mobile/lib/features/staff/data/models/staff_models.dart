@@ -325,6 +325,8 @@ class DutyModel {
   final String? verifiedBy;
   final String? verifiedAt;
   final String? notes;
+  final String? checklistTemplateId;
+  final List<DutyChecklistItemModel> checklistItems;
 
   const DutyModel({
     required this.id,
@@ -342,6 +344,8 @@ class DutyModel {
     this.verifiedBy,
     this.verifiedAt,
     this.notes,
+    this.checklistTemplateId,
+    this.checklistItems = const [],
   });
 
   factory DutyModel.fromJson(Map<String, dynamic> j) => DutyModel(
@@ -360,6 +364,11 @@ class DutyModel {
         verifiedBy: j['verified_by'] as String?,
         verifiedAt: j['verified_at'] as String?,
         notes: j['notes'] as String?,
+        checklistTemplateId: j['checklist_template_id'] as String?,
+        checklistItems: (j['checklist_items'] as List<dynamic>?)
+                ?.map((e) => DutyChecklistItemModel.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            const [],
       );
 
   DutyEntity toEntity() => DutyEntity(
@@ -372,6 +381,127 @@ class DutyModel {
         verifiedBy: verifiedBy,
         verifiedAt: verifiedAt != null ? DateTime.tryParse(verifiedAt!) : null,
         notes: notes,
+        checklistTemplateId: checklistTemplateId,
+        checklistItems: checklistItems.map((m) => m.toEntity()).toList(),
+      );
+}
+
+// ── Duty checklist item ────────────────────────────────────────────────────────
+
+class DutyChecklistItemModel {
+  final String id;
+  final String dutyId;
+  final String? templateItemId;
+  final int sequence;
+  final String title;
+  final String? description;
+  final bool isRequired;
+  final bool isCompleted;
+  final String? completedAt;
+  final String? notes;
+
+  const DutyChecklistItemModel({
+    required this.id,
+    required this.dutyId,
+    this.templateItemId,
+    this.sequence = 0,
+    required this.title,
+    this.description,
+    this.isRequired = true,
+    this.isCompleted = false,
+    this.completedAt,
+    this.notes,
+  });
+
+  factory DutyChecklistItemModel.fromJson(Map<String, dynamic> j) => DutyChecklistItemModel(
+        id: j['id'] as String,
+        dutyId: j['duty_id'] as String,
+        templateItemId: j['template_item_id'] as String?,
+        sequence: j['sequence'] as int? ?? 0,
+        title: j['title'] as String,
+        description: j['description'] as String?,
+        isRequired: j['is_required'] as bool? ?? true,
+        isCompleted: j['is_completed'] as bool? ?? false,
+        completedAt: j['completed_at'] as String?,
+        notes: j['notes'] as String?,
+      );
+
+  DutyChecklistItemEntity toEntity() => DutyChecklistItemEntity(
+        id: id, dutyId: dutyId, templateItemId: templateItemId,
+        sequence: sequence, title: title, description: description,
+        isRequired: isRequired, isCompleted: isCompleted,
+        completedAt: completedAt != null ? DateTime.tryParse(completedAt!) : null,
+        notes: notes,
+      );
+}
+
+// ── Checklist templates ─────────────────────────────────────────────────────
+
+class ChecklistTemplateItemModel {
+  final String id;
+  final String templateId;
+  final int sequence;
+  final String title;
+  final String? description;
+  final bool isRequired;
+
+  const ChecklistTemplateItemModel({
+    required this.id,
+    required this.templateId,
+    this.sequence = 0,
+    required this.title,
+    this.description,
+    this.isRequired = true,
+  });
+
+  factory ChecklistTemplateItemModel.fromJson(Map<String, dynamic> j) => ChecklistTemplateItemModel(
+        id: j['id'] as String,
+        templateId: j['template_id'] as String,
+        sequence: j['sequence'] as int? ?? 0,
+        title: j['title'] as String,
+        description: j['description'] as String?,
+        isRequired: j['is_required'] as bool? ?? true,
+      );
+
+  ChecklistTemplateItemEntity toEntity() => ChecklistTemplateItemEntity(
+        id: id, templateId: templateId, sequence: sequence,
+        title: title, description: description, isRequired: isRequired,
+      );
+}
+
+class ChecklistTemplateModel {
+  final String id;
+  final String societyId;
+  final String department;
+  final String name;
+  final String? description;
+  final List<ChecklistTemplateItemModel> items;
+
+  const ChecklistTemplateModel({
+    required this.id,
+    required this.societyId,
+    required this.department,
+    required this.name,
+    this.description,
+    this.items = const [],
+  });
+
+  factory ChecklistTemplateModel.fromJson(Map<String, dynamic> j) => ChecklistTemplateModel(
+        id: j['id'] as String,
+        societyId: j['society_id'] as String,
+        department: j['department'] as String,
+        name: j['name'] as String,
+        description: j['description'] as String?,
+        items: (j['items'] as List<dynamic>?)
+                ?.map((e) => ChecklistTemplateItemModel.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            const [],
+      );
+
+  ChecklistTemplateEntity toEntity() => ChecklistTemplateEntity(
+        id: id, societyId: societyId, department: department,
+        name: name, description: description,
+        items: items.map((m) => m.toEntity()).toList(),
       );
 }
 

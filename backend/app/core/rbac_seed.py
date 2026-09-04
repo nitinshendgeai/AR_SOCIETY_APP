@@ -126,6 +126,7 @@ FORM_DEFINITIONS = [
     ("staff",                     "Staff",                      "Staff master records, duties, and attendance"),
     ("parking_management",        "Parking Management",        "Parking zones, slots, and allocations"),
     ("setup_wizard",              "Setup Wizard",                "Society structure setup wizard"),
+    ("checklist_templates",       "Checklist Templates",        "Department-scoped reusable duty checklists"),
 ]
 
 _ADMIN_OR_COMMITTEE_ROLES = (
@@ -161,6 +162,7 @@ FORM_ROLE_GRANTS = {
     "staff":                    tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_SECURITY_DASH_ROLES) | set(_STAFF_DASH_ROLES))),
     "parking_management":       _ADMIN_OR_COMMITTEE_ROLES,
     "setup_wizard":             _ADMIN_OR_COMMITTEE_ROLES,
+    "checklist_templates":      _ADMIN_OR_COMMITTEE_ROLES,
 }
 
 

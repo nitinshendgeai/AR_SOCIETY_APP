@@ -25,6 +25,7 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
 
   DateTime _dutyDate = DateTime.now();
   String? _selectedStaffId;
+  String? _selectedTemplateId;
 
   // Predefined duty options by department
   static const _dutyOptions = [
@@ -116,9 +117,30 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
                 selectedId: _selectedStaffId,
                 onChanged: (s) => setState(() {
                   _selectedStaffId = s?.id;
+                  _selectedTemplateId = null;
                 }),
               ),
             const SizedBox(height: 16),
+
+            // Checklist template (optional) — filtered to the selected
+            // staff member's department; picking one snapshots its items
+            // onto the duty (see StaffService.assign_duty on the backend).
+            if (_selectedStaffId != null) ...[
+              const _Label('Checklist Template (optional)'),
+              const SizedBox(height: 8),
+              _ChecklistTemplateDropdown(
+                societyId: widget.societyId,
+                department: staffList.where((s) => s.id == _selectedStaffId).firstOrNull?.department,
+                selectedId: _selectedTemplateId,
+                onChanged: (t) => setState(() {
+                  _selectedTemplateId = t?.id;
+                  if (t != null && _dutyNameCtrl.text.trim().isEmpty) {
+                    _dutyNameCtrl.text = t.name;
+                  }
+                }),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // Duty name (predefined + custom)
             const _Label('Duty'),
@@ -279,6 +301,7 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
       location: _locationCtrl.text.trim().isEmpty ? null : _locationCtrl.text.trim(),
       startTime: _startTimeCtrl.text.trim().isEmpty ? null : _startTimeCtrl.text.trim(),
       endTime: _endTimeCtrl.text.trim().isEmpty ? null : _endTimeCtrl.text.trim(),
+      checklistTemplateId: _selectedTemplateId,
     );
   }
 }
@@ -292,6 +315,46 @@ class _Label extends StatelessWidget {
     text,
     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
   );
+}
+
+class _ChecklistTemplateDropdown extends ConsumerWidget {
+  final String societyId;
+  final String? department;
+  final String? selectedId;
+  final void Function(ChecklistTemplateEntity?) onChanged;
+
+  const _ChecklistTemplateDropdown({
+    required this.societyId, this.department, this.selectedId, required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final templatesAsync = ref.watch(checklistTemplatesProvider(societyId));
+    return templatesAsync.when(
+      loading: () => const LinearProgressIndicator(),
+      error: (_, __) => const SizedBox.shrink(), // optional field — fail silently
+      data: (all) {
+        final templates = department == null
+            ? all
+            : all.where((t) => t.department == department).toList();
+        if (templates.isEmpty) {
+          return Text('No checklist templates for this department yet.',
+              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary));
+        }
+        return DropdownButtonFormField<ChecklistTemplateEntity>(
+          value: templates.where((t) => t.id == selectedId).firstOrNull,
+          decoration: const InputDecoration(hintText: 'None — free-text duty'),
+          items: templates
+              .map((t) => DropdownMenuItem(
+                    value: t,
+                    child: Text('${t.name} (${t.items.length} items)', overflow: TextOverflow.ellipsis),
+                  ))
+              .toList(),
+          onChanged: onChanged,
+        );
+      },
+    );
+  }
 }
 
 class _StaffDropdown extends StatelessWidget {

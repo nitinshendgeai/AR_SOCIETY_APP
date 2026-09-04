@@ -6,7 +6,7 @@ FSM:
                                             ↘ REOPENED → ASSIGNED
   Any (except CLOSED) → REJECTED (Admin only)
 """
-from datetime import datetime
+from datetime import date, datetime
 from typing import List, Optional
 from uuid import UUID
 from fastapi import HTTPException, Request
@@ -14,8 +14,9 @@ from sqlalchemy.orm import Session
 
 from app.modules.complaint.models.complaint import (
     Complaint, ComplaintComment, ComplaintAttachment,
-    ComplaintStatus, VALID_TRANSITIONS,
+    ComplaintStatus, ComplaintCategory, VALID_TRANSITIONS,
 )
+from app.modules.staff.models.staff import Staff, StaffAttendance, StaffDepartment
 from app.modules.complaint.schemas.complaint import (
     ComplaintCreate, ComplaintAssignRequest, ComplaintStatusUpdateRequest,
     ComplaintReopenRequest, CommentCreate, AttachmentCreate,
@@ -30,6 +31,20 @@ from app.models.audit_log import AuditAction
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
 from app.models.notification import NotificationType, NotificationChannel
+
+
+# Which staff department handles each complaint category. OTHER has no
+# mapping — such complaints always fall back to the FMC Manager.
+CATEGORY_TO_DEPARTMENT = {
+    ComplaintCategory.PLUMBING:     StaffDepartment.PLUMBING,
+    ComplaintCategory.ELECTRICAL:   StaffDepartment.ELECTRICAL,
+    ComplaintCategory.SECURITY:     StaffDepartment.SECURITY,
+    ComplaintCategory.HOUSEKEEPING: StaffDepartment.HOUSEKEEPING,
+    ComplaintCategory.PARKING:      StaffDepartment.SECURITY,
+    ComplaintCategory.LIFT:         StaffDepartment.TECHNICAL,
+    ComplaintCategory.WATER:        StaffDepartment.PLUMBING,
+    ComplaintCategory.AMENITIES:    StaffDepartment.AMENITIES,
+}
 
 
 class ComplaintService:
@@ -80,6 +95,29 @@ class ComplaintService:
                 User.is_active == True,
             )
             .order_by(User.created_at.asc())
+            .first()
+        )
+
+    def _find_on_duty_staff(self, society_id: UUID, department: StaffDepartment) -> Optional[User]:
+        """First staff member in the given department who is currently on
+        duty — checked in today and not yet checked out — with a linked
+        login account. Presence, not payroll: does not require the
+        check-in to be supervisor-approved yet."""
+        today = date.today()
+        return (
+            self.db.query(User)
+            .join(Staff, Staff.user_id == User.id)
+            .join(StaffAttendance, StaffAttendance.staff_id == Staff.id)
+            .filter(
+                Staff.society_id == society_id,
+                Staff.department == department,
+                Staff.is_active == True,
+                User.is_active == True,
+                StaffAttendance.attendance_date == today,
+                StaffAttendance.check_in_time.isnot(None),
+                StaffAttendance.check_out_time.is_(None),
+            )
+            .order_by(StaffAttendance.check_in_time.asc())
             .first()
         )
 
@@ -136,19 +174,36 @@ class ComplaintService:
                     new_values={"number": number, "title": data.title,
                                 "category": data.category.value, "priority": data.priority.value})
 
-        # Auto-assign to the society's FMC Manager, who can reassign to staff later.
-        manager = self._find_manager(data.society_id)
-        if manager:
+        # Auto-assign: prefer an on-duty staff member in the department that
+        # handles this category (e.g. plumbing -> on-duty Plumbing staff),
+        # so complaints reach someone who is actually present. If nobody in
+        # that department is currently checked in (or the category has no
+        # department mapping, e.g. OTHER), fall back to the FMC Manager, who
+        # can reassign to staff later once someone comes on duty.
+        department = CATEGORY_TO_DEPARTMENT.get(data.category)
+        assignee = None
+        assign_note = None
+        if department:
+            assignee = self._find_on_duty_staff(data.society_id, department)
+            if assignee:
+                complaint.assigned_department = department.value
+                assign_note = f"Auto-assigned to on-duty {department.value} staff"
+
+        if not assignee:
+            assignee = self._find_manager(data.society_id)
+            assign_note = "Auto-assigned to FMC Manager"
+
+        if assignee:
             complaint.status      = ComplaintStatus.ASSIGNED
-            complaint.assigned_to = manager.id
+            complaint.assigned_to = assignee.id
             complaint.assigned_by = reporter.id
             complaint.assigned_at = datetime.utcnow()
 
             self._record_transition(complaint, ComplaintStatus.OPEN, ComplaintStatus.ASSIGNED,
-                                    reporter, notes="Auto-assigned to FMC Manager")
+                                    reporter, notes=assign_note)
 
             NotificationService.send(
-                db=self.db, user_id=manager.id,
+                db=self.db, user_id=assignee.id,
                 title="New Complaint Assigned",
                 body=f"Complaint #{number} — {data.title} has been auto-assigned to you.",
                 type=NotificationType.ALERT, channel=NotificationChannel.IN_APP,

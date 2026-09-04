@@ -46,6 +46,7 @@ import 'package:ar_society_app/features/users/presentation/screens/edit_user_scr
 import 'package:ar_society_app/features/users/presentation/screens/role_assignment_screen.dart';
 import 'package:ar_society_app/features/users/presentation/screens/permission_matrix_screen.dart';
 import 'package:ar_society_app/features/users/presentation/screens/forms_matrix_screen.dart';
+import 'package:ar_society_app/features/staff/presentation/screens/checklist_templates_screen.dart';
 import 'package:ar_society_app/features/society_settings/presentation/screens/society_settings_screen.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/screens/wing_list_screen.dart';
@@ -117,6 +118,7 @@ class AppRoutes {
   static const usersRoles         = '/users/:userId/roles';
   static const permissionMatrix   = '/permission-matrix';
   static const formsMatrix        = '/forms-matrix';
+  static const checklistTemplates = '/staff/checklist-templates';
   // Society Settings
   static const societySettings    = '/society-settings';
   // Society Structure
@@ -498,6 +500,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return null;
         },
         builder: (_, __) => const FormsMatrixScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.checklistTemplates,
+        redirect: (_, __) {
+          if (authState is AuthAuthenticated) {
+            final user = (authState as AuthAuthenticated).user;
+            if (!user.isAdminOrCommittee) return userRoleHome(user);
+          }
+          return null;
+        },
+        builder: (_, __) => const ChecklistTemplatesScreen(),
       ),
       // Society Settings
       GoRoute(
