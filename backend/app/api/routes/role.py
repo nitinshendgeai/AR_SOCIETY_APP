@@ -7,8 +7,9 @@ from app.db.session import get_db
 from app.models.role import Role
 from app.models.user import User, UserRole
 from app.models.permission import Permission, RolePermission
+from app.models.form import Form, RoleForm
 from app.core.dependencies import get_current_user, require_admin
-from app.core.rbac_seed import PERMISSION_DEFINITIONS
+from app.core.rbac_seed import PERMISSION_DEFINITIONS, FORM_DEFINITIONS
 from pydantic import BaseModel
 
 
@@ -34,6 +35,26 @@ class RolePermissionMatrixRow(BaseModel):
 
 class UpdateRolePermissionsRequest(BaseModel):
     permission_codes: List[str]
+
+
+class FormListItem(BaseModel):
+    code:        str
+    name:        str
+    description: Optional[str] = None
+
+
+class RoleFormMatrixRow(BaseModel):
+    role_id:    str
+    role_name:  str
+    form_codes: List[str]
+
+
+class UpdateRoleFormsRequest(BaseModel):
+    form_codes: List[str]
+
+
+class MyFormsResponse(BaseModel):
+    form_codes: List[str]
 
 
 router = APIRouter(prefix="/roles", tags=["Roles"])
@@ -68,6 +89,98 @@ def list_roles(
 
     return [RoleListItem(id=str(r.id), name=r.name, description=r.description)
             for r in roles]
+
+
+@router.get("/forms/mine", response_model=MyFormsResponse)
+def get_my_forms(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """The current user's own granted form codes — every authenticated user
+    can read this (it's about themselves), unlike the admin-only matrix
+    endpoints below. The mobile app calls this on login and uses the result
+    to decide which navigation items to render, instead of hardcoding role
+    checks client-side."""
+    codes = set()
+    for ur in current_user.user_roles:
+        role = ur.role
+        if not role:
+            continue
+        for rf in role.role_forms:
+            if rf.form:
+                codes.add(rf.form.code)
+    return MyFormsResponse(form_codes=sorted(codes))
+
+
+@router.get("/forms", response_model=List[FormListItem])
+def list_forms(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """The fixed set of top-level screens the Forms Matrix can grant. See
+    app.core.rbac_seed for the canonical definitions and default grants."""
+    forms = db.query(Form).order_by(Form.code).all()
+    if not forms:
+        # Defensive fallback in case a deployment hasn't run the seed
+        # migration yet — surface the static definitions rather than 404ing.
+        return [FormListItem(code=code, name=name, description=desc)
+                for code, name, desc in FORM_DEFINITIONS]
+    return [FormListItem(code=f.code, name=f.name, description=f.description)
+            for f in forms]
+
+
+@router.get("/form-matrix", response_model=List[RoleFormMatrixRow])
+def get_form_matrix(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Every role in the system with the form codes currently granted to
+    it — the data backing the Forms Matrix editor screen."""
+    roles = db.query(Role).order_by(Role.name).all()
+    rows = []
+    for role in roles:
+        codes = sorted({
+            rf.form.code for rf in role.role_forms if rf.form
+        })
+        rows.append(RoleFormMatrixRow(
+            role_id=str(role.id), role_name=role.name, form_codes=codes,
+        ))
+    return rows
+
+
+@router.put("/{role_id}/forms", response_model=RoleFormMatrixRow)
+def update_role_forms(
+    role_id: UUID,
+    payload: UpdateRoleFormsRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Replace the full set of forms granted to a role. Admin-only — this
+    is the write path behind the Forms Matrix editor screen."""
+    role = db.query(Role).filter(Role.id == role_id).first()
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+
+    valid_codes = {f.code for f in db.query(Form).all()}
+    unknown = set(payload.form_codes) - valid_codes
+    if unknown:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown form code(s): {', '.join(sorted(unknown))}",
+        )
+
+    db.query(RoleForm).filter(RoleForm.role_id == role.id).delete()
+    db.flush()
+
+    forms_by_code = {f.code: f for f in db.query(Form)
+                      .filter(Form.code.in_(payload.form_codes)).all()}
+    for code in payload.form_codes:
+        db.add(RoleForm(role_id=role.id, form_id=forms_by_code[code].id))
+
+    db.commit()
+
+    codes = sorted(payload.form_codes)
+    return RoleFormMatrixRow(role_id=str(role.id), role_name=role.name, form_codes=codes)
 
 
 @router.get("/permissions", response_model=List[PermissionListItem])

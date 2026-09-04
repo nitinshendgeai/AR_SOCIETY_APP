@@ -45,6 +45,7 @@ import 'package:ar_society_app/features/users/presentation/screens/create_user_s
 import 'package:ar_society_app/features/users/presentation/screens/edit_user_screen.dart';
 import 'package:ar_society_app/features/users/presentation/screens/role_assignment_screen.dart';
 import 'package:ar_society_app/features/users/presentation/screens/permission_matrix_screen.dart';
+import 'package:ar_society_app/features/users/presentation/screens/forms_matrix_screen.dart';
 import 'package:ar_society_app/features/society_settings/presentation/screens/society_settings_screen.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/screens/wing_list_screen.dart';
@@ -115,6 +116,7 @@ class AppRoutes {
   static const usersEdit          = '/users/:userId/edit';
   static const usersRoles         = '/users/:userId/roles';
   static const permissionMatrix   = '/permission-matrix';
+  static const formsMatrix        = '/forms-matrix';
   // Society Settings
   static const societySettings    = '/society-settings';
   // Society Structure
@@ -508,6 +510,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return null;
         },
         builder: (_, __) => const PermissionMatrixScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.formsMatrix,
+        redirect: (_, __) {
+          if (authState is AuthAuthenticated) {
+            final user = (authState as AuthAuthenticated).user;
+            if (!user.isAdmin) return userRoleHome(user);
+          }
+          return null;
+        },
+        builder: (_, __) => const FormsMatrixScreen(),
       ),
       // Society Settings
       GoRoute(

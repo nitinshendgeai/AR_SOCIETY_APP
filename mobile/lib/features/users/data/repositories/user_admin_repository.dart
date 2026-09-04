@@ -50,4 +50,14 @@ class UserAdminRepository {
   Future<RolePermissionMatrixRow> updateRolePermissions(
           String roleId, List<String> permissionCodes) =>
       _ds.updateRolePermissions(roleId, permissionCodes);
+
+  Future<List<String>> getMyForms() => _ds.getMyForms();
+
+  Future<List<FormModel>> listForms() => _ds.listForms();
+
+  Future<List<RoleFormMatrixRow>> getFormMatrix() => _ds.getFormMatrix();
+
+  Future<RoleFormMatrixRow> updateRoleForms(
+          String roleId, List<String> formCodes) =>
+      _ds.updateRoleForms(roleId, formCodes);
 }

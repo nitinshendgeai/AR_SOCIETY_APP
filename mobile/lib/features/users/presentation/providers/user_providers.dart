@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/users/data/models/user_admin_models.dart';
 import 'package:ar_society_app/features/users/data/repositories/user_admin_repository.dart';
 
@@ -134,3 +135,70 @@ class PermissionMatrixNotifier
     state = AsyncData(newRows);
   }
 }
+
+// ── Forms matrix ──────────────────────────────────────────────────────────────
+
+final formsListProvider =
+    AsyncNotifierProvider<FormsListNotifier, List<FormModel>>(
+        FormsListNotifier.new);
+
+class FormsListNotifier extends AsyncNotifier<List<FormModel>> {
+  @override
+  Future<List<FormModel>> build() =>
+      ref.read(userAdminRepoProvider).listForms();
+}
+
+final formMatrixProvider =
+    AsyncNotifierProvider<FormMatrixNotifier, List<RoleFormMatrixRow>>(
+        FormMatrixNotifier.new);
+
+class FormMatrixNotifier extends AsyncNotifier<List<RoleFormMatrixRow>> {
+  @override
+  Future<List<RoleFormMatrixRow>> build() =>
+      ref.read(userAdminRepoProvider).getFormMatrix();
+
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+        () => ref.read(userAdminRepoProvider).getFormMatrix());
+  }
+
+  Future<void> toggleForm(String roleId, String formCode, bool grant) async {
+    final rows = state.valueOrNull;
+    if (rows == null) return;
+    final idx = rows.indexWhere((r) => r.roleId == roleId);
+    if (idx == -1) return;
+
+    final current = rows[idx];
+    final updatedCodes = Set<String>.from(current.formCodes);
+    if (grant) {
+      updatedCodes.add(formCode);
+    } else {
+      updatedCodes.remove(formCode);
+    }
+
+    final saved = await ref
+        .read(userAdminRepoProvider)
+        .updateRoleForms(roleId, updatedCodes.toList());
+
+    final newRows = [...rows];
+    newRows[idx] = saved;
+    state = AsyncData(newRows);
+
+    // The edit may have changed the CURRENT user's own visible navigation
+    // (e.g. an Admin editing their own role) — refetch so the drawer
+    // reflects it without requiring a re-login.
+    ref.invalidate(myFormCodesProvider);
+  }
+}
+
+// ── Current user's own visible forms (drives drawer navigation) ────────────────
+//
+// Watches currentUserProvider so a login, logout, or account switch within
+// the same app session automatically re-fetches — no manual invalidation
+// wiring needed at the call site.
+final myFormCodesProvider = FutureProvider<List<String>>((ref) async {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return const [];
+  return ref.read(userAdminRepoProvider).getMyForms();
+});
