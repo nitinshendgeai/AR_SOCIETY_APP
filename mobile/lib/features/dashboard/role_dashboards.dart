@@ -202,6 +202,12 @@ List<_MenuItem> _visibleMenuItems(UserEntity? user) {
     // is excluded per docs/USERS_AND_ROLES.md.
     if (isAdmin)
       _MenuItem('Users & Roles', Icons.people_rounded, AppRoutes.usersList),
+    // Permission Matrix — Society Admin only (require_admin on the
+    // GET/PUT /roles/permission-matrix endpoints); edits every role's
+    // access grants and takes effect immediately, so it's scoped tighter
+    // than most admin-committee screens.
+    if (isAdmin)
+      _MenuItem('Permission Matrix', Icons.rule_rounded, AppRoutes.permissionMatrix),
     // Society Settings write — Society Admin + Committee (require_committee).
     if (isAdminOrCommittee)
       _MenuItem('Society Settings', Icons.apartment_rounded, AppRoutes.societySettings),

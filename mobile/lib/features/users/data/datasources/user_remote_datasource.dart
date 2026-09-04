@@ -67,4 +67,25 @@ class UserRemoteDataSource {
         .map((e) => RoleModel.fromJson(e as Map<String, dynamic>))
         .toList();
   }
+
+  Future<List<PermissionModel>> listPermissions() async {
+    final r = await _dio.get('/roles/permissions');
+    return (r.data as List)
+        .map((e) => PermissionModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<RolePermissionMatrixRow>> getPermissionMatrix() async {
+    final r = await _dio.get('/roles/permission-matrix');
+    return (r.data as List)
+        .map((e) => RolePermissionMatrixRow.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<RolePermissionMatrixRow> updateRolePermissions(
+      String roleId, List<String> permissionCodes) async {
+    final r = await _dio.put('/roles/$roleId/permissions',
+        data: {'permission_codes': permissionCodes});
+    return RolePermissionMatrixRow.fromJson(r.data as Map<String, dynamic>);
+  }
 }

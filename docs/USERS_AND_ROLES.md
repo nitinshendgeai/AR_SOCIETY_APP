@@ -1,6 +1,6 @@
 # Users and Roles — AR Society ERP
 
-Last updated: 2026-06-10
+Last updated: 2026-09-04
 
 ---
 
@@ -119,19 +119,38 @@ Same routing as punch-in above.
 
 ## RBAC Implementation
 
+### Dynamic Permission Matrix
+
+Role → access-tier grants are no longer hardcoded. They live in the
+`permissions` / `role_permissions` tables and can be edited by a Society
+Admin at runtime via **Permission Matrix** (drawer menu, Admin only) or the
+`GET/PUT /api/v1/roles/permission-matrix` and
+`PUT /api/v1/roles/{role_id}/permissions` endpoints. A toggle takes effect
+on the very next request — no deploy or app update needed.
+
+The default seed (applied by the `permission_matrix` Alembic migration, and
+auto-granted to any newly created Role via the `Role.after_insert` listener
+in `backend/app/core/rbac_seed.py`) reproduces the table below exactly, so
+this section still describes the out-of-the-box behavior.
+
 ### Backend Dependency Guards
 
-Defined in `backend/app/core/dependencies.py`:
+Defined in `backend/app/core/dependencies.py`. Each guard is a thin wrapper
+around `require_permission("<tier code>")`, which checks the current
+user's roles against the `role_permissions` table:
 
-| Guard | Allowed Roles |
-|-------|--------------|
-| `require_admin` | Platform Admin, Society Admin |
-| `require_admin_committee` | Platform Admin, Society Admin, all Committee roles |
-| `require_manager_above` | + Manager |
-| `require_supervisor_above` | + Security/Housekeeping/Technical Supervisor |
-| `require_any_staff` | + Security/Housekeeping/Technical Staff, Gym Trainer |
-| `require_any_member` | + Resident, Tenant |
-| `require_security` | Platform Admin, Society Admin, Committee, Manager, Security Supervisor, Security Staff |
+| Guard | Permission code | Allowed Roles (default) |
+|-------|-----------------|--------------------------|
+| `require_admin` | `admin` | Platform Admin, Society Admin |
+| `require_admin_committee` | `admin_committee` | Platform Admin, Society Admin, all Committee roles |
+| `require_manager_above` | `manager_above` | + Manager |
+| `require_supervisor_above` | `supervisor_above` | + Security/Housekeeping/Technical Supervisor |
+| `require_any_staff` | `any_staff` | + Security/Housekeeping/Technical Staff, Gym Trainer |
+| `require_any_member` | `any_member` | + Resident, Tenant |
+| `require_security` | `security` | Platform Admin, Society Admin, Committee, Manager, Security Supervisor, Security Staff |
+
+`require_platform_admin` is unaffected by the matrix — it checks the
+`is_superadmin` boolean flag on the user record directly, not a role grant.
 
 ### Multi-Tenant Isolation
 

@@ -41,4 +41,13 @@ class UserAdminRepository {
   Future<void> deleteUser(String id) => _ds.deleteUser(id);
 
   Future<List<RoleModel>> listRoles() => _ds.listRoles();
+
+  Future<List<PermissionModel>> listPermissions() => _ds.listPermissions();
+
+  Future<List<RolePermissionMatrixRow>> getPermissionMatrix() =>
+      _ds.getPermissionMatrix();
+
+  Future<RolePermissionMatrixRow> updateRolePermissions(
+          String roleId, List<String> permissionCodes) =>
+      _ds.updateRolePermissions(roleId, permissionCodes);
 }
