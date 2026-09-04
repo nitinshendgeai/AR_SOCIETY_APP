@@ -206,14 +206,14 @@ void main() {
       await openDrawer(tester);
 
       for (final label in [
-        'Residents', 'Tenants', 'Users & Roles', 'Society Settings',
+        'Residents', 'Tenants', 'Users & Roles', 'Permission Matrix', 'Society Settings',
         'Visitors', 'Complaints', 'Staff', 'Parking Management', 'Setup Wizard',
       ]) {
         await expectVisibleInDrawer(tester, label);
       }
     });
 
-    testWidgets('Committee sees admin-committee items but not Users & Roles', (tester) async {
+    testWidgets('Committee sees admin-committee items but not Users & Roles or Permission Matrix', (tester) async {
       await tester.pumpWidget(_wrapWithUser(const CommitteeDashboardScreen(), _makeUser(role: 'Committee')));
       await tester.pump();
       await openDrawer(tester);
@@ -225,6 +225,7 @@ void main() {
         await expectVisibleInDrawer(tester, label);
       }
       expect(inDrawer('Users & Roles'), findsNothing);
+      expect(inDrawer('Permission Matrix'), findsNothing);
     });
 
     testWidgets('Security Staff sees operational items only, no admin configuration screens', (tester) async {
@@ -235,7 +236,7 @@ void main() {
       expect(inDrawer('Visitors'), findsOneWidget);
       expect(inDrawer('Complaints'), findsOneWidget);
       expect(inDrawer('Staff'), findsOneWidget);
-      for (final label in ['Residents', 'Tenants', 'Users & Roles', 'Society Settings', 'Setup Wizard']) {
+      for (final label in ['Residents', 'Tenants', 'Users & Roles', 'Permission Matrix', 'Society Settings', 'Setup Wizard']) {
         expect(inDrawer(label), findsNothing, reason: '$label must not be visible to Security');
       }
     });
@@ -247,7 +248,7 @@ void main() {
 
       expect(inDrawer('Visitors'), findsOneWidget);
       expect(inDrawer('Complaints'), findsOneWidget);
-      for (final label in ['Residents', 'Tenants', 'Users & Roles', 'Society Settings', 'Staff', 'Setup Wizard']) {
+      for (final label in ['Residents', 'Tenants', 'Users & Roles', 'Permission Matrix', 'Society Settings', 'Staff', 'Setup Wizard']) {
         expect(inDrawer(label), findsNothing, reason: '$label must not be visible to Resident');
       }
     });

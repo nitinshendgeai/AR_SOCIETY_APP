@@ -3,6 +3,8 @@ from app.models.wing         import Wing
 from app.models.floor        import Floor
 from app.models.flat         import Flat, FlatType, OccupancyStatus, MaintenanceStatus
 from app.models.role         import Role
+from app.models.permission   import Permission, RolePermission
+import app.core.rbac_seed  # noqa — registers the Role after_insert auto-grant listener
 from app.models.user         import User, UserRole, UserStatus
 from app.models.resident     import Resident, ResidentType, CommunicationPreference
 from app.models.resident_edit_request import ResidentEditRequest, ResidentEditRequestStatus
