@@ -1,6 +1,6 @@
 # Users and Roles — AR Society ERP
 
-Last updated: 2026-09-04
+Last updated: 2026-09-05
 
 ---
 
@@ -95,6 +95,7 @@ Platform Admin
 | Payroll management | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Manage checklist templates | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Complete duty checklist items | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Record online payment screenshots | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
 
 ### Checklist Templates & On-Duty Complaint Routing
 
@@ -116,6 +117,32 @@ is on duty (or the category has no department mapping, e.g. "Other"), it
 falls back to the society's FMC Manager, as before. The Manager's manual
 "assign to department" action (`POST /staff/complaints/assign-department`)
 uses the same on-duty lookup.
+
+### Online Payment Screenshots (bank reconciliation)
+
+FMC Manager (or Admin/Committee) selects a Wing + Flat and uploads a
+resident's online (UPI/bank transfer) payment screenshot from the
+**Online Payments** screen (`online_payments` form, drawer menu, gated to
+Admin/Committee/Manager by default). Along with the screenshot, the
+amount, payment date, mode, transaction reference (UTR), and bank name
+are captured into an `OnlinePaymentSubmission` record — deliberately
+independent of a `MaintenanceBill`, since the point is to log what a
+resident says they paid before anyone checks it against the bank
+statement, not to apply it to an invoice immediately.
+
+The screenshot image itself is stored inline in the database (not on
+local disk) since the backend's container filesystem is ephemeral and a
+disk-stored file would be lost on every redeploy. Each submission gets a
+sequential receipt number (`OPS-{year}-{00001}`) and a simple PDF receipt
+that can be viewed/shared from the app.
+
+Every submission starts `pending`. An Admin/Committee/Manager reviews it
+against the actual bank statement and marks it `reconciled` or `rejected`
+(with optional notes) from the submission's detail screen — this is a
+manual step for now, not automatic matching. The list screen can export
+the current filtered view as a CSV (receipt number, flat, amount, date,
+mode, reference, bank, status) to cross-check against a bank statement
+outside the app.
 
 ---
 
@@ -205,6 +232,8 @@ exactly:
 | `staff` | Staff | Society Admin, Committee, Security/Housekeeping/Technical Supervisor, Security/Housekeeping/Technical Staff |
 | `parking_management` | Parking Management | Society Admin, all Committee roles |
 | `setup_wizard` | Setup Wizard | Society Admin, all Committee roles |
+| `checklist_templates` | Checklist Templates | Society Admin, all Committee roles |
+| `online_payments` | Online Payments | Society Admin, all Committee roles, Manager |
 
 Note: this reproduces the *exact* pre-existing drawer logic, gaps
 included — Platform Admin, Manager, Gym Trainer, and Tenant only ever saw
