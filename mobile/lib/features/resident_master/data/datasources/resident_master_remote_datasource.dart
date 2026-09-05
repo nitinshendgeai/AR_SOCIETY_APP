@@ -50,6 +50,48 @@ class ResidentMasterRemoteDataSource {
     return ResidentModel.fromJson(r.data as Map<String, dynamic>);
   }
 
+  /// GET /residents/me
+  Future<ResidentModel> getMyResident() async {
+    final r = await _dio.get('/residents/me');
+    return ResidentModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  // ── Resident self-service edit requests ───────────────────────────────
+
+  /// POST /residents/edit-requests
+  Future<ResidentEditRequestModel> createEditRequest(Map<String, dynamic> data) async {
+    final r = await _dio.post('/residents/edit-requests', data: data);
+    return ResidentEditRequestModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// GET /residents/edit-requests/mine
+  Future<List<ResidentEditRequestModel>> listMyEditRequests() async {
+    final r = await _dio.get('/residents/edit-requests/mine');
+    return (r.data as List)
+        .map((e) => ResidentEditRequestModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// GET /residents/edit-requests/pending
+  Future<List<ResidentEditRequestModel>> listPendingEditRequests() async {
+    final r = await _dio.get('/residents/edit-requests/pending');
+    return (r.data as List)
+        .map((e) => ResidentEditRequestModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// POST /residents/edit-requests/{id}/approve
+  Future<ResidentEditRequestModel> approveEditRequest(String id) async {
+    final r = await _dio.post('/residents/edit-requests/$id/approve');
+    return ResidentEditRequestModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// POST /residents/edit-requests/{id}/reject
+  Future<ResidentEditRequestModel> rejectEditRequest(String id, String reason) async {
+    final r = await _dio.post('/residents/edit-requests/$id/reject', data: {'reason': reason});
+    return ResidentEditRequestModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
   // ── Tenants ────────────────────────────────────────────────────────────
 
   /// POST /tenants/

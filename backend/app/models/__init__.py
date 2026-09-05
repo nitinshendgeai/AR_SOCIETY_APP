@@ -3,8 +3,12 @@ from app.models.wing         import Wing
 from app.models.floor        import Floor
 from app.models.flat         import Flat, FlatType, OccupancyStatus, MaintenanceStatus
 from app.models.role         import Role
+from app.models.permission   import Permission, RolePermission
+from app.models.form         import Form, RoleForm
+import app.core.rbac_seed  # noqa — registers the Role after_insert auto-grant listeners
 from app.models.user         import User, UserRole, UserStatus
 from app.models.resident     import Resident, ResidentType, CommunicationPreference
+from app.models.resident_edit_request import ResidentEditRequest, ResidentEditRequestStatus
 from app.models.tenant       import Tenant, PoliceVerificationStatus
 from app.models.vehicle      import Vehicle, VehicleType
 from app.models.audit_log    import AuditLog, AuditAction
@@ -31,6 +35,7 @@ from app.modules.staff.models.staff import (
     Staff, StaffDesignation, StaffShift, DutyAssignment,
     StaffAttendance, StaffTask, StaffLeave, StaffWorkLog,
     StaffRoster, StaffLeaveBalance,
+    ChecklistTemplate, ChecklistTemplateItem, DutyChecklistItem,
     StaffDepartment, StaffStatus, AttendanceStatus,
     TaskStatus, LeaveType, LeaveStatus, ShiftType, RosterStatus,
 )
@@ -74,8 +79,9 @@ from app.modules.notice.models.notice import (
 from app.modules.billing.models.billing import (
     FinancialPeriod, MaintenanceChargeConfig, BillingCycle,
     MaintenanceBill, InvoiceLineItem, PaymentReceipt,
-    DueTracker, PenaltyRule,
+    DueTracker, PenaltyRule, OnlinePaymentSubmission,
     ChargeType, BillStatus, PaymentMode, PenaltyCalculationType, CycleFrequency,
+    ReconciliationStatus,
 )
 
 # Vendor module models

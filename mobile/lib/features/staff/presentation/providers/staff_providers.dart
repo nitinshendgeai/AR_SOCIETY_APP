@@ -143,6 +143,18 @@ class DutyNotifier extends StateNotifier<DutyState> {
       case StaffFailure(:final message): state = DutyError(message);
     }
   }
+
+  /// Toggles one checklist item on a duty, then reloads the duty list so
+  /// DutyEntity.canComplete (and the rendered checkbox) reflect the change —
+  /// mirrors completeDuty()'s reload-after-mutate pattern above.
+  Future<void> toggleChecklistItem(
+      String dutyId, String itemId, String staffId, {required bool isCompleted}) async {
+    final result = await _repo.completeChecklistItem(dutyId, itemId, isCompleted: isCompleted);
+    switch (result) {
+      case StaffSuccess(): await loadDuties(staffId);
+      case StaffFailure(:final message): state = DutyError(message);
+    }
+  }
 }
 
 final dutyProvider = StateNotifierProvider<DutyNotifier, DutyState>((ref) {
@@ -546,7 +558,8 @@ class DutyAssignError   extends DutyAssignState { final String message; DutyAssi
 
 class DutyAssignNotifier extends StateNotifier<DutyAssignState> {
   final StaffRepository _repo;
-  DutyAssignNotifier(this._repo) : super(DutyAssignInitial());
+  final Ref _ref;
+  DutyAssignNotifier(this._repo, this._ref) : super(DutyAssignInitial());
 
   Future<void> assign({
     required String staffId,
@@ -557,16 +570,26 @@ class DutyAssignNotifier extends StateNotifier<DutyAssignState> {
     String? location,
     String? startTime,
     String? endTime,
+    String? checklistTemplateId,
   }) async {
     state = DutyAssignLoading();
     final result = await _repo.assignDuty(
       staffId: staffId, societyId: societyId, dutyName: dutyName,
       dutyDate: dutyDate, description: description, location: location,
       startTime: startTime, endTime: endTime,
+      checklistTemplateId: checklistTemplateId,
     );
     switch (result) {
-      case StaffSuccess(:final data): state = DutyAssignSuccess(data);
-      case StaffFailure(:final message): state = DutyAssignError(message);
+      case StaffSuccess(:final data):
+        state = DutyAssignSuccess(data);
+        // Every call site pushes this screen without awaiting the pop
+        // result, so the dashboard's duty-count summary (societyDutiesProvider,
+        // a cached FutureProvider.family) would otherwise stay stale until
+        // a manual pull-to-refresh — invalidate it here instead of depending
+        // on each current (and future) call site to remember to.
+        _ref.invalidate(societyDutiesProvider(societyId));
+      case StaffFailure(:final message):
+        state = DutyAssignError(message);
     }
   }
 
@@ -574,7 +597,7 @@ class DutyAssignNotifier extends StateNotifier<DutyAssignState> {
 }
 
 final dutyAssignProvider = StateNotifierProvider<DutyAssignNotifier, DutyAssignState>((ref) {
-  return DutyAssignNotifier(ref.read(staffRepositoryProvider));
+  return DutyAssignNotifier(ref.read(staffRepositoryProvider), ref);
 });
 
 // ── Daily society duties provider (dashboard summary) ─────────────────────────
@@ -645,3 +668,85 @@ final dutyOverviewProvider =
     StateNotifierProvider<DutyOverviewNotifier, DutyOverviewState>((ref) {
   return DutyOverviewNotifier(ref.read(staffRepositoryProvider));
 });
+
+// ── Checklist templates (society-wide; screens filter by department) ───────────
+
+final checklistTemplatesProvider = AsyncNotifierProviderFamily<
+    ChecklistTemplatesNotifier, List<ChecklistTemplateEntity>, String>(
+  ChecklistTemplatesNotifier.new,
+);
+
+class ChecklistTemplatesNotifier
+    extends FamilyAsyncNotifier<List<ChecklistTemplateEntity>, String> {
+  Future<List<ChecklistTemplateEntity>> _fetch(String societyId) async {
+    final result = await ref.read(staffRepositoryProvider).listChecklistTemplates(societyId);
+    return switch (result) {
+      StaffSuccess(:final data) => data,
+      StaffFailure(:final message) => throw Exception(message),
+    };
+  }
+
+  @override
+  Future<List<ChecklistTemplateEntity>> build(String societyId) => _fetch(societyId);
+
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() => _fetch(arg));
+  }
+
+  Future<void> create({
+    required String department,
+    required String name,
+    String? description,
+    required List<Map<String, dynamic>> items,
+  }) async {
+    final result = await ref.read(staffRepositoryProvider).createChecklistTemplate(
+          societyId: arg, department: department, name: name,
+          description: description, items: items,
+        );
+    switch (result) {
+      case StaffSuccess(:final data):
+        state = AsyncData([...(state.valueOrNull ?? []), data]);
+      case StaffFailure(:final message):
+        throw Exception(message);
+    }
+  }
+
+  Future<void> updateTemplate(
+    String templateId, {
+    String? name,
+    String? description,
+    String? department,
+    List<Map<String, dynamic>>? items,
+  }) async {
+    final result = await ref.read(staffRepositoryProvider).updateChecklistTemplate(
+          templateId, name: name, description: description,
+          department: department, items: items,
+        );
+    switch (result) {
+      case StaffSuccess(:final data):
+        final rows = <ChecklistTemplateEntity>[...(state.valueOrNull ?? [])];
+        final idx = rows.indexWhere((t) => t.id == templateId);
+        if (idx != -1) {
+          rows[idx] = data;
+        } else {
+          rows.add(data);
+        }
+        state = AsyncData(rows);
+      case StaffFailure(:final message):
+        throw Exception(message);
+    }
+  }
+
+  Future<void> delete(String templateId) async {
+    final result = await ref.read(staffRepositoryProvider).deleteChecklistTemplate(templateId);
+    switch (result) {
+      case StaffSuccess():
+        state = AsyncData(
+          (state.valueOrNull ?? []).where((t) => t.id != templateId).toList(),
+        );
+      case StaffFailure(:final message):
+        throw Exception(message);
+    }
+  }
+}

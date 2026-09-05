@@ -11,6 +11,7 @@ import 'package:ar_society_app/features/onboarding/presentation/providers/trial_
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/complaint/presentation/providers/complaint_providers.dart';
+import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
 
 // ── Shared scaffold wrapper ───────────────────────────────────────────────────
 
@@ -22,8 +23,8 @@ class _DashboardShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentUserProvider);
-    final menuItems = _visibleMenuItems(user);
+    final myFormsAsync = ref.watch(myFormCodesProvider);
+    final menuItems = _visibleMenuItems(myFormsAsync.valueOrNull?.toSet() ?? const {});
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
@@ -172,51 +173,43 @@ class _BiometricEnrollTriggerState extends ConsumerState<_BiometricEnrollTrigger
 // ── Shared components ─────────────────────────────────────────────────────────
 
 class _MenuItem {
+  final String formCode;
   final String label;
   final IconData icon;
   final String? route;
 
-  const _MenuItem(this.label, this.icon, this.route);
+  const _MenuItem(this.formCode, this.label, this.icon, this.route);
 }
 
-/// Role-aware drawer menu — mirrors the backend's `require_admin`/
-/// `require_admin_committee`/`require_security`/`require_any_staff`
-/// hierarchy in backend/app/core/dependencies.py (see docs/USERS_AND_ROLES.md
-/// for the human-readable matrix) rather than guessing from screen names.
-/// This is a UX/least-privilege improvement only — the backend remains the
-/// authority and still rejects unauthorized reads/writes with a 403
-/// regardless of what the drawer shows.
-List<_MenuItem> _visibleMenuItems(UserEntity? user) {
-  if (user == null) return const [];
-  final isAdmin = user.isAdmin;
-  final isAdminOrCommittee = user.isAdminOrCommittee;
+/// Every navigable drawer item, in display order, tagged with the form
+/// code that gates it (see backend/app/core/rbac_seed.py FORM_DEFINITIONS
+/// and the Forms Matrix screen). Which of these a given user sees is
+/// entirely server-driven — fetched via GET /roles/forms/mine into
+/// myFormCodesProvider — rather than guessed from role-name checks here,
+/// so an Admin can regrant/revoke individual screens per role at runtime
+/// without an app update. The backend remains the authority regardless:
+/// every endpoint still rejects unauthorized reads/writes with a 403 no
+/// matter what the drawer shows.
+const _allMenuItems = [
+  _MenuItem('residents', 'Residents', Icons.people_outline_rounded, AppRoutes.residentsList),
+  _MenuItem('tenants', 'Tenants', Icons.groups_2_outlined, AppRoutes.tenantsList),
+  _MenuItem('users_roles', 'Users & Roles', Icons.people_rounded, AppRoutes.usersList),
+  _MenuItem('permission_matrix', 'Permission Matrix', Icons.rule_rounded, AppRoutes.permissionMatrix),
+  _MenuItem('forms_matrix', 'Forms Matrix', Icons.dashboard_customize_rounded, AppRoutes.formsMatrix),
+  _MenuItem('society_settings', 'Society Settings', Icons.apartment_rounded, AppRoutes.societySettings),
+  _MenuItem('visitors', 'Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
+  _MenuItem('complaints', 'Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
+  _MenuItem('edit_my_info', 'Edit My Info', Icons.edit_note_rounded, AppRoutes.editMyProfile),
+  _MenuItem('pending_resident_changes', 'Pending Resident Changes', Icons.fact_check_outlined, AppRoutes.pendingResidentChanges),
+  _MenuItem('staff', 'Staff', Icons.badge_rounded, AppRoutes.staffHome),
+  _MenuItem('checklist_templates', 'Checklist Templates', Icons.checklist_rtl_rounded, AppRoutes.checklistTemplates),
+  _MenuItem('online_payments', 'Online Payments', Icons.receipt_long_rounded, AppRoutes.onlinePayments),
+  _MenuItem('parking_management', 'Parking Management', Icons.local_parking_rounded, AppRoutes.parkingManagement),
+  _MenuItem('setup_wizard', 'Setup Wizard', Icons.checklist_rounded, AppRoutes.structureWizard),
+];
 
-  return [
-    // Resident/Tenant master data — Society Admin + Committee only
-    // (require_admin_committee on the write endpoints).
-    if (isAdminOrCommittee) ...[
-      _MenuItem('Residents', Icons.people_outline_rounded, AppRoutes.residentsList),
-      _MenuItem('Tenants', Icons.groups_2_outlined, AppRoutes.tenantsList),
-    ],
-    // Users & Roles — Society Admin only (require_admin); even Committee
-    // is excluded per docs/USERS_AND_ROLES.md.
-    if (isAdmin)
-      _MenuItem('Users & Roles', Icons.people_rounded, AppRoutes.usersList),
-    // Society Settings write — Society Admin + Committee (require_committee).
-    if (isAdminOrCommittee)
-      _MenuItem('Society Settings', Icons.apartment_rounded, AppRoutes.societySettings),
-    // Operational features open to every role.
-    _MenuItem('Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
-    _MenuItem('Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
-    // Staff module — admins/committee (master records), plus security/staff
-    // roles who use it for their own duties/attendance/approvals.
-    if (isAdminOrCommittee || user.isSecurity || user.isStaff)
-      _MenuItem('Staff', Icons.badge_rounded, AppRoutes.staffHome),
-    // Setup/Structure Wizard — Society Admin + Committee only.
-    if (isAdminOrCommittee)
-      _MenuItem('Setup Wizard', Icons.checklist_rounded, AppRoutes.structureWizard),
-  ];
-}
+List<_MenuItem> _visibleMenuItems(Set<String> grantedFormCodes) =>
+    _allMenuItems.where((item) => grantedFormCodes.contains(item.formCode)).toList();
 
 class _GreetingCard extends ConsumerWidget {
   final UserEntity? user;
@@ -788,8 +781,12 @@ class SecurityDashboardScreen extends ConsumerWidget {
           const _QuickActionChip(icon: Icons.login_rounded, label: 'Check In', route: AppRoutes.visitorsPending),
           const SizedBox(width: 8),
           const _QuickActionChip(icon: Icons.logout_rounded, label: 'Check Out', route: AppRoutes.visitorsMy),
-          const SizedBox(width: 8),
+        ]),
+        const SizedBox(height: 8),
+        Row(children: [
           const _QuickActionChip(icon: Icons.list_alt_rounded, label: 'Visitor Log', route: AppRoutes.visitorsMy),
+          const SizedBox(width: 8),
+          const _QuickActionChip(icon: Icons.local_parking_rounded, label: 'Vehicle Gate', route: AppRoutes.parkingGateCheck),
         ]),
         const SizedBox(height: 18),
         _OperationalPanel(title: 'Shift Notes', children: const [
@@ -839,9 +836,13 @@ class ResidentDashboardScreen extends ConsumerWidget {
         Row(children: const [
           _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaint', route: AppRoutes.complaints),
           SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.settings_outlined, label: 'Society Info', route: AppRoutes.societySettings),
+          _QuickActionChip(icon: Icons.edit_note_rounded, label: 'Edit My Info', route: AppRoutes.editMyProfile),
           SizedBox(width: 8),
           _QuickActionChip(icon: Icons.person_rounded, label: 'Visitors', route: AppRoutes.visitorsMy),
+        ]),
+        const SizedBox(height: 8),
+        Row(children: const [
+          _QuickActionChip(icon: Icons.settings_outlined, label: 'Society Info', route: AppRoutes.societySettings),
           SizedBox(width: 8),
           _QuickActionChip(icon: Icons.pending_actions_rounded, label: 'Approvals', route: AppRoutes.visitorsPending),
         ]),

@@ -58,6 +58,19 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 def create_tables():
     import app.models  # noqa — register all models
     Base.metadata.create_all(bind=engine)
+
+    # The dynamic-RBAC permission tiers (see app.core.rbac_seed) are normally
+    # seeded by an Alembic migration in real deployments — this test DB is
+    # built straight from the models instead, so seed them here. Without
+    # this, every require_admin/require_any_member/etc. guard would 403
+    # everyone: the Role.after_insert auto-grant listener looks these rows
+    # up by code and silently no-ops if the permissions table is empty.
+    from app.core.rbac_seed import seed_permission_definitions, seed_form_definitions
+    with engine.connect() as conn:
+        seed_permission_definitions(conn)
+        seed_form_definitions(conn)
+        conn.commit()
+
     yield
     Base.metadata.drop_all(bind=engine)
     try: os.remove("./test_ar_society.db")

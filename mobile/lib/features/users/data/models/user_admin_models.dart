@@ -61,6 +61,85 @@ class RoleModel {
       );
 }
 
+class PermissionModel {
+  final String code;
+  final String name;
+  final String? description;
+
+  const PermissionModel({required this.code, required this.name, this.description});
+
+  factory PermissionModel.fromJson(Map<String, dynamic> json) => PermissionModel(
+        code: json['code'] as String,
+        name: json['name'] as String,
+        description: json['description'] as String?,
+      );
+}
+
+class RolePermissionMatrixRow {
+  final String roleId;
+  final String roleName;
+  final List<String> permissionCodes;
+
+  const RolePermissionMatrixRow({
+    required this.roleId,
+    required this.roleName,
+    required this.permissionCodes,
+  });
+
+  factory RolePermissionMatrixRow.fromJson(Map<String, dynamic> json) =>
+      RolePermissionMatrixRow(
+        roleId: json['role_id'] as String,
+        roleName: json['role_name'] as String,
+        permissionCodes: (json['permission_codes'] as List<dynamic>?)
+                ?.map((e) => e as String)
+                .toList() ??
+            [],
+      );
+
+  RolePermissionMatrixRow copyWith({List<String>? permissionCodes}) =>
+      RolePermissionMatrixRow(
+        roleId: roleId,
+        roleName: roleName,
+        permissionCodes: permissionCodes ?? this.permissionCodes,
+      );
+}
+
+class FormModel {
+  final String code;
+  final String name;
+  final String? description;
+
+  const FormModel({required this.code, required this.name, this.description});
+
+  factory FormModel.fromJson(Map<String, dynamic> json) => FormModel(
+        code: json['code'] as String,
+        name: json['name'] as String,
+        description: json['description'] as String?,
+      );
+}
+
+class RoleFormMatrixRow {
+  final String roleId;
+  final String roleName;
+  final List<String> formCodes;
+
+  const RoleFormMatrixRow({
+    required this.roleId,
+    required this.roleName,
+    required this.formCodes,
+  });
+
+  factory RoleFormMatrixRow.fromJson(Map<String, dynamic> json) =>
+      RoleFormMatrixRow(
+        roleId: json['role_id'] as String,
+        roleName: json['role_name'] as String,
+        formCodes: (json['form_codes'] as List<dynamic>?)
+                ?.map((e) => e as String)
+                .toList() ??
+            [],
+      );
+}
+
 class PasswordResetResult {
   final String temporaryPassword;
 

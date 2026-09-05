@@ -18,6 +18,9 @@ import 'package:ar_society_app/features/staff/presentation/screens/duty_overview
 import 'package:ar_society_app/features/staff/presentation/screens/attendance_correction_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_list_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_add_screen.dart';
+import 'package:ar_society_app/features/staff/presentation/screens/staff_import_screen.dart';
+import 'package:ar_society_app/features/parking/presentation/screens/gate_check_screen.dart';
+import 'package:ar_society_app/features/parking/presentation/screens/parking_management_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_detail_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_edit_screen.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
@@ -41,6 +44,10 @@ import 'package:ar_society_app/features/users/presentation/screens/user_detail_s
 import 'package:ar_society_app/features/users/presentation/screens/create_user_screen.dart';
 import 'package:ar_society_app/features/users/presentation/screens/edit_user_screen.dart';
 import 'package:ar_society_app/features/users/presentation/screens/role_assignment_screen.dart';
+import 'package:ar_society_app/features/users/presentation/screens/permission_matrix_screen.dart';
+import 'package:ar_society_app/features/users/presentation/screens/forms_matrix_screen.dart';
+import 'package:ar_society_app/features/staff/presentation/screens/checklist_templates_screen.dart';
+import 'package:ar_society_app/features/billing/presentation/screens/online_payments_list_screen.dart';
 import 'package:ar_society_app/features/society_settings/presentation/screens/society_settings_screen.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/screens/wing_list_screen.dart';
@@ -56,6 +63,8 @@ import 'package:ar_society_app/features/resident_master/presentation/screens/res
 import 'package:ar_society_app/features/resident_master/presentation/screens/resident_detail_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/resident_form_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/resident_import_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/edit_my_profile_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/pending_resident_changes_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_list_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_detail_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_form_screen.dart';
@@ -80,6 +89,9 @@ class AppRoutes {
   static const staffAttendanceCorrections = '/staff/attendance-corrections';
   static const staffList          = '/staff/list';
   static const staffAdd           = '/staff/add';
+  static const staffImport        = '/staff/import';
+  static const parkingGateCheck   = '/parking/gate-check';
+  static const parkingManagement  = '/parking/management';
   static const staffDetail        = '/staff/:staffId/detail';
   static const staffEdit          = '/staff/:staffId/edit';
   static const managerHome        = '/manager';
@@ -105,6 +117,10 @@ class AppRoutes {
   static const usersDetail        = '/users/:userId';
   static const usersEdit          = '/users/:userId/edit';
   static const usersRoles         = '/users/:userId/roles';
+  static const permissionMatrix   = '/permission-matrix';
+  static const formsMatrix        = '/forms-matrix';
+  static const checklistTemplates = '/staff/checklist-templates';
+  static const onlinePayments     = '/billing/online-payments';
   // Society Settings
   static const societySettings    = '/society-settings';
   // Society Structure
@@ -122,6 +138,8 @@ class AppRoutes {
   static const residentDetail     = '/residents/detail';
   static const residentForm       = '/residents/form';
   static const residentImport     = '/residents/import';
+  static const editMyProfile           = '/residents/me/edit';
+  static const pendingResidentChanges  = '/residents/edit-requests/pending';
   static const tenantsList        = '/tenants';
   static const tenantDetail       = '/tenants/detail';
   static const tenantForm         = '/tenants/form';
@@ -208,7 +226,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         if (!user.mustChangePassword && user.termsAccepted &&
             (isOnLogin || isOnSplash || isOnChangePassword || isOnSetupWizard ||
                 isOnBiometricLock)) {
-          final home = _userRoleHome(user);
+          final home = userRoleHome(user);
           debugPrint('[ROUTE_REDIRECT] → role home: $home');
           return home;
         }
@@ -227,7 +245,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (_, __) => const BiometricLockScreen()),
       GoRoute(path: AppRoutes.home, redirect: (_, __) {
         if (authState is AuthAuthenticated) {
-          return _userRoleHome((authState as AuthAuthenticated).user);
+          return userRoleHome((authState as AuthAuthenticated).user);
         }
         return AppRoutes.login;
       }),
@@ -260,6 +278,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           }
           return AttendanceApprovalScreen(societyId: societyId, department: department);
         },
+      ),
+      GoRoute(
+        path: AppRoutes.parkingGateCheck,
+        builder: (_, __) => const GateCheckScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.parkingManagement,
+        redirect: (_, __) {
+          if (authState is AuthAuthenticated) {
+            final user = (authState as AuthAuthenticated).user;
+            if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
+          }
+          return null;
+        },
+        builder: (_, __) => const ParkingManagementScreen(),
       ),
       GoRoute(
         path: AppRoutes.staffAssignDuty,
@@ -301,6 +334,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return null;
         },
         builder: (_, __) => const StaffAddScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.staffImport,
+        redirect: (_, __) {
+          if (authState is AuthAuthenticated) {
+            final user = (authState as AuthAuthenticated).user;
+            if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
+          }
+          return null;
+        },
+        builder: (_, __) => const StaffImportScreen(),
       ),
       GoRoute(
         path: AppRoutes.staffDetail,
@@ -437,6 +481,50 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, state) =>
             UserDetailScreen(userId: state.pathParameters['userId']!),
       ),
+      GoRoute(
+        path: AppRoutes.permissionMatrix,
+        redirect: (_, __) {
+          if (authState is AuthAuthenticated) {
+            final user = (authState as AuthAuthenticated).user;
+            if (!user.isAdmin) return userRoleHome(user);
+          }
+          return null;
+        },
+        builder: (_, __) => const PermissionMatrixScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.formsMatrix,
+        redirect: (_, __) {
+          if (authState is AuthAuthenticated) {
+            final user = (authState as AuthAuthenticated).user;
+            if (!user.isAdmin) return userRoleHome(user);
+          }
+          return null;
+        },
+        builder: (_, __) => const FormsMatrixScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.checklistTemplates,
+        redirect: (_, __) {
+          if (authState is AuthAuthenticated) {
+            final user = (authState as AuthAuthenticated).user;
+            if (!user.isAdminOrCommittee) return userRoleHome(user);
+          }
+          return null;
+        },
+        builder: (_, __) => const ChecklistTemplatesScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.onlinePayments,
+        redirect: (_, __) {
+          if (authState is AuthAuthenticated) {
+            final user = (authState as AuthAuthenticated).user;
+            if (!(user.isAdminOrCommittee || user.isManager)) return userRoleHome(user);
+          }
+          return null;
+        },
+        builder: (_, __) => const OnlinePaymentsListScreen(),
+      ),
       // Society Settings
       GoRoute(
         path: AppRoutes.societySettings,
@@ -533,6 +621,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const ResidentImportScreen(),
       ),
       GoRoute(
+        path: AppRoutes.editMyProfile,
+        builder: (_, __) => const EditMyProfileScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.pendingResidentChanges,
+        builder: (_, __) => const PendingResidentChangesScreen(),
+      ),
+      GoRoute(
         path: AppRoutes.tenantsList,
         builder: (_, state) {
           final extra = state.extra as Map<String, dynamic>?;
@@ -562,7 +658,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return router;
 });
 
-String _userRoleHome(UserEntity user) {
+/// Public (not library-private) so setup_wizard_screen.dart's post-onboarding
+/// redirect can reuse the exact same priority order instead of maintaining a
+/// second switch on `primaryRole` — that duplicate previously routed a
+/// freshly-provisioned "Security Staff" user (which matches `isSecurity` in
+/// `primaryRole`, checked there before `isStaff`) to the Security dashboard
+/// instead of Staff Home on first login, with no way to reach Attendance
+/// until the app was restarted and this router's redirect re-fired.
+String userRoleHome(UserEntity user) {
   if (user.isAdmin) return AppRoutes.adminHome;
   if (user.isCommittee) return AppRoutes.committeeHome;
   final roles = user.roles;
