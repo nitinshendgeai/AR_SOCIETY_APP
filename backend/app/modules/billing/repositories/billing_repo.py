@@ -6,6 +6,7 @@ from app.modules.billing.models.billing import (
     FinancialPeriod, MaintenanceChargeConfig, BillingCycle,
     MaintenanceBill, InvoiceLineItem, PaymentReceipt,
     DueTracker, PenaltyRule, BillStatus,
+    OnlinePaymentSubmission, ReconciliationStatus,
 )
 from app.repositories.base import BaseRepository
 
@@ -121,3 +122,31 @@ class PenaltyRuleRepo(BaseRepository[PenaltyRule]):
         return self.db.query(PenaltyRule).filter(
             PenaltyRule.society_id==sid, PenaltyRule.is_active==True
         ).all()
+
+
+class OnlinePaymentSubmissionRepo(BaseRepository[OnlinePaymentSubmission]):
+    def __init__(self, db): super().__init__(OnlinePaymentSubmission, db)
+
+    def get_by_society(self, sid: UUID, status: Optional[ReconciliationStatus] = None,
+                        wing_id: Optional[UUID] = None, flat_id: Optional[UUID] = None,
+                        skip=0, limit=50) -> List[OnlinePaymentSubmission]:
+        q = self.db.query(OnlinePaymentSubmission).filter(
+            OnlinePaymentSubmission.society_id==sid, OnlinePaymentSubmission.is_active==True
+        )
+        if status is not None:
+            q = q.filter(OnlinePaymentSubmission.status==status)
+        if wing_id is not None:
+            q = q.filter(OnlinePaymentSubmission.wing_id==wing_id)
+        if flat_id is not None:
+            q = q.filter(OnlinePaymentSubmission.flat_id==flat_id)
+        return q.order_by(OnlinePaymentSubmission.payment_date.desc(),
+                           OnlinePaymentSubmission.created_at.desc()).offset(skip).limit(limit).all()
+
+    def next_receipt_number(self, sid: UUID) -> str:
+        from sqlalchemy import func
+        from datetime import date as dt
+        count = self.db.query(func.count(OnlinePaymentSubmission.id)).filter(
+            OnlinePaymentSubmission.society_id==sid
+        ).scalar() or 0
+        y = dt.today().year
+        return f"OPS-{y}-{str(count+1).zfill(5)}"

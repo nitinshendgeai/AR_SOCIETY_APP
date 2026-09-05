@@ -34,15 +34,19 @@ def test_default_grants_match_dashboard_logic(client, db):
 def test_gaps_in_old_dashboard_logic_are_preserved_by_default():
     """Locks in the (known, pre-existing) gaps the old Dart boolean logic
     had, so the migration/seed doesn't silently "fix" behavior beyond what
-    was asked — Platform Admin, Manager, Gym Trainer, and Tenant get only
-    the two unconditional items (Visitors, Complaints); nothing gated by
+    was asked — Platform Admin, Gym Trainer, and Tenant get only the two
+    unconditional items (Visitors, Complaints); nothing gated by
     isAdmin/isAdminOrCommittee/isSecurity/isStaff/isResident (an Admin can
-    grant them more explicitly via the Forms Matrix)."""
+    grant them more explicitly via the Forms Matrix). Manager's gap was
+    later deliberately, partially closed: the FMC Manager is who records
+    online payment screenshots, so "online_payments" was added to Manager's
+    default grants (see FORM_ROLE_GRANTS)."""
     codes_by_role = default_role_form_codes()
-    for role_name in ("Platform Admin", "Manager", "Gym Trainer", "Tenant"):
+    for role_name in ("Platform Admin", "Gym Trainer", "Tenant"):
         assert set(codes_by_role.get(role_name, [])) == {"visitors", "complaints"}, (
             f"{role_name} unexpectedly has default form grants: {codes_by_role.get(role_name)}"
         )
+    assert set(codes_by_role.get("Manager", [])) == {"visitors", "complaints", "online_payments"}
 
 
 def test_visitors_and_complaints_granted_to_every_role():
@@ -87,9 +91,10 @@ def test_my_forms_returns_default_grants_for_own_role(client, db):
     manager = make_user(db, "formsmgr1@rbac.com", role="Manager")
     r = client.get("/api/v1/roles/forms/mine", headers=manager["headers"])
     assert r.status_code == 200
-    # Manager is one of the known pre-existing gaps: only the two
-    # unconditional items, nothing gated.
-    assert set(r.json()["form_codes"]) == {"visitors", "complaints"}
+    # Manager's old gap (only the two unconditional items) was deliberately
+    # partially closed by granting "online_payments" — the FMC Manager is
+    # who records payment screenshots.
+    assert set(r.json()["form_codes"]) == {"visitors", "complaints", "online_payments"}
 
     resident = make_user(db, "formsres4@rbac.com", role="Resident")
     r2 = client.get("/api/v1/roles/forms/mine", headers=resident["headers"])

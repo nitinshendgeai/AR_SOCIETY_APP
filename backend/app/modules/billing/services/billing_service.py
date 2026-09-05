@@ -15,18 +15,24 @@ from sqlalchemy.orm import Session
 from app.modules.billing.models.billing import (
     FinancialPeriod, MaintenanceChargeConfig, BillingCycle,
     MaintenanceBill, InvoiceLineItem, PaymentReceipt, DueTracker, PenaltyRule,
+    OnlinePaymentSubmission, ReconciliationStatus,
     BillStatus, ChargeType,
 )
 from app.modules.billing.repositories.billing_repo import (
     FinancialPeriodRepo, ChargeConfigRepo, BillingCycleRepo,
     MaintenanceBillRepo, PaymentReceiptRepo, DueTrackerRepo, PenaltyRuleRepo,
+    OnlinePaymentSubmissionRepo,
 )
 from app.models.flat import Flat
+from app.models.wing import Wing
 from app.models.user import User
 from app.models.audit_log import AuditAction
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
 from app.models.notification import NotificationType, NotificationChannel
+
+ALLOWED_SCREENSHOT_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
+MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024  # 8 MB
 
 
 class BillingService:
@@ -40,6 +46,7 @@ class BillingService:
         self.receipt_repo = PaymentReceiptRepo(db)
         self.due_repo     = DueTrackerRepo(db)
         self.penalty_repo = PenaltyRuleRepo(db)
+        self.online_payment_repo = OnlinePaymentSubmissionRepo(db)
 
     def _audit(self, action, entity, entity_type, user, request=None, **kw):
         AuditService.log(db=self.db, action=action, module="billing",
@@ -310,3 +317,101 @@ class BillingService:
 
     def list_penalty_rules(self, society_id: UUID) -> List[PenaltyRule]:
         return self.penalty_repo.get_active(society_id)
+
+    # ── Online Payment Submissions (screenshot capture for reconciliation) ───
+
+    def create_online_payment_submission(
+        self, *, flat_id: UUID, amount: Decimal, payment_date: date,
+        payment_mode, transaction_ref: Optional[str], bank_name: Optional[str],
+        notes: Optional[str], screenshot_bytes: bytes, screenshot_mime_type: str,
+        screenshot_file_name: Optional[str], user: User,
+    ) -> OnlinePaymentSubmission:
+        flat = self.db.query(Flat).filter(Flat.id == flat_id, Flat.is_active == True).first()
+        if not flat:
+            raise HTTPException(404, "Flat not found")
+        wing = self.db.query(Wing).filter(Wing.id == flat.wing_id).first()
+        if not wing:
+            raise HTTPException(404, "Wing not found for this flat")
+
+        if not screenshot_bytes:
+            raise HTTPException(422, "Payment screenshot is required")
+        if len(screenshot_bytes) > MAX_SCREENSHOT_BYTES:
+            raise HTTPException(422, f"Screenshot exceeds the {MAX_SCREENSHOT_BYTES // (1024*1024)}MB limit")
+        if screenshot_mime_type not in ALLOWED_SCREENSHOT_MIME_TYPES:
+            raise HTTPException(422, f"Unsupported image type: {screenshot_mime_type}")
+        if amount <= 0:
+            raise HTTPException(422, "Amount must be greater than zero")
+
+        receipt_number = self.online_payment_repo.next_receipt_number(wing.society_id)
+        submission = OnlinePaymentSubmission(
+            society_id=wing.society_id, wing_id=wing.id, flat_id=flat.id,
+            recorded_by=user.id, receipt_number=receipt_number,
+            amount=amount, payment_date=payment_date, payment_mode=payment_mode,
+            transaction_ref=transaction_ref, bank_name=bank_name, notes=notes,
+            status=ReconciliationStatus.PENDING,
+            screenshot_data=screenshot_bytes, screenshot_mime_type=screenshot_mime_type,
+            screenshot_file_name=screenshot_file_name,
+        )
+        self.db.add(submission)
+        self.db.flush()
+        self._audit(AuditAction.CREATE, submission, "OnlinePaymentSubmission", user,
+                    new_values={"amount": str(amount), "flat": flat.flat_number,
+                                "receipt_number": receipt_number})
+        self.db.commit()
+        self.db.refresh(submission)
+        return submission
+
+    def get_online_payment_submission(self, submission_id: UUID) -> OnlinePaymentSubmission:
+        s = self.online_payment_repo.get(submission_id)
+        if not s: raise HTTPException(404, "Payment submission not found")
+        return s
+
+    def list_online_payment_submissions(self, society_id: UUID, status=None,
+                                         wing_id=None, flat_id=None,
+                                         skip=0, limit=50) -> List[OnlinePaymentSubmission]:
+        return self.online_payment_repo.get_by_society(
+            society_id, status=status, wing_id=wing_id, flat_id=flat_id, skip=skip, limit=limit)
+
+    def update_online_payment_status(self, submission_id: UUID, status: ReconciliationStatus,
+                                      review_notes: Optional[str], user: User) -> OnlinePaymentSubmission:
+        submission = self.get_online_payment_submission(submission_id)
+        submission.status = status
+        submission.reviewed_by = user.id
+        submission.reviewed_at = datetime.utcnow()
+        if review_notes is not None:
+            submission.review_notes = review_notes
+        self._audit(AuditAction.UPDATE, submission, "OnlinePaymentSubmission", user,
+                    new_values={"status": status.value, "receipt_number": submission.receipt_number})
+        self.db.commit()
+        self.db.refresh(submission)
+        return submission
+
+    def export_online_payments_csv(self, society_id: UUID, status=None,
+                                    wing_id=None, flat_id=None) -> str:
+        import csv, io
+        rows = self.online_payment_repo.get_by_society(
+            society_id, status=status, wing_id=wing_id, flat_id=flat_id, skip=0, limit=10000)
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow([
+            "Receipt Number", "Wing", "Flat", "Amount", "Payment Date", "Payment Mode",
+            "Transaction Ref", "Bank Name", "Status", "Recorded At", "Reviewed At", "Notes",
+        ])
+        for r in rows:
+            writer.writerow([
+                r.receipt_number,
+                r.wing.name if r.wing else "",
+                r.flat.flat_number if r.flat else "",
+                str(r.amount), r.payment_date.isoformat(), r.payment_mode.value,
+                r.transaction_ref or "", r.bank_name or "", r.status.value,
+                r.created_at.isoformat() if r.created_at else "",
+                r.reviewed_at.isoformat() if r.reviewed_at else "",
+                (r.notes or "").replace("\n", " "),
+            ])
+        return buf.getvalue()
+
+    def generate_online_payment_receipt_pdf(self, submission_id: UUID) -> bytes:
+        from app.modules.billing.services.receipt_pdf import generate_online_payment_receipt_pdf
+        submission = self.get_online_payment_submission(submission_id)
+        society_name = submission.society.name if submission.society else "Society"
+        return generate_online_payment_receipt_pdf(submission, society_name)

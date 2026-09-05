@@ -127,6 +127,7 @@ FORM_DEFINITIONS = [
     ("parking_management",        "Parking Management",        "Parking zones, slots, and allocations"),
     ("setup_wizard",              "Setup Wizard",                "Society structure setup wizard"),
     ("checklist_templates",       "Checklist Templates",        "Department-scoped reusable duty checklists"),
+    ("online_payments",           "Online Payments",            "Resident payment screenshots captured for bank reconciliation"),
 ]
 
 _ADMIN_OR_COMMITTEE_ROLES = (
@@ -163,6 +164,7 @@ FORM_ROLE_GRANTS = {
     "parking_management":       _ADMIN_OR_COMMITTEE_ROLES,
     "setup_wizard":             _ADMIN_OR_COMMITTEE_ROLES,
     "checklist_templates":      _ADMIN_OR_COMMITTEE_ROLES,
+    "online_payments":          tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
 }
 
 
