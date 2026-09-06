@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/complaint/domain/entities/complaint_entities.dart';
 import 'package:ar_society_app/features/complaint/data/repositories/complaint_repository.dart';
 import 'package:ar_society_app/features/complaint/presentation/providers/complaint_providers.dart';
+import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
@@ -44,6 +46,22 @@ class _CreateComplaintScreenState
       return;
     }
 
+    // Residents/tenants file against their own flat only — the backend
+    // enforces this regardless (never trusts a client-supplied flat_id for
+    // these roles), but resolving it here too keeps the UI consistent and
+    // lets us block submission with a clear message if no flat is linked.
+    final currentUser = ref.read(currentUserProvider);
+    String? flatId = _selectedFlatId;
+    if (currentUser?.isResident ?? false) {
+      final resident = ref.read(myResidentProvider).valueOrNull;
+      if (resident == null) {
+        setState(() => _errorMessage =
+            'No flat is linked to your account yet — contact your society admin.');
+        return;
+      }
+      flatId = resident.flatId;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -55,7 +73,7 @@ class _CreateComplaintScreenState
       'category': _selectedCategory!.name,
       'priority': _selectedPriority.name,
       'society_id': widget.societyId,
-      if (_selectedFlatId != null) 'flat_id': _selectedFlatId,
+      if (flatId != null) 'flat_id': flatId,
     };
 
     final result =
@@ -126,63 +144,111 @@ class _CreateComplaintScreenState
               ),
               const SizedBox(height: 14),
 
-              // Wing / Flat (optional — leave blank for a common-area complaint)
+              // Residents file against their own flat only — shown read-only,
+              // not a picker. Everyone else (Admin/Committee/Manager/Staff)
+              // keeps the free Wing/Flat picker for filing on someone's
+              // behalf or a society-wide/common-area issue.
               Consumer(
                 builder: (context, ref, _) {
-                  final wingsAsync = ref.watch(wingsProvider);
-                  return wingsAsync.when(
-                    loading: () => const LinearProgressIndicator(minHeight: 2),
-                    error: (_, __) => const SizedBox.shrink(),
-                    data: (wings) => DropdownButtonFormField<String>(
-                      value: _selectedWingId,
-                      decoration: const InputDecoration(
-                        labelText: 'Wing',
-                        hintText: 'Optional — leave blank for a society-wide issue',
-                      ),
-                      items: wings
-                          .map((w) => DropdownMenuItem(
-                                value: w.id,
-                                child: Text(w.displayName),
-                              ))
-                          .toList(),
-                      onChanged: (v) => setState(() {
-                        _selectedWingId = v;
-                        _selectedFlatId = null;
-                      }),
+                  final isResident =
+                      ref.watch(currentUserProvider)?.isResident ?? false;
+                  if (!isResident) return const SizedBox.shrink();
+
+                  final residentAsync = ref.watch(myResidentProvider);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: residentAsync.when(
+                      loading: () => const LinearProgressIndicator(minHeight: 2),
+                      error: (_, __) => const SizedBox.shrink(),
+                      data: (resident) {
+                        if (resident == null) {
+                          return const Text(
+                            'No flat is linked to your account yet — contact your society admin.',
+                            style: TextStyle(color: AppTheme.error, fontSize: 12),
+                          );
+                        }
+                        final flatAsync =
+                            ref.watch(flatByIdProvider(resident.flatId));
+                        return InputDecorator(
+                          decoration: const InputDecoration(labelText: 'Flat'),
+                          child: flatAsync.when(
+                            loading: () => const Text('Loading...'),
+                            error: (_, __) => Text(resident.flatId),
+                            data: (flat) => Text(
+                              '${flat.wingName ?? ''} / ${flat.flatNumber}'.trim(),
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   );
                 },
               ),
-              const SizedBox(height: 14),
 
-              if (_selectedWingId != null) ...[
-                Consumer(
-                  builder: (context, ref, _) {
-                    final flatsAsync =
-                        ref.watch(flatsByWingProvider(_selectedWingId!));
-                    return flatsAsync.when(
-                      loading: () =>
-                          const LinearProgressIndicator(minHeight: 2),
-                      error: (_, __) => const SizedBox.shrink(),
-                      data: (flats) => DropdownButtonFormField<String>(
-                        value: _selectedFlatId,
-                        decoration:
-                            const InputDecoration(labelText: 'Flat Number'),
-                        hint: const Text('Select flat number'),
-                        items: flats
-                            .map((f) => DropdownMenuItem(
-                                  value: f.id,
-                                  child: Text(f.flatNumber),
-                                ))
-                            .toList(),
-                        onChanged: (v) =>
-                            setState(() => _selectedFlatId = v),
+              Consumer(
+                builder: (context, ref, _) {
+                  final isResident =
+                      ref.watch(currentUserProvider)?.isResident ?? false;
+                  if (isResident) return const SizedBox.shrink();
+
+                  final wingsAsync = ref.watch(wingsProvider);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      wingsAsync.when(
+                        loading: () => const LinearProgressIndicator(minHeight: 2),
+                        error: (_, __) => const SizedBox.shrink(),
+                        data: (wings) => DropdownButtonFormField<String>(
+                          value: _selectedWingId,
+                          decoration: const InputDecoration(
+                            labelText: 'Wing',
+                            hintText: 'Optional — leave blank for a society-wide issue',
+                          ),
+                          items: wings
+                              .map((w) => DropdownMenuItem(
+                                    value: w.id,
+                                    child: Text(w.displayName),
+                                  ))
+                              .toList(),
+                          onChanged: (v) => setState(() {
+                            _selectedWingId = v;
+                            _selectedFlatId = null;
+                          }),
+                        ),
                       ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 14),
-              ],
+                      const SizedBox(height: 14),
+                      if (_selectedWingId != null)
+                        Consumer(
+                          builder: (context, ref, _) {
+                            final flatsAsync =
+                                ref.watch(flatsByWingProvider(_selectedWingId!));
+                            return flatsAsync.when(
+                              loading: () =>
+                                  const LinearProgressIndicator(minHeight: 2),
+                              error: (_, __) => const SizedBox.shrink(),
+                              data: (flats) => DropdownButtonFormField<String>(
+                                value: _selectedFlatId,
+                                decoration:
+                                    const InputDecoration(labelText: 'Flat Number'),
+                                hint: const Text('Select flat number'),
+                                items: flats
+                                    .map((f) => DropdownMenuItem(
+                                          value: f.id,
+                                          child: Text(f.flatNumber),
+                                        ))
+                                    .toList(),
+                                onChanged: (v) =>
+                                    setState(() => _selectedFlatId = v),
+                              ),
+                            );
+                          },
+                        ),
+                      const SizedBox(height: 14),
+                    ],
+                  );
+                },
+              ),
 
               // Category
               DropdownButtonFormField<ComplaintCategory>(

@@ -841,9 +841,13 @@ class ResidentDashboardScreen extends ConsumerWidget {
           _QuickActionChip(icon: Icons.person_rounded, label: 'Visitors', route: AppRoutes.visitorsMy),
         ]),
         const SizedBox(height: 8),
+        // "Society Info" was deliberately removed here — Society Settings is
+        // Admin/Committee-only (see the Forms Matrix default grants), and
+        // this dashboard shortcut used to bypass that: it opened the same
+        // fully-editable settings screen with no read-only mode, so a
+        // Resident could see (and be shown Save controls for) fields they
+        // aren't allowed to change, only failing with a 403 on tapping Save.
         Row(children: const [
-          _QuickActionChip(icon: Icons.settings_outlined, label: 'Society Info', route: AppRoutes.societySettings),
-          SizedBox(width: 8),
           _QuickActionChip(icon: Icons.pending_actions_rounded, label: 'Approvals', route: AppRoutes.visitorsPending),
         ]),
         const SizedBox(height: 18),

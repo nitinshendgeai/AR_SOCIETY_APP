@@ -149,8 +149,41 @@ class ComplaintService:
 
     # ── Core workflow ─────────────────────────────────────────────────────────
 
+    def _resolve_own_flat_and_society(self, reporter: User) -> Optional[tuple]:
+        """If the reporter is a Resident or Tenant linked to a flat, return
+        (flat_id, society_id) for that flat. Used to force a complaint filed
+        by a resident/tenant onto their own flat — never a client-supplied
+        one — regardless of what the mobile app sends. Returns None for
+        roles with no such linkage (Admin/Committee/Manager/Staff/etc.), who
+        may legitimately file on behalf of any flat or a common area."""
+        from app.models.resident import Resident
+        from app.models.tenant import Tenant
+        from app.models.flat import Flat
+
+        resident = self.db.query(Resident).filter(
+            Resident.user_id == reporter.id, Resident.is_active == True
+        ).first()
+        if resident:
+            flat = self.db.query(Flat).filter(Flat.id == resident.flat_id).first()
+            if flat:
+                return flat.id, flat.wing.society_id
+
+        tenant = self.db.query(Tenant).filter(
+            Tenant.user_id == reporter.id, Tenant.is_active == True
+        ).first()
+        if tenant:
+            flat = self.db.query(Flat).filter(Flat.id == tenant.flat_id).first()
+            if flat:
+                return flat.id, flat.wing.society_id
+
+        return None
+
     def create_complaint(self, data: ComplaintCreate, reporter: User,
                          request: Optional[Request] = None) -> Complaint:
+        own_flat = self._resolve_own_flat_and_society(reporter)
+        if own_flat:
+            data.flat_id, data.society_id = own_flat
+
         number = self.repo.next_complaint_number(data.society_id)
         complaint = Complaint(
             **data.model_dump(),
