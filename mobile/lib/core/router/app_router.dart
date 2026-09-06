@@ -551,6 +551,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Society Settings
       GoRoute(
         path: AppRoutes.societySettings,
+        redirect: (_, __) {
+          if (authState is AuthAuthenticated) {
+            final user = (authState as AuthAuthenticated).user;
+            if (!user.isAdminOrCommittee) return userRoleHome(user);
+          }
+          return null;
+        },
         builder: (_, __) => const SocietySettingsScreen(),
       ),
       // Society Structure — Wings

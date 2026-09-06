@@ -34,6 +34,7 @@ class StructureRepository {
       _ds.getFlatsBySociety(id);
   Future<List<FlatModel>> getFlatsByWing(String wingId) =>
       _ds.getFlatsByWing(wingId);
+  Future<FlatModel> getFlat(String flatId) => _ds.getFlat(flatId);
   Future<FlatModel> createFlat({required String flatNumber,
       required String wingId, int? floor, String? flatType,
       double? areaSqft, String? occupancyStatus, String? remarks}) =>
