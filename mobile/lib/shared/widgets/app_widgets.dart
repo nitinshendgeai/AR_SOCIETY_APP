@@ -39,6 +39,11 @@ class ResponsiveBody extends StatelessWidget {
 }
 
 // ── Loading Overlay ───────────────────────────────────────────────────────────
+//
+// A small rounded "activity card" floating over a light scrim, rather than a
+// bare spinner on a flat black wash — the native-feeling pattern (think
+// UIActivityIndicatorView in a translucent capsule) instead of the generic
+// Material "darken everything" loading state.
 
 class AppLoadingOverlay extends StatelessWidget {
   final bool isLoading;
@@ -56,10 +61,29 @@ class AppLoadingOverlay extends StatelessWidget {
       children: [
         child,
         if (isLoading)
-          Container(
-            color: Colors.black.withOpacity(0.3),
-            child: const Center(
-              child: CircularProgressIndicator(color: AppTheme.primary),
+          Positioned.fill(
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 120),
+              opacity: 1,
+              child: Container(
+                color: AppTheme.textPrimary.withOpacity(0.12),
+                child: Center(
+                  child: Container(
+                    width: 84,
+                    height: 84,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardBg,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusL),
+                      boxShadow: AppTheme.cardShadow,
+                    ),
+                    child: const CircularProgressIndicator(
+                      color: AppTheme.primary,
+                      strokeWidth: 2.6,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
       ],
@@ -79,13 +103,13 @@ class AppErrorBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       decoration: BoxDecoration(
-        color: AppTheme.error.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.error.withOpacity(0.3)),
+        color: AppTheme.errorSoft,
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Icon(Icons.error_outline_rounded,
               color: AppTheme.error, size: 20),
@@ -95,8 +119,9 @@ class AppErrorBanner extends StatelessWidget {
               message,
               style: const TextStyle(
                 color: AppTheme.error,
-                fontSize: 13,
+                fontSize: 13.5,
                 fontWeight: FontWeight.w500,
+                height: 1.35,
               ),
             ),
           ),
