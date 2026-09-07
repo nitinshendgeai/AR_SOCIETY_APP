@@ -104,15 +104,18 @@ class _ComplaintListTile extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(
-                '#${complaint.complaintNumber}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.primary,
+              Expanded(
+                child: Text(
+                  _numberWithFlat(complaint),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               _StatusBadge(complaint.status),
             ],
           ),
@@ -152,6 +155,14 @@ class _ComplaintListTile extends StatelessWidget {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return '${dt.day} ${months[dt.month - 1]}';
+  }
+
+  String _numberWithFlat(ComplaintListEntity c) {
+    final flat = [
+      if (c.wingName != null) c.wingName,
+      if (c.flatNumber != null) c.flatNumber,
+    ].join(' — ');
+    return flat.isEmpty ? '#${c.complaintNumber}' : '#${c.complaintNumber} · $flat';
   }
 }
 
@@ -213,11 +224,17 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
+        onPressed: () async {
           final sid = (widget.societyId?.isNotEmpty == true)
               ? widget.societyId!
               : ref.read(currentUserProvider)?.societyId ?? '';
-          context.push('/complaints/create?societyId=$sid');
+          // CreateComplaintScreen pops with `true` on a successful submit —
+          // this screen isn't rebuilt by that pop (it's the same widget
+          // instance, not re-pushed), so without this the newly created
+          // complaint wouldn't appear until a manual pull-to-refresh.
+          final created =
+              await context.push<bool>('/complaints/create?societyId=$sid');
+          if (created == true) _load();
         },
         backgroundColor: AppTheme.primary,
         foregroundColor: Colors.white,

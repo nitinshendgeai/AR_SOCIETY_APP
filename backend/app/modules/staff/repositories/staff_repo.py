@@ -6,6 +6,7 @@ from app.modules.staff.models.staff import (
     Staff, StaffDesignation, StaffShift, DutyAssignment,
     StaffAttendance, StaffTask, StaffLeave, StaffWorkLog,
     AttendanceStatus, TaskStatus, LeaveStatus, StaffDepartment,
+    ChecklistTemplate, ChecklistTemplateItem, DutyChecklistItem,
 )
 from app.repositories.base import BaseRepository
 
@@ -52,6 +53,17 @@ class DutyRepository(BaseRepository[DutyAssignment]):
         return self.db.query(DutyAssignment).filter(
             DutyAssignment.society_id==sid, DutyAssignment.duty_date==duty_date, DutyAssignment.is_active==True
         ).all()
+
+
+class ChecklistTemplateRepo(BaseRepository[ChecklistTemplate]):
+    def __init__(self, db): super().__init__(ChecklistTemplate, db)
+
+    def get_by_society(self, sid: UUID, department: Optional[StaffDepartment] = None) -> List[ChecklistTemplate]:
+        q = self.db.query(ChecklistTemplate).filter(
+            ChecklistTemplate.society_id == sid, ChecklistTemplate.is_active == True)
+        if department:
+            q = q.filter(ChecklistTemplate.department == department)
+        return q.order_by(ChecklistTemplate.name).all()
 
 
 class AttendanceRepository(BaseRepository[StaffAttendance]):

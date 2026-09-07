@@ -7,17 +7,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
 import 'package:ar_society_app/features/resident_master/data/repositories/resident_master_repository.dart';
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
+import 'package:ar_society_app/features/society_settings/presentation/providers/society_settings_providers.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 const _templateHeader = [
-  'Wing', 'Flat Number', 'Full Name', 'Resident Type', 'Is Primary', 'Phone', 'Email',
+  'Wing', 'Flat Number', 'Full Name', 'Resident Type', 'Is Primary', 'Phone', 'Email', 'Floor',
 ];
 
 enum _RowStatus { valid, error, pending, created, failed }
@@ -37,11 +39,13 @@ class _ImportRow {
     this.payload,
   });
 
-  _ImportRow copyWith({_RowStatus? status, String? message}) => _ImportRow(
+  _ImportRow copyWith(
+          {_RowStatus? status, String? message, bool clearMessage = false}) =>
+      _ImportRow(
         lineNumber: lineNumber,
         raw: raw,
         status: status ?? this.status,
-        message: message ?? this.message,
+        message: clearMessage ? message : (message ?? this.message),
         payload: payload,
       );
 }
@@ -107,7 +111,7 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
               const SizedBox(height: 8),
               const Text(
                 '1. Download the template and fill it in (in Excel, Google Sheets, etc.)\n'
-                '2. Wing and Flat Number must exactly match wings/flats already added to this society\n'
+                '2. Floor is optional. If a Wing, Floor, or Flat Number doesn\'t exist yet, it will be created automatically during import\n'
                 '3. Choose the filled file, review the preview, then import',
                 style: TextStyle(fontSize: 13, color: AppTheme.textPrimary, height: 1.5),
               ),
@@ -142,7 +146,7 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
     try {
       final rows = [
         _templateHeader,
-        ['A Wing', '101', 'Ramesh Kumar', 'owner', 'yes', '9876543210', 'ramesh@example.com'],
+        ['A Wing', '101', 'Ramesh Kumar', 'owner', 'yes', '9876543210', 'ramesh@example.com', '1'],
       ];
       final csvString = const ListToCsvConverter().convert(rows);
       final dir = await getTemporaryDirectory();
@@ -154,6 +158,46 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Could not create template: $e'),
+          backgroundColor: AppTheme.error,
+        ));
+      }
+    }
+  }
+
+  /// Exports every row that didn't make it in — whether it failed
+  /// validation up front (_RowStatus.error) or was sent but rejected by the
+  /// backend (_RowStatus.failed) — as a CSV in the same column layout as
+  /// the template, plus a trailing Error column explaining what to fix.
+  /// The user corrects just those rows and re-imports that smaller file.
+  Future<void> _exportErrorRows() async {
+    final badRows = (_rows ?? [])
+        .where((r) => r.status == _RowStatus.error || r.status == _RowStatus.failed)
+        .toList();
+    if (badRows.isEmpty) return;
+
+    List<String> paddedRaw(List<String> raw) {
+      final padded = List<String>.from(raw);
+      while (padded.length < _templateHeader.length) {
+        padded.add('');
+      }
+      return padded.sublist(0, _templateHeader.length);
+    }
+
+    try {
+      final csvRows = [
+        [..._templateHeader, 'Error'],
+        for (final r in badRows) [...paddedRaw(r.raw), r.message ?? 'Import failed'],
+      ];
+      final csvString = const ListToCsvConverter().convert(csvRows);
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/resident_import_errors.csv');
+      await file.writeAsBytes(utf8.encode(csvString));
+      await Share.shareXFiles([XFile(file.path)],
+          subject: 'Resident Import Errors');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Could not export error rows: $e'),
           backgroundColor: AppTheme.error,
         ));
       }
@@ -250,37 +294,42 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
       final primaryText = cell(4);
       final phone = cell(5);
       final email = cell(6);
+      // Trailing, optional column — appended rather than inserted so a CSV
+      // exported before Floor existed (just the original 7 columns) keeps
+      // parsing identically; a missing column 7 reads as ''.
+      final floorText = cell(7);
 
       String? error;
 
       if (fullName.isEmpty) error = 'Full Name is required';
+      if (error == null && wingText.isEmpty) error = 'Wing is required';
+      if (error == null && flatText.isEmpty) error = 'Flat Number is required';
 
+      int? floorNumber;
+      if (error == null && floorText.isNotEmpty) {
+        floorNumber = int.tryParse(floorText);
+        if (floorNumber == null) error = 'Floor must be a whole number';
+      }
+
+      // Wing/Floor/Flat need not already exist — a row referencing a Wing,
+      // Floor, or Flat that isn't in the society yet is still importable;
+      // _runImport() creates whichever is missing (checking first, so a
+      // name/number shared by an earlier row in the same file is reused,
+      // not duplicated) before creating the Resident under it.
       WingModel? wing;
       if (error == null) {
-        if (wingText.isEmpty) {
-          error = 'Wing is required';
-        } else {
-          wing = wings.cast<WingModel?>().firstWhere(
-              (w) => w!.name.trim().toLowerCase() == wingText.toLowerCase(),
-              orElse: () => null);
-          if (wing == null) error = 'No wing named "$wingText" exists yet';
-        }
+        wing = wings.cast<WingModel?>().firstWhere(
+            (w) => w!.name.trim().toLowerCase() == wingText.toLowerCase(),
+            orElse: () => null);
       }
 
       FlatModel? flat;
       if (error == null && wing != null) {
-        if (flatText.isEmpty) {
-          error = 'Flat Number is required';
-        } else {
-          flat = flats.cast<FlatModel?>().firstWhere(
-              (f) =>
-                  f!.wingId == wing!.id &&
-                  f.flatNumber.trim().toLowerCase() == flatText.toLowerCase(),
-              orElse: () => null);
-          if (flat == null) {
-            error = 'No flat "$flatText" in wing "$wingText"';
-          }
-        }
+        flat = flats.cast<FlatModel?>().firstWhere(
+            (f) =>
+                f!.wingId == wing!.id &&
+                f.flatNumber.trim().toLowerCase() == flatText.toLowerCase(),
+            orElse: () => null);
       }
 
       ResidentType residentType = ResidentType.owner;
@@ -312,12 +361,29 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
         continue;
       }
 
+      String? note;
+      if (wing == null) {
+        note = 'Will create new Wing "$wingText"'
+            '${floorNumber != null ? ', Floor $floorNumber,' : ''}'
+            ' and Flat "$flatText"';
+      } else if (flat == null) {
+        note = 'Will create new Flat "$flatText" in Wing "$wingText"'
+            '${floorNumber != null ? ' (Floor $floorNumber)' : ''}';
+      } else if (floorNumber != null) {
+        note = 'Will ensure Floor $floorNumber exists in Wing "$wingText"';
+      }
+
       result.add(_ImportRow(
         lineNumber: lineNumber,
         raw: raw,
         status: _RowStatus.valid,
+        message: note,
         payload: {
-          'flat_id': flat!.id,
+          'wing_id': wing?.id,
+          'wing_name': wingText,
+          'floor_number': floorNumber,
+          'flat_id': flat?.id,
+          'flat_number': flatText,
           'full_name': fullName,
           'resident_type': residentType.value,
           'is_primary': isPrimary,
@@ -367,17 +433,35 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
         ),
       ),
       Padding(
-        padding: const EdgeInsets.all(20),
-        child: _done
-            ? AppPrimaryButton(label: 'Done', onPressed: () => Navigator.pop(context, true))
-            : AppPrimaryButton(
-                label: _importing
-                    ? 'Importing…'
-                    : 'Import $validCount Resident${validCount == 1 ? '' : 's'}',
-                icon: Icons.file_download_done_rounded,
-                isLoading: _importing,
-                onPressed: (_importing || !_hasValidRows) ? null : _runImport,
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        child: Column(children: [
+          // Rows that failed validation (never sent) or failed on the
+          // backend (e.g. a duplicate) are never silently dropped — the
+          // user can pull them back out as a CSV, fix just those, and
+          // re-import that smaller file rather than redoing the whole batch.
+          if (errorCount > 0 || failedCount > 0) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _exportErrorRows,
+                icon: const Icon(Icons.download_rounded),
+                label: Text(
+                    'Export ${errorCount + failedCount} Error Row${errorCount + failedCount == 1 ? '' : 's'} to Fix'),
               ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          _done
+              ? AppPrimaryButton(label: 'Done', onPressed: () => Navigator.pop(context, true))
+              : AppPrimaryButton(
+                  label: _importing
+                      ? 'Importing…'
+                      : 'Import $validCount Resident${validCount == 1 ? '' : 's'}',
+                  icon: Icons.file_download_done_rounded,
+                  isLoading: _importing,
+                  onPressed: (_importing || !_hasValidRows) ? null : _runImport,
+                ),
+        ]),
       ),
     ]);
   }
@@ -387,22 +471,100 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
     final repo = ref.read(residentMasterRepositoryProvider);
     final rows = _rows!;
 
+    // Seeded from what's already loaded, then grown in-memory as rows create
+    // new Wings/Floors/Flats — so two rows naming the same not-yet-existing
+    // Wing, Floor, or Flat share the one record created for the first of
+    // them rather than each creating (and colliding on) their own.
+    final wingsByName = <String, WingModel>{
+      for (final w in ref.read(wingsProvider).valueOrNull ?? const <WingModel>[])
+        w.name.trim().toLowerCase(): w,
+    };
+    final flatsByKey = <String, FlatModel>{
+      for (final f in ref.read(flatsBySocietyProvider).valueOrNull ?? const <FlatModel>[])
+        '${f.wingId}|${f.flatNumber.trim().toLowerCase()}': f,
+    };
+    final floorsByWing = <String, Map<int, FloorModel>>{};
+    String? societyId;
+
+    Future<Map<int, FloorModel>> floorsFor(String wingId) async {
+      final cached = floorsByWing[wingId];
+      if (cached != null) return cached;
+      final floors = await ref.read(floorsByWingProvider(wingId).future);
+      return floorsByWing[wingId] = {for (final f in floors) f.floorNumber: f};
+    }
+
     for (var i = 0; i < rows.length; i++) {
       if (rows[i].status != _RowStatus.valid) continue;
-      setState(() => rows[i] = rows[i].copyWith(status: _RowStatus.pending));
-      final result = await repo.createResident(rows[i].payload!);
+      setState(() => rows[i] =
+          rows[i].copyWith(status: _RowStatus.pending, clearMessage: true));
+
+      final payload = Map<String, dynamic>.from(rows[i].payload!);
+      final wingName = payload.remove('wing_name') as String;
+      final floorNumber = payload.remove('floor_number') as int?;
+      final flatNumber = payload.remove('flat_number') as String;
+      var wingId = payload.remove('wing_id') as String?;
+      var flatId = payload.remove('flat_id') as String?;
+
+      try {
+        if (wingId == null) {
+          final key = wingName.trim().toLowerCase();
+          final wing = wingsByName[key] ??
+              await ref.read(wingsProvider.notifier).create(name: wingName);
+          wingsByName[key] = wing;
+          wingId = wing.id;
+        }
+
+        if (floorNumber != null) {
+          final floors = await floorsFor(wingId);
+          if (!floors.containsKey(floorNumber)) {
+            societyId ??= (await ref.read(currentSocietyProvider.future)).id;
+            floors[floorNumber] = await ref
+                .read(floorsByWingProvider(wingId).notifier)
+                .create(floorNumber: floorNumber, societyId: societyId);
+          }
+        }
+
+        if (flatId == null) {
+          final flatKey = '$wingId|${flatNumber.trim().toLowerCase()}';
+          final flat = flatsByKey[flatKey] ??
+              await ref.read(flatsBySocietyProvider.notifier).create(
+                    flatNumber: flatNumber,
+                    wingId: wingId,
+                    floor: floorNumber,
+                  );
+          flatsByKey[flatKey] = flat;
+          flatId = flat.id;
+        }
+      } catch (e) {
+        setState(() => rows[i] = rows[i].copyWith(
+              status: _RowStatus.failed,
+              clearMessage: true,
+              message: 'Could not create Wing/Floor/Flat: ${friendlyErrorMessage(e)}',
+            ));
+        continue;
+      }
+
+      payload['flat_id'] = flatId;
+      final result = await repo.createResident(payload);
       switch (result) {
         case RmSuccess(:final data):
           setState(() => rows[i] = rows[i].copyWith(
                 status: _RowStatus.created,
+                clearMessage: true,
                 message: data.warnings.isNotEmpty ? data.warnings.first : null,
               ));
         case RmFailure(:final message):
-          setState(() => rows[i] = rows[i].copyWith(status: _RowStatus.failed, message: message));
+          setState(() => rows[i] = rows[i]
+              .copyWith(status: _RowStatus.failed, clearMessage: true, message: message));
       }
     }
 
     ref.invalidate(residentListProvider);
+    ref.invalidate(wingsProvider);
+    ref.invalidate(flatsBySocietyProvider);
+    for (final wingId in floorsByWing.keys) {
+      ref.invalidate(floorsByWingProvider(wingId));
+    }
     setState(() { _importing = false; _done = true; });
   }
 }

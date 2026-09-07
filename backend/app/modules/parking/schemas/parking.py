@@ -66,6 +66,10 @@ class AllocationOut(TimestampSchema):
     vehicle_id: Optional[UUID]; allocation_type: SlotType
     status: AllocationStatus; start_date: date; end_date: Optional[date]
     monthly_charge: Optional[int]; released_at: Optional[datetime]
+    slot_number: Optional[str] = None
+    vehicle_number: Optional[str] = None
+    flat_number: Optional[str] = None
+    wing_name: Optional[str] = None
 
 
 class VisitorParkingCreate(OrmBase):
@@ -109,15 +113,17 @@ class ViolationOut(TimestampSchema):
 
 
 class AccessLogCreate(OrmBase):
+    """vehicle_id and is_authorized are NOT accepted here — a client claiming
+    a scan is authorized would otherwise be trusted at face value. The
+    service always re-resolves both server-side from the vehicle_number,
+    the same lookup GateVehicleLookupOut exposes for the pre-entry check."""
     society_id:    UUID
     vehicle_number: str
     access_type:   AccessType
     access_method: AccessMethod = AccessMethod.MANUAL
     slot_id:       Optional[UUID] = None
-    vehicle_id:    Optional[UUID] = None
     gate_id:       Optional[UUID] = None
     rfid_tag:      Optional[str]  = None
-    is_authorized: bool           = True
     notes:         Optional[str]  = None
 
     @field_validator("vehicle_number")
@@ -128,3 +134,21 @@ class AccessLogOut(TimestampSchema):
     society_id: UUID; vehicle_number: str; access_type: AccessType
     access_method: AccessMethod; access_time: datetime
     slot_id: Optional[UUID]; is_authorized: bool; rfid_tag: Optional[str]
+
+
+class GateVehicleLookupOut(OrmBase):
+    """Read-only pre-entry check for a security gate: does this vehicle
+    number belong to a registered resident/tenant vehicle or an active
+    visitor parking record? Not itself an access log entry — see
+    POST /parking/access-log for that."""
+    vehicle_number: str
+    authorized:     bool
+    category:       str   # "resident" | "tenant" | "visitor" | "unregistered"
+    vehicle_type:   Optional[str] = None
+    flat_number:    Optional[str] = None
+    wing_name:      Optional[str] = None
+    owner_name:     Optional[str] = None
+    parking_slot:   Optional[str] = None
+    visitor_purpose: Optional[str] = None
+    visitor_check_in_time: Optional[datetime] = None
+    message:        str

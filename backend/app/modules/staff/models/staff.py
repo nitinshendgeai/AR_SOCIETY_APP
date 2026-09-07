@@ -210,11 +210,79 @@ class DutyAssignment(Base, TimestampMixin):
     verified_at  = Column(DateTime, nullable=True)
     notes        = Column(Text, nullable=True)
 
+    checklist_template_id = Column(UUID(as_uuid=True), ForeignKey("checklist_templates.id", ondelete="SET NULL"), nullable=True)
+
     society  = relationship("Society")
     staff    = relationship("Staff", back_populates="duties")
     shift    = relationship("StaffShift", back_populates="duties")
     assigner = relationship("User", foreign_keys=[assigned_by])
     verifier = relationship("User", foreign_keys=[verified_by])
+    checklist_template = relationship("ChecklistTemplate")
+    checklist_items = relationship("DutyChecklistItem", back_populates="duty",
+                                    cascade="all, delete-orphan",
+                                    order_by="DutyChecklistItem.sequence")
+
+
+# ── Checklist Templates ─────────────────────────────────────────────────────
+#
+# A reusable, department-scoped named checklist (e.g. "Security Gate Round")
+# an Admin/Committee member defines once with an ordered list of items.
+# Assigning a duty from a template snapshots its items onto DutyChecklistItem
+# rows at that moment (see StaffService.assign_duty), so later edits to the
+# template never retroactively change a staff member's already-assigned
+# checklist.
+
+class ChecklistTemplate(Base, TimestampMixin):
+    __tablename__ = "checklist_templates"
+
+    society_id  = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    department  = Column(Enum(StaffDepartment, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
+    name        = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    created_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    society = relationship("Society")
+    creator = relationship("User", foreign_keys=[created_by])
+    items   = relationship("ChecklistTemplateItem", back_populates="template",
+                            cascade="all, delete-orphan",
+                            order_by="ChecklistTemplateItem.sequence")
+
+    def __repr__(self):
+        return f"<ChecklistTemplate id={self.id} name={self.name!r} dept={self.department}>"
+
+
+class ChecklistTemplateItem(Base, TimestampMixin):
+    __tablename__ = "checklist_template_items"
+
+    template_id = Column(UUID(as_uuid=True), ForeignKey("checklist_templates.id", ondelete="CASCADE"), nullable=False, index=True)
+    sequence    = Column(Integer, nullable=False, default=0)
+    title       = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    is_required = Column(Boolean, default=True, nullable=False)
+
+    template = relationship("ChecklistTemplate", back_populates="items")
+
+
+class DutyChecklistItem(Base, TimestampMixin):
+    """Per-duty snapshot of a checklist item (copied from a
+    ChecklistTemplateItem at duty-assignment time, or added ad-hoc)."""
+    __tablename__ = "duty_checklist_items"
+
+    duty_id           = Column(UUID(as_uuid=True), ForeignKey("duty_assignments.id", ondelete="CASCADE"), nullable=False, index=True)
+    template_item_id  = Column(UUID(as_uuid=True), ForeignKey("checklist_template_items.id", ondelete="SET NULL"), nullable=True)
+    sequence          = Column(Integer, nullable=False, default=0)
+    title             = Column(String(255), nullable=False)
+    description       = Column(Text, nullable=True)
+    is_required       = Column(Boolean, default=True, nullable=False)
+    is_completed      = Column(Boolean, default=False, nullable=False)
+    completed_at      = Column(DateTime, nullable=True)
+    notes             = Column(Text, nullable=True)
+
+    duty = relationship("DutyAssignment", back_populates="checklist_items")
+    template_item = relationship("ChecklistTemplateItem")
+
+    def __repr__(self):
+        return f"<DutyChecklistItem id={self.id} duty={self.duty_id} done={self.is_completed}>"
 
 
 # ── StaffAttendance ───────────────────────────────────────────────────────────

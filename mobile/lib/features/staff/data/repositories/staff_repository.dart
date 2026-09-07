@@ -84,6 +84,21 @@ class StaffRepository {
     } catch (e) { return _handle(e); }
   }
 
+  Future<StaffResult<DesignationEntity>> createDesignation({
+    required String societyId,
+    required String name,
+    required String department,
+    String? description,
+  }) async {
+    try {
+      final m = await _ds.createDesignation(
+        societyId: societyId, name: name, department: department,
+        description: description,
+      );
+      return StaffSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
   Future<StaffResult<List<ShiftEntity>>> listShifts(String societyId) async {
     try {
       final list = await _ds.listShifts(societyId);
@@ -255,14 +270,82 @@ class StaffRepository {
     String? location,
     String? startTime,
     String? endTime,
+    String? checklistTemplateId,
   }) async {
     try {
       final m = await _ds.assignDuty(
         staffId: staffId, societyId: societyId, dutyName: dutyName,
         dutyDate: dutyDate, description: description, location: location,
         startTime: startTime, endTime: endTime,
+        checklistTemplateId: checklistTemplateId,
       );
       return StaffSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
+  // ── Duty checklist ───────────────────────────────────────────────────────────
+
+  Future<StaffResult<List<DutyChecklistItemEntity>>> getDutyChecklist(String dutyId) async {
+    try {
+      final list = await _ds.getDutyChecklist(dutyId);
+      return StaffSuccess(list.map((m) => m.toEntity()).toList());
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<DutyChecklistItemEntity>> completeChecklistItem(
+      String dutyId, String itemId, {required bool isCompleted, String? notes}) async {
+    try {
+      final m = await _ds.completeChecklistItem(dutyId, itemId, isCompleted: isCompleted, notes: notes);
+      return StaffSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
+  // ── Checklist templates ───────────────────────────────────────────────────────
+
+  Future<StaffResult<ChecklistTemplateEntity>> createChecklistTemplate({
+    required String societyId,
+    required String department,
+    required String name,
+    String? description,
+    required List<Map<String, dynamic>> items,
+  }) async {
+    try {
+      final m = await _ds.createChecklistTemplate(
+        societyId: societyId, department: department, name: name,
+        description: description, items: items,
+      );
+      return StaffSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<List<ChecklistTemplateEntity>>> listChecklistTemplates(
+      String societyId, {String? department}) async {
+    try {
+      final list = await _ds.listChecklistTemplates(societyId, department: department);
+      return StaffSuccess(list.map((m) => m.toEntity()).toList());
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<ChecklistTemplateEntity>> updateChecklistTemplate(
+    String templateId, {
+    String? name,
+    String? description,
+    String? department,
+    List<Map<String, dynamic>>? items,
+  }) async {
+    try {
+      final m = await _ds.updateChecklistTemplate(
+        templateId, name: name, description: description,
+        department: department, items: items,
+      );
+      return StaffSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<void>> deleteChecklistTemplate(String templateId) async {
+    try {
+      await _ds.deleteChecklistTemplate(templateId);
+      return StaffSuccess(null);
     } catch (e) { return _handle(e); }
   }
 

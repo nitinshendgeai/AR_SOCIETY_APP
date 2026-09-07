@@ -127,11 +127,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 setState(() => _obscurePass = !_obscurePass),
                           ),
                           validator: (v) {
+                            // Login only checks that something was typed —
+                            // no minimum length here. That's a password-
+                            // creation rule (see RegisterRequest/
+                            // ChangePasswordRequest's 8-char minimum), and
+                            // auto-provisioned accounts (e.g. Resident's
+                            // default "1234") are shorter than any such
+                            // minimum until the forced first-login change.
                             if (v == null || v.isEmpty) {
                               return 'Password is required';
-                            }
-                            if (v.length < 6) {
-                              return 'Password is too short';
                             }
                             return null;
                           },

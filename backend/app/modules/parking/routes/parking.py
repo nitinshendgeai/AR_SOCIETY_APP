@@ -8,6 +8,7 @@ from app.core.dependencies import (
     get_current_user, require_roles,
     require_admin_committee, require_security, require_any_member,
 )
+from app.core.tenant_scope import assert_society_access
 from app.models.user import User
 from app.modules.parking.schemas.parking import (
     ZoneCreate, ZoneOut, FloorCreate, FloorOut,
@@ -15,7 +16,7 @@ from app.modules.parking.schemas.parking import (
     AllocationCreate, AllocationOut,
     VisitorParkingCreate, VisitorParkingOut,
     ViolationCreate, ViolationOut,
-    AccessLogCreate, AccessLogOut,
+    AccessLogCreate, AccessLogOut, GateVehicleLookupOut,
 )
 from app.modules.parking.models.parking import SlotType
 from app.modules.parking.services.parking_service import ParkingService
@@ -63,6 +64,13 @@ def slots_by_zone(zone_id: UUID, db: Session = Depends(get_db)):
 @router.get("/slots/available/{society_id}", response_model=List[SlotOut], dependencies=[Depends(any_member)])
 def available_slots(society_id: UUID, slot_type: Optional[SlotType] = None, db: Session = Depends(get_db)):
     return ParkingService(db).get_available_slots(society_id, slot_type)
+
+@router.get("/slots/society/{society_id}", response_model=List[SlotOut], dependencies=[Depends(admin_committee)])
+def slots_by_society(society_id: UUID, db: Session = Depends(get_db)):
+    """All slots for the society regardless of status — for the parking
+    management screen, where an admin needs to see occupied/blocked slots
+    too, not just what's currently available for a new allocation."""
+    return ParkingService(db).list_slots_by_society(society_id)
 
 
 # ── Allocations ───────────────────────────────────────────────────────────────
@@ -119,6 +127,18 @@ def resolve_violation(violation_id: UUID, db: Session = Depends(get_db),
             dependencies=[Depends(security_above)])
 def list_violations(society_id: UUID, unresolved_only: bool = False, db: Session = Depends(get_db)):
     return ParkingService(db).get_violations(society_id, unresolved_only)
+
+
+# ── Gate validation ───────────────────────────────────────────────────────────
+@router.get("/gate/validate/{society_id}/{vehicle_number}", response_model=GateVehicleLookupOut)
+def validate_vehicle_at_gate(society_id: UUID, vehicle_number: str,
+                              db: Session = Depends(get_db),
+                              user: User = Depends(security_above)):
+    """Read-only pre-entry check a security guard runs before opening the
+    gate — does NOT itself create an access log entry (see POST
+    /access-log for that, once the guard decides to let the vehicle in)."""
+    assert_society_access(user, society_id)
+    return ParkingService(db).validate_vehicle_at_gate(society_id, vehicle_number)
 
 
 # ── Access logs ───────────────────────────────────────────────────────────────

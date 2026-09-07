@@ -86,6 +86,8 @@ class ComplaintOut(TimestampSchema):
     status:           ComplaintStatus
     society_id:       UUID
     flat_id:          Optional[UUID]
+    flat_number:      Optional[str]        = None
+    wing_name:        Optional[str]        = None
     raised_by:        UUID
     assigned_to:      Optional[UUID]
     assigned_to_name: Optional[str]      = None
@@ -109,6 +111,8 @@ class ComplaintListOut(TimestampSchema):
     priority:         ComplaintPriority
     status:           ComplaintStatus
     society_id:       UUID
+    flat_number:      Optional[str]        = None
+    wing_name:        Optional[str]        = None
     raised_by:        UUID
     assigned_to:      Optional[UUID]
     assigned_to_name: Optional[str]      = None

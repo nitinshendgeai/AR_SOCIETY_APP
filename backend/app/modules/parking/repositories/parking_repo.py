@@ -37,6 +37,11 @@ class ParkingSlotRepo(BaseRepository[ParkingSlot]):
         if slot_type: q = q.filter(ParkingSlot.slot_type==slot_type)
         return q.all()
 
+    def get_by_society(self, society_id: UUID) -> List[ParkingSlot]:
+        return self.db.query(ParkingSlot).filter(
+            ParkingSlot.society_id==society_id, ParkingSlot.is_active==True,
+        ).all()
+
     def get_by_number(self, society_id: UUID, slot_number: str) -> Optional[ParkingSlot]:
         return self.db.query(ParkingSlot).filter(
             ParkingSlot.society_id==society_id,
@@ -61,6 +66,13 @@ class ParkingAllocationRepo(BaseRepository[ParkingAllocation]):
             ParkingAllocation.status==AllocationStatus.ACTIVE,
             ParkingAllocation.is_active==True,
         ).all()
+
+    def get_active_by_vehicle(self, vehicle_id: UUID) -> Optional[ParkingAllocation]:
+        return self.db.query(ParkingAllocation).filter(
+            ParkingAllocation.vehicle_id==vehicle_id,
+            ParkingAllocation.status==AllocationStatus.ACTIVE,
+            ParkingAllocation.is_active==True,
+        ).first()
 
     def get_by_society(self, sid: UUID, skip=0, limit=50) -> List[ParkingAllocation]:
         return self.db.query(ParkingAllocation).filter(

@@ -21,6 +21,9 @@ passlib[bcrypt]
 bcrypt
 python-multipart
 
+# PDF receipt generation
+reportlab
+
 # HTTP
 httpx
 

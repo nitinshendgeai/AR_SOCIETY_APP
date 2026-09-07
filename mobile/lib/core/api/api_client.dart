@@ -194,5 +194,16 @@ String parseApiError(DioException e) {
 /// leak raw DioException/RequestOptions dumps to the user.
 String friendlyErrorMessage(Object e) {
   if (e is DioException) return parseApiError(e);
+  // Repository layers commonly re-throw `Exception(message)` with an
+  // already-friendly message (e.g. parsed from a DioException upstream) —
+  // surface that instead of a generic fallback that would otherwise
+  // discard it.
+  if (e is Exception) {
+    final text = e.toString();
+    const prefix = 'Exception: ';
+    if (text.startsWith(prefix) && text.length > prefix.length) {
+      return text.substring(prefix.length);
+    }
+  }
   return 'Something went wrong. Please try again.';
 }

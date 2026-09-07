@@ -81,6 +81,56 @@ class ResidentMasterRepository {
     }
   }
 
+  Future<RmResult<ResidentModel>> getMyResident() async {
+    try {
+      return RmSuccess(await _ds.getMyResident());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  // ── Resident self-service edit requests ───────────────────────────────
+
+  Future<RmResult<ResidentEditRequestModel>> createEditRequest(Map<String, dynamic> data) async {
+    try {
+      return RmSuccess(await _ds.createEditRequest(data));
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  Future<RmResult<List<ResidentEditRequestModel>>> listMyEditRequests() async {
+    try {
+      return RmSuccess(await _ds.listMyEditRequests());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  Future<RmResult<List<ResidentEditRequestModel>>> listPendingEditRequests() async {
+    try {
+      return RmSuccess(await _ds.listPendingEditRequests());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  Future<RmResult<ResidentEditRequestModel>> approveEditRequest(String id) async {
+    try {
+      return RmSuccess(await _ds.approveEditRequest(id));
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  Future<RmResult<ResidentEditRequestModel>> rejectEditRequest(String id, String reason) async {
+    try {
+      return RmSuccess(await _ds.rejectEditRequest(id, reason));
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
   // ── Tenants ────────────────────────────────────────────────────────────
 
   Future<RmResult<TenantModel>> createTenant(Map<String, dynamic> data) async {

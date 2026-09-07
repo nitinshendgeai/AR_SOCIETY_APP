@@ -86,20 +86,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
   String _computeRoleHome() {
     final user = ref.read(currentUserProvider);
     if (user == null) return AppRoutes.login;
-    switch (user.primaryRole) {
-      case 'Admin':
-      case 'Super Admin':
-      case 'Society Admin':
-        return AppRoutes.adminHome;
-      case 'Committee':
-        return AppRoutes.committeeHome;
-      case 'Security':
-        return AppRoutes.securityHome;
-      case 'Staff':
-        return AppRoutes.staffHome;
-      default:
-        return AppRoutes.residentHome;
-    }
+    return userRoleHome(user);
   }
 
   @override

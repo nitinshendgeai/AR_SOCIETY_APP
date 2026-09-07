@@ -106,6 +106,16 @@ class ResidentService:
 
     # ── Read ─────────────────────────────────────────────────────────────────
 
+    def get_me(self, current_user: User) -> ResidentOut:
+        resident = (
+            self.db.query(Resident)
+            .filter(Resident.user_id == current_user.id, Resident.is_active == True)  # noqa: E712
+            .first()
+        )
+        if not resident:
+            raise HTTPException(status_code=404, detail="No resident profile linked to this account")
+        return self._enrich(resident)
+
     def get_or_404(self, id: UUID, current_user: User) -> ResidentOut:
         # get_any(), not get(): a moved-out resident (is_active=False) must
         # still be viewable — their detail page is exactly where occupancy

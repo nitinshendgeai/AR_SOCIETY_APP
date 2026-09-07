@@ -28,6 +28,40 @@ def test_create_complaint_success(client, db):
     assert data["raised_by"] == str(resident["user"].id)
 
 
+def test_complaint_includes_flat_and_wing_details(client, db):
+    resident = make_user(db, "res-flat@cmp.com", role="Resident")
+    society  = make_society(db, "Complaint Society Flat")
+    wing     = make_wing(db, society.id, "B Wing")
+    flat     = make_flat(db, wing.id, "B-204")
+
+    payload = _complaint_payload(society.id)
+    payload["flat_id"] = str(flat.id)
+    r = client.post("/api/v1/complaints/", json=payload, headers=resident["headers"])
+    assert r.status_code == 201, r.text
+    data = r.json()
+    assert data["flat_number"] == "B-204"
+    assert data["wing_name"] == "B Wing"
+
+    # Also present on the lightweight list schema.
+    list_r = client.get(f"/api/v1/complaints/me/complaints", headers=resident["headers"])
+    assert list_r.status_code == 200
+    listed = next(c for c in list_r.json() if c["id"] == data["id"])
+    assert listed["flat_number"] == "B-204"
+    assert listed["wing_name"] == "B Wing"
+
+
+def test_complaint_without_flat_has_null_flat_details(client, db):
+    resident = make_user(db, "res-noflat@cmp.com", role="Resident")
+    society  = make_society(db, "Complaint Society No Flat")
+    r = client.post("/api/v1/complaints/",
+                    json=_complaint_payload(society.id),
+                    headers=resident["headers"])
+    assert r.status_code == 201
+    data = r.json()
+    assert data["flat_number"] is None
+    assert data["wing_name"] is None
+
+
 def test_create_complaint_requires_auth(client, db):
     society = make_society(db, "Complaint Society Auth")
     r = client.post("/api/v1/complaints/", json=_complaint_payload(society.id))

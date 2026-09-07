@@ -51,6 +51,8 @@ class ComplaintModel {
   final String status;
   final String societyId;
   final String? flatId;
+  final String? flatNumber;
+  final String? wingName;
   final String raisedBy;
   final String? assignedTo;
   final String? assignedToName;
@@ -73,6 +75,8 @@ class ComplaintModel {
     required this.status,
     required this.societyId,
     this.flatId,
+    this.flatNumber,
+    this.wingName,
     required this.raisedBy,
     this.assignedTo,
     this.assignedToName,
@@ -96,6 +100,8 @@ class ComplaintModel {
         status: j['status'] as String,
         societyId: j['society_id'] as String,
         flatId: j['flat_id'] as String?,
+        flatNumber: j['flat_number'] as String?,
+        wingName: j['wing_name'] as String?,
         raisedBy: j['raised_by'] as String,
         assignedTo: j['assigned_to'] as String?,
         assignedToName: j['assigned_to_name'] as String?,
@@ -122,6 +128,8 @@ class ComplaintModel {
         status: ComplaintStatus.fromString(status),
         societyId: societyId,
         flatId: flatId,
+        flatNumber: flatNumber,
+        wingName: wingName,
         raisedBy: raisedBy,
         assignedTo: assignedTo,
         assignedToName: assignedToName,
@@ -146,6 +154,8 @@ class ComplaintListModel {
   final String priority;
   final String status;
   final String societyId;
+  final String? flatNumber;
+  final String? wingName;
   final String raisedBy;
   final String? assignedTo;
   final String? assignedToName;
@@ -161,6 +171,8 @@ class ComplaintListModel {
     required this.priority,
     required this.status,
     required this.societyId,
+    this.flatNumber,
+    this.wingName,
     required this.raisedBy,
     this.assignedTo,
     this.assignedToName,
@@ -178,6 +190,8 @@ class ComplaintListModel {
         priority: j['priority'] as String,
         status: j['status'] as String,
         societyId: j['society_id'] as String,
+        flatNumber: j['flat_number'] as String?,
+        wingName: j['wing_name'] as String?,
         raisedBy: j['raised_by'] as String,
         assignedTo: j['assigned_to'] as String?,
         assignedToName: j['assigned_to_name'] as String?,
@@ -194,6 +208,8 @@ class ComplaintListModel {
         priority: ComplaintPriority.fromString(priority),
         status: ComplaintStatus.fromString(status),
         societyId: societyId,
+        flatNumber: flatNumber,
+        wingName: wingName,
         raisedBy: raisedBy,
         assignedTo: assignedTo,
         assignedToName: assignedToName,

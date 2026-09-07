@@ -112,6 +112,90 @@ final residentFormProvider = StateNotifierProvider<ResidentFormNotifier, Residen
   return ResidentFormNotifier(ref.read(residentMasterRepositoryProvider));
 });
 
+// ── Resident self-service edit requests ─────────────────────────────────────
+
+/// The logged-in user's own resident profile — null if this account has no
+/// linked resident record (e.g. Admin/Committee/Staff accounts).
+final myResidentProvider = FutureProvider<ResidentModel?>((ref) async {
+  final repo = ref.read(residentMasterRepositoryProvider);
+  final result = await repo.getMyResident();
+  return switch (result) {
+    RmSuccess(:final data) => data,
+    RmFailure() => null,
+  };
+});
+
+/// The logged-in resident's own edit-request history, newest first.
+final myEditRequestsProvider = FutureProvider<List<ResidentEditRequestModel>>((ref) async {
+  final repo = ref.read(residentMasterRepositoryProvider);
+  final result = await repo.listMyEditRequests();
+  return switch (result) {
+    RmSuccess(:final data) => data,
+    RmFailure() => <ResidentEditRequestModel>[],
+  };
+});
+
+/// Admin/Committee: every edit request still awaiting review.
+final pendingEditRequestsProvider = FutureProvider<List<ResidentEditRequestModel>>((ref) async {
+  final repo = ref.read(residentMasterRepositoryProvider);
+  final result = await repo.listPendingEditRequests();
+  return switch (result) {
+    RmSuccess(:final data) => data,
+    RmFailure() => <ResidentEditRequestModel>[],
+  };
+});
+
+sealed class EditRequestActionState {}
+class EditRequestActionInitial extends EditRequestActionState {}
+class EditRequestActionLoading extends EditRequestActionState {}
+class EditRequestActionSuccess extends EditRequestActionState {
+  final String message;
+  EditRequestActionSuccess(this.message);
+}
+class EditRequestActionError extends EditRequestActionState {
+  final String message;
+  EditRequestActionError(this.message);
+}
+
+class EditRequestActionNotifier extends StateNotifier<EditRequestActionState> {
+  final ResidentMasterRepository _repo;
+  EditRequestActionNotifier(this._repo) : super(EditRequestActionInitial());
+
+  Future<void> submit(Map<String, dynamic> changes) async {
+    state = EditRequestActionLoading();
+    final result = await _repo.createEditRequest(changes);
+    state = switch (result) {
+      RmSuccess() => EditRequestActionSuccess('Change request submitted for approval'),
+      RmFailure(:final message) => EditRequestActionError(message),
+    };
+  }
+
+  Future<void> approve(String id) async {
+    state = EditRequestActionLoading();
+    final result = await _repo.approveEditRequest(id);
+    state = switch (result) {
+      RmSuccess() => EditRequestActionSuccess('Change approved'),
+      RmFailure(:final message) => EditRequestActionError(message),
+    };
+  }
+
+  Future<void> reject(String id, String reason) async {
+    state = EditRequestActionLoading();
+    final result = await _repo.rejectEditRequest(id, reason);
+    state = switch (result) {
+      RmSuccess() => EditRequestActionSuccess('Change rejected'),
+      RmFailure(:final message) => EditRequestActionError(message),
+    };
+  }
+
+  void reset() => state = EditRequestActionInitial();
+}
+
+final editRequestActionProvider =
+    StateNotifierProvider<EditRequestActionNotifier, EditRequestActionState>((ref) {
+  return EditRequestActionNotifier(ref.read(residentMasterRepositoryProvider));
+});
+
 // ── Tenant list state ────────────────────────────────────────────────────────
 
 sealed class TenantListState {}

@@ -111,6 +111,55 @@ def test_duplicate_allocation_rejected(client, db):
     assert r2.status_code in (400, 409)
 
 
+def test_list_all_slots_by_society(client, db):
+    admin   = make_user(db, "adm7@park.com", role="Society Admin")
+    society = make_society(db, "Parking Society 8")
+    zr      = _create_zone(client, admin["headers"], society.id, "Zone H")
+    zone_id = zr.json()["id"]
+    _create_slot(client, admin["headers"], society.id, zone_id, "H-01")
+    _create_slot(client, admin["headers"], society.id, zone_id, "H-02")
+    r = client.get(f"/api/v1/parking/slots/society/{society.id}",
+                   headers=admin["headers"])
+    assert r.status_code == 200, r.text
+    assert len(r.json()) >= 2
+
+
 def test_unauthenticated_cannot_create_zone(client, db):
     r = client.post("/api/v1/parking/zones", json={"name": "Sneaky"})
     assert r.status_code in (401, 403)
+
+
+def test_allocation_out_includes_slot_flat_vehicle_details(client, db):
+    """AllocationOut enriches the raw slot_id/flat_id/vehicle_id with their
+    human-readable slot number, flat number, wing name, and vehicle number
+    (via read-only model properties) — the mobile allocations screen
+    displays these directly without an extra per-row lookup."""
+    from tests.conftest import make_wing, make_flat
+    admin   = make_user(db, "adm6@park.com", role="Society Admin")
+    society = make_society(db, "Parking Society 7")
+    wing    = make_wing(db, society.id, "Wing P")
+    flat    = make_flat(db, wing.id, "P-101")
+
+    vr = client.post("/api/v1/vehicles/", json={
+        "society_id": str(society.id), "flat_id": str(flat.id),
+        "vehicle_number": "MH12CC0001",
+    }, headers=admin["headers"])
+    vehicle_id = vr.json()["id"]
+
+    zr      = _create_zone(client, admin["headers"], society.id, "Zone P")
+    zone_id = zr.json()["id"]
+    sr      = _create_slot(client, admin["headers"], society.id, zone_id, "P-P1")
+    slot_id = sr.json()["id"]
+
+    from datetime import date
+    r = client.post("/api/v1/parking/allocations", json={
+        "society_id": str(society.id), "slot_id": slot_id,
+        "flat_id": str(flat.id), "vehicle_id": vehicle_id,
+        "allocation_type": "resident", "start_date": str(date.today()),
+    }, headers=admin["headers"])
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["slot_number"] == "P-P1"
+    assert body["flat_number"] == "P-101"
+    assert body["wing_name"] == "Wing P"
+    assert body["vehicle_number"] == "MH12CC0001"
