@@ -109,13 +109,22 @@ def test_list_residents_ordered_by_flat_number(client, db, society_a):
     # Register flats and residents out of flat-number order, to prove the
     # list comes back ordered by flat number rather than creation order or
     # resident name (name order would put "Amy" before "Zack").
-    flat_10 = make_flat(db, society_a["wing"].id, "R-110")
-    flat_2 = make_flat(db, society_a["wing"].id, "R-102")
+    #
+    # R-1702 is the regression case: plain string ordering puts it before
+    # R-201 (because "1" < "2"), which is exactly the bug seen live — a
+    # flat picker showing A-1702 above A-201. Flat number must be sorted
+    # numerically, not lexicographically.
+    flat_1702 = make_flat(db, society_a["wing"].id, "R-1702")
+    flat_201 = make_flat(db, society_a["wing"].id, "R-201")
+    flat_102 = make_flat(db, society_a["wing"].id, "R-102")
     client.post("/api/v1/residents/", json={
-        "flat_id": str(flat_10.id), "full_name": "Amy In Flat 110",
+        "flat_id": str(flat_1702.id), "full_name": "Amy In Flat 1702",
     }, headers=society_a["admin"]["headers"])
     client.post("/api/v1/residents/", json={
-        "flat_id": str(flat_2.id), "full_name": "Zack In Flat 102",
+        "flat_id": str(flat_201.id), "full_name": "Zack In Flat 201",
+    }, headers=society_a["admin"]["headers"])
+    client.post("/api/v1/residents/", json={
+        "flat_id": str(flat_102.id), "full_name": "Bob In Flat 102",
     }, headers=society_a["admin"]["headers"])
     client.post("/api/v1/residents/", json={
         "flat_id": str(society_a["flat"].id), "full_name": "Owner In Flat 101",
@@ -124,8 +133,9 @@ def test_list_residents_ordered_by_flat_number(client, db, society_a):
     r = client.get("/api/v1/residents/", headers=society_a["admin"]["headers"])
     assert r.status_code == 200
     ordered_names = [x["full_name"] for x in r.json()]
-    assert ordered_names.index("Owner In Flat 101") < ordered_names.index("Zack In Flat 102")
-    assert ordered_names.index("Zack In Flat 102") < ordered_names.index("Amy In Flat 110")
+    assert ordered_names.index("Owner In Flat 101") < ordered_names.index("Bob In Flat 102")
+    assert ordered_names.index("Bob In Flat 102") < ordered_names.index("Zack In Flat 201")
+    assert ordered_names.index("Zack In Flat 201") < ordered_names.index("Amy In Flat 1702")
 
 
 def test_list_residents_society_scoped(client, db, society_a, society_b):

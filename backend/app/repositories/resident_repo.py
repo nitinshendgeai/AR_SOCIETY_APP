@@ -1,11 +1,12 @@
 from typing import List, Optional
 from uuid import UUID
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, contains_eager
 from app.models.resident import Resident, ResidentType
 from app.models.tenant import Tenant
 from app.models.flat import Flat
 from app.models.wing import Wing
 from app.repositories.base import BaseRepository
+from app.utils.natural_sort import natural_sort_key
 
 
 class ResidentRepository(BaseRepository[Resident]):
@@ -52,7 +53,8 @@ class ResidentRepository(BaseRepository[Resident]):
         # are both non-nullable on Resident/Flat, and the ordering below needs
         # Wing.name/Flat.flat_number regardless of whether society_id is passed.
         q = self.db.query(Resident).join(Flat, Resident.flat_id == Flat.id) \
-             .join(Wing, Flat.wing_id == Wing.id)
+             .join(Wing, Flat.wing_id == Wing.id) \
+             .options(contains_eager(Resident.flat).contains_eager(Flat.wing))
         if society_id is not None:
             q = q.filter(Wing.society_id == society_id)
         if flat_id is not None:
@@ -69,8 +71,15 @@ class ResidentRepository(BaseRepository[Resident]):
                 (Resident.email.ilike(like))
             )
         # Flat number, not name, is the canonical resident-list order (mirrors
-        # FlatRepository.get_by_society's Wing.name, Flat.flat_number order).
-        return q.order_by(Wing.name, Flat.flat_number, Resident.full_name).offset(skip).limit(limit).all()
+        # FlatRepository.get_by_society's ordering). flat_number is free text
+        # ("A-101", "1101", "A-1702", ...), so plain SQL string ordering would
+        # put "A-1702" before "A-201" — sort naturally in Python instead, then
+        # paginate; the DB can't apply skip/limit until sorting is final.
+        residents = q.all()
+        residents.sort(key=lambda r: (
+            natural_sort_key(r.flat.wing.name), natural_sort_key(r.flat.flat_number), r.full_name.lower(),
+        ))
+        return residents[skip:skip + limit]
 
     def count_family_members(self, flat_id: UUID) -> int:
         """Active FAMILY/DEPENDENT residents on a flat — the authoritative,
