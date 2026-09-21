@@ -184,7 +184,8 @@ class _PaymentCard extends StatelessWidget {
         title: Text('₹${payment.amount} — ${payment.wingName ?? ''} ${payment.flatNumber ?? ''}'.trim(),
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(
-            '${payment.receiptNumber} · ${paymentModeLabel(payment.paymentMode)} · '
+            '${payment.receiptNumber} · ${onlinePaymentPurposeLabel(payment.purpose)} · '
+            '${paymentModeLabel(payment.paymentMode)} · '
             '${payment.paymentDate.day}/${payment.paymentDate.month}/${payment.paymentDate.year}'),
         trailing: Chip(
           label: Text(reconciliationStatusLabel(payment.status),

@@ -118,6 +118,7 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 _row('Flat', '${payment.wingName ?? '-'} / ${payment.flatNumber ?? '-'}'),
                 _row('Amount', '₹${payment.amount}'),
+                _row('On Account Of', onlinePaymentPurposeLabel(payment.purpose)),
                 _row('Payment Date',
                     '${payment.paymentDate.day}/${payment.paymentDate.month}/${payment.paymentDate.year}'),
                 _row('Payment Mode', paymentModeLabel(payment.paymentMode)),

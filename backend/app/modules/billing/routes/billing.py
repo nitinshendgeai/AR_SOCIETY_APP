@@ -80,6 +80,7 @@ def _online_payment_out(s) -> dict:
         "bill_id": str(s.bill_id) if s.bill_id else None,
         "receipt_number": s.receipt_number,
         "amount": str(s.amount),
+        "purpose": s.purpose.value,
         "payment_date": s.payment_date.isoformat(),
         "payment_mode": s.payment_mode.value,
         "transaction_ref": s.transaction_ref,
@@ -214,6 +215,7 @@ def submit_online_payment(
     amount: Decimal = Form(...),
     payment_date: date = Form(...),
     payment_mode: PaymentMode = Form(...),
+    purpose: ChargeType = Form(ChargeType.MAINTENANCE),
     transaction_ref: Optional[str] = Form(None),
     bank_name: Optional[str] = Form(None),
     notes: Optional[str] = Form(None),
@@ -227,7 +229,7 @@ def submit_online_payment(
         raise HTTPException(422, f"Screenshot exceeds the {MAX_SCREENSHOT_BYTES // (1024*1024)}MB limit")
     submission = BillingService(db).create_online_payment_submission(
         flat_id=flat_id, amount=amount, payment_date=payment_date,
-        payment_mode=payment_mode, transaction_ref=transaction_ref,
+        payment_mode=payment_mode, purpose=purpose, transaction_ref=transaction_ref,
         bank_name=bank_name, notes=notes,
         screenshot_bytes=data, screenshot_mime_type=content_type,
         screenshot_file_name=screenshot.filename, user=user,

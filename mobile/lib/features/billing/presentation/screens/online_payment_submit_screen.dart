@@ -28,6 +28,7 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
   String? _wingId;
   String? _flatId;
   String _paymentMode = kPaymentModes.first.$1;
+  String _purpose = kOnlinePaymentPurposes.first.$1;
   DateTime _paymentDate = DateTime.now();
 
   XFile? _pickedFile;
@@ -84,6 +85,7 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
             amount: amount,
             paymentDate: _paymentDate,
             paymentMode: _paymentMode,
+            purpose: _purpose,
             transactionRef: _refCtrl.text.trim().isEmpty ? null : _refCtrl.text.trim(),
             bankName: _bankCtrl.text.trim().isEmpty ? null : _bankCtrl.text.trim(),
             notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
@@ -170,6 +172,16 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
             decoration: const InputDecoration(labelText: 'Payment Mode *'),
             items: [for (final m in kPaymentModes) DropdownMenuItem(value: m.$1, child: Text(m.$2))],
             onChanged: (v) => setState(() => _paymentMode = v ?? _paymentMode),
+          ),
+          const SizedBox(height: 14),
+          DropdownButtonFormField<String>(
+            value: _purpose,
+            decoration: const InputDecoration(
+                labelText: 'On Account Of *', hintText: 'What this payment is for'),
+            items: [
+              for (final p in kOnlinePaymentPurposes) DropdownMenuItem(value: p.$1, child: Text(p.$2))
+            ],
+            onChanged: (v) => setState(() => _purpose = v ?? _purpose),
           ),
           const SizedBox(height: 14),
           TextField(

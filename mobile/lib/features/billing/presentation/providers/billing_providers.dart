@@ -33,6 +33,7 @@ class OnlinePaymentsNotifier extends FamilyAsyncNotifier<List<OnlinePaymentEntit
     required double amount,
     required DateTime paymentDate,
     required String paymentMode,
+    String purpose = 'maintenance',
     String? transactionRef,
     String? bankName,
     String? notes,
@@ -42,6 +43,7 @@ class OnlinePaymentsNotifier extends FamilyAsyncNotifier<List<OnlinePaymentEntit
   }) async {
     final result = await ref.read(billingRepositoryProvider).submitOnlinePayment(
           flatId: flatId, amount: amount, paymentDate: paymentDate, paymentMode: paymentMode,
+          purpose: purpose,
           transactionRef: transactionRef, bankName: bankName, notes: notes,
           screenshotBytes: screenshotBytes, screenshotFileName: screenshotFileName,
           screenshotMimeType: screenshotMimeType,

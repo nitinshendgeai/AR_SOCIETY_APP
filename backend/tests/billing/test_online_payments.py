@@ -1,9 +1,24 @@
 """Online Payment Submissions — resident payment screenshots captured by
 the FMC Manager for bank reconciliation."""
+import base64
 import io
+import re
+import zlib
 import pytest
 from datetime import date
 from tests.conftest import make_user, make_society, make_wing, make_flat
+
+
+def _pdf_text_stream(pdf_bytes: bytes) -> bytes:
+    """Decompress the (single-page) content stream reportlab wrote, so a
+    test can assert on the literal text operands rather than raw PDF bytes
+    — reportlab's default page compression means the drawn strings aren't
+    substrings of the raw response body."""
+    match = re.search(rb"stream\r?\n(.*?)endstream", pdf_bytes, re.DOTALL)
+    payload = match.group(1).rstrip(b"\r\n")
+    if payload.endswith(b"~>"):
+        payload = payload[:-2]
+    return zlib.decompress(base64.a85decode(payload))
 
 
 def _rig(db):
@@ -45,6 +60,18 @@ def test_manager_can_submit_online_payment(client, db):
     assert body["flat_number"] == "A-101"
     assert body["wing_name"] == "Wing A"
     assert body["amount"] == "5500.00"
+
+
+def test_purpose_defaults_to_maintenance(client, db):
+    society, wing, flat, manager, admin, resident = _rig(db)
+    r = _submit(client, flat.id, manager["headers"])
+    assert r.json()["purpose"] == "maintenance"
+
+
+def test_purpose_can_be_set_explicitly(client, db):
+    society, wing, flat, manager, admin, resident = _rig(db)
+    r = _submit(client, flat.id, manager["headers"], purpose="parking")
+    assert r.json()["purpose"] == "parking"
 
 
 def test_admin_can_submit_online_payment(client, db):
@@ -150,6 +177,15 @@ def test_get_receipt_pdf(client, db):
     assert r.status_code == 200
     assert r.headers["content-type"] == "application/pdf"
     assert r.content[:4] == b"%PDF"
+
+
+def test_receipt_pdf_states_on_account_purpose(client, db):
+    # The whole point of `purpose` is that it shows up on the printed
+    # receipt as "on account of <purpose>".
+    society, wing, flat, manager, admin, resident = _rig(db)
+    created = _submit(client, flat.id, manager["headers"], purpose="parking").json()
+    r = client.get(f"/api/v1/billing/online-payments/{created['id']}/receipt", headers=manager["headers"])
+    assert b"on account of Parking charges" in _pdf_text_stream(r.content)
 
 
 def test_export_csv(client, db):

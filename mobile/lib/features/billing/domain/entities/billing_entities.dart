@@ -11,6 +11,7 @@ class OnlinePaymentEntity {
   final String? billId;
   final String receiptNumber;
   final String amount;
+  final String purpose;
   final DateTime paymentDate;
   final String paymentMode;
   final String? transactionRef;
@@ -35,6 +36,7 @@ class OnlinePaymentEntity {
     this.billId,
     required this.receiptNumber,
     required this.amount,
+    this.purpose = 'maintenance',
     required this.paymentDate,
     required this.paymentMode,
     this.transactionRef,
@@ -54,6 +56,20 @@ class OnlinePaymentEntity {
   bool get isReconciled => status == 'reconciled';
   bool get isRejected => status == 'rejected';
 }
+
+const kOnlinePaymentPurposes = [
+  ('maintenance', 'Maintenance'),
+  ('water', 'Water'),
+  ('parking', 'Parking'),
+  ('sinking_fund', 'Sinking Fund'),
+  ('repair_fund', 'Repair Fund'),
+  ('amenities', 'Amenities'),
+  ('special_assessment', 'Special Assessment'),
+  ('other', 'Other'),
+];
+
+String onlinePaymentPurposeLabel(String value) =>
+    kOnlinePaymentPurposes.firstWhere((p) => p.$1 == value, orElse: () => (value, value)).$2;
 
 const kPaymentModes = [
   ('upi', 'UPI'),

@@ -10,6 +10,7 @@ class OnlinePaymentModel {
   final String? billId;
   final String receiptNumber;
   final String amount;
+  final String purpose;
   final DateTime paymentDate;
   final String paymentMode;
   final String? transactionRef;
@@ -34,6 +35,7 @@ class OnlinePaymentModel {
     this.billId,
     required this.receiptNumber,
     required this.amount,
+    this.purpose = 'maintenance',
     required this.paymentDate,
     required this.paymentMode,
     this.transactionRef,
@@ -60,6 +62,7 @@ class OnlinePaymentModel {
       billId: json['bill_id'] as String?,
       receiptNumber: json['receipt_number'] as String,
       amount: json['amount'] as String,
+      purpose: json['purpose'] as String? ?? 'maintenance',
       paymentDate: DateTime.parse(json['payment_date'] as String),
       paymentMode: json['payment_mode'] as String,
       transactionRef: json['transaction_ref'] as String?,
@@ -86,6 +89,7 @@ class OnlinePaymentModel {
         billId: billId,
         receiptNumber: receiptNumber,
         amount: amount,
+        purpose: purpose,
         paymentDate: paymentDate,
         paymentMode: paymentMode,
         transactionRef: transactionRef,

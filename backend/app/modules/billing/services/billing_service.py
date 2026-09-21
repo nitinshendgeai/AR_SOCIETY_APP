@@ -325,6 +325,7 @@ class BillingService:
         payment_mode, transaction_ref: Optional[str], bank_name: Optional[str],
         notes: Optional[str], screenshot_bytes: bytes, screenshot_mime_type: str,
         screenshot_file_name: Optional[str], user: User,
+        purpose: ChargeType = ChargeType.MAINTENANCE,
     ) -> OnlinePaymentSubmission:
         flat = self.db.query(Flat).filter(Flat.id == flat_id, Flat.is_active == True).first()
         if not flat:
@@ -348,6 +349,7 @@ class BillingService:
             recorded_by=user.id, receipt_number=receipt_number,
             amount=amount, payment_date=payment_date, payment_mode=payment_mode,
             transaction_ref=transaction_ref, bank_name=bank_name, notes=notes,
+            purpose=purpose,
             status=ReconciliationStatus.PENDING,
             screenshot_data=screenshot_bytes, screenshot_mime_type=screenshot_mime_type,
             screenshot_file_name=screenshot_file_name,
@@ -394,7 +396,7 @@ class BillingService:
         buf = io.StringIO()
         writer = csv.writer(buf)
         writer.writerow([
-            "Receipt Number", "Wing", "Flat", "Amount", "Payment Date", "Payment Mode",
+            "Receipt Number", "Wing", "Flat", "Amount", "On Account Of", "Payment Date", "Payment Mode",
             "Transaction Ref", "Bank Name", "Status", "Recorded At", "Reviewed At", "Notes",
         ])
         for r in rows:
@@ -402,7 +404,8 @@ class BillingService:
                 r.receipt_number,
                 r.wing.name if r.wing else "",
                 r.flat.flat_number if r.flat else "",
-                str(r.amount), r.payment_date.isoformat(), r.payment_mode.value,
+                str(r.amount), r.purpose.value.replace("_", " ").title(),
+                r.payment_date.isoformat(), r.payment_mode.value,
                 r.transaction_ref or "", r.bank_name or "", r.status.value,
                 r.created_at.isoformat() if r.created_at else "",
                 r.reviewed_at.isoformat() if r.reviewed_at else "",

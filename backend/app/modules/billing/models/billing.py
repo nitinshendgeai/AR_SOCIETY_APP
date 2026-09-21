@@ -342,6 +342,12 @@ class OnlinePaymentSubmission(Base, TimestampMixin):
     transaction_ref = Column(String(100), nullable=True, index=True)   # UPI/UTR/bank reference
     bank_name       = Column(String(100), nullable=True)
     notes           = Column(Text, nullable=True)
+    # What the resident says the payment is for. No bill exists to derive
+    # this from (see class docstring), so it's captured directly and printed
+    # on the receipt as "on account of <purpose>" — standard society-receipt
+    # phrasing. Defaults to MAINTENANCE since that's the overwhelming case.
+    purpose         = Column(Enum(ChargeType, values_callable=lambda e: [x.value for x in e]),
+                              default=ChargeType.MAINTENANCE, nullable=False)
 
     status          = Column(Enum(ReconciliationStatus, values_callable=lambda e: [x.value for x in e]),
                               default=ReconciliationStatus.PENDING, nullable=False, index=True)

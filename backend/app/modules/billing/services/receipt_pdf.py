@@ -39,9 +39,12 @@ def generate_online_payment_receipt_pdf(submission: OnlinePaymentSubmission, soc
         c.drawString(60 * mm, y, value)
         y -= 7 * mm
 
+    purpose_label = submission.purpose.value.replace("_", " ").title()
+
     row("Receipt No:", submission.receipt_number)
     row("Flat:", f"{submission.wing.name if submission.wing else ''} / {submission.flat.flat_number if submission.flat else ''}")
     row("Amount:", f"Rs. {submission.amount}")
+    row("On Account Of:", f"{purpose_label} Charges")
     row("Payment Date:", submission.payment_date.isoformat())
     row("Payment Mode:", submission.payment_mode.value.replace("_", " ").title())
     row("Transaction Ref:", submission.transaction_ref or "-")
@@ -50,14 +53,23 @@ def generate_online_payment_receipt_pdf(submission: OnlinePaymentSubmission, soc
     if submission.notes:
         row("Notes:", submission.notes[:60])
 
-    y -= 5 * mm
+    y -= 3 * mm
+    c.setFont("Helvetica-Oblique", 9)
+    flat_label = submission.flat.flat_number if submission.flat else "the above flat"
+    c.drawString(15 * mm, y,
+                 f"Received with thanks, on account of {purpose_label} charges for Flat {flat_label}.")
+    y -= 8 * mm
+
     c.line(15 * mm, y, width - 15 * mm, y)
     y -= 8 * mm
     c.setFont("Helvetica-Oblique", 8)
     c.setFillColor(colors.grey)
-    c.drawString(15 * mm, y, "This receipt acknowledges the payment screenshot submitted for bank")
-    y -= 4.5 * mm
-    c.drawString(15 * mm, y, "reconciliation. It is not proof of final reconciliation against the bank statement.")
+    if submission.status.value == "reconciled":
+        c.drawString(15 * mm, y, "This payment has been verified against the bank statement.")
+    else:
+        c.drawString(15 * mm, y, "This receipt acknowledges the payment screenshot submitted for bank")
+        y -= 4.5 * mm
+        c.drawString(15 * mm, y, "reconciliation. It is not proof of final reconciliation against the bank statement.")
 
     c.showPage()
     c.save()
