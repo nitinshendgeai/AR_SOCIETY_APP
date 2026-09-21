@@ -198,6 +198,7 @@ class AppTextField extends StatelessWidget {
   final bool autofocus;
   final TextInputAction textInputAction;
   final VoidCallback? onFieldSubmitted;
+  final Iterable<String>? autofillHints;
 
   const AppTextField({
     super.key,
@@ -212,6 +213,7 @@ class AppTextField extends StatelessWidget {
     this.autofocus = false,
     this.textInputAction = TextInputAction.next,
     this.onFieldSubmitted,
+    this.autofillHints,
   });
 
   @override
@@ -223,6 +225,7 @@ class AppTextField extends StatelessWidget {
       validator: validator,
       autofocus: autofocus,
       textInputAction: textInputAction,
+      autofillHints: autofillHints,
       onFieldSubmitted:
           onFieldSubmitted != null ? (_) => onFieldSubmitted!() : null,
       decoration: InputDecoration(
