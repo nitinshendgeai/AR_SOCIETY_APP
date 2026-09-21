@@ -198,6 +198,8 @@ class ComplaintListEntity {
   final ComplaintPriority priority;
   final ComplaintStatus status;
   final String societyId;
+  final String? flatNumber;
+  final String? wingName;
   final String raisedBy;
   final String? assignedTo;
   final String? assignedToName;
@@ -213,6 +215,8 @@ class ComplaintListEntity {
     required this.priority,
     required this.status,
     required this.societyId,
+    this.flatNumber,
+    this.wingName,
     required this.raisedBy,
     this.assignedTo,
     this.assignedToName,
@@ -234,6 +238,8 @@ class ComplaintEntity {
   final ComplaintStatus status;
   final String societyId;
   final String? flatId;
+  final String? flatNumber;
+  final String? wingName;
   final String raisedBy;
   final String? assignedTo;
   final String? assignedToName;
@@ -256,6 +262,8 @@ class ComplaintEntity {
     required this.status,
     required this.societyId,
     this.flatId,
+    this.flatNumber,
+    this.wingName,
     required this.raisedBy,
     this.assignedTo,
     this.assignedToName,

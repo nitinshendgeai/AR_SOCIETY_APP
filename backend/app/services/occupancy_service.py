@@ -175,6 +175,15 @@ class OccupancyService:
         if active_tenant:
             raise HTTPException(status_code=409, detail="Another tenant is already active in this flat")
 
+        # Validate no active owner-resident if marking tenant-occupied —
+        # symmetric to the TENANT_OCCUPIED guard in resident_move_in() above.
+        active_resident = self.db.query(Resident).filter(
+            Resident.flat_id == flat_id, Resident.is_active == True,
+        ).first()
+        if active_resident and flat.occupancy_status == OccupancyStatus.OWNER_OCCUPIED:
+            raise HTTPException(status_code=409,
+                detail="Flat is currently owner-occupied. Move out the resident first.")
+
         tenant.move_in_date  = move_in_date
         flat.occupancy_status = OccupancyStatus.TENANT_OCCUPIED
 

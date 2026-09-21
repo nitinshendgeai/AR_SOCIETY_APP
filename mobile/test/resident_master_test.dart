@@ -395,6 +395,35 @@ void main() {
       expect(find.text('Name is required'), findsOneWidget);
     });
 
+    testWidgets('mobile field strips non-digit characters and rejects a bad length', (tester) async {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final repo = ResidentMasterRepository(ds: _FakeDataSource());
+      await tester.pumpWidget(_wrap(
+        ResidentFormScreen(defaultFlat: _flat()),
+        overrides: [residentMasterRepositoryProvider.overrideWithValue(repo)],
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).at(0), 'Valid Name');
+      // "abc123abcd" mixes letters into a 10-character string — the old
+      // validator only checked string length (< 10), so this passed
+      // straight through to the API. The digitsOnly input formatter now
+      // strips the letters as they're typed, leaving just "123".
+      await tester.enterText(find.byType(TextFormField).at(1), 'abc123abcd');
+      await tester.pump();
+
+      expect(find.text('123'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add Resident'));
+      await tester.pump();
+
+      expect(find.text('Enter a valid 10-digit mobile number'), findsOneWidget);
+    });
+
     testWidgets('successful create shows success snackbar and pops', (tester) async {
       tester.view.physicalSize = const Size(800, 3000);
       tester.view.devicePixelRatio = 1.0;
@@ -442,6 +471,53 @@ void main() {
       expect(find.text('Resident added successfully'), findsOneWidget);
       // The form screen was popped back to the trigger button.
       expect(find.text('open'), findsOneWidget);
+    });
+
+    testWidgets(
+        'list screen shows the newly created resident without a manual refresh '
+        '(regression: ref.invalidate() on a StateNotifierProvider resets state '
+        'to Initial but never re-fetches, since the list only calls load() from '
+        'initState — found live in M1.8)', (tester) async {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final fakeDs = _FakeDataSource();
+      final repo = ResidentMasterRepository(ds: fakeDs);
+
+      // Real push-based navigation, mirroring the app: ResidentListScreen
+      // stays mounted underneath while ResidentFormScreen is pushed on top,
+      // so its initState does not re-run when the form pops back.
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(path: '/', builder: (_, __) => const ResidentListScreen()),
+          GoRoute(path: '/form', builder: (_, __) => ResidentFormScreen(defaultFlat: _flat())),
+        ],
+      );
+
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          currentUserProvider.overrideWithValue(_adminUser()),
+          flatsBySocietyProvider.overrideWith(() => _FakeFlatsNotifier([_flat()])),
+          wingsProvider.overrideWith(() => _FakeWingsNotifier([_wing()])),
+          residentMasterRepositoryProvider.overrideWithValue(repo),
+        ],
+        child: MaterialApp.router(theme: AppTheme.lightTheme, routerConfig: router),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('No residents found'), findsOneWidget);
+
+      router.push('/form');
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).first, 'Fresh Resident');
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add Resident'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Fresh Resident'), findsOneWidget);
+      expect(find.text('No residents found'), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
     });
   });
 
@@ -494,6 +570,34 @@ void main() {
       await tester.pump();
 
       expect(find.text('Name is required'), findsOneWidget);
+    });
+
+    testWidgets('mobile field strips non-digit characters and rejects a bad length', (tester) async {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final repo = ResidentMasterRepository(ds: _FakeDataSource());
+      await tester.pumpWidget(_wrap(
+        TenantFormScreen(defaultFlat: _flat()),
+        overrides: [residentMasterRepositoryProvider.overrideWithValue(repo)],
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).at(0), 'Valid Name');
+      // Same length-only validator bug as ResidentFormScreen (see that
+      // test above) — "abc123abcd" is 10 characters, which the old
+      // `.length < 10` check let straight through to the API.
+      await tester.enterText(find.byType(TextFormField).at(1), 'abc123abcd');
+      await tester.pump();
+
+      expect(find.text('123'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add Tenant'));
+      await tester.pump();
+
+      expect(find.text('Enter a valid 10-digit mobile number'), findsOneWidget);
     });
   });
 
@@ -558,6 +662,35 @@ void main() {
 
       expect(find.text('You do not have permission to view this.'), findsOneWidget);
       expect(find.textContaining('Access requires one of roles'), findsNothing);
+    });
+  });
+
+  // ── Agreement status badge before move-in (M1.9-R1) ─────────────────────
+  //
+  // A tenant created with agreement dates but no move-in yet has those
+  // dates cached on the Tenant row only — activeAgreementId stays null
+  // until move-in creates a real AgreementTracker. Found live: the badge
+  // fell through to the terminated/expired branch and showed "TERMINATED"
+  // for an agreement that was never active in the first place.
+  group('Tenant Detail agreement status badge', () {
+    testWidgets('shows a neutral pending message, not TERMINATED, before move-in', (tester) async {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final futureEnd = DateTime.now().add(const Duration(days: 300));
+      final iso = '${futureEnd.year}-${futureEnd.month.toString().padLeft(2, '0')}-${futureEnd.day.toString().padLeft(2, '0')}';
+      final repo = ResidentMasterRepository(
+        ds: _FakeDataSource()..tenants = [_tenant(id: 'ten-1', agreementEndDate: iso)],
+      );
+      await tester.pumpWidget(_wrap(
+        TenantDetailScreen(tenant: _tenant(id: 'ten-1', agreementEndDate: iso)),
+        overrides: [residentMasterRepositoryProvider.overrideWithValue(repo)],
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Not yet active — becomes effective when the tenant moves in.'), findsOneWidget);
+      expect(find.text('TERMINATED'), findsNothing);
     });
   });
 

@@ -14,7 +14,7 @@ Architecture is finance-ERP-ready:
 import enum
 from sqlalchemy import (
     Column, String, Text, Integer, Float, Boolean,
-    DateTime, Date, Enum, ForeignKey, Numeric
+    DateTime, Date, Enum, ForeignKey, Numeric, LargeBinary
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -67,6 +67,12 @@ class CycleFrequency(str, enum.Enum):
     HALF_YEARLY      = "half_yearly"
     YEARLY           = "yearly"
     CUSTOM           = "custom"
+
+
+class ReconciliationStatus(str, enum.Enum):
+    PENDING          = "pending"    # just submitted, not yet checked against the bank statement
+    RECONCILED       = "reconciled" # confirmed against the bank statement
+    REJECTED         = "rejected"   # screenshot didn't match / invalid, e.g. duplicate or wrong society
 
 
 # ── FinancialPeriod ───────────────────────────────────────────────────────────
@@ -300,3 +306,58 @@ class PenaltyRule(Base, TimestampMixin):
 
     def __repr__(self):
         return f"<PenaltyRule {self.name} [{self.calc_type}] {self.rate}>"
+
+
+# ── OnlinePaymentSubmission ──────────────────────────────────────────────────
+
+class OnlinePaymentSubmission(Base, TimestampMixin):
+    """
+    A resident's online-payment (UPI/bank transfer) screenshot recorded by
+    the FMC Manager on the resident's behalf, for later bank reconciliation.
+
+    Deliberately independent of MaintenanceBill/PaymentReceipt — capturing
+    the screenshot and payment details doesn't require an existing bill to
+    apply against, since the point is to log what a resident says they
+    paid before anyone has cross-checked it against the bank statement.
+    Once reconciled, `bill_id` can optionally be set to link it to the
+    matching bill.
+
+    The screenshot image is stored inline (bytea) rather than as a file
+    path/URL — the backend container's filesystem is ephemeral, so a
+    disk-stored file would be lost on every redeploy.
+    """
+    __tablename__ = "online_payment_submissions"
+
+    society_id      = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    wing_id         = Column(UUID(as_uuid=True), ForeignKey("wings.id", ondelete="SET NULL"), nullable=True, index=True)
+    flat_id         = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="SET NULL"), nullable=False, index=True)
+    bill_id         = Column(UUID(as_uuid=True), ForeignKey("maintenance_bills.id", ondelete="SET NULL"), nullable=True, index=True)
+    recorded_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reviewed_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    receipt_number  = Column(String(30), nullable=False, unique=True, index=True)
+    amount          = Column(Numeric(12, 2), nullable=False)
+    payment_date    = Column(Date, nullable=False, index=True)
+    payment_mode    = Column(Enum(PaymentMode, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
+    transaction_ref = Column(String(100), nullable=True, index=True)   # UPI/UTR/bank reference
+    bank_name       = Column(String(100), nullable=True)
+    notes           = Column(Text, nullable=True)
+
+    status          = Column(Enum(ReconciliationStatus, values_callable=lambda e: [x.value for x in e]),
+                              default=ReconciliationStatus.PENDING, nullable=False, index=True)
+    reviewed_at     = Column(DateTime, nullable=True)
+    review_notes    = Column(Text, nullable=True)
+
+    screenshot_data      = Column(LargeBinary, nullable=False)
+    screenshot_mime_type = Column(String(50), nullable=False, default="image/jpeg")
+    screenshot_file_name = Column(String(255), nullable=True)
+
+    society   = relationship("Society")
+    wing      = relationship("Wing")
+    flat      = relationship("Flat")
+    bill      = relationship("MaintenanceBill")
+    recorder  = relationship("User", foreign_keys=[recorded_by])
+    reviewer  = relationship("User", foreign_keys=[reviewed_by])
+
+    def __repr__(self):
+        return f"<OnlinePaymentSubmission {self.receipt_number} ₹{self.amount} [{self.status}]>"

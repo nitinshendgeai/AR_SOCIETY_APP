@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show AutofillHints;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -71,7 +72,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   child: Form(
                     key: _formKey,
-                    child: Column(
+                    child: AutofillGroup(
+                      child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         // Error banner
@@ -94,6 +96,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           controller: _emailCtrl,
                           keyboardType: TextInputType.text,
                           textInputAction: TextInputAction.next,
+                          autofillHints: const [AutofillHints.username],
                           validator: (v) {
                             if (v == null || v.trim().isEmpty) {
                               return 'Email or mobile number is required';
@@ -115,6 +118,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           obscureText: _obscurePass,
                           textInputAction: TextInputAction.done,
                           onFieldSubmitted: _submit,
+                          autofillHints: const [AutofillHints.password],
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePass
@@ -123,15 +127,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               color: AppTheme.textSecondary,
                               size: 20,
                             ),
+                            tooltip: _obscurePass ? 'Show password' : 'Hide password',
                             onPressed: () =>
                                 setState(() => _obscurePass = !_obscurePass),
                           ),
                           validator: (v) {
+                            // Login only checks that something was typed —
+                            // no minimum length here. That's a password-
+                            // creation rule (see RegisterRequest/
+                            // ChangePasswordRequest's 8-char minimum), and
+                            // auto-provisioned accounts (e.g. Resident's
+                            // default "1234") are shorter than any such
+                            // minimum until the forced first-login change.
                             if (v == null || v.isEmpty) {
                               return 'Password is required';
-                            }
-                            if (v.length < 6) {
-                              return 'Password is too short';
                             }
                             return null;
                           },
@@ -146,6 +155,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           icon: Icons.login_rounded,
                         ),
                       ],
+                      ),
                     ),
                   ),
                 ),
@@ -155,10 +165,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 // Register CTA
                 _RegisterCTA(),
 
-                const SizedBox(height: 16),
-
-                // Demo format hint — always visible
-                _DemoFormatHint(),
+                // Demo format hint — debug/staging builds only; the exact
+                // default-password convention it documents (Admin@1234,
+                // resident "1234") isn't something to hand an unauthenticated
+                // visitor on a production login screen.
+                if (!Env.isProduction) ...[
+                  const SizedBox(height: 16),
+                  _DemoFormatHint(),
+                ],
 
                 const SizedBox(height: 40),
               ],

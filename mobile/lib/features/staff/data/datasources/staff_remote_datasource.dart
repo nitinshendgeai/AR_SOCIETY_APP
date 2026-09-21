@@ -244,6 +244,22 @@ class StaffRemoteDataSource {
         .toList();
   }
 
+  /// POST /staff/designations
+  Future<DesignationModel> createDesignation({
+    required String societyId,
+    required String name,
+    required String department,
+    String? description,
+  }) async {
+    final r = await _dio.post('/staff/designations', data: {
+      'society_id': societyId,
+      'name': name,
+      'department': department,
+      if (description != null) 'description': description,
+    });
+    return DesignationModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
   // ── Shifts ────────────────────────────────────────────────────────────────
 
   /// GET /staff/shifts/{society_id}
@@ -266,6 +282,7 @@ class StaffRemoteDataSource {
     String? location,
     String? startTime,
     String? endTime,
+    String? checklistTemplateId,
   }) async {
     final r = await _dio.post('/staff/duties', data: {
       'staff_id': staffId,
@@ -276,6 +293,7 @@ class StaffRemoteDataSource {
       if (location != null) 'location': location,
       if (startTime != null) 'start_time': startTime,
       if (endTime != null) 'end_time': endTime,
+      if (checklistTemplateId != null) 'checklist_template_id': checklistTemplateId,
     });
     return DutyModel.fromJson(r.data as Map<String, dynamic>);
   }
@@ -330,6 +348,78 @@ class StaffRemoteDataSource {
       data: {if (notes != null) 'notes': notes},
     );
     return DutyModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  // ── Duty checklist ───────────────────────────────────────────────────────────
+
+  /// GET /staff/duties/{duty_id}/checklist
+  Future<List<DutyChecklistItemModel>> getDutyChecklist(String dutyId) async {
+    final r = await _dio.get('/staff/duties/$dutyId/checklist');
+    return (r.data as List)
+        .map((e) => DutyChecklistItemModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// POST /staff/duties/{duty_id}/checklist/{item_id}/complete
+  Future<DutyChecklistItemModel> completeChecklistItem(
+      String dutyId, String itemId, {required bool isCompleted, String? notes}) async {
+    final r = await _dio.post('/staff/duties/$dutyId/checklist/$itemId/complete', data: {
+      'is_completed': isCompleted,
+      if (notes != null) 'notes': notes,
+    });
+    return DutyChecklistItemModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  // ── Checklist templates ───────────────────────────────────────────────────────
+
+  /// POST /staff/checklist-templates
+  Future<ChecklistTemplateModel> createChecklistTemplate({
+    required String societyId,
+    required String department,
+    required String name,
+    String? description,
+    required List<Map<String, dynamic>> items,
+  }) async {
+    final r = await _dio.post('/staff/checklist-templates', data: {
+      'society_id': societyId,
+      'department': department,
+      'name': name,
+      if (description != null) 'description': description,
+      'items': items,
+    });
+    return ChecklistTemplateModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// GET /staff/checklist-templates/society/{society_id}
+  Future<List<ChecklistTemplateModel>> listChecklistTemplates(
+      String societyId, {String? department}) async {
+    final r = await _dio.get('/staff/checklist-templates/society/$societyId',
+        queryParameters: {if (department != null) 'department': department});
+    return (r.data as List)
+        .map((e) => ChecklistTemplateModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// PATCH /staff/checklist-templates/{template_id}
+  Future<ChecklistTemplateModel> updateChecklistTemplate(
+    String templateId, {
+    String? name,
+    String? description,
+    String? department,
+    List<Map<String, dynamic>>? items,
+  }) async {
+    final r = await _dio.patch('/staff/checklist-templates/$templateId', data: {
+      if (name != null) 'name': name,
+      if (description != null) 'description': description,
+      if (department != null) 'department': department,
+      if (items != null) 'items': items,
+    });
+    return ChecklistTemplateModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// DELETE /staff/checklist-templates/{template_id}
+  Future<void> deleteChecklistTemplate(String templateId) async {
+    await _dio.delete('/staff/checklist-templates/$templateId');
   }
 
   // ── Handovers ──────────────────────────────────────────────────────────────

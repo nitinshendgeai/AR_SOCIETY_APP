@@ -93,6 +93,13 @@ class _RoleTileState extends State<_RoleTile> {
     setState(() => _loading = true);
     try {
       await widget.onToggle();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(friendlyErrorMessage(e)),
+          backgroundColor: AppTheme.error,
+        ));
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }

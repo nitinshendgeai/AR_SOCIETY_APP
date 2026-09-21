@@ -75,60 +75,59 @@ def require_roles(*role_names: str):
     return _checker
 
 
-# ── Canonical role sets (match EXTENDED_DEFAULT_ROLES in onboarding_service.py) ──
-_ROLES_PLATFORM  = ("Platform Admin",)
-_ROLES_SOCIETY   = ("Society Admin",)
-_ROLES_COMMITTEE = (
-    "Committee Chairman", "Committee Secretary",
-    "Committee Treasurer", "Committee Member",
-)
-_ROLES_MANAGER     = ("Manager",)
-_ROLES_SUPERVISORS = (
-    "Security Supervisor", "Housekeeping Supervisor", "Technical Supervisor",
-)
-_ROLES_STAFF = (
-    "Security Staff", "Housekeeping Staff", "Technical Staff", "Gym Trainer",
-)
-_ROLES_RESIDENTS = ("Resident", "Tenant")
+# ── Dynamic, DB-driven permission tiers ──────────────────────────────────────
+#
+# Each guard below used to check the current user's roles against a
+# hardcoded Python tuple of role names. That grant data now lives in the
+# permissions / role_permissions tables (see app.models.permission and
+# app.core.rbac_seed for the default seed, which reproduces the old
+# hardcoded tuples exactly) so an Admin can edit it via the Permission
+# Matrix screen without a code change. Function names/signatures are
+# unchanged, so no route file needs to change.
 
-# ── Hierarchy guards (use these in all route files instead of local aliases) ──
+def _user_has_permission(current_user: User, code: str) -> bool:
+    for ur in current_user.user_roles:
+        role = ur.role
+        if not role:
+            continue
+        for rp in role.role_permissions:
+            perm = rp.permission
+            if perm and perm.code == code:
+                return True
+    return False
+
+
+def require_permission(code: str):
+    def _checker(current_user: User = Depends(get_current_user)) -> User:
+        if not _user_has_permission(current_user, code):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access requires permission: {code}",
+            )
+        return current_user
+    return _checker
+
 
 # Full society-level admin or platform admin
-require_admin = require_roles(*_ROLES_PLATFORM, *_ROLES_SOCIETY)
+require_admin = require_permission("admin")
 
 # Admin + all committee roles (for management actions)
-require_admin_committee = require_roles(
-    *_ROLES_PLATFORM, *_ROLES_SOCIETY, *_ROLES_COMMITTEE,
-)
+require_admin_committee = require_permission("admin_committee")
 
 # Manager and above (admin, committee, manager)
-require_manager_above = require_roles(
-    *_ROLES_PLATFORM, *_ROLES_SOCIETY, *_ROLES_COMMITTEE, *_ROLES_MANAGER,
-)
+require_manager_above = require_permission("manager_above")
 
 # Supervisor and above
-require_supervisor_above = require_roles(
-    *_ROLES_PLATFORM, *_ROLES_SOCIETY, *_ROLES_COMMITTEE,
-    *_ROLES_MANAGER, *_ROLES_SUPERVISORS,
-)
+require_supervisor_above = require_permission("supervisor_above")
 
 # Any staff member or above (supervisor+, manager+, admin+)
-require_any_staff = require_roles(
-    *_ROLES_PLATFORM, *_ROLES_SOCIETY, *_ROLES_COMMITTEE,
-    *_ROLES_MANAGER, *_ROLES_SUPERVISORS, *_ROLES_STAFF,
-)
+require_any_staff = require_permission("any_staff")
 
 # Security-related roles and above
-require_security = require_roles(
-    *_ROLES_PLATFORM, *_ROLES_SOCIETY, *_ROLES_COMMITTEE,
-    *_ROLES_MANAGER, "Security Supervisor", "Security Staff",
-)
+require_security = require_permission("security")
 
 # Any authenticated member (everyone)
-require_any_member = require_roles(
-    *_ROLES_PLATFORM, *_ROLES_SOCIETY, *_ROLES_COMMITTEE,
-    *_ROLES_MANAGER, *_ROLES_SUPERVISORS, *_ROLES_STAFF, *_ROLES_RESIDENTS,
-)
+require_any_member = require_permission("any_member")
 
 # Backwards-compatible aliases (used by existing route imports)
 require_committee = require_admin_committee

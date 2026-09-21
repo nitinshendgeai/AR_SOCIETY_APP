@@ -481,3 +481,66 @@ class VehicleModel {
         isActive: j['is_active'] as bool? ?? true,
       );
 }
+
+// ── Resident self-service edit request ───────────────────────────────────
+
+enum ResidentEditRequestStatus { pending, approved, rejected }
+
+extension ResidentEditRequestStatusX on ResidentEditRequestStatus {
+  static ResidentEditRequestStatus fromString(String v) => switch (v) {
+        'approved' => ResidentEditRequestStatus.approved,
+        'rejected' => ResidentEditRequestStatus.rejected,
+        _ => ResidentEditRequestStatus.pending,
+      };
+
+  String get label => switch (this) {
+        ResidentEditRequestStatus.pending => 'Pending',
+        ResidentEditRequestStatus.approved => 'Approved',
+        ResidentEditRequestStatus.rejected => 'Rejected',
+      };
+}
+
+class ResidentEditRequestModel {
+  final String id;
+  final String residentId;
+  final String? requestedBy;
+  final String societyId;
+  final Map<String, dynamic> changes;
+  final ResidentEditRequestStatus status;
+  final String? reviewedBy;
+  final String? reviewedAt;
+  final String? rejectionReason;
+  final String? residentName;
+  final String? flatDisplay;
+  final String createdAt;
+
+  const ResidentEditRequestModel({
+    required this.id,
+    required this.residentId,
+    this.requestedBy,
+    required this.societyId,
+    required this.changes,
+    required this.status,
+    this.reviewedBy,
+    this.reviewedAt,
+    this.rejectionReason,
+    this.residentName,
+    this.flatDisplay,
+    required this.createdAt,
+  });
+
+  factory ResidentEditRequestModel.fromJson(Map<String, dynamic> j) => ResidentEditRequestModel(
+        id: j['id'] as String,
+        residentId: j['resident_id'] as String,
+        requestedBy: j['requested_by'] as String?,
+        societyId: j['society_id'] as String,
+        changes: (j['changes'] as Map<String, dynamic>?) ?? const {},
+        status: ResidentEditRequestStatusX.fromString(j['status'] as String? ?? 'pending'),
+        reviewedBy: j['reviewed_by'] as String?,
+        reviewedAt: j['reviewed_at'] as String?,
+        rejectionReason: j['rejection_reason'] as String?,
+        residentName: j['resident_name'] as String?,
+        flatDisplay: j['flat_display'] as String?,
+        createdAt: j['created_at'] as String,
+      );
+}

@@ -25,7 +25,16 @@ class ResidentListNotifier extends StateNotifier<ResidentListState> {
   final ResidentMasterRepository _repo;
   ResidentListNotifier(this._repo) : super(ResidentListInitial());
 
+  String? _lastResidentType;
+  bool? _lastIsActive = true;
+  String? _lastSearch;
+  String? _lastFlatId;
+
   Future<void> load({String? residentType, bool? isActive = true, String? search, String? flatId}) async {
+    _lastResidentType = residentType;
+    _lastIsActive = isActive;
+    _lastSearch = search;
+    _lastFlatId = flatId;
     state = ResidentListLoading();
     final result = await _repo.listResidents(
       flatId: flatId, residentType: residentType, isActive: isActive, search: search,
@@ -35,6 +44,16 @@ class ResidentListNotifier extends StateNotifier<ResidentListState> {
       case RmFailure(:final message, :final statusCode): state = ResidentListError(message, statusCode: statusCode);
     }
   }
+
+  // Re-runs load() with whatever filters were last used, instead of the
+  // caller needing to know the list screen's current filter state — used
+  // by the form screen after create/update so the list doesn't get stuck
+  // on ResidentListInitial (ref.invalidate() alone resets state but never
+  // re-fetches, since the list screen's _load() only runs from initState).
+  Future<void> refresh() => load(
+        residentType: _lastResidentType, isActive: _lastIsActive,
+        search: _lastSearch, flatId: _lastFlatId,
+      );
 }
 
 final residentListProvider = StateNotifierProvider<ResidentListNotifier, ResidentListState>((ref) {
@@ -112,6 +131,90 @@ final residentFormProvider = StateNotifierProvider<ResidentFormNotifier, Residen
   return ResidentFormNotifier(ref.read(residentMasterRepositoryProvider));
 });
 
+// ── Resident self-service edit requests ─────────────────────────────────────
+
+/// The logged-in user's own resident profile — null if this account has no
+/// linked resident record (e.g. Admin/Committee/Staff accounts).
+final myResidentProvider = FutureProvider<ResidentModel?>((ref) async {
+  final repo = ref.read(residentMasterRepositoryProvider);
+  final result = await repo.getMyResident();
+  return switch (result) {
+    RmSuccess(:final data) => data,
+    RmFailure() => null,
+  };
+});
+
+/// The logged-in resident's own edit-request history, newest first.
+final myEditRequestsProvider = FutureProvider<List<ResidentEditRequestModel>>((ref) async {
+  final repo = ref.read(residentMasterRepositoryProvider);
+  final result = await repo.listMyEditRequests();
+  return switch (result) {
+    RmSuccess(:final data) => data,
+    RmFailure() => <ResidentEditRequestModel>[],
+  };
+});
+
+/// Admin/Committee: every edit request still awaiting review.
+final pendingEditRequestsProvider = FutureProvider<List<ResidentEditRequestModel>>((ref) async {
+  final repo = ref.read(residentMasterRepositoryProvider);
+  final result = await repo.listPendingEditRequests();
+  return switch (result) {
+    RmSuccess(:final data) => data,
+    RmFailure() => <ResidentEditRequestModel>[],
+  };
+});
+
+sealed class EditRequestActionState {}
+class EditRequestActionInitial extends EditRequestActionState {}
+class EditRequestActionLoading extends EditRequestActionState {}
+class EditRequestActionSuccess extends EditRequestActionState {
+  final String message;
+  EditRequestActionSuccess(this.message);
+}
+class EditRequestActionError extends EditRequestActionState {
+  final String message;
+  EditRequestActionError(this.message);
+}
+
+class EditRequestActionNotifier extends StateNotifier<EditRequestActionState> {
+  final ResidentMasterRepository _repo;
+  EditRequestActionNotifier(this._repo) : super(EditRequestActionInitial());
+
+  Future<void> submit(Map<String, dynamic> changes) async {
+    state = EditRequestActionLoading();
+    final result = await _repo.createEditRequest(changes);
+    state = switch (result) {
+      RmSuccess() => EditRequestActionSuccess('Change request submitted for approval'),
+      RmFailure(:final message) => EditRequestActionError(message),
+    };
+  }
+
+  Future<void> approve(String id) async {
+    state = EditRequestActionLoading();
+    final result = await _repo.approveEditRequest(id);
+    state = switch (result) {
+      RmSuccess() => EditRequestActionSuccess('Change approved'),
+      RmFailure(:final message) => EditRequestActionError(message),
+    };
+  }
+
+  Future<void> reject(String id, String reason) async {
+    state = EditRequestActionLoading();
+    final result = await _repo.rejectEditRequest(id, reason);
+    state = switch (result) {
+      RmSuccess() => EditRequestActionSuccess('Change rejected'),
+      RmFailure(:final message) => EditRequestActionError(message),
+    };
+  }
+
+  void reset() => state = EditRequestActionInitial();
+}
+
+final editRequestActionProvider =
+    StateNotifierProvider<EditRequestActionNotifier, EditRequestActionState>((ref) {
+  return EditRequestActionNotifier(ref.read(residentMasterRepositoryProvider));
+});
+
 // ── Tenant list state ────────────────────────────────────────────────────────
 
 sealed class TenantListState {}
@@ -131,7 +234,14 @@ class TenantListNotifier extends StateNotifier<TenantListState> {
   final ResidentMasterRepository _repo;
   TenantListNotifier(this._repo) : super(TenantListInitial());
 
+  bool? _lastIsActive = true;
+  String? _lastSearch;
+  String? _lastFlatId;
+
   Future<void> load({bool? isActive = true, String? search, String? flatId}) async {
+    _lastIsActive = isActive;
+    _lastSearch = search;
+    _lastFlatId = flatId;
     state = TenantListLoading();
     final result = await _repo.listTenants(flatId: flatId, isActive: isActive, search: search);
     switch (result) {
@@ -139,6 +249,9 @@ class TenantListNotifier extends StateNotifier<TenantListState> {
       case RmFailure(:final message, :final statusCode): state = TenantListError(message, statusCode: statusCode);
     }
   }
+
+  // See ResidentListNotifier.refresh() — same fix, same reason.
+  Future<void> refresh() => load(isActive: _lastIsActive, search: _lastSearch, flatId: _lastFlatId);
 }
 
 final tenantListProvider = StateNotifierProvider<TenantListNotifier, TenantListState>((ref) {

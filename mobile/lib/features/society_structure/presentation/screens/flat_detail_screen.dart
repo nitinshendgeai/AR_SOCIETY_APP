@@ -16,15 +16,26 @@ class FlatDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Read the live copy from flatsBySocietyProvider (already kept fresh by
+    // every mutation) rather than the possibly-stale `flat` this screen was
+    // pushed with — otherwise Save Changes on Edit Flat returns here via a
+    // plain pop and this screen keeps showing pre-edit field values.
+    final current = ref
+            .watch(flatsBySocietyProvider)
+            .valueOrNull
+            ?.where((f) => f.id == flat.id)
+            .firstOrNull ??
+        flat;
+
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(
-        title: Text('Flat ${flat.flatNumber}'),
+        title: Text('Flat ${current.flatNumber}'),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_rounded),
             tooltip: 'Edit',
-            onPressed: () => context.push(AppRoutes.flatForm, extra: {'flat': flat}),
+            onPressed: () => context.push(AppRoutes.flatForm, extra: {'flat': current}),
           ),
           PopupMenuButton<String>(
             onSelected: (v) => _onMenu(context, ref, v),
@@ -40,11 +51,11 @@ class FlatDetailScreen extends ConsumerWidget {
       body: ResponsiveBody(child: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          _HeaderCard(flat: flat),
+          _HeaderCard(flat: current),
           const SizedBox(height: 16),
-          _DetailsCard(flat: flat),
+          _DetailsCard(flat: current),
           const SizedBox(height: 16),
-          _PeopleCard(flat: flat),
+          _PeopleCard(flat: current),
         ],
       )),
     );
@@ -287,9 +298,20 @@ class _PeopleRow extends StatelessWidget {
           Icon(icon, size: 16, color: AppTheme.textSecondary),
           const SizedBox(width: 10),
           Expanded(
+            flex: 2,
             child: Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           ),
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+            ),
+          ),
           if (onTap != null) ...[
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right_rounded, size: 16, color: AppTheme.textSecondary),

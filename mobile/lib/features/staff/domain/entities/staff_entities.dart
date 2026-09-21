@@ -274,6 +274,8 @@ class DutyEntity {
   final String? verifiedBy;
   final DateTime? verifiedAt;
   final String? notes;
+  final String? checklistTemplateId;
+  final List<DutyChecklistItemEntity> checklistItems;
 
   const DutyEntity({
     required this.id,
@@ -291,12 +293,88 @@ class DutyEntity {
     this.verifiedBy,
     this.verifiedAt,
     this.notes,
+    this.checklistTemplateId,
+    this.checklistItems = const [],
   });
 
   /// Completed but not yet verified by a supervisor — see
   /// StaffService.verify_duty() on the backend.
   bool get isVerified => verifiedAt != null;
   bool get needsVerification => isCompleted && !isVerified;
+
+  /// Required checklist items that still need to be checked off before the
+  /// backend will accept a complete-duty request — mirrors
+  /// StaffService.complete_duty()'s validation so the UI can show the same
+  /// gate before the user even taps "Complete".
+  List<DutyChecklistItemEntity> get incompleteRequiredItems =>
+      checklistItems.where((i) => i.isRequired && !i.isCompleted).toList();
+  bool get canComplete => incompleteRequiredItems.isEmpty;
+}
+
+// ── Duty checklist item (a duty's snapshot of a checklist template item) ──────
+
+class DutyChecklistItemEntity {
+  final String id;
+  final String dutyId;
+  final String? templateItemId;
+  final int sequence;
+  final String title;
+  final String? description;
+  final bool isRequired;
+  final bool isCompleted;
+  final DateTime? completedAt;
+  final String? notes;
+
+  const DutyChecklistItemEntity({
+    required this.id,
+    required this.dutyId,
+    this.templateItemId,
+    this.sequence = 0,
+    required this.title,
+    this.description,
+    this.isRequired = true,
+    this.isCompleted = false,
+    this.completedAt,
+    this.notes,
+  });
+}
+
+// ── Checklist templates (reusable, department-scoped duty checklists) ────────
+
+class ChecklistTemplateItemEntity {
+  final String id;
+  final String templateId;
+  final int sequence;
+  final String title;
+  final String? description;
+  final bool isRequired;
+
+  const ChecklistTemplateItemEntity({
+    required this.id,
+    required this.templateId,
+    this.sequence = 0,
+    required this.title,
+    this.description,
+    this.isRequired = true,
+  });
+}
+
+class ChecklistTemplateEntity {
+  final String id;
+  final String societyId;
+  final String department;
+  final String name;
+  final String? description;
+  final List<ChecklistTemplateItemEntity> items;
+
+  const ChecklistTemplateEntity({
+    required this.id,
+    required this.societyId,
+    required this.department,
+    required this.name,
+    this.description,
+    this.items = const [],
+  });
 }
 
 // ── Handover status ───────────────────────────────────────────────────────────

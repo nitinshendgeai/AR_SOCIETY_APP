@@ -73,6 +73,15 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
       appBar: AppBar(
         title: const Text('Staff'),
         actions: [
+          if (user?.isAdminOrCommittee ?? false)
+            IconButton(
+              icon: const Icon(Icons.upload_file_rounded),
+              tooltip: 'Import Staff',
+              onPressed: () async {
+                final imported = await context.push<bool>('/staff/import');
+                if (imported == true) _load();
+              },
+            ),
           IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
         ],
       ),

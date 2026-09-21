@@ -179,6 +179,21 @@ def test_update_staff_address_and_notes(client, db):
     assert data["notes"] == "Promoted to senior"
 
 
+def test_update_staff_email(client, db):
+    admin   = _admin(db, "9b")
+    society = make_society(db, "Update Staff Email Society")
+
+    create_r = _create_staff(client, admin["headers"], society.id, name="Deepa Iyer")
+    staff_id = create_r.json()["id"]
+    assert create_r.json()["email"] is None
+
+    r = client.patch(f"/api/v1/staff/{staff_id}",
+                     json={"email": "deepa.iyer@example.com"},
+                     headers=admin["headers"])
+    assert r.status_code == 200
+    assert r.json()["email"] == "deepa.iyer@example.com"
+
+
 # ── Hierarchy tests ───────────────────────────────────────────────────────────
 
 def test_staff_reporting_hierarchy(client, db):

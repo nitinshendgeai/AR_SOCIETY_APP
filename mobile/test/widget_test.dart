@@ -8,6 +8,7 @@ import 'package:ar_society_app/features/dashboard/role_dashboards.dart';
 import 'package:ar_society_app/features/staff/data/datasources/staff_remote_datasource.dart';
 import 'package:ar_society_app/features/staff/data/repositories/staff_repository.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
+import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
 import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities.dart';
 import 'package:ar_society_app/features/complaint/domain/entities/complaint_entities.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -21,11 +22,16 @@ UserEntity _makeUser({String role = 'Resident'}) => UserEntity(
       roles: [role],
     );
 
-Widget _wrapWithUser(Widget child, UserEntity user) {
+/// [formCodes] simulates what GET /roles/forms/mine would return for the
+/// user's role — the drawer now renders purely from this server-driven
+/// list (see myFormCodesProvider), not from role-name checks, so tests
+/// supply it directly rather than relying on UserEntity's role heuristics.
+Widget _wrapWithUser(Widget child, UserEntity user, {List<String> formCodes = const []}) {
   return ProviderScope(
     overrides: [
       // Override only the derived provider — avoids needing real platform channels
       currentUserProvider.overrideWithValue(user),
+      myFormCodesProvider.overrideWith((ref) async => formCodes),
       // AdminDashboardScreen/CommitteeDashboardScreen unconditionally watch
       // staffListProvider/approvalProvider, both of which eagerly read
       // staffRepositoryProvider. Its default StaffRepository() reaches for
@@ -42,6 +48,20 @@ Widget _wrapWithUser(Widget child, UserEntity user) {
     ),
   );
 }
+
+// Mirrors backend/app/core/rbac_seed.py's default FORM_ROLE_GRANTS for the
+// role personas these tests exercise.
+const _adminFormCodes = [
+  'residents', 'tenants', 'users_roles', 'permission_matrix', 'forms_matrix',
+  'society_settings', 'visitors', 'complaints', 'pending_resident_changes',
+  'staff', 'parking_management', 'setup_wizard',
+];
+const _committeeFormCodes = [
+  'residents', 'tenants', 'society_settings', 'visitors', 'complaints',
+  'pending_resident_changes', 'staff', 'parking_management', 'setup_wizard',
+];
+const _securityFormCodes = ['visitors', 'complaints', 'staff'];
+const _residentFormCodes = ['visitors', 'complaints', 'edit_my_info'];
 
 // ── Entity unit tests ─────────────────────────────────────────────────────────
 
@@ -183,51 +203,85 @@ void main() {
     Finder inDrawer(String label) =>
         find.descendant(of: find.byType(Drawer), matching: find.text(label));
 
+    // The drawer's menu ListView only lazily builds items within its
+    // viewport — for a role with enough items that the list doesn't fit
+    // on screen without scrolling (Admin/Committee, once Parking
+    // Management joined the menu), a plain findsOneWidget on a later item
+    // sees nothing built yet. Scroll forward until each label appears;
+    // since callers check labels in the order they appear top-to-bottom,
+    // scrolling only ever moves forward and never has to re-find an
+    // earlier, now off-screen, item.
+    Future<void> expectVisibleInDrawer(WidgetTester tester, String label) async {
+      await tester.dragUntilVisible(
+        inDrawer(label),
+        find.descendant(of: find.byType(Drawer), matching: find.byType(ListView)),
+        const Offset(0, -60),
+      );
+      expect(inDrawer(label), findsOneWidget, reason: '$label should be visible in the drawer');
+    }
+
     testWidgets('Society Admin sees the full administrative menu', (tester) async {
-      await tester.pumpWidget(_wrapWithUser(const AdminDashboardScreen(), _makeUser(role: 'Society Admin')));
+      await tester.pumpWidget(_wrapWithUser(
+        const AdminDashboardScreen(), _makeUser(role: 'Society Admin'),
+        formCodes: _adminFormCodes,
+      ));
       await tester.pump();
       await openDrawer(tester);
 
       for (final label in [
-        'Residents', 'Tenants', 'Users & Roles', 'Society Settings',
-        'Visitors', 'Complaints', 'Staff', 'Setup Wizard',
+        'Residents', 'Tenants', 'Users & Roles', 'Permission Matrix', 'Forms Matrix', 'Society Settings',
+        'Visitors', 'Complaints', 'Pending Resident Changes', 'Staff', 'Parking Management', 'Setup Wizard',
       ]) {
-        expect(inDrawer(label), findsOneWidget, reason: '$label should be visible to Society Admin');
+        await expectVisibleInDrawer(tester, label);
       }
     });
 
-    testWidgets('Committee sees admin-committee items but not Users & Roles', (tester) async {
-      await tester.pumpWidget(_wrapWithUser(const CommitteeDashboardScreen(), _makeUser(role: 'Committee')));
+    testWidgets('Committee sees admin-committee items but not Users & Roles, Permission Matrix, or Forms Matrix', (tester) async {
+      await tester.pumpWidget(_wrapWithUser(
+        const CommitteeDashboardScreen(), _makeUser(role: 'Committee'),
+        formCodes: _committeeFormCodes,
+      ));
       await tester.pump();
       await openDrawer(tester);
 
-      for (final label in ['Residents', 'Tenants', 'Society Settings', 'Visitors', 'Complaints', 'Staff', 'Setup Wizard']) {
-        expect(inDrawer(label), findsOneWidget, reason: '$label should be visible to Committee');
+      for (final label in [
+        'Residents', 'Tenants', 'Society Settings', 'Visitors', 'Complaints',
+        'Pending Resident Changes', 'Staff', 'Parking Management', 'Setup Wizard',
+      ]) {
+        await expectVisibleInDrawer(tester, label);
       }
       expect(inDrawer('Users & Roles'), findsNothing);
+      expect(inDrawer('Permission Matrix'), findsNothing);
+      expect(inDrawer('Forms Matrix'), findsNothing);
     });
 
     testWidgets('Security Staff sees operational items only, no admin configuration screens', (tester) async {
-      await tester.pumpWidget(_wrapWithUser(const SecurityDashboardScreen(), _makeUser(role: 'Security')));
+      await tester.pumpWidget(_wrapWithUser(
+        const SecurityDashboardScreen(), _makeUser(role: 'Security'),
+        formCodes: _securityFormCodes,
+      ));
       await tester.pump();
       await openDrawer(tester);
 
       expect(inDrawer('Visitors'), findsOneWidget);
       expect(inDrawer('Complaints'), findsOneWidget);
       expect(inDrawer('Staff'), findsOneWidget);
-      for (final label in ['Residents', 'Tenants', 'Users & Roles', 'Society Settings', 'Setup Wizard']) {
+      for (final label in ['Residents', 'Tenants', 'Users & Roles', 'Permission Matrix', 'Forms Matrix', 'Society Settings', 'Setup Wizard']) {
         expect(inDrawer(label), findsNothing, reason: '$label must not be visible to Security');
       }
     });
 
     testWidgets('Resident sees only resident-facing navigation', (tester) async {
-      await tester.pumpWidget(_wrapWithUser(const ResidentDashboardScreen(), _makeUser(role: 'Resident')));
+      await tester.pumpWidget(_wrapWithUser(
+        const ResidentDashboardScreen(), _makeUser(role: 'Resident'),
+        formCodes: _residentFormCodes,
+      ));
       await tester.pump();
       await openDrawer(tester);
 
       expect(inDrawer('Visitors'), findsOneWidget);
       expect(inDrawer('Complaints'), findsOneWidget);
-      for (final label in ['Residents', 'Tenants', 'Users & Roles', 'Society Settings', 'Staff', 'Setup Wizard']) {
+      for (final label in ['Residents', 'Tenants', 'Users & Roles', 'Permission Matrix', 'Forms Matrix', 'Society Settings', 'Staff', 'Setup Wizard']) {
         expect(inDrawer(label), findsNothing, reason: '$label must not be visible to Resident');
       }
     });
@@ -258,6 +312,46 @@ void main() {
       expect(find.text('Log Visitor'), findsOneWidget);
       expect(find.text('Check In'), findsOneWidget);
       expect(find.text('Check Out'), findsOneWidget);
+    });
+  });
+
+  // Backend RBAC is unaffected and remains authoritative — these tests only
+  // confirm the drawer no longer shows links a role's own permissions can
+  // never use (docs/RBAC_MATRIX.md), per the M1.9-R2 "drawer not role-scoped"
+  // known gap.
+  group('Role-filtered drawer', () {
+    Future<void> openDrawer(WidgetTester tester, Widget screen, UserEntity user) async {
+      await tester.pumpWidget(_wrapWithUser(screen, user));
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.menu_rounded));
+      await tester.pumpAndSettle();
+    }
+
+    // AdminDashboardScreen pulls in several live-data providers (staff list,
+    // society info, open-complaints count) that would need their own fake
+    // repository overrides to render in isolation — the two role-exclusion
+    // cases below already exercise the exact same _DashboardShell filtering
+    // logic those extra roles share, so that mocking cost isn't repeated here.
+
+    testWidgets('Resident only sees Visitors and Complaints, not admin/master links', (tester) async {
+      await openDrawer(tester, const ResidentDashboardScreen(), _makeUser(role: 'Resident'));
+
+      expect(find.text('Complaints'), findsOneWidget);
+      expect(find.text('Residents'), findsNothing);
+      expect(find.text('Tenants'), findsNothing);
+      expect(find.text('Users & Roles'), findsNothing);
+      expect(find.text('Society Settings'), findsNothing);
+      expect(find.text('Setup Wizard'), findsNothing);
+      expect(find.text('Staff'), findsNothing);
+    });
+
+    testWidgets('Security does not see Users & Roles or Society Settings', (tester) async {
+      await openDrawer(tester, const SecurityDashboardScreen(), _makeUser(role: 'Security'));
+
+      expect(find.text('Complaints'), findsOneWidget);
+      expect(find.text('Users & Roles'), findsNothing);
+      expect(find.text('Society Settings'), findsNothing);
+      expect(find.text('Residents'), findsNothing);
     });
   });
 }

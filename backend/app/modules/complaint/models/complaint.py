@@ -98,6 +98,14 @@ class Complaint(Base, TimestampMixin):
     def assigned_to_name(self):
         return self.assignee.full_name if self.assignee else None
 
+    @property
+    def flat_number(self):
+        return self.flat.flat_number if self.flat else None
+
+    @property
+    def wing_name(self):
+        return self.flat.wing.name if self.flat and self.flat.wing else None
+
     def __repr__(self):
         return f"<Complaint #{self.complaint_number} [{self.status}]>"
 

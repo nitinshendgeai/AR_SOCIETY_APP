@@ -97,6 +97,11 @@ class StructureRemoteDataSource {
         .toList();
   }
 
+  Future<FlatModel> getFlat(String flatId) async {
+    final r = await _dio.get('/flats/$flatId');
+    return FlatModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
   Future<FlatModel> createFlat({
     required String flatNumber,
     required String wingId,

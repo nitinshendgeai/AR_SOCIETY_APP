@@ -167,6 +167,22 @@ class ParkingAllocation(Base, TimestampMixin):
     allocator    = relationship("User", foreign_keys=[allocated_by])
     releaser     = relationship("User", foreign_keys=[released_by])
 
+    @property
+    def slot_number(self):
+        return self.slot.slot_number if self.slot else None
+
+    @property
+    def vehicle_number(self):
+        return self.vehicle.vehicle_number if self.vehicle else None
+
+    @property
+    def flat_number(self):
+        return self.flat.flat_number if self.flat else None
+
+    @property
+    def wing_name(self):
+        return self.flat.wing.name if self.flat and self.flat.wing else None
+
     def __repr__(self):
         return f"<ParkingAllocation slot={self.slot_id} [{self.status}]>"
 

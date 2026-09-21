@@ -105,6 +105,12 @@ class FlatsByWingNotifier extends FamilyAsyncNotifier<List<FlatModel>, String> {
       ref.read(structureRepoProvider).getFlatsByWing(wingId);
 }
 
+// ── Single flat by id ─────────────────────────────────────────────────────────
+
+final flatByIdProvider = FutureProviderFamily<FlatModel, String>(
+  (ref, flatId) => ref.read(structureRepoProvider).getFlat(flatId),
+);
+
 // ── Flats per society ─────────────────────────────────────────────────────────
 
 final flatsBySocietyProvider =
