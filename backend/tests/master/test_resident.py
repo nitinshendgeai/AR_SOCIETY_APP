@@ -105,6 +105,29 @@ def test_list_residents_by_flat(client, db, society_a):
     assert {"Carol", "Dave"} <= names
 
 
+def test_list_residents_ordered_by_flat_number(client, db, society_a):
+    # Register flats and residents out of flat-number order, to prove the
+    # list comes back ordered by flat number rather than creation order or
+    # resident name (name order would put "Amy" before "Zack").
+    flat_10 = make_flat(db, society_a["wing"].id, "R-110")
+    flat_2 = make_flat(db, society_a["wing"].id, "R-102")
+    client.post("/api/v1/residents/", json={
+        "flat_id": str(flat_10.id), "full_name": "Amy In Flat 110",
+    }, headers=society_a["admin"]["headers"])
+    client.post("/api/v1/residents/", json={
+        "flat_id": str(flat_2.id), "full_name": "Zack In Flat 102",
+    }, headers=society_a["admin"]["headers"])
+    client.post("/api/v1/residents/", json={
+        "flat_id": str(society_a["flat"].id), "full_name": "Owner In Flat 101",
+    }, headers=society_a["admin"]["headers"])
+
+    r = client.get("/api/v1/residents/", headers=society_a["admin"]["headers"])
+    assert r.status_code == 200
+    ordered_names = [x["full_name"] for x in r.json()]
+    assert ordered_names.index("Owner In Flat 101") < ordered_names.index("Zack In Flat 102")
+    assert ordered_names.index("Zack In Flat 102") < ordered_names.index("Amy In Flat 110")
+
+
 def test_list_residents_society_scoped(client, db, society_a, society_b):
     client.post("/api/v1/residents/", json={
         "flat_id": str(society_a["flat"].id), "full_name": "Only In A",

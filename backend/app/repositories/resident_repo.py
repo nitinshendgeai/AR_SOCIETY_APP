@@ -48,10 +48,13 @@ class ResidentRepository(BaseRepository[Resident]):
         skip: int = 0,
         limit: int = 50,
     ) -> List[Resident]:
-        q = self.db.query(Resident)
+        # Always joined (not just when scoping by society_id) — flat_id/wing_id
+        # are both non-nullable on Resident/Flat, and the ordering below needs
+        # Wing.name/Flat.flat_number regardless of whether society_id is passed.
+        q = self.db.query(Resident).join(Flat, Resident.flat_id == Flat.id) \
+             .join(Wing, Flat.wing_id == Wing.id)
         if society_id is not None:
-            q = q.join(Flat, Resident.flat_id == Flat.id).join(Wing, Flat.wing_id == Wing.id) \
-                 .filter(Wing.society_id == society_id)
+            q = q.filter(Wing.society_id == society_id)
         if flat_id is not None:
             q = q.filter(Resident.flat_id == flat_id)
         if resident_type is not None:
@@ -65,7 +68,9 @@ class ResidentRepository(BaseRepository[Resident]):
                 (Resident.phone.ilike(like)) |
                 (Resident.email.ilike(like))
             )
-        return q.order_by(Resident.full_name).offset(skip).limit(limit).all()
+        # Flat number, not name, is the canonical resident-list order (mirrors
+        # FlatRepository.get_by_society's Wing.name, Flat.flat_number order).
+        return q.order_by(Wing.name, Flat.flat_number, Resident.full_name).offset(skip).limit(limit).all()
 
     def count_family_members(self, flat_id: UUID) -> int:
         """Active FAMILY/DEPENDENT residents on a flat — the authoritative,
