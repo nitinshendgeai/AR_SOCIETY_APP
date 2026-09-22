@@ -33,17 +33,18 @@ class OnlinePaymentsNotifier extends FamilyAsyncNotifier<List<OnlinePaymentEntit
     required double amount,
     required DateTime paymentDate,
     required String paymentMode,
+    String? billId,
     String purpose = 'maintenance',
     String? transactionRef,
     String? bankName,
     String? notes,
-    required Uint8List screenshotBytes,
-    required String screenshotFileName,
+    Uint8List? screenshotBytes,
+    String? screenshotFileName,
     String screenshotMimeType = 'image/jpeg',
   }) async {
     final result = await ref.read(billingRepositoryProvider).submitOnlinePayment(
           flatId: flatId, amount: amount, paymentDate: paymentDate, paymentMode: paymentMode,
-          purpose: purpose,
+          billId: billId, purpose: purpose,
           transactionRef: transactionRef, bankName: bankName, notes: notes,
           screenshotBytes: screenshotBytes, screenshotFileName: screenshotFileName,
           screenshotMimeType: screenshotMimeType,
@@ -79,6 +80,17 @@ class OnlinePaymentsNotifier extends FamilyAsyncNotifier<List<OnlinePaymentEntit
 final onlinePaymentScreenshotProvider =
     FutureProviderFamily<Uint8List, String>((ref, id) async {
   final result = await ref.read(billingRepositoryProvider).getScreenshotBytes(id);
+  return switch (result) {
+    BillingSuccess(:final data) => data,
+    BillingFailure(:final message) => throw Exception(message),
+  };
+});
+
+/// A flat's outstanding bills, for the "On Bill" picker on the record-
+/// payment form.
+final flatOutstandingBillsProvider =
+    FutureProviderFamily<List<BillEntity>, String>((ref, flatId) async {
+  final result = await ref.read(billingRepositoryProvider).getFlatBills(flatId, outstandingOnly: true);
   return switch (result) {
     BillingSuccess(:final data) => data,
     BillingFailure(:final message) => throw Exception(message),

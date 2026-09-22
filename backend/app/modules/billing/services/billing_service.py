@@ -16,7 +16,7 @@ from app.modules.billing.models.billing import (
     FinancialPeriod, MaintenanceChargeConfig, BillingCycle,
     MaintenanceBill, InvoiceLineItem, PaymentReceipt, DueTracker, PenaltyRule,
     OnlinePaymentSubmission, ReconciliationStatus,
-    BillStatus, ChargeType,
+    BillStatus, ChargeType, PaymentMode,
 )
 from app.modules.billing.repositories.billing_repo import (
     FinancialPeriodRepo, ChargeConfigRepo, BillingCycleRepo,
@@ -234,20 +234,43 @@ class BillingService:
 
     # ── Payment Recording ─────────────────────────────────────────────────────
 
-    def record_payment(self, data: dict, user: User, request=None) -> PaymentReceipt:
-        bill = self.bill_repo.get(data["bill_id"])
-        if not bill: raise HTTPException(404, "Bill not found")
+    def _validate_bill_for_payment(self, bill: MaintenanceBill, amount: Decimal) -> None:
+        """Shared by record_payment() and the on-bill path of
+        create_online_payment_submission() — both apply a payment to a bill
+        and must reject the same invalid states before touching anything."""
         if bill.bill_status == BillStatus.PAID:
             raise HTTPException(409, "Bill is already fully paid")
         if bill.bill_status == BillStatus.CANCELLED:
             raise HTTPException(409, "Cannot record payment for cancelled bill")
-
-        amount = Decimal(str(data["amount"]))
-
-        # Over-payment prevention
         if amount > bill.outstanding:
             raise HTTPException(422,
                 f"Payment amount ₹{amount} exceeds outstanding ₹{bill.outstanding}")
+
+    def _apply_payment_to_bill(self, bill: MaintenanceBill, amount: Decimal,
+                                payment_date: date, user: User) -> None:
+        """Mutates `bill` and its DueTracker in place — caller must have
+        already validated via _validate_bill_for_payment() and is
+        responsible for the commit."""
+        bill.paid_amount += amount
+        bill.outstanding  = bill.total_amount + bill.penalty_amount - bill.paid_amount
+
+        if bill.outstanding <= 0:
+            bill.bill_status = BillStatus.PAID
+            bill.paid_at     = datetime.utcnow()
+        else:
+            bill.bill_status = BillStatus.PARTIALLY_PAID
+
+        tracker = self.due_repo.get_or_create(bill.flat_id, bill.society_id)
+        tracker.total_paid      += amount
+        tracker.outstanding     -= amount
+        tracker.last_payment_date = payment_date
+        tracker.last_updated_by   = user.id
+
+    def record_payment(self, data: dict, user: User, request=None) -> PaymentReceipt:
+        bill = self.bill_repo.get(data["bill_id"])
+        if not bill: raise HTTPException(404, "Bill not found")
+        amount = Decimal(str(data["amount"]))
+        self._validate_bill_for_payment(bill, amount)
 
         receipt_number = self.receipt_repo.next_receipt_number(bill.society_id)
         receipt = PaymentReceipt(
@@ -260,22 +283,7 @@ class BillingService:
         self.db.add(receipt)
         self.db.flush()
 
-        # Update bill
-        bill.paid_amount += amount
-        bill.outstanding  = bill.total_amount + bill.penalty_amount - bill.paid_amount
-
-        if bill.outstanding <= 0:
-            bill.bill_status = BillStatus.PAID
-            bill.paid_at     = datetime.utcnow()
-        else:
-            bill.bill_status = BillStatus.PARTIALLY_PAID
-
-        # Update due tracker
-        tracker = self.due_repo.get_or_create(bill.flat_id, bill.society_id)
-        tracker.total_paid      += amount
-        tracker.outstanding     -= amount
-        tracker.last_payment_date = data["payment_date"]
-        tracker.last_updated_by   = user.id
+        self._apply_payment_to_bill(bill, amount, data["payment_date"], user)
 
         self._audit(AuditAction.CREATE, receipt, "PaymentReceipt", user, request,
                     new_values={"amount": str(amount), "mode": data.get("payment_mode"),
@@ -318,13 +326,23 @@ class BillingService:
     def list_penalty_rules(self, society_id: UUID) -> List[PenaltyRule]:
         return self.penalty_repo.get_active(society_id)
 
-    # ── Online Payment Submissions (screenshot capture for reconciliation) ───
+    # ── Payment receipts (on-bill or on-account, single entry point) ─────────
+    #
+    # Screenshot proof is only meaningful — and only required — for the
+    # modes where a resident actually has something to show (a UPI/bank
+    # app screen); cash and cheque have no such artifact.
+    SCREENSHOT_REQUIRED_MODES = {
+        PaymentMode.UPI, PaymentMode.BANK_TRANSFER, PaymentMode.NEFT,
+        PaymentMode.RTGS, PaymentMode.ONLINE_GATEWAY,
+    }
 
     def create_online_payment_submission(
         self, *, flat_id: UUID, amount: Decimal, payment_date: date,
         payment_mode, transaction_ref: Optional[str], bank_name: Optional[str],
-        notes: Optional[str], screenshot_bytes: bytes, screenshot_mime_type: str,
-        screenshot_file_name: Optional[str], user: User,
+        notes: Optional[str], user: User,
+        bill_id: Optional[UUID] = None,
+        screenshot_bytes: Optional[bytes] = None, screenshot_mime_type: Optional[str] = None,
+        screenshot_file_name: Optional[str] = None,
         purpose: ChargeType = ChargeType.MAINTENANCE,
     ) -> OnlinePaymentSubmission:
         flat = self.db.query(Flat).filter(Flat.id == flat_id, Flat.is_active == True).first()
@@ -334,31 +352,57 @@ class BillingService:
         if not wing:
             raise HTTPException(404, "Wing not found for this flat")
 
-        if not screenshot_bytes:
-            raise HTTPException(422, "Payment screenshot is required")
-        if len(screenshot_bytes) > MAX_SCREENSHOT_BYTES:
-            raise HTTPException(422, f"Screenshot exceeds the {MAX_SCREENSHOT_BYTES // (1024*1024)}MB limit")
-        if screenshot_mime_type not in ALLOWED_SCREENSHOT_MIME_TYPES:
-            raise HTTPException(422, f"Unsupported image type: {screenshot_mime_type}")
         if amount <= 0:
             raise HTTPException(422, "Amount must be greater than zero")
+
+        if screenshot_bytes:
+            if len(screenshot_bytes) > MAX_SCREENSHOT_BYTES:
+                raise HTTPException(422, f"Screenshot exceeds the {MAX_SCREENSHOT_BYTES // (1024*1024)}MB limit")
+            if screenshot_mime_type not in ALLOWED_SCREENSHOT_MIME_TYPES:
+                raise HTTPException(422, f"Unsupported image type: {screenshot_mime_type}")
+        elif payment_mode in self.SCREENSHOT_REQUIRED_MODES:
+            raise HTTPException(422, f"Payment screenshot is required for {payment_mode.value}")
+
+        # On-bill: apply immediately, same accounting path as record_payment().
+        # Reconciliation (below) is a separate, later check — it doesn't gate
+        # the bill being marked paid or the receipt being issued.
+        bill = None
+        if bill_id is not None:
+            bill = self.bill_repo.get(bill_id)
+            if not bill:
+                raise HTTPException(404, "Bill not found")
+            if bill.flat_id != flat.id:
+                raise HTTPException(422, "Bill does not belong to this flat")
+            self._validate_bill_for_payment(bill, amount)
+
+        # Cash has no bank statement to reconcile against — treat it as
+        # settled immediately. Every other mode, cheque included (can still
+        # bounce), starts PENDING for a manager to clear later.
+        status = (ReconciliationStatus.RECONCILED if payment_mode == PaymentMode.CASH
+                  else ReconciliationStatus.PENDING)
 
         receipt_number = self.online_payment_repo.next_receipt_number(wing.society_id)
         submission = OnlinePaymentSubmission(
             society_id=wing.society_id, wing_id=wing.id, flat_id=flat.id,
+            bill_id=bill.id if bill else None,
             recorded_by=user.id, receipt_number=receipt_number,
             amount=amount, payment_date=payment_date, payment_mode=payment_mode,
             transaction_ref=transaction_ref, bank_name=bank_name, notes=notes,
             purpose=purpose,
-            status=ReconciliationStatus.PENDING,
+            status=status,
             screenshot_data=screenshot_bytes, screenshot_mime_type=screenshot_mime_type,
             screenshot_file_name=screenshot_file_name,
         )
         self.db.add(submission)
         self.db.flush()
+
+        if bill is not None:
+            self._apply_payment_to_bill(bill, amount, payment_date, user)
+
         self._audit(AuditAction.CREATE, submission, "OnlinePaymentSubmission", user,
                     new_values={"amount": str(amount), "flat": flat.flat_number,
-                                "receipt_number": receipt_number})
+                                "receipt_number": receipt_number,
+                                "bill": bill.invoice_number if bill else None})
         self.db.commit()
         self.db.refresh(submission)
         return submission
@@ -396,15 +440,16 @@ class BillingService:
         buf = io.StringIO()
         writer = csv.writer(buf)
         writer.writerow([
-            "Receipt Number", "Wing", "Flat", "Amount", "On Account Of", "Payment Date", "Payment Mode",
-            "Transaction Ref", "Bank Name", "Status", "Recorded At", "Reviewed At", "Notes",
+            "Receipt Number", "Wing", "Flat", "Amount", "Bill No", "On Account Of", "Payment Date",
+            "Payment Mode", "Transaction Ref", "Bank Name", "Status", "Recorded At", "Reviewed At", "Notes",
         ])
         for r in rows:
             writer.writerow([
                 r.receipt_number,
                 r.wing.name if r.wing else "",
                 r.flat.flat_number if r.flat else "",
-                str(r.amount), r.purpose.value.replace("_", " ").title(),
+                str(r.amount), r.bill.invoice_number if r.bill else "",
+                r.purpose.value.replace("_", " ").title(),
                 r.payment_date.isoformat(), r.payment_mode.value,
                 r.transaction_ref or "", r.bank_name or "", r.status.value,
                 r.created_at.isoformat() if r.created_at else "",

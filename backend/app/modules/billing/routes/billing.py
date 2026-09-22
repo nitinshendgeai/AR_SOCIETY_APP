@@ -78,6 +78,7 @@ def _online_payment_out(s) -> dict:
         "flat_id": str(s.flat_id),
         "flat_number": s.flat.flat_number if s.flat else None,
         "bill_id": str(s.bill_id) if s.bill_id else None,
+        "bill_invoice_number": s.bill.invoice_number if s.bill else None,
         "receipt_number": s.receipt_number,
         "amount": str(s.amount),
         "purpose": s.purpose.value,
@@ -156,9 +157,27 @@ def cancel_bill(bill_id: UUID, data: CancelBillRequest, db: Session = Depends(ge
                 user: User = Depends(get_current_user)):
     return BillingService(db).cancel_bill(bill_id, data.reason, user)
 
+def _bill_out(b) -> dict:
+    return {
+        "id": str(b.id),
+        "cycle_id": str(b.cycle_id),
+        "flat_id": str(b.flat_id),
+        "invoice_number": b.invoice_number,
+        "bill_status": b.bill_status.value,
+        "bill_date": b.bill_date.isoformat(),
+        "due_date": b.due_date.isoformat(),
+        "total_amount": str(b.total_amount),
+        "paid_amount": str(b.paid_amount),
+        "outstanding": str(b.outstanding),
+    }
+
 @router.get("/bills/flat/{flat_id}", dependencies=[Depends(any_member)])
-def flat_bills(flat_id: UUID, skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
-    return BillingService(db).get_flat_bills(flat_id, skip, limit)
+def flat_bills(flat_id: UUID, outstanding_only: bool = False, skip: int = 0, limit: int = 50,
+                db: Session = Depends(get_db)):
+    bills = BillingService(db).get_flat_bills(flat_id, skip, limit)
+    if outstanding_only:
+        bills = [b for b in bills if b.outstanding > 0 and b.bill_status != BillStatus.CANCELLED]
+    return [_bill_out(b) for b in bills]
 
 @router.get("/bills/overdue/{society_id}", dependencies=[Depends(admin_committee)])
 def overdue_bills(society_id: UUID, db: Session = Depends(get_db)):
@@ -201,11 +220,12 @@ def list_penalty_rules(society_id: UUID, db: Session = Depends(get_db)):
     return BillingService(db).list_penalty_rules(society_id)
 
 
-# ── Online Payment Submissions (resident payment screenshots) ────────────────
-# FMC Manager selects a Wing + Flat, uploads a resident's UPI/bank-transfer
-# screenshot, and the details are captured here for later bank
-# reconciliation. Independent of the bill-linked Payments/Receipts above —
-# no bill needs to exist yet.
+# ── Payment Receipts (on-bill or on-account, single form) ────────────────────
+# FMC Manager records a resident's payment against an existing bill
+# (applied immediately, same accounting as /payments above) or on account
+# (no bill yet). Either way a receipt is issued immediately; bank
+# reconciliation for non-cash modes happens later via the status endpoint
+# below — see OnlinePaymentSubmission's docstring.
 
 MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024
 
@@ -215,24 +235,28 @@ def submit_online_payment(
     amount: Decimal = Form(...),
     payment_date: date = Form(...),
     payment_mode: PaymentMode = Form(...),
+    bill_id: Optional[UUID] = Form(None),
     purpose: ChargeType = Form(ChargeType.MAINTENANCE),
     transaction_ref: Optional[str] = Form(None),
     bank_name: Optional[str] = Form(None),
     notes: Optional[str] = Form(None),
-    screenshot: UploadFile = File(...),
+    screenshot: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    content_type = screenshot.content_type or "application/octet-stream"
-    data = screenshot.file.read()
-    if len(data) > MAX_SCREENSHOT_BYTES:
-        raise HTTPException(422, f"Screenshot exceeds the {MAX_SCREENSHOT_BYTES // (1024*1024)}MB limit")
+    screenshot_bytes = None
+    content_type = None
+    if screenshot is not None and screenshot.filename:
+        content_type = screenshot.content_type or "application/octet-stream"
+        screenshot_bytes = screenshot.file.read()
+        if len(screenshot_bytes) > MAX_SCREENSHOT_BYTES:
+            raise HTTPException(422, f"Screenshot exceeds the {MAX_SCREENSHOT_BYTES // (1024*1024)}MB limit")
     submission = BillingService(db).create_online_payment_submission(
         flat_id=flat_id, amount=amount, payment_date=payment_date,
-        payment_mode=payment_mode, purpose=purpose, transaction_ref=transaction_ref,
-        bank_name=bank_name, notes=notes,
-        screenshot_bytes=data, screenshot_mime_type=content_type,
-        screenshot_file_name=screenshot.filename, user=user,
+        payment_mode=payment_mode, bill_id=bill_id, purpose=purpose,
+        transaction_ref=transaction_ref, bank_name=bank_name, notes=notes,
+        screenshot_bytes=screenshot_bytes, screenshot_mime_type=content_type,
+        screenshot_file_name=screenshot.filename if screenshot else None, user=user,
     )
     return _online_payment_out(submission)
 
@@ -271,6 +295,8 @@ def get_online_payment(submission_id: UUID, db: Session = Depends(get_db)):
 @router.get("/online-payments/{submission_id}/screenshot", dependencies=[Depends(manager_above)])
 def get_online_payment_screenshot(submission_id: UUID, db: Session = Depends(get_db)):
     s = BillingService(db).get_online_payment_submission(submission_id)
+    if not s.screenshot_data:
+        raise HTTPException(404, "This payment has no screenshot attached")
     return Response(content=s.screenshot_data, media_type=s.screenshot_mime_type)
 
 @router.get("/online-payments/{submission_id}/receipt", dependencies=[Depends(manager_above)])

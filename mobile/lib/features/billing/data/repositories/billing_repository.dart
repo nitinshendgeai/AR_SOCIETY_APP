@@ -42,23 +42,31 @@ class BillingRepository {
     required double amount,
     required DateTime paymentDate,
     required String paymentMode,
+    String? billId,
     String purpose = 'maintenance',
     String? transactionRef,
     String? bankName,
     String? notes,
-    required Uint8List screenshotBytes,
-    required String screenshotFileName,
+    Uint8List? screenshotBytes,
+    String? screenshotFileName,
     String screenshotMimeType = 'image/jpeg',
   }) async {
     try {
       final m = await _ds.submitOnlinePayment(
         flatId: flatId, amount: amount, paymentDate: paymentDate, paymentMode: paymentMode,
-        purpose: purpose,
+        billId: billId, purpose: purpose,
         transactionRef: transactionRef, bankName: bankName, notes: notes,
         screenshotBytes: screenshotBytes, screenshotFileName: screenshotFileName,
         screenshotMimeType: screenshotMimeType,
       );
       return BillingSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<BillingResult<List<BillEntity>>> getFlatBills(String flatId, {bool outstandingOnly = false}) async {
+    try {
+      final list = await _ds.getFlatBills(flatId, outstandingOnly: outstandingOnly);
+      return BillingSuccess(list.map((m) => m.toEntity()).toList());
     } catch (e) { return _handle(e); }
   }
 

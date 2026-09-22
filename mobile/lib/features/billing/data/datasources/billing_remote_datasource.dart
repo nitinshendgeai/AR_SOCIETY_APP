@@ -9,18 +9,21 @@ class BillingRemoteDataSource {
   final Dio _dio;
   BillingRemoteDataSource({Dio? dio}) : _dio = dio ?? ApiClient.instance;
 
-  /// POST /billing/online-payments (multipart: form fields + screenshot file)
+  /// POST /billing/online-payments (multipart: form fields + optional
+  /// screenshot file — required only for the online payment modes, see
+  /// kScreenshotRequiredModes).
   Future<OnlinePaymentModel> submitOnlinePayment({
     required String flatId,
     required double amount,
     required DateTime paymentDate,
     required String paymentMode,
+    String? billId,
     String purpose = 'maintenance',
     String? transactionRef,
     String? bankName,
     String? notes,
-    required Uint8List screenshotBytes,
-    required String screenshotFileName,
+    Uint8List? screenshotBytes,
+    String? screenshotFileName,
     String screenshotMimeType = 'image/jpeg',
   }) async {
     final formData = FormData.fromMap({
@@ -29,17 +32,28 @@ class BillingRemoteDataSource {
       'payment_date': paymentDate.toIso8601String().split('T').first,
       'payment_mode': paymentMode,
       'purpose': purpose,
+      if (billId != null) 'bill_id': billId,
       if (transactionRef != null && transactionRef.isNotEmpty) 'transaction_ref': transactionRef,
       if (bankName != null && bankName.isNotEmpty) 'bank_name': bankName,
       if (notes != null && notes.isNotEmpty) 'notes': notes,
-      'screenshot': MultipartFile.fromBytes(
-        screenshotBytes,
-        filename: screenshotFileName,
-        contentType: DioMediaType.parse(screenshotMimeType),
-      ),
+      if (screenshotBytes != null && screenshotFileName != null)
+        'screenshot': MultipartFile.fromBytes(
+          screenshotBytes,
+          filename: screenshotFileName,
+          contentType: DioMediaType.parse(screenshotMimeType),
+        ),
     });
     final r = await _dio.post('/billing/online-payments', data: formData);
     return OnlinePaymentModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// GET /billing/bills/flat/{flat_id}
+  Future<List<BillModel>> getFlatBills(String flatId, {bool outstandingOnly = false}) async {
+    final r = await _dio.get(
+      '/billing/bills/flat/$flatId',
+      queryParameters: {if (outstandingOnly) 'outstanding_only': true},
+    );
+    return (r.data as List).map((e) => BillModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   /// GET /billing/online-payments/society/{society_id}

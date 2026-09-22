@@ -9,15 +9,21 @@ import 'package:ar_society_app/features/billing/domain/entities/billing_entities
 import 'package:ar_society_app/features/billing/presentation/providers/billing_providers.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 
-/// FMC Manager (or Admin/Committee) records a resident's online payment:
-/// select Wing → Flat, upload the transaction screenshot, and capture the
-/// payment details for later bank reconciliation.
+/// FMC Manager (or Admin/Committee) records a resident's payment: select
+/// Wing → Flat, choose On Bill (applied immediately to an existing
+/// outstanding bill) or On Account (no bill yet), capture the payment
+/// details, and optionally attach a screenshot — required only for the
+/// online payment modes (UPI/bank transfer/NEFT/RTGS/online gateway).
+/// A receipt is issued immediately either way; bank reconciliation for
+/// non-cash payments happens later from the payment's detail screen.
 class OnlinePaymentSubmitScreen extends ConsumerStatefulWidget {
   const OnlinePaymentSubmitScreen({super.key});
 
   @override
   ConsumerState<OnlinePaymentSubmitScreen> createState() => _OnlinePaymentSubmitScreenState();
 }
+
+enum _PaymentTarget { onAccount, onBill }
 
 class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitScreen> {
   final _amountCtrl = TextEditingController();
@@ -27,6 +33,8 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
 
   String? _wingId;
   String? _flatId;
+  _PaymentTarget _target = _PaymentTarget.onAccount;
+  String? _billId;
   String _paymentMode = kPaymentModes.first.$1;
   String _purpose = kOnlinePaymentPurposes.first.$1;
   DateTime _paymentDate = DateTime.now();
@@ -34,6 +42,8 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
   XFile? _pickedFile;
   Uint8List? _pickedBytes;
   bool _saving = false;
+
+  bool get _screenshotRequired => kScreenshotRequiredModes.contains(_paymentMode);
 
   @override
   void dispose() {
@@ -69,9 +79,23 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
     final societyId = ref.read(currentUserProvider)?.societyId;
     final amount = double.tryParse(_amountCtrl.text.trim());
 
-    if (societyId == null || _flatId == null || amount == null || amount <= 0 || _pickedBytes == null) {
+    if (societyId == null || _flatId == null || amount == null || amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Select a Wing, Flat, valid amount, and a payment screenshot'),
+        content: Text('Select a Wing, Flat, and a valid amount'),
+        backgroundColor: AppTheme.error,
+      ));
+      return;
+    }
+    if (_target == _PaymentTarget.onBill && _billId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Select which bill this payment is against'),
+        backgroundColor: AppTheme.error,
+      ));
+      return;
+    }
+    if (_screenshotRequired && _pickedBytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('A payment screenshot is required for ${paymentModeLabel(_paymentMode)}'),
         backgroundColor: AppTheme.error,
       ));
       return;
@@ -79,19 +103,19 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
 
     setState(() => _saving = true);
     try {
-      final mimeType = _pickedFile!.mimeType ?? 'image/jpeg';
       final entity = await ref.read(onlinePaymentsProvider(societyId).notifier).submit(
             flatId: _flatId!,
             amount: amount,
             paymentDate: _paymentDate,
             paymentMode: _paymentMode,
+            billId: _target == _PaymentTarget.onBill ? _billId : null,
             purpose: _purpose,
             transactionRef: _refCtrl.text.trim().isEmpty ? null : _refCtrl.text.trim(),
             bankName: _bankCtrl.text.trim().isEmpty ? null : _bankCtrl.text.trim(),
             notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
-            screenshotBytes: _pickedBytes!,
-            screenshotFileName: _pickedFile!.name,
-            screenshotMimeType: mimeType,
+            screenshotBytes: _pickedBytes,
+            screenshotFileName: _pickedFile?.name,
+            screenshotMimeType: _pickedFile?.mimeType ?? 'image/jpeg',
           );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -116,7 +140,7 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Record Online Payment')),
+      appBar: AppBar(title: const Text('Record Payment')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -132,6 +156,7 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
               onChanged: (v) => setState(() {
                 _wingId = v;
                 _flatId = null;
+                _billId = null;
               }),
             ),
           ),
@@ -146,10 +171,56 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
                   value: _flatId,
                   decoration: const InputDecoration(labelText: 'Flat *'),
                   items: [for (final f in flats) DropdownMenuItem(value: f.id, child: Text(f.flatNumber))],
-                  onChanged: (v) => setState(() => _flatId = v),
+                  onChanged: (v) => setState(() {
+                    _flatId = v;
+                    _billId = null;
+                  }),
                 ),
               );
             }),
+          const SizedBox(height: 20),
+          const Text('Applied Against', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          const SizedBox(height: 8),
+          SegmentedButton<_PaymentTarget>(
+            segments: const [
+              ButtonSegment(value: _PaymentTarget.onAccount, label: Text('On Account')),
+              ButtonSegment(value: _PaymentTarget.onBill, label: Text('On Bill')),
+            ],
+            selected: {_target},
+            onSelectionChanged: (s) => setState(() {
+              _target = s.first;
+              if (_target == _PaymentTarget.onAccount) _billId = null;
+            }),
+          ),
+          if (_target == _PaymentTarget.onBill) ...[
+            const SizedBox(height: 14),
+            if (_flatId == null)
+              const Text('Select a flat first to see its outstanding bills',
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 12))
+            else
+              Consumer(builder: (context, ref, _) {
+                final billsAsync = ref.watch(flatOutstandingBillsProvider(_flatId!));
+                return billsAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+                  data: (bills) => bills.isEmpty
+                      ? const Text('No outstanding bills for this flat',
+                          style: TextStyle(color: AppTheme.textSecondary, fontSize: 12))
+                      : DropdownButtonFormField<String>(
+                          value: _billId,
+                          decoration: const InputDecoration(labelText: 'Bill *'),
+                          items: [
+                            for (final b in bills)
+                              DropdownMenuItem(
+                                value: b.id,
+                                child: Text('${b.invoiceNumber} — ₹${b.outstanding} due'),
+                              ),
+                          ],
+                          onChanged: (v) => setState(() => _billId = v),
+                        ),
+                );
+              }),
+          ],
           const SizedBox(height: 20),
           const Text('Payment Details', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 8),
@@ -173,16 +244,18 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
             items: [for (final m in kPaymentModes) DropdownMenuItem(value: m.$1, child: Text(m.$2))],
             onChanged: (v) => setState(() => _paymentMode = v ?? _paymentMode),
           ),
-          const SizedBox(height: 14),
-          DropdownButtonFormField<String>(
-            value: _purpose,
-            decoration: const InputDecoration(
-                labelText: 'On Account Of *', hintText: 'What this payment is for'),
-            items: [
-              for (final p in kOnlinePaymentPurposes) DropdownMenuItem(value: p.$1, child: Text(p.$2))
-            ],
-            onChanged: (v) => setState(() => _purpose = v ?? _purpose),
-          ),
+          if (_target == _PaymentTarget.onAccount) ...[
+            const SizedBox(height: 14),
+            DropdownButtonFormField<String>(
+              value: _purpose,
+              decoration: const InputDecoration(
+                  labelText: 'On Account Of *', hintText: 'What this payment is for'),
+              items: [
+                for (final p in kOnlinePaymentPurposes) DropdownMenuItem(value: p.$1, child: Text(p.$2))
+              ],
+              onChanged: (v) => setState(() => _purpose = v ?? _purpose),
+            ),
+          ],
           const SizedBox(height: 14),
           TextField(
             controller: _refCtrl,
@@ -200,7 +273,8 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
             decoration: const InputDecoration(labelText: 'Notes (optional)'),
           ),
           const SizedBox(height: 20),
-          const Text('Payment Screenshot', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          Text(_screenshotRequired ? 'Payment Screenshot' : 'Payment Screenshot (optional)',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 8),
           if (_pickedBytes != null)
             ClipRRect(

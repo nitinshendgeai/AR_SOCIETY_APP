@@ -312,19 +312,27 @@ class PenaltyRule(Base, TimestampMixin):
 
 class OnlinePaymentSubmission(Base, TimestampMixin):
     """
-    A resident's online-payment (UPI/bank transfer) screenshot recorded by
-    the FMC Manager on the resident's behalf, for later bank reconciliation.
+    The single "record a payment" entry point — an FMC Manager records
+    either an ON ACCOUNT payment (`bill_id` null: log what a resident says
+    they paid, e.g. a screenshot, with nothing to apply it against yet) or
+    an ON BILL payment (`bill_id` set at creation: applied immediately to
+    that MaintenanceBill/DueTracker via BillingService._apply_payment_to_bill,
+    the same accounting logic `record_payment()`/PaymentReceipt uses).
+    Either way, a receipt is issued immediately.
 
-    Deliberately independent of MaintenanceBill/PaymentReceipt — capturing
-    the screenshot and payment details doesn't require an existing bill to
-    apply against, since the point is to log what a resident says they
-    paid before anyone has cross-checked it against the bank statement.
-    Once reconciled, `bill_id` can optionally be set to link it to the
-    matching bill.
+    Bank reconciliation is a separate, later step (see `status` below) —
+    it does not gate the bill being marked paid or the receipt being
+    issued. `status` starts RECONCILED for cash (nothing to check against
+    a bank statement) and PENDING for every other payment mode, including
+    cheque (can still bounce) and the online modes; a manager clears
+    PENDING rows via update_online_payment_status().
 
-    The screenshot image is stored inline (bytea) rather than as a file
-    path/URL — the backend container's filesystem is ephemeral, so a
-    disk-stored file would be lost on every redeploy.
+    The screenshot is optional — required only for the online payment
+    modes (UPI/bank transfer/NEFT/RTGS/online gateway) where it's the
+    actual proof of payment; cash and cheque have no such artifact. When
+    present it's stored inline (bytea) rather than as a file path/URL —
+    the backend container's filesystem is ephemeral, so a disk-stored
+    file would be lost on every redeploy.
     """
     __tablename__ = "online_payment_submissions"
 
@@ -354,8 +362,8 @@ class OnlinePaymentSubmission(Base, TimestampMixin):
     reviewed_at     = Column(DateTime, nullable=True)
     review_notes    = Column(Text, nullable=True)
 
-    screenshot_data      = Column(LargeBinary, nullable=False)
-    screenshot_mime_type = Column(String(50), nullable=False, default="image/jpeg")
+    screenshot_data      = Column(LargeBinary, nullable=True)
+    screenshot_mime_type = Column(String(50), nullable=True)
     screenshot_file_name = Column(String(255), nullable=True)
 
     society   = relationship("Society")

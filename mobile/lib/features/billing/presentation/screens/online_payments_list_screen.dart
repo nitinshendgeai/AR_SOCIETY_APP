@@ -60,7 +60,7 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(
-        title: const Text('Online Payments'),
+        title: const Text('Payments'),
         actions: [
           IconButton(
             icon: _exporting
@@ -118,7 +118,7 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
                   return const Center(
                     child: Padding(
                       padding: EdgeInsets.all(24),
-                      child: Text('No payment screenshots recorded yet. Tap "Record Payment" to add one.',
+                      child: Text('No payments recorded yet. Tap "Record Payment" to add one.',
                           textAlign: TextAlign.center,
                           style: TextStyle(color: AppTheme.textSecondary)),
                     ),
@@ -184,7 +184,8 @@ class _PaymentCard extends StatelessWidget {
         title: Text('₹${payment.amount} — ${payment.wingName ?? ''} ${payment.flatNumber ?? ''}'.trim(),
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(
-            '${payment.receiptNumber} · ${onlinePaymentPurposeLabel(payment.purpose)} · '
+            '${payment.receiptNumber} · '
+            '${payment.isOnBill ? "Bill ${payment.billInvoiceNumber ?? ""}" : onlinePaymentPurposeLabel(payment.purpose)} · '
             '${paymentModeLabel(payment.paymentMode)} · '
             '${payment.paymentDate.day}/${payment.paymentDate.month}/${payment.paymentDate.year}'),
         trailing: Chip(
