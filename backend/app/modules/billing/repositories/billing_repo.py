@@ -7,6 +7,7 @@ from app.modules.billing.models.billing import (
     MaintenanceBill, InvoiceLineItem, PaymentReceipt,
     DueTracker, PenaltyRule, BillStatus,
     OnlinePaymentSubmission, ReconciliationStatus,
+    BankStatementEntry, BankStatementMatchStatus,
 )
 from app.repositories.base import BaseRepository
 
@@ -150,3 +151,17 @@ class OnlinePaymentSubmissionRepo(BaseRepository[OnlinePaymentSubmission]):
         ).scalar() or 0
         y = dt.today().year
         return f"OPS-{y}-{str(count+1).zfill(5)}"
+
+
+class BankStatementEntryRepo(BaseRepository[BankStatementEntry]):
+    def __init__(self, db): super().__init__(BankStatementEntry, db)
+
+    def get_by_society(self, sid: UUID, match_status: Optional[BankStatementMatchStatus] = None,
+                        skip=0, limit=100) -> List[BankStatementEntry]:
+        q = self.db.query(BankStatementEntry).filter(
+            BankStatementEntry.society_id==sid, BankStatementEntry.is_active==True
+        )
+        if match_status is not None:
+            q = q.filter(BankStatementEntry.match_status==match_status)
+        return q.order_by(BankStatementEntry.txn_date.desc(),
+                           BankStatementEntry.created_at.desc()).offset(skip).limit(limit).all()

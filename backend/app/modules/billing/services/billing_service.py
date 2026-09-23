@@ -16,12 +16,13 @@ from app.modules.billing.models.billing import (
     FinancialPeriod, MaintenanceChargeConfig, BillingCycle,
     MaintenanceBill, InvoiceLineItem, PaymentReceipt, DueTracker, PenaltyRule,
     OnlinePaymentSubmission, ReconciliationStatus,
+    BankStatementEntry, BankStatementMatchStatus,
     BillStatus, ChargeType, PaymentMode,
 )
 from app.modules.billing.repositories.billing_repo import (
     FinancialPeriodRepo, ChargeConfigRepo, BillingCycleRepo,
     MaintenanceBillRepo, PaymentReceiptRepo, DueTrackerRepo, PenaltyRuleRepo,
-    OnlinePaymentSubmissionRepo,
+    OnlinePaymentSubmissionRepo, BankStatementEntryRepo,
 )
 from app.models.flat import Flat
 from app.models.wing import Wing
@@ -47,6 +48,7 @@ class BillingService:
         self.due_repo     = DueTrackerRepo(db)
         self.penalty_repo = PenaltyRuleRepo(db)
         self.online_payment_repo = OnlinePaymentSubmissionRepo(db)
+        self.bank_statement_repo = BankStatementEntryRepo(db)
 
     def _audit(self, action, entity, entity_type, user, request=None, **kw):
         AuditService.log(db=self.db, action=action, module="billing",
@@ -457,6 +459,162 @@ class BillingService:
                 (r.notes or "").replace("\n", " "),
             ])
         return buf.getvalue()
+
+    # ── Bank Reconciliation ──────────────────────────────────────────────────
+    #
+    # The other half of the loop from update_online_payment_status() above:
+    # instead of a manager eyeballing a bank statement outside the app and
+    # manually flipping each submission to RECONCILED, they import the
+    # statement here and the system suggests matches by amount + nearby
+    # date. A match is only ever applied via confirm_bank_match() — import
+    # alone never changes a submission's status, so nothing about a bill's
+    # paid state can be affected by a bad statement upload.
+
+    MATCH_DATE_WINDOW_DAYS = 5
+
+    def import_bank_statement_csv(self, society_id: UUID, csv_text: str, user: User) -> List[BankStatementEntry]:
+        """Expects a header row with columns Date, Description, Amount, and
+        optionally Reference (case-insensitive, any order) — a generic
+        format the admin prepares from whatever their bank's own export
+        looks like, since every bank's raw CSV differs. Date accepts
+        YYYY-MM-DD or DD-MM-YYYY. Only positive (credit) amounts are kept;
+        debits/withdrawals are irrelevant to resident-payment reconciliation."""
+        import csv, io
+        from decimal import InvalidOperation
+
+        reader = csv.DictReader(io.StringIO(csv_text))
+        if not reader.fieldnames:
+            raise HTTPException(422, "CSV has no header row")
+        columns = {f.strip().lower(): f for f in reader.fieldnames if f}
+        missing = [c for c in ("date", "description", "amount") if c not in columns]
+        if missing:
+            raise HTTPException(
+                422,
+                f"CSV missing required column(s): {', '.join(missing)}. "
+                "Expected headers: Date, Description, Amount, and optionally Reference.",
+            )
+
+        rows = []
+        for i, raw in enumerate(reader, start=2):  # row 1 is the header
+            date_str   = (raw.get(columns["date"]) or "").strip()
+            desc       = (raw.get(columns["description"]) or "").strip()
+            amount_str = (raw.get(columns["amount"]) or "").strip()
+            ref        = (raw.get(columns["reference"]) or "").strip() if "reference" in columns else ""
+            if not date_str and not amount_str:
+                continue  # skip blank rows
+            txn_date = None
+            for fmt in ("%Y-%m-%d", "%d-%m-%Y"):
+                try:
+                    txn_date = datetime.strptime(date_str, fmt).date()
+                    break
+                except ValueError:
+                    continue
+            if txn_date is None:
+                raise HTTPException(422, f"Row {i}: unrecognized date {date_str!r} — use YYYY-MM-DD or DD-MM-YYYY")
+            try:
+                amount = Decimal(amount_str.replace(",", ""))
+            except InvalidOperation:
+                raise HTTPException(422, f"Row {i}: unrecognized amount {amount_str!r}")
+            if amount <= 0:
+                continue  # debit/zero row — nothing to reconcile against
+            rows.append({
+                "txn_date": txn_date,
+                "description": desc or "(no description)",
+                "reference": ref or None,
+                "amount": amount,
+            })
+
+        if not rows:
+            raise HTTPException(422, "No valid credit rows found in the uploaded statement")
+        return self.import_bank_statement(society_id, rows, user)
+
+    def import_bank_statement(self, society_id: UUID, rows: List[dict], user: User) -> List[BankStatementEntry]:
+        entries = []
+        for row in rows:
+            entry = BankStatementEntry(
+                society_id=society_id, imported_by=user.id,
+                txn_date=row["txn_date"], description=row["description"],
+                reference=row.get("reference"), amount=row["amount"],
+            )
+            self.db.add(entry)
+            entries.append(entry)
+        self.db.flush()
+        for e in entries:
+            self._audit(AuditAction.CREATE, e, "BankStatementEntry", user,
+                        new_values={"amount": str(e.amount), "date": e.txn_date.isoformat()})
+        self.db.commit()
+        for e in entries:
+            self.db.refresh(e)
+        return entries
+
+    def list_bank_statement_entries(self, society_id: UUID, match_status: Optional[BankStatementMatchStatus] = None,
+                                     skip=0, limit=100) -> List[BankStatementEntry]:
+        return self.bank_statement_repo.get_by_society(society_id, match_status=match_status, skip=skip, limit=limit)
+
+    def get_bank_statement_entry(self, entry_id: UUID) -> BankStatementEntry:
+        e = self.bank_statement_repo.get(entry_id)
+        if not e: raise HTTPException(404, "Bank statement entry not found")
+        return e
+
+    def suggest_matches(self, entry_id: UUID) -> List[OnlinePaymentSubmission]:
+        """Candidate PENDING submissions for this entry: same society, exact
+        amount match, payment_date within MATCH_DATE_WINDOW_DAYS of the
+        statement date. Amount must match exactly — reconciliation is not
+        the place to guess at partial/rounded amounts."""
+        from datetime import timedelta
+        entry = self.get_bank_statement_entry(entry_id)
+        window_start = entry.txn_date - timedelta(days=self.MATCH_DATE_WINDOW_DAYS)
+        window_end   = entry.txn_date + timedelta(days=self.MATCH_DATE_WINDOW_DAYS)
+        return self.db.query(OnlinePaymentSubmission).filter(
+            OnlinePaymentSubmission.society_id==entry.society_id,
+            OnlinePaymentSubmission.status==ReconciliationStatus.PENDING,
+            OnlinePaymentSubmission.amount==entry.amount,
+            OnlinePaymentSubmission.payment_date>=window_start,
+            OnlinePaymentSubmission.payment_date<=window_end,
+            OnlinePaymentSubmission.is_active==True,
+        ).order_by(OnlinePaymentSubmission.payment_date.asc()).all()
+
+    def confirm_bank_match(self, entry_id: UUID, submission_id: UUID, user: User) -> BankStatementEntry:
+        entry = self.get_bank_statement_entry(entry_id)
+        if entry.match_status != BankStatementMatchStatus.UNMATCHED:
+            raise HTTPException(409, f"Entry is already {entry.match_status.value}")
+        submission = self.get_online_payment_submission(submission_id)
+        if submission.society_id != entry.society_id:
+            raise HTTPException(400, "Payment submission belongs to a different society")
+        if submission.status != ReconciliationStatus.PENDING:
+            raise HTTPException(409, f"Payment is already {submission.status.value}, not pending")
+        if submission.amount != entry.amount:
+            raise HTTPException(422, "Amount mismatch between bank entry and payment submission")
+
+        now = datetime.utcnow()
+        entry.match_status = BankStatementMatchStatus.MATCHED
+        entry.matched_submission_id = submission.id
+        entry.matched_by = user.id
+        entry.matched_at = now
+
+        submission.status = ReconciliationStatus.RECONCILED
+        submission.reviewed_by = user.id
+        submission.reviewed_at = now
+
+        self._audit(AuditAction.UPDATE, entry, "BankStatementEntry", user,
+                    new_values={"matched_submission": submission.receipt_number, "amount": str(entry.amount)})
+        self.db.commit()
+        self.db.refresh(entry)
+        return entry
+
+    def ignore_bank_entry(self, entry_id: UUID, reason: Optional[str], user: User) -> BankStatementEntry:
+        entry = self.get_bank_statement_entry(entry_id)
+        if entry.match_status != BankStatementMatchStatus.UNMATCHED:
+            raise HTTPException(409, f"Entry is already {entry.match_status.value}")
+        entry.match_status = BankStatementMatchStatus.IGNORED
+        entry.ignore_reason = reason
+        entry.matched_by = user.id
+        entry.matched_at = datetime.utcnow()
+        self._audit(AuditAction.UPDATE, entry, "BankStatementEntry", user,
+                    new_values={"ignored": True, "reason": reason})
+        self.db.commit()
+        self.db.refresh(entry)
+        return entry
 
     def generate_online_payment_receipt_pdf(self, submission_id: UUID) -> bytes:
         from app.modules.billing.services.receipt_pdf import generate_online_payment_receipt_pdf

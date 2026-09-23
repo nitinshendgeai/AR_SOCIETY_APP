@@ -75,6 +75,12 @@ class ReconciliationStatus(str, enum.Enum):
     REJECTED         = "rejected"   # screenshot didn't match / invalid, e.g. duplicate or wrong society
 
 
+class BankStatementMatchStatus(str, enum.Enum):
+    UNMATCHED = "unmatched"  # imported, no confirmed link to a payment submission yet
+    MATCHED   = "matched"    # linked to an OnlinePaymentSubmission, which is now RECONCILED
+    IGNORED   = "ignored"    # not a resident payment (bank interest, charges, unrelated transfer)
+
+
 # ── FinancialPeriod ───────────────────────────────────────────────────────────
 
 class FinancialPeriod(Base, TimestampMixin):
@@ -375,3 +381,41 @@ class OnlinePaymentSubmission(Base, TimestampMixin):
 
     def __repr__(self):
         return f"<OnlinePaymentSubmission {self.receipt_number} ₹{self.amount} [{self.status}]>"
+
+
+# ── BankStatementEntry ────────────────────────────────────────────────────────
+
+class BankStatementEntry(Base, TimestampMixin):
+    """
+    One credit row from an imported bank statement — the other half of
+    reconciliation. OnlinePaymentSubmission is what the society *recorded*
+    as received from a resident; this is what the bank *actually shows*
+    credited. Matching the two closes the loop: a submission only moves
+    PENDING -> RECONCILED once its money is confirmed to have landed in
+    the account, via BillingService.confirm_bank_match() — never on
+    import alone, which only creates UNMATCHED rows.
+    """
+    __tablename__ = "bank_statement_entries"
+
+    society_id             = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    imported_by            = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    matched_submission_id  = Column(UUID(as_uuid=True), ForeignKey("online_payment_submissions.id", ondelete="SET NULL"), nullable=True, index=True)
+    matched_by             = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    txn_date      = Column(Date, nullable=False, index=True)
+    description   = Column(String(500), nullable=False)
+    reference     = Column(String(100), nullable=True, index=True)   # bank's own UTR/ref, if present
+    amount        = Column(Numeric(12, 2), nullable=False)
+
+    match_status  = Column(Enum(BankStatementMatchStatus, values_callable=lambda e: [x.value for x in e]),
+                            default=BankStatementMatchStatus.UNMATCHED, nullable=False, index=True)
+    matched_at    = Column(DateTime, nullable=True)
+    ignore_reason = Column(Text, nullable=True)
+
+    society            = relationship("Society")
+    importer           = relationship("User", foreign_keys=[imported_by])
+    matcher            = relationship("User", foreign_keys=[matched_by])
+    matched_submission = relationship("OnlinePaymentSubmission")
+
+    def __repr__(self):
+        return f"<BankStatementEntry {self.txn_date} ₹{self.amount} [{self.match_status}]>"

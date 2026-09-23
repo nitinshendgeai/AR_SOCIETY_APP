@@ -65,6 +65,12 @@ class OnlinePaymentStatusUpdate(OrmBase):
     status: ReconciliationStatus
     review_notes: Optional[str] = None
 
+class BankMatchConfirm(OrmBase):
+    submission_id: UUID
+
+class BankEntryIgnore(OrmBase):
+    reason: Optional[str] = None
+
 
 def _online_payment_out(s) -> dict:
     """Serialize an OnlinePaymentSubmission, deliberately excluding the
@@ -315,3 +321,72 @@ def update_online_payment_status(
     submission = BillingService(db).update_online_payment_status(
         submission_id, data.status, data.review_notes, user)
     return _online_payment_out(submission)
+
+
+# ── Bank Reconciliation ───────────────────────────────────────────────────────
+#
+# Imports a bank statement (as CSV) and suggests matches against PENDING
+# online payment submissions by amount + nearby date. Confirming a match
+# is the only thing that flips a submission to RECONCILED via this path —
+# see BillingService's Bank Reconciliation section for the full rationale.
+
+def _bank_entry_out(e) -> dict:
+    return {
+        "id": str(e.id),
+        "society_id": str(e.society_id),
+        "txn_date": e.txn_date.isoformat(),
+        "description": e.description,
+        "reference": e.reference,
+        "amount": str(e.amount),
+        "match_status": e.match_status.value,
+        "matched_submission_id": str(e.matched_submission_id) if e.matched_submission_id else None,
+        "matched_submission_receipt_number": e.matched_submission.receipt_number if e.matched_submission else None,
+        "matched_at": e.matched_at.isoformat() if e.matched_at else None,
+        "ignore_reason": e.ignore_reason,
+        "created_at": e.created_at.isoformat() if e.created_at else None,
+    }
+
+@router.post("/bank-reconciliation/society/{society_id}/import", status_code=201,
+             dependencies=[Depends(manager_above)])
+async def import_bank_statement(
+    society_id: UUID, statement: UploadFile = File(...),
+    db: Session = Depends(get_db), user: User = Depends(get_current_user),
+):
+    csv_bytes = await statement.read()
+    entries = BillingService(db).import_bank_statement_csv(
+        society_id, csv_bytes.decode("utf-8-sig"), user)
+    return [_bank_entry_out(e) for e in entries]
+
+@router.get("/bank-reconciliation/society/{society_id}", dependencies=[Depends(manager_above)])
+def list_bank_statement_entries(
+    society_id: UUID,
+    match_status: Optional[str] = None,
+    skip: int = 0, limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    from app.modules.billing.models.billing import BankStatementMatchStatus
+    status_enum = BankStatementMatchStatus(match_status) if match_status else None
+    rows = BillingService(db).list_bank_statement_entries(
+        society_id, match_status=status_enum, skip=skip, limit=limit)
+    return [_bank_entry_out(e) for e in rows]
+
+@router.get("/bank-reconciliation/{entry_id}/candidates", dependencies=[Depends(manager_above)])
+def get_bank_match_candidates(entry_id: UUID, db: Session = Depends(get_db)):
+    candidates = BillingService(db).suggest_matches(entry_id)
+    return [_online_payment_out(c) for c in candidates]
+
+@router.post("/bank-reconciliation/{entry_id}/confirm", dependencies=[Depends(manager_above)])
+def confirm_bank_match(
+    entry_id: UUID, data: BankMatchConfirm,
+    db: Session = Depends(get_db), user: User = Depends(get_current_user),
+):
+    entry = BillingService(db).confirm_bank_match(entry_id, data.submission_id, user)
+    return _bank_entry_out(entry)
+
+@router.post("/bank-reconciliation/{entry_id}/ignore", dependencies=[Depends(manager_above)])
+def ignore_bank_entry(
+    entry_id: UUID, data: BankEntryIgnore,
+    db: Session = Depends(get_db), user: User = Depends(get_current_user),
+):
+    entry = BillingService(db).ignore_bank_entry(entry_id, data.reason, user)
+    return _bank_entry_out(entry)

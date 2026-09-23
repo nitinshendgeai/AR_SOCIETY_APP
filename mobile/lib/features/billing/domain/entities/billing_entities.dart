@@ -124,3 +124,49 @@ String reconciliationStatusLabel(String value) => switch (value) {
       'rejected' => 'Rejected',
       _ => value,
     };
+
+/// One credit row imported from a bank statement — the other half of
+/// reconciliation. Matching it to a PENDING OnlinePaymentEntity (via
+/// confirm) is what actually moves that payment to `reconciled`; import
+/// alone only ever creates `unmatched` rows. See backend
+/// BankStatementEntry / BillingService's Bank Reconciliation section.
+class BankStatementEntryEntity {
+  final String id;
+  final String societyId;
+  final DateTime txnDate;
+  final String description;
+  final String? reference;
+  final String amount;
+  final String matchStatus; // unmatched | matched | ignored
+  final String? matchedSubmissionId;
+  final String? matchedSubmissionReceiptNumber;
+  final DateTime? matchedAt;
+  final String? ignoreReason;
+  final DateTime? createdAt;
+
+  const BankStatementEntryEntity({
+    required this.id,
+    required this.societyId,
+    required this.txnDate,
+    required this.description,
+    this.reference,
+    required this.amount,
+    this.matchStatus = 'unmatched',
+    this.matchedSubmissionId,
+    this.matchedSubmissionReceiptNumber,
+    this.matchedAt,
+    this.ignoreReason,
+    this.createdAt,
+  });
+
+  bool get isUnmatched => matchStatus == 'unmatched';
+  bool get isMatched => matchStatus == 'matched';
+  bool get isIgnored => matchStatus == 'ignored';
+}
+
+String bankMatchStatusLabel(String value) => switch (value) {
+      'unmatched' => 'Unmatched',
+      'matched' => 'Matched',
+      'ignored' => 'Ignored',
+      _ => value,
+    };

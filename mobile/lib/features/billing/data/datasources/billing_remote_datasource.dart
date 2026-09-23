@@ -126,4 +126,70 @@ class BillingRemoteDataSource {
     );
     return r.data!;
   }
+
+  /// POST /billing/bank-reconciliation/society/{society_id}/import
+  /// (multipart CSV upload — Date, Description, Amount, optional Reference)
+  Future<List<BankStatementEntryModel>> importBankStatement(
+    String societyId, {
+    required Uint8List csvBytes,
+    required String fileName,
+  }) async {
+    final formData = FormData.fromMap({
+      'statement': MultipartFile.fromBytes(csvBytes, filename: fileName,
+          contentType: DioMediaType.parse('text/csv')),
+    });
+    final r = await _dio.post(
+      '/billing/bank-reconciliation/society/$societyId/import',
+      data: formData,
+    );
+    return (r.data as List)
+        .map((e) => BankStatementEntryModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// GET /billing/bank-reconciliation/society/{society_id}
+  Future<List<BankStatementEntryModel>> listBankStatementEntries(
+    String societyId, {
+    String? matchStatus,
+    int skip = 0,
+    int limit = 100,
+  }) async {
+    final r = await _dio.get(
+      '/billing/bank-reconciliation/society/$societyId',
+      queryParameters: {
+        if (matchStatus != null) 'match_status': matchStatus,
+        'skip': skip,
+        'limit': limit,
+      },
+    );
+    return (r.data as List)
+        .map((e) => BankStatementEntryModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// GET /billing/bank-reconciliation/{entry_id}/candidates
+  Future<List<OnlinePaymentModel>> getBankMatchCandidates(String entryId) async {
+    final r = await _dio.get('/billing/bank-reconciliation/$entryId/candidates');
+    return (r.data as List)
+        .map((e) => OnlinePaymentModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// POST /billing/bank-reconciliation/{entry_id}/confirm
+  Future<BankStatementEntryModel> confirmBankMatch(String entryId, String submissionId) async {
+    final r = await _dio.post(
+      '/billing/bank-reconciliation/$entryId/confirm',
+      data: {'submission_id': submissionId},
+    );
+    return BankStatementEntryModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// POST /billing/bank-reconciliation/{entry_id}/ignore
+  Future<BankStatementEntryModel> ignoreBankEntry(String entryId, {String? reason}) async {
+    final r = await _dio.post(
+      '/billing/bank-reconciliation/$entryId/ignore',
+      data: {if (reason != null) 'reason': reason},
+    );
+    return BankStatementEntryModel.fromJson(r.data as Map<String, dynamic>);
+  }
 }

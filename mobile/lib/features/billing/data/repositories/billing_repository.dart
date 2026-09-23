@@ -110,4 +110,41 @@ class BillingRepository {
       return BillingSuccess(await _ds.exportCsv(societyId, status: status, wingId: wingId, flatId: flatId));
     } catch (e) { return _handle(e); }
   }
+
+  Future<BillingResult<List<BankStatementEntryEntity>>> importBankStatement(
+      String societyId, {required Uint8List csvBytes, required String fileName}) async {
+    try {
+      final list = await _ds.importBankStatement(societyId, csvBytes: csvBytes, fileName: fileName);
+      return BillingSuccess(list.map((m) => m.toEntity()).toList());
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<BillingResult<List<BankStatementEntryEntity>>> listBankStatementEntries(
+      String societyId, {String? matchStatus}) async {
+    try {
+      final list = await _ds.listBankStatementEntries(societyId, matchStatus: matchStatus);
+      return BillingSuccess(list.map((m) => m.toEntity()).toList());
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<BillingResult<List<OnlinePaymentEntity>>> getBankMatchCandidates(String entryId) async {
+    try {
+      final list = await _ds.getBankMatchCandidates(entryId);
+      return BillingSuccess(list.map((m) => m.toEntity()).toList());
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<BillingResult<BankStatementEntryEntity>> confirmBankMatch(String entryId, String submissionId) async {
+    try {
+      final m = await _ds.confirmBankMatch(entryId, submissionId);
+      return BillingSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<BillingResult<BankStatementEntryEntity>> ignoreBankEntry(String entryId, {String? reason}) async {
+    try {
+      final m = await _ds.ignoreBankEntry(entryId, reason: reason);
+      return BillingSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
 }

@@ -39,14 +39,17 @@ def test_gaps_in_old_dashboard_logic_are_preserved_by_default():
     isAdmin/isAdminOrCommittee/isSecurity/isStaff/isResident (an Admin can
     grant them more explicitly via the Forms Matrix). Manager's gap was
     later deliberately, partially closed: the FMC Manager is who records
-    online payment screenshots, so "online_payments" was added to Manager's
-    default grants (see FORM_ROLE_GRANTS)."""
+    online payment screenshots and reconciles them against the bank
+    statement, so "online_payments" and "bank_reconciliation" were added
+    to Manager's default grants (see FORM_ROLE_GRANTS)."""
     codes_by_role = default_role_form_codes()
     for role_name in ("Platform Admin", "Gym Trainer", "Tenant"):
         assert set(codes_by_role.get(role_name, [])) == {"visitors", "complaints"}, (
             f"{role_name} unexpectedly has default form grants: {codes_by_role.get(role_name)}"
         )
-    assert set(codes_by_role.get("Manager", [])) == {"visitors", "complaints", "online_payments"}
+    assert set(codes_by_role.get("Manager", [])) == {
+        "visitors", "complaints", "online_payments", "bank_reconciliation",
+    }
 
 
 def test_visitors_and_complaints_granted_to_every_role():
@@ -92,9 +95,12 @@ def test_my_forms_returns_default_grants_for_own_role(client, db):
     r = client.get("/api/v1/roles/forms/mine", headers=manager["headers"])
     assert r.status_code == 200
     # Manager's old gap (only the two unconditional items) was deliberately
-    # partially closed by granting "online_payments" — the FMC Manager is
-    # who records payment screenshots.
-    assert set(r.json()["form_codes"]) == {"visitors", "complaints", "online_payments"}
+    # partially closed by granting "online_payments" and
+    # "bank_reconciliation" — the FMC Manager is who records payment
+    # screenshots and reconciles them against the bank statement.
+    assert set(r.json()["form_codes"]) == {
+        "visitors", "complaints", "online_payments", "bank_reconciliation",
+    }
 
     resident = make_user(db, "formsres4@rbac.com", role="Resident")
     r2 = client.get("/api/v1/roles/forms/mine", headers=resident["headers"])

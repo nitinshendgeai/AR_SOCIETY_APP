@@ -151,3 +151,65 @@ class BillModel {
         outstanding: outstanding,
       );
 }
+
+class BankStatementEntryModel {
+  final String id;
+  final String societyId;
+  final DateTime txnDate;
+  final String description;
+  final String? reference;
+  final String amount;
+  final String matchStatus;
+  final String? matchedSubmissionId;
+  final String? matchedSubmissionReceiptNumber;
+  final DateTime? matchedAt;
+  final String? ignoreReason;
+  final DateTime? createdAt;
+
+  BankStatementEntryModel({
+    required this.id,
+    required this.societyId,
+    required this.txnDate,
+    required this.description,
+    this.reference,
+    required this.amount,
+    this.matchStatus = 'unmatched',
+    this.matchedSubmissionId,
+    this.matchedSubmissionReceiptNumber,
+    this.matchedAt,
+    this.ignoreReason,
+    this.createdAt,
+  });
+
+  factory BankStatementEntryModel.fromJson(Map<String, dynamic> json) {
+    return BankStatementEntryModel(
+      id: json['id'] as String,
+      societyId: json['society_id'] as String,
+      txnDate: DateTime.parse(json['txn_date'] as String),
+      description: json['description'] as String,
+      reference: json['reference'] as String?,
+      amount: json['amount'] as String,
+      matchStatus: json['match_status'] as String? ?? 'unmatched',
+      matchedSubmissionId: json['matched_submission_id'] as String?,
+      matchedSubmissionReceiptNumber: json['matched_submission_receipt_number'] as String?,
+      matchedAt: json['matched_at'] != null ? DateTime.parse(json['matched_at'] as String) : null,
+      ignoreReason: json['ignore_reason'] as String?,
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null,
+    );
+  }
+
+  BankStatementEntryEntity toEntity() => BankStatementEntryEntity(
+        id: id,
+        societyId: societyId,
+        txnDate: txnDate,
+        description: description,
+        reference: reference,
+        amount: amount,
+        matchStatus: matchStatus,
+        matchedSubmissionId: matchedSubmissionId,
+        matchedSubmissionReceiptNumber: matchedSubmissionReceiptNumber,
+        matchedAt: matchedAt,
+        ignoreReason: ignoreReason,
+        createdAt: createdAt,
+      );
+}

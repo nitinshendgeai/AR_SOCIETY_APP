@@ -48,6 +48,7 @@ import 'package:ar_society_app/features/users/presentation/screens/permission_ma
 import 'package:ar_society_app/features/users/presentation/screens/forms_matrix_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/checklist_templates_screen.dart';
 import 'package:ar_society_app/features/billing/presentation/screens/online_payments_list_screen.dart';
+import 'package:ar_society_app/features/billing/presentation/screens/bank_reconciliation_screen.dart';
 import 'package:ar_society_app/features/society_settings/presentation/screens/society_settings_screen.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/screens/wing_list_screen.dart';
@@ -121,6 +122,7 @@ class AppRoutes {
   static const formsMatrix        = '/forms-matrix';
   static const checklistTemplates = '/staff/checklist-templates';
   static const onlinePayments     = '/billing/online-payments';
+  static const bankReconciliation = '/billing/bank-reconciliation';
   // Society Settings
   static const societySettings    = '/society-settings';
   // Society Structure
@@ -547,6 +549,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return null;
         },
         builder: (_, __) => const OnlinePaymentsListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.bankReconciliation,
+        redirect: (_, __) {
+          if (authState is AuthAuthenticated) {
+            final user = (authState as AuthAuthenticated).user;
+            if (!(user.isAdminOrCommittee || user.isManager)) return userRoleHome(user);
+          }
+          return null;
+        },
+        builder: (_, __) => const BankReconciliationScreen(),
       ),
       // Society Settings
       GoRoute(
