@@ -35,6 +35,30 @@ class ChargeType(str, enum.Enum):
     OTHER           = "other"
 
 
+class ChargeBasis(str, enum.Enum):
+    """How a charge head turns into a per-flat amount. `default_amount`
+    on the charge means a different thing for each basis (see
+    MaintenanceCalculator):
+
+    FIXED                  ₹ per flat per month (service charges, lift, common
+                           electricity — shared equally per bye-law 67)
+    PER_SQFT               ₹ per sq ft of flat area per month
+    CONSTRUCTION_COST_PCT  % per annum of the flat's construction cost (area ×
+                           society construction cost/sq ft) — sinking fund
+                           0.25%, repair & maintenance fund 0.75%
+    BUDGET_EQUAL           annual budget ₹, split equally across flats
+    BUDGET_AREA            annual budget ₹, split in proportion to flat area
+    PARKING                ₹ per allotted parking slot per month (an
+                           allocation's own monthly_charge overrides it)
+    """
+    FIXED                 = "fixed"
+    PER_SQFT              = "per_sqft"
+    CONSTRUCTION_COST_PCT = "construction_cost_pct"
+    BUDGET_EQUAL          = "budget_equal"
+    BUDGET_AREA           = "budget_area"
+    PARKING               = "parking"
+
+
 class BillStatus(str, enum.Enum):
     DRAFT            = "draft"
     GENERATED        = "generated"
@@ -120,6 +144,10 @@ class MaintenanceChargeConfig(Base, TimestampMixin):
     description   = Column(Text, nullable=True)
     default_amount = Column(Numeric(10, 2), nullable=True)      # per flat per cycle
     is_per_sqft   = Column(Boolean, default=False, nullable=False)   # amount × area_sqft
+    basis         = Column(Enum(ChargeBasis, values_callable=lambda e: [x.value for x in e]),
+                           default=ChargeBasis.FIXED, nullable=False)
+    is_service_charge = Column(Boolean, default=False, nullable=False)  # base for non-occupancy charges
+    gst_applicable    = Column(Boolean, default=True, nullable=False)
     is_mandatory  = Column(Boolean, default=True, nullable=False)
     applicable_flat_types = Column(String(255), nullable=True)   # CSV of FlatType values
     tax_percent   = Column(Numeric(5, 2), default=0, nullable=False)
@@ -130,6 +158,30 @@ class MaintenanceChargeConfig(Base, TimestampMixin):
 
     def __repr__(self):
         return f"<ChargeConfig {self.name} ₹{self.default_amount}>"
+
+
+# ── MaintenanceSettings ───────────────────────────────────────────────────────
+
+class MaintenanceSettings(Base, TimestampMixin):
+    """Society-wide rules the maintenance calculator applies to every bill.
+    Defaults follow the Maharashtra model bye-laws as amended in 2026:
+    simple interest on arrears capped at 12% p.a., non-occupancy charges
+    capped at 10% of service charges, and GST at 18% only once a flat's
+    monthly contribution crosses ₹7,500 (and the society is registered —
+    turnover above ₹20 lakh — which is what gst_enabled records)."""
+    __tablename__ = "maintenance_settings"
+
+    society_id                 = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"),
+                                        nullable=False, unique=True, index=True)
+    construction_cost_per_sqft = Column(Numeric(10, 2), nullable=True)   # architect-certified, excl. land
+    interest_rate_pct          = Column(Numeric(5, 2), default=12, nullable=False)   # simple, per annum
+    interest_grace_days        = Column(Integer, default=0, nullable=False)
+    non_occupancy_pct          = Column(Numeric(5, 2), default=0, nullable=False)    # of service charges
+    gst_enabled                = Column(Boolean, default=False, nullable=False)
+    gst_rate_pct               = Column(Numeric(5, 2), default=18, nullable=False)
+    gst_threshold_monthly      = Column(Numeric(10, 2), default=7500, nullable=False)
+
+    society = relationship("Society")
 
 
 # ── BillingCycle ──────────────────────────────────────────────────────────────
@@ -197,6 +249,13 @@ class MaintenanceBill(Base, TimestampMixin):
     cancelled_at    = Column(DateTime, nullable=True)
     cancellation_reason = Column(Text, nullable=True)
     remarks         = Column(Text, nullable=True)
+    # Unpaid balance of this flat's earlier bills when this one was
+    # generated — shown on the bill as arrears, not added to total_amount
+    # (each earlier bill still carries its own outstanding).
+    previous_dues   = Column(Numeric(12, 2), default=0, nullable=False)
+    # Interest on this bill's unpaid balance has been billed (on later
+    # bills) up to this date, so the next bill only charges the new days.
+    arrears_interest_upto = Column(Date, nullable=True)
 
     society    = relationship("Society")
     cycle      = relationship("BillingCycle", back_populates="bills")

@@ -3,6 +3,7 @@ from uuid import UUID
 from datetime import date
 from decimal import Decimal
 from fastapi import APIRouter, Depends, Request, UploadFile, File, Form, HTTPException
+from pydantic import Field
 from fastapi.responses import Response, StreamingResponse
 from io import BytesIO
 from sqlalchemy.orm import Session
@@ -15,8 +16,9 @@ from app.core.dependencies import (
 from app.models.user import User
 from app.modules.billing.models.billing import (
     ChargeType, BillStatus, PaymentMode, PenaltyCalculationType, CycleFrequency,
-    ReconciliationStatus,
+    ReconciliationStatus, ChargeBasis,
 )
+from app.modules.billing.services.maintenance_calculator import cycle_months, money
 from app.modules.billing.services.billing_service import BillingService, RESIDENT_VISIBLE_BILL_STATUSES
 from app.schemas.common import OrmBase, TimestampSchema
 from typing import Optional
@@ -34,7 +36,9 @@ class PeriodCreate(OrmBase):
 
 class ChargeConfigCreate(OrmBase):
     society_id: UUID; charge_type: ChargeType; name: str
-    default_amount: Optional[Decimal] = None; is_per_sqft: bool = False
+    default_amount: Optional[Decimal] = None; is_per_sqft: Optional[bool] = None
+    basis: Optional[ChargeBasis] = None
+    is_service_charge: bool = False; gst_applicable: bool = True
     is_mandatory: bool = True; tax_percent: Decimal = Decimal(0)
     description: Optional[str] = None; effective_from: Optional[date] = None
 
@@ -126,6 +130,9 @@ class ChargeConfigUpdate(OrmBase):
     charge_type: Optional[ChargeType] = None
     default_amount: Optional[Decimal] = None
     is_per_sqft: Optional[bool] = None
+    basis: Optional[ChargeBasis] = None
+    is_service_charge: Optional[bool] = None
+    gst_applicable: Optional[bool] = None
     tax_percent: Optional[Decimal] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
@@ -140,6 +147,9 @@ def _charge_out(c) -> dict:
         "description": c.description,
         "default_amount": str(c.default_amount) if c.default_amount is not None else None,
         "is_per_sqft": c.is_per_sqft,
+        "basis": (c.basis or ChargeBasis.FIXED).value,
+        "is_service_charge": c.is_service_charge,
+        "gst_applicable": c.gst_applicable,
         "is_mandatory": c.is_mandatory,
         "tax_percent": str(c.tax_percent),
         "is_active": c.is_active,
@@ -159,6 +169,44 @@ def update_charge(config_id: UUID, data: ChargeConfigUpdate, db: Session = Depen
                   user: User = Depends(get_current_user)):
     changes = data.model_dump(exclude_unset=True)
     return _charge_out(BillingService(db).update_charge_config(config_id, changes, user))
+
+
+# ── Maintenance rules ─────────────────────────────────────────────────────────
+class MaintenanceSettingsUpdate(OrmBase):
+    construction_cost_per_sqft: Optional[Decimal] = Field(None, ge=0)
+    # Simple interest on arrears: the 2026 MCS amendment caps it at 12%
+    # p.a.; 21% is the older model bye-law ceiling some societies and
+    # states still use, so that's the hard limit here.
+    interest_rate_pct: Optional[Decimal] = Field(None, ge=0, le=21)
+    interest_grace_days: Optional[int] = Field(None, ge=0, le=90)
+    # Non-occupancy charges may not exceed 10% of service charges.
+    non_occupancy_pct: Optional[Decimal] = Field(None, ge=0, le=10)
+    gst_enabled: Optional[bool] = None
+    gst_rate_pct: Optional[Decimal] = Field(None, ge=0, le=28)
+    gst_threshold_monthly: Optional[Decimal] = Field(None, ge=0)
+
+
+def _settings_out(st) -> dict:
+    return {
+        "society_id": str(st.society_id),
+        "construction_cost_per_sqft": str(st.construction_cost_per_sqft) if st.construction_cost_per_sqft is not None else None,
+        "interest_rate_pct": str(st.interest_rate_pct),
+        "interest_grace_days": st.interest_grace_days,
+        "non_occupancy_pct": str(st.non_occupancy_pct),
+        "gst_enabled": st.gst_enabled,
+        "gst_rate_pct": str(st.gst_rate_pct),
+        "gst_threshold_monthly": str(st.gst_threshold_monthly),
+    }
+
+@router.get("/maintenance-settings/{society_id}", dependencies=[Depends(manager_above)])
+def get_maintenance_settings(society_id: UUID, db: Session = Depends(get_db)):
+    return _settings_out(BillingService(db).get_maintenance_settings(society_id))
+
+@router.put("/maintenance-settings/{society_id}", dependencies=[Depends(manager_above)])
+def update_maintenance_settings(society_id: UUID, data: MaintenanceSettingsUpdate,
+                                db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    changes = data.model_dump(exclude_unset=True)
+    return _settings_out(BillingService(db).update_maintenance_settings(society_id, changes, user))
 
 
 # ── Billing Cycles ────────────────────────────────────────────────────────────
@@ -198,6 +246,39 @@ def list_cycles(society_id: UUID, db: Session = Depends(get_db)):
 @router.get("/cycles/detail/{cycle_id}", dependencies=[Depends(manager_above)])
 def get_cycle(cycle_id: UUID, db: Session = Depends(get_db)):
     return _cycle_out(BillingService(db).get_cycle(cycle_id))
+
+@router.get("/cycles/{cycle_id}/preview", dependencies=[Depends(manager_above)])
+def preview_cycle(cycle_id: UUID, db: Session = Depends(get_db)):
+    calc = BillingService(db).preview_cycle(cycle_id)
+    flats = []
+    for d in sorted(calc.drafts, key=lambda d: (
+            d.flat.wing.name if d.flat.wing else "", d.flat.flat_number)):
+        flats.append({
+            "flat_id": str(d.flat.id),
+            "flat_label": f"{d.flat.wing.name if d.flat.wing else ''} / {d.flat.flat_number}".strip(" /"),
+            "area_sqft": d.flat.area_sqft,
+            "occupancy": d.flat.occupancy_status.value if d.flat.occupancy_status else None,
+            "previous_dues": str(d.previous_dues),
+            "lines": [{
+                "charge_type": l.charge_type.value,
+                "description": l.description,
+                "amount": str(l.amount),
+                "tax_percent": str(l.tax_percent),
+                "tax_amount": str(l.tax_amount),
+                "total": str(l.total),
+            } for l in d.lines],
+            "subtotal": str(d.subtotal),
+            "tax": str(d.tax),
+            "total": str(d.total),
+        })
+    return {
+        "cycle_id": str(cycle_id),
+        "months": cycle_months(calc.cycle),
+        "flats_count": len(flats),
+        "total": str(money(sum((d.total for d in calc.drafts), Decimal(0)))),
+        "warnings": calc.warnings,
+        "flats": flats,
+    }
 
 @router.post("/cycles/{cycle_id}/generate-bills", dependencies=[Depends(manager_above)])
 def generate_bills(cycle_id: UUID, request: Request, db: Session = Depends(get_db),
@@ -250,6 +331,7 @@ def _bill_out(b) -> dict:
         "paid_amount": str(b.paid_amount),
         "outstanding": str(b.outstanding),
         "cancellation_reason": b.cancellation_reason,
+        "previous_dues": str(b.previous_dues or 0),
     }
 
 def _bill_detail_out(b) -> dict:

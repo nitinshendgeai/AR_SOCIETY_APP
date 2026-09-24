@@ -14,15 +14,50 @@ String formatRupees(String v) => _rupees.format(amountOf(v));
 
 String formatBillDate(DateTime d) => DateFormat('d MMM yyyy').format(d);
 
-/// A society charge head (backend MaintenanceChargeConfig) — copied onto
-/// every bill as a line item at generation time.
+/// How a charge head becomes a per-flat amount (backend ChargeBasis). The
+/// meaning of [ChargeHead.defaultAmount] depends on it.
+const kChargeBases = [
+  ('fixed', 'Same for every flat'),
+  ('per_sqft', 'Per sq ft of flat area'),
+  ('construction_cost_pct', '% of construction cost (yearly)'),
+  ('budget_equal', 'Annual budget, split equally'),
+  ('budget_area', 'Annual budget, split by area'),
+  ('parking', 'Per allotted parking slot'),
+];
+
+String chargeBasisLabel(String v) =>
+    kChargeBases.firstWhere((b) => b.$1 == v, orElse: () => (v, v)).$2;
+
+/// Label for the amount field, which means something different per basis.
+String chargeAmountFieldLabel(String basis) => switch (basis) {
+      'per_sqft' => 'Rate per sq ft per month (₹)',
+      'construction_cost_pct' => 'Rate (% per year)',
+      'budget_equal' || 'budget_area' => 'Annual budget (₹)',
+      'parking' => 'Rate per slot per month (₹)',
+      _ => 'Amount per flat per month (₹)',
+    };
+
+String chargeBasisHint(String basis) => switch (basis) {
+      'per_sqft' => 'Flat area × rate. Most societies charge ₹2–7 per sq ft.',
+      'construction_cost_pct' =>
+        'Area × construction cost/sq ft (set in Rules) × % ÷ 12. Bye-laws: sinking fund min 0.25%, repair fund 0.75%.',
+      'budget_equal' => 'Yearly cost ÷ number of flats ÷ 12 — e.g. security, housekeeping staff.',
+      'budget_area' => 'Yearly cost shared in proportion to each flat\'s area ÷ 12 — e.g. water, electricity.',
+      'parking' => 'Charged per active parking allotment. A slot\'s own monthly charge overrides this rate.',
+      _ => 'Service charges, lift and common electricity are shared equally under the bye-laws.',
+    };
+
+/// A society charge head (backend MaintenanceChargeConfig) — calculated
+/// per flat and copied onto every bill as a line item at generation time.
 class ChargeHead {
   final String id;
   final String chargeType;
   final String name;
   final String? description;
   final String? defaultAmount;
-  final bool isPerSqft;
+  final String basis;
+  final bool isServiceCharge;
+  final bool gstApplicable;
   final String taxPercent;
   final bool isActive;
 
@@ -32,10 +67,25 @@ class ChargeHead {
     required this.name,
     this.description,
     this.defaultAmount,
-    this.isPerSqft = false,
+    this.basis = 'fixed',
+    this.isServiceCharge = false,
+    this.gstApplicable = true,
     this.taxPercent = '0',
     this.isActive = true,
   });
+
+  /// e.g. "₹2,500 / flat / month", "0.25% of construction cost / yr".
+  String get rateLabel {
+    final v = defaultAmount ?? '0';
+    return switch (basis) {
+      'per_sqft' => '${formatRupees(v)} / sq ft / month',
+      'construction_cost_pct' => '$v% of construction cost / yr',
+      'budget_equal' => '${formatRupees(v)} / yr, split equally',
+      'budget_area' => '${formatRupees(v)} / yr, split by area',
+      'parking' => '${formatRupees(v)} / slot / month',
+      _ => '${formatRupees(v)} / flat / month',
+    };
+  }
 
   factory ChargeHead.fromJson(Map<String, dynamic> j) => ChargeHead(
         id: j['id'] as String,
@@ -43,9 +93,105 @@ class ChargeHead {
         name: j['name'] as String,
         description: j['description'] as String?,
         defaultAmount: j['default_amount'] as String?,
-        isPerSqft: j['is_per_sqft'] as bool? ?? false,
+        basis: j['basis'] as String? ?? ((j['is_per_sqft'] as bool? ?? false) ? 'per_sqft' : 'fixed'),
+        isServiceCharge: j['is_service_charge'] as bool? ?? false,
+        gstApplicable: j['gst_applicable'] as bool? ?? true,
         taxPercent: _str(j['tax_percent']),
         isActive: j['is_active'] as bool? ?? true,
+      );
+}
+
+/// Society-wide calculation rules (backend MaintenanceSettings).
+class MaintenanceRules {
+  final String? constructionCostPerSqft;
+  final String interestRatePct;
+  final int interestGraceDays;
+  final String nonOccupancyPct;
+  final bool gstEnabled;
+  final String gstRatePct;
+  final String gstThresholdMonthly;
+
+  const MaintenanceRules({
+    this.constructionCostPerSqft,
+    this.interestRatePct = '12',
+    this.interestGraceDays = 0,
+    this.nonOccupancyPct = '0',
+    this.gstEnabled = false,
+    this.gstRatePct = '18',
+    this.gstThresholdMonthly = '7500',
+  });
+
+  factory MaintenanceRules.fromJson(Map<String, dynamic> j) => MaintenanceRules(
+        constructionCostPerSqft: j['construction_cost_per_sqft'] as String?,
+        interestRatePct: _str(j['interest_rate_pct']),
+        interestGraceDays: j['interest_grace_days'] as int? ?? 0,
+        nonOccupancyPct: _str(j['non_occupancy_pct']),
+        gstEnabled: j['gst_enabled'] as bool? ?? false,
+        gstRatePct: _str(j['gst_rate_pct']),
+        gstThresholdMonthly: _str(j['gst_threshold_monthly']),
+      );
+}
+
+class PreviewLine {
+  final String description;
+  final String amount;
+  final String taxAmount;
+  final String total;
+
+  const PreviewLine({required this.description, required this.amount,
+      required this.taxAmount, required this.total});
+
+  factory PreviewLine.fromJson(Map<String, dynamic> j) => PreviewLine(
+        description: j['description'] as String,
+        amount: _str(j['amount']),
+        taxAmount: _str(j['tax_amount']),
+        total: _str(j['total']),
+      );
+}
+
+class FlatPreview {
+  final String flatId;
+  final String flatLabel;
+  final double? areaSqft;
+  final String? occupancy;
+  final String previousDues;
+  final List<PreviewLine> lines;
+  final String tax;
+  final String total;
+
+  const FlatPreview({required this.flatId, required this.flatLabel, this.areaSqft,
+      this.occupancy, required this.previousDues, required this.lines,
+      required this.tax, required this.total});
+
+  factory FlatPreview.fromJson(Map<String, dynamic> j) => FlatPreview(
+        flatId: j['flat_id'] as String,
+        flatLabel: j['flat_label'] as String,
+        areaSqft: (j['area_sqft'] as num?)?.toDouble(),
+        occupancy: j['occupancy'] as String?,
+        previousDues: _str(j['previous_dues']),
+        lines: [for (final e in (j['lines'] as List)) PreviewLine.fromJson(e as Map<String, dynamic>)],
+        tax: _str(j['tax']),
+        total: _str(j['total']),
+      );
+}
+
+/// Dry run of bill generation for a cycle — exactly what Generate would create.
+class CyclePreview {
+  final int months;
+  final int flatsCount;
+  final String total;
+  final List<String> warnings;
+  final List<FlatPreview> flats;
+
+  const CyclePreview({required this.months, required this.flatsCount, required this.total,
+      required this.warnings, required this.flats});
+
+  factory CyclePreview.fromJson(Map<String, dynamic> j) => CyclePreview(
+        months: j['months'] as int? ?? 1,
+        flatsCount: j['flats_count'] as int? ?? 0,
+        total: _str(j['total']),
+        warnings: [for (final w in (j['warnings'] as List? ?? const [])) w as String],
+        flats: [for (final e in (j['flats'] as List)) FlatPreview.fromJson(e as Map<String, dynamic>)],
       );
 }
 
@@ -163,6 +309,7 @@ class MaintenanceBill {
   final String paidAmount;
   final String outstanding;
   final String? cancellationReason;
+  final String previousDues;
   final List<BillLineItem> lineItems;
   final List<BillPayment> payments;
 
@@ -187,6 +334,7 @@ class MaintenanceBill {
     required this.paidAmount,
     required this.outstanding,
     this.cancellationReason,
+    this.previousDues = '0',
     this.lineItems = const [],
     this.payments = const [],
   });
@@ -222,6 +370,7 @@ class MaintenanceBill {
         paidAmount: _str(j['paid_amount']),
         outstanding: _str(j['outstanding']),
         cancellationReason: j['cancellation_reason'] as String?,
+        previousDues: _str(j['previous_dues']),
         lineItems: [
           for (final e in (j['line_items'] as List? ?? const []))
             BillLineItem.fromJson(e as Map<String, dynamic>)
@@ -296,16 +445,20 @@ class MaintenanceBillingApi {
     required String chargeType,
     required String name,
     required String amount,
-    required String taxPercent,
-    bool isPerSqft = false,
+    required String basis,
+    required bool isServiceCharge,
+    required bool gstApplicable,
+    String taxPercent = '0',
   }) async {
     final r = await _dio.post('/billing/charges', data: {
       'society_id': societyId,
       'charge_type': chargeType,
       'name': name,
       'default_amount': amount,
+      'basis': basis,
+      'is_service_charge': isServiceCharge,
+      'gst_applicable': gstApplicable,
       'tax_percent': taxPercent,
-      'is_per_sqft': isPerSqft,
     });
     return ChargeHead.fromJson(r.data as Map<String, dynamic>);
   }
@@ -313,6 +466,21 @@ class MaintenanceBillingApi {
   Future<ChargeHead> updateChargeHead(String id, Map<String, dynamic> changes) async {
     final r = await _dio.patch('/billing/charges/$id', data: changes);
     return ChargeHead.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<MaintenanceRules> getRules(String societyId) async {
+    final r = await _dio.get('/billing/maintenance-settings/$societyId');
+    return MaintenanceRules.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<MaintenanceRules> updateRules(String societyId, Map<String, dynamic> changes) async {
+    final r = await _dio.put('/billing/maintenance-settings/$societyId', data: changes);
+    return MaintenanceRules.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<CyclePreview> previewCycle(String cycleId) async {
+    final r = await _dio.get('/billing/cycles/$cycleId/preview');
+    return CyclePreview.fromJson(r.data as Map<String, dynamic>);
   }
 
   Future<List<BillingCycle>> listCycles(String societyId) async =>

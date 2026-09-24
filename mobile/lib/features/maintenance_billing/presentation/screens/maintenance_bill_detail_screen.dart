@@ -348,5 +348,10 @@ class _LineItems extends StatelessWidget {
         if (amountOf(bill.penaltyAmount) > 0) _row('Late fee', bill.penaltyAmount),
         _row('Total', bill.totalAmount, bold: true),
         if (amountOf(bill.paidAmount) > 0) _row('Paid', bill.paidAmount, color: AppTheme.success),
+        if (amountOf(bill.previousDues) > 0 && !bill.isCancelled) ...[
+          _row('Previous dues (earlier bills)', bill.previousDues, color: AppTheme.warning),
+          _row('Total payable',
+              '${amountOf(bill.outstanding) + amountOf(bill.previousDues)}', bold: true),
+        ],
       ]);
 }

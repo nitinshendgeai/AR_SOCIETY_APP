@@ -92,6 +92,9 @@ def generate_maintenance_bill_pdf(bill: MaintenanceBill, society_name: str) -> b
     total_row("Bill Total", bill.total_amount + bill.penalty_amount - bill.discount_amount, bold=True)
     total_row("Paid", bill.paid_amount)
     total_row("Balance Due", bill.outstanding, bold=True)
+    if bill.previous_dues and bill.previous_dues > 0:
+        total_row("Previous Dues", bill.previous_dues)
+        total_row("Total Payable", bill.outstanding + bill.previous_dues, bold=True)
 
     y -= 6 * mm
     c.setFont("Helvetica-Oblique", 8)

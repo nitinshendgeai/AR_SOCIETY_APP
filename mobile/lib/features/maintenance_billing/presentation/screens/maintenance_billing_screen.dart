@@ -20,7 +20,7 @@ class MaintenanceBillingScreen extends ConsumerStatefulWidget {
 
 class _MaintenanceBillingScreenState extends ConsumerState<MaintenanceBillingScreen>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 2, vsync: this)
+  late final TabController _tabs = TabController(length: 3, vsync: this)
     ..addListener(() => setState(() {}));
 
   @override
@@ -41,17 +41,19 @@ class _MaintenanceBillingScreenState extends ConsumerState<MaintenanceBillingScr
       return const Scaffold(body: Center(child: Text('No society context')));
     }
     final onCycles = _tabs.index == 0;
+    final onRules = _tabs.index == 2;
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(
         title: const Text('Maintenance Billing'),
         bottom: TabBar(controller: _tabs, tabs: const [
-          Tab(text: 'Billing Cycles'),
+          Tab(text: 'Cycles'),
           Tab(text: 'Charge Heads'),
+          Tab(text: 'Rules'),
         ]),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: onRules ? null : FloatingActionButton.extended(
         onPressed: () => _openSheet(onCycles
             ? _NewCycleSheet(societyId: societyId)
             : _ChargeHeadSheet(societyId: societyId)),
@@ -62,6 +64,7 @@ class _MaintenanceBillingScreenState extends ConsumerState<MaintenanceBillingScr
         _CyclesTab(societyId: societyId, onAddChargeHeads: () => _tabs.animateTo(1)),
         _ChargeHeadsTab(societyId: societyId, onEdit: (c) => _openSheet(
             _ChargeHeadSheet(societyId: societyId, existing: c))),
+        _RulesTab(societyId: societyId),
       ]),
     );
   }
@@ -408,16 +411,13 @@ class _ChargeHeadsTab extends ConsumerWidget {
               ),
             ]);
           }
-          final flatTotal = charges.where((c) => !c.isPerSqft).fold<double>(0, (s, c) {
-            final amt = amountOf(c.defaultAmount ?? '0');
-            return s + amt + amt * amountOf(c.taxPercent) / 100;
-          });
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
             children: [
-              Text(
-                'Every flat is billed these each cycle. Changes apply to bills generated from now on.',
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              const Text(
+                'Each flat\'s bill is worked out from these every cycle. Changes apply to '
+                'bills generated from now on — preview a cycle to see exact amounts.',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
               ),
               const SizedBox(height: 12),
               for (final c in charges)
@@ -427,26 +427,13 @@ class _ChargeHeadsTab extends ConsumerWidget {
                     onTap: () => onEdit(c),
                     title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text([
-                      chargeTypeLabel(c.chargeType),
-                      if (amountOf(c.taxPercent) > 0) '+${c.taxPercent}% tax',
+                      c.rateLabel,
+                      if (c.isServiceCharge) 'Service charge',
+                      if (!c.gstApplicable) 'No GST',
                     ].join(' · ')),
-                    trailing: Text(
-                      c.isPerSqft
-                          ? '${formatRupees(c.defaultAmount ?? '0')}/sq ft'
-                          : formatRupees(c.defaultAmount ?? '0'),
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded),
                   ),
                 ),
-              const SizedBox(height: 4),
-              Row(children: [
-                const Expanded(
-                  child: Text('Fixed charges per flat, incl. tax',
-                      style: TextStyle(color: AppTheme.textSecondary)),
-                ),
-                Text(formatRupees('$flatTotal'),
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-              ]),
             ],
           );
         },
@@ -470,7 +457,9 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
   late final _amountCtrl = TextEditingController(text: widget.existing?.defaultAmount ?? '');
   late final _taxCtrl = TextEditingController(text: widget.existing?.taxPercent ?? '0');
   late String _type = widget.existing?.chargeType ?? 'maintenance';
-  late bool _perSqft = widget.existing?.isPerSqft ?? false;
+  late String _basis = widget.existing?.basis ?? 'fixed';
+  late bool _service = widget.existing?.isServiceCharge ?? true;
+  late bool _gst = widget.existing?.gstApplicable ?? true;
   bool _saving = false;
 
   bool get _editing => widget.existing != null;
@@ -483,10 +472,31 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
     super.dispose();
   }
 
+  /// Picking a type pre-fills the usual bye-law basis/rate for it.
+  void _onTypeChanged(String type) {
+    _type = type;
+    if (_nameCtrl.text.trim().isEmpty || !_editing) _nameCtrl.text = chargeTypeLabel(type);
+    if (_editing) return;
+    _service = type == 'maintenance';
+    switch (type) {
+      case 'sinking_fund':
+        _basis = 'construction_cost_pct';
+        _amountCtrl.text = '0.25';
+      case 'repair_fund':
+        _basis = 'construction_cost_pct';
+        _amountCtrl.text = '0.75';
+      case 'parking':
+        _basis = 'parking';
+      default:
+        break;
+    }
+  }
+
   String? _number(String? v, {bool required = true}) {
     if (v == null || v.trim().isEmpty) return required ? 'Required' : null;
     final n = double.tryParse(v.trim());
     if (n == null || n < 0) return 'Enter a valid amount';
+    if (_basis == 'construction_cost_pct' && required && n > 100) return 'Enter a percentage';
     return null;
   }
 
@@ -515,12 +525,12 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
     await _run(
       () => _editing
           ? api.updateChargeHead(widget.existing!.id, {
-              'name': name, 'charge_type': _type, 'default_amount': amount,
-              'tax_percent': tax, 'is_per_sqft': _perSqft,
+              'name': name, 'charge_type': _type, 'default_amount': amount, 'basis': _basis,
+              'is_service_charge': _service, 'gst_applicable': _gst, 'tax_percent': tax,
             })
           : api.createChargeHead(
-              societyId: widget.societyId, chargeType: _type, name: name,
-              amount: amount, taxPercent: tax, isPerSqft: _perSqft,
+              societyId: widget.societyId, chargeType: _type, name: name, amount: amount,
+              basis: _basis, isServiceCharge: _service, gstApplicable: _gst, taxPercent: tax,
             ),
       _editing ? 'Charge head updated' : 'Charge head added',
     );
@@ -553,6 +563,8 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final gstFromRules =
+        ref.watch(maintenanceRulesProvider(widget.societyId)).valueOrNull?.gstEnabled ?? false;
     return _SheetFrame(
       title: _editing ? 'Edit Charge Head' : 'Add Charge Head',
       child: Form(
@@ -562,39 +574,60 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
             initialValue: _type,
             decoration: const InputDecoration(labelText: 'Type *'),
             items: [for (final t in kChargeTypes) DropdownMenuItem(value: t.$1, child: Text(t.$2))],
-            onChanged: (v) => setState(() {
-              _type = v ?? _type;
-              if (_nameCtrl.text.trim().isEmpty) _nameCtrl.text = chargeTypeLabel(_type);
-            }),
+            onChanged: (v) => setState(() => _onTypeChanged(v ?? _type)),
           ),
           const SizedBox(height: 14),
           TextFormField(
             controller: _nameCtrl,
-            decoration: const InputDecoration(labelText: 'Name on bill *', hintText: 'e.g. Monthly Maintenance'),
+            decoration: const InputDecoration(labelText: 'Name on bill *', hintText: 'e.g. Service Charges'),
             validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
           ),
+          const SizedBox(height: 14),
+          DropdownButtonFormField<String>(
+            key: ValueKey('basis-$_basis'),
+            initialValue: _basis,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'How is it calculated? *'),
+            items: [for (final b in kChargeBases) DropdownMenuItem(value: b.$1, child: Text(b.$2))],
+            onChanged: (v) => setState(() => _basis = v ?? _basis),
+          ),
+          const SizedBox(height: 6),
+          Text(chargeBasisHint(_basis),
+              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           const SizedBox(height: 14),
           TextFormField(
             controller: _amountCtrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(labelText: _perSqft ? 'Rate per sq ft (₹) *' : 'Amount per flat (₹) *'),
+            decoration: InputDecoration(labelText: '${chargeAmountFieldLabel(_basis)} *'),
             validator: _number,
           ),
           const SizedBox(height: 4),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Charge by flat area'),
-            subtitle: const Text('Amount × the flat\'s area in sq ft'),
-            value: _perSqft,
-            onChanged: (v) => setState(() => _perSqft = v),
+            title: const Text('Service charge'),
+            subtitle: const Text('Non-occupancy charges for let-out flats are a % of these'),
+            value: _service,
+            onChanged: (v) => setState(() => _service = v),
           ),
-          const SizedBox(height: 4),
-          TextFormField(
-            controller: _taxCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Tax / GST %', hintText: '0'),
-            validator: (v) => _number(v, required: false),
-          ),
+          if (gstFromRules)
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('GST applicable'),
+              subtitle: const Text('Included when checking the monthly GST threshold'),
+              value: _gst,
+              onChanged: (v) => setState(() => _gst = v),
+            )
+          else
+            TextFormField(
+              controller: _taxCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Tax %',
+                hintText: '0',
+                helperText: 'Or turn on GST in Rules to apply the ₹7,500 threshold automatically',
+              ),
+              validator: (v) => _number(v, required: false),
+            ),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _saving ? null : _save,
@@ -612,6 +645,204 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
             ),
           ],
         ]),
+      ),
+    );
+  }
+}
+
+// ── Rules tab ─────────────────────────────────────────────────────────────────
+
+class _RulesTab extends ConsumerWidget {
+  final String societyId;
+  const _RulesTab({required this.societyId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ref.watch(maintenanceRulesProvider(societyId)).when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(
+              child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
+          data: (rules) => _RulesForm(societyId: societyId, rules: rules),
+        );
+  }
+}
+
+class _RulesForm extends ConsumerStatefulWidget {
+  final String societyId;
+  final MaintenanceRules rules;
+  const _RulesForm({required this.societyId, required this.rules});
+
+  @override
+  ConsumerState<_RulesForm> createState() => _RulesFormState();
+}
+
+class _RulesFormState extends ConsumerState<_RulesForm> {
+  final _formKey = GlobalKey<FormState>();
+  late final _costCtrl = TextEditingController(text: widget.rules.constructionCostPerSqft ?? '');
+  late final _interestCtrl = TextEditingController(text: _trim(widget.rules.interestRatePct));
+  late final _graceCtrl = TextEditingController(text: '${widget.rules.interestGraceDays}');
+  late final _nocCtrl = TextEditingController(text: _trim(widget.rules.nonOccupancyPct));
+  late final _gstRateCtrl = TextEditingController(text: _trim(widget.rules.gstRatePct));
+  late final _gstThresholdCtrl = TextEditingController(text: _trim(widget.rules.gstThresholdMonthly));
+  late bool _gst = widget.rules.gstEnabled;
+  bool _saving = false;
+
+  static String _trim(String v) {
+    final d = double.tryParse(v);
+    if (d == null) return v;
+    return d == d.roundToDouble() ? d.toStringAsFixed(0) : '$d';
+  }
+
+  @override
+  void dispose() {
+    for (final c in [_costCtrl, _interestCtrl, _graceCtrl, _nocCtrl, _gstRateCtrl, _gstThresholdCtrl]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  String? Function(String?) _range(double max, {bool required = true}) => (v) {
+        if (v == null || v.trim().isEmpty) return required ? 'Required' : null;
+        final n = double.tryParse(v.trim());
+        if (n == null || n < 0) return 'Enter a valid number';
+        if (n > max) return 'Maximum is ${_trim('$max')}';
+        return null;
+      };
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    try {
+      final cost = _costCtrl.text.trim();
+      await ref.read(maintenanceBillingApiProvider).updateRules(widget.societyId, {
+        'construction_cost_per_sqft': cost.isEmpty ? null : cost,
+        'interest_rate_pct': _interestCtrl.text.trim(),
+        'interest_grace_days': int.parse(_graceCtrl.text.trim()),
+        'non_occupancy_pct': _nocCtrl.text.trim(),
+        'gst_enabled': _gst,
+        'gst_rate_pct': _gstRateCtrl.text.trim(),
+        'gst_threshold_monthly': _gstThresholdCtrl.text.trim(),
+      });
+      ref.invalidate(maintenanceRulesProvider(widget.societyId));
+      if (mounted) AppToast.success(context, 'Rules saved — they apply to bills generated from now on');
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Widget _section(String title, String help, List<Widget> fields) => Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.cardBg,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: AppTheme.cardShadow,
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(help, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          const SizedBox(height: 12),
+          ...fields,
+        ]),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    const number = TextInputType.numberWithOptions(decimal: true);
+    return Form(
+      key: _formKey,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        children: [
+          _section(
+            'Construction cost',
+            'Architect-certified construction cost per sq ft, excluding land. Used for '
+                'charge heads calculated as a % of construction cost (sinking fund, repair fund).',
+            [
+              TextFormField(
+                controller: _costCtrl,
+                keyboardType: number,
+                decoration: const InputDecoration(labelText: 'Construction cost per sq ft (₹)'),
+                validator: _range(1e7, required: false),
+              ),
+            ],
+          ),
+          _section(
+            'Interest on late payment',
+            'Simple interest on unpaid bills, from the due date until paid, added to the next bill. '
+                'Maharashtra caps it at 12% p.a. (2026 amendment); older bye-laws allowed 21%.',
+            [
+              TextFormField(
+                controller: _interestCtrl,
+                keyboardType: number,
+                decoration: const InputDecoration(labelText: 'Interest rate (% per year)'),
+                validator: _range(21),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _graceCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Grace period after due date (days)'),
+                validator: (v) {
+                  final base = _range(90)(v);
+                  if (base != null) return base;
+                  return int.tryParse(v!.trim()) == null ? 'Whole days only' : null;
+                },
+              ),
+            ],
+          ),
+          _section(
+            'Non-occupancy charges',
+            'Extra charge for flats marked Tenant occupied, as a % of service charges only. '
+                'Capped at 10% by law. Set 0 to turn off.',
+            [
+              TextFormField(
+                controller: _nocCtrl,
+                keyboardType: number,
+                decoration: const InputDecoration(labelText: 'Non-occupancy (% of service charges)'),
+                validator: _range(10),
+              ),
+            ],
+          ),
+          _section(
+            'GST',
+            'Turn on only if the society is GST-registered (annual turnover above ₹20 lakh). '
+                'GST then applies to the whole bill once a flat\'s monthly maintenance crosses the '
+                'threshold — nothing below it.',
+            [
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Society is GST-registered'),
+                value: _gst,
+                onChanged: (v) => setState(() => _gst = v),
+              ),
+              if (_gst) ...[
+                TextFormField(
+                  controller: _gstRateCtrl,
+                  keyboardType: number,
+                  decoration: const InputDecoration(labelText: 'GST rate (%)'),
+                  validator: _range(28),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _gstThresholdCtrl,
+                  keyboardType: number,
+                  decoration: const InputDecoration(labelText: 'Monthly threshold per flat (₹)'),
+                  validator: _range(1e7),
+                ),
+              ],
+            ],
+          ),
+          ElevatedButton(
+            onPressed: _saving ? null : _save,
+            child: _saving
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Save Rules'),
+          ),
+        ],
       ),
     );
   }

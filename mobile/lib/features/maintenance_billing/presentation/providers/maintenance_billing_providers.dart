@@ -7,6 +7,14 @@ final chargeHeadsProvider = FutureProvider.autoDispose.family<List<ChargeHead>, 
   (ref, societyId) => ref.watch(maintenanceBillingApiProvider).listChargeHeads(societyId),
 );
 
+final maintenanceRulesProvider = FutureProvider.autoDispose.family<MaintenanceRules, String>(
+  (ref, societyId) => ref.watch(maintenanceBillingApiProvider).getRules(societyId),
+);
+
+final cyclePreviewProvider = FutureProvider.autoDispose.family<CyclePreview, String>(
+  (ref, cycleId) => ref.watch(maintenanceBillingApiProvider).previewCycle(cycleId),
+);
+
 final billingCyclesProvider = FutureProvider.autoDispose.family<List<BillingCycle>, String>(
   (ref, societyId) => ref.watch(maintenanceBillingApiProvider).listCycles(societyId),
 );

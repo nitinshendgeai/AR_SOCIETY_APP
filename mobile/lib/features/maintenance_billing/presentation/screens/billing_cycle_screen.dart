@@ -5,6 +5,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/maintenance_bill_detail_screen.dart';
+import 'package:ar_society_app/features/maintenance_billing/presentation/screens/cycle_preview_screen.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 enum _BillFilter { all, unpaid, overdue, paid, notIssued }
@@ -52,18 +53,11 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
       AppToast.warning(context, 'Add charge heads first — Maintenance Billing → Charge Heads');
       return;
     }
-    final ok = await _confirm(
-      'Generate bills?',
-      'One bill will be created for every active flat using ${charges.length} charge '
-          'head${charges.length == 1 ? '' : 's'} (${charges.map((c) => c.name).join(', ')}).\n\n'
-          'Residents won\'t see them until you issue them.',
-      'Generate',
-    );
-    if (!ok) return;
-    await _run(() async {
-      final n = await ref.read(maintenanceBillingApiProvider).generateBills(widget.cycleId);
-      if (mounted) AppToast.success(context, '$n bills generated — review, then issue them');
-    });
+    final cycle = ref.read(billingCycleProvider(widget.cycleId)).valueOrNull;
+    final generated = await Navigator.push<bool>(context, MaterialPageRoute(
+      builder: (_) => CyclePreviewScreen(cycleId: widget.cycleId, cycleName: cycle?.name ?? 'Cycle'),
+    ));
+    if (generated == true) _refresh();
   }
 
   Future<void> _issueAll(int count) async {
@@ -137,7 +131,7 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
                 child: AppEmptyState(
                   icon: Icons.post_add_rounded,
                   title: 'No bills yet',
-                  subtitle: 'Generate bills to create one for every flat from your charge heads.',
+                  subtitle: 'Calculate bills to preview each flat\'s amount from your charge heads and rules, then generate.',
                 ),
               )
             else ...[
@@ -192,7 +186,7 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
 
   Widget? _actionBar(BillingCycle cycle) {
     if (!cycle.isFinalized) {
-      return _bar('Generate Bills', Icons.auto_awesome_rounded, _generate);
+      return _bar('Calculate & Preview Bills', Icons.calculate_rounded, _generate);
     }
     if (cycle.awaitingIssue) {
       return _bar('Issue ${cycle.generatedCount} Bills to Residents', Icons.send_rounded,

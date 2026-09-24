@@ -17,7 +17,7 @@ from app.modules.billing.models.billing import (
     MaintenanceBill, InvoiceLineItem, PaymentReceipt, DueTracker, PenaltyRule,
     OnlinePaymentSubmission, ReconciliationStatus,
     BankStatementEntry, BankStatementMatchStatus,
-    BillStatus, ChargeType, PaymentMode,
+    BillStatus, ChargeType, PaymentMode, ChargeBasis, MaintenanceSettings,
 )
 from app.modules.billing.repositories.billing_repo import (
     FinancialPeriodRepo, ChargeConfigRepo, BillingCycleRepo,
@@ -28,6 +28,7 @@ from app.models.flat import Flat
 from app.models.wing import Wing
 from app.models.resident import Resident
 from app.modules.billing.services.bill_pdf import generate_maintenance_bill_pdf
+from app.modules.billing.services.maintenance_calculator import MaintenanceCalculator, default_settings
 from app.models.user import User
 from app.models.audit_log import AuditAction
 from app.services.audit_service import AuditService
@@ -80,7 +81,18 @@ class BillingService:
 
     # ── Charge Configuration ──────────────────────────────────────────────────
 
+    @staticmethod
+    def _sync_basis(data: dict) -> dict:
+        """`is_per_sqft` predates `basis`; accept either and keep both
+        columns consistent."""
+        if data.get("basis") is not None:
+            data["is_per_sqft"] = data["basis"] == ChargeBasis.PER_SQFT
+        elif data.get("is_per_sqft") is not None:
+            data["basis"] = ChargeBasis.PER_SQFT if data["is_per_sqft"] else ChargeBasis.FIXED
+        return data
+
     def create_charge_config(self, data: dict, user: User) -> MaintenanceChargeConfig:
+        data = self._sync_basis({k: v for k, v in data.items() if v is not None})
         config = MaintenanceChargeConfig(**data)
         self.charge_repo.create(config)
         self._audit(AuditAction.CREATE, config, "ChargeConfig", user,
@@ -98,6 +110,7 @@ class BillingService:
             MaintenanceChargeConfig.id == config_id).first()
         if not config: raise HTTPException(404, "Charge head not found")
         old = {"name": config.name, "amount": str(config.default_amount), "active": config.is_active}
+        data = self._sync_basis(dict(data))
         for field, value in data.items():
             setattr(config, field, value)
         self._audit(AuditAction.UPDATE, config, "ChargeConfig", user, old_values=old,
@@ -137,22 +150,20 @@ class BillingService:
         if existing:
             raise HTTPException(409, f"Bills already generated for this cycle ({len(existing)} bills)")
 
-        # Get charge configs
-        charges = self.charge_repo.get_by_society(cycle.society_id)
-        if not charges:
+        calc = MaintenanceCalculator(self.db, cycle.society_id)
+        if not calc.charges:
             raise HTTPException(422, "No charge configs found for this society. Add charges first.")
-
-        # Get all active flats
-        flats = self.db.query(Flat).filter(
-            Flat.wing.has(society_id=cycle.society_id),
-            Flat.is_active == True,
-        ).all()
-        if not flats:
+        if not calc.flats:
             raise HTTPException(422, "No active flats found for this society")
 
+        today = date.today()
+        drafts = calc.calculate(cycle, today)
+        if not drafts:
+            raise HTTPException(422, "Nothing to bill: " + " ".join(calc.warnings))
+
         bills = []
-        for flat in flats:
-            invoice_number = self.bill_repo.next_invoice_number(cycle.society_id)
+        for draft in drafts:
+            flat = draft.flat
             resident = self.db.query(Resident).filter(
                 Resident.flat_id == flat.id, Resident.is_active == True,
             ).order_by(Resident.is_primary.desc()).first()
@@ -160,46 +171,28 @@ class BillingService:
                 society_id=cycle.society_id, cycle_id=cycle_id,
                 flat_id=flat.id, generated_by=user.id,
                 resident_id=resident.id if resident else None,
-                invoice_number=invoice_number,
+                invoice_number=self.bill_repo.next_invoice_number(cycle.society_id),
                 bill_status=BillStatus.GENERATED,
-                bill_date=date.today(), due_date=cycle.due_date,
+                bill_date=today, due_date=cycle.due_date,
+                subtotal=draft.subtotal, tax_amount=draft.tax,
+                total_amount=draft.total, outstanding=draft.total,
+                previous_dues=draft.previous_dues,
             )
             self.db.add(bill)
             self.db.flush()
+            for l in draft.lines:
+                self.db.add(InvoiceLineItem(
+                    bill_id=bill.id, charge_type=l.charge_type, description=l.description,
+                    quantity=1.0, unit_rate=l.amount, amount=l.amount,
+                    tax_percent=l.tax_percent, tax_amount=l.tax_amount, total=l.total,
+                ))
+            for earlier in draft.interest_bills:
+                earlier.arrears_interest_upto = today
 
-            # Generate line items from charge configs
-            subtotal = Decimal(0)
-            tax_total = Decimal(0)
-            for charge in charges:
-                unit_rate = charge.default_amount or Decimal(0)
-                if charge.is_per_sqft and flat.area_sqft:
-                    unit_rate = unit_rate * Decimal(str(flat.area_sqft))
-                qty = Decimal(1)
-                amount = unit_rate * qty
-                tax = (amount * charge.tax_percent / 100).quantize(Decimal("0.01"))
-                total = amount + tax
-
-                line = InvoiceLineItem(
-                    bill_id=bill.id, charge_type=charge.charge_type,
-                    description=charge.name, quantity=float(qty),
-                    unit_rate=unit_rate, amount=amount,
-                    tax_percent=charge.tax_percent, tax_amount=tax, total=total,
-                )
-                self.db.add(line)
-                subtotal  += amount
-                tax_total += tax
-
-            bill.subtotal     = subtotal
-            bill.tax_amount   = tax_total
-            bill.total_amount = subtotal + tax_total
-            bill.outstanding  = bill.total_amount
-
-            # Update due tracker
             tracker = self.due_repo.get_or_create(flat.id, cycle.society_id)
             tracker.total_billed  += bill.total_amount
             tracker.outstanding   += bill.total_amount
-            tracker.last_bill_date = date.today()
-
+            tracker.last_bill_date = today
             bills.append(bill)
 
         cycle.is_finalized          = True
@@ -266,6 +259,34 @@ class BillingService:
         cycle = self.cycle_repo.get(cycle_id)
         if not cycle: raise HTTPException(404, "Billing cycle not found")
         return cycle
+
+    def preview_cycle(self, cycle_id: UUID) -> MaintenanceCalculator:
+        """Dry run of generate_bills_for_cycle — nothing is written."""
+        cycle = self.get_cycle(cycle_id)
+        calc = MaintenanceCalculator(self.db, cycle.society_id)
+        calc.drafts = calc.calculate(cycle, date.today())
+        calc.cycle = cycle
+        return calc
+
+    # ── Maintenance rules ─────────────────────────────────────────────────────
+
+    def get_maintenance_settings(self, society_id: UUID) -> MaintenanceSettings:
+        return self.db.query(MaintenanceSettings).filter(
+            MaintenanceSettings.society_id == society_id).first() or default_settings(society_id)
+
+    def update_maintenance_settings(self, society_id: UUID, data: dict, user: User) -> MaintenanceSettings:
+        settings = self.db.query(MaintenanceSettings).filter(
+            MaintenanceSettings.society_id == society_id).first()
+        if not settings:
+            settings = default_settings(society_id)
+            self.db.add(settings)
+        for field, value in data.items():
+            setattr(settings, field, value)
+        self.db.flush()
+        self._audit(AuditAction.UPDATE, settings, "MaintenanceSettings", user,
+                    new_values={k: str(v) for k, v in data.items()})
+        self.db.commit(); self.db.refresh(settings)
+        return settings
 
     def cancel_bill(self, bill_id: UUID, reason: str, user: User) -> MaintenanceBill:
         bill = self.bill_repo.get(bill_id)
