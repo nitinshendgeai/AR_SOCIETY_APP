@@ -235,6 +235,7 @@ const _menuCategories = [
   ]),
   _MenuCategory('Finance', Icons.payments_rounded, [
     _MenuItem('maintenance_billing', 'Maintenance Billing', Icons.request_quote_rounded, AppRoutes.maintenanceBilling),
+    _MenuItem('maintenance_elements', 'Maintenance Elements', Icons.tune_rounded, AppRoutes.maintenanceElements),
     _MenuItem('online_payments', 'Payments', Icons.receipt_long_rounded, AppRoutes.onlinePayments),
     _MenuItem('bank_reconciliation', 'Bank Reconciliation', Icons.account_balance_rounded, AppRoutes.bankReconciliation),
     _MenuItem('vendor_bills', 'Vendor Bills', Icons.storefront_rounded, AppRoutes.vendorBills),

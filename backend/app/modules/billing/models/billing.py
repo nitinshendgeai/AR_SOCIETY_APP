@@ -14,7 +14,7 @@ Architecture is finance-ERP-ready:
 import enum
 from sqlalchemy import (
     Column, String, Text, Integer, Float, Boolean,
-    DateTime, Date, Enum, ForeignKey, Numeric, LargeBinary
+    DateTime, Date, Enum, ForeignKey, Numeric, LargeBinary, UniqueConstraint
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -129,6 +129,40 @@ class FinancialPeriod(Base, TimestampMixin):
         return f"<FinancialPeriod {self.name}>"
 
 
+# ── MaintenanceElement ────────────────────────────────────────────────────────
+
+class MaintenanceElement(Base, TimestampMixin):
+    """
+    A society's master list of maintenance elements — the kinds of charge
+    it can levy (service charges, sinking fund, property tax, lift, …) with
+    the default way each is calculated. Seeded with the standard bye-law
+    elements on first use (see standard_elements.py) and fully editable
+    afterwards; charge heads are created from these.
+    """
+    __tablename__ = "maintenance_elements"
+    __table_args__ = (UniqueConstraint("society_id", "code", name="uq_maintenance_element_code"),)
+
+    society_id        = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    code              = Column(String(50), nullable=False)          # stable slug, unique per society
+    name              = Column(String(150), nullable=False)
+    description       = Column(Text, nullable=True)
+    bye_law_ref       = Column(String(150), nullable=True)
+    category          = Column(Enum(ChargeType, values_callable=lambda e: [x.value for x in e]),
+                               default=ChargeType.OTHER, nullable=False)
+    default_basis     = Column(Enum(ChargeBasis, values_callable=lambda e: [x.value for x in e]),
+                               default=ChargeBasis.FIXED, nullable=False)
+    default_amount    = Column(Numeric(12, 2), nullable=True)
+    is_service_charge = Column(Boolean, default=False, nullable=False)
+    gst_applicable    = Column(Boolean, default=True, nullable=False)
+    sort_order        = Column(Integer, default=100, nullable=False)
+    is_system         = Column(Boolean, default=False, nullable=False)  # seeded standard element
+
+    society = relationship("Society")
+
+    def __repr__(self):
+        return f"<MaintenanceElement {self.code}>"
+
+
 # ── MaintenanceChargeConfig ───────────────────────────────────────────────────
 
 class MaintenanceChargeConfig(Base, TimestampMixin):
@@ -153,8 +187,11 @@ class MaintenanceChargeConfig(Base, TimestampMixin):
     tax_percent   = Column(Numeric(5, 2), default=0, nullable=False)
     effective_from = Column(Date, nullable=True)
     effective_to  = Column(Date, nullable=True)
+    element_id    = Column(UUID(as_uuid=True), ForeignKey("maintenance_elements.id", ondelete="SET NULL"),
+                           nullable=True, index=True)
 
     society      = relationship("Society")
+    element      = relationship("MaintenanceElement")
 
     def __repr__(self):
         return f"<ChargeConfig {self.name} ₹{self.default_amount}>"

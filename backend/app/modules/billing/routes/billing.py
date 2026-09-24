@@ -35,10 +35,13 @@ class PeriodCreate(OrmBase):
     society_id: UUID; name: str; period_start: date; period_end: date
 
 class ChargeConfigCreate(OrmBase):
-    society_id: UUID; charge_type: ChargeType; name: str
+    # With element_id, anything left out is taken from the element.
+    society_id: UUID
+    element_id: Optional[UUID] = None
+    charge_type: Optional[ChargeType] = None; name: Optional[str] = None
     default_amount: Optional[Decimal] = None; is_per_sqft: Optional[bool] = None
     basis: Optional[ChargeBasis] = None
-    is_service_charge: bool = False; gst_applicable: bool = True
+    is_service_charge: Optional[bool] = None; gst_applicable: Optional[bool] = None
     is_mandatory: bool = True; tax_percent: Decimal = Decimal(0)
     description: Optional[str] = None; effective_from: Optional[date] = None
 
@@ -152,6 +155,8 @@ def _charge_out(c) -> dict:
         "gst_applicable": c.gst_applicable,
         "is_mandatory": c.is_mandatory,
         "tax_percent": str(c.tax_percent),
+        "element_id": str(c.element_id) if c.element_id else None,
+        "element_name": c.element.name if c.element else None,
         "is_active": c.is_active,
     }
 
@@ -169,6 +174,83 @@ def update_charge(config_id: UUID, data: ChargeConfigUpdate, db: Session = Depen
                   user: User = Depends(get_current_user)):
     changes = data.model_dump(exclude_unset=True)
     return _charge_out(BillingService(db).update_charge_config(config_id, changes, user))
+
+
+# ── Maintenance element master ────────────────────────────────────────────────
+class ElementCreate(OrmBase):
+    society_id: UUID
+    name: str = Field(..., min_length=1, max_length=150)
+    category: ChargeType = ChargeType.OTHER
+    default_basis: ChargeBasis = ChargeBasis.FIXED
+    default_amount: Optional[Decimal] = Field(None, ge=0)
+    is_service_charge: bool = False
+    gst_applicable: bool = True
+    description: Optional[str] = None
+    bye_law_ref: Optional[str] = Field(None, max_length=150)
+
+
+class ElementUpdate(OrmBase):
+    name: Optional[str] = Field(None, min_length=1, max_length=150)
+    category: Optional[ChargeType] = None
+    default_basis: Optional[ChargeBasis] = None
+    default_amount: Optional[Decimal] = Field(None, ge=0)
+    is_service_charge: Optional[bool] = None
+    gst_applicable: Optional[bool] = None
+    description: Optional[str] = None
+    bye_law_ref: Optional[str] = Field(None, max_length=150)
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class ChargesFromElementsItem(OrmBase):
+    element_id: UUID
+    amount: Optional[Decimal] = Field(None, ge=0)
+
+
+class ChargesFromElements(OrmBase):
+    society_id: UUID
+    items: List[ChargesFromElementsItem] = Field(..., min_length=1)
+
+
+def _element_out(e) -> dict:
+    return {
+        "id": str(e.id),
+        "society_id": str(e.society_id),
+        "code": e.code,
+        "name": e.name,
+        "description": e.description,
+        "bye_law_ref": e.bye_law_ref,
+        "category": e.category.value,
+        "default_basis": e.default_basis.value,
+        "default_amount": str(e.default_amount) if e.default_amount is not None else None,
+        "is_service_charge": e.is_service_charge,
+        "gst_applicable": e.gst_applicable,
+        "sort_order": e.sort_order,
+        "is_system": e.is_system,
+        "is_active": e.is_active,
+    }
+
+@router.get("/elements/{society_id}", dependencies=[Depends(manager_above)])
+def list_elements(society_id: UUID, include_inactive: bool = False, db: Session = Depends(get_db)):
+    return [_element_out(e) for e in BillingService(db).list_elements(society_id, include_inactive)]
+
+@router.post("/elements", status_code=201, dependencies=[Depends(admin_committee)])
+def create_element(data: ElementCreate, db: Session = Depends(get_db),
+                   user: User = Depends(get_current_user)):
+    return _element_out(BillingService(db).create_element(data.model_dump(), user))
+
+@router.patch("/elements/{element_id}", dependencies=[Depends(admin_committee)])
+def update_element(element_id: UUID, data: ElementUpdate, db: Session = Depends(get_db),
+                   user: User = Depends(get_current_user)):
+    changes = data.model_dump(exclude_unset=True)
+    return _element_out(BillingService(db).update_element(element_id, changes, user))
+
+@router.post("/charges/from-elements", status_code=201, dependencies=[Depends(manager_above)])
+def create_charges_from_elements(data: ChargesFromElements, db: Session = Depends(get_db),
+                                 user: User = Depends(get_current_user)):
+    items = [i.model_dump() for i in data.items]
+    created = BillingService(db).create_charges_from_elements(data.society_id, items, user)
+    return [_charge_out(c) for c in created]
 
 
 # ── Maintenance rules ─────────────────────────────────────────────────────────

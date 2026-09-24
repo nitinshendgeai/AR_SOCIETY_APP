@@ -7,6 +7,15 @@ final chargeHeadsProvider = FutureProvider.autoDispose.family<List<ChargeHead>, 
   (ref, societyId) => ref.watch(maintenanceBillingApiProvider).listChargeHeads(societyId),
 );
 
+/// The society's maintenance element master. Active-only unless
+/// includeInactive (the master screen shows both).
+final maintenanceElementsProvider = FutureProvider.autoDispose
+    .family<List<MaintenanceElement>, ({String societyId, bool includeInactive})>(
+  (ref, key) => ref
+      .watch(maintenanceBillingApiProvider)
+      .listElements(key.societyId, includeInactive: key.includeInactive),
+);
+
 final maintenanceRulesProvider = FutureProvider.autoDispose.family<MaintenanceRules, String>(
   (ref, societyId) => ref.watch(maintenanceBillingApiProvider).getRules(societyId),
 );

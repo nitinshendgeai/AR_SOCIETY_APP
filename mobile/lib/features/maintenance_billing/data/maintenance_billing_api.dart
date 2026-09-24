@@ -47,6 +47,69 @@ String chargeBasisHint(String basis) => switch (basis) {
       _ => 'Service charges, lift and common electricity are shared equally under the bye-laws.',
     };
 
+/// e.g. "₹2,500 / flat / month", "0.25% of construction cost / yr".
+String basisRateLabel(String basis, String? amount) {
+  if (amount == null) return '${chargeBasisLabel(basis)} · amount set per society';
+  return switch (basis) {
+    'per_sqft' => '${formatRupees(amount)} / sq ft / month',
+    'construction_cost_pct' => '$amount% of construction cost / yr',
+    'budget_equal' => '${formatRupees(amount)} / yr, split equally',
+    'budget_area' => '${formatRupees(amount)} / yr, split by area',
+    'parking' => '${formatRupees(amount)} / slot / month',
+    _ => '${formatRupees(amount)} / flat / month',
+  };
+}
+
+/// An entry in the society's maintenance element master (backend
+/// MaintenanceElement) — a kind of charge with its default calculation.
+/// Charge heads are created from these.
+class MaintenanceElement {
+  final String id;
+  final String code;
+  final String name;
+  final String? description;
+  final String? byeLawRef;
+  final String category;
+  final String defaultBasis;
+  final String? defaultAmount;
+  final bool isServiceCharge;
+  final bool gstApplicable;
+  final bool isSystem;
+  final bool isActive;
+
+  const MaintenanceElement({
+    required this.id,
+    required this.code,
+    required this.name,
+    this.description,
+    this.byeLawRef,
+    required this.category,
+    required this.defaultBasis,
+    this.defaultAmount,
+    this.isServiceCharge = false,
+    this.gstApplicable = true,
+    this.isSystem = false,
+    this.isActive = true,
+  });
+
+  String get rateLabel => basisRateLabel(defaultBasis, defaultAmount);
+
+  factory MaintenanceElement.fromJson(Map<String, dynamic> j) => MaintenanceElement(
+        id: j['id'] as String,
+        code: j['code'] as String,
+        name: j['name'] as String,
+        description: j['description'] as String?,
+        byeLawRef: j['bye_law_ref'] as String?,
+        category: j['category'] as String,
+        defaultBasis: j['default_basis'] as String,
+        defaultAmount: j['default_amount'] as String?,
+        isServiceCharge: j['is_service_charge'] as bool? ?? false,
+        gstApplicable: j['gst_applicable'] as bool? ?? true,
+        isSystem: j['is_system'] as bool? ?? false,
+        isActive: j['is_active'] as bool? ?? true,
+      );
+}
+
 /// A society charge head (backend MaintenanceChargeConfig) — calculated
 /// per flat and copied onto every bill as a line item at generation time.
 class ChargeHead {
@@ -59,6 +122,8 @@ class ChargeHead {
   final bool isServiceCharge;
   final bool gstApplicable;
   final String taxPercent;
+  final String? elementId;
+  final String? elementName;
   final bool isActive;
 
   const ChargeHead({
@@ -71,21 +136,12 @@ class ChargeHead {
     this.isServiceCharge = false,
     this.gstApplicable = true,
     this.taxPercent = '0',
+    this.elementId,
+    this.elementName,
     this.isActive = true,
   });
 
-  /// e.g. "₹2,500 / flat / month", "0.25% of construction cost / yr".
-  String get rateLabel {
-    final v = defaultAmount ?? '0';
-    return switch (basis) {
-      'per_sqft' => '${formatRupees(v)} / sq ft / month',
-      'construction_cost_pct' => '$v% of construction cost / yr',
-      'budget_equal' => '${formatRupees(v)} / yr, split equally',
-      'budget_area' => '${formatRupees(v)} / yr, split by area',
-      'parking' => '${formatRupees(v)} / slot / month',
-      _ => '${formatRupees(v)} / flat / month',
-    };
-  }
+  String get rateLabel => basisRateLabel(basis, defaultAmount ?? '0');
 
   factory ChargeHead.fromJson(Map<String, dynamic> j) => ChargeHead(
         id: j['id'] as String,
@@ -97,6 +153,8 @@ class ChargeHead {
         isServiceCharge: j['is_service_charge'] as bool? ?? false,
         gstApplicable: j['gst_applicable'] as bool? ?? true,
         taxPercent: _str(j['tax_percent']),
+        elementId: j['element_id'] as String?,
+        elementName: j['element_name'] as String?,
         isActive: j['is_active'] as bool? ?? true,
       );
 }
@@ -442,6 +500,7 @@ class MaintenanceBillingApi {
 
   Future<ChargeHead> createChargeHead({
     required String societyId,
+    String? elementId,
     required String chargeType,
     required String name,
     required String amount,
@@ -452,6 +511,7 @@ class MaintenanceBillingApi {
   }) async {
     final r = await _dio.post('/billing/charges', data: {
       'society_id': societyId,
+      if (elementId != null) 'element_id': elementId,
       'charge_type': chargeType,
       'name': name,
       'default_amount': amount,
@@ -466,6 +526,37 @@ class MaintenanceBillingApi {
   Future<ChargeHead> updateChargeHead(String id, Map<String, dynamic> changes) async {
     final r = await _dio.patch('/billing/charges/$id', data: changes);
     return ChargeHead.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<List<MaintenanceElement>> listElements(String societyId, {bool includeInactive = false}) async =>
+      _list(
+        (await _dio.get('/billing/elements/$societyId',
+                queryParameters: {'include_inactive': includeInactive}))
+            .data,
+        MaintenanceElement.fromJson,
+      );
+
+  Future<MaintenanceElement> createElement(String societyId, Map<String, dynamic> fields) async {
+    final r = await _dio.post('/billing/elements', data: {'society_id': societyId, ...fields});
+    return MaintenanceElement.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<MaintenanceElement> updateElement(String id, Map<String, dynamic> changes) async {
+    final r = await _dio.patch('/billing/elements/$id', data: changes);
+    return MaintenanceElement.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// Bulk-creates charge heads from elements; items are (elementId, amount
+  /// or null for the element's default). Elements already in use are skipped.
+  Future<List<ChargeHead>> createChargesFromElements(
+      String societyId, List<(String, String?)> items) async {
+    final r = await _dio.post('/billing/charges/from-elements', data: {
+      'society_id': societyId,
+      'items': [
+        for (final (id, amount) in items) {'element_id': id, if (amount != null) 'amount': amount}
+      ],
+    });
+    return _list(r.data, ChargeHead.fromJson);
   }
 
   Future<MaintenanceRules> getRules(String societyId) async {

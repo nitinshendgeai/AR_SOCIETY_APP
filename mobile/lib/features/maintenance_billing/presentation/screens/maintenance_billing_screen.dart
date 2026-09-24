@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
+import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/billing_cycle_screen.dart';
+import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// Society side of maintenance billing: set up charge heads once, then each
@@ -336,7 +339,7 @@ class _NewCycleSheetState extends ConsumerState<_NewCycleSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return _SheetFrame(
+    return BillingSheetFrame(
       title: 'New Billing Cycle',
       child: Form(
         key: _formKey,
@@ -401,19 +404,49 @@ class _ChargeHeadsTab extends ConsumerWidget {
           ),
         ]),
         data: (charges) {
+          void loadStandard() => showModalBottomSheet(
+                context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+                builder: (_) => _LoadFromElementsSheet(societyId: societyId, existing: charges),
+              );
+          final canManageElements = ref.watch(currentUserProvider)?.isAdminOrCommittee ?? false;
+          final actions = Wrap(spacing: 8, children: [
+            OutlinedButton.icon(
+              onPressed: loadStandard,
+              icon: const Icon(Icons.playlist_add_rounded, size: 18),
+              label: const Text('Add from elements'),
+            ),
+            if (canManageElements)
+              TextButton.icon(
+                onPressed: () => context.push(AppRoutes.maintenanceElements),
+                icon: const Icon(Icons.tune_rounded, size: 18),
+                label: const Text('Manage elements'),
+              ),
+          ]);
           if (charges.isEmpty) {
-            return ListView(children: const [
-              SizedBox(height: 60),
+            return ListView(children: [
+              const SizedBox(height: 60),
               AppEmptyState(
                 icon: Icons.list_alt_rounded,
                 title: 'No charge heads yet',
-                subtitle: 'Charge heads are the lines on every bill — maintenance, water, sinking fund…',
+                subtitle: 'Start from the standard bye-law elements — service charges, sinking fund, '
+                    'repair fund, property tax… — and just fill in your amounts.',
+                actionLabel: 'Load standard charge heads',
+                onAction: loadStandard,
               ),
+              if (canManageElements)
+                Center(
+                  child: TextButton(
+                    onPressed: () => context.push(AppRoutes.maintenanceElements),
+                    child: const Text('Manage maintenance elements'),
+                  ),
+                ),
             ]);
           }
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
             children: [
+              actions,
+              const SizedBox(height: 8),
               const Text(
                 'Each flat\'s bill is worked out from these every cycle. Changes apply to '
                 'bills generated from now on — preview a cycle to see exact amounts.',
@@ -460,9 +493,20 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
   late String _basis = widget.existing?.basis ?? 'fixed';
   late bool _service = widget.existing?.isServiceCharge ?? true;
   late bool _gst = widget.existing?.gstApplicable ?? true;
+  late String? _elementId = widget.existing?.elementId;
   bool _saving = false;
 
   bool get _editing => widget.existing != null;
+
+  void _applyElement(MaintenanceElement el) {
+    _elementId = el.id;
+    _type = el.category;
+    _nameCtrl.text = el.name;
+    _basis = el.defaultBasis;
+    _amountCtrl.text = el.defaultAmount ?? '';
+    _service = el.isServiceCharge;
+    _gst = el.gstApplicable;
+  }
 
   @override
   void dispose() {
@@ -529,7 +573,8 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
               'is_service_charge': _service, 'gst_applicable': _gst, 'tax_percent': tax,
             })
           : api.createChargeHead(
-              societyId: widget.societyId, chargeType: _type, name: name, amount: amount,
+              societyId: widget.societyId, elementId: _elementId,
+              chargeType: _type, name: name, amount: amount,
               basis: _basis, isServiceCharge: _service, gstApplicable: _gst, taxPercent: tax,
             ),
       _editing ? 'Charge head updated' : 'Charge head added',
@@ -565,12 +610,39 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
   Widget build(BuildContext context) {
     final gstFromRules =
         ref.watch(maintenanceRulesProvider(widget.societyId)).valueOrNull?.gstEnabled ?? false;
-    return _SheetFrame(
+    return BillingSheetFrame(
       title: _editing ? 'Edit Charge Head' : 'Add Charge Head',
       child: Form(
         key: _formKey,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          if (!_editing) ...[
+            ref.watch(maintenanceElementsProvider((societyId: widget.societyId, includeInactive: false))).when(
+                  loading: () => const LinearProgressIndicator(),
+                  error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+                  data: (elements) => DropdownButtonFormField<String>(
+                    initialValue: _elementId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Start from element',
+                      helperText: 'Fills in the defaults below — you can still change them',
+                    ),
+                    items: [
+                      for (final el in elements) DropdownMenuItem(value: el.id, child: Text(el.name)),
+                    ],
+                    onChanged: (id) => setState(() {
+                      final el = elements.where((e) => e.id == id).firstOrNull;
+                      if (el != null) _applyElement(el);
+                    }),
+                  ),
+                ),
+            const SizedBox(height: 14),
+          ] else if (widget.existing!.elementName != null) ...[
+            Text('Element: ${widget.existing!.elementName}',
+                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            const SizedBox(height: 14),
+          ],
           DropdownButtonFormField<String>(
+            key: ValueKey('type-$_type'),
             initialValue: _type,
             decoration: const InputDecoration(labelText: 'Type *'),
             items: [for (final t in kChargeTypes) DropdownMenuItem(value: t.$1, child: Text(t.$2))],
@@ -647,6 +719,155 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
         ]),
       ),
     );
+  }
+}
+
+// ── Load charge heads from elements ───────────────────────────────────────────
+
+class _LoadFromElementsSheet extends ConsumerStatefulWidget {
+  final String societyId;
+  final List<ChargeHead> existing;
+  const _LoadFromElementsSheet({required this.societyId, required this.existing});
+
+  @override
+  ConsumerState<_LoadFromElementsSheet> createState() => _LoadFromElementsSheetState();
+}
+
+class _LoadFromElementsSheetState extends ConsumerState<_LoadFromElementsSheet> {
+  // The bye-law minimum set is pre-ticked.
+  static const _preselected = {'service_charges', 'repair_fund', 'sinking_fund'};
+  final Set<String> _selected = {};
+  final Map<String, TextEditingController> _amounts = {};
+  bool _initialised = false;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    for (final c in _amounts.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  TextEditingController _ctrl(MaintenanceElement el) =>
+      _amounts.putIfAbsent(el.id, () => TextEditingController(text: el.defaultAmount ?? ''));
+
+  Future<void> _save(List<MaintenanceElement> elements) async {
+    final chosen = elements.where((e) => _selected.contains(e.id)).toList();
+    final missing = chosen.where((e) => _ctrl(e).text.trim().isEmpty).map((e) => e.name).toList();
+    if (chosen.isEmpty) {
+      AppToast.warning(context, 'Tick at least one element');
+      return;
+    }
+    if (missing.isNotEmpty) {
+      AppToast.error(context, 'Enter an amount for: ${missing.join(', ')}');
+      return;
+    }
+    if (chosen.any((e) => double.tryParse(_ctrl(e).text.trim()) == null)) {
+      AppToast.error(context, 'Amounts must be numbers');
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final created = await ref.read(maintenanceBillingApiProvider).createChargesFromElements(
+            widget.societyId, [for (final e in chosen) (e.id, _ctrl(e).text.trim())]);
+      ref.invalidate(chargeHeadsProvider(widget.societyId));
+      if (mounted) {
+        AppToast.success(context, '${created.length} charge head${created.length == 1 ? '' : 's'} added');
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inUse = {for (final c in widget.existing) if (c.elementId != null) c.elementId!};
+    final elementsAsync =
+        ref.watch(maintenanceElementsProvider((societyId: widget.societyId, includeInactive: false)));
+    return BillingSheetFrame(
+      title: 'Add Charge Heads from Elements',
+      child: elementsAsync.when(
+        loading: () => const Padding(
+          padding: EdgeInsets.all(24),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+        data: (elements) {
+          if (!_initialised) {
+            _initialised = true;
+            _selected.addAll(elements
+                .where((e) => _preselected.contains(e.code) && !inUse.contains(e.id))
+                .map((e) => e.id));
+          }
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            const Text(
+              'Tick the elements your society charges and enter each amount. '
+              'Sinking and repair fund rates follow the bye-laws — set the construction cost in Rules.',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            for (final el in elements)
+              _ElementPickRow(
+                element: el,
+                added: inUse.contains(el.id),
+                selected: _selected.contains(el.id),
+                amountCtrl: _ctrl(el),
+                onChanged: (v) => setState(() => v ? _selected.add(el.id) : _selected.remove(el.id)),
+              ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _saving ? null : () => _save(elements),
+              child: _saving
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Text('Add ${_selected.length} Charge Head${_selected.length == 1 ? '' : 's'}'),
+            ),
+          ]);
+        },
+      ),
+    );
+  }
+}
+
+class _ElementPickRow extends StatelessWidget {
+  final MaintenanceElement element;
+  final bool added;
+  final bool selected;
+  final TextEditingController amountCtrl;
+  final ValueChanged<bool> onChanged;
+  const _ElementPickRow({
+    required this.element,
+    required this.added,
+    required this.selected,
+    required this.amountCtrl,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      CheckboxListTile(
+        contentPadding: EdgeInsets.zero,
+        controlAffinity: ListTileControlAffinity.leading,
+        value: added || selected,
+        onChanged: added ? null : (v) => onChanged(v ?? false),
+        title: Text(element.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(added ? 'Already added' : chargeBasisLabel(element.defaultBasis),
+            style: const TextStyle(fontSize: 12)),
+      ),
+      if (selected && !added)
+        Padding(
+          padding: const EdgeInsets.only(left: 48, bottom: 8),
+          child: TextField(
+            controller: amountCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(labelText: chargeAmountFieldLabel(element.defaultBasis), isDense: true),
+          ),
+        ),
+    ]);
   }
 }
 
@@ -849,34 +1070,6 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
 }
 
 // ── Shared sheet pieces ───────────────────────────────────────────────────────
-
-class _SheetFrame extends StatelessWidget {
-  final String title;
-  final Widget child;
-  const _SheetFrame({required this.title, required this.child});
-
-  @override
-  Widget build(BuildContext context) => Container(
-        decoration: const BoxDecoration(
-          color: AppTheme.cardBg,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: EdgeInsets.only(
-          left: 20, right: 20, top: 20,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-        ),
-        child: SafeArea(
-          top: false,
-          child: SingleChildScrollView(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-              Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 16),
-              child,
-            ]),
-          ),
-        ),
-      );
-}
 
 class _DateField extends StatelessWidget {
   final String label;

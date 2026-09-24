@@ -5,6 +5,7 @@ Workflow:
   Create FinancialPeriod → Create BillingCycle → Generate Bills per flat
   → Issue Bills → Record Payment → Update DueTracker → Generate Receipt
 """
+import re
 from datetime import datetime, date
 from decimal import Decimal
 from typing import List, Optional
@@ -18,6 +19,7 @@ from app.modules.billing.models.billing import (
     OnlinePaymentSubmission, ReconciliationStatus,
     BankStatementEntry, BankStatementMatchStatus,
     BillStatus, ChargeType, PaymentMode, ChargeBasis, MaintenanceSettings,
+    MaintenanceElement,
 )
 from app.modules.billing.repositories.billing_repo import (
     FinancialPeriodRepo, ChargeConfigRepo, BillingCycleRepo,
@@ -29,6 +31,7 @@ from app.models.wing import Wing
 from app.models.resident import Resident
 from app.modules.billing.services.bill_pdf import generate_maintenance_bill_pdf
 from app.modules.billing.services.maintenance_calculator import MaintenanceCalculator, default_settings
+from app.modules.billing.services.standard_elements import seed_standard_elements
 from app.models.user import User
 from app.models.audit_log import AuditAction
 from app.services.audit_service import AuditService
@@ -92,7 +95,16 @@ class BillingService:
         return data
 
     def create_charge_config(self, data: dict, user: User) -> MaintenanceChargeConfig:
-        data = self._sync_basis({k: v for k, v in data.items() if v is not None})
+        data = {k: v for k, v in data.items() if v is not None}
+        if data.get("element_id"):
+            element = self.get_element(data["element_id"])
+            if element.society_id != data["society_id"]:
+                raise HTTPException(422, "That element belongs to a different society")
+            for key, value in self._element_defaults(element).items():
+                data.setdefault(key, value)
+        if not data.get("charge_type") or not data.get("name"):
+            raise HTTPException(422, "Pick an element, or give the charge head a type and name")
+        data = self._sync_basis(data)
         config = MaintenanceChargeConfig(**data)
         self.charge_repo.create(config)
         self._audit(AuditAction.CREATE, config, "ChargeConfig", user,
@@ -117,6 +129,97 @@ class BillingService:
                     new_values={k: str(v) for k, v in data.items()})
         self.db.commit(); self.db.refresh(config)
         return config
+
+    # ── Maintenance element master ────────────────────────────────────────────
+
+    @staticmethod
+    def _element_defaults(element: MaintenanceElement) -> dict:
+        return {
+            "charge_type": element.category, "name": element.name,
+            "basis": element.default_basis, "default_amount": element.default_amount,
+            "is_service_charge": element.is_service_charge,
+            "gst_applicable": element.gst_applicable,
+        }
+
+    def list_elements(self, society_id: UUID, include_inactive: bool = False) -> List[MaintenanceElement]:
+        """The first read for a society seeds the standard bye-law elements,
+        so every society starts with a ready-made master."""
+        q = self.db.query(MaintenanceElement).filter(MaintenanceElement.society_id == society_id)
+        if q.count() == 0:
+            seed_standard_elements(self.db, society_id)
+            self.db.commit()
+        if not include_inactive:
+            q = q.filter(MaintenanceElement.is_active == True)
+        return q.order_by(MaintenanceElement.sort_order, MaintenanceElement.name).all()
+
+    def get_element(self, element_id: UUID) -> MaintenanceElement:
+        el = self.db.query(MaintenanceElement).filter(MaintenanceElement.id == element_id).first()
+        if not el: raise HTTPException(404, "Maintenance element not found")
+        return el
+
+    def create_element(self, data: dict, user: User) -> MaintenanceElement:
+        society_id = data["society_id"]
+        self.list_elements(society_id)  # make sure the standard set exists first
+        existing = self.db.query(MaintenanceElement).filter(MaintenanceElement.society_id == society_id).all()
+        base = re.sub(r"[^a-z0-9]+", "_", data["name"].lower()).strip("_")[:40] or "element"
+        codes = {e.code for e in existing}
+        code, n = base, 2
+        while code in codes:
+            code, n = f"{base}_{n}", n + 1
+        data = {k: v for k, v in data.items() if v is not None}
+        data.setdefault("sort_order", max((e.sort_order for e in existing), default=0) + 10)
+        el = MaintenanceElement(**data, code=code, is_system=False)
+        self.db.add(el)
+        self.db.flush()
+        self._audit(AuditAction.CREATE, el, "MaintenanceElement", user, new_values={"name": el.name})
+        self.db.commit(); self.db.refresh(el)
+        return el
+
+    def update_element(self, element_id: UUID, data: dict, user: User) -> MaintenanceElement:
+        el = self.get_element(element_id)
+        for field, value in data.items():
+            setattr(el, field, value)
+        self._audit(AuditAction.UPDATE, el, "MaintenanceElement", user,
+                    new_values={k: str(v) for k, v in data.items()})
+        self.db.commit(); self.db.refresh(el)
+        return el
+
+    def create_charges_from_elements(self, society_id: UUID, items: List[dict],
+                                      user: User) -> List[MaintenanceChargeConfig]:
+        """Bulk "load standard charge heads": one charge head per chosen
+        element, using the element's defaults unless an amount is given.
+        Elements that already have an active charge head are skipped."""
+        in_use = {c.element_id for c in self.charge_repo.get_by_society(society_id) if c.element_id}
+        to_create, missing = [], []
+        for item in items:
+            el = self.get_element(item["element_id"])
+            if el.society_id != society_id or not el.is_active:
+                raise HTTPException(422, f"'{el.name}' is not an active element of this society")
+            if el.id in in_use:
+                continue
+            amount = item.get("amount") if item.get("amount") is not None else el.default_amount
+            if amount is None:
+                missing.append(el.name)
+            else:
+                to_create.append((el, amount))
+                in_use.add(el.id)
+        if missing:
+            raise HTTPException(422, "Enter an amount for: " + ", ".join(missing))
+
+        created = []
+        for el, amount in to_create:
+            data = self._sync_basis({**self._element_defaults(el), "default_amount": amount})
+            config = MaintenanceChargeConfig(**data, society_id=society_id, element_id=el.id)
+            self.db.add(config)
+            created.append(config)
+        self.db.flush()
+        for c in created:
+            self._audit(AuditAction.CREATE, c, "ChargeConfig", user,
+                        new_values={"name": c.name, "amount": str(c.default_amount)})
+        self.db.commit()
+        for c in created:
+            self.db.refresh(c)
+        return created
 
     # ── Billing Cycle ─────────────────────────────────────────────────────────
 
