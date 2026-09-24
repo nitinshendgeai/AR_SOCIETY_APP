@@ -205,6 +205,7 @@ class MaintenanceBill(Base, TimestampMixin):
     generator  = relationship("User", foreign_keys=[generated_by])
     line_items = relationship("InvoiceLineItem", back_populates="bill", cascade="all, delete-orphan")
     receipts   = relationship("PaymentReceipt",  back_populates="bill", cascade="all, delete-orphan")
+    online_payments = relationship("OnlinePaymentSubmission", back_populates="bill")
 
     def __repr__(self):
         return f"<MaintenanceBill {self.invoice_number} [{self.bill_status}] ₹{self.total_amount}>"
@@ -375,7 +376,7 @@ class OnlinePaymentSubmission(Base, TimestampMixin):
     society   = relationship("Society")
     wing      = relationship("Wing")
     flat      = relationship("Flat")
-    bill      = relationship("MaintenanceBill")
+    bill      = relationship("MaintenanceBill", back_populates="online_payments")
     recorder  = relationship("User", foreign_keys=[recorded_by])
     reviewer  = relationship("User", foreign_keys=[reviewed_by])
 

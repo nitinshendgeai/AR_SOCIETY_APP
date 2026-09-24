@@ -50,6 +50,8 @@ import 'package:ar_society_app/features/staff/presentation/screens/checklist_tem
 import 'package:ar_society_app/features/billing/presentation/screens/online_payments_list_screen.dart';
 import 'package:ar_society_app/features/billing/presentation/screens/bank_reconciliation_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/vendor_bills_screen.dart';
+import 'package:ar_society_app/features/maintenance_billing/presentation/screens/maintenance_billing_screen.dart';
+import 'package:ar_society_app/features/maintenance_billing/presentation/screens/my_bills_screen.dart';
 import 'package:ar_society_app/features/society_settings/presentation/screens/society_settings_screen.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/screens/wing_list_screen.dart';
@@ -125,6 +127,8 @@ class AppRoutes {
   static const onlinePayments     = '/billing/online-payments';
   static const bankReconciliation = '/billing/bank-reconciliation';
   static const vendorBills        = '/vendors/bills';
+  static const maintenanceBilling = '/billing/maintenance';
+  static const myBills            = '/billing/my-bills';
   // Society Settings
   static const societySettings    = '/society-settings';
   // Society Structure
@@ -573,6 +577,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return null;
         },
         builder: (_, __) => const VendorBillsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.maintenanceBilling,
+        redirect: (_, __) {
+          if (authState is AuthAuthenticated) {
+            final user = (authState as AuthAuthenticated).user;
+            if (!(user.isAdminOrCommittee || user.isManager)) return userRoleHome(user);
+          }
+          return null;
+        },
+        builder: (_, __) => const MaintenanceBillingScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.myBills,
+        builder: (_, __) => const MyBillsScreen(),
       ),
       // Society Settings
       GoRoute(

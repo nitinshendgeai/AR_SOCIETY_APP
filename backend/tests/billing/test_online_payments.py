@@ -308,7 +308,7 @@ def test_on_bill_payment_updates_bill_and_due_tracker(client, db):
 
     r_bill = client.get(f"/api/v1/billing/bills/{bill.id}", headers=admin["headers"])
     assert r_bill.json()["bill_status"] == "paid"
-    assert r_bill.json()["outstanding"] == 0.0
+    assert r_bill.json()["outstanding"] == "0.00"
 
     r_due = client.get(f"/api/v1/billing/dues/flat/{flat.id}/{society.id}", headers=admin["headers"])
     assert r_due.json()["total_paid"] == 5500.0
@@ -324,7 +324,7 @@ def test_on_bill_partial_payment_leaves_bill_partially_paid(client, db):
 
     r_bill = client.get(f"/api/v1/billing/bills/{bill.id}", headers=admin["headers"])
     assert r_bill.json()["bill_status"] == "partially_paid"
-    assert r_bill.json()["outstanding"] == 3500.0
+    assert r_bill.json()["outstanding"] == "3500.00"
 
 
 def test_on_bill_payment_exceeding_outstanding_rejected(client, db):

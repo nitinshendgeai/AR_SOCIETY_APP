@@ -18,7 +18,20 @@ import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 /// A receipt is issued immediately either way; bank reconciliation for
 /// non-cash payments happens later from the payment's detail screen.
 class OnlinePaymentSubmitScreen extends ConsumerStatefulWidget {
-  const OnlinePaymentSubmitScreen({super.key});
+  /// Opens pre-filled "On Bill" for one bill (from a maintenance bill's
+  /// Record Payment button); all null opens the blank form.
+  final String? presetWingId;
+  final String? presetFlatId;
+  final String? presetBillId;
+  final String? presetAmount;
+
+  const OnlinePaymentSubmitScreen({
+    super.key,
+    this.presetWingId,
+    this.presetFlatId,
+    this.presetBillId,
+    this.presetAmount,
+  });
 
   @override
   ConsumerState<OnlinePaymentSubmitScreen> createState() => _OnlinePaymentSubmitScreenState();
@@ -45,6 +58,18 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
   bool _saving = false;
 
   bool get _screenshotRequired => kScreenshotRequiredModes.contains(_paymentMode);
+
+  @override
+  void initState() {
+    super.initState();
+    _wingId = widget.presetWingId;
+    _flatId = widget.presetFlatId;
+    if (widget.presetBillId != null) {
+      _target = _PaymentTarget.onBill;
+      _billId = widget.presetBillId;
+    }
+    if (widget.presetAmount != null) _amountCtrl.text = widget.presetAmount!;
+  }
 
   @override
   void dispose() {

@@ -26,6 +26,8 @@ from app.modules.billing.repositories.billing_repo import (
 )
 from app.models.flat import Flat
 from app.models.wing import Wing
+from app.models.resident import Resident
+from app.modules.billing.services.bill_pdf import generate_maintenance_bill_pdf
 from app.models.user import User
 from app.models.audit_log import AuditAction
 from app.services.audit_service import AuditService
@@ -34,6 +36,10 @@ from app.models.notification import NotificationType, NotificationChannel
 
 ALLOWED_SCREENSHOT_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
 MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024  # 8 MB
+
+RESIDENT_VISIBLE_BILL_STATUSES = (
+    BillStatus.ISSUED, BillStatus.PARTIALLY_PAID, BillStatus.PAID, BillStatus.OVERDUE,
+)
 
 
 class BillingService:
@@ -85,6 +91,20 @@ class BillingService:
     def list_charge_configs(self, society_id: UUID) -> List[MaintenanceChargeConfig]:
         return self.charge_repo.get_by_society(society_id)
 
+    def update_charge_config(self, config_id: UUID, data: dict, user: User) -> MaintenanceChargeConfig:
+        # Only affects bills generated afterwards — existing bills keep their
+        # own InvoiceLineItem copies of the rate/tax at generation time.
+        config = self.db.query(MaintenanceChargeConfig).filter(
+            MaintenanceChargeConfig.id == config_id).first()
+        if not config: raise HTTPException(404, "Charge head not found")
+        old = {"name": config.name, "amount": str(config.default_amount), "active": config.is_active}
+        for field, value in data.items():
+            setattr(config, field, value)
+        self._audit(AuditAction.UPDATE, config, "ChargeConfig", user, old_values=old,
+                    new_values={k: str(v) for k, v in data.items()})
+        self.db.commit(); self.db.refresh(config)
+        return config
+
     # ── Billing Cycle ─────────────────────────────────────────────────────────
 
     def create_cycle(self, data: dict, user: User, request=None) -> BillingCycle:
@@ -133,9 +153,13 @@ class BillingService:
         bills = []
         for flat in flats:
             invoice_number = self.bill_repo.next_invoice_number(cycle.society_id)
+            resident = self.db.query(Resident).filter(
+                Resident.flat_id == flat.id, Resident.is_active == True,
+            ).order_by(Resident.is_primary.desc()).first()
             bill = MaintenanceBill(
                 society_id=cycle.society_id, cycle_id=cycle_id,
                 flat_id=flat.id, generated_by=user.id,
+                resident_id=resident.id if resident else None,
                 invoice_number=invoice_number,
                 bill_status=BillStatus.GENERATED,
                 bill_date=date.today(), due_date=cycle.due_date,
@@ -188,32 +212,60 @@ class BillingService:
         self.db.commit()
         return bills
 
+    def _issue(self, bill: MaintenanceBill, user: User, request=None) -> None:
+        bill.bill_status = BillStatus.ISSUED
+        bill.issued_at   = datetime.utcnow()
+
+        # Every active resident of the flat with an app login is notified,
+        # not only bill.resident — the primary owner often has no account
+        # while a co-owner or family member does.
+        residents = self.db.query(Resident).filter(
+            Resident.flat_id == bill.flat_id, Resident.is_active == True,
+            Resident.user_id.isnot(None),
+        ).all()
+        for user_id in {r.user_id for r in residents}:
+            NotificationService.send(
+                db=self.db, user_id=user_id,
+                title=f"Maintenance Bill Issued — {bill.invoice_number}",
+                body=f"Bill of ₹{bill.total_amount} due by {bill.due_date}. Please pay on time.",
+                type=NotificationType.INFO, channel=NotificationChannel.IN_APP,
+                module="billing", entity_id=str(bill.id),
+            )
+
+        self._audit(AuditAction.UPDATE, bill, "MaintenanceBill", user, request,
+                    new_values={"status": "issued", "amount": str(bill.total_amount)})
+
     def issue_bill(self, bill_id: UUID, user: User, request=None) -> MaintenanceBill:
         bill = self.bill_repo.get(bill_id)
         if not bill: raise HTTPException(404, "Bill not found")
         if bill.bill_status != BillStatus.GENERATED:
             raise HTTPException(409, f"Bill cannot be issued (status: {bill.bill_status.value})")
-
-        bill.bill_status = BillStatus.ISSUED
-        bill.issued_at   = datetime.utcnow()
-
-        # Notify resident
-        if bill.resident_id:
-            res = bill.resident
-            if res and res.user_id:
-                NotificationService.send(
-                    db=self.db, user_id=res.user_id,
-                    title=f"Maintenance Bill Generated — {bill.invoice_number}",
-                    body=f"Bill of ₹{bill.total_amount} due by {bill.due_date}. Please pay on time.",
-                    type=NotificationType.INFO, channel=NotificationChannel.IN_APP,
-                    module="billing", entity_id=str(bill.id),
-                )
-
-        self._audit(AuditAction.UPDATE, bill, "MaintenanceBill", user, request,
-                    new_values={"status": "issued", "amount": str(bill.total_amount)})
+        self._issue(bill, user, request)
         self.db.commit()
         self.db.refresh(bill)
         return bill
+
+    def issue_all_bills(self, cycle_id: UUID, user: User, request=None) -> int:
+        cycle = self.cycle_repo.get(cycle_id)
+        if not cycle: raise HTTPException(404, "Billing cycle not found")
+        pending = [b for b in self.bill_repo.get_by_cycle(cycle_id)
+                   if b.bill_status == BillStatus.GENERATED]
+        if not pending:
+            raise HTTPException(409, "No generated bills left to issue in this cycle")
+        for bill in pending:
+            self._issue(bill, user, request)
+        self.db.commit()
+        return len(pending)
+
+    def list_cycle_bills(self, cycle_id: UUID) -> List[MaintenanceBill]:
+        if not self.cycle_repo.get(cycle_id):
+            raise HTTPException(404, "Billing cycle not found")
+        return self.bill_repo.get_by_cycle(cycle_id)
+
+    def get_cycle(self, cycle_id: UUID) -> BillingCycle:
+        cycle = self.cycle_repo.get(cycle_id)
+        if not cycle: raise HTTPException(404, "Billing cycle not found")
+        return cycle
 
     def cancel_bill(self, bill_id: UUID, reason: str, user: User) -> MaintenanceBill:
         bill = self.bill_repo.get(bill_id)
@@ -303,6 +355,28 @@ class BillingService:
 
     def get_flat_bills(self, flat_id: UUID, skip=0, limit=50) -> List[MaintenanceBill]:
         return self.bill_repo.get_by_flat(flat_id, skip, limit)
+
+    def resident_flat_ids(self, user: User) -> set:
+        return {r.flat_id for r in self.db.query(Resident).filter(
+            Resident.user_id == user.id, Resident.is_active == True)}
+
+    def get_my_bills(self, user: User) -> List[MaintenanceBill]:
+        """Bills for every flat the user is an active resident of. Bills
+        still at GENERATED haven't been released by the society yet, so
+        they're hidden from residents along with cancelled ones."""
+        flat_ids = self.resident_flat_ids(user)
+        if not flat_ids:
+            return []
+        return self.db.query(MaintenanceBill).filter(
+            MaintenanceBill.flat_id.in_(flat_ids),
+            MaintenanceBill.is_active == True,
+            MaintenanceBill.bill_status.in_(RESIDENT_VISIBLE_BILL_STATUSES),
+        ).order_by(MaintenanceBill.bill_date.desc()).all()
+
+    def generate_bill_pdf(self, bill_id: UUID) -> bytes:
+        bill = self.get_bill(bill_id)
+        society_name = bill.society.name if bill.society else "Society"
+        return generate_maintenance_bill_pdf(bill, society_name)
 
     def get_overdue_bills(self, society_id: UUID) -> List[MaintenanceBill]:
         return self.bill_repo.get_overdue(society_id)

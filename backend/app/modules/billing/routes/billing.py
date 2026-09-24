@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.core.dependencies import (
-    get_current_user, require_roles,
+    get_current_user, require_roles, _user_has_permission,
     require_admin_committee, require_any_member, require_manager_above,
 )
 from app.models.user import User
@@ -17,7 +17,7 @@ from app.modules.billing.models.billing import (
     ChargeType, BillStatus, PaymentMode, PenaltyCalculationType, CycleFrequency,
     ReconciliationStatus,
 )
-from app.modules.billing.services.billing_service import BillingService
+from app.modules.billing.services.billing_service import BillingService, RESIDENT_VISIBLE_BILL_STATUSES
 from app.schemas.common import OrmBase, TimestampSchema
 from typing import Optional
 
@@ -121,77 +121,237 @@ def list_periods(society_id: UUID, db: Session = Depends(get_db)):
 
 
 # ── Charge Config ─────────────────────────────────────────────────────────────
-@router.post("/charges", status_code=201, dependencies=[Depends(admin_committee)])
+class ChargeConfigUpdate(OrmBase):
+    name: Optional[str] = None
+    charge_type: Optional[ChargeType] = None
+    default_amount: Optional[Decimal] = None
+    is_per_sqft: Optional[bool] = None
+    tax_percent: Optional[Decimal] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+def _charge_out(c) -> dict:
+    return {
+        "id": str(c.id),
+        "society_id": str(c.society_id),
+        "charge_type": c.charge_type.value,
+        "name": c.name,
+        "description": c.description,
+        "default_amount": str(c.default_amount) if c.default_amount is not None else None,
+        "is_per_sqft": c.is_per_sqft,
+        "is_mandatory": c.is_mandatory,
+        "tax_percent": str(c.tax_percent),
+        "is_active": c.is_active,
+    }
+
+@router.post("/charges", status_code=201, dependencies=[Depends(manager_above)])
 def create_charge(data: ChargeConfigCreate, db: Session = Depends(get_db),
                   user: User = Depends(get_current_user)):
-    return BillingService(db).create_charge_config(data.model_dump(), user)
+    return _charge_out(BillingService(db).create_charge_config(data.model_dump(), user))
 
-@router.get("/charges/{society_id}", dependencies=[Depends(admin_committee)])
+@router.get("/charges/{society_id}", dependencies=[Depends(manager_above)])
 def list_charges(society_id: UUID, db: Session = Depends(get_db)):
-    return BillingService(db).list_charge_configs(society_id)
+    return [_charge_out(c) for c in BillingService(db).list_charge_configs(society_id)]
+
+@router.patch("/charges/{config_id}", dependencies=[Depends(manager_above)])
+def update_charge(config_id: UUID, data: ChargeConfigUpdate, db: Session = Depends(get_db),
+                  user: User = Depends(get_current_user)):
+    changes = data.model_dump(exclude_unset=True)
+    return _charge_out(BillingService(db).update_charge_config(config_id, changes, user))
 
 
 # ── Billing Cycles ────────────────────────────────────────────────────────────
-@router.post("/cycles", status_code=201, dependencies=[Depends(admin_committee)])
+def _cycle_out(cy) -> dict:
+    live = [b for b in cy.bills if b.is_active and b.bill_status != BillStatus.CANCELLED]
+    today = date.today()
+    return {
+        "id": str(cy.id),
+        "society_id": str(cy.society_id),
+        "name": cy.name,
+        "cycle_start": cy.cycle_start.isoformat(),
+        "cycle_end": cy.cycle_end.isoformat(),
+        "due_date": cy.due_date.isoformat(),
+        "frequency": cy.frequency.value,
+        "is_finalized": cy.is_finalized,
+        "notes": cy.notes,
+        "bills_count": len(live),
+        "generated_count": sum(1 for b in live if b.bill_status == BillStatus.GENERATED),
+        "paid_count": sum(1 for b in live if b.bill_status == BillStatus.PAID),
+        "overdue_count": sum(1 for b in live if _is_overdue(b, today)),
+        "total_billed": str(sum((b.total_amount for b in live), Decimal(0))),
+        "total_collected": str(sum((b.paid_amount for b in live), Decimal(0))),
+        "total_outstanding": str(sum((b.outstanding for b in live), Decimal(0))),
+    }
+
+@router.post("/cycles", status_code=201, dependencies=[Depends(manager_above)])
 def create_cycle(data: CycleCreate, request: Request, db: Session = Depends(get_db),
                  user: User = Depends(get_current_user)):
-    return BillingService(db).create_cycle(data.model_dump(), user, request)
+    if data.cycle_end < data.cycle_start:
+        raise HTTPException(422, "Cycle end date must be on or after the start date")
+    return _cycle_out(BillingService(db).create_cycle(data.model_dump(), user, request))
 
-@router.get("/cycles/{society_id}", dependencies=[Depends(admin_committee)])
+@router.get("/cycles/{society_id}", dependencies=[Depends(manager_above)])
 def list_cycles(society_id: UUID, db: Session = Depends(get_db)):
-    return BillingService(db).list_cycles(society_id)
+    return [_cycle_out(c) for c in BillingService(db).list_cycles(society_id)]
 
-@router.post("/cycles/{cycle_id}/generate-bills", dependencies=[Depends(admin_committee)])
+@router.get("/cycles/detail/{cycle_id}", dependencies=[Depends(manager_above)])
+def get_cycle(cycle_id: UUID, db: Session = Depends(get_db)):
+    return _cycle_out(BillingService(db).get_cycle(cycle_id))
+
+@router.post("/cycles/{cycle_id}/generate-bills", dependencies=[Depends(manager_above)])
 def generate_bills(cycle_id: UUID, request: Request, db: Session = Depends(get_db),
                    user: User = Depends(get_current_user)):
     bills = BillingService(db).generate_bills_for_cycle(cycle_id, user, request)
     return {"bills_generated": len(bills), "cycle_id": str(cycle_id)}
 
+@router.post("/cycles/{cycle_id}/issue-all", dependencies=[Depends(manager_above)])
+def issue_all_bills(cycle_id: UUID, request: Request, db: Session = Depends(get_db),
+                    user: User = Depends(get_current_user)):
+    issued = BillingService(db).issue_all_bills(cycle_id, user, request)
+    return {"bills_issued": issued, "cycle_id": str(cycle_id)}
+
+@router.get("/cycles/{cycle_id}/bills", dependencies=[Depends(manager_above)])
+def cycle_bills(cycle_id: UUID, db: Session = Depends(get_db)):
+    bills = BillingService(db).list_cycle_bills(cycle_id)
+    bills.sort(key=lambda b: (
+        b.flat.wing.name if b.flat and b.flat.wing else "",
+        b.flat.flat_number if b.flat else "",
+    ))
+    return [_bill_out(b) for b in bills]
+
 
 # ── Bills ─────────────────────────────────────────────────────────────────────
-@router.get("/bills/{bill_id}", dependencies=[Depends(any_member)])
-def get_bill(bill_id: UUID, db: Session = Depends(get_db)):
-    return BillingService(db).get_bill(bill_id)
-
-@router.post("/bills/{bill_id}/issue", dependencies=[Depends(admin_committee)])
-def issue_bill(bill_id: UUID, request: Request, db: Session = Depends(get_db),
-               user: User = Depends(get_current_user)):
-    return BillingService(db).issue_bill(bill_id, user, request)
-
-@router.post("/bills/{bill_id}/cancel", dependencies=[Depends(admin_committee)])
-def cancel_bill(bill_id: UUID, data: CancelBillRequest, db: Session = Depends(get_db),
-                user: User = Depends(get_current_user)):
-    return BillingService(db).cancel_bill(bill_id, data.reason, user)
+def _is_overdue(b, today: date) -> bool:
+    return (b.outstanding > 0 and b.due_date < today
+            and b.bill_status not in (BillStatus.CANCELLED, BillStatus.PAID, BillStatus.GENERATED))
 
 def _bill_out(b) -> dict:
+    flat = b.flat
     return {
         "id": str(b.id),
         "cycle_id": str(b.cycle_id),
+        "cycle_name": b.cycle.name if b.cycle else None,
         "flat_id": str(b.flat_id),
+        "flat_number": flat.flat_number if flat else None,
+        "wing_id": str(flat.wing_id) if flat else None,
+        "wing_name": flat.wing.name if flat and flat.wing else None,
+        "resident_name": b.resident.full_name if b.resident else None,
         "invoice_number": b.invoice_number,
         "bill_status": b.bill_status.value,
+        "is_overdue": _is_overdue(b, date.today()),
         "bill_date": b.bill_date.isoformat(),
         "due_date": b.due_date.isoformat(),
+        "subtotal": str(b.subtotal),
+        "tax_amount": str(b.tax_amount),
+        "penalty_amount": str(b.penalty_amount),
+        "discount_amount": str(b.discount_amount),
         "total_amount": str(b.total_amount),
         "paid_amount": str(b.paid_amount),
         "outstanding": str(b.outstanding),
+        "cancellation_reason": b.cancellation_reason,
     }
+
+def _bill_detail_out(b) -> dict:
+    out = _bill_out(b)
+    out["line_items"] = [{
+        "charge_type": li.charge_type.value,
+        "description": li.description,
+        "amount": str(li.amount),
+        "tax_percent": str(li.tax_percent),
+        "tax_amount": str(li.tax_amount),
+        "total": str(li.total),
+    } for li in b.line_items]
+    # Payments land in two tables depending on how they were recorded:
+    # PaymentReceipt (POST /payments) and on-bill OnlinePaymentSubmission
+    # (the Record Payment form). Both count towards paid_amount.
+    payments = [{
+        "receipt_number": r.receipt_number,
+        "payment_date": r.payment_date.isoformat(),
+        "amount": str(r.amount),
+        "payment_mode": r.payment_mode.value,
+        "transaction_ref": r.transaction_ref,
+    } for r in b.receipts if not r.is_reversed]
+    payments += [{
+        "receipt_number": s.receipt_number,
+        "payment_date": s.payment_date.isoformat(),
+        "amount": str(s.amount),
+        "payment_mode": s.payment_mode.value,
+        "transaction_ref": s.transaction_ref,
+    } for s in b.online_payments if s.is_active and s.status != ReconciliationStatus.REJECTED]
+    out["payments"] = sorted(payments, key=lambda p: p["payment_date"])
+    return out
+
+def _ensure_can_view_flat(db: Session, user: User, flat_id) -> None:
+    """Managers and above see every flat; anyone else (residents, staff)
+    only the flats they're an active resident of. 404 rather than 403 so
+    bill/flat IDs can't be probed."""
+    if _user_has_permission(user, "manager_above"):
+        return
+    if flat_id not in BillingService(db).resident_flat_ids(user):
+        raise HTTPException(404, "Bill not found")
+
+def _get_viewable_bill(db: Session, user: User, bill_id: UUID):
+    bill = BillingService(db).get_bill(bill_id)
+    _ensure_can_view_flat(db, user, bill.flat_id)
+    if (not _user_has_permission(user, "manager_above")
+            and bill.bill_status not in RESIDENT_VISIBLE_BILL_STATUSES):
+        raise HTTPException(404, "Bill not found")
+    return bill
+
+@router.get("/bills/me", dependencies=[Depends(any_member)])
+def my_bills(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    bills = BillingService(db).get_my_bills(user)
+    today = date.today()
+    open_bills = [b for b in bills if b.outstanding > 0]
+    return {
+        "total_outstanding": str(sum((b.outstanding for b in open_bills), Decimal(0))),
+        "open_count": len(open_bills),
+        "overdue_count": sum(1 for b in open_bills if _is_overdue(b, today)),
+        "bills": [_bill_out(b) for b in bills],
+    }
+
+@router.get("/bills/{bill_id}", dependencies=[Depends(any_member)])
+def get_bill(bill_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return _bill_detail_out(_get_viewable_bill(db, user, bill_id))
+
+@router.get("/bills/{bill_id}/pdf", dependencies=[Depends(any_member)])
+def get_bill_pdf(bill_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    bill = _get_viewable_bill(db, user, bill_id)
+    pdf_bytes = BillingService(db).generate_bill_pdf(bill.id)
+    return Response(
+        content=pdf_bytes, media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename={bill.invoice_number}.pdf"},
+    )
+
+@router.post("/bills/{bill_id}/issue", dependencies=[Depends(manager_above)])
+def issue_bill(bill_id: UUID, request: Request, db: Session = Depends(get_db),
+               user: User = Depends(get_current_user)):
+    return _bill_detail_out(BillingService(db).issue_bill(bill_id, user, request))
+
+@router.post("/bills/{bill_id}/cancel", dependencies=[Depends(manager_above)])
+def cancel_bill(bill_id: UUID, data: CancelBillRequest, db: Session = Depends(get_db),
+                user: User = Depends(get_current_user)):
+    return _bill_detail_out(BillingService(db).cancel_bill(bill_id, data.reason, user))
 
 @router.get("/bills/flat/{flat_id}", dependencies=[Depends(any_member)])
 def flat_bills(flat_id: UUID, outstanding_only: bool = False, skip: int = 0, limit: int = 50,
-                db: Session = Depends(get_db)):
+                db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _ensure_can_view_flat(db, user, flat_id)
     bills = BillingService(db).get_flat_bills(flat_id, skip, limit)
+    if not _user_has_permission(user, "manager_above"):
+        bills = [b for b in bills if b.bill_status in RESIDENT_VISIBLE_BILL_STATUSES]
     if outstanding_only:
         bills = [b for b in bills if b.outstanding > 0 and b.bill_status != BillStatus.CANCELLED]
     return [_bill_out(b) for b in bills]
 
-@router.get("/bills/overdue/{society_id}", dependencies=[Depends(admin_committee)])
+@router.get("/bills/overdue/{society_id}", dependencies=[Depends(manager_above)])
 def overdue_bills(society_id: UUID, db: Session = Depends(get_db)):
-    return BillingService(db).get_overdue_bills(society_id)
+    return [_bill_out(b) for b in BillingService(db).get_overdue_bills(society_id)]
 
-@router.get("/bills/outstanding/{society_id}", dependencies=[Depends(admin_committee)])
+@router.get("/bills/outstanding/{society_id}", dependencies=[Depends(manager_above)])
 def outstanding_bills(society_id: UUID, db: Session = Depends(get_db)):
-    return BillingService(db).get_outstanding_bills(society_id)
+    return [_bill_out(b) for b in BillingService(db).get_outstanding_bills(society_id)]
 
 
 # ── Payments & Receipts ───────────────────────────────────────────────────────

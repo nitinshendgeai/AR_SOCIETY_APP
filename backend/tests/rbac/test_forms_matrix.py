@@ -39,10 +39,10 @@ def test_gaps_in_old_dashboard_logic_are_preserved_by_default():
     isAdmin/isAdminOrCommittee/isSecurity/isStaff/isResident (an Admin can
     grant them more explicitly via the Forms Matrix). Manager's gap was
     later deliberately, partially closed: the FMC Manager is who records
-    online payments, reconciles them against the bank statement, and pays
-    vendor bills, so "online_payments", "bank_reconciliation", and
-    "vendor_bills" were added to Manager's default grants (see
-    FORM_ROLE_GRANTS)."""
+    online payments, reconciles them against the bank statement, pays
+    vendor bills, and runs maintenance billing, so "online_payments",
+    "bank_reconciliation", "vendor_bills", and "maintenance_billing" were
+    added to Manager's default grants (see FORM_ROLE_GRANTS)."""
     codes_by_role = default_role_form_codes()
     for role_name in ("Platform Admin", "Gym Trainer", "Tenant"):
         assert set(codes_by_role.get(role_name, [])) == {"visitors", "complaints"}, (
@@ -50,6 +50,7 @@ def test_gaps_in_old_dashboard_logic_are_preserved_by_default():
         )
     assert set(codes_by_role.get("Manager", [])) == {
         "visitors", "complaints", "online_payments", "bank_reconciliation", "vendor_bills",
+        "maintenance_billing",
     }
 
 
@@ -102,12 +103,13 @@ def test_my_forms_returns_default_grants_for_own_role(client, db):
     # vendor bills.
     assert set(r.json()["form_codes"]) == {
         "visitors", "complaints", "online_payments", "bank_reconciliation", "vendor_bills",
+        "maintenance_billing",
     }
 
     resident = make_user(db, "formsres4@rbac.com", role="Resident")
     r2 = client.get("/api/v1/roles/forms/mine", headers=resident["headers"])
     assert r2.status_code == 200
-    assert set(r2.json()["form_codes"]) == {"visitors", "complaints", "edit_my_info"}
+    assert set(r2.json()["form_codes"]) == {"visitors", "complaints", "edit_my_info", "my_bills"}
 
 
 def test_admin_can_grant_form_and_it_takes_effect_immediately(client, db):

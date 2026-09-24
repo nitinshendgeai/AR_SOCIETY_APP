@@ -13,6 +13,8 @@ import 'package:ar_society_app/features/staff/presentation/providers/staff_provi
 import 'package:ar_society_app/features/complaint/presentation/providers/complaint_providers.dart';
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart' show formatRupees;
+import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart' show myBillsProvider;
 
 // ── Shared scaffold wrapper ───────────────────────────────────────────────────
 
@@ -232,6 +234,7 @@ const _menuCategories = [
     _MenuItem('parking_management', 'Parking Management', Icons.local_parking_rounded, AppRoutes.parkingManagement),
   ]),
   _MenuCategory('Finance', Icons.payments_rounded, [
+    _MenuItem('maintenance_billing', 'Maintenance Billing', Icons.request_quote_rounded, AppRoutes.maintenanceBilling),
     _MenuItem('online_payments', 'Payments', Icons.receipt_long_rounded, AppRoutes.onlinePayments),
     _MenuItem('bank_reconciliation', 'Bank Reconciliation', Icons.account_balance_rounded, AppRoutes.bankReconciliation),
     _MenuItem('vendor_bills', 'Vendor Bills', Icons.storefront_rounded, AppRoutes.vendorBills),
@@ -244,6 +247,7 @@ const _menuCategories = [
     _MenuItem('setup_wizard', 'Setup Wizard', Icons.checklist_rounded, AppRoutes.structureWizard),
   ]),
   _MenuCategory('My Account', Icons.person_rounded, [
+    _MenuItem('my_bills', 'My Bills', Icons.receipt_long_rounded, AppRoutes.myBills),
     _MenuItem('edit_my_info', 'Edit My Info', Icons.edit_note_rounded, AppRoutes.editMyProfile),
   ]),
 ];
@@ -852,11 +856,23 @@ class ResidentDashboardScreen extends ConsumerWidget {
           ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          children: const [
-            _SummaryCard(icon: Icons.report_problem_rounded, label: 'Open Complaints', value: '--', color: AppTheme.error),
-            _SummaryCard(icon: Icons.campaign_rounded, label: 'Notices', value: '--', color: AppTheme.primary),
-            _SummaryCard(icon: Icons.receipt_long_rounded, label: 'Bills', value: '--', color: AppTheme.warning),
-            _SummaryCard(icon: Icons.home_rounded, label: 'My Flat', value: '--', color: AppTheme.success),
+          children: [
+            const _SummaryCard(icon: Icons.report_problem_rounded, label: 'Open Complaints', value: '--', color: AppTheme.error),
+            const _SummaryCard(icon: Icons.campaign_rounded, label: 'Notices', value: '--', color: AppTheme.primary),
+            _SummaryCard(
+              icon: Icons.receipt_long_rounded,
+              label: 'Bills Due',
+              value: ref.watch(myBillsProvider).when(
+                    data: (s) => formatRupees(s.totalOutstanding),
+                    loading: () => '…',
+                    error: (_, __) => '--',
+                  ),
+              color: (ref.watch(myBillsProvider).valueOrNull?.overdueCount ?? 0) > 0
+                  ? AppTheme.error
+                  : AppTheme.warning,
+              onTap: () => context.push(AppRoutes.myBills),
+            ),
+            const _SummaryCard(icon: Icons.home_rounded, label: 'My Flat', value: '--', color: AppTheme.success),
           ],
         ),
         const SizedBox(height: 18),
@@ -878,6 +894,8 @@ class ResidentDashboardScreen extends ConsumerWidget {
         // aren't allowed to change, only failing with a 403 on tapping Save.
         Row(children: const [
           _QuickActionChip(icon: Icons.pending_actions_rounded, label: 'Approvals', route: AppRoutes.visitorsPending),
+          SizedBox(width: 8),
+          _QuickActionChip(icon: Icons.receipt_long_rounded, label: 'My Bills', route: AppRoutes.myBills),
         ]),
         const SizedBox(height: 18),
         _OperationalPanel(title: 'Recent updates', children: const [

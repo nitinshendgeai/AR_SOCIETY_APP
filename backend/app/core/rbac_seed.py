@@ -130,6 +130,8 @@ FORM_DEFINITIONS = [
     ("online_payments",           "Online Payments",            "Resident payment screenshots captured for bank reconciliation"),
     ("bank_reconciliation",       "Bank Reconciliation",        "Import bank statements and match them against pending payments"),
     ("vendor_bills",              "Vendor Bills",               "Vendor invoices and payments made against them"),
+    ("maintenance_billing",       "Maintenance Billing",        "Charge heads, billing cycles, and generating/issuing flat maintenance bills"),
+    ("my_bills",                  "My Bills",                   "Resident view of their own flat's maintenance bills"),
 ]
 
 _ADMIN_OR_COMMITTEE_ROLES = (
@@ -169,6 +171,8 @@ FORM_ROLE_GRANTS = {
     "online_payments":          tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
     "bank_reconciliation":      tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
     "vendor_bills":             tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
+    "maintenance_billing":      tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
+    "my_bills":                 _RESIDENT_ONLY_ROLE,
 }
 
 
