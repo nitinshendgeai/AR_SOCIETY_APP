@@ -102,6 +102,24 @@ def test_flat_invalid_wing(client, db):
     assert r.status_code == 404
 
 
+def test_flats_by_wing_ordered_naturally_by_flat_number(client, db):
+    """flat_number is free text ("A-101", "A-1702", ...), so plain string
+    ordering puts "A-1702" before "A-201" (because "1" < "2"). Flats must
+    come back in the numeric order a person expects instead."""
+    admin   = make_user(db, "adm-natsort@master.com", role="Society Admin")
+    society = make_society(db, "Natural Sort Society")
+    wing    = make_wing(db, society.id, "Wing NS")
+    for flat_number in ("A-1702", "A-201", "A-102", "A-101", "A-2101"):
+        client.post("/api/v1/flats/", json={
+            "flat_number": flat_number, "wing_id": str(wing.id)
+        }, headers=admin["headers"])
+
+    r = client.get(f"/api/v1/flats/by-wing/{wing.id}", headers=admin["headers"])
+    assert r.status_code == 200
+    numbers = [f["flat_number"] for f in r.json()]
+    assert numbers == ["A-101", "A-102", "A-201", "A-1702", "A-2101"]
+
+
 # ── Floor ─────────────────────────────────────────────────────────────────────
 
 def test_floor_number_reusable_after_delete(client, db):

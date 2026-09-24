@@ -1,10 +1,11 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, contains_eager
 from typing import List, Optional
 from uuid import UUID
 from fastapi import HTTPException
 from app.models.flat import Flat
 from app.models.wing import Wing
 from app.repositories.base import BaseRepository
+from app.utils.natural_sort import natural_sort_key
 
 
 class FlatRepository(BaseRepository[Flat]):
@@ -29,19 +30,25 @@ class FlatRepository(BaseRepository[Flat]):
         return q.offset(skip).limit(limit).all()
 
     def get_by_wing(self, wing_id: UUID) -> List[Flat]:
-        return self.db.query(Flat).filter(
+        flats = self.db.query(Flat).filter(
             Flat.wing_id == wing_id,
             Flat.is_active == True,
-        ).order_by(Flat.flat_number).all()
+        ).all()
+        # flat_number is free text ("A-101", "1101", ...) — plain string
+        # order would put "A-1702" before "A-201"; sort naturally instead.
+        flats.sort(key=lambda f: natural_sort_key(f.flat_number))
+        return flats
 
     def get_by_society(self, society_id: UUID) -> List[Flat]:
-        return (
+        flats = (
             self.db.query(Flat)
             .join(Wing, Flat.wing_id == Wing.id)
+            .options(contains_eager(Flat.wing))
             .filter(Wing.society_id == society_id, Flat.is_active == True)
-            .order_by(Wing.name, Flat.flat_number)
             .all()
         )
+        flats.sort(key=lambda f: (natural_sort_key(f.wing.name), natural_sort_key(f.flat_number)))
+        return flats
 
     def assert_unique_flat_number(self, wing_id: UUID, flat_number: str,
                                    exclude_id: Optional[UUID] = None) -> None:

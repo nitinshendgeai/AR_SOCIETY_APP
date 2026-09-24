@@ -14,7 +14,7 @@ Architecture is finance-ERP-ready:
 import enum
 from sqlalchemy import (
     Column, String, Text, Integer, Float, Boolean,
-    DateTime, Date, Enum, ForeignKey, Numeric, LargeBinary
+    DateTime, Date, Enum, ForeignKey, Numeric, LargeBinary, UniqueConstraint
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -33,6 +33,30 @@ class ChargeType(str, enum.Enum):
     PENALTY         = "penalty"
     SPECIAL_ASSESSMENT = "special_assessment"
     OTHER           = "other"
+
+
+class ChargeBasis(str, enum.Enum):
+    """How a charge head turns into a per-flat amount. `default_amount`
+    on the charge means a different thing for each basis (see
+    MaintenanceCalculator):
+
+    FIXED                  ₹ per flat per month (service charges, lift, common
+                           electricity — shared equally per bye-law 67)
+    PER_SQFT               ₹ per sq ft of flat area per month
+    CONSTRUCTION_COST_PCT  % per annum of the flat's construction cost (area ×
+                           society construction cost/sq ft) — sinking fund
+                           0.25%, repair & maintenance fund 0.75%
+    BUDGET_EQUAL           annual budget ₹, split equally across flats
+    BUDGET_AREA            annual budget ₹, split in proportion to flat area
+    PARKING                ₹ per allotted parking slot per month (an
+                           allocation's own monthly_charge overrides it)
+    """
+    FIXED                 = "fixed"
+    PER_SQFT              = "per_sqft"
+    CONSTRUCTION_COST_PCT = "construction_cost_pct"
+    BUDGET_EQUAL          = "budget_equal"
+    BUDGET_AREA           = "budget_area"
+    PARKING               = "parking"
 
 
 class BillStatus(str, enum.Enum):
@@ -75,6 +99,12 @@ class ReconciliationStatus(str, enum.Enum):
     REJECTED         = "rejected"   # screenshot didn't match / invalid, e.g. duplicate or wrong society
 
 
+class BankStatementMatchStatus(str, enum.Enum):
+    UNMATCHED = "unmatched"  # imported, no confirmed link to a payment submission yet
+    MATCHED   = "matched"    # linked to an OnlinePaymentSubmission, which is now RECONCILED
+    IGNORED   = "ignored"    # not a resident payment (bank interest, charges, unrelated transfer)
+
+
 # ── FinancialPeriod ───────────────────────────────────────────────────────────
 
 class FinancialPeriod(Base, TimestampMixin):
@@ -99,6 +129,40 @@ class FinancialPeriod(Base, TimestampMixin):
         return f"<FinancialPeriod {self.name}>"
 
 
+# ── MaintenanceElement ────────────────────────────────────────────────────────
+
+class MaintenanceElement(Base, TimestampMixin):
+    """
+    A society's master list of maintenance elements — the kinds of charge
+    it can levy (service charges, sinking fund, property tax, lift, …) with
+    the default way each is calculated. Seeded with the standard bye-law
+    elements on first use (see standard_elements.py) and fully editable
+    afterwards; charge heads are created from these.
+    """
+    __tablename__ = "maintenance_elements"
+    __table_args__ = (UniqueConstraint("society_id", "code", name="uq_maintenance_element_code"),)
+
+    society_id        = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    code              = Column(String(50), nullable=False)          # stable slug, unique per society
+    name              = Column(String(150), nullable=False)
+    description       = Column(Text, nullable=True)
+    bye_law_ref       = Column(String(150), nullable=True)
+    category          = Column(Enum(ChargeType, values_callable=lambda e: [x.value for x in e]),
+                               default=ChargeType.OTHER, nullable=False)
+    default_basis     = Column(Enum(ChargeBasis, values_callable=lambda e: [x.value for x in e]),
+                               default=ChargeBasis.FIXED, nullable=False)
+    default_amount    = Column(Numeric(12, 2), nullable=True)
+    is_service_charge = Column(Boolean, default=False, nullable=False)
+    gst_applicable    = Column(Boolean, default=True, nullable=False)
+    sort_order        = Column(Integer, default=100, nullable=False)
+    is_system         = Column(Boolean, default=False, nullable=False)  # seeded standard element
+
+    society = relationship("Society")
+
+    def __repr__(self):
+        return f"<MaintenanceElement {self.code}>"
+
+
 # ── MaintenanceChargeConfig ───────────────────────────────────────────────────
 
 class MaintenanceChargeConfig(Base, TimestampMixin):
@@ -114,16 +178,47 @@ class MaintenanceChargeConfig(Base, TimestampMixin):
     description   = Column(Text, nullable=True)
     default_amount = Column(Numeric(10, 2), nullable=True)      # per flat per cycle
     is_per_sqft   = Column(Boolean, default=False, nullable=False)   # amount × area_sqft
+    basis         = Column(Enum(ChargeBasis, values_callable=lambda e: [x.value for x in e]),
+                           default=ChargeBasis.FIXED, nullable=False)
+    is_service_charge = Column(Boolean, default=False, nullable=False)  # base for non-occupancy charges
+    gst_applicable    = Column(Boolean, default=True, nullable=False)
     is_mandatory  = Column(Boolean, default=True, nullable=False)
     applicable_flat_types = Column(String(255), nullable=True)   # CSV of FlatType values
     tax_percent   = Column(Numeric(5, 2), default=0, nullable=False)
     effective_from = Column(Date, nullable=True)
     effective_to  = Column(Date, nullable=True)
+    element_id    = Column(UUID(as_uuid=True), ForeignKey("maintenance_elements.id", ondelete="SET NULL"),
+                           nullable=True, index=True)
 
     society      = relationship("Society")
+    element      = relationship("MaintenanceElement")
 
     def __repr__(self):
         return f"<ChargeConfig {self.name} ₹{self.default_amount}>"
+
+
+# ── MaintenanceSettings ───────────────────────────────────────────────────────
+
+class MaintenanceSettings(Base, TimestampMixin):
+    """Society-wide rules the maintenance calculator applies to every bill.
+    Defaults follow the Maharashtra model bye-laws as amended in 2026:
+    simple interest on arrears capped at 12% p.a., non-occupancy charges
+    capped at 10% of service charges, and GST at 18% only once a flat's
+    monthly contribution crosses ₹7,500 (and the society is registered —
+    turnover above ₹20 lakh — which is what gst_enabled records)."""
+    __tablename__ = "maintenance_settings"
+
+    society_id                 = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"),
+                                        nullable=False, unique=True, index=True)
+    construction_cost_per_sqft = Column(Numeric(10, 2), nullable=True)   # architect-certified, excl. land
+    interest_rate_pct          = Column(Numeric(5, 2), default=12, nullable=False)   # simple, per annum
+    interest_grace_days        = Column(Integer, default=0, nullable=False)
+    non_occupancy_pct          = Column(Numeric(5, 2), default=0, nullable=False)    # of service charges
+    gst_enabled                = Column(Boolean, default=False, nullable=False)
+    gst_rate_pct               = Column(Numeric(5, 2), default=18, nullable=False)
+    gst_threshold_monthly      = Column(Numeric(10, 2), default=7500, nullable=False)
+
+    society = relationship("Society")
 
 
 # ── BillingCycle ──────────────────────────────────────────────────────────────
@@ -191,6 +286,13 @@ class MaintenanceBill(Base, TimestampMixin):
     cancelled_at    = Column(DateTime, nullable=True)
     cancellation_reason = Column(Text, nullable=True)
     remarks         = Column(Text, nullable=True)
+    # Unpaid balance of this flat's earlier bills when this one was
+    # generated — shown on the bill as arrears, not added to total_amount
+    # (each earlier bill still carries its own outstanding).
+    previous_dues   = Column(Numeric(12, 2), default=0, nullable=False)
+    # Interest on this bill's unpaid balance has been billed (on later
+    # bills) up to this date, so the next bill only charges the new days.
+    arrears_interest_upto = Column(Date, nullable=True)
 
     society    = relationship("Society")
     cycle      = relationship("BillingCycle", back_populates="bills")
@@ -199,6 +301,7 @@ class MaintenanceBill(Base, TimestampMixin):
     generator  = relationship("User", foreign_keys=[generated_by])
     line_items = relationship("InvoiceLineItem", back_populates="bill", cascade="all, delete-orphan")
     receipts   = relationship("PaymentReceipt",  back_populates="bill", cascade="all, delete-orphan")
+    online_payments = relationship("OnlinePaymentSubmission", back_populates="bill")
 
     def __repr__(self):
         return f"<MaintenanceBill {self.invoice_number} [{self.bill_status}] ₹{self.total_amount}>"
@@ -312,19 +415,27 @@ class PenaltyRule(Base, TimestampMixin):
 
 class OnlinePaymentSubmission(Base, TimestampMixin):
     """
-    A resident's online-payment (UPI/bank transfer) screenshot recorded by
-    the FMC Manager on the resident's behalf, for later bank reconciliation.
+    The single "record a payment" entry point — an FMC Manager records
+    either an ON ACCOUNT payment (`bill_id` null: log what a resident says
+    they paid, e.g. a screenshot, with nothing to apply it against yet) or
+    an ON BILL payment (`bill_id` set at creation: applied immediately to
+    that MaintenanceBill/DueTracker via BillingService._apply_payment_to_bill,
+    the same accounting logic `record_payment()`/PaymentReceipt uses).
+    Either way, a receipt is issued immediately.
 
-    Deliberately independent of MaintenanceBill/PaymentReceipt — capturing
-    the screenshot and payment details doesn't require an existing bill to
-    apply against, since the point is to log what a resident says they
-    paid before anyone has cross-checked it against the bank statement.
-    Once reconciled, `bill_id` can optionally be set to link it to the
-    matching bill.
+    Bank reconciliation is a separate, later step (see `status` below) —
+    it does not gate the bill being marked paid or the receipt being
+    issued. `status` starts RECONCILED for cash (nothing to check against
+    a bank statement) and PENDING for every other payment mode, including
+    cheque (can still bounce) and the online modes; a manager clears
+    PENDING rows via update_online_payment_status().
 
-    The screenshot image is stored inline (bytea) rather than as a file
-    path/URL — the backend container's filesystem is ephemeral, so a
-    disk-stored file would be lost on every redeploy.
+    The screenshot is optional — required only for the online payment
+    modes (UPI/bank transfer/NEFT/RTGS/online gateway) where it's the
+    actual proof of payment; cash and cheque have no such artifact. When
+    present it's stored inline (bytea) rather than as a file path/URL —
+    the backend container's filesystem is ephemeral, so a disk-stored
+    file would be lost on every redeploy.
     """
     __tablename__ = "online_payment_submissions"
 
@@ -342,22 +453,66 @@ class OnlinePaymentSubmission(Base, TimestampMixin):
     transaction_ref = Column(String(100), nullable=True, index=True)   # UPI/UTR/bank reference
     bank_name       = Column(String(100), nullable=True)
     notes           = Column(Text, nullable=True)
+    # What the resident says the payment is for. No bill exists to derive
+    # this from (see class docstring), so it's captured directly and printed
+    # on the receipt as "on account of <purpose>" — standard society-receipt
+    # phrasing. Defaults to MAINTENANCE since that's the overwhelming case.
+    purpose         = Column(Enum(ChargeType, values_callable=lambda e: [x.value for x in e]),
+                              default=ChargeType.MAINTENANCE, nullable=False)
 
     status          = Column(Enum(ReconciliationStatus, values_callable=lambda e: [x.value for x in e]),
                               default=ReconciliationStatus.PENDING, nullable=False, index=True)
     reviewed_at     = Column(DateTime, nullable=True)
     review_notes    = Column(Text, nullable=True)
 
-    screenshot_data      = Column(LargeBinary, nullable=False)
-    screenshot_mime_type = Column(String(50), nullable=False, default="image/jpeg")
+    screenshot_data      = Column(LargeBinary, nullable=True)
+    screenshot_mime_type = Column(String(50), nullable=True)
     screenshot_file_name = Column(String(255), nullable=True)
 
     society   = relationship("Society")
     wing      = relationship("Wing")
     flat      = relationship("Flat")
-    bill      = relationship("MaintenanceBill")
+    bill      = relationship("MaintenanceBill", back_populates="online_payments")
     recorder  = relationship("User", foreign_keys=[recorded_by])
     reviewer  = relationship("User", foreign_keys=[reviewed_by])
 
     def __repr__(self):
         return f"<OnlinePaymentSubmission {self.receipt_number} ₹{self.amount} [{self.status}]>"
+
+
+# ── BankStatementEntry ────────────────────────────────────────────────────────
+
+class BankStatementEntry(Base, TimestampMixin):
+    """
+    One credit row from an imported bank statement — the other half of
+    reconciliation. OnlinePaymentSubmission is what the society *recorded*
+    as received from a resident; this is what the bank *actually shows*
+    credited. Matching the two closes the loop: a submission only moves
+    PENDING -> RECONCILED once its money is confirmed to have landed in
+    the account, via BillingService.confirm_bank_match() — never on
+    import alone, which only creates UNMATCHED rows.
+    """
+    __tablename__ = "bank_statement_entries"
+
+    society_id             = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    imported_by            = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    matched_submission_id  = Column(UUID(as_uuid=True), ForeignKey("online_payment_submissions.id", ondelete="SET NULL"), nullable=True, index=True)
+    matched_by             = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    txn_date      = Column(Date, nullable=False, index=True)
+    description   = Column(String(500), nullable=False)
+    reference     = Column(String(100), nullable=True, index=True)   # bank's own UTR/ref, if present
+    amount        = Column(Numeric(12, 2), nullable=False)
+
+    match_status  = Column(Enum(BankStatementMatchStatus, values_callable=lambda e: [x.value for x in e]),
+                            default=BankStatementMatchStatus.UNMATCHED, nullable=False, index=True)
+    matched_at    = Column(DateTime, nullable=True)
+    ignore_reason = Column(Text, nullable=True)
+
+    society            = relationship("Society")
+    importer           = relationship("User", foreign_keys=[imported_by])
+    matcher            = relationship("User", foreign_keys=[matched_by])
+    matched_submission = relationship("OnlinePaymentSubmission")
+
+    def __repr__(self):
+        return f"<BankStatementEntry {self.txn_date} ₹{self.amount} [{self.match_status}]>"
