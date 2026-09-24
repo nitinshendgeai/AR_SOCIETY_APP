@@ -23,6 +23,9 @@ bank_statement_match_status = postgresql.ENUM(
     'unmatched', 'matched', 'ignored',
     name='bankstatementmatchstatus',
 )
+# Column type referencing the type created explicitly in upgrade();
+# without create_type=False, create_table would try to CREATE TYPE again.
+match_status_column_type = postgresql.ENUM(name='bankstatementmatchstatus', create_type=False)
 
 
 def upgrade() -> None:
@@ -45,7 +48,7 @@ def upgrade() -> None:
         sa.Column('reference', sa.String(length=100), nullable=True),
         sa.Column('amount', sa.Numeric(12, 2), nullable=False),
 
-        sa.Column('match_status', bank_statement_match_status, nullable=False, server_default='unmatched'),
+        sa.Column('match_status', match_status_column_type, nullable=False, server_default='unmatched'),
         sa.Column('matched_at', sa.DateTime(), nullable=True),
         sa.Column('ignore_reason', sa.Text(), nullable=True),
 
