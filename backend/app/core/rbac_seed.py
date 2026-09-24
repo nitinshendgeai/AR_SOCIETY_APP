@@ -129,6 +129,7 @@ FORM_DEFINITIONS = [
     ("checklist_templates",       "Checklist Templates",        "Department-scoped reusable duty checklists"),
     ("online_payments",           "Online Payments",            "Resident payment screenshots captured for bank reconciliation"),
     ("bank_reconciliation",       "Bank Reconciliation",        "Import bank statements and match them against pending payments"),
+    ("vendor_bills",              "Vendor Bills",               "Vendor invoices and payments made against them"),
 ]
 
 _ADMIN_OR_COMMITTEE_ROLES = (
@@ -167,6 +168,7 @@ FORM_ROLE_GRANTS = {
     "checklist_templates":      _ADMIN_OR_COMMITTEE_ROLES,
     "online_payments":          tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
     "bank_reconciliation":      tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
+    "vendor_bills":             tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
 }
 
 

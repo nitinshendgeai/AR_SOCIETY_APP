@@ -88,6 +88,15 @@ class ScheduleStatus(str, enum.Enum):
     RESCHEDULED= "rescheduled"
 
 
+class VendorPaymentMode(str, enum.Enum):
+    CASH          = "cash"
+    UPI           = "upi"
+    BANK_TRANSFER = "bank_transfer"
+    CHEQUE        = "cheque"
+    NEFT          = "neft"
+    RTGS          = "rtgs"
+
+
 # ── ServiceRequest FSM transitions ───────────────────────────────────────────
 SR_TRANSITIONS: dict = {
     ServiceRequestStatus.OPEN:        {ServiceRequestStatus.ASSIGNED, ServiceRequestStatus.CANCELLED},
@@ -315,7 +324,13 @@ class ServiceVisitLog(Base, TimestampMixin):
 # ── VendorInvoice ─────────────────────────────────────────────────────────────
 
 class VendorInvoice(Base, TimestampMixin):
-    """Vendor invoice for service/AMC — finance ERP ready."""
+    """Vendor invoice for service/AMC — finance ERP ready. This is the
+    society's payable side, the mirror of the resident-facing
+    OnlinePaymentSubmission (billing module): amount owed here goes OUT
+    to a vendor rather than coming IN from a resident. paid_amount
+    accumulates across possibly-partial payments (see
+    VendorService_.record_vendor_payment); is_paid flips true only once
+    paid_amount reaches total_amount."""
     __tablename__ = "vendor_invoices"
 
     society_id     = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -333,7 +348,9 @@ class VendorInvoice(Base, TimestampMixin):
     paid_amount    = Column(Numeric(12, 2), default=0, nullable=False)
     is_paid        = Column(Boolean, default=False, nullable=False, index=True)
     paid_date      = Column(Date, nullable=True)
+    payment_mode   = Column(Enum(VendorPaymentMode, values_callable=lambda e: [x.value for x in e]), nullable=True)
     payment_ref    = Column(String(100), nullable=True)
+    bank_name      = Column(String(100), nullable=True)
     description    = Column(Text, nullable=True)
     doc_url        = Column(String(500), nullable=True)
 

@@ -233,6 +233,7 @@ const _menuCategories = [
   _MenuCategory('Finance', Icons.payments_rounded, [
     _MenuItem('online_payments', 'Payments', Icons.receipt_long_rounded, AppRoutes.onlinePayments),
     _MenuItem('bank_reconciliation', 'Bank Reconciliation', Icons.account_balance_rounded, AppRoutes.bankReconciliation),
+    _MenuItem('vendor_bills', 'Vendor Bills', Icons.storefront_rounded, AppRoutes.vendorBills),
   ]),
   _MenuCategory('Administration', Icons.admin_panel_settings_rounded, [
     _MenuItem('users_roles', 'Users & Roles', Icons.people_rounded, AppRoutes.usersList),

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.vendor.models.vendor import (
     Vendor, VendorService, AMCContract, AMCServiceSchedule,
-    ServiceRequest, ServiceVisitLog, VendorInvoice,
+    ServiceRequest, ServiceVisitLog, VendorInvoice, VendorPaymentMode,
     ContractStatus, ServiceRequestStatus, ScheduleStatus,
     ServiceFrequency, SR_TRANSITIONS,
 )
@@ -272,15 +272,36 @@ class VendorService_:  # trailing underscore avoids clash with model name
         self.db.refresh(inv)
         return inv
 
-    def mark_invoice_paid(self, inv_id: UUID, paid_date: date,
-                           payment_ref: str, user: User) -> VendorInvoice:
+    def record_vendor_payment(self, inv_id: UUID, amount: Decimal, paid_date: date,
+                               payment_mode: VendorPaymentMode, transaction_ref: Optional[str],
+                               bank_name: Optional[str], user: User) -> VendorInvoice:
+        """Records a payment against an invoice — possibly partial. Unlike
+        the old mark_invoice_paid (which always force-set paid_amount to
+        the full total), this accumulates across calls and only flips
+        is_paid once paid_amount reaches total_amount, mirroring how
+        MaintenanceBill/PaymentReceipt track partial resident payments."""
         inv = self.db.query(VendorInvoice).filter(VendorInvoice.id == inv_id).first()
         if not inv: raise HTTPException(404, "Invoice not found")
-        inv.is_paid     = True
-        inv.paid_date   = paid_date
-        inv.payment_ref = payment_ref
-        inv.paid_amount = inv.total_amount
-        inv.approved_by = user.id
+        if inv.is_paid:
+            raise HTTPException(409, "Invoice is already fully paid")
+        if amount <= 0:
+            raise HTTPException(422, "Payment amount must be positive")
+        outstanding = inv.total_amount - inv.paid_amount
+        if amount > outstanding:
+            raise HTTPException(422, f"Payment of {amount} exceeds outstanding balance of {outstanding}")
+
+        inv.paid_amount = inv.paid_amount + amount
+        inv.payment_mode = payment_mode
+        inv.payment_ref  = transaction_ref
+        inv.bank_name    = bank_name
+        inv.paid_date    = paid_date
+        inv.approved_by  = user.id
+        if inv.paid_amount >= inv.total_amount:
+            inv.is_paid = True
+
+        self._audit(AuditAction.UPDATE, inv, "VendorInvoice", user,
+                    new_values={"amount": str(amount), "paid_amount": str(inv.paid_amount),
+                                "is_paid": inv.is_paid, "invoice": inv.invoice_number})
         self.db.commit()
         self.db.refresh(inv)
         return inv
@@ -289,3 +310,15 @@ class VendorService_:  # trailing underscore avoids clash with model name
         return self.db.query(VendorInvoice).filter(
             VendorInvoice.vendor_id == vendor_id
         ).order_by(VendorInvoice.invoice_date.desc()).all()
+
+    def list_invoices_by_society(self, society_id: UUID, is_paid: Optional[bool] = None,
+                                  skip=0, limit=50) -> List[VendorInvoice]:
+        q = self.db.query(VendorInvoice).filter(VendorInvoice.society_id == society_id)
+        if is_paid is not None:
+            q = q.filter(VendorInvoice.is_paid == is_paid)
+        return q.order_by(VendorInvoice.invoice_date.desc()).offset(skip).limit(limit).all()
+
+    def get_vendor_invoice(self, inv_id: UUID) -> VendorInvoice:
+        inv = self.db.query(VendorInvoice).filter(VendorInvoice.id == inv_id).first()
+        if not inv: raise HTTPException(404, "Invoice not found")
+        return inv
