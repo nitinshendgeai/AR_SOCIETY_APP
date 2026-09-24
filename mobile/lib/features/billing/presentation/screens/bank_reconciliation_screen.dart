@@ -7,6 +7,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/billing/domain/entities/billing_entities.dart';
 import 'package:ar_society_app/features/billing/presentation/providers/billing_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// FMC Manager/Admin/Committee: import a bank statement (CSV) and match
 /// its credit rows against payments residents said they made, closing the
@@ -42,16 +43,11 @@ class _BankReconciliationScreenState extends ConsumerState<BankReconciliationScr
           .read(bankStatementEntriesProvider(societyId).notifier)
           .importStatement(csvBytes: bytes, fileName: picked.name);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Imported ${imported.length} row${imported.length == 1 ? '' : 's'} from the statement'),
-          backgroundColor: AppTheme.success,
-        ));
+        AppToast.success(context,
+            'Imported ${imported.length} row${imported.length == 1 ? '' : 's'} from the statement');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(friendlyErrorMessage(e)), backgroundColor: AppTheme.error));
-      }
+      if (mounted) showErrorToast(context, e);
     } finally {
       if (mounted) setState(() => _importing = false);
     }
@@ -108,6 +104,31 @@ class _BankReconciliationScreenState extends ConsumerState<BankReconciliationScr
       ),
       body: Column(
         children: [
+          entriesAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (entries) {
+              final unmatched = entries.where((e) => e.isUnmatched).length;
+              final matched = entries.where((e) => e.isMatched).length;
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: KpiGrid(cards: [
+                  KpiCard(
+                    icon: Icons.hourglass_top_rounded,
+                    label: 'Unmatched',
+                    value: '$unmatched',
+                    color: AppTheme.warning,
+                  ),
+                  KpiCard(
+                    icon: Icons.check_circle_outline_rounded,
+                    label: 'Matched',
+                    value: '$matched',
+                    color: AppTheme.success,
+                  ),
+                ]),
+              );
+            },
+          ),
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Row(children: [
@@ -150,16 +171,11 @@ class _BankReconciliationScreenState extends ConsumerState<BankReconciliationScr
                     ? entries
                     : entries.where((e) => e.matchStatus == _statusFilter).toList();
                 if (filtered.isEmpty) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text(
-                        'No statement rows yet. Tap "Import Statement" to bring in your bank\'s '
-                        'transactions and match them against pending payments.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: AppTheme.textSecondary),
-                      ),
-                    ),
+                  return const AppEmptyState(
+                    icon: Icons.account_balance_rounded,
+                    title: 'No statement rows yet',
+                    subtitle: 'Tap "Import Statement" to bring in your bank\'s transactions '
+                        'and match them against pending payments.',
                   );
                 }
                 return RefreshIndicator(
@@ -252,14 +268,10 @@ class _MatchEntrySheetState extends ConsumerState<_MatchEntrySheet> {
           .confirmMatch(widget.entry.id, submissionId);
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Payment reconciled'), backgroundColor: AppTheme.success));
+        AppToast.success(context, 'Payment reconciled');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(friendlyErrorMessage(e)), backgroundColor: AppTheme.error));
-      }
+      if (mounted) showErrorToast(context, e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -294,10 +306,7 @@ class _MatchEntrySheetState extends ConsumerState<_MatchEntrySheet> {
           .ignoreEntry(widget.entry.id, reason: reason.isEmpty ? null : reason);
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(friendlyErrorMessage(e)), backgroundColor: AppTheme.error));
-      }
+      if (mounted) showErrorToast(context, e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

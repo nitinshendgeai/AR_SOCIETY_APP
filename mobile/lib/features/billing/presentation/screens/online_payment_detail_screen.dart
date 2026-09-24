@@ -9,6 +9,7 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/features/billing/data/repositories/billing_repository.dart';
 import 'package:ar_society_app/features/billing/domain/entities/billing_entities.dart';
 import 'package:ar_society_app/features/billing/presentation/providers/billing_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 class OnlinePaymentDetailScreen extends ConsumerStatefulWidget {
   final String paymentId;
@@ -62,10 +63,7 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
             reviewNotes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
           );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(friendlyErrorMessage(e)), backgroundColor: AppTheme.error));
-      }
+      if (mounted) showErrorToast(context, e);
     } finally {
       if (mounted) setState(() => _updating = false);
     }
@@ -85,10 +83,7 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
           throw Exception(message);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(friendlyErrorMessage(e)), backgroundColor: AppTheme.error));
-      }
+      if (mounted) showErrorToast(context, e);
     } finally {
       if (mounted) setState(() => _sharingReceipt = false);
     }

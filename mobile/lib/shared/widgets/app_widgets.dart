@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 
 // ── Responsive body wrapper ───────────────────────────────────────────────
@@ -180,6 +181,237 @@ class AppPrimaryButton extends StatelessWidget {
                 ],
               ),
       ),
+    );
+  }
+}
+
+// ── Toasts ────────────────────────────────────────────────────────────────────
+//
+// Every screen that shows a result today hand-rolls its own
+// ScaffoldMessenger.showSnackBar(SnackBar(...)) call, each free to pick its
+// own color/icon/duration — the single interaction a user sees most often
+// (every create/update/delete ends in one) is also the least consistent one
+// in the app. AppToast is the one call site going forward: four semantic
+// variants, each a colored icon + message on the theme's card background
+// (not a plain dark bar), matching the soft-surface language the rest of
+// AppTheme already uses for status colors.
+enum _ToastKind { success, error, warning, info }
+
+class AppToast {
+  AppToast._();
+
+  static void success(BuildContext context, String message) =>
+      _show(context, message, _ToastKind.success);
+  static void error(BuildContext context, String message) =>
+      _show(context, message, _ToastKind.error);
+  static void warning(BuildContext context, String message) =>
+      _show(context, message, _ToastKind.warning);
+  static void info(BuildContext context, String message) =>
+      _show(context, message, _ToastKind.info);
+
+  static void _show(BuildContext context, String message, _ToastKind kind) {
+    final (color, icon) = switch (kind) {
+      _ToastKind.success => (AppTheme.success, Icons.check_circle_rounded),
+      _ToastKind.error => (AppTheme.error, Icons.error_rounded),
+      _ToastKind.warning => (AppTheme.warning, Icons.warning_rounded),
+      _ToastKind.info => (AppTheme.primary, Icons.info_rounded),
+    };
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          backgroundColor: AppTheme.cardBg,
+          duration: const Duration(seconds: 3),
+          content: Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(message,
+                    style: const TextStyle(
+                        color: AppTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.w500)),
+              ),
+            ],
+          ),
+        ),
+      );
+  }
+}
+
+/// Shorthand for the common "catch (e) { AppToast.error(...) }" case —
+/// resolves the exception to a user-facing message the same way every
+/// screen already does via [friendlyErrorMessage].
+void showErrorToast(BuildContext context, Object error) =>
+    AppToast.error(context, friendlyErrorMessage(error));
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+//
+// Most list/dashboard screens either show a blank scroll view when data is
+// empty, or hand-write their own Center(child: Padding(child: Text(...)))
+// — each with slightly different icon size/color/spacing. One shared,
+// properly styled version for every new list screen to reach for.
+class AppEmptyState extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  const AppEmptyState({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(AppTheme.radiusL),
+              ),
+              child: Icon(icon, size: 30, color: AppTheme.textTertiary),
+            ),
+            const SizedBox(height: 16),
+            Text(title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+            if (subtitle != null) ...[
+              const SizedBox(height: 6),
+              Text(subtitle!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4)),
+            ],
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 20),
+              OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── KPI cards ─────────────────────────────────────────────────────────────────
+//
+// A stat tile for dashboard summary numbers — one shared, shadow-based
+// (not bordered) version rather than each screen defining its own private
+// summary-card widget with slightly different styling. Digits use
+// tabular figures so a grid of these lines up cleanly even as numbers
+// change width.
+class KpiCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+  final String? note;
+  final VoidCallback? onTap;
+
+  const KpiCard({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+    this.note,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppTheme.cardBg,
+      borderRadius: BorderRadius.circular(AppTheme.radiusL),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radiusL),
+            boxShadow: AppTheme.cardShadow,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(icon, color: color, size: 17),
+                  ),
+                  const Spacer(),
+                  if (onTap != null)
+                    Icon(Icons.chevron_right_rounded, color: color.withOpacity(0.6), size: 16),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
+              if (note != null) ...[
+                const SizedBox(height: 3),
+                Text(note!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, color: AppTheme.textTertiary)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A responsive 2-column grid of [KpiCard]s — the standard layout for a
+/// dashboard's summary row.
+class KpiGrid extends StatelessWidget {
+  final List<KpiCard> cards;
+  const KpiGrid({super.key, required this.cards});
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 1.5,
+      children: cards,
     );
   }
 }

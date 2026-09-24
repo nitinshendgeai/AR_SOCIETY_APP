@@ -12,6 +12,7 @@ import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dar
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/complaint/presentation/providers/complaint_providers.dart';
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 // ── Shared scaffold wrapper ───────────────────────────────────────────────────
 
@@ -338,6 +339,10 @@ class _ActionItem {
   });
 }
 
+// Thin wrapper over the shared KpiCard — kept as its own name since every
+// dashboard below already calls _SummaryCard(...); redefining it here (once)
+// gets all six dashboards onto the shared shadow-based card in one place
+// rather than touching 34 call sites individually.
 class _SummaryCard extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -350,37 +355,8 @@ class _SummaryCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppTheme.cardBg,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppTheme.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                Container(width: 36, height: 36, decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: color, size: 18)),
-                const Spacer(),
-                Icon(onTap != null ? Icons.chevron_right_rounded : Icons.trending_up_rounded, color: color.withOpacity(0.8), size: 14),
-              ]),
-              const SizedBox(height: 10),
-              Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-              const SizedBox(height: 2),
-              Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      KpiCard(icon: icon, label: label, value: value, color: color, onTap: onTap);
 }
 
 class _QuickActionChip extends StatelessWidget {

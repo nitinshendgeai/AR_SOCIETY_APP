@@ -5,6 +5,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/vendor/domain/entities/vendor_entities.dart';
 import 'package:ar_society_app/features/vendor/presentation/providers/vendor_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// FMC Manager/Admin/Committee: bills owed to vendors and payments made
 /// against them — the society's payable side, the mirror of the
@@ -48,6 +49,32 @@ class _VendorBillsScreenState extends ConsumerState<VendorBillsScreen> {
       ),
       body: Column(
         children: [
+          invoicesAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (invoices) {
+              final unpaid = invoices.where((i) => !i.isPaid).toList();
+              final outstandingTotal = unpaid.fold<double>(
+                  0, (sum, i) => sum + (double.tryParse(i.outstanding) ?? 0));
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: KpiGrid(cards: [
+                  KpiCard(
+                    icon: Icons.pending_actions_rounded,
+                    label: 'Unpaid Bills',
+                    value: '${unpaid.length}',
+                    color: AppTheme.warning,
+                  ),
+                  KpiCard(
+                    icon: Icons.account_balance_wallet_rounded,
+                    label: 'Outstanding',
+                    value: '₹${outstandingTotal.toStringAsFixed(0)}',
+                    color: AppTheme.error,
+                  ),
+                ]),
+              );
+            },
+          ),
           SizedBox(
             height: 48,
             child: ListView(
@@ -79,13 +106,10 @@ class _VendorBillsScreenState extends ConsumerState<VendorBillsScreen> {
                     ? invoices
                     : invoices.where((i) => i.isPaid == _paidFilter).toList();
                 if (filtered.isEmpty) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text('No vendor bills yet. Tap "Add Bill" to log one.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: AppTheme.textSecondary)),
-                    ),
+                  return const AppEmptyState(
+                    icon: Icons.storefront_rounded,
+                    title: 'No vendor bills yet',
+                    subtitle: 'Tap "Add Bill" to log one.',
                   );
                 }
                 return RefreshIndicator(
@@ -209,8 +233,7 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_vendorId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Pick a vendor'), backgroundColor: AppTheme.error));
+      AppToast.error(context, 'Pick a vendor');
       return;
     }
     setState(() => _saving = true);
@@ -227,14 +250,10 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
           );
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Bill added'), backgroundColor: AppTheme.success));
+        AppToast.success(context, 'Bill added');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(friendlyErrorMessage(e)), backgroundColor: AppTheme.error));
-      }
+      if (mounted) showErrorToast(context, e);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -387,10 +406,7 @@ class _AddVendorDialogState extends ConsumerState<_AddVendorDialog> {
           );
       if (mounted) Navigator.pop(context, vendor);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(friendlyErrorMessage(e)), backgroundColor: AppTheme.error));
-      }
+      if (mounted) showErrorToast(context, e);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -550,14 +566,10 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
           );
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Payment recorded'), backgroundColor: AppTheme.success));
+        AppToast.success(context, 'Payment recorded');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(friendlyErrorMessage(e)), backgroundColor: AppTheme.error));
-      }
+      if (mounted) showErrorToast(context, e);
     } finally {
       if (mounted) setState(() => _saving = false);
     }

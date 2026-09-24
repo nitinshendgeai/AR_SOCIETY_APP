@@ -8,6 +8,7 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/features/billing/domain/entities/billing_entities.dart';
 import 'package:ar_society_app/features/billing/presentation/providers/billing_providers.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// FMC Manager (or Admin/Committee) records a resident's payment: select
 /// Wing → Flat, choose On Bill (applied immediately to an existing
@@ -80,24 +81,15 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
     final amount = double.tryParse(_amountCtrl.text.trim());
 
     if (societyId == null || _flatId == null || amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Select a Wing, Flat, and a valid amount'),
-        backgroundColor: AppTheme.error,
-      ));
+      AppToast.error(context, 'Select a Wing, Flat, and a valid amount');
       return;
     }
     if (_target == _PaymentTarget.onBill && _billId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Select which bill this payment is against'),
-        backgroundColor: AppTheme.error,
-      ));
+      AppToast.error(context, 'Select which bill this payment is against');
       return;
     }
     if (_screenshotRequired && _pickedBytes == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('A payment screenshot is required for ${paymentModeLabel(_paymentMode)}'),
-        backgroundColor: AppTheme.error,
-      ));
+      AppToast.error(context, 'A payment screenshot is required for ${paymentModeLabel(_paymentMode)}');
       return;
     }
 
@@ -118,17 +110,11 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
             screenshotMimeType: _pickedFile?.mimeType ?? 'image/jpeg',
           );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Recorded — receipt ${entity.receiptNumber}'),
-          backgroundColor: AppTheme.success,
-        ));
+        AppToast.success(context, 'Recorded — receipt ${entity.receiptNumber}');
         Navigator.pop(context, entity);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(friendlyErrorMessage(e)), backgroundColor: AppTheme.error));
-      }
+      if (mounted) showErrorToast(context, e);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
