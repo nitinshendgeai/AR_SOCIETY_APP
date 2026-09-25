@@ -252,6 +252,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
             AppDataColumn.text('Joined', (s) => s.joiningDate ?? '—', flex: 2),
             AppDataColumn(
               label: 'Status',
+              width: 120,
               sortKey: (s) => s.status,
               cell: (s) => StatusPill(_staffStatusLabel(s.status), _staffStatusColor(s.status)),
             ),
@@ -291,6 +292,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
 
 String _staffStatusLabel(String s) => switch (s) {
       'active' => 'Active',
+      'probation' => 'Probation',
       'on_leave' => 'On leave',
       'inactive' => 'Inactive',
       'terminated' => 'Terminated',
@@ -299,6 +301,7 @@ String _staffStatusLabel(String s) => switch (s) {
 
 Color _staffStatusColor(String s) => switch (s) {
       'active' => AppTheme.success,
+      'probation' => AppTheme.primary,
       'on_leave' => AppTheme.warning,
       'inactive' => AppTheme.textSecondary,
       'terminated' => AppTheme.error,

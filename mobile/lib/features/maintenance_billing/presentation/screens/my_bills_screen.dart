@@ -4,9 +4,12 @@ import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
-import 'package:ar_society_app/features/maintenance_billing/presentation/screens/billing_cycle_screen.dart' show BillTile;
+import 'package:ar_society_app/features/maintenance_billing/presentation/screens/billing_cycle_screen.dart'
+    show BillTile, billStatusColor;
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/maintenance_bill_detail_screen.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 
 /// Resident view: every issued bill for the flat(s) they live in.
 class MyBillsScreen extends ConsumerWidget {
@@ -50,23 +53,47 @@ class MyBillsScreen extends ConsumerWidget {
                   ),
                 ]),
                 const SizedBox(height: 20),
-                if (summary.bills.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 40),
-                    child: AppEmptyState(
-                      icon: Icons.receipt_long_rounded,
-                      title: 'No bills yet',
-                      subtitle: 'Your maintenance bills will appear here once the society issues them.',
+                if (isDesktopLayout(context) && summary.bills.isNotEmpty)
+                  AppDataTable<MaintenanceBill>(
+                    rows: [...open, ...settled],
+                    onRowTap: (b) => _openBill(context, b),
+                    columns: [
+                      AppDataColumn.text('Bill no.', (b) => b.invoiceNumber, flex: 2, bold: true),
+                      AppDataColumn.text('Period', (b) => b.cycleName ?? '—', flex: 3),
+                      AppDataColumn.text('Flat', (b) => b.flatLabel, flex: 2),
+                      AppDataColumn.text('Due', (b) => formatBillDate(b.dueDate),
+                          flex: 2, sortKey: (b) => b.dueDate.millisecondsSinceEpoch),
+                      AppDataColumn.text('Total', (b) => formatRupees(b.totalAmount),
+                          flex: 2, numeric: true, sortKey: (b) => amountOf(b.totalAmount)),
+                      AppDataColumn.text('Outstanding', (b) => formatRupees(b.outstanding),
+                          flex: 2, numeric: true, bold: true, sortKey: (b) => amountOf(b.outstanding)),
+                      AppDataColumn(
+                        label: 'Status',
+                        flex: 2,
+                        sortKey: (b) => billStatusLabel(b.displayStatus),
+                        cell: (b) => StatusPill(billStatusLabel(b.displayStatus), billStatusColor(b.displayStatus)),
+                      ),
+                    ],
+                  )
+                else ...[
+                  if (summary.bills.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 40),
+                      child: AppEmptyState(
+                        icon: Icons.receipt_long_rounded,
+                        title: 'No bills yet',
+                        subtitle: 'Your maintenance bills will appear here once the society issues them.',
+                      ),
                     ),
-                  ),
-                if (open.isNotEmpty) ...[
-                  const _Heading('To Pay'),
-                  for (final b in open) _tile(context, b),
-                  const SizedBox(height: 12),
-                ],
-                if (settled.isNotEmpty) ...[
-                  const _Heading('History'),
-                  for (final b in settled) _tile(context, b),
+                  if (open.isNotEmpty) ...[
+                    const _Heading('To Pay'),
+                    for (final b in open) _tile(context, b),
+                    const SizedBox(height: 12),
+                  ],
+                  if (settled.isNotEmpty) ...[
+                    const _Heading('History'),
+                    for (final b in settled) _tile(context, b),
+                  ],
                 ],
               ],
             );
@@ -76,11 +103,15 @@ class MyBillsScreen extends ConsumerWidget {
     );
   }
 
+  void _openBill(BuildContext context, MaintenanceBill bill) => Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MaintenanceBillDetailScreen(billId: bill.id),
+      ));
+
   Widget _tile(BuildContext context, MaintenanceBill bill) => BillTile(
         bill: bill,
-        onTap: () => Navigator.push(context, MaterialPageRoute(
-          builder: (_) => MaintenanceBillDetailScreen(billId: bill.id),
-        )),
+        onTap: () => _openBill(context, bill),
       );
 }
 

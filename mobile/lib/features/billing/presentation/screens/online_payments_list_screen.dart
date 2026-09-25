@@ -117,6 +117,7 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
                 numeric: true, bold: true, sortKey: (p) => double.tryParse(p.amount) ?? 0),
             AppDataColumn(
               label: 'Status',
+              width: 120,
               sortKey: (p) => p.status,
               cell: (p) => StatusPill(
                 reconciliationStatusLabel(p.status),

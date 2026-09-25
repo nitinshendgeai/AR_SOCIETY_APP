@@ -115,6 +115,7 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
             ),
             AppDataColumn(
               label: 'Status',
+              width: 120,
               sortKey: (t) => t.isActive ? 0 : 1,
               cell: (t) => ActiveBadge(isActive: t.isActive),
             ),

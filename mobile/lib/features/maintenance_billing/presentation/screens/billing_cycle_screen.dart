@@ -7,6 +7,8 @@ import 'package:ar_society_app/features/maintenance_billing/presentation/provide
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/maintenance_bill_detail_screen.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/cycle_preview_screen.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 
 enum _BillFilter { all, unpaid, overdue, paid, notIssued }
 
@@ -106,14 +108,19 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
     final cycleAsync = ref.watch(billingCycleProvider(widget.cycleId));
     final billsAsync = ref.watch(cycleBillsProvider(widget.cycleId));
     final cycle = cycleAsync.valueOrNull;
-
+    final desktop = isDesktopLayout(context);
+    final action = cycle == null ? null : _action(cycle);
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(
         title: Text(cycle?.name ?? 'Billing Cycle'),
-        actions: [IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _refresh)],
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh', onPressed: _refresh),
+          if (desktop && action != null)
+            HeaderActionButton(icon: action.$2, label: action.$1, onPressed: _busy ? null : action.$3),
+        ],
       ),
-      bottomNavigationBar: cycle == null ? null : _actionBar(cycle),
+      bottomNavigationBar: desktop || action == null ? null : _bar(action.$1, action.$2, action.$3),
       body: cycleAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
@@ -134,6 +141,8 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
                   subtitle: 'Calculate bills to preview each flat\'s amount from your charge heads and rules, then generate.',
                 ),
               )
+            else if (desktop)
+              SliverToBoxAdapter(child: _billsTable(billsAsync))
             else ...[
               SliverToBoxAdapter(child: _filters()),
               ...billsAsync.when<List<Widget>>(
@@ -184,16 +193,77 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
     );
   }
 
-  Widget? _actionBar(BillingCycle cycle) {
+  /// The cycle's next step: a bottom bar on phones, a header button on desktop.
+  (String, IconData, VoidCallback)? _action(BillingCycle cycle) {
     if (!cycle.isFinalized) {
-      return _bar('Calculate & Preview Bills', Icons.calculate_rounded, _generate);
+      return ('Calculate & Preview Bills', Icons.calculate_rounded, _generate);
     }
     if (cycle.awaitingIssue) {
-      return _bar('Issue ${cycle.generatedCount} Bills to Residents', Icons.send_rounded,
+      return ('Issue ${cycle.generatedCount} Bills to Residents', Icons.send_rounded,
           () => _issueAll(cycle.generatedCount));
     }
     return null;
   }
+
+  Future<void> _openBill(MaintenanceBill b) async {
+    await Navigator.push(context, MaterialPageRoute(
+      builder: (_) => MaintenanceBillDetailScreen(billId: b.id, societyId: widget.societyId, canManage: true),
+    ));
+    _refresh();
+  }
+
+  /// Desktop: the cycle's bills as a sortable register, filters in its toolbar.
+  Widget _billsTable(AsyncValue<List<MaintenanceBill>> billsAsync) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        child: AppDataTable<MaintenanceBill>(
+          toolbar: Row(children: [
+            TableSearchField(
+              hint: 'Search flat, resident or bill no.',
+              onChanged: (v) => setState(() => _search = v.trim()),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Wrap(spacing: 8, children: _filterChips())),
+          ]),
+          rows: (billsAsync.valueOrNull ?? const []).where(_matches).toList(),
+          loading: billsAsync.isLoading && !billsAsync.hasValue,
+          error: billsAsync.hasError ? friendlyErrorMessage(billsAsync.error!) : null,
+          onRowTap: _openBill,
+          pageSize: 50,
+          empty: const AppEmptyState(icon: Icons.search_off_rounded, title: 'No bills match'),
+          columns: [
+            AppDataColumn.text('Bill no.', (b) => b.invoiceNumber, flex: 2, bold: true),
+            AppDataColumn.text('Flat', (b) => b.flatLabel, flex: 2),
+            AppDataColumn.text('Resident', (b) => b.residentName ?? '—', flex: 3),
+            AppDataColumn.text('Total', (b) => formatRupees(b.totalAmount),
+                flex: 2, numeric: true, sortKey: (b) => amountOf(b.totalAmount)),
+            AppDataColumn.text('Paid', (b) => formatRupees(b.paidAmount),
+                flex: 2, numeric: true, sortKey: (b) => amountOf(b.paidAmount)),
+            AppDataColumn.text('Outstanding', (b) => formatRupees(b.outstanding),
+                flex: 2, numeric: true, bold: true, sortKey: (b) => amountOf(b.outstanding)),
+            AppDataColumn(
+              label: 'Status',
+              flex: 2,
+              sortKey: (b) => billStatusLabel(b.displayStatus),
+              cell: (b) => StatusPill(billStatusLabel(b.displayStatus), billStatusColor(b.displayStatus)),
+            ),
+          ],
+        ),
+      );
+
+  List<Widget> _filterChips() => [
+        for (final (f, label) in const [
+          (_BillFilter.all, 'All'),
+          (_BillFilter.unpaid, 'Unpaid'),
+          (_BillFilter.overdue, 'Overdue'),
+          (_BillFilter.paid, 'Paid'),
+          (_BillFilter.notIssued, 'Not Issued'),
+        ])
+          ChoiceChip(
+            label: Text(label, style: const TextStyle(fontSize: 12)),
+            selected: _filter == f,
+            onSelected: (_) => setState(() => _filter = f),
+          ),
+      ];
 
   Widget _bar(String label, IconData icon, VoidCallback onPressed) => SafeArea(
         child: Padding(

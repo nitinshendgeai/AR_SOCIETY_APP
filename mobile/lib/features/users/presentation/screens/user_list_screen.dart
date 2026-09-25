@@ -144,6 +144,7 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
             AppDataColumn.text('Roles', (u) => u.roles.isEmpty ? '—' : u.roles.join(', '), flex: 3),
             AppDataColumn(
               label: 'Status',
+              width: 110,
               sortKey: (u) => u.status,
               cell: (u) => StatusPill(
                 u.status.isEmpty ? '—' : u.status[0].toUpperCase() + u.status.substring(1),
@@ -156,6 +157,7 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
             ),
             AppDataColumn(
               label: 'Password',
+              width: 140,
               sortKey: (u) => u.mustChangePassword ? 0 : 1,
               cell: (u) => u.mustChangePassword
                   ? const StatusPill('Must change', AppTheme.warning)

@@ -8,6 +8,8 @@ import 'package:ar_society_app/features/maintenance_billing/presentation/provide
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 
 /// Admin/Committee master of maintenance elements — the kinds of charge
 /// the society levies and how each is calculated by default. Starts with
@@ -30,14 +32,19 @@ class MaintenanceElementsScreen extends ConsumerWidget {
           builder: (_) => _ElementSheet(societyId: societyId, existing: existing),
         );
 
+    final desktop = isDesktopLayout(context);
     return Scaffold(
       backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Maintenance Elements')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: openSheet,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Add Element'),
-      ),
+      appBar: AppBar(title: const Text('Maintenance Elements'), actions: [
+        if (desktop) HeaderActionButton(icon: Icons.add_rounded, label: 'Add Element', onPressed: openSheet),
+      ]),
+      floatingActionButton: desktop
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: openSheet,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Add Element'),
+            ),
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(maintenanceElementsProvider(key)),
         child: elementsAsync.when(
@@ -61,14 +68,54 @@ class MaintenanceElementsScreen extends ConsumerWidget {
                   style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),
                 const SizedBox(height: 12),
-                for (final e in active) _ElementTile(element: e, onTap: () => openSheet(e)),
-                if (inactive.isNotEmpty) ...[
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(4, 16, 0, 8),
-                    child: Text('Switched off',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
-                  ),
-                  for (final e in inactive) _ElementTile(element: e, onTap: () => openSheet(e)),
+                if (desktop)
+                  AppDataTable<MaintenanceElement>(
+                    rows: elements,
+                    pageSize: 50,
+                    onRowTap: openSheet,
+                    columns: [
+                      AppDataColumn(
+                        label: 'Element',
+                        flex: 3,
+                        sortKey: (e) => e.name.toLowerCase(),
+                        cell: (e) => Row(children: [
+                          Flexible(
+                            child: Text(e.name,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                          ),
+                          if (!e.isSystem) const _Tag('Custom', AppTheme.primary),
+                        ]),
+                      ),
+                      AppDataColumn.text('Default calculation', (e) => e.rateLabel, flex: 4),
+                      AppDataColumn.text('Bye-law', (e) => e.byeLawRef ?? '—', flex: 2),
+                      AppDataColumn(
+                        label: 'Type',
+                        sortKey: (e) => e.isServiceCharge ? 0 : 1,
+                        cell: (e) => e.isServiceCharge
+                            ? const StatusPill('Service', AppTheme.success)
+                            : const Text('—', style: TextStyle(color: AppTheme.textSecondary)),
+                      ),
+                      AppDataColumn(
+                        label: 'Status',
+                        width: 120,
+                        sortKey: (e) => e.isActive ? 0 : 1,
+                        cell: (e) => e.isActive
+                            ? const StatusPill('Active', AppTheme.success)
+                            : const StatusPill('Switched off', AppTheme.textSecondary),
+                      ),
+                    ],
+                  )
+                else ...[
+                  for (final e in active) _ElementTile(element: e, onTap: () => openSheet(e)),
+                  if (inactive.isNotEmpty) ...[
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(4, 16, 0, 8),
+                      child: Text('Switched off',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
+                    ),
+                    for (final e in inactive) _ElementTile(element: e, onTap: () => openSheet(e)),
+                  ],
                 ],
               ],
             );

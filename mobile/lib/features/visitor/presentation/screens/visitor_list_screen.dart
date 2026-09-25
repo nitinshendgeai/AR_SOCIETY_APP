@@ -240,6 +240,7 @@ extension on _VisitorListView {
                 flex: 2, sortKey: (v) => v.checkedOutAt?.millisecondsSinceEpoch),
             AppDataColumn(
               label: 'Status',
+              width: 120,
               sortKey: (v) => v.status.label,
               cell: (v) => StatusPill(v.status.label, v.status.color),
             ),

@@ -89,6 +89,7 @@ class _VendorBillsScreenState extends ConsumerState<VendorBillsScreen> {
                 flex: 2, numeric: true, bold: true, sortKey: (i) => money(i.outstanding)),
             AppDataColumn(
               label: 'Status',
+              width: 120,
               sortKey: (i) => i.isPaid ? 1 : 0,
               cell: (i) => StatusPill(i.isPaid ? 'Paid' : 'Unpaid', i.isPaid ? AppTheme.success : AppTheme.warning),
             ),
