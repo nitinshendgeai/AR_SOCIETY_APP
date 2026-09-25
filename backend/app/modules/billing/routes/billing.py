@@ -2,7 +2,7 @@ from typing import List, Optional
 from uuid import UUID
 from datetime import date
 from decimal import Decimal
-from fastapi import APIRouter, Depends, Request, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, Depends, Request, UploadFile, File, Form, HTTPException, Query
 from pydantic import Field
 from fastapi.responses import Response, StreamingResponse
 from io import BytesIO
@@ -20,6 +20,7 @@ from app.modules.billing.models.billing import (
 )
 from app.modules.billing.services.maintenance_calculator import cycle_months, money
 from app.modules.billing.services.billing_service import BillingService, RESIDENT_VISIBLE_BILL_STATUSES
+from app.modules.billing.services.budget_suggestions import suggest_budgets
 from app.schemas.common import OrmBase, TimestampSchema
 from typing import Optional
 
@@ -168,6 +169,13 @@ def create_charge(data: ChargeConfigCreate, db: Session = Depends(get_db),
 @router.get("/charges/{society_id}", dependencies=[Depends(manager_above)])
 def list_charges(society_id: UUID, db: Session = Depends(get_db)):
     return [_charge_out(c) for c in BillingService(db).list_charge_configs(society_id)]
+
+@router.get("/charges/{society_id}/budget-suggestions", dependencies=[Depends(manager_above)])
+def budget_suggestions(society_id: UUID, months: int = Query(12, ge=1, le=36),
+                       db: Session = Depends(get_db)):
+    """Suggested charge-head amounts from the last `months` of vendor bills
+    (see services/budget_suggestions.py). Read-only."""
+    return suggest_budgets(db, society_id, months)
 
 @router.patch("/charges/{config_id}", dependencies=[Depends(manager_above)])
 def update_charge(config_id: UUID, data: ChargeConfigUpdate, db: Session = Depends(get_db),
