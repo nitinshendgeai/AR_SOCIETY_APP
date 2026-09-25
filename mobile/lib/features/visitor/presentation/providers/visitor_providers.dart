@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/features/visitor/data/repositories/visitor_repository.dart';
 import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities.dart';
@@ -146,4 +148,31 @@ class VisitorActionNotifier extends StateNotifier<VisitorActionState> {
 final visitorActionProvider =
     StateNotifierProvider<VisitorActionNotifier, VisitorActionState>((ref) {
   return VisitorActionNotifier(ref.read(visitorRepositoryProvider));
+});
+
+// ── Visitors waiting for my approval (live) ───────────────────────────────────
+
+/// Visitors at the gate waiting for the signed-in resident's approval,
+/// re-checked every 15 seconds while anything on screen watches it (the
+/// resident dashboard, the sidebar badge, the approvals screen). There's no
+/// push channel yet, so this is how a resident with the app open learns a
+/// visitor has arrived. A failed poll keeps the last list.
+final pendingVisitorApprovalsProvider =
+    StreamProvider.autoDispose<List<VisitorEntity>>((ref) {
+  final repo = ref.read(visitorRepositoryProvider);
+  final controller = StreamController<List<VisitorEntity>>();
+
+  Future<void> poll() async {
+    final result = await repo.getPendingApprovals();
+    if (controller.isClosed) return;
+    if (result case VisitorSuccess(:final data)) controller.add(data);
+  }
+
+  poll();
+  final timer = Timer.periodic(const Duration(seconds: 15), (_) => poll());
+  ref.onDispose(() {
+    timer.cancel();
+    controller.close();
+  });
+  return controller.stream;
 });

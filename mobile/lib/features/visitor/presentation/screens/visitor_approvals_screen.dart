@@ -6,26 +6,16 @@ import 'package:ar_society_app/features/visitor/presentation/providers/visitor_p
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
-/// Resident's screen: visitors waiting for their approval.
-class VisitorApprovalsScreen extends ConsumerStatefulWidget {
+/// Resident's screen: visitors waiting for their approval. The list comes
+/// from [pendingVisitorApprovalsProvider], so a visitor the guard logs while
+/// this screen is open appears on its own.
+class VisitorApprovalsScreen extends ConsumerWidget {
   const VisitorApprovalsScreen({super.key});
 
   @override
-  ConsumerState<VisitorApprovalsScreen> createState() => _VisitorApprovalsScreenState();
-}
-
-class _VisitorApprovalsScreenState extends ConsumerState<VisitorApprovalsScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(visitorListProvider.notifier).loadPendingApprovals();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final state = ref.watch(visitorListProvider);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pending = ref.watch(pendingVisitorApprovalsProvider);
+    void reload() => ref.invalidate(pendingVisitorApprovalsProvider);
 
     ref.listen(visitorActionProvider, (_, next) {
       if (next is VisitorActionSuccess) {
@@ -34,7 +24,7 @@ class _VisitorApprovalsScreenState extends ConsumerState<VisitorApprovalsScreen>
           backgroundColor: AppTheme.success,
           behavior: SnackBarBehavior.floating,
         ));
-        ref.read(visitorListProvider.notifier).loadPendingApprovals();
+        reload();
         ref.read(visitorActionProvider.notifier).reset();
       } else if (next is VisitorActionError) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -53,52 +43,38 @@ class _VisitorApprovalsScreenState extends ConsumerState<VisitorApprovalsScreen>
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            onPressed: () =>
-                ref.read(visitorListProvider.notifier).loadPendingApprovals(),
+            tooltip: 'Refresh',
+            onPressed: reload,
           ),
         ],
       ),
-      body: _buildBody(state),
-    );
-  }
-
-  Widget _buildBody(VisitorListState state) {
-    if (state is VisitorListLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
-    }
-    if (state is VisitorListError) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AppErrorBanner(message: state.message),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () =>
-                  ref.read(visitorListProvider.notifier).loadPendingApprovals(),
-              child: const Text('Retry'),
-            ),
-          ],
+      body: pending.when(
+        loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+        error: (e, _) => Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppErrorBanner(message: e.toString()),
+              const SizedBox(height: 12),
+              TextButton(onPressed: reload, child: const Text('Retry')),
+            ],
+          ),
         ),
-      );
-    }
-
-    final visitors = state is VisitorListLoaded ? state.visitors : <VisitorEntity>[];
-    if (visitors.isEmpty) {
-      return const EmptyState(
-        icon: Icons.how_to_reg_rounded,
-        title: 'No pending approvals',
-        subtitle: 'You\'ll be notified when a visitor arrives for your flat',
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: () => ref.read(visitorListProvider.notifier).loadPendingApprovals(),
-      child: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: visitors.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (_, i) => _ApprovalCard(visitor: visitors[i]),
+        data: (visitors) => visitors.isEmpty
+            ? const EmptyState(
+                icon: Icons.how_to_reg_rounded,
+                title: 'No pending approvals',
+                subtitle: 'Visitors the guard logs for your flat will appear here',
+              )
+            : RefreshIndicator(
+                onRefresh: () async => reload(),
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: visitors.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (_, i) => _ApprovalCard(visitor: visitors[i]),
+                ),
+              ),
       ),
     );
   }

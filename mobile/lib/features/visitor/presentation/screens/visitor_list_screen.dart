@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart';
+import 'package:ar_society_app/features/visitor/presentation/widgets/pending_visitors_banner.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
@@ -130,7 +131,7 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
     final all = state is VisitorListLoaded ? state.visitors : <VisitorEntity>[];
     final inside = all.where((v) => v.status == VisitorStatus.checkedIn).toList();
 
-    return TabBarView(
+    final tabs = TabBarView(
       controller: _tabs,
       children: [
         _VisitorListView(
@@ -147,6 +148,12 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
         ),
       ],
     );
+    // A resident's own list can't approve; point them at who's waiting.
+    if (!widget.isMy) return tabs;
+    return Column(children: [
+      const PendingVisitorsBanner(padding: EdgeInsets.fromLTRB(16, 16, 16, 0)),
+      Expanded(child: tabs),
+    ]);
   }
 }
 
