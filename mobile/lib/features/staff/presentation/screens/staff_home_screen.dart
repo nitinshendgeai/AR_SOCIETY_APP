@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
@@ -13,6 +14,16 @@ import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets
 class StaffHomeScreen extends ConsumerWidget {
   const StaffHomeScreen({super.key});
 
+  /// Fixed-height tiles, as many per row as fit: two on a phone, four or
+  /// more on a desktop, instead of two tiles stretched hundreds of pixels
+  /// tall by an aspect ratio.
+  static const _moduleGrid = SliverGridDelegateWithMaxCrossAxisExtent(
+    maxCrossAxisExtent: 280,
+    mainAxisExtent: 148,
+    mainAxisSpacing: 12,
+    crossAxisSpacing: 12,
+  );
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user       = ref.watch(currentUserProvider);
@@ -20,6 +31,9 @@ class StaffHomeScreen extends ConsumerWidget {
     final staffId    = ref.watch(staffIdProvider);
     final societyId  = user?.societyId;
     final isReady    = staffId != null;
+    // Once the lookup has finished without a staff record, the modules
+    // aren't "loading" any more — they're unavailable to this account.
+    final waiting    = staffAsync.isLoading ? 'Loading…' : 'Needs a staff profile';
 
     // Sync resolved staff ID into staffIdProvider (side-effect must stay out of FutureProvider)
     ref.listen<AsyncValue<StaffEntity?>>(currentStaffProvider, (_, next) {
@@ -40,10 +54,13 @@ class StaffHomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Staff Portal'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            onPressed: () => _logout(context, ref),
-          ),
+          // On desktop the account menu in the top bar handles sign-out.
+          if (!isDesktopLayout(context))
+            IconButton(
+              icon: const Icon(Icons.logout_rounded),
+              tooltip: 'Sign out',
+              onPressed: () => _logout(context, ref),
+            ),
         ],
       ),
       body: SafeArea(
@@ -107,18 +124,15 @@ class StaffHomeScreen extends ConsumerWidget {
               // ── My Operations ─────────────────────────────────────────────
               const SectionHeader(title: 'My Operations'),
               const SizedBox(height: 14),
-              GridView.count(
-                crossAxisCount: 2,
+              GridView(
+                gridDelegate: _moduleGrid,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1.1,
                 children: [
                   _ModuleCard(
                     icon: Icons.fingerprint_rounded,
                     label: 'Attendance',
-                    subtitle: isReady ? 'Check in / out' : 'Loading…',
+                    subtitle: isReady ? 'Check in / out' : waiting,
                     color: AppTheme.success,
                     disabled: !isReady,
                     onTap: isReady
@@ -128,7 +142,7 @@ class StaffHomeScreen extends ConsumerWidget {
                   _ModuleCard(
                     icon: Icons.assignment_rounded,
                     label: 'My Duties',
-                    subtitle: isReady ? 'View & complete' : 'Loading…',
+                    subtitle: isReady ? 'View & complete' : waiting,
                     color: AppTheme.primary,
                     disabled: !isReady,
                     onTap: isReady
@@ -138,7 +152,7 @@ class StaffHomeScreen extends ConsumerWidget {
                   _ModuleCard(
                     icon: Icons.swap_horiz_rounded,
                     label: 'Handover',
-                    subtitle: isReady ? 'Create & accept' : 'Loading…',
+                    subtitle: isReady ? 'Create & accept' : waiting,
                     color: AppTheme.warning,
                     disabled: !isReady,
                     onTap: isReady
@@ -164,13 +178,10 @@ class StaffHomeScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
                 const SectionHeader(title: 'Management'),
                 const SizedBox(height: 14),
-                GridView.count(
-                  crossAxisCount: 2,
+                GridView(
+                  gridDelegate: _moduleGrid,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 1.1,
                   children: [
                     _ModuleCard(
                       icon: Icons.approval_rounded,

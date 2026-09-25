@@ -4,6 +4,8 @@ import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/users/data/models/user_admin_models.dart';
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
+import 'package:ar_society_app/core/navigation/app_menu.dart';
+import 'package:ar_society_app/shared/widgets/role_matrix.dart';
 
 /// Admin-only editor for the forms matrix: which top-level navigation
 /// screens each role sees. Independent of the Permission Matrix (which
@@ -52,110 +54,34 @@ class _MatrixTable extends ConsumerWidget {
   final List<RoleFormMatrixRow> rows;
   const _MatrixTable({required this.forms, required this.rows});
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          color: AppTheme.cardBg,
-          child: const Text(
-            'Each column is a navigation screen. Toggling a switch grants '
-            'or revokes that screen for the role in its row — changes '
-            'apply the next time that role\'s users open the app menu.',
-            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SingleChildScrollView(
-              child: DataTable(
-                headingRowColor:
-                    WidgetStateProperty.all(AppTheme.cardBg),
-                columns: [
-                  const DataColumn(
-                    label: Text('Role',
-                        style: TextStyle(fontWeight: FontWeight.w700)),
-                  ),
-                  for (final f in forms)
-                    DataColumn(
-                      label: Tooltip(
-                        message: f.description ?? f.name,
-                        child: Text(f.name,
-                            style: const TextStyle(fontWeight: FontWeight.w700)),
-                      ),
-                    ),
-                ],
-                rows: [
-                  for (final row in rows)
-                    DataRow(cells: [
-                      DataCell(Text(row.roleName,
-                          style: const TextStyle(fontWeight: FontWeight.w600))),
-                      for (final f in forms)
-                        DataCell(_FormSwitch(
-                          roleId: row.roleId,
-                          code: f.code,
-                          granted: row.formCodes.contains(f.code),
-                        )),
-                    ]),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _FormSwitch extends ConsumerStatefulWidget {
-  final String roleId;
-  final String code;
-  final bool granted;
-  const _FormSwitch(
-      {required this.roleId, required this.code, required this.granted});
-
-  @override
-  ConsumerState<_FormSwitch> createState() => _FormSwitchState();
-}
-
-class _FormSwitchState extends ConsumerState<_FormSwitch> {
-  bool _saving = false;
-
-  Future<void> _toggle(bool value) async {
-    setState(() => _saving = true);
-    try {
-      await ref
-          .read(formMatrixProvider.notifier)
-          .toggleForm(widget.roleId, widget.code, value);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(friendlyErrorMessage(e)),
-          backgroundColor: AppTheme.error,
-        ));
+  /// Screens in the same order and groups as the app menu, so the matrix
+  /// reads like the sidebar; screens not in the menu go last.
+  List<MatrixColumn> get _columns {
+    final byCode = {for (final f in forms) f.code: f};
+    final columns = <MatrixColumn>[];
+    for (final category in appMenuCategories) {
+      for (final item in category.items) {
+        final f = byCode.remove(item.formCode);
+        if (f != null) {
+          columns.add(MatrixColumn(key: f.code, label: f.name, tooltip: f.description, group: category.label));
+        }
       }
-    } finally {
-      if (mounted) setState(() => _saving = false);
     }
+    for (final f in byCode.values) {
+      columns.add(MatrixColumn(key: f.code, label: f.name, tooltip: f.description, group: 'Other'));
+    }
+    return columns;
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (_saving) {
-      return const SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2),
+  Widget build(BuildContext context, WidgetRef ref) => RoleMatrix(
+        description: 'Each column is a screen in the app menu. Ticking a box shows that screen to the '
+            'role in its row — users see the change next time they open the menu.',
+        columnNoun: 'screens',
+        columns: _columns,
+        rows: [
+          for (final r in rows) MatrixRow(roleId: r.roleId, roleName: r.roleName, granted: r.formCodes.toSet()),
+        ],
+        onToggle: (roleId, code, value) => ref.read(formMatrixProvider.notifier).toggleForm(roleId, code, value),
       );
-    }
-    return Switch(
-      value: widget.granted,
-      activeColor: AppTheme.success,
-      onChanged: _toggle,
-    );
-  }
 }
