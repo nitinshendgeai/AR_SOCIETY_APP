@@ -29,7 +29,10 @@ class _DashboardShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final myFormsAsync = ref.watch(myFormCodesProvider);
-    final menuCategories = visibleMenuCategories(myFormsAsync.valueOrNull?.toSet() ?? const {});
+    final menuCategories = visibleMenuCategories(
+      myFormsAsync.valueOrNull?.toSet() ?? const {},
+      user: ref.watch(currentUserProvider),
+    );
     // On desktop widths AppShell's sidebar and account menu already provide
     // navigation and sign-out.
     final desktop = isDesktopLayout(context);

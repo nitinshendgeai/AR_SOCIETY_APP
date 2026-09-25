@@ -7,6 +7,8 @@ import 'package:ar_society_app/features/complaint/domain/entities/complaint_enti
 import 'package:ar_society_app/features/complaint/presentation/providers/complaint_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
@@ -186,6 +188,22 @@ class ComplaintListScreen extends ConsumerStatefulWidget {
 }
 
 class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
+  // Desktop table toolbar (client-side over the loaded list).
+  String _query = '';
+  ComplaintStatus? _statusFilter;
+
+  Future<void> _newComplaint() async {
+    final sid = (widget.societyId?.isNotEmpty == true)
+        ? widget.societyId!
+        : ref.read(currentUserProvider)?.societyId ?? '';
+    // CreateComplaintScreen pops with `true` on a successful submit —
+    // this screen isn't rebuilt by that pop (it's the same widget
+    // instance, not re-pushed), so without this the newly created
+    // complaint wouldn't appear until a manual pull-to-refresh.
+    final created = await context.push<bool>('/complaints/create?societyId=$sid');
+    if (created == true) _load();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -207,6 +225,7 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(complaintListProvider);
+    final desktop = isDesktopLayout(context);
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
@@ -219,33 +238,103 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh',
             onPressed: _load,
+          ),
+          if (desktop)
+            HeaderActionButton(icon: Icons.add_rounded, label: 'New Complaint', onPressed: _newComplaint),
+        ],
+      ),
+      floatingActionButton: desktop
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _newComplaint,
+              backgroundColor: AppTheme.primary,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('New Complaint'),
+            ),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: desktop ? _table(state) : _buildBody(state),
+      ),
+    );
+  }
+
+  /// Desktop: complaints as a sortable table with search and a status filter.
+  Widget _table(ComplaintListState state) {
+    final all = state is ComplaintListLoaded ? state.complaints : const <ComplaintListEntity>[];
+    final q = _query.trim().toLowerCase();
+    final rows = all.where((c) {
+      if (_statusFilter != null && c.status != _statusFilter) return false;
+      if (q.isEmpty) return true;
+      return c.title.toLowerCase().contains(q) ||
+          c.complaintNumber.toLowerCase().contains(q) ||
+          (c.flatNumber ?? '').toLowerCase().contains(q);
+    }).toList();
+
+    return ListView(padding: const EdgeInsets.fromLTRB(24, 8, 24, 32), children: [
+      AppDataTable<ComplaintListEntity>(
+        toolbar: Row(children: [
+          TableSearchField(
+            hint: 'Search number, title, flat…',
+            onChanged: (v) => setState(() => _query = v),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 200,
+            child: DropdownButtonFormField<ComplaintStatus?>(
+              initialValue: _statusFilter,
+              isDense: true,
+              decoration: const InputDecoration(labelText: 'Status'),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('All statuses')),
+                for (final st in ComplaintStatus.values) DropdownMenuItem(value: st, child: Text(st.label)),
+              ],
+              onChanged: (v) => setState(() => _statusFilter = v),
+            ),
+          ),
+          const Spacer(),
+          Text('${rows.length} of ${all.length}',
+              style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+        ]),
+        rows: rows,
+        loading: state is ComplaintListLoading || state is ComplaintListInitial,
+        error: state is ComplaintListError ? state.message : null,
+        onRetry: _load,
+        onRowTap: (c) => context.push('/complaints/${c.id}'),
+        empty: const EmptyState(icon: Icons.inbox_rounded, title: 'No complaints'),
+        columns: [
+          AppDataColumn.text('No.', (c) => '#${c.complaintNumber}', width: 140, bold: true),
+          AppDataColumn.text('Title', (c) => c.title, flex: 4),
+          AppDataColumn.text('Flat', (c) => [
+                if (c.wingName != null) c.wingName,
+                if (c.flatNumber != null) c.flatNumber,
+              ].join(' — ').ifEmpty('—'), flex: 2),
+          AppDataColumn(
+            label: 'Category',
+            flex: 2,
+            sortKey: (c) => c.category.label,
+            cell: (c) => _CategoryChip(c.category),
+          ),
+          AppDataColumn(
+            label: 'Priority',
+            width: 100,
+            sortKey: (c) => c.priority.index,
+            cell: (c) => _PriorityBadge(c.priority),
+          ),
+          AppDataColumn.text('Assigned to', (c) => c.assignedToName ?? 'Unassigned', flex: 2),
+          AppDataColumn.text('Raised', (c) => tableDate(c.createdAt),
+              flex: 2, sortKey: (c) => c.createdAt.millisecondsSinceEpoch),
+          AppDataColumn(
+            label: 'Status',
+            flex: 2,
+            sortKey: (c) => c.status.label,
+            cell: (c) => _StatusBadge(c.status),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final sid = (widget.societyId?.isNotEmpty == true)
-              ? widget.societyId!
-              : ref.read(currentUserProvider)?.societyId ?? '';
-          // CreateComplaintScreen pops with `true` on a successful submit —
-          // this screen isn't rebuilt by that pop (it's the same widget
-          // instance, not re-pushed), so without this the newly created
-          // complaint wouldn't appear until a manual pull-to-refresh.
-          final created =
-              await context.push<bool>('/complaints/create?societyId=$sid');
-          if (created == true) _load();
-        },
-        backgroundColor: AppTheme.primary,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('New Complaint'),
-      ),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: _buildBody(state),
-      ),
-    );
+    ]);
   }
 
   Widget _buildBody(ComplaintListState state) {
@@ -301,4 +390,8 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
     }
     return const SizedBox.shrink();
   }
+}
+
+extension on String {
+  String ifEmpty(String fallback) => isEmpty ? fallback : this;
 }

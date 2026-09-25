@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
+import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 
 class AppMenuItem {
   final String formCode;
@@ -63,11 +64,31 @@ const appMenuCategories = [
   ]),
 ];
 
-List<AppMenuCategory> visibleMenuCategories(Set<String> grantedFormCodes) => appMenuCategories
+/// The menu entries [grantedFormCodes] allow, grouped by category, with
+/// routes resolved for [user]: people who run the society (admin,
+/// committee, manager, security) land on the society-wide Visitors and
+/// Complaints lists, everyone else on their own.
+List<AppMenuCategory> visibleMenuCategories(Set<String> grantedFormCodes, {UserEntity? user}) => appMenuCategories
     .map((category) => AppMenuCategory(
           category.label,
           category.icon,
-          category.items.where((item) => grantedFormCodes.contains(item.formCode)).toList(),
+          category.items
+              .where((item) => grantedFormCodes.contains(item.formCode))
+              .map((item) => _resolveFor(item, user))
+              .toList(),
         ))
     .where((category) => category.items.isNotEmpty)
     .toList();
+
+AppMenuItem _resolveFor(AppMenuItem item, UserEntity? user) {
+  final societyId = user?.societyId;
+  if (user == null || societyId == null) return item;
+  final societyWide = user.isAdminOrCommittee || user.isManager || user.isSecurity;
+  if (!societyWide) return item;
+  final route = switch (item.route) {
+    AppRoutes.visitorsMy => AppRoutes.visitorsSociety.replaceFirst(':societyId', societyId),
+    AppRoutes.complaints => AppRoutes.complaintsSociety.replaceFirst(':societyId', societyId),
+    _ => item.route,
+  };
+  return route == item.route ? item : AppMenuItem(item.formCode, item.label, item.icon, route);
+}

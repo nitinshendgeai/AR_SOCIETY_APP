@@ -13,6 +13,8 @@ import 'package:ar_society_app/features/billing/presentation/providers/billing_p
 import 'package:ar_society_app/features/billing/presentation/screens/online_payment_detail_screen.dart';
 import 'package:ar_society_app/features/billing/presentation/screens/online_payment_submit_screen.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 
 /// FMC Manager/Admin/Committee: list of resident payment screenshots
 /// captured for bank reconciliation.
@@ -47,6 +49,90 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
     }
   }
 
+  Future<void> _recordPayment() => Navigator.push(context, MaterialPageRoute(
+        builder: (_) => const OnlinePaymentSubmitScreen(),
+      ));
+
+  void _openPayment(OnlinePaymentEntity p) => Navigator.push(context, MaterialPageRoute(
+        builder: (_) => OnlinePaymentDetailScreen(paymentId: p.id),
+      ));
+
+  Widget _statusChips() => Wrap(spacing: 8, children: [
+        _FilterChip(label: 'All', selected: _statusFilter == null, onTap: () => setState(() => _statusFilter = null)),
+        for (final s in const ['pending', 'reconciled', 'rejected'])
+          _FilterChip(
+            label: reconciliationStatusLabel(s),
+            selected: _statusFilter == s,
+            onTap: () => setState(() => _statusFilter = s),
+          ),
+      ]);
+
+  /// Desktop: summary tiles above a sortable payments register.
+  Widget _table(String societyId, AsyncValue<List<OnlinePaymentEntity>> paymentsAsync) {
+    final payments = paymentsAsync.valueOrNull ?? const <OnlinePaymentEntity>[];
+    final rows = _statusFilter == null ? payments : payments.where((p) => p.status == _statusFilter).toList();
+    return RefreshIndicator(
+      onRefresh: () => ref.read(onlinePaymentsProvider(societyId).notifier).refresh(),
+      child: ListView(padding: const EdgeInsets.fromLTRB(24, 8, 24, 32), children: [
+        if (paymentsAsync.hasValue) ...[
+          KpiGrid(cards: [
+            KpiCard(
+              icon: Icons.hourglass_top_rounded,
+              label: 'Pending Review',
+              value: '${payments.where((p) => p.isPending).length}',
+              color: AppTheme.warning,
+            ),
+            KpiCard(
+              icon: Icons.verified_rounded,
+              label: 'Reconciled',
+              value: '${payments.where((p) => p.isReconciled).length}',
+              color: AppTheme.success,
+            ),
+          ]),
+          const SizedBox(height: 16),
+        ],
+        AppDataTable<OnlinePaymentEntity>(
+          toolbar: _statusChips(),
+          rows: rows,
+          loading: paymentsAsync.isLoading && !paymentsAsync.hasValue,
+          error: paymentsAsync.hasError ? friendlyErrorMessage(paymentsAsync.error!) : null,
+          onRetry: () => ref.read(onlinePaymentsProvider(societyId).notifier).refresh(),
+          onRowTap: _openPayment,
+          empty: const AppEmptyState(
+            icon: Icons.receipt_long_rounded,
+            title: 'No payments recorded yet',
+            subtitle: 'Use "Record Payment" to add one.',
+          ),
+          columns: [
+            AppDataColumn.text('Receipt', (p) => p.receiptNumber, flex: 2, bold: true),
+            AppDataColumn.text('Date', (p) => tableDate(p.paymentDate),
+                flex: 2, sortKey: (p) => p.paymentDate.millisecondsSinceEpoch),
+            AppDataColumn.text('Flat', (p) => '${p.wingName ?? ''} ${p.flatNumber ?? ''}'.trim().ifEmpty('—')),
+            AppDataColumn.text('For',
+                (p) => p.isOnBill ? 'Bill ${p.billInvoiceNumber ?? ''}' : onlinePaymentPurposeLabel(p.purpose),
+                flex: 2),
+            AppDataColumn.text('Mode', (p) => paymentModeLabel(p.paymentMode)),
+            AppDataColumn.text('Reference', (p) => p.transactionRef ?? '—', flex: 2),
+            AppDataColumn.text('Amount', (p) => tableMoney(p.amount),
+                numeric: true, bold: true, sortKey: (p) => double.tryParse(p.amount) ?? 0),
+            AppDataColumn(
+              label: 'Status',
+              sortKey: (p) => p.status,
+              cell: (p) => StatusPill(
+                reconciliationStatusLabel(p.status),
+                switch (p.status) {
+                  'reconciled' => AppTheme.success,
+                  'rejected' => AppTheme.error,
+                  _ => AppTheme.warning,
+                },
+              ),
+            ),
+          ],
+        ),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final societyId = ref.watch(currentUserProvider)?.societyId;
@@ -54,6 +140,7 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
       return const Scaffold(body: Center(child: Text('No society context')));
     }
     final paymentsAsync = ref.watch(onlinePaymentsProvider(societyId));
+    final desktop = isDesktopLayout(context);
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
@@ -69,20 +156,21 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
           ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh',
             onPressed: () => ref.read(onlinePaymentsProvider(societyId).notifier).refresh(),
           ),
+          if (desktop)
+            HeaderActionButton(icon: Icons.add_rounded, label: 'Record Payment', onPressed: _recordPayment),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          await Navigator.push(context, MaterialPageRoute(
-            builder: (_) => const OnlinePaymentSubmitScreen(),
-          ));
-        },
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Record Payment'),
-      ),
-      body: Column(
+      floatingActionButton: desktop
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _recordPayment,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Record Payment'),
+            ),
+      body: desktop ? _table(societyId, paymentsAsync) : Column(
         children: [
           paymentsAsync.when(
             loading: () => const SizedBox.shrink(),
@@ -217,4 +305,8 @@ class _PaymentCard extends StatelessWidget {
       ),
     );
   }
+}
+
+extension on String {
+  String ifEmpty(String fallback) => isEmpty ? fallback : this;
 }
