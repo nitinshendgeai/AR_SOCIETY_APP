@@ -67,7 +67,8 @@ const appMenuCategories = [
 /// The menu entries [grantedFormCodes] allow, grouped by category, with
 /// routes resolved for [user]: people who run the society (admin,
 /// committee, manager, security) land on the society-wide Visitors and
-/// Complaints lists, everyone else on their own.
+/// Complaints lists, everyone else on their own; admin, committee and
+/// managers get the staff register rather than the Staff Portal.
 List<AppMenuCategory> visibleMenuCategories(Set<String> grantedFormCodes, {UserEntity? user}) => appMenuCategories
     .map((category) => AppMenuCategory(
           category.label,
@@ -85,9 +86,14 @@ AppMenuItem _resolveFor(AppMenuItem item, UserEntity? user) {
   if (user == null || societyId == null) return item;
   final societyWide = user.isAdminOrCommittee || user.isManager || user.isSecurity;
   if (!societyWide) return item;
+  // The Staff Portal is a staff member's own workspace (attendance,
+  // duties…); people who manage staff but aren't staff themselves get the
+  // staff register instead.
+  final managesStaff = user.isAdminOrCommittee || user.isManager;
   final route = switch (item.route) {
     AppRoutes.visitorsMy => AppRoutes.visitorsSociety.replaceFirst(':societyId', societyId),
     AppRoutes.complaints => AppRoutes.complaintsSociety.replaceFirst(':societyId', societyId),
+    AppRoutes.staffHome when managesStaff => AppRoutes.staffList,
     _ => item.route,
   };
   return route == item.route ? item : AppMenuItem(item.formCode, item.label, item.icon, route);

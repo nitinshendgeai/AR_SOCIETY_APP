@@ -107,9 +107,9 @@ class VisitorRepository {
   }
 
   Future<VisitorResult<List<VisitorEntity>>> listSocietyVisitors(
-      String societyId) async {
+      String societyId, {int limit = 50}) async {
     try {
-      final list = await _ds.listSocietyVisitors(societyId);
+      final list = await _ds.listSocietyVisitors(societyId, limit: limit);
       return VisitorSuccess(list.map((m) => m.toEntity()).toList());
     } catch (e) {
       return _handle(e);

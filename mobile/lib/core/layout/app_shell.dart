@@ -14,7 +14,7 @@ import 'package:ar_society_app/features/users/presentation/providers/user_provid
 const double kDesktopBreakpoint = 1024;
 
 /// Widest the page content grows on large monitors; wider reads poorly.
-const double kContentMaxWidth = 1280;
+const double kContentMaxWidth = 1600;
 
 bool isDesktopLayout(BuildContext context) =>
     MediaQuery.sizeOf(context).width >= kDesktopBreakpoint;
