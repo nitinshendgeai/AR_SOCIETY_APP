@@ -456,11 +456,20 @@ class _ChargeHeadsTab extends ConsumerWidget {
                 builder: (_) => _LoadFromElementsSheet(societyId: societyId, existing: charges),
               );
           final canManageElements = ref.watch(currentUserProvider)?.isAdminOrCommittee ?? false;
-          final actions = Wrap(spacing: 8, children: [
+          void suggestBudget() => showAppSheet(
+                context: context,
+                builder: (_) => _BudgetSuggestionSheet(societyId: societyId),
+              );
+          final actions = Wrap(spacing: 8, runSpacing: 8, children: [
             OutlinedButton.icon(
               onPressed: loadStandard,
               icon: const Icon(Icons.playlist_add_rounded, size: 18),
               label: const Text('Add from elements'),
+            ),
+            OutlinedButton.icon(
+              onPressed: suggestBudget,
+              icon: const Icon(Icons.auto_graph_rounded, size: 18),
+              label: const Text('Suggest from expenses'),
             ),
             if (canManageElements)
               TextButton.icon(
@@ -937,6 +946,224 @@ class _ElementPickRow extends StatelessWidget {
         ),
     ]);
   }
+}
+
+// ── Suggest budget from expenses ──────────────────────────────────────────────
+
+/// Pre-fills charge-head amounts from what the society spent: recent Vendor
+/// Bills per category, scaled to a year, plus an optional increase for the
+/// coming year. The committee ticks the heads to update and applies them.
+class _BudgetSuggestionSheet extends ConsumerStatefulWidget {
+  final String societyId;
+  const _BudgetSuggestionSheet({required this.societyId});
+
+  @override
+  ConsumerState<_BudgetSuggestionSheet> createState() => _BudgetSuggestionSheetState();
+}
+
+class _BudgetSuggestionSheetState extends ConsumerState<_BudgetSuggestionSheet> {
+  static const _periods = [(6, 'Last 6 months'), (12, 'Last 12 months'), (24, 'Last 24 months')];
+
+  int _months = 12;
+  final _increaseCtrl = TextEditingController(text: '0');
+  final Set<String> _selected = {};
+  int? _initialisedFor;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _increaseCtrl.dispose();
+    super.dispose();
+  }
+
+  double get _increasePct => double.tryParse(_increaseCtrl.text.trim()) ?? 0;
+
+  /// The suggested amount with the expected increase applied, 2 decimals.
+  String? _proposed(BudgetSuggestion s) {
+    final base = s.suggestedAmount == null ? null : amountOf(s.suggestedAmount!);
+    if (base == null) return null;
+    return (base * (1 + _increasePct / 100)).toStringAsFixed(2);
+  }
+
+  Future<void> _apply(List<BudgetSuggestion> suggestions) async {
+    final chosen = suggestions.where((s) => _selected.contains(s.chargeId) && s.suggestedAmount != null).toList();
+    if (chosen.isEmpty) {
+      AppToast.warning(context, 'Tick at least one charge head');
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final api = ref.read(maintenanceBillingApiProvider);
+      for (final s in chosen) {
+        await api.updateChargeHead(s.chargeId, {'default_amount': _proposed(s)});
+      }
+      ref.invalidate(chargeHeadsProvider(widget.societyId));
+      if (mounted) {
+        AppToast.success(context,
+            '${chosen.length} charge head${chosen.length == 1 ? '' : 's'} updated — preview a cycle to check the bills');
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(budgetSuggestionsProvider((societyId: widget.societyId, months: _months)));
+    return BillingSheetFrame(
+      title: 'Suggest Budget from Expenses',
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const Text(
+          'Works out each charge head from what you actually spent — Vendor Bills grouped by '
+          'category, scaled to a full year. Add the increase you expect for the coming year, '
+          'review, and apply the ones you want.',
+          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+        ),
+        const SizedBox(height: 14),
+        Row(children: [
+          Expanded(
+            child: DropdownButtonFormField<int>(
+              initialValue: _months,
+              decoration: const InputDecoration(labelText: 'Based on'),
+              items: [for (final (m, label) in _periods) DropdownMenuItem(value: m, child: Text(label))],
+              onChanged: (v) => setState(() => _months = v ?? _months),
+            ),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 150,
+            child: TextField(
+              controller: _increaseCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Expected increase', suffixText: '%'),
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        async.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+          data: (data) {
+            if (_initialisedFor != _months) {
+              _initialisedFor = _months;
+              _selected
+                ..clear()
+                ..addAll(data.suggestions.where((s) => s.suggestedAmount != null).map((s) => s.chargeId));
+            }
+            return _body(data);
+          },
+        ),
+      ]),
+    );
+  }
+
+  Widget _body(BudgetSuggestions data) {
+    if (data.suggestions.isEmpty) {
+      return const _SuggestionNote(
+        icon: Icons.info_outline_rounded,
+        text: 'None of your charge heads is paid for by vendor bills. Suggestions cover Security, '
+            'Housekeeping, Lift Maintenance, Common Electricity and Water Charges heads that are '
+            'billed as an annual budget, per flat or per sq ft.',
+      );
+    }
+    final applicable = data.suggestions.where((s) => s.suggestedAmount != null).length;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (data.monthsCovered == 0)
+        const _SuggestionNote(
+          icon: Icons.receipt_long_rounded,
+          text: 'No vendor bills in this period. Record bills under Finance → Vendor Bills, then come back.',
+        )
+      else
+        Text(
+          'Bills from ${formatBillDate(data.periodStart)} to ${formatBillDate(data.periodEnd)} · '
+          '${data.monthsCovered} month${data.monthsCovered == 1 ? '' : 's'} with bills, scaled to 12.',
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+        ),
+      const SizedBox(height: 4),
+      for (final s in data.suggestions) _suggestionRow(s, data.monthsCovered),
+      if (data.unlinked.isNotEmpty) ...[
+        const SizedBox(height: 8),
+        _SuggestionNote(
+          icon: Icons.link_off_rounded,
+          text: 'Not recovered through any charge head: '
+              '${data.unlinked.map((u) => '${vendorCategoryLabel(u.$1)} ${formatRupees(u.$2)}').join(', ')}. '
+              'Add a charge head for any you want residents to pay for (e.g. Housekeeping); '
+              'repair work is normally met from the repairs fund.',
+        ),
+      ],
+      const SizedBox(height: 16),
+      ElevatedButton(
+        onPressed: _saving || applicable == 0 ? null : () => _apply(data.suggestions),
+        child: _saving
+            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+            : Text('Apply ${_selected.length} Amount${_selected.length == 1 ? '' : 's'}'),
+      ),
+    ]);
+  }
+
+  Widget _suggestionRow(BudgetSuggestion s, int monthsCovered) {
+    final sources = s.vendorCategories.map(vendorCategoryLabel).join(', ');
+    final proposed = _proposed(s);
+    final canApply = proposed != null;
+    return CheckboxListTile(
+      contentPadding: EdgeInsets.zero,
+      controlAffinity: ListTileControlAffinity.leading,
+      value: canApply && _selected.contains(s.chargeId),
+      onChanged: canApply
+          ? (v) => setState(() => v == true ? _selected.add(s.chargeId) : _selected.remove(s.chargeId))
+          : null,
+      title: Text(s.chargeName, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const SizedBox(height: 2),
+        Text(
+          canApply
+              ? 'Spent ${formatRupees(s.spent)} on $sources in $monthsCovered '
+                  'month${monthsCovered == 1 ? '' : 's'} → ${formatRupees(s.annualEstimate)} a year'
+              : 'No $sources bills in this period',
+          style: const TextStyle(fontSize: 12),
+        ),
+        const SizedBox(height: 2),
+        Text.rich(TextSpan(style: const TextStyle(fontSize: 12), children: [
+          TextSpan(
+            text: 'Now: ${s.currentAmount == null ? 'not set' : basisRateLabel(s.basis, s.currentAmount)}',
+            style: const TextStyle(color: AppTheme.textSecondary),
+          ),
+          if (canApply) ...[
+            const TextSpan(text: '   →   '),
+            TextSpan(
+              text: basisRateLabel(s.basis, proposed),
+              style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.primary),
+            ),
+          ],
+        ])),
+      ]),
+    );
+  }
+}
+
+class _SuggestionNote extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _SuggestionNote({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.only(top: 4),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: AppTheme.surface, borderRadius: BorderRadius.circular(10)),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, size: 18, color: AppTheme.textSecondary),
+          const SizedBox(width: 10),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary))),
+        ]),
+      );
 }
 
 // ── Rules tab ─────────────────────────────────────────────────────────────────

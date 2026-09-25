@@ -51,3 +51,8 @@ void invalidateCycle(WidgetRef ref, String societyId, String cycleId) {
   ref.invalidate(cycleBillsProvider(cycleId));
   ref.invalidate(billingCyclesProvider(societyId));
 }
+
+final budgetSuggestionsProvider =
+    FutureProvider.autoDispose.family<BudgetSuggestions, ({String societyId, int months})>(
+  (ref, key) => ref.watch(maintenanceBillingApiProvider).budgetSuggestions(key.societyId, months: key.months),
+);

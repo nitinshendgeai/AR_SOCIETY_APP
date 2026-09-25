@@ -488,6 +488,81 @@ String billStatusLabel(String v) => switch (v) {
 
 /// FastAPI /billing maintenance-bill endpoints. Errors propagate as
 /// DioException; screens surface them via showErrorToast.
+/// One charge head's suggested amount from recent vendor bills (backend
+/// services/budget_suggestions.py). [suggestedAmount] is in the unit of the
+/// head's basis — annual budget, ₹ per flat per month or ₹ per sq ft per
+/// month — and is null when no matching bills were found.
+class BudgetSuggestion {
+  final String chargeId;
+  final String chargeName;
+  final String basis;
+  final String? currentAmount;
+  final List<String> vendorCategories;
+  final String spent;
+  final String annualEstimate;
+  final String? suggestedAmount;
+
+  const BudgetSuggestion({
+    required this.chargeId,
+    required this.chargeName,
+    required this.basis,
+    this.currentAmount,
+    required this.vendorCategories,
+    required this.spent,
+    required this.annualEstimate,
+    this.suggestedAmount,
+  });
+
+  factory BudgetSuggestion.fromJson(Map<String, dynamic> j) => BudgetSuggestion(
+        chargeId: j['charge_id'] as String,
+        chargeName: j['charge_name'] as String,
+        basis: j['basis'] as String,
+        currentAmount: j['current_amount'] as String?,
+        vendorCategories: [for (final c in j['vendor_categories'] as List) c as String],
+        spent: _str(j['spent']),
+        annualEstimate: _str(j['annual_estimate']),
+        suggestedAmount: j['suggested_amount'] as String?,
+      );
+}
+
+class BudgetSuggestions {
+  final DateTime periodStart;
+  final DateTime periodEnd;
+  final int monthsCovered;
+  final List<BudgetSuggestion> suggestions;
+
+  /// Vendor spend (category, amount) that no charge head recovers.
+  final List<(String, String)> unlinked;
+
+  const BudgetSuggestions({
+    required this.periodStart,
+    required this.periodEnd,
+    required this.monthsCovered,
+    required this.suggestions,
+    required this.unlinked,
+  });
+
+  factory BudgetSuggestions.fromJson(Map<String, dynamic> j) => BudgetSuggestions(
+        periodStart: _date(j['period_start']),
+        periodEnd: _date(j['period_end']),
+        monthsCovered: j['months_covered'] as int? ?? 0,
+        suggestions: [
+          for (final s in j['suggestions'] as List) BudgetSuggestion.fromJson(s as Map<String, dynamic>)
+        ],
+        unlinked: [
+          for (final u in j['unlinked'] as List)
+            ((u as Map<String, dynamic>)['category'] as String, _str(u['spent']))
+        ],
+      );
+}
+
+/// Human label for a vendor category code ("pest_control" → "Pest control").
+String vendorCategoryLabel(String code) => switch (code) {
+      'cctv' => 'CCTV',
+      'it' => 'IT',
+      _ => code.isEmpty ? code : code[0].toUpperCase() + code.substring(1).replaceAll('_', ' '),
+    };
+
 class MaintenanceBillingApi {
   final Dio _dio;
   MaintenanceBillingApi({Dio? dio}) : _dio = dio ?? ApiClient.instance;
@@ -521,6 +596,13 @@ class MaintenanceBillingApi {
       'tax_percent': taxPercent,
     });
     return ChargeHead.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// Suggested charge-head amounts from the last [months] of vendor bills.
+  Future<BudgetSuggestions> budgetSuggestions(String societyId, {int months = 12}) async {
+    final r = await _dio.get('/billing/charges/$societyId/budget-suggestions',
+        queryParameters: {'months': months});
+    return BudgetSuggestions.fromJson(r.data as Map<String, dynamic>);
   }
 
   Future<ChargeHead> updateChargeHead(String id, Map<String, dynamic> changes) async {
