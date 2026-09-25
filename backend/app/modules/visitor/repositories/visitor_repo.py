@@ -1,8 +1,12 @@
 from typing import List, Optional
 from uuid import UUID
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.modules.visitor.models.visitor import Visitor, VisitorLog, Gate, VisitorStatus
+from app.models.flat import Flat
 from app.repositories.base import BaseRepository
+
+# Lists show each visitor's wing and flat number.
+_WITH_FLAT = joinedload(Visitor.flat).joinedload(Flat.wing)
 
 
 class GateRepository(BaseRepository[Gate]):
@@ -20,20 +24,20 @@ class VisitorRepository(BaseRepository[Visitor]):
         super().__init__(Visitor, db)
 
     def get_pending_for_resident(self, resident_id: UUID) -> List[Visitor]:
-        return self.db.query(Visitor).filter(
+        return self.db.query(Visitor).options(_WITH_FLAT).filter(
             Visitor.resident_id == resident_id,
             Visitor.status == VisitorStatus.PENDING,
             Visitor.is_active == True,
         ).order_by(Visitor.created_at.desc()).all()
 
     def get_by_society(self, society_id: UUID, skip: int = 0, limit: int = 50) -> List[Visitor]:
-        return self.db.query(Visitor).filter(
+        return self.db.query(Visitor).options(_WITH_FLAT).filter(
             Visitor.society_id == society_id,
             Visitor.is_active == True,
         ).order_by(Visitor.created_at.desc()).offset(skip).limit(limit).all()
 
     def get_by_resident(self, resident_id: UUID, skip: int = 0, limit: int = 50) -> List[Visitor]:
-        return self.db.query(Visitor).filter(
+        return self.db.query(Visitor).options(_WITH_FLAT).filter(
             Visitor.resident_id == resident_id,
             Visitor.is_active == True,
         ).order_by(Visitor.created_at.desc()).offset(skip).limit(limit).all()
@@ -48,7 +52,7 @@ class VisitorRepository(BaseRepository[Visitor]):
         ).first()
 
     def get_checked_in(self, society_id: UUID) -> List[Visitor]:
-        return self.db.query(Visitor).filter(
+        return self.db.query(Visitor).options(_WITH_FLAT).filter(
             Visitor.society_id == society_id,
             Visitor.status == VisitorStatus.CHECKED_IN,
             Visitor.is_active == True,

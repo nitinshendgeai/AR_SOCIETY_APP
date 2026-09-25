@@ -21,6 +21,9 @@ from app.modules.visitor.models.visitor import (
 from app.modules.visitor.schemas.visitor import VisitorCreate, VisitorApproveRequest, VisitorRejectRequest
 from app.modules.visitor.repositories.visitor_repo import VisitorRepository, VisitorLogRepository, GateRepository
 from app.models.user import User
+from app.models.flat import Flat, OccupancyStatus
+from app.models.resident import Resident
+from app.models.tenant import Tenant
 from app.models.audit_log import AuditAction
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
@@ -64,6 +67,26 @@ class VisitorService:
             user=user, request=request, **kwargs,
         )
 
+    def _flat_in_society_or_422(self, flat_id: UUID, society_id: UUID) -> Flat:
+        flat = self.db.get(Flat, flat_id)
+        if not flat or not flat.is_active or not flat.wing or flat.wing.society_id != society_id:
+            raise HTTPException(status_code=422, detail="Flat not found in this society")
+        return flat
+
+    def _flat_contact(self, flat: Flat) -> Optional[UUID]:
+        """The app user who answers for a flat's visitors: the current tenant
+        of a rented flat, otherwise the primary owner, otherwise any resident
+        of the flat with a login."""
+        tenants = [t for t in flat.tenants
+                   if t.is_active and t.user_id and not t.move_out_date]
+        residents = sorted((r for r in flat.residents if r.is_active and r.user_id),
+                           key=lambda r: not r.is_primary)
+        if flat.occupancy_status == OccupancyStatus.TENANT_OCCUPIED and tenants:
+            return tenants[0].user_id
+        if residents:
+            return residents[0].user_id
+        return tenants[0].user_id if tenants else None
+
     # ── Gate CRUD ─────────────────────────────────────────────────────────────
 
     def create_gate(self, data, user: User) -> Gate:
@@ -93,6 +116,13 @@ class VisitorService:
 
         vehicle_data = data.vehicle
         visitor_data = data.model_dump(exclude={"vehicle"})
+
+        # A visitor comes to a flat: check it's in this society and, unless
+        # the guard named someone, send the approval to that flat's resident.
+        if data.flat_id:
+            flat = self._flat_in_society_or_422(data.flat_id, data.society_id)
+            if not data.resident_id:
+                visitor_data["resident_id"] = self._flat_contact(flat)
 
         visitor = Visitor(**visitor_data, logged_by=logged_by.id, status=VisitorStatus.PENDING)
         self.db.add(visitor)

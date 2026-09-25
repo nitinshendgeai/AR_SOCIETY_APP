@@ -83,6 +83,8 @@ class VisitorModel {
   final String? purpose;
   final String societyId;
   final String? flatId;
+  final String? flatNumber;
+  final String? wingName;
   final String? residentId;
   final String? gateId;
   final String status;
@@ -104,6 +106,8 @@ class VisitorModel {
     this.purpose,
     required this.societyId,
     this.flatId,
+    this.flatNumber,
+    this.wingName,
     this.residentId,
     this.gateId,
     required this.status,
@@ -126,6 +130,8 @@ class VisitorModel {
         purpose: j['purpose'] as String?,
         societyId: j['society_id'] as String,
         flatId: j['flat_id'] as String?,
+        flatNumber: j['flat_number'] as String?,
+        wingName: j['wing_name'] as String?,
         residentId: j['resident_id'] as String?,
         gateId: j['gate_id'] as String?,
         status: j['status'] as String,
@@ -152,6 +158,8 @@ class VisitorModel {
         purpose: purpose,
         societyId: societyId,
         flatId: flatId,
+        flatNumber: flatNumber,
+        wingName: wingName,
         residentId: residentId,
         gateId: gateId,
         status: VisitorStatus.fromString(status),

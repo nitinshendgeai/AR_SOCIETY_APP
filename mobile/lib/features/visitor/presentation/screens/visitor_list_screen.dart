@@ -6,8 +6,6 @@ import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
-import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
-import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 
@@ -196,9 +194,6 @@ class _VisitorListView extends ConsumerWidget {
 extension on _VisitorListView {
   /// Desktop: the visitor log as a sortable table with inline gate actions.
   Widget _table(BuildContext context, WidgetRef ref) {
-    final flatsById = <String, FlatModel>{
-      for (final f in ref.watch(flatsBySocietyProvider).valueOrNull ?? <FlatModel>[]) f.id: f,
-    };
     final isActing = ref.watch(visitorActionProvider) is VisitorActionLoading;
     final actions = ref.read(visitorActionProvider.notifier);
     return RefreshIndicator(
@@ -233,7 +228,7 @@ extension on _VisitorListView {
             ),
             AppDataColumn.text('Type', (v) => v.visitorType.label, width: 120),
             AppDataColumn.text('Purpose', (v) => v.purpose ?? '—', flex: 2),
-            AppDataColumn.text('Flat', (v) => flatsById[v.flatId]?.displayName ?? '—', width: 120),
+            AppDataColumn.text('Flat', (v) => v.flatLabel ?? '—', width: 120),
             AppDataColumn.text('Checked in', (v) => tableDateTime(v.checkedInAt),
                 width: 140, sortKey: (v) => v.checkedInAt?.millisecondsSinceEpoch),
             AppDataColumn.text('Checked out', (v) => tableDateTime(v.checkedOutAt),
@@ -290,7 +285,9 @@ class _VisitorCard extends ConsumerWidget {
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                             color: AppTheme.textPrimary)),
-                    Text(visitor.mobile,
+                    Text(
+                        [visitor.mobile, if (visitor.flatLabel != null) visitor.flatLabel!]
+                            .join('  ·  '),
                         style: const TextStyle(
                             fontSize: 12, color: AppTheme.textSecondary)),
                   ],

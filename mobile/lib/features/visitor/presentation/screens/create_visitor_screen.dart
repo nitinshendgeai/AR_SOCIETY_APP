@@ -4,6 +4,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities.dart';
 import 'package:ar_society_app/features/visitor/data/repositories/visitor_repository.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart';
+import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 class CreateVisitorScreen extends ConsumerStatefulWidget {
@@ -20,6 +21,8 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
   final _mobileCtrl  = TextEditingController();
   final _purposeCtrl = TextEditingController();
   VisitorType _type  = VisitorType.guest;
+  String? _wingId;
+  String? _flatId;
   bool _isLoading    = false;
 
   @override
@@ -57,6 +60,52 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
                   (v == null || v.trim().isEmpty) ? 'Mobile is required' : null,
             ),
             const SizedBox(height: 14),
+            // The flat being visited: its resident is asked to approve entry.
+            ref.watch(wingsProvider).when(
+                  loading: () => const LinearProgressIndicator(minHeight: 2),
+                  error: (_, __) => const Text('Could not load wings',
+                      style: TextStyle(color: AppTheme.error)),
+                  data: (wings) => DropdownButtonFormField<String>(
+                    value: _wingId,
+                    decoration: const InputDecoration(labelText: 'Wing *'),
+                    hint: const Text('Select wing'),
+                    items: wings
+                        .map((w) => DropdownMenuItem(value: w.id, child: Text(w.displayName)))
+                        .toList(),
+                    onChanged: (v) => setState(() {
+                      _wingId = v;
+                      _flatId = null;
+                    }),
+                    validator: (v) => v == null ? 'Wing is required' : null,
+                  ),
+                ),
+            const SizedBox(height: 14),
+            if (_wingId == null)
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(labelText: 'Flat Number *'),
+                hint: const Text('Select a wing first'),
+                items: const [],
+                onChanged: null,
+                validator: (_) => 'Flat is required',
+              )
+            else
+              ref.watch(flatsByWingProvider(_wingId!)).when(
+                    loading: () => const LinearProgressIndicator(minHeight: 2),
+                    error: (_, __) => const Text('Could not load flats',
+                        style: TextStyle(color: AppTheme.error)),
+                    data: (flats) => DropdownButtonFormField<String>(
+                      key: ValueKey(_wingId),
+                      value: _flatId,
+                      decoration: const InputDecoration(labelText: 'Flat Number *'),
+                      hint: Text(flats.isEmpty ? 'No flats in this wing' : 'Select flat'),
+                      items: flats
+                          .map((f) => DropdownMenuItem(value: f.id, child: Text(f.flatNumber)))
+                          .toList(),
+                      onChanged: (v) => setState(() => _flatId = v),
+                      validator: (v) => v == null ? 'Flat is required' : null,
+                    ),
+                  ),
+            const SizedBox(height: 14),
             DropdownButtonFormField<VisitorType>(
               value: _type,
               decoration: const InputDecoration(labelText: 'Visitor Type'),
@@ -68,7 +117,7 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
             const SizedBox(height: 14),
             AppTextField(
               label: 'Purpose (optional)',
-              hint: 'e.g., Visiting flat A-201, delivery',
+              hint: 'e.g., Meeting, delivery, repair work',
               controller: _purposeCtrl,
             ),
             const SizedBox(height: 32),
@@ -93,6 +142,7 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
       'mobile': _mobileCtrl.text.trim(),
       'visitor_type': _type.name,
       'society_id': widget.societyId,
+      'flat_id': _flatId,
       if (_purposeCtrl.text.trim().isNotEmpty) 'purpose': _purposeCtrl.text.trim(),
     });
 
