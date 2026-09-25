@@ -327,31 +327,83 @@ def _fk_name(table, column):
     return f"{table}_{column}_fkey"
 
 
+# Every step is guarded (IF EXISTS / IF NOT EXISTS) so the migration applies
+# cleanly to databases whose indexes drifted from a fresh `upgrade head` — some
+# production objects were created outside migrations — and a failure here
+# would stop the app from starting.
+
+def _drop_index(name):
+    op.execute(f'DROP INDEX IF EXISTS "{name}"')
+
+
+def _create_index(name, table, column, unique=False):
+    op.execute(f'CREATE {"UNIQUE " if unique else ""}INDEX IF NOT EXISTS "{name}" ON "{table}" ("{column}")')
+
+
+def _rename_index(old, new):
+    # Rename when only the old name exists; when both do, the old one is a duplicate.
+    op.execute(f"""
+        DO $$ BEGIN
+            IF to_regclass('"{old}"') IS NOT NULL THEN
+                IF to_regclass('"{new}"') IS NULL THEN
+                    ALTER INDEX "{old}" RENAME TO "{new}";
+                ELSE
+                    DROP INDEX "{old}";
+                END IF;
+            END IF;
+        END $$;
+    """)
+
+
+def _add_unique_constraint(name, table, column):
+    op.execute(f"""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = '{name}') THEN
+                ALTER TABLE "{table}" ADD CONSTRAINT "{name}" UNIQUE ("{column}");
+            END IF;
+        END $$;
+    """)
+
+
+def _add_foreign_key(table, column, ref):
+    # Skip when the column already has a foreign key, under any name.
+    op.execute(f"""
+        DO $$ BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint c
+                JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+                WHERE c.contype = 'f' AND c.conrelid = '"{table}"'::regclass AND a.attname = '{column}'
+            ) THEN
+                UPDATE "{table}" SET "{column}" = NULL WHERE "{column}" IS NOT NULL
+                    AND NOT EXISTS (SELECT 1 FROM "{ref}" r WHERE r.id = "{table}"."{column}");
+                ALTER TABLE "{table}" ADD CONSTRAINT "{_fk_name(table, column)}"
+                    FOREIGN KEY ("{column}") REFERENCES "{ref}" (id) ON DELETE SET NULL;
+            END IF;
+        END $$;
+    """)
+
+
 def upgrade():
     for table, name, _ in DROP_INDEXES:
-        op.drop_index(name, table_name=table)
+        _drop_index(name)
     for table, old, new in RENAME_INDEXES:
-        op.execute(f'ALTER INDEX "{old}" RENAME TO "{new}"')
+        _rename_index(old, new)
     for table, name, column, unique in CREATE_INDEXES:
-        op.create_index(name, table, [column], unique=unique)
+        _create_index(name, table, column, unique)
     for table, name, _ in DROP_UNIQUE_CONSTRAINTS:
-        op.drop_constraint(name, table, type_="unique")
+        op.execute(f'ALTER TABLE "{table}" DROP CONSTRAINT IF EXISTS "{name}"')
     for table, column, ref in NEW_FOREIGN_KEYS:
-        op.execute(
-            f'UPDATE "{table}" SET "{column}" = NULL WHERE "{column}" IS NOT NULL '
-            f'AND NOT EXISTS (SELECT 1 FROM "{ref}" r WHERE r.id = "{table}"."{column}")'
-        )
-        op.create_foreign_key(_fk_name(table, column), table, ref, [column], ["id"], ondelete="SET NULL")
+        _add_foreign_key(table, column, ref)
 
 
 def downgrade():
     for table, column, _ in reversed(NEW_FOREIGN_KEYS):
-        op.drop_constraint(_fk_name(table, column), table, type_="foreignkey")
+        op.execute(f'ALTER TABLE "{table}" DROP CONSTRAINT IF EXISTS "{_fk_name(table, column)}"')
     for table, name, column in reversed(DROP_UNIQUE_CONSTRAINTS):
-        op.create_unique_constraint(name, table, [column])
+        _add_unique_constraint(name, table, column)
     for table, name, _, _ in reversed(CREATE_INDEXES):
-        op.drop_index(name, table_name=table)
+        _drop_index(name)
     for table, old, new in reversed(RENAME_INDEXES):
-        op.execute(f'ALTER INDEX "{new}" RENAME TO "{old}"')
+        _rename_index(new, old)
     for table, name, column in reversed(DROP_INDEXES):
-        op.create_index(name, table, [column])
+        _create_index(name, table, column)
