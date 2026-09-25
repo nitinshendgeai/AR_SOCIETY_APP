@@ -128,6 +128,11 @@ FORM_DEFINITIONS = [
     ("setup_wizard",              "Setup Wizard",                "Society structure setup wizard"),
     ("checklist_templates",       "Checklist Templates",        "Department-scoped reusable duty checklists"),
     ("online_payments",           "Online Payments",            "Resident payment screenshots captured for bank reconciliation"),
+    ("bank_reconciliation",       "Bank Reconciliation",        "Import bank statements and match them against pending payments"),
+    ("vendor_bills",              "Vendor Bills",               "Vendor invoices and payments made against them"),
+    ("maintenance_billing",       "Maintenance Billing",        "Charge heads, billing cycles, and generating/issuing flat maintenance bills"),
+    ("my_bills",                  "My Bills",                   "Resident view of their own flat's maintenance bills"),
+    ("maintenance_elements",      "Maintenance Elements",       "Master list of maintenance elements charge heads are created from"),
 ]
 
 _ADMIN_OR_COMMITTEE_ROLES = (
@@ -165,6 +170,11 @@ FORM_ROLE_GRANTS = {
     "setup_wizard":             _ADMIN_OR_COMMITTEE_ROLES,
     "checklist_templates":      _ADMIN_OR_COMMITTEE_ROLES,
     "online_payments":          tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
+    "bank_reconciliation":      tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
+    "vendor_bills":             tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
+    "maintenance_billing":      tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
+    "my_bills":                 _RESIDENT_ONLY_ROLE,
+    "maintenance_elements":     _ADMIN_OR_COMMITTEE_ROLES,
 }
 
 

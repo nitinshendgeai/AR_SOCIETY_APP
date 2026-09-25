@@ -9,17 +9,21 @@ class BillingRemoteDataSource {
   final Dio _dio;
   BillingRemoteDataSource({Dio? dio}) : _dio = dio ?? ApiClient.instance;
 
-  /// POST /billing/online-payments (multipart: form fields + screenshot file)
+  /// POST /billing/online-payments (multipart: form fields + optional
+  /// screenshot file — required only for the online payment modes, see
+  /// kScreenshotRequiredModes).
   Future<OnlinePaymentModel> submitOnlinePayment({
     required String flatId,
     required double amount,
     required DateTime paymentDate,
     required String paymentMode,
+    String? billId,
+    String purpose = 'maintenance',
     String? transactionRef,
     String? bankName,
     String? notes,
-    required Uint8List screenshotBytes,
-    required String screenshotFileName,
+    Uint8List? screenshotBytes,
+    String? screenshotFileName,
     String screenshotMimeType = 'image/jpeg',
   }) async {
     final formData = FormData.fromMap({
@@ -27,17 +31,29 @@ class BillingRemoteDataSource {
       'amount': amount.toString(),
       'payment_date': paymentDate.toIso8601String().split('T').first,
       'payment_mode': paymentMode,
+      'purpose': purpose,
+      if (billId != null) 'bill_id': billId,
       if (transactionRef != null && transactionRef.isNotEmpty) 'transaction_ref': transactionRef,
       if (bankName != null && bankName.isNotEmpty) 'bank_name': bankName,
       if (notes != null && notes.isNotEmpty) 'notes': notes,
-      'screenshot': MultipartFile.fromBytes(
-        screenshotBytes,
-        filename: screenshotFileName,
-        contentType: DioMediaType.parse(screenshotMimeType),
-      ),
+      if (screenshotBytes != null && screenshotFileName != null)
+        'screenshot': MultipartFile.fromBytes(
+          screenshotBytes,
+          filename: screenshotFileName,
+          contentType: DioMediaType.parse(screenshotMimeType),
+        ),
     });
     final r = await _dio.post('/billing/online-payments', data: formData);
     return OnlinePaymentModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// GET /billing/bills/flat/{flat_id}
+  Future<List<BillModel>> getFlatBills(String flatId, {bool outstandingOnly = false}) async {
+    final r = await _dio.get(
+      '/billing/bills/flat/$flatId',
+      queryParameters: {if (outstandingOnly) 'outstanding_only': true},
+    );
+    return (r.data as List).map((e) => BillModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   /// GET /billing/online-payments/society/{society_id}
@@ -109,5 +125,71 @@ class BillingRemoteDataSource {
       options: Options(responseType: ResponseType.plain),
     );
     return r.data!;
+  }
+
+  /// POST /billing/bank-reconciliation/society/{society_id}/import
+  /// (multipart CSV upload — Date, Description, Amount, optional Reference)
+  Future<List<BankStatementEntryModel>> importBankStatement(
+    String societyId, {
+    required Uint8List csvBytes,
+    required String fileName,
+  }) async {
+    final formData = FormData.fromMap({
+      'statement': MultipartFile.fromBytes(csvBytes, filename: fileName,
+          contentType: DioMediaType.parse('text/csv')),
+    });
+    final r = await _dio.post(
+      '/billing/bank-reconciliation/society/$societyId/import',
+      data: formData,
+    );
+    return (r.data as List)
+        .map((e) => BankStatementEntryModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// GET /billing/bank-reconciliation/society/{society_id}
+  Future<List<BankStatementEntryModel>> listBankStatementEntries(
+    String societyId, {
+    String? matchStatus,
+    int skip = 0,
+    int limit = 100,
+  }) async {
+    final r = await _dio.get(
+      '/billing/bank-reconciliation/society/$societyId',
+      queryParameters: {
+        if (matchStatus != null) 'match_status': matchStatus,
+        'skip': skip,
+        'limit': limit,
+      },
+    );
+    return (r.data as List)
+        .map((e) => BankStatementEntryModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// GET /billing/bank-reconciliation/{entry_id}/candidates
+  Future<List<OnlinePaymentModel>> getBankMatchCandidates(String entryId) async {
+    final r = await _dio.get('/billing/bank-reconciliation/$entryId/candidates');
+    return (r.data as List)
+        .map((e) => OnlinePaymentModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// POST /billing/bank-reconciliation/{entry_id}/confirm
+  Future<BankStatementEntryModel> confirmBankMatch(String entryId, String submissionId) async {
+    final r = await _dio.post(
+      '/billing/bank-reconciliation/$entryId/confirm',
+      data: {'submission_id': submissionId},
+    );
+    return BankStatementEntryModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// POST /billing/bank-reconciliation/{entry_id}/ignore
+  Future<BankStatementEntryModel> ignoreBankEntry(String entryId, {String? reason}) async {
+    final r = await _dio.post(
+      '/billing/bank-reconciliation/$entryId/ignore',
+      data: {if (reason != null) 'reason': reason},
+    );
+    return BankStatementEntryModel.fromJson(r.data as Map<String, dynamic>);
   }
 }

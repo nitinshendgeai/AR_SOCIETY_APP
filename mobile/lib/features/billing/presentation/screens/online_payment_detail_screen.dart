@@ -9,6 +9,7 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/features/billing/data/repositories/billing_repository.dart';
 import 'package:ar_society_app/features/billing/domain/entities/billing_entities.dart';
 import 'package:ar_society_app/features/billing/presentation/providers/billing_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 class OnlinePaymentDetailScreen extends ConsumerStatefulWidget {
   final String paymentId;
@@ -62,10 +63,7 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
             reviewNotes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
           );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(friendlyErrorMessage(e)), backgroundColor: AppTheme.error));
-      }
+      if (mounted) showErrorToast(context, e);
     } finally {
       if (mounted) setState(() => _updating = false);
     }
@@ -85,10 +83,7 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
           throw Exception(message);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(friendlyErrorMessage(e)), backgroundColor: AppTheme.error));
-      }
+      if (mounted) showErrorToast(context, e);
     } finally {
       if (mounted) setState(() => _sharingReceipt = false);
     }
@@ -104,7 +99,6 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
     if (payment == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    final screenshotAsync = ref.watch(onlinePaymentScreenshotProvider(widget.paymentId));
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
@@ -118,6 +112,10 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 _row('Flat', '${payment.wingName ?? '-'} / ${payment.flatNumber ?? '-'}'),
                 _row('Amount', '₹${payment.amount}'),
+                if (payment.isOnBill)
+                  _row('Bill', payment.billInvoiceNumber ?? payment.billId!)
+                else
+                  _row('On Account Of', onlinePaymentPurposeLabel(payment.purpose)),
                 _row('Payment Date',
                     '${payment.paymentDate.day}/${payment.paymentDate.month}/${payment.paymentDate.year}'),
                 _row('Payment Mode', paymentModeLabel(payment.paymentMode)),
@@ -132,14 +130,20 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
           const SizedBox(height: 16),
           const Text('Screenshot', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 8),
-          screenshotAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-            data: (bytes) => ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.memory(bytes, fit: BoxFit.contain),
-            ),
-          ),
+          if (!payment.hasScreenshot)
+            const Text('No screenshot attached', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13))
+          else
+            Consumer(builder: (context, ref, _) {
+              final screenshotAsync = ref.watch(onlinePaymentScreenshotProvider(widget.paymentId));
+              return screenshotAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+                data: (bytes) => ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.memory(bytes, fit: BoxFit.contain),
+                ),
+              );
+            }),
           const SizedBox(height: 20),
           OutlinedButton.icon(
             onPressed: _sharingReceipt ? null : _shareReceipt,

@@ -12,6 +12,9 @@ import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dar
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/complaint/presentation/providers/complaint_providers.dart';
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart' show formatRupees;
+import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart' show myBillsProvider;
 
 // ── Shared scaffold wrapper ───────────────────────────────────────────────────
 
@@ -24,7 +27,7 @@ class _DashboardShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final myFormsAsync = ref.watch(myFormCodesProvider);
-    final menuItems = _visibleMenuItems(myFormsAsync.valueOrNull?.toSet() ?? const {});
+    final menuCategories = _visibleMenuCategories(myFormsAsync.valueOrNull?.toSet() ?? const {});
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
@@ -55,14 +58,30 @@ class _DashboardShell extends ConsumerWidget {
                 padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
                 child: Text('Navigation', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               ),
-              const Divider(),
-              ...menuItems.map((item) => ListTile(
-                    leading: Icon(item.icon, color: AppTheme.primary),
-                    title: Text(item.label),
-                    onTap: () {
-                      Navigator.pop(context);
-                      if (item.route != null) context.push(item.route!);
-                    },
+              const Divider(height: 1),
+              ...menuCategories.map((category) => Theme(
+                    // Suppress the default divider ExpansionTile draws around
+                    // itself when expanded — the drawer already separates
+                    // sections with spacing, a second line reads as clutter.
+                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                    child: ExpansionTile(
+                      initiallyExpanded: true,
+                      leading: Icon(category.icon, color: AppTheme.primary),
+                      title: Text(category.label,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      childrenPadding: const EdgeInsets.only(bottom: 4),
+                      children: category.items
+                          .map((item) => ListTile(
+                                contentPadding: const EdgeInsets.only(left: 32, right: 16),
+                                leading: Icon(item.icon, size: 20, color: AppTheme.textSecondary),
+                                title: Text(item.label, style: const TextStyle(fontSize: 13)),
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  if (item.route != null) context.push(item.route!);
+                                },
+                              ))
+                          .toList(),
+                    ),
                   )),
             ],
           ),
@@ -181,35 +200,67 @@ class _MenuItem {
   const _MenuItem(this.formCode, this.label, this.icon, this.route);
 }
 
-/// Every navigable drawer item, in display order, tagged with the form
-/// code that gates it (see backend/app/core/rbac_seed.py FORM_DEFINITIONS
-/// and the Forms Matrix screen). Which of these a given user sees is
-/// entirely server-driven — fetched via GET /roles/forms/mine into
-/// myFormCodesProvider — rather than guessed from role-name checks here,
-/// so an Admin can regrant/revoke individual screens per role at runtime
-/// without an app update. The backend remains the authority regardless:
-/// every endpoint still rejects unauthorized reads/writes with a 403 no
-/// matter what the drawer shows.
-const _allMenuItems = [
-  _MenuItem('residents', 'Residents', Icons.people_outline_rounded, AppRoutes.residentsList),
-  _MenuItem('tenants', 'Tenants', Icons.groups_2_outlined, AppRoutes.tenantsList),
-  _MenuItem('users_roles', 'Users & Roles', Icons.people_rounded, AppRoutes.usersList),
-  _MenuItem('permission_matrix', 'Permission Matrix', Icons.rule_rounded, AppRoutes.permissionMatrix),
-  _MenuItem('forms_matrix', 'Forms Matrix', Icons.dashboard_customize_rounded, AppRoutes.formsMatrix),
-  _MenuItem('society_settings', 'Society Settings', Icons.apartment_rounded, AppRoutes.societySettings),
-  _MenuItem('visitors', 'Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
-  _MenuItem('complaints', 'Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
-  _MenuItem('edit_my_info', 'Edit My Info', Icons.edit_note_rounded, AppRoutes.editMyProfile),
-  _MenuItem('pending_resident_changes', 'Pending Resident Changes', Icons.fact_check_outlined, AppRoutes.pendingResidentChanges),
-  _MenuItem('staff', 'Staff', Icons.badge_rounded, AppRoutes.staffHome),
-  _MenuItem('checklist_templates', 'Checklist Templates', Icons.checklist_rtl_rounded, AppRoutes.checklistTemplates),
-  _MenuItem('online_payments', 'Online Payments', Icons.receipt_long_rounded, AppRoutes.onlinePayments),
-  _MenuItem('parking_management', 'Parking Management', Icons.local_parking_rounded, AppRoutes.parkingManagement),
-  _MenuItem('setup_wizard', 'Setup Wizard', Icons.checklist_rounded, AppRoutes.structureWizard),
+class _MenuCategory {
+  final String label;
+  final IconData icon;
+  final List<_MenuItem> items;
+
+  const _MenuCategory(this.label, this.icon, this.items);
+}
+
+/// Every navigable drawer item, grouped under a parent header, tagged with
+/// the form code that gates it (see backend/app/core/rbac_seed.py
+/// FORM_DEFINITIONS and the Forms Matrix screen). Which of these a given
+/// user sees is entirely server-driven — fetched via GET /roles/forms/mine
+/// into myFormCodesProvider — rather than guessed from role-name checks
+/// here, so an Admin can regrant/revoke individual screens per role at
+/// runtime without an app update. The backend remains the authority
+/// regardless: every endpoint still rejects unauthorized reads/writes with
+/// a 403 no matter what the drawer shows. Categories with zero granted
+/// items are dropped entirely rather than shown empty.
+const _menuCategories = [
+  _MenuCategory('People', Icons.people_alt_rounded, [
+    _MenuItem('residents', 'Residents', Icons.people_outline_rounded, AppRoutes.residentsList),
+    _MenuItem('tenants', 'Tenants', Icons.groups_2_outlined, AppRoutes.tenantsList),
+  ]),
+  _MenuCategory('Community', Icons.diversity_3_rounded, [
+    _MenuItem('visitors', 'Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
+    _MenuItem('complaints', 'Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
+    _MenuItem('pending_resident_changes', 'Pending Resident Changes', Icons.fact_check_outlined, AppRoutes.pendingResidentChanges),
+  ]),
+  _MenuCategory('Operations', Icons.build_rounded, [
+    _MenuItem('staff', 'Staff', Icons.badge_rounded, AppRoutes.staffHome),
+    _MenuItem('checklist_templates', 'Checklist Templates', Icons.checklist_rtl_rounded, AppRoutes.checklistTemplates),
+    _MenuItem('parking_management', 'Parking Management', Icons.local_parking_rounded, AppRoutes.parkingManagement),
+  ]),
+  _MenuCategory('Finance', Icons.payments_rounded, [
+    _MenuItem('maintenance_billing', 'Maintenance Billing', Icons.request_quote_rounded, AppRoutes.maintenanceBilling),
+    _MenuItem('maintenance_elements', 'Maintenance Elements', Icons.tune_rounded, AppRoutes.maintenanceElements),
+    _MenuItem('online_payments', 'Payments', Icons.receipt_long_rounded, AppRoutes.onlinePayments),
+    _MenuItem('bank_reconciliation', 'Bank Reconciliation', Icons.account_balance_rounded, AppRoutes.bankReconciliation),
+    _MenuItem('vendor_bills', 'Vendor Bills', Icons.storefront_rounded, AppRoutes.vendorBills),
+  ]),
+  _MenuCategory('Administration', Icons.admin_panel_settings_rounded, [
+    _MenuItem('users_roles', 'Users & Roles', Icons.people_rounded, AppRoutes.usersList),
+    _MenuItem('permission_matrix', 'Permission Matrix', Icons.rule_rounded, AppRoutes.permissionMatrix),
+    _MenuItem('forms_matrix', 'Forms Matrix', Icons.dashboard_customize_rounded, AppRoutes.formsMatrix),
+    _MenuItem('society_settings', 'Society Settings', Icons.apartment_rounded, AppRoutes.societySettings),
+    _MenuItem('setup_wizard', 'Setup Wizard', Icons.checklist_rounded, AppRoutes.structureWizard),
+  ]),
+  _MenuCategory('My Account', Icons.person_rounded, [
+    _MenuItem('my_bills', 'My Bills', Icons.receipt_long_rounded, AppRoutes.myBills),
+    _MenuItem('edit_my_info', 'Edit My Info', Icons.edit_note_rounded, AppRoutes.editMyProfile),
+  ]),
 ];
 
-List<_MenuItem> _visibleMenuItems(Set<String> grantedFormCodes) =>
-    _allMenuItems.where((item) => grantedFormCodes.contains(item.formCode)).toList();
+List<_MenuCategory> _visibleMenuCategories(Set<String> grantedFormCodes) => _menuCategories
+    .map((category) => _MenuCategory(
+          category.label,
+          category.icon,
+          category.items.where((item) => grantedFormCodes.contains(item.formCode)).toList(),
+        ))
+    .where((category) => category.items.isNotEmpty)
+    .toList();
 
 class _GreetingCard extends ConsumerWidget {
   final UserEntity? user;
@@ -293,6 +344,10 @@ class _ActionItem {
   });
 }
 
+// Thin wrapper over the shared KpiCard — kept as its own name since every
+// dashboard below already calls _SummaryCard(...); redefining it here (once)
+// gets all six dashboards onto the shared shadow-based card in one place
+// rather than touching 34 call sites individually.
 class _SummaryCard extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -305,37 +360,8 @@ class _SummaryCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppTheme.cardBg,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppTheme.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                Container(width: 36, height: 36, decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: color, size: 18)),
-                const Spacer(),
-                Icon(onTap != null ? Icons.chevron_right_rounded : Icons.trending_up_rounded, color: color.withOpacity(0.8), size: 14),
-              ]),
-              const SizedBox(height: 10),
-              Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-              const SizedBox(height: 2),
-              Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      KpiCard(icon: icon, label: label, value: value, color: color, onTap: onTap);
 }
 
 class _QuickActionChip extends StatelessWidget {
@@ -831,11 +857,23 @@ class ResidentDashboardScreen extends ConsumerWidget {
           ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          children: const [
-            _SummaryCard(icon: Icons.report_problem_rounded, label: 'Open Complaints', value: '--', color: AppTheme.error),
-            _SummaryCard(icon: Icons.campaign_rounded, label: 'Notices', value: '--', color: AppTheme.primary),
-            _SummaryCard(icon: Icons.receipt_long_rounded, label: 'Bills', value: '--', color: AppTheme.warning),
-            _SummaryCard(icon: Icons.home_rounded, label: 'My Flat', value: '--', color: AppTheme.success),
+          children: [
+            const _SummaryCard(icon: Icons.report_problem_rounded, label: 'Open Complaints', value: '--', color: AppTheme.error),
+            const _SummaryCard(icon: Icons.campaign_rounded, label: 'Notices', value: '--', color: AppTheme.primary),
+            _SummaryCard(
+              icon: Icons.receipt_long_rounded,
+              label: 'Bills Due',
+              value: ref.watch(myBillsProvider).when(
+                    data: (s) => formatRupees(s.totalOutstanding),
+                    loading: () => '…',
+                    error: (_, __) => '--',
+                  ),
+              color: (ref.watch(myBillsProvider).valueOrNull?.overdueCount ?? 0) > 0
+                  ? AppTheme.error
+                  : AppTheme.warning,
+              onTap: () => context.push(AppRoutes.myBills),
+            ),
+            const _SummaryCard(icon: Icons.home_rounded, label: 'My Flat', value: '--', color: AppTheme.success),
           ],
         ),
         const SizedBox(height: 18),
@@ -857,6 +895,8 @@ class ResidentDashboardScreen extends ConsumerWidget {
         // aren't allowed to change, only failing with a 403 on tapping Save.
         Row(children: const [
           _QuickActionChip(icon: Icons.pending_actions_rounded, label: 'Approvals', route: AppRoutes.visitorsPending),
+          SizedBox(width: 8),
+          _QuickActionChip(icon: Icons.receipt_long_rounded, label: 'My Bills', route: AppRoutes.myBills),
         ]),
         const SizedBox(height: 18),
         _OperationalPanel(title: 'Recent updates', children: const [

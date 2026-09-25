@@ -1,9 +1,11 @@
 """
-Simple one-page PDF receipt for an OnlinePaymentSubmission.
+Simple one-page PDF receipt for an OnlinePaymentSubmission — on-bill or
+on-account (see that model's docstring).
 
 Deliberately minimal — a plain, readable receipt confirming what the FMC
-Manager recorded, not a finance-grade invoice. Good enough to hand a
-resident proof of the entry while the reconciliation status is worked out.
+Manager recorded, not a finance-grade invoice. Issued immediately on
+submission; bank reconciliation (non-cash modes) happens later and never
+blocks issuing this receipt.
 """
 from io import BytesIO
 from reportlab.lib.pagesizes import A5
@@ -39,9 +41,15 @@ def generate_online_payment_receipt_pdf(submission: OnlinePaymentSubmission, soc
         c.drawString(60 * mm, y, value)
         y -= 7 * mm
 
+    purpose_label = submission.purpose.value.replace("_", " ").title()
+    on_bill = submission.bill is not None
+
     row("Receipt No:", submission.receipt_number)
     row("Flat:", f"{submission.wing.name if submission.wing else ''} / {submission.flat.flat_number if submission.flat else ''}")
     row("Amount:", f"Rs. {submission.amount}")
+    if on_bill:
+        row("Bill No:", submission.bill.invoice_number)
+    row("On Account Of:", f"{purpose_label} Charges")
     row("Payment Date:", submission.payment_date.isoformat())
     row("Payment Mode:", submission.payment_mode.value.replace("_", " ").title())
     row("Transaction Ref:", submission.transaction_ref or "-")
@@ -50,14 +58,27 @@ def generate_online_payment_receipt_pdf(submission: OnlinePaymentSubmission, soc
     if submission.notes:
         row("Notes:", submission.notes[:60])
 
-    y -= 5 * mm
+    y -= 3 * mm
+    c.setFont("Helvetica-Oblique", 9)
+    flat_label = submission.flat.flat_number if submission.flat else "the above flat"
+    if on_bill:
+        c.drawString(15 * mm, y,
+                     f"Received with thanks, against Bill {submission.bill.invoice_number} for Flat {flat_label}.")
+    else:
+        c.drawString(15 * mm, y,
+                     f"Received with thanks, on account of {purpose_label} charges for Flat {flat_label}.")
+    y -= 8 * mm
+
     c.line(15 * mm, y, width - 15 * mm, y)
     y -= 8 * mm
     c.setFont("Helvetica-Oblique", 8)
     c.setFillColor(colors.grey)
-    c.drawString(15 * mm, y, "This receipt acknowledges the payment screenshot submitted for bank")
-    y -= 4.5 * mm
-    c.drawString(15 * mm, y, "reconciliation. It is not proof of final reconciliation against the bank statement.")
+    if submission.status.value == "reconciled":
+        c.drawString(15 * mm, y, "This payment has been verified — nothing further is pending on it.")
+    else:
+        c.drawString(15 * mm, y, "This receipt confirms the payment was recorded. It is pending verification")
+        y -= 4.5 * mm
+        c.drawString(15 * mm, y, "against the bank statement, which does not affect the amount received above.")
 
     c.showPage()
     c.save()

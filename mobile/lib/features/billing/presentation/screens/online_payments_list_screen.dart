@@ -12,6 +12,7 @@ import 'package:ar_society_app/features/billing/domain/entities/billing_entities
 import 'package:ar_society_app/features/billing/presentation/providers/billing_providers.dart';
 import 'package:ar_society_app/features/billing/presentation/screens/online_payment_detail_screen.dart';
 import 'package:ar_society_app/features/billing/presentation/screens/online_payment_submit_screen.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// FMC Manager/Admin/Committee: list of resident payment screenshots
 /// captured for bank reconciliation.
@@ -40,10 +41,7 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
           throw Exception(message);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(friendlyErrorMessage(e)), backgroundColor: AppTheme.error));
-      }
+      if (mounted) showErrorToast(context, e);
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
@@ -60,7 +58,7 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(
-        title: const Text('Online Payments'),
+        title: const Text('Payments'),
         actions: [
           IconButton(
             icon: _exporting
@@ -86,6 +84,31 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
       ),
       body: Column(
         children: [
+          paymentsAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (payments) {
+              final pending = payments.where((p) => p.isPending).length;
+              final reconciled = payments.where((p) => p.isReconciled).length;
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: KpiGrid(cards: [
+                  KpiCard(
+                    icon: Icons.hourglass_top_rounded,
+                    label: 'Pending Review',
+                    value: '$pending',
+                    color: AppTheme.warning,
+                  ),
+                  KpiCard(
+                    icon: Icons.verified_rounded,
+                    label: 'Reconciled',
+                    value: '$reconciled',
+                    color: AppTheme.success,
+                  ),
+                ]),
+              );
+            },
+          ),
           SizedBox(
             height: 48,
             child: ListView(
@@ -115,13 +138,10 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
                     ? payments
                     : payments.where((p) => p.status == _statusFilter).toList();
                 if (filtered.isEmpty) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text('No payment screenshots recorded yet. Tap "Record Payment" to add one.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: AppTheme.textSecondary)),
-                    ),
+                  return const AppEmptyState(
+                    icon: Icons.receipt_long_rounded,
+                    title: 'No payments recorded yet',
+                    subtitle: 'Tap "Record Payment" to add one.',
                   );
                 }
                 return RefreshIndicator(
@@ -184,7 +204,9 @@ class _PaymentCard extends StatelessWidget {
         title: Text('₹${payment.amount} — ${payment.wingName ?? ''} ${payment.flatNumber ?? ''}'.trim(),
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(
-            '${payment.receiptNumber} · ${paymentModeLabel(payment.paymentMode)} · '
+            '${payment.receiptNumber} · '
+            '${payment.isOnBill ? "Bill ${payment.billInvoiceNumber ?? ""}" : onlinePaymentPurposeLabel(payment.purpose)} · '
+            '${paymentModeLabel(payment.paymentMode)} · '
             '${payment.paymentDate.day}/${payment.paymentDate.month}/${payment.paymentDate.year}'),
         trailing: Chip(
           label: Text(reconciliationStatusLabel(payment.status),

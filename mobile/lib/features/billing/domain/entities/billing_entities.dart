@@ -1,6 +1,9 @@
-/// A resident's online (UPI/bank transfer) payment screenshot recorded by
-/// the FMC Manager against a Wing + Flat, captured for later bank
-/// reconciliation. See backend OnlinePaymentSubmission.
+/// A payment receipt recorded by the FMC Manager against a Wing + Flat —
+/// either ON BILL (billId set, applied immediately to that bill/due
+/// tracker) or ON ACCOUNT (billId null). Either way a receipt is issued
+/// immediately; bank reconciliation (non-cash modes only — cash starts
+/// already `reconciled`) is a separate, later step. See backend
+/// OnlinePaymentSubmission.
 class OnlinePaymentEntity {
   final String id;
   final String societyId;
@@ -9,8 +12,10 @@ class OnlinePaymentEntity {
   final String flatId;
   final String? flatNumber;
   final String? billId;
+  final String? billInvoiceNumber;
   final String receiptNumber;
   final String amount;
+  final String purpose;
   final DateTime paymentDate;
   final String paymentMode;
   final String? transactionRef;
@@ -21,7 +26,7 @@ class OnlinePaymentEntity {
   final String? reviewedBy;
   final DateTime? reviewedAt;
   final String? reviewNotes;
-  final String screenshotMimeType;
+  final String? screenshotMimeType;
   final String? screenshotFileName;
   final DateTime? createdAt;
 
@@ -33,8 +38,10 @@ class OnlinePaymentEntity {
     required this.flatId,
     this.flatNumber,
     this.billId,
+    this.billInvoiceNumber,
     required this.receiptNumber,
     required this.amount,
+    this.purpose = 'maintenance',
     required this.paymentDate,
     required this.paymentMode,
     this.transactionRef,
@@ -45,7 +52,7 @@ class OnlinePaymentEntity {
     this.reviewedBy,
     this.reviewedAt,
     this.reviewNotes,
-    this.screenshotMimeType = 'image/jpeg',
+    this.screenshotMimeType,
     this.screenshotFileName,
     this.createdAt,
   });
@@ -53,7 +60,45 @@ class OnlinePaymentEntity {
   bool get isPending => status == 'pending';
   bool get isReconciled => status == 'reconciled';
   bool get isRejected => status == 'rejected';
+  bool get isOnBill => billId != null;
+  bool get hasScreenshot => screenshotMimeType != null;
 }
+
+/// A per-flat maintenance invoice, for the "On Bill" bill picker. See
+/// backend MaintenanceBill / GET /billing/bills/flat/{flat_id}.
+class BillEntity {
+  final String id;
+  final String invoiceNumber;
+  final String billStatus;
+  final DateTime dueDate;
+  final String totalAmount;
+  final String paidAmount;
+  final String outstanding;
+
+  const BillEntity({
+    required this.id,
+    required this.invoiceNumber,
+    required this.billStatus,
+    required this.dueDate,
+    required this.totalAmount,
+    required this.paidAmount,
+    required this.outstanding,
+  });
+}
+
+const kOnlinePaymentPurposes = [
+  ('maintenance', 'Maintenance'),
+  ('water', 'Water'),
+  ('parking', 'Parking'),
+  ('sinking_fund', 'Sinking Fund'),
+  ('repair_fund', 'Repair Fund'),
+  ('amenities', 'Amenities'),
+  ('special_assessment', 'Special Assessment'),
+  ('other', 'Other'),
+];
+
+String onlinePaymentPurposeLabel(String value) =>
+    kOnlinePaymentPurposes.firstWhere((p) => p.$1 == value, orElse: () => (value, value)).$2;
 
 const kPaymentModes = [
   ('upi', 'UPI'),
@@ -68,9 +113,60 @@ const kPaymentModes = [
 String paymentModeLabel(String value) =>
     kPaymentModes.firstWhere((m) => m.$1 == value, orElse: () => (value, value)).$2;
 
+/// Modes where a resident actually has proof to show (a UPI/bank app
+/// screen) — cash and cheque don't, so the screenshot picker is optional
+/// for those. Mirrors BillingService.SCREENSHOT_REQUIRED_MODES.
+const kScreenshotRequiredModes = {'upi', 'bank_transfer', 'neft', 'rtgs', 'online_gateway'};
+
 String reconciliationStatusLabel(String value) => switch (value) {
       'pending' => 'Pending Review',
       'reconciled' => 'Reconciled',
       'rejected' => 'Rejected',
+      _ => value,
+    };
+
+/// One credit row imported from a bank statement — the other half of
+/// reconciliation. Matching it to a PENDING OnlinePaymentEntity (via
+/// confirm) is what actually moves that payment to `reconciled`; import
+/// alone only ever creates `unmatched` rows. See backend
+/// BankStatementEntry / BillingService's Bank Reconciliation section.
+class BankStatementEntryEntity {
+  final String id;
+  final String societyId;
+  final DateTime txnDate;
+  final String description;
+  final String? reference;
+  final String amount;
+  final String matchStatus; // unmatched | matched | ignored
+  final String? matchedSubmissionId;
+  final String? matchedSubmissionReceiptNumber;
+  final DateTime? matchedAt;
+  final String? ignoreReason;
+  final DateTime? createdAt;
+
+  const BankStatementEntryEntity({
+    required this.id,
+    required this.societyId,
+    required this.txnDate,
+    required this.description,
+    this.reference,
+    required this.amount,
+    this.matchStatus = 'unmatched',
+    this.matchedSubmissionId,
+    this.matchedSubmissionReceiptNumber,
+    this.matchedAt,
+    this.ignoreReason,
+    this.createdAt,
+  });
+
+  bool get isUnmatched => matchStatus == 'unmatched';
+  bool get isMatched => matchStatus == 'matched';
+  bool get isIgnored => matchStatus == 'ignored';
+}
+
+String bankMatchStatusLabel(String value) => switch (value) {
+      'unmatched' => 'Unmatched',
+      'matched' => 'Matched',
+      'ignored' => 'Ignored',
       _ => value,
     };

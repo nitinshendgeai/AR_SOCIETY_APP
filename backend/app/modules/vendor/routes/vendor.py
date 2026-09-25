@@ -10,10 +10,11 @@ from app.db.session import get_db
 from app.core.dependencies import (
     get_current_user, require_roles,
     require_admin_committee, require_supervisor_above, require_any_member,
+    require_manager_above,
 )
 from app.models.user import User
 from app.modules.vendor.models.vendor import (
-    VendorCategory, VendorStatus, ServiceFrequency,
+    VendorCategory, VendorStatus, ServiceFrequency, VendorPaymentMode,
     ServiceRequestStatus, ServiceRequestPriority,
 )
 from app.modules.vendor.services.vendor_service import VendorService_
@@ -24,6 +25,48 @@ router = APIRouter(prefix="/vendors", tags=["Vendor & AMC Management"])
 admin_committee = require_admin_committee
 staff_above     = require_supervisor_above
 any_member      = require_any_member
+manager_above   = require_manager_above
+
+
+def _vendor_out(v) -> dict:
+    return {
+        "id": str(v.id),
+        "society_id": str(v.society_id),
+        "vendor_code": v.vendor_code,
+        "company_name": v.company_name,
+        "contact_person": v.contact_person,
+        "mobile": v.mobile,
+        "email": v.email,
+        "category": v.category.value,
+        "status": v.status.value,
+        "gst_number": v.gst_number,
+        "bank_account": v.bank_account,
+        "bank_name": v.bank_name,
+        "bank_ifsc": v.bank_ifsc,
+    }
+
+def _invoice_out(i) -> dict:
+    return {
+        "id": str(i.id),
+        "society_id": str(i.society_id),
+        "vendor_id": str(i.vendor_id),
+        "vendor_name": i.vendor.company_name if i.vendor else None,
+        "invoice_number": i.invoice_number,
+        "invoice_date": i.invoice_date.isoformat(),
+        "due_date": i.due_date.isoformat() if i.due_date else None,
+        "amount": str(i.amount),
+        "gst_amount": str(i.gst_amount),
+        "total_amount": str(i.total_amount),
+        "paid_amount": str(i.paid_amount),
+        "outstanding": str(i.total_amount - i.paid_amount),
+        "is_paid": i.is_paid,
+        "paid_date": i.paid_date.isoformat() if i.paid_date else None,
+        "payment_mode": i.payment_mode.value if i.payment_mode else None,
+        "payment_ref": i.payment_ref,
+        "bank_name": i.bank_name,
+        "description": i.description,
+        "created_at": i.created_at.isoformat() if i.created_at else None,
+    }
 
 
 # ── Inline schemas ────────────────────────────────────────────────────────────
@@ -88,8 +131,9 @@ class VendorInvoiceCreate(OrmBase):
     amount: Decimal; gst_amount: Decimal = Decimal(0); total_amount: Decimal
     description: Optional[str] = None; doc_url: Optional[str] = None
 
-class MarkPaidRequest(OrmBase):
-    paid_date: date; payment_ref: Optional[str] = None
+class RecordPaymentRequest(OrmBase):
+    amount: Decimal; paid_date: date; payment_mode: VendorPaymentMode
+    payment_ref: Optional[str] = None; bank_name: Optional[str] = None
 
 
 # ── Vendors ───────────────────────────────────────────────────────────────────
@@ -100,11 +144,11 @@ def create_vendor(data: VendorCreate, request: Request, db: Session = Depends(ge
 
 @router.get("/{vendor_id}", dependencies=[Depends(admin_committee)])
 def get_vendor(vendor_id: UUID, db: Session = Depends(get_db)):
-    return VendorService_(db).get_vendor(vendor_id)
+    return _vendor_out(VendorService_(db).get_vendor(vendor_id))
 
-@router.get("/society/{society_id}", dependencies=[Depends(admin_committee)])
+@router.get("/society/{society_id}", dependencies=[Depends(manager_above)])
 def list_vendors(society_id: UUID, skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
-    return VendorService_(db).list_vendors(society_id, skip, limit)
+    return [_vendor_out(v) for v in VendorService_(db).list_vendors(society_id, skip, limit)]
 
 @router.get("/society/{society_id}/category/{category}", dependencies=[Depends(admin_committee)])
 def vendors_by_category(society_id: UUID, category: VendorCategory, db: Session = Depends(get_db)):
@@ -184,17 +228,32 @@ def log_visit(data: VisitLogCreate, db: Session = Depends(get_db),
     return VendorService_(db).log_visit(data.model_dump(), user)
 
 
-# ── Vendor Invoices ───────────────────────────────────────────────────────────
-@router.post("/invoices", status_code=201, dependencies=[Depends(admin_committee)])
+# ── Vendor Invoices (bills owed to vendors) ────────────────────────────────────
+@router.post("/invoices", status_code=201, dependencies=[Depends(manager_above)])
 def create_invoice(data: VendorInvoiceCreate, db: Session = Depends(get_db),
                    user: User = Depends(get_current_user)):
-    return VendorService_(db).create_vendor_invoice(data.model_dump(), user)
+    return _invoice_out(VendorService_(db).create_vendor_invoice(data.model_dump(), user))
 
-@router.post("/invoices/{inv_id}/mark-paid", dependencies=[Depends(admin_committee)])
-def mark_paid(inv_id: UUID, data: MarkPaidRequest, db: Session = Depends(get_db),
-              user: User = Depends(get_current_user)):
-    return VendorService_(db).mark_invoice_paid(inv_id, data.paid_date, data.payment_ref or "", user)
+@router.get("/invoices/{inv_id}", dependencies=[Depends(manager_above)])
+def get_invoice(inv_id: UUID, db: Session = Depends(get_db)):
+    return _invoice_out(VendorService_(db).get_vendor_invoice(inv_id))
 
-@router.get("/invoices/vendor/{vendor_id}", dependencies=[Depends(admin_committee)])
+@router.post("/invoices/{inv_id}/payments", dependencies=[Depends(manager_above)])
+def record_payment(inv_id: UUID, data: RecordPaymentRequest, db: Session = Depends(get_db),
+                    user: User = Depends(get_current_user)):
+    inv = VendorService_(db).record_vendor_payment(
+        inv_id, data.amount, data.paid_date, data.payment_mode,
+        data.payment_ref, data.bank_name, user)
+    return _invoice_out(inv)
+
+@router.get("/invoices/vendor/{vendor_id}", dependencies=[Depends(manager_above)])
 def vendor_invoices(vendor_id: UUID, db: Session = Depends(get_db)):
-    return VendorService_(db).get_vendor_invoices(vendor_id)
+    return [_invoice_out(i) for i in VendorService_(db).get_vendor_invoices(vendor_id)]
+
+@router.get("/invoices/society/{society_id}", dependencies=[Depends(manager_above)])
+def list_society_invoices(
+    society_id: UUID, is_paid: Optional[bool] = None,
+    skip: int = 0, limit: int = 50, db: Session = Depends(get_db),
+):
+    rows = VendorService_(db).list_invoices_by_society(society_id, is_paid=is_paid, skip=skip, limit=limit)
+    return [_invoice_out(i) for i in rows]
