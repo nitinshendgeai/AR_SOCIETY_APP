@@ -7,6 +7,7 @@ import 'package:ar_society_app/features/vendor/domain/entities/vendor_entities.d
 import 'package:ar_society_app/features/vendor/presentation/providers/vendor_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 
 /// FMC Manager/Admin/Committee: bills owed to vendors and payments made
@@ -22,6 +23,82 @@ class VendorBillsScreen extends ConsumerStatefulWidget {
 class _VendorBillsScreenState extends ConsumerState<VendorBillsScreen> {
   bool? _paidFilter; // null = all, false = unpaid, true = paid
 
+  void _addBill(String societyId) => showAppSheet(
+        context: context,
+        builder: (_) => _AddBillSheet(societyId: societyId),
+      );
+
+  void _openBill(String societyId, VendorInvoiceEntity inv) => showAppSheet(
+        context: context,
+        builder: (_) => _BillDetailSheet(invoice: inv, societyId: societyId),
+      );
+
+  /// Desktop: payables summary above a sortable bills register.
+  Widget _table(String societyId, AsyncValue<List<VendorInvoiceEntity>> invoicesAsync) {
+    final invoices = invoicesAsync.valueOrNull ?? const <VendorInvoiceEntity>[];
+    final rows = _paidFilter == null ? invoices : invoices.where((i) => i.isPaid == _paidFilter).toList();
+    final unpaid = invoices.where((i) => !i.isPaid).toList();
+    final outstandingTotal = unpaid.fold<double>(0, (sum, i) => sum + (double.tryParse(i.outstanding) ?? 0));
+    double money(String v) => double.tryParse(v) ?? 0;
+    return RefreshIndicator(
+      onRefresh: () => ref.read(vendorInvoicesProvider(societyId).notifier).refresh(),
+      child: ListView(padding: const EdgeInsets.fromLTRB(24, 8, 24, 32), children: [
+        if (invoicesAsync.hasValue) ...[
+          KpiGrid(cards: [
+            KpiCard(
+              icon: Icons.pending_actions_rounded,
+              label: 'Unpaid Bills',
+              value: '${unpaid.length}',
+              color: AppTheme.warning,
+            ),
+            KpiCard(
+              icon: Icons.account_balance_wallet_rounded,
+              label: 'Outstanding',
+              value: tableMoney(outstandingTotal),
+              color: AppTheme.error,
+            ),
+          ]),
+          const SizedBox(height: 16),
+        ],
+        AppDataTable<VendorInvoiceEntity>(
+          toolbar: Wrap(spacing: 8, children: [
+            _FilterChip(label: 'All', selected: _paidFilter == null, onTap: () => setState(() => _paidFilter = null)),
+            _FilterChip(label: 'Unpaid', selected: _paidFilter == false, onTap: () => setState(() => _paidFilter = false)),
+            _FilterChip(label: 'Paid', selected: _paidFilter == true, onTap: () => setState(() => _paidFilter = true)),
+          ]),
+          rows: rows,
+          loading: invoicesAsync.isLoading && !invoicesAsync.hasValue,
+          error: invoicesAsync.hasError ? friendlyErrorMessage(invoicesAsync.error!) : null,
+          onRetry: () => ref.read(vendorInvoicesProvider(societyId).notifier).refresh(),
+          onRowTap: (inv) => _openBill(societyId, inv),
+          empty: const AppEmptyState(
+            icon: Icons.storefront_rounded,
+            title: 'No vendor bills yet',
+            subtitle: 'Use "Add Bill" to log one.',
+          ),
+          columns: [
+            AppDataColumn.text('Invoice', (i) => i.invoiceNumber, flex: 2, bold: true),
+            AppDataColumn.text('Vendor', (i) => i.vendorName ?? '—', flex: 3),
+            AppDataColumn.text('Date', (i) => tableDate(i.invoiceDate),
+                flex: 2, sortKey: (i) => i.invoiceDate.millisecondsSinceEpoch),
+            AppDataColumn.text('Due', (i) => tableDate(i.dueDate),
+                flex: 2, sortKey: (i) => i.dueDate?.millisecondsSinceEpoch),
+            AppDataColumn.text('Total', (i) => tableMoney(i.totalAmount),
+                flex: 2, numeric: true, sortKey: (i) => money(i.totalAmount)),
+            AppDataColumn.text('Outstanding', (i) => i.isPaid ? '—' : tableMoney(i.outstanding),
+                flex: 2, numeric: true, bold: true, sortKey: (i) => money(i.outstanding)),
+            AppDataColumn(
+              label: 'Status',
+              width: 120,
+              sortKey: (i) => i.isPaid ? 1 : 0,
+              cell: (i) => StatusPill(i.isPaid ? 'Paid' : 'Unpaid', i.isPaid ? AppTheme.success : AppTheme.warning),
+            ),
+          ],
+        ),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final societyId = ref.watch(currentUserProvider)?.societyId;
@@ -29,6 +106,7 @@ class _VendorBillsScreenState extends ConsumerState<VendorBillsScreen> {
       return const Scaffold(body: Center(child: Text('No society context')));
     }
     final invoicesAsync = ref.watch(vendorInvoicesProvider(societyId));
+    final desktop = isDesktopLayout(context);
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
@@ -37,19 +115,21 @@ class _VendorBillsScreenState extends ConsumerState<VendorBillsScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh',
             onPressed: () => ref.read(vendorInvoicesProvider(societyId).notifier).refresh(),
           ),
+          if (desktop)
+            HeaderActionButton(icon: Icons.add_rounded, label: 'Add Bill', onPressed: () => _addBill(societyId)),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showAppSheet(
-          context: context,
-          builder: (_) => _AddBillSheet(societyId: societyId),
-        ),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Add Bill'),
-      ),
-      body: Column(
+      floatingActionButton: desktop
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => _addBill(societyId),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Add Bill'),
+            ),
+      body: desktop ? _table(societyId, invoicesAsync) : Column(
         children: [
           invoicesAsync.when(
             loading: () => const SizedBox.shrink(),

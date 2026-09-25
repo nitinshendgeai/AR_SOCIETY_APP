@@ -34,7 +34,7 @@ class AppShell extends ConsumerWidget {
     if (!isDesktopLayout(context)) return child;
     final user = ref.watch(currentUserProvider);
     final granted = ref.watch(myFormCodesProvider).valueOrNull?.toSet() ?? const <String>{};
-    final categories = visibleMenuCategories(granted);
+    final categories = visibleMenuCategories(granted, user: user);
     final active = _activeItem(categories, location);
 
     return Scaffold(
@@ -82,8 +82,20 @@ class AppShell extends ConsumerWidget {
         }
       }
     }
-    return best;
+    if (best != null) return best;
+    // Pages reached from a list (a complaint, a staff member's profile…)
+    // keep their section highlighted: fall back to the entry sharing the
+    // first path segment.
+    final segment = _firstSegment(location);
+    for (final c in categories) {
+      for (final item in c.items) {
+        if (item.route != null && _firstSegment(item.route!) == segment) return (c, item);
+      }
+    }
+    return null;
   }
+
+  static String _firstSegment(String path) => path.split('/').firstWhere((p) => p.isNotEmpty, orElse: () => '');
 
   static List<String> _breadcrumbs((AppMenuCategory, AppMenuItem)? active) =>
       active == null ? const ['Dashboard'] : [active.$1.label, active.$2.label];

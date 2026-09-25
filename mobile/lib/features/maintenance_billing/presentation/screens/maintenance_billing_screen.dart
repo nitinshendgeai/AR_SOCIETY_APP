@@ -12,6 +12,8 @@ import 'package:ar_society_app/features/maintenance_billing/presentation/screens
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 
 /// Society side of maintenance billing: set up charge heads once, then each
 /// period create a cycle → generate one bill per flat → issue to residents.
@@ -46,21 +48,31 @@ class _MaintenanceBillingScreenState extends ConsumerState<MaintenanceBillingScr
     }
     final onCycles = _tabs.index == 0;
     final onRules = _tabs.index == 2;
+    final desktop = isDesktopLayout(context);
+    void add() => _openSheet(onCycles
+        ? _NewCycleSheet(societyId: societyId)
+        : _ChargeHeadSheet(societyId: societyId));
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(
         title: const Text('Maintenance Billing'),
+        actions: [
+          if (desktop && !onRules)
+            HeaderActionButton(
+              icon: Icons.add_rounded,
+              label: onCycles ? 'New Cycle' : 'Add Charge Head',
+              onPressed: add,
+            ),
+        ],
         bottom: TabBar(controller: _tabs, tabs: const [
           Tab(text: 'Cycles'),
           Tab(text: 'Charge Heads'),
           Tab(text: 'Rules'),
         ]),
       ),
-      floatingActionButton: onRules ? null : FloatingActionButton.extended(
-        onPressed: () => _openSheet(onCycles
-            ? _NewCycleSheet(societyId: societyId)
-            : _ChargeHeadSheet(societyId: societyId)),
+      floatingActionButton: onRules || desktop ? null : FloatingActionButton.extended(
+        onPressed: add,
         icon: const Icon(Icons.add_rounded),
         label: Text(onCycles ? 'New Cycle' : 'Add Charge Head'),
       ),
@@ -136,6 +148,38 @@ class _CyclesTab extends ConsumerWidget {
                     subtitle: 'Create a cycle for the period you want to bill, e.g. "October 2026".',
                   ),
                 )
+              else if (isDesktopLayout(context))
+                AppDataTable<BillingCycle>(
+                  rows: cycles,
+                  onRowTap: (c) => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => BillingCycleScreen(cycleId: c.id, societyId: societyId),
+                  )),
+                  columns: [
+                    AppDataColumn(
+                      label: 'Cycle',
+                      flex: 3,
+                      sortKey: (c) => c.cycleStart.millisecondsSinceEpoch,
+                      cell: (c) => TwoLineCell(
+                          c.name, '${formatBillDate(c.cycleStart)} – ${formatBillDate(c.cycleEnd)}'),
+                    ),
+                    AppDataColumn.text('Due', (c) => formatBillDate(c.dueDate),
+                        flex: 2, sortKey: (c) => c.dueDate.millisecondsSinceEpoch),
+                    AppDataColumn.text('Flats paid', (c) => c.isFinalized ? '${c.paidCount} / ${c.billsCount}' : '—', width: 110,
+                        numeric: true, sortKey: (c) => c.paidCount),
+                    AppDataColumn.text('Billed', (c) => formatRupees(c.totalBilled),
+                        flex: 2, numeric: true, sortKey: (c) => amountOf(c.totalBilled)),
+                    AppDataColumn.text('Collected', (c) => formatRupees(c.totalCollected),
+                        flex: 2, numeric: true, sortKey: (c) => amountOf(c.totalCollected)),
+                    AppDataColumn.text('Outstanding', (c) => formatRupees(c.totalOutstanding),
+                        flex: 2, numeric: true, bold: true, sortKey: (c) => amountOf(c.totalOutstanding)),
+                    AppDataColumn(
+                      label: 'Stage',
+                      flex: 2,
+                      sortKey: (c) => _cycleStage(c).$1,
+                      cell: (c) => StatusPill(_cycleStage(c).$1, _cycleStage(c).$2),
+                    ),
+                  ],
+                )
               else
                 for (final c in cycles)
                   _CycleCard(
@@ -181,17 +225,19 @@ class _SetupBanner extends StatelessWidget {
       );
 }
 
+(String, Color) _cycleStage(BillingCycle cycle) {
+  if (!cycle.isFinalized) return ('Bills not generated', AppTheme.textSecondary);
+  if (cycle.awaitingIssue) return ('${cycle.generatedCount} to issue', AppTheme.warning);
+  if (cycle.overdueCount > 0) return ('${cycle.overdueCount} overdue', AppTheme.error);
+  return ('Issued', AppTheme.success);
+}
+
 class _CycleCard extends StatelessWidget {
   final BillingCycle cycle;
   final VoidCallback onTap;
   const _CycleCard({required this.cycle, required this.onTap});
 
-  (String, Color) get _stage {
-    if (!cycle.isFinalized) return ('Bills not generated', AppTheme.textSecondary);
-    if (cycle.awaitingIssue) return ('${cycle.generatedCount} to issue', AppTheme.warning);
-    if (cycle.overdueCount > 0) return ('${cycle.overdueCount} overdue', AppTheme.error);
-    return ('Issued', AppTheme.success);
-  }
+  (String, Color) get _stage => _cycleStage(cycle);
 
   @override
   Widget build(BuildContext context) {
@@ -454,20 +500,41 @@ class _ChargeHeadsTab extends ConsumerWidget {
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
               ),
               const SizedBox(height: 12),
-              for (final c in charges)
-                Card(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  child: ListTile(
-                    onTap: () => onEdit(c),
-                    title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text([
-                      c.rateLabel,
-                      if (c.isServiceCharge) 'Service charge',
-                      if (!c.gstApplicable) 'No GST',
-                    ].join(' · ')),
-                    trailing: const Icon(Icons.chevron_right_rounded),
+              if (isDesktopLayout(context))
+                AppDataTable<ChargeHead>(
+                  rows: charges,
+                  onRowTap: onEdit,
+                  columns: [
+                    AppDataColumn.text('Charge head', (c) => c.name, flex: 3, bold: true),
+                    AppDataColumn.text('Calculation', (c) => c.rateLabel, flex: 4),
+                    AppDataColumn.text('Element', (c) => c.elementName ?? 'Custom', flex: 2),
+                    AppDataColumn(
+                      label: 'Type',
+                      flex: 2,
+                      sortKey: (c) => c.isServiceCharge ? 0 : 1,
+                      cell: (c) => c.isServiceCharge
+                          ? const StatusPill('Service charge', AppTheme.success)
+                          : const Text('—', style: TextStyle(color: AppTheme.textSecondary)),
+                    ),
+                    AppDataColumn.text('GST', (c) => c.gstApplicable ? '${c.taxPercent}%' : 'No GST'),
+                  ],
+                )
+              else ...[
+                for (final c in charges)
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    child: ListTile(
+                      onTap: () => onEdit(c),
+                      title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text([
+                        c.rateLabel,
+                        if (c.isServiceCharge) 'Service charge',
+                        if (!c.gstApplicable) 'No GST',
+                      ].join(' · ')),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                    ),
                   ),
-                ),
+              ],
             ],
           );
         },

@@ -10,7 +10,9 @@ import 'package:ar_society_app/features/resident_master/presentation/providers/r
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 
 /// Resident Master list — the canonical, searchable roster of every
 /// resident (owner / co-owner / family / dependent) across the society.
@@ -63,9 +65,146 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
     _debounce = Timer(const Duration(milliseconds: 400), _load);
   }
 
+  void _addResident() => context.push(
+        AppRoutes.residentForm,
+        extra: {if (widget.filterFlat != null) 'flat': widget.filterFlat},
+      );
+
+  /// Desktop: the roster as a sortable table, filters in its toolbar.
+  Widget _table(ResidentListState state, Map<String, FlatModel> flatsById) {
+    return RefreshIndicator(
+      onRefresh: () async => _load(),
+      child: ListView(padding: const EdgeInsets.fromLTRB(24, 8, 24, 32), children: [
+        AppDataTable<ResidentModel>(
+          toolbar: _filters(),
+          rows: state is ResidentListLoaded ? state.residents : const [],
+          loading: state is ResidentListLoading || state is ResidentListInitial,
+          error: state is ResidentListError ? state.message : null,
+          onRetry: _load,
+          onRowTap: (r) => context.push(AppRoutes.residentDetail, extra: r),
+          empty: const RmEmptyState(
+            icon: Icons.people_outline_rounded,
+            title: 'No residents found',
+            subtitle: 'Try adjusting your search or filters.',
+          ),
+          columns: [
+            AppDataColumn(
+              label: 'Name',
+              flex: 3,
+              sortKey: (r) => r.fullName.toLowerCase(),
+              cell: (r) => Row(children: [
+                Flexible(child: TwoLineCell(r.fullName, r.email)),
+                if (r.isPrimary) ...[const SizedBox(width: 8), const PrimaryChip()],
+              ]),
+            ),
+            AppDataColumn.text('Flat', (r) => flatsById[r.flatId]?.displayName ?? '—', flex: 1),
+            AppDataColumn(
+              label: 'Type',
+              flex: 1,
+              sortKey: (r) => r.residentType.label,
+              cell: (r) => ResidentTypeBadge(type: r.residentType),
+            ),
+            AppDataColumn.text('Phone', (r) => r.phone ?? '—', flex: 2),
+            AppDataColumn.text('Move-in', (r) => r.moveInDate ?? '—', flex: 1),
+            AppDataColumn(
+              label: 'Status',
+              flex: 1,
+              sortKey: (r) => r.isActive ? 0 : 1,
+              cell: (r) => ActiveBadge(isActive: r.isActive),
+            ),
+          ],
+        ),
+      ]),
+    );
+  }
+
+  Widget _filters() => Column(children: [
+      TextField(
+        controller: _searchCtrl,
+        onChanged: _onSearchChanged,
+        decoration: InputDecoration(
+          hintText: 'Search name, phone, email…',
+          prefixIcon: const Icon(Icons.search_rounded, size: 20),
+          suffixIcon: _searchCtrl.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 18),
+                  onPressed: () {
+                    _searchCtrl.clear();
+                    _load();
+                    setState(() {});
+                  })
+              : null,
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+          filled: true,
+          fillColor: AppTheme.cardBg,
+        ),
+      ),
+      const SizedBox(height: 10),
+      Row(children: [
+        Expanded(
+          child: SizedBox(
+            height: 34,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _typeOptions.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) {
+                final (value, label) = _typeOptions[i];
+                final selected = value == _typeFilter;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() => _typeFilter = value);
+                    _load();
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: selected ? AppTheme.primary : AppTheme.cardBg,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: selected ? AppTheme.primary : AppTheme.border),
+                    ),
+                    child: Text(label,
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: selected ? Colors.white : AppTheme.textSecondary)),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: () {
+            setState(() => _activeFilter = _activeFilter == true ? false : true);
+            _load();
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: AppTheme.cardBg,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppTheme.border),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(_activeFilter == true ? Icons.check_circle_rounded : Icons.block_rounded,
+                  size: 14,
+                  color: _activeFilter == true ? AppTheme.success : AppTheme.textSecondary),
+              const SizedBox(width: 4),
+              Text(_activeFilter == true ? 'Active' : 'Inactive',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+            ]),
+          ),
+        ),
+      ]),
+    ]);
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(residentListProvider);
+    final desktop = isDesktopLayout(context);
     final user = ref.watch(currentUserProvider);
     final flatsAsync = ref.watch(flatsBySocietyProvider);
     final flatsById = <String, FlatModel>{
@@ -86,106 +225,24 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
                 if (imported == true) _load();
               },
             ),
-          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
+          IconButton(icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh', onPressed: _load),
+          if (desktop && (user?.isAdminOrCommittee ?? false))
+            HeaderActionButton(icon: Icons.person_add_rounded, label: 'Add Resident', onPressed: _addResident),
         ],
       ),
-      floatingActionButton: (user?.isAdminOrCommittee ?? false)
+      floatingActionButton: !desktop && (user?.isAdminOrCommittee ?? false)
           ? FloatingActionButton.extended(
-              onPressed: () => context.push(
-                AppRoutes.residentForm,
-                extra: {if (widget.filterFlat != null) 'flat': widget.filterFlat},
-              ),
+              onPressed: _addResident,
               backgroundColor: AppTheme.primary,
               foregroundColor: Colors.white,
               icon: const Icon(Icons.person_add_rounded),
               label: const Text('Add Resident'),
             )
           : null,
-      body: ResponsiveBody(child: Column(children: [
+      body: desktop ? _table(state, flatsById) : ResponsiveBody(child: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Column(children: [
-            TextField(
-              controller: _searchCtrl,
-              onChanged: _onSearchChanged,
-              decoration: InputDecoration(
-                hintText: 'Search name, phone, email…',
-                prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                suffixIcon: _searchCtrl.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          _searchCtrl.clear();
-                          _load();
-                          setState(() {});
-                        })
-                    : null,
-                contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                filled: true,
-                fillColor: AppTheme.cardBg,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(children: [
-              Expanded(
-                child: SizedBox(
-                  height: 34,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _typeOptions.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (_, i) {
-                      final (value, label) = _typeOptions[i];
-                      final selected = value == _typeFilter;
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() => _typeFilter = value);
-                          _load();
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: selected ? AppTheme.primary : AppTheme.cardBg,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: selected ? AppTheme.primary : AppTheme.border),
-                          ),
-                          child: Text(label,
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: selected ? Colors.white : AppTheme.textSecondary)),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () {
-                  setState(() => _activeFilter = _activeFilter == true ? false : true);
-                  _load();
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardBg,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppTheme.border),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(_activeFilter == true ? Icons.check_circle_rounded : Icons.block_rounded,
-                        size: 14,
-                        color: _activeFilter == true ? AppTheme.success : AppTheme.textSecondary),
-                    const SizedBox(width: 4),
-                    Text(_activeFilter == true ? 'Active' : 'Inactive',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
-                  ]),
-                ),
-              ),
-            ]),
-          ]),
+          child: _filters(),
         ),
         const SizedBox(height: 8),
         Expanded(

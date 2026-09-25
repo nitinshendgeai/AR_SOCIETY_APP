@@ -9,6 +9,7 @@ import 'package:ar_society_app/features/billing/domain/entities/billing_entities
 import 'package:ar_society_app/features/billing/presentation/providers/billing_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 
 /// FMC Manager/Admin/Committee: import a bank statement (CSV) and match
@@ -75,6 +76,86 @@ class _BankReconciliationScreenState extends ConsumerState<BankReconciliationScr
     );
   }
 
+  /// Desktop: match summary above a sortable statement register.
+  Widget _table(String societyId, AsyncValue<List<BankStatementEntryEntity>> entriesAsync) {
+    final entries = entriesAsync.valueOrNull ?? const <BankStatementEntryEntity>[];
+    final rows = _statusFilter == null ? entries : entries.where((e) => e.matchStatus == _statusFilter).toList();
+    return RefreshIndicator(
+      onRefresh: () => ref.read(bankStatementEntriesProvider(societyId).notifier).refresh(),
+      child: ListView(padding: const EdgeInsets.fromLTRB(24, 8, 24, 32), children: [
+        if (entriesAsync.hasValue) ...[
+          KpiGrid(cards: [
+            KpiCard(
+              icon: Icons.hourglass_top_rounded,
+              label: 'Unmatched',
+              value: '${entries.where((e) => e.isUnmatched).length}',
+              color: AppTheme.warning,
+            ),
+            KpiCard(
+              icon: Icons.check_circle_outline_rounded,
+              label: 'Matched',
+              value: '${entries.where((e) => e.isMatched).length}',
+              color: AppTheme.success,
+            ),
+          ]),
+          const SizedBox(height: 16),
+        ],
+        AppDataTable<BankStatementEntryEntity>(
+          toolbar: Row(children: [
+            Wrap(spacing: 8, children: [
+              _FilterChip(label: 'All', selected: _statusFilter == null, onTap: () => setState(() => _statusFilter = null)),
+              for (final s in const ['unmatched', 'matched', 'ignored'])
+                _FilterChip(
+                  label: bankMatchStatusLabel(s),
+                  selected: _statusFilter == s,
+                  onTap: () => setState(() => _statusFilter = s),
+                ),
+            ]),
+            const Spacer(),
+            const Icon(Icons.info_outline_rounded, size: 16, color: AppTheme.textSecondary),
+            const SizedBox(width: 6),
+            const Text('CSV columns: Date, Description, Amount (Reference optional)',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          ]),
+          rows: rows,
+          loading: entriesAsync.isLoading && !entriesAsync.hasValue,
+          error: entriesAsync.hasError ? friendlyErrorMessage(entriesAsync.error!) : null,
+          onRetry: () => ref.read(bankStatementEntriesProvider(societyId).notifier).refresh(),
+          onRowTap: _openEntry,
+          pageSize: 50,
+          empty: const AppEmptyState(
+            icon: Icons.account_balance_rounded,
+            title: 'No statement rows yet',
+            subtitle: 'Use "Import Statement" to bring in your bank\'s transactions '
+                'and match them against pending payments.',
+          ),
+          columns: [
+            AppDataColumn.text('Date', (e) => tableDate(e.txnDate),
+                flex: 2, sortKey: (e) => e.txnDate.millisecondsSinceEpoch),
+            AppDataColumn.text('Description', (e) => e.description, flex: 5),
+            AppDataColumn.text('Reference', (e) => e.reference ?? '—', flex: 2),
+            AppDataColumn.text('Amount', (e) => tableMoney(e.amount),
+                flex: 2, numeric: true, bold: true, sortKey: (e) => double.tryParse(e.amount) ?? 0),
+            AppDataColumn.text('Matched receipt', (e) => e.matchedSubmissionReceiptNumber ?? '—', flex: 2),
+            AppDataColumn(
+              label: 'Status',
+              width: 120,
+              sortKey: (e) => e.matchStatus,
+              cell: (e) => StatusPill(
+                bankMatchStatusLabel(e.matchStatus),
+                switch (e.matchStatus) {
+                  'matched' => AppTheme.success,
+                  'ignored' => AppTheme.textSecondary,
+                  _ => AppTheme.warning,
+                },
+              ),
+            ),
+          ],
+        ),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final societyId = ref.watch(currentUserProvider)?.societyId;
@@ -82,6 +163,7 @@ class _BankReconciliationScreenState extends ConsumerState<BankReconciliationScr
       return const Scaffold(body: Center(child: Text('No society context')));
     }
     final entriesAsync = ref.watch(bankStatementEntriesProvider(societyId));
+    final desktop = isDesktopLayout(context);
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
@@ -90,11 +172,18 @@ class _BankReconciliationScreenState extends ConsumerState<BankReconciliationScr
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh',
             onPressed: () => ref.read(bankStatementEntriesProvider(societyId).notifier).refresh(),
           ),
+          if (desktop)
+            HeaderActionButton(
+              icon: Icons.upload_file_rounded,
+              label: _importing ? 'Importing…' : 'Import Statement',
+              onPressed: _importing ? null : () => _importStatement(societyId),
+            ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: desktop ? null : FloatingActionButton.extended(
         onPressed: _importing ? null : () => _importStatement(societyId),
         icon: _importing
             ? const SizedBox(width: 18, height: 18,
@@ -102,7 +191,7 @@ class _BankReconciliationScreenState extends ConsumerState<BankReconciliationScr
             : const Icon(Icons.upload_file_rounded),
         label: Text(_importing ? 'Importing…' : 'Import Statement'),
       ),
-      body: Column(
+      body: desktop ? _table(societyId, entriesAsync) : Column(
         children: [
           entriesAsync.when(
             loading: () => const SizedBox.shrink(),

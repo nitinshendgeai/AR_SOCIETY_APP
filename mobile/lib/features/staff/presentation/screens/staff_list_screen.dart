@@ -7,6 +7,8 @@ import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dar
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 
 /// Staff master list — shows all staff with search, filter, add, and detail navigation.
 class StaffListScreen extends ConsumerStatefulWidget {
@@ -67,6 +69,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
     final state = ref.watch(staffListProvider);
     final user  = ref.watch(currentUserProvider);
     final societyId = user?.societyId;
+    final desktop = isDesktopLayout(context);
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
@@ -82,10 +85,16 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
                 if (imported == true) _load();
               },
             ),
-          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
+          IconButton(icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh', onPressed: _load),
+          if (desktop && societyId != null && (user?.isAdminOrCommittee ?? false))
+            HeaderActionButton(
+              icon: Icons.person_add_rounded,
+              label: 'Add Staff',
+              onPressed: () => context.push('/staff/add'),
+            ),
         ],
       ),
-      floatingActionButton: (societyId != null && (user?.isAdminOrCommittee ?? false))
+      floatingActionButton: (!desktop && societyId != null && (user?.isAdminOrCommittee ?? false))
           ? FloatingActionButton.extended(
               onPressed: () => context.push('/staff/add'),
               backgroundColor: AppTheme.primary,
@@ -94,69 +103,12 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
               label: const Text('Add Staff'),
             )
           : null,
-      body: Column(
+      body: desktop ? _table(state, societyId) : Column(
         children: [
           // Search + filter bar
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Column(
-              children: [
-                TextField(
-                  onChanged: (v) => setState(() => _search = v.toLowerCase()),
-                  decoration: InputDecoration(
-                    hintText: 'Search staff…',
-                    prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppTheme.border),
-                    ),
-                    filled: true,
-                    fillColor: AppTheme.cardBg,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 34,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _departments.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (_, i) {
-                      final dept = _departments[i];
-                      final selected = dept == _departmentFilter;
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() => _departmentFilter = dept);
-                          if (societyId != null) {
-                            ref.read(staffListProvider.notifier).load(societyId, department: dept);
-                          }
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: selected ? AppTheme.primary : AppTheme.cardBg,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: selected ? AppTheme.primary : AppTheme.border,
-                            ),
-                          ),
-                          child: Text(
-                            _deptLabels[dept]!,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: selected ? Colors.white : AppTheme.textSecondary,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+            child: _filters(societyId),
           ),
           const SizedBox(height: 8),
 
@@ -189,13 +141,129 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
     );
   }
 
+  List<StaffEntity> _filtered(List<StaffEntity> allStaff) => allStaff.where((s) {
+        if (_search.isEmpty) return true;
+        return s.fullName.toLowerCase().contains(_search) ||
+            s.employeeCode.toLowerCase().contains(_search) ||
+            s.department.toLowerCase().contains(_search);
+      }).toList();
+
+  Widget _filters(String? societyId) => Column(
+      children: [
+        TextField(
+          onChanged: (v) => setState(() => _search = v.toLowerCase()),
+          decoration: InputDecoration(
+            hintText: 'Search staff…',
+            prefixIcon: const Icon(Icons.search_rounded, size: 20),
+            contentPadding: const EdgeInsets.symmetric(vertical: 10),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppTheme.border),
+            ),
+            filled: true,
+            fillColor: AppTheme.cardBg,
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 34,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _departments.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, i) {
+              final dept = _departments[i];
+              final selected = dept == _departmentFilter;
+              return GestureDetector(
+                onTap: () {
+                  setState(() => _departmentFilter = dept);
+                  if (societyId != null) {
+                    ref.read(staffListProvider.notifier).load(societyId, department: dept);
+                  }
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: selected ? AppTheme.primary : AppTheme.cardBg,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: selected ? AppTheme.primary : AppTheme.border,
+                    ),
+                  ),
+                  child: Text(
+                    _deptLabels[dept]!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: selected ? Colors.white : AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+
+  /// Desktop: the staff master as a sortable table, filters in its toolbar.
+  Widget _table(StaffListState state, String? societyId) {
+    if (state is StaffListError && state.statusCode == 403) return _AccessDeniedWidget(onRetry: _load);
+    return RefreshIndicator(
+      onRefresh: () async => _load(),
+      child: ListView(padding: const EdgeInsets.fromLTRB(24, 8, 24, 32), children: [
+        AppDataTable<StaffEntity>(
+          toolbar: _filters(societyId),
+          rows: state is StaffListLoaded ? _filtered(state.staff) : const [],
+          loading: state is! StaffListLoaded && state is! StaffListError,
+          error: state is StaffListError ? state.message : null,
+          onRetry: _load,
+          onRowTap: (s) => context.push('/staff/${s.id}/detail', extra: s),
+          empty: const EmptyState(
+            icon: Icons.badge_rounded,
+            title: 'No staff found',
+            subtitle: 'Try adjusting your filters.',
+          ),
+          actionsWidth: societyId == null ? 0 : 140,
+          actions: societyId == null
+              ? null
+              : (s) => [
+                    TextButton.icon(
+                      onPressed: () => context.push(
+                        '/staff/assign-duty',
+                        extra: {'societyId': societyId, 'staffId': s.id},
+                      ),
+                      icon: const Icon(Icons.assignment_rounded, size: 16),
+                      label: const Text('Assign duty'),
+                    ),
+                  ],
+          columns: [
+            AppDataColumn.text('Code', (s) => s.employeeCode, width: 110, bold: true),
+            AppDataColumn(
+              label: 'Name',
+              flex: 3,
+              sortKey: (s) => s.fullName.toLowerCase(),
+              cell: (s) => TwoLineCell(s.fullName, s.designationName),
+            ),
+            AppDataColumn.text('Department', (s) => s.departmentLabel, flex: 2),
+            AppDataColumn.text('Mobile', (s) => s.mobile, flex: 2),
+            AppDataColumn.text('Reports to', (s) => s.reportingManagerName ?? '—', flex: 2),
+            AppDataColumn.text('Joined', (s) => s.joiningDate ?? '—', flex: 2),
+            AppDataColumn(
+              label: 'Status',
+              width: 120,
+              sortKey: (s) => s.status,
+              cell: (s) => StatusPill(_staffStatusLabel(s.status), _staffStatusColor(s.status)),
+            ),
+          ],
+        ),
+      ]),
+    );
+  }
+
   Widget _buildList(List<StaffEntity> allStaff, String? societyId) {
-    final filtered = allStaff.where((s) {
-      if (_search.isEmpty) return true;
-      return s.fullName.toLowerCase().contains(_search) ||
-             s.employeeCode.toLowerCase().contains(_search) ||
-             s.department.toLowerCase().contains(_search);
-    }).toList();
+    final filtered = _filtered(allStaff);
 
     if (filtered.isEmpty) {
       return const EmptyState(
@@ -221,6 +289,24 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
     );
   }
 }
+
+String _staffStatusLabel(String s) => switch (s) {
+      'active' => 'Active',
+      'probation' => 'Probation',
+      'on_leave' => 'On leave',
+      'inactive' => 'Inactive',
+      'terminated' => 'Terminated',
+      _ => s,
+    };
+
+Color _staffStatusColor(String s) => switch (s) {
+      'active' => AppTheme.success,
+      'probation' => AppTheme.primary,
+      'on_leave' => AppTheme.warning,
+      'inactive' => AppTheme.textSecondary,
+      'terminated' => AppTheme.error,
+      _ => AppTheme.primary,
+    };
 
 class _StaffCard extends ConsumerWidget {
   final StaffEntity staff;

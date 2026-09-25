@@ -6,6 +6,10 @@ import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
+import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 
 class VisitorListScreen extends ConsumerStatefulWidget {
   final bool isMy;
@@ -41,9 +45,19 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
     super.dispose();
   }
 
+  Future<void> _logVisitor() async {
+    // CreateVisitorScreen pops with `true` on a successful log —
+    // this screen isn't rebuilt by that pop (same widget
+    // instance), so without awaiting it the newly logged visitor
+    // wouldn't appear until a manual pull-to-refresh.
+    final logged = await context.push<bool>('/visitors/create', extra: widget.societyId);
+    if (logged == true) _reload();
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(visitorListProvider);
+    final desktop = isDesktopLayout(context);
 
     ref.listen(visitorActionProvider, (_, next) {
       if (next is VisitorActionSuccess) {
@@ -75,22 +89,17 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh',
             onPressed: _reload,
           ),
+          if (desktop && !widget.isMy)
+            HeaderActionButton(icon: Icons.person_add_rounded, label: 'Log Visitor', onPressed: _logVisitor),
         ],
       ),
-      floatingActionButton: widget.isMy
+      floatingActionButton: widget.isMy || desktop
           ? null
           : FloatingActionButton.extended(
-              onPressed: () async {
-                // CreateVisitorScreen pops with `true` on a successful log —
-                // this screen isn't rebuilt by that pop (same widget
-                // instance), so without awaiting it the newly logged visitor
-                // wouldn't appear until a manual pull-to-refresh.
-                final logged = await context.push<bool>(
-                    '/visitors/create', extra: widget.societyId);
-                if (logged == true) _reload();
-              },
+              onPressed: _logVisitor,
               backgroundColor: AppTheme.primary,
               foregroundColor: Colors.white,
               icon: const Icon(Icons.person_add_rounded),
@@ -160,6 +169,7 @@ class _VisitorListView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (isDesktopLayout(context)) return _table(context, ref);
     if (visitors.isEmpty) {
       return EmptyState(
         icon: Icons.people_outline_rounded,
@@ -179,6 +189,64 @@ class _VisitorListView extends ConsumerWidget {
           showActions: showActions,
         ),
       ),
+    );
+  }
+}
+
+extension on _VisitorListView {
+  /// Desktop: the visitor log as a sortable table with inline gate actions.
+  Widget _table(BuildContext context, WidgetRef ref) {
+    final flatsById = <String, FlatModel>{
+      for (final f in ref.watch(flatsBySocietyProvider).valueOrNull ?? <FlatModel>[]) f.id: f,
+    };
+    final isActing = ref.watch(visitorActionProvider) is VisitorActionLoading;
+    final actions = ref.read(visitorActionProvider.notifier);
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView(padding: const EdgeInsets.fromLTRB(24, 16, 24, 32), children: [
+        AppDataTable<VisitorEntity>(
+          rows: visitors,
+          empty: EmptyState(icon: Icons.people_outline_rounded, title: emptyTitle, subtitle: emptySubtitle),
+          actionsWidth: showActions ? 130 : 0,
+          actions: showActions
+              ? (v) => [
+                    if (v.canCheckIn)
+                      OutlinedButton.icon(
+                        onPressed: isActing ? null : () => actions.checkIn(v.id),
+                        icon: const Icon(Icons.login_rounded, size: 16, color: AppTheme.success),
+                        label: const Text('Check in'),
+                      ),
+                    if (v.canCheckOut)
+                      OutlinedButton.icon(
+                        onPressed: isActing ? null : () => actions.checkOut(v.id),
+                        icon: const Icon(Icons.logout_rounded, size: 16, color: AppTheme.warning),
+                        label: const Text('Check out'),
+                      ),
+                  ]
+              : null,
+          columns: [
+            AppDataColumn(
+              label: 'Visitor',
+              flex: 3,
+              sortKey: (v) => v.name.toLowerCase(),
+              cell: (v) => TwoLineCell(v.name, v.mobile),
+            ),
+            AppDataColumn.text('Type', (v) => v.visitorType.label),
+            AppDataColumn.text('Purpose', (v) => v.purpose ?? '—', flex: 2),
+            AppDataColumn.text('Flat', (v) => flatsById[v.flatId]?.displayName ?? '—'),
+            AppDataColumn.text('Checked in', (v) => tableDateTime(v.checkedInAt),
+                flex: 2, sortKey: (v) => v.checkedInAt?.millisecondsSinceEpoch),
+            AppDataColumn.text('Checked out', (v) => tableDateTime(v.checkedOutAt),
+                flex: 2, sortKey: (v) => v.checkedOutAt?.millisecondsSinceEpoch),
+            AppDataColumn(
+              label: 'Status',
+              width: 120,
+              sortKey: (v) => v.status.label,
+              cell: (v) => StatusPill(v.status.label, v.status.color),
+            ),
+          ],
+        ),
+      ]),
     );
   }
 }

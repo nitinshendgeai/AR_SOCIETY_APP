@@ -7,6 +7,8 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 
 class FlatListScreen extends ConsumerStatefulWidget {
   final WingModel? filterWing;
@@ -51,9 +53,99 @@ class _FlatListScreenState extends ConsumerState<FlatListScreen> {
       ..sort((a, b) => a.flatNumber.compareTo(b.flatNumber));
   }
 
+  void _addFlat() => context.push(
+        AppRoutes.flatForm,
+        extra: {
+          if (widget.filterWing != null) 'wing': widget.filterWing,
+          if (widget.filterFloor != null) 'floor': widget.filterFloor,
+        },
+      );
+
+  Widget _filters() => Column(children: [
+      TextField(
+        controller: _search,
+        onChanged: (_) => setState(() {}),
+        decoration: InputDecoration(
+          hintText: 'Search flat number, wing...',
+          prefixIcon: const Icon(Icons.search_rounded, size: 20),
+          suffixIcon: _search.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 18),
+                  onPressed: () {
+                    _search.clear();
+                    setState(() {});
+                  })
+              : null,
+        ),
+      ),
+      const SizedBox(height: 8),
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(children: _occupancyOptions.map((o) {
+          final isAll = o == 'all';
+          final selected = _occupancyFilter == o ||
+              (isAll && _occupancyFilter == null);
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              label: Text(_occupancyLabel(o)),
+              selected: selected,
+              onSelected: (_) =>
+                  setState(() => _occupancyFilter = isAll ? null : o),
+            ),
+          );
+        }).toList()),
+      ),
+    ]);
+
+  /// Desktop: flats as a sortable table, filters in its toolbar.
+  Widget _table(AsyncValue<List<FlatModel>> async) {
+    return RefreshIndicator(
+      onRefresh: () => ref.read(flatsBySocietyProvider.notifier).refresh(),
+      child: ListView(padding: const EdgeInsets.fromLTRB(24, 8, 24, 32), children: [
+        AppDataTable<FlatModel>(
+          toolbar: _filters(),
+          rows: _filter(async.valueOrNull ?? const []),
+          loading: async.isLoading && !async.hasValue,
+          error: async.hasError ? friendlyErrorMessage(async.error!) : null,
+          onRetry: () => ref.read(flatsBySocietyProvider.notifier).refresh(),
+          onRowTap: (f) => context.push(AppRoutes.flatDetail, extra: f),
+          pageSize: 50,
+          empty: Text(
+            (async.valueOrNull?.isEmpty ?? true) ? 'No flats yet. Use "Add Flat" to add the first one.' : 'No flats match your filters.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppTheme.textSecondary),
+          ),
+          columns: [
+            AppDataColumn.text('Flat', (f) => f.flatNumber, flex: 1, bold: true),
+            AppDataColumn.text('Wing', (f) => f.wingName ?? '—', flex: 2),
+            AppDataColumn.text('Floor', (f) => f.floor?.toString() ?? '—', numeric: true, sortKey: (f) => f.floor),
+            AppDataColumn.text('Type', (f) => f.flatType ?? '—'),
+            AppDataColumn.text('Area (sq ft)', (f) => f.areaSqft?.toStringAsFixed(0) ?? '—',
+                numeric: true, sortKey: (f) => f.areaSqft),
+            AppDataColumn(
+              label: 'Occupancy',
+              flex: 2,
+              sortKey: (f) => f.occupancyStatus,
+              cell: (f) => StatusPill(
+                _occupancyLabel(f.occupancyStatus ?? 'vacant'),
+                switch (f.occupancyStatus) {
+                  'owner_occupied' => AppTheme.success,
+                  'tenant_occupied' => AppTheme.warning,
+                  _ => AppTheme.textSecondary,
+                },
+              ),
+            ),
+          ],
+        ),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(flatsBySocietyProvider);
+    final desktop = isDesktopLayout(context);
     final title = widget.filterFloor != null
         ? 'Floor ${widget.filterFloor!.displayName} Flats'
         : widget.filterWing != null
@@ -65,58 +157,20 @@ class _FlatListScreenState extends ConsumerState<FlatListScreen> {
       appBar: AppBar(
         title: Text(title),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add_rounded),
-            tooltip: 'Add Flat',
-            onPressed: () => context.push(
-              AppRoutes.flatForm,
-              extra: {
-                if (widget.filterWing != null) 'wing': widget.filterWing,
-                if (widget.filterFloor != null) 'floor': widget.filterFloor,
-              },
+          if (desktop)
+            HeaderActionButton(icon: Icons.add_rounded, label: 'Add Flat', onPressed: _addFlat)
+          else
+            IconButton(
+              icon: const Icon(Icons.add_rounded),
+              tooltip: 'Add Flat',
+              onPressed: _addFlat,
             ),
-          ),
         ],
       ),
-      body: ResponsiveBody(child: Column(children: [
+      body: desktop ? _table(async) : ResponsiveBody(child: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Column(children: [
-            TextField(
-              controller: _search,
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                hintText: 'Search flat number, wing...',
-                prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                suffixIcon: _search.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          _search.clear();
-                          setState(() {});
-                        })
-                    : null,
-              ),
-            ),
-            const SizedBox(height: 8),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(children: _occupancyOptions.map((o) {
-                final isAll = o == 'all';
-                final selected = _occupancyFilter == o ||
-                    (isAll && _occupancyFilter == null);
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(_occupancyLabel(o)),
-                    selected: selected,
-                    onSelected: (_) =>
-                        setState(() => _occupancyFilter = isAll ? null : o),
-                  ),
-                );
-              }).toList()),
-            ),
-          ]),
+          child: _filters(),
         ),
         const SizedBox(height: 8),
         Expanded(

@@ -6,6 +6,8 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/features/users/data/models/user_admin_models.dart';
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 
 class UserListScreen extends ConsumerStatefulWidget {
   const UserListScreen({super.key});
@@ -28,23 +30,24 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
   @override
   Widget build(BuildContext context) {
     final usersAsync = ref.watch(usersListProvider);
+    final desktop = isDesktopLayout(context);
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(
         title: const Text('Users & Roles'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.person_add_rounded),
-            tooltip: 'Create user',
-            onPressed: () async {
-              await context.push(AppRoutes.usersCreate);
-              ref.read(usersListProvider.notifier).refresh();
-            },
-          ),
+          if (desktop)
+            HeaderActionButton(icon: Icons.person_add_rounded, label: 'Create User', onPressed: _createUser)
+          else
+            IconButton(
+              icon: const Icon(Icons.person_add_rounded),
+              tooltip: 'Create user',
+              onPressed: _createUser,
+            ),
         ],
       ),
-      body: Column(
+      body: desktop ? _table(usersAsync) : Column(
         children: [
           _SearchBar(controller: _searchCtrl, onChanged: (_) => setState(() {})),
           _FilterRow(
@@ -90,6 +93,79 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _createUser() async {
+    await context.push(AppRoutes.usersCreate);
+    ref.read(usersListProvider.notifier).refresh();
+  }
+
+  Future<void> _openUser(AdminUserModel u) async {
+    await context.push(AppRoutes.usersDetail.replaceFirst(':userId', u.id));
+    ref.read(usersListProvider.notifier).refresh();
+  }
+
+  /// Desktop: user accounts as a sortable table with search and filters.
+  Widget _table(AsyncValue<List<AdminUserModel>> usersAsync) {
+    return RefreshIndicator(
+      onRefresh: () => ref.read(usersListProvider.notifier).refresh(),
+      child: ListView(padding: const EdgeInsets.fromLTRB(24, 8, 24, 32), children: [
+        AppDataTable<AdminUserModel>(
+          toolbar: Row(children: [
+            TableSearchField(
+              controller: _searchCtrl,
+              hint: 'Search by name or email…',
+              onChanged: (_) => setState(() {}),
+            ),
+            Expanded(
+              child: _FilterRow(
+                selectedRole: _filterRole,
+                selectedStatus: _filterStatus,
+                onRoleChanged: (v) => setState(() => _filterRole = v),
+                onStatusChanged: (v) => setState(() => _filterStatus = v),
+              ),
+            ),
+          ]),
+          rows: _applyFilters(usersAsync.valueOrNull ?? const []),
+          loading: usersAsync.isLoading && !usersAsync.hasValue,
+          error: usersAsync.hasError ? friendlyErrorMessage(usersAsync.error!) : null,
+          onRetry: () => ref.read(usersListProvider.notifier).refresh(),
+          onRowTap: _openUser,
+          empty: _EmptyView(hasFilters: _hasFilters),
+          columns: [
+            AppDataColumn(
+              label: 'Name',
+              flex: 3,
+              sortKey: (u) => u.fullName.toLowerCase(),
+              cell: (u) => TwoLineCell(u.fullName, u.email),
+            ),
+            AppDataColumn.text('Phone', (u) => u.phone ?? '—', flex: 2),
+            AppDataColumn.text('Roles', (u) => u.roles.isEmpty ? '—' : u.roles.join(', '), flex: 3),
+            AppDataColumn(
+              label: 'Status',
+              width: 110,
+              sortKey: (u) => u.status,
+              cell: (u) => StatusPill(
+                u.status.isEmpty ? '—' : u.status[0].toUpperCase() + u.status.substring(1),
+                switch (u.status.toLowerCase()) {
+                  'active' => AppTheme.success,
+                  'suspended' => AppTheme.error,
+                  _ => AppTheme.textSecondary,
+                },
+              ),
+            ),
+            AppDataColumn(
+              label: 'Password',
+              width: 140,
+              sortKey: (u) => u.mustChangePassword ? 0 : 1,
+              cell: (u) => u.mustChangePassword
+                  ? const StatusPill('Must change', AppTheme.warning)
+                  : const Text('Set', style: TextStyle(fontSize: 13.5, color: AppTheme.textSecondary)),
+            ),
+          ],
+        ),
+      ]),
     );
   }
 

@@ -11,6 +11,8 @@ import 'package:ar_society_app/features/resident_master/presentation/widgets/res
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 
 /// Tenant Master list — every tenant currently or previously on record,
 /// with agreement status/expiry surfaced so "who's renting and until when"
@@ -54,9 +56,125 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
     _debounce = Timer(const Duration(milliseconds: 400), _load);
   }
 
+  void _addTenant() => context.push(
+        AppRoutes.tenantForm,
+        extra: {if (widget.filterFlat != null) 'flat': widget.filterFlat},
+      );
+
+  /// Desktop: tenants as a sortable table with agreement expiry up front.
+  Widget _table(TenantListState state, Map<String, FlatModel> flatsById) {
+    return RefreshIndicator(
+      onRefresh: () async => _load(),
+      child: ListView(padding: const EdgeInsets.fromLTRB(24, 8, 24, 32), children: [
+        AppDataTable<TenantModel>(
+          toolbar: _filters(),
+          rows: state is TenantListLoaded ? state.tenants : const [],
+          loading: state is TenantListLoading || state is TenantListInitial,
+          error: state is TenantListError ? state.message : null,
+          onRetry: _load,
+          onRowTap: (t) => context.push(AppRoutes.tenantDetail, extra: t),
+          empty: const RmEmptyState(
+            icon: Icons.groups_2_outlined,
+            title: 'No tenants found',
+            subtitle: 'Try adjusting your search or filters.',
+          ),
+          columns: [
+            AppDataColumn(
+              label: 'Tenant',
+              flex: 3,
+              sortKey: (t) => t.fullName.toLowerCase(),
+              cell: (t) => TwoLineCell(t.fullName, t.email),
+            ),
+            AppDataColumn.text('Flat', (t) => flatsById[t.flatId]?.displayName ?? '—'),
+            AppDataColumn.text('Phone', (t) => t.phone ?? '—', flex: 2),
+            AppDataColumn.text('Rent / month', (t) => tableMoney(t.monthlyRent),
+                numeric: true, sortKey: (t) => double.tryParse(t.monthlyRent ?? '') ?? -1),
+            AppDataColumn(
+              label: 'Agreement ends',
+              flex: 2,
+              sortKey: (t) => t.agreementEndDate ?? '9999',
+              cell: (t) {
+                final days = rmDaysUntil(t.agreementEndDate);
+                final color = days == null
+                    ? AppTheme.textSecondary
+                    : days < 0
+                        ? AppTheme.error
+                        : days <= 30
+                            ? AppTheme.warning
+                            : AppTheme.textPrimary;
+                final note = days == null
+                    ? ''
+                    : days < 0
+                        ? ' · expired'
+                        : days <= 30
+                            ? ' · $days days left'
+                            : '';
+                return Text('${t.agreementEndDate ?? '—'}$note',
+                    style: TextStyle(fontSize: 13.5, color: color, fontWeight: note.isEmpty ? FontWeight.w400 : FontWeight.w600));
+              },
+            ),
+            AppDataColumn(
+              label: 'Status',
+              width: 120,
+              sortKey: (t) => t.isActive ? 0 : 1,
+              cell: (t) => ActiveBadge(isActive: t.isActive),
+            ),
+          ],
+        ),
+      ]),
+    );
+  }
+
+  Widget _filters() => Column(children: [
+      TextField(
+        controller: _searchCtrl,
+        onChanged: _onSearchChanged,
+        decoration: InputDecoration(
+          hintText: 'Search tenant name, phone…',
+          prefixIcon: const Icon(Icons.search_rounded, size: 20),
+          suffixIcon: _searchCtrl.text.isNotEmpty
+              ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: () {
+                  _searchCtrl.clear();
+                  _load();
+                  setState(() {});
+                })
+              : null,
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+          filled: true,
+          fillColor: AppTheme.cardBg,
+        ),
+      ),
+      const SizedBox(height: 10),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: GestureDetector(
+          onTap: () {
+            setState(() => _activeFilter = _activeFilter == true ? false : true);
+            _load();
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: AppTheme.cardBg,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppTheme.border),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(_activeFilter == true ? Icons.check_circle_rounded : Icons.block_rounded,
+                  size: 14, color: _activeFilter == true ? AppTheme.success : AppTheme.textSecondary),
+              const SizedBox(width: 4),
+              Text(_activeFilter == true ? 'Active' : 'Inactive',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+            ]),
+          ),
+        ),
+      ),
+    ]);
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(tenantListProvider);
+    final desktop = isDesktopLayout(context);
     final user = ref.watch(currentUserProvider);
     final flatsAsync = ref.watch(flatsBySocietyProvider);
     final flatsById = <String, FlatModel>{
@@ -67,68 +185,25 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
       backgroundColor: AppTheme.surface,
       appBar: AppBar(
         title: Text(widget.filterFlat != null ? 'Tenants — ${widget.filterFlat!.displayName}' : 'Tenants'),
-        actions: [IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load)],
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh', onPressed: _load),
+          if (desktop && (user?.isAdminOrCommittee ?? false))
+            HeaderActionButton(icon: Icons.person_add_alt_1_rounded, label: 'Add Tenant', onPressed: _addTenant),
+        ],
       ),
-      floatingActionButton: (user?.isAdminOrCommittee ?? false)
+      floatingActionButton: !desktop && (user?.isAdminOrCommittee ?? false)
           ? FloatingActionButton.extended(
-              onPressed: () => context.push(
-                AppRoutes.tenantForm,
-                extra: {if (widget.filterFlat != null) 'flat': widget.filterFlat},
-              ),
+              onPressed: _addTenant,
               backgroundColor: AppTheme.primary,
               foregroundColor: Colors.white,
               icon: const Icon(Icons.person_add_alt_1_rounded),
               label: const Text('Add Tenant'),
             )
           : null,
-      body: ResponsiveBody(child: Column(children: [
+      body: desktop ? _table(state, flatsById) : ResponsiveBody(child: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Column(children: [
-            TextField(
-              controller: _searchCtrl,
-              onChanged: _onSearchChanged,
-              decoration: InputDecoration(
-                hintText: 'Search tenant name, phone…',
-                prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                suffixIcon: _searchCtrl.text.isNotEmpty
-                    ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: () {
-                        _searchCtrl.clear();
-                        _load();
-                        setState(() {});
-                      })
-                    : null,
-                contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                filled: true,
-                fillColor: AppTheme.cardBg,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: GestureDetector(
-                onTap: () {
-                  setState(() => _activeFilter = _activeFilter == true ? false : true);
-                  _load();
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardBg,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppTheme.border),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(_activeFilter == true ? Icons.check_circle_rounded : Icons.block_rounded,
-                        size: 14, color: _activeFilter == true ? AppTheme.success : AppTheme.textSecondary),
-                    const SizedBox(width: 4),
-                    Text(_activeFilter == true ? 'Active' : 'Inactive',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
-                  ]),
-                ),
-              ),
-            ),
-          ]),
+          child: _filters(),
         ),
         const SizedBox(height: 8),
         Expanded(
