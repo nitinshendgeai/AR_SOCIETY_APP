@@ -51,6 +51,8 @@ dependencies:
 
   # Payment screenshot capture (camera / gallery)
   image_picker: ^1.1.2
+  firebase_core: ^4.15.0
+  firebase_messaging: ^16.7.0
 
 dev_dependencies:
   flutter_test:

@@ -5,7 +5,9 @@ Channels supported (foundation only, no external provider yet):
 - in_app  : stored in DB, polled by frontend
 - email   : stub — ready for SendGrid / SES integration
 - sms     : stub — ready for Twilio / MSG91 integration
-- push    : stub — ready for Firebase FCM integration
+- push    : pass push=True to also alert the user's phones/browsers through
+            Firebase Cloud Messaging (PushService); action_url is the app
+            screen a tap opens
 
 Usage:
     NotificationService.send(
@@ -25,6 +27,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.models.notification import Notification, NotificationChannel, NotificationStatus, NotificationType
+from app.services.push_service import PushService
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +46,7 @@ class NotificationService:
         entity_id:  Optional[str]       = None,
         action_url: Optional[str]       = None,
         metadata:   Optional[dict]      = None,
+        push:       bool                = False,
     ) -> Optional[Notification]:
         """Create and dispatch a notification. Never raises."""
         try:
@@ -65,6 +69,9 @@ class NotificationService:
             dispatched = NotificationService._dispatch(notif)
             notif.status = NotificationStatus.SENT if dispatched else NotificationStatus.FAILED
             db.commit()
+            if push:
+                PushService.send_to_user(db, user_id, title, body, route=action_url,
+                                         data={"module": module, "entity_id": notif.entity_id})
             return notif
         except Exception as e:
             logger.error(f"[notify] Failed to send notification: {e}")

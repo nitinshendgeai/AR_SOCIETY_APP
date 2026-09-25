@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     # CORS
     ALLOWED_ORIGINS: List[str] = ["*"]
 
+    # Push notifications (Firebase Cloud Messaging). The service account's
+    # JSON key, pasted whole; push is off while it's empty.
+    FIREBASE_SERVICE_ACCOUNT_JSON: str = ""
+    # Where a tapped web notification opens (the Flutter web app).
+    WEB_APP_URL: str = "https://society.duxos.in"
+
     # Superadmin seed
     SUPERADMIN_EMAIL: Optional[str] = None
     SUPERADMIN_PASSWORD: Optional[str] = None

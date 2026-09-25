@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ar_society_app/core/push/push_notifications.dart';
 import 'package:ar_society_app/core/auth/biometric_preference.dart';
 import 'package:ar_society_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
@@ -108,6 +109,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Logout — clears tokens and redirects to login.
   Future<void> logout() async {
+    // Stop this device getting the signed-out user's alerts (needs the
+    // session, so before it's cleared).
+    await PushNotifications.instance.unregister();
     await _repo.logout();
     _ref.read(biometricLockProvider.notifier).unlock();
     state = AuthUnauthenticated();

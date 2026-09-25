@@ -8,6 +8,9 @@ import 'package:ar_society_app/core/config/env.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/core/push/push_notifications.dart';
+import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart' show pendingVisitorApprovalsProvider;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,6 +20,8 @@ Future<void> main() async {
   try {
     ApiClient.initialize();
   } catch (_) {}
+
+  PushNotifications.instance.initialize();
 
   if (!kIsWeb) {
     // Portrait lock and status bar styling are native-mobile-only concepts.
@@ -41,6 +46,19 @@ class ArSocietyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
+
+    // Once signed in, register this device for push notifications.
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      if (next is AuthAuthenticated && previous is! AuthAuthenticated) {
+        PushNotifications.instance.register(
+          openRoute: (route) => router.push(route),
+          // A visitor logged while the app is open: show them right away
+          // rather than on the next 15-second poll.
+          onForegroundMessage: (_) => ref.invalidate(pendingVisitorApprovalsProvider),
+        );
+      }
+    });
+
     return MaterialApp.router(
       title: Env.appName,
       debugShowCheckedModeBanner: false,
