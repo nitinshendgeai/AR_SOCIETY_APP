@@ -5,6 +5,7 @@ import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dar
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/core/layout/app_sheet.dart';
 
 class HandoverScreen extends ConsumerStatefulWidget {
   final String staffId;
@@ -557,10 +558,8 @@ class _CreateTabState extends ConsumerState<_CreateTab> {
   }
 
   Future<void> _addItem(BuildContext context) async {
-    final draft = await showModalBottomSheet<_HandoverItemDraft>(
+    final draft = await showAppSheet<_HandoverItemDraft>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => const _AddItemSheet(),
     );
     if (draft != null) setState(() => _items.add(draft));

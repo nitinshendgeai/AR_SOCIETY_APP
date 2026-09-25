@@ -6,6 +6,7 @@ import 'package:ar_society_app/features/resident_master/data/models/resident_mas
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/core/layout/app_sheet.dart';
 
 /// Add/Edit Vehicle bottom sheet, launched contextually from a Resident or
 /// Tenant detail screen. Vehicle number normalization is authoritative on
@@ -20,13 +21,8 @@ Future<void> showVehicleFormSheet(
   String? tenantId,
   VehicleModel? vehicle,
 }) {
-  return showModalBottomSheet(
+  return showAppSheet(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    // On desktop/laptop-width windows, a bottom sheet spanning the full
-    // window looks unfinished — cap it to a comfortable reading width;
-    // narrower screens are unaffected since the sheet is already <480px.
     constraints: const BoxConstraints(maxWidth: 480),
     builder: (ctx) => _VehicleFormSheetBody(
       flatId: flatId, residentId: residentId, tenantId: tenantId, vehicle: vehicle,

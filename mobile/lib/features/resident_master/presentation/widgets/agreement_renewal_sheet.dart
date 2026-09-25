@@ -5,6 +5,7 @@ import 'package:ar_society_app/features/resident_master/data/models/resident_mas
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/core/layout/app_sheet.dart';
 
 /// Agreement renewal — always CREATES a new AgreementTracker row linked via
 /// renewal_of_id to the current one (backend: TenantService.renew_agreement /
@@ -12,12 +13,8 @@ import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 /// existing agreement's dates — that would destroy history (Phase M1.3 §13,
 /// M1.4 §16).
 Future<void> showAgreementRenewalSheet(BuildContext context, WidgetRef ref, {required TenantModel tenant}) {
-  return showModalBottomSheet(
+  return showAppSheet(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    // Cap the sheet's width on desktop/laptop-width windows so it doesn't
-    // stretch full-bleed; narrower screens are unaffected.
     constraints: const BoxConstraints(maxWidth: 480),
     builder: (ctx) => _RenewalSheetBody(tenant: tenant),
   );

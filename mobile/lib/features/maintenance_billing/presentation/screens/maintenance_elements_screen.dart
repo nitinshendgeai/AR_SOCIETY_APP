@@ -7,6 +7,7 @@ import 'package:ar_society_app/features/maintenance_billing/data/maintenance_bil
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/core/layout/app_sheet.dart';
 
 /// Admin/Committee master of maintenance elements — the kinds of charge
 /// the society levies and how each is calculated by default. Starts with
@@ -24,8 +25,8 @@ class MaintenanceElementsScreen extends ConsumerWidget {
     final key = (societyId: societyId, includeInactive: true);
     final elementsAsync = ref.watch(maintenanceElementsProvider(key));
 
-    void openSheet([MaintenanceElement? existing]) => showModalBottomSheet(
-          context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+    void openSheet([MaintenanceElement? existing]) => showAppSheet(
+          context: context,
           builder: (_) => _ElementSheet(societyId: societyId, existing: existing),
         );
 

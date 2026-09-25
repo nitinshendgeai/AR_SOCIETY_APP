@@ -8,6 +8,7 @@ import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dar
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/core/layout/app_sheet.dart';
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
@@ -712,10 +713,8 @@ Future<void> _openReopenDialog(
 Future<void> _openAssignSheet(
   BuildContext context, WidgetRef ref, ComplaintEntity complaint,
 ) {
-  return showModalBottomSheet(
+  return showAppSheet(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
     constraints: const BoxConstraints(maxWidth: 480),
     builder: (_) => _AssignSheetBody(complaint: complaint),
   );

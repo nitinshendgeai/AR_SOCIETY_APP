@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/auth/biometric_preference.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart';
+import 'package:ar_society_app/core/navigation/app_menu.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
@@ -27,12 +29,16 @@ class _DashboardShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final myFormsAsync = ref.watch(myFormCodesProvider);
-    final menuCategories = _visibleMenuCategories(myFormsAsync.valueOrNull?.toSet() ?? const {});
+    final menuCategories = visibleMenuCategories(myFormsAsync.valueOrNull?.toSet() ?? const {});
+    // On desktop widths AppShell's sidebar and account menu already provide
+    // navigation and sign-out.
+    final desktop = isDesktopLayout(context);
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(
-        leading: Builder(
+        automaticallyImplyLeading: false,
+        leading: desktop ? null : Builder(
           builder: (ctx) => IconButton(
             icon: const Icon(Icons.menu_rounded),
             tooltip: 'Open menu',
@@ -42,14 +48,15 @@ class _DashboardShell extends ConsumerWidget {
         title: Text(title),
         centerTitle: false,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            tooltip: 'Sign out',
-            onPressed: () => _confirmLogout(context, ref),
-          ),
+          if (!desktop)
+            IconButton(
+              icon: const Icon(Icons.logout_rounded),
+              tooltip: 'Sign out',
+              onPressed: () => _confirmLogout(context, ref),
+            ),
         ],
       ),
-      drawer: Drawer(
+      drawer: desktop ? null : Drawer(
         child: SafeArea(
           child: ListView(
             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -191,76 +198,6 @@ class _BiometricEnrollTriggerState extends ConsumerState<_BiometricEnrollTrigger
 
 // ── Shared components ─────────────────────────────────────────────────────────
 
-class _MenuItem {
-  final String formCode;
-  final String label;
-  final IconData icon;
-  final String? route;
-
-  const _MenuItem(this.formCode, this.label, this.icon, this.route);
-}
-
-class _MenuCategory {
-  final String label;
-  final IconData icon;
-  final List<_MenuItem> items;
-
-  const _MenuCategory(this.label, this.icon, this.items);
-}
-
-/// Every navigable drawer item, grouped under a parent header, tagged with
-/// the form code that gates it (see backend/app/core/rbac_seed.py
-/// FORM_DEFINITIONS and the Forms Matrix screen). Which of these a given
-/// user sees is entirely server-driven — fetched via GET /roles/forms/mine
-/// into myFormCodesProvider — rather than guessed from role-name checks
-/// here, so an Admin can regrant/revoke individual screens per role at
-/// runtime without an app update. The backend remains the authority
-/// regardless: every endpoint still rejects unauthorized reads/writes with
-/// a 403 no matter what the drawer shows. Categories with zero granted
-/// items are dropped entirely rather than shown empty.
-const _menuCategories = [
-  _MenuCategory('People', Icons.people_alt_rounded, [
-    _MenuItem('residents', 'Residents', Icons.people_outline_rounded, AppRoutes.residentsList),
-    _MenuItem('tenants', 'Tenants', Icons.groups_2_outlined, AppRoutes.tenantsList),
-  ]),
-  _MenuCategory('Community', Icons.diversity_3_rounded, [
-    _MenuItem('visitors', 'Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
-    _MenuItem('complaints', 'Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
-    _MenuItem('pending_resident_changes', 'Pending Resident Changes', Icons.fact_check_outlined, AppRoutes.pendingResidentChanges),
-  ]),
-  _MenuCategory('Operations', Icons.build_rounded, [
-    _MenuItem('staff', 'Staff', Icons.badge_rounded, AppRoutes.staffHome),
-    _MenuItem('checklist_templates', 'Checklist Templates', Icons.checklist_rtl_rounded, AppRoutes.checklistTemplates),
-    _MenuItem('parking_management', 'Parking Management', Icons.local_parking_rounded, AppRoutes.parkingManagement),
-  ]),
-  _MenuCategory('Finance', Icons.payments_rounded, [
-    _MenuItem('maintenance_billing', 'Maintenance Billing', Icons.request_quote_rounded, AppRoutes.maintenanceBilling),
-    _MenuItem('maintenance_elements', 'Maintenance Elements', Icons.tune_rounded, AppRoutes.maintenanceElements),
-    _MenuItem('online_payments', 'Payments', Icons.receipt_long_rounded, AppRoutes.onlinePayments),
-    _MenuItem('bank_reconciliation', 'Bank Reconciliation', Icons.account_balance_rounded, AppRoutes.bankReconciliation),
-    _MenuItem('vendor_bills', 'Vendor Bills', Icons.storefront_rounded, AppRoutes.vendorBills),
-  ]),
-  _MenuCategory('Administration', Icons.admin_panel_settings_rounded, [
-    _MenuItem('users_roles', 'Users & Roles', Icons.people_rounded, AppRoutes.usersList),
-    _MenuItem('permission_matrix', 'Permission Matrix', Icons.rule_rounded, AppRoutes.permissionMatrix),
-    _MenuItem('forms_matrix', 'Forms Matrix', Icons.dashboard_customize_rounded, AppRoutes.formsMatrix),
-    _MenuItem('society_settings', 'Society Settings', Icons.apartment_rounded, AppRoutes.societySettings),
-    _MenuItem('setup_wizard', 'Setup Wizard', Icons.checklist_rounded, AppRoutes.structureWizard),
-  ]),
-  _MenuCategory('My Account', Icons.person_rounded, [
-    _MenuItem('my_bills', 'My Bills', Icons.receipt_long_rounded, AppRoutes.myBills),
-    _MenuItem('edit_my_info', 'Edit My Info', Icons.edit_note_rounded, AppRoutes.editMyProfile),
-  ]),
-];
-
-List<_MenuCategory> _visibleMenuCategories(Set<String> grantedFormCodes) => _menuCategories
-    .map((category) => _MenuCategory(
-          category.label,
-          category.icon,
-          category.items.where((item) => grantedFormCodes.contains(item.formCode)).toList(),
-        ))
-    .where((category) => category.items.isNotEmpty)
-    .toList();
 
 class _GreetingCard extends ConsumerWidget {
   final UserEntity? user;

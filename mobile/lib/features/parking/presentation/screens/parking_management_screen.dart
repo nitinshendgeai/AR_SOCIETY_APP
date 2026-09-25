@@ -10,6 +10,7 @@ import 'package:ar_society_app/features/society_structure/data/models/structure_
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/core/layout/app_sheet.dart';
 
 /// Admin/Committee screen for the parking setup that gate validation
 /// depends on: define zones and slots, then allocate a slot to a specific
@@ -196,10 +197,8 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
   }
 
   Future<void> _showAllocateFlow(BuildContext context, String societyId) async {
-    await showModalBottomSheet<void>(
+    await showAppSheet<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => _AllocateParkingSheet(societyId: societyId),
     );
   }

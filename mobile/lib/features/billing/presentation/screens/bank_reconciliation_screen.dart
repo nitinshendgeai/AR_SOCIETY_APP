@@ -8,6 +8,8 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/features/billing/domain/entities/billing_entities.dart';
 import 'package:ar_society_app/features/billing/presentation/providers/billing_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/core/layout/app_sheet.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 
 /// FMC Manager/Admin/Committee: import a bank statement (CSV) and match
 /// its credit rows against payments residents said they made, closing the
@@ -67,10 +69,8 @@ class _BankReconciliationScreenState extends ConsumerState<BankReconciliationScr
       );
       return;
     }
-    await showModalBottomSheet(
+    await showAppSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => _MatchEntrySheet(entry: entry),
     );
   }
@@ -317,10 +317,12 @@ class _MatchEntrySheetState extends ConsumerState<_MatchEntrySheet> {
     final societyId = ref.watch(currentUserProvider)?.societyId ?? '';
     final candidatesAsync = ref.watch(bankMatchCandidatesProvider(widget.entry.id));
 
+    // Fills the side panel on desktop; a draggable part-height sheet on phones.
+    final panel = isDesktopLayout(context);
     return DraggableScrollableSheet(
-      initialChildSize: 0.6,
+      initialChildSize: panel ? 1 : 0.6,
       minChildSize: 0.4,
-      maxChildSize: 0.9,
+      maxChildSize: panel ? 1 : 0.9,
       expand: false,
       builder: (context, scrollController) => Container(
         decoration: const BoxDecoration(
