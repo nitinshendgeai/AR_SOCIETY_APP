@@ -409,19 +409,17 @@ class KpiGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
-      // Phones: two square-ish tiles per row. Wider screens: up to four
-      // fixed-height tiles per row, instead of two tiles stretched to
-      // hundreds of pixels tall by the aspect ratio.
+      // Phones: two tiles per row. Wider screens: up to four per row,
+      // instead of two tiles stretched hundreds of pixels tall.
       final wide = constraints.maxWidth >= 600;
       final columns = wide ? (constraints.maxWidth ~/ 220).clamp(2, 4) : 2;
       return GridView(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: wide
-            ? SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: columns, mainAxisSpacing: 12, crossAxisSpacing: 12, mainAxisExtent: 136)
-            : const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 1.5),
+        // Fixed tile height everywhere: an aspect ratio made phone tiles
+        // too short for a card with a note line, which spilled below it.
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns, mainAxisSpacing: 12, crossAxisSpacing: 12, mainAxisExtent: 136),
         children: cards,
       );
     });
