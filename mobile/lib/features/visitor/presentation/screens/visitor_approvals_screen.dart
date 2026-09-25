@@ -138,7 +138,9 @@ class _ApprovalCard extends ConsumerWidget {
                             fontWeight: FontWeight.w700,
                             fontSize: 15,
                             color: AppTheme.textPrimary)),
-                    Text(visitor.mobile,
+                    Text(
+                        [visitor.mobile, if (visitor.flatLabel != null) visitor.flatLabel!]
+                            .join('  ·  '),
                         style: const TextStyle(
                             fontSize: 12, color: AppTheme.textSecondary)),
                   ],

@@ -123,6 +123,8 @@ class VisitorEntity {
   final String? purpose;
   final String societyId;
   final String? flatId;
+  final String? flatNumber;
+  final String? wingName;
   final String? residentId;
   final String? gateId;
   final VisitorStatus status;
@@ -144,6 +146,8 @@ class VisitorEntity {
     this.purpose,
     required this.societyId,
     this.flatId,
+    this.flatNumber,
+    this.wingName,
     this.residentId,
     this.gateId,
     required this.status,
@@ -157,6 +161,12 @@ class VisitorEntity {
     required this.logs,
     required this.createdAt,
   });
+
+  /// "Wing-Flat" (as flats are labelled elsewhere), or null when the visitor
+  /// wasn't logged against a flat.
+  String? get flatLabel => flatNumber == null
+      ? null
+      : wingName != null ? '$wingName-$flatNumber' : flatNumber;
 
   bool get canCheckIn  => status == VisitorStatus.approved;
   bool get canCheckOut => status == VisitorStatus.checkedIn;

@@ -103,6 +103,14 @@ class Visitor(Base, TimestampMixin):
     vehicle      = relationship("VisitorVehicle", back_populates="visitor", uselist=False, cascade="all, delete-orphan")
     logs         = relationship("VisitorLog", back_populates="visitor", cascade="all, delete-orphan")
 
+    @property
+    def flat_number(self):
+        return self.flat.flat_number if self.flat else None
+
+    @property
+    def wing_name(self):
+        return self.flat.wing.name if self.flat and self.flat.wing else None
+
     def __repr__(self):
         return f"<Visitor {self.name} status={self.status}>"
 

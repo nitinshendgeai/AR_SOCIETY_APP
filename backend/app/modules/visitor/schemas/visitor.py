@@ -92,6 +92,8 @@ class VisitorOut(TimestampSchema):
     purpose:          Optional[str]
     society_id:       UUID
     flat_id:          Optional[UUID]
+    flat_number:      Optional[str] = None
+    wing_name:        Optional[str] = None
     resident_id:      Optional[UUID]
     gate_id:          Optional[UUID]
     status:           VisitorStatus

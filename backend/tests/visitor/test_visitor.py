@@ -210,3 +210,64 @@ def test_pending_approvals_for_resident(client, db):
     r = client.get("/api/v1/visitors/me/pending-approvals",
                    headers=resident["headers"])
     assert r.status_code == 200
+
+
+# ── Visitors come to a flat ──────────────────────────────────────────────────
+
+def _flat_with_people(db, tag, occupancy="owner_occupied"):
+    from app.models.flat import OccupancyStatus
+    from app.models.resident import Resident
+    from app.models.tenant import Tenant
+    society = make_society(db, f"Visitor Flat Society {tag}")
+    wing    = make_wing(db, society.id, "Tower B")
+    flat    = make_flat(db, wing.id, "302")
+    flat.occupancy_status = OccupancyStatus(occupancy)
+    owner   = make_user(db, f"owner@vf{tag}.com")
+    family  = make_user(db, f"family@vf{tag}.com")
+    tenant  = make_user(db, f"tenant@vf{tag}.com")
+    db.add_all([
+        Resident(flat_id=flat.id, user_id=family["user"].id, full_name="Family", resident_type="family"),
+        Resident(flat_id=flat.id, user_id=owner["user"].id, full_name="Owner", is_primary=True),
+        Tenant(flat_id=flat.id, user_id=tenant["user"].id, full_name="Tenant"),
+    ])
+    db.commit()
+    return society, flat, owner, tenant
+
+
+def test_visitor_to_flat_goes_to_the_primary_owner_for_approval(client, db):
+    security = make_user(db, "sec@vf1.com", role="Security Staff")
+    society, flat, owner, _ = _flat_with_people(db, "1")
+
+    r = client.post("/api/v1/visitors/", json=_visitor_payload(society.id, flat.id),
+                    headers=security["headers"])
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert (body["flat_id"], body["flat_number"], body["wing_name"]) == (str(flat.id), "302", "Tower B")
+    assert body["resident_id"] == str(owner["user"].id)
+
+    pending = client.get("/api/v1/visitors/me/pending-approvals", headers=owner["headers"]).json()
+    assert [v["flat_number"] for v in pending] == ["302"]
+
+    listed = client.get(f"/api/v1/visitors/society/{society.id}", headers=security["headers"]).json()
+    assert [(v["wing_name"], v["flat_number"]) for v in listed] == [("Tower B", "302")]
+
+
+def test_visitor_to_a_rented_flat_goes_to_the_tenant(client, db):
+    security = make_user(db, "sec@vf2.com", role="Security Staff")
+    society, flat, _, tenant = _flat_with_people(db, "2", occupancy="tenant_occupied")
+
+    r = client.post("/api/v1/visitors/", json=_visitor_payload(society.id, flat.id),
+                    headers=security["headers"])
+    assert r.status_code == 201, r.text
+    assert r.json()["resident_id"] == str(tenant["user"].id)
+
+
+def test_visitor_flat_must_belong_to_the_society(client, db):
+    security = make_user(db, "sec@vf3.com", role="Security Staff")
+    society  = make_society(db, "Visitor Flat Society 3")
+    other    = make_society(db, "Visitor Flat Society 3b")
+    flat     = make_flat(db, make_wing(db, other.id).id)
+
+    r = client.post("/api/v1/visitors/", json=_visitor_payload(society.id, flat.id),
+                    headers=security["headers"])
+    assert r.status_code == 422
