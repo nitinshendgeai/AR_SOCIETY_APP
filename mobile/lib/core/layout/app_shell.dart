@@ -7,6 +7,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
+import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart' show pendingVisitorApprovalsProvider;
 
 /// Width from which the app switches to the desktop ERP layout: persistent
 /// sidebar, top bar, centered content column. Below it (phones, small
@@ -117,6 +118,10 @@ class _Sidebar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final collapsed = ref.watch(sidebarCollapsedProvider);
     final onHome = activeRoute == null && location == homeRoute;
+    // Residents: how many visitors are waiting at the gate for their approval.
+    final waitingVisitors = ref.watch(currentUserProvider)?.isResident == true
+        ? ref.watch(pendingVisitorApprovalsProvider).valueOrNull?.length ?? 0
+        : 0;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
@@ -160,6 +165,7 @@ class _Sidebar extends ConsumerWidget {
                     label: item.label,
                     selected: item.route == activeRoute,
                     collapsed: collapsed,
+                    badge: item.formCode == 'visitors' ? waitingVisitors : 0,
                     onTap: item.route == null ? null : () => context.go(item.route!),
                   ),
               ],
@@ -227,12 +233,14 @@ class _NavTile extends StatelessWidget {
   final bool selected;
   final bool collapsed;
   final VoidCallback? onTap;
+  final int badge;
   const _NavTile({
     required this.icon,
     required this.label,
     required this.selected,
     required this.collapsed,
     required this.onTap,
+    this.badge = 0,
   });
 
   @override
@@ -253,7 +261,12 @@ class _NavTile extends StatelessWidget {
               mainAxisAlignment: collapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
               children: [
                 if (!collapsed) const SizedBox(width: 12),
-                Icon(icon, size: 20, color: color),
+                Badge(
+                  isLabelVisible: badge > 0,
+                  label: Text('$badge'),
+                  backgroundColor: AppTheme.error,
+                  child: Icon(icon, size: 20, color: color),
+                ),
                 if (!collapsed) ...[
                   const SizedBox(width: 12),
                   Expanded(

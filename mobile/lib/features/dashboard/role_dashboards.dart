@@ -18,6 +18,8 @@ import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart' show amountOf, formatRupees;
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart' show billingCyclesProvider, myBillsProvider;
 import 'package:ar_society_app/features/dashboard/dashboard_stats.dart';
+import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart' show pendingVisitorApprovalsProvider;
+import 'package:ar_society_app/features/visitor/presentation/widgets/pending_visitors_banner.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart' show flatsBySocietyProvider;
 
 // ── Shared scaffold wrapper ───────────────────────────────────────────────────
@@ -311,8 +313,9 @@ class _QuickActionChip extends StatelessWidget {
   final String label;
   final String? route;
   final VoidCallback? onTap;
+  final int badge;
 
-  const _QuickActionChip({required this.icon, required this.label, this.route, this.onTap});
+  const _QuickActionChip({required this.icon, required this.label, this.route, this.onTap, this.badge = 0});
 
   @override
   Widget build(BuildContext context) {
@@ -323,7 +326,16 @@ class _QuickActionChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.border)),
-          child: Column(children: [Icon(icon, color: AppTheme.primary), const SizedBox(height: 6), Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textPrimary))]),
+          child: Column(children: [
+            Badge(
+              isLabelVisible: badge > 0,
+              label: Text('$badge'),
+              backgroundColor: AppTheme.error,
+              child: Icon(icon, color: AppTheme.primary),
+            ),
+            const SizedBox(height: 6),
+            Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+          ]),
         ),
       ),
     );
@@ -781,10 +793,12 @@ class ResidentDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
+    final waiting = ref.watch(pendingVisitorApprovalsProvider).valueOrNull?.length ?? 0;
     return _DashboardShell(
       title: 'Resident Dashboard',
       children: [
         _GreetingCard(user: user, subtitle: 'Resident · Day-to-day services'),
+        const PendingVisitorsBanner(padding: EdgeInsets.only(top: 14)),
         const SizedBox(height: 18),
         const _SectionLabel('Summary'),
         const SizedBox(height: 10),
@@ -833,16 +847,21 @@ class ResidentDashboardScreen extends ConsumerWidget {
         // fully-editable settings screen with no read-only mode, so a
         // Resident could see (and be shown Save controls for) fields they
         // aren't allowed to change, only failing with a 403 on tapping Save.
-        Row(children: const [
-          _QuickActionChip(icon: Icons.pending_actions_rounded, label: 'Approvals', route: AppRoutes.visitorsPending),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.receipt_long_rounded, label: 'My Bills', route: AppRoutes.myBills),
+        Row(children: [
+          _QuickActionChip(icon: Icons.pending_actions_rounded, label: 'Approvals', route: AppRoutes.visitorsPending, badge: waiting),
+          const SizedBox(width: 8),
+          const _QuickActionChip(icon: Icons.receipt_long_rounded, label: 'My Bills', route: AppRoutes.myBills),
         ]),
         const SizedBox(height: 18),
-        _OperationalPanel(title: 'Recent updates', children: const [
-          _InfoTile(icon: Icons.info_outline_rounded, title: 'Notice board', value: 'Check notices via Society Updates', color: AppTheme.primary),
-          SizedBox(height: 8),
-          _InfoTile(icon: Icons.pending_actions_rounded, title: 'Visitor approvals', value: 'Use Visitors above to manage entries', color: AppTheme.warning),
+        _OperationalPanel(title: 'Recent updates', children: [
+          const _InfoTile(icon: Icons.info_outline_rounded, title: 'Notice board', value: 'Check notices via Society Updates', color: AppTheme.primary),
+          const SizedBox(height: 8),
+          _InfoTile(
+            icon: Icons.pending_actions_rounded,
+            title: 'Visitor approvals',
+            value: waiting == 0 ? 'No one waiting' : '$waiting waiting at the gate',
+            color: AppTheme.warning,
+          ),
         ]),
         const SizedBox(height: 18),
       ],
