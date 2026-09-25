@@ -146,11 +146,14 @@ class VisitorService:
             NotificationService.send(
                 db=self.db, user_id=visitor.resident_id,
                 title="Visitor at Gate",
-                body=f"{visitor.name} ({visitor.visitor_type.value}) is at the gate. Purpose: {visitor.purpose or 'Not specified'}",
+                body=f"{visitor.name} ({visitor.visitor_type.value}) is at the gate"
+                     + (f" for {visitor.wing_name}-{visitor.flat_number}" if visitor.flat_number else "")
+                     + f". Purpose: {visitor.purpose or 'Not specified'}",
                 type=NotificationType.APPROVAL,
                 channel=NotificationChannel.IN_APP,
                 module="visitor", entity_id=str(visitor.id),
-                action_url=f"/visitors/{visitor.id}/approve",
+                action_url="/visitors/pending",   # the resident's approvals screen
+                push=True,
             )
 
         self.db.commit()
@@ -185,6 +188,8 @@ class VisitorService:
                 type=NotificationType.ALERT,
                 channel=NotificationChannel.IN_APP,
                 module="visitor", entity_id=str(visitor.id),
+                action_url=f"/visitors/society/{visitor.society_id}",   # the guard's visitor log
+                push=True,
             )
 
         self.db.commit()
@@ -214,6 +219,8 @@ class VisitorService:
                 type=NotificationType.WARNING,
                 channel=NotificationChannel.IN_APP,
                 module="visitor", entity_id=str(visitor.id),
+                action_url=f"/visitors/society/{visitor.society_id}",   # the guard's visitor log
+                push=True,
             )
 
         self.db.commit()

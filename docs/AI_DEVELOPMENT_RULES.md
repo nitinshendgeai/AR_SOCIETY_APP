@@ -106,7 +106,7 @@ AuditService.log(db=db, action=AuditAction.CREATE, module="module_name",
 
 ## 8. Notifications
 
-**Required on:** assignment, approval, rejection, alerts. Always `in_app` — no external providers yet.
+**Required on:** assignment, approval, rejection, alerts. Always `in_app`. Add `push=True` (with `action_url` set to the app screen a tap should open) for alerts someone must act on now, like a visitor at the gate — it's also sent to the user's phones/browsers through Firebase (see docs/PUSH_NOTIFICATIONS.md) and is a no-op while Firebase isn't configured.
 
 ```python
 NotificationService.send(db=db, user_id=user_id, title="...", body="...",
