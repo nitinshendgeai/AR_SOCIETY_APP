@@ -147,8 +147,8 @@ class ParkingAllocation(Base, TimestampMixin):
     slot_id       = Column(UUID(as_uuid=True), ForeignKey("parking_slots.id", ondelete="CASCADE"), nullable=False, index=True)
     flat_id       = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="SET NULL"), nullable=True, index=True)
     vehicle_id    = Column(UUID(as_uuid=True), ForeignKey("vehicles.id", ondelete="SET NULL"), nullable=True, index=True)
-    allocated_to_user   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    allocated_by        = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    allocated_to_user   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    allocated_by        = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     allocation_type = Column(Enum(SlotType, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     status          = Column(Enum(AllocationStatus, values_callable=lambda e: [x.value for x in e]), default=AllocationStatus.ACTIVE, nullable=False, index=True)
@@ -157,7 +157,7 @@ class ParkingAllocation(Base, TimestampMixin):
     monthly_charge  = Column(Integer, nullable=True)   # future finance integration
     notes           = Column(Text, nullable=True)
     released_at     = Column(DateTime, nullable=True)
-    released_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    released_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     society      = relationship("Society")
     slot         = relationship("ParkingSlot", back_populates="allocations")
@@ -194,17 +194,17 @@ class VisitorParking(Base, TimestampMixin):
 
     society_id      = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     slot_id         = Column(UUID(as_uuid=True), ForeignKey("parking_slots.id", ondelete="SET NULL"), nullable=True, index=True)
-    visitor_id      = Column(UUID(as_uuid=True), nullable=True, index=True)   # ref to visitors table
+    visitor_id      = Column(UUID(as_uuid=True), ForeignKey("visitors.id", ondelete="SET NULL"), nullable=True, index=True)   # ref to visitors table
     vehicle_number  = Column(String(30), nullable=False, index=True)
     vehicle_type    = Column(String(50), nullable=True)
-    assigned_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    assigned_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     check_in_time   = Column(DateTime, nullable=True)
     check_out_time  = Column(DateTime, nullable=True)
     expected_duration_hours = Column(Integer, default=4, nullable=False)
     status          = Column(Enum(VisitorParkingStatus, values_callable=lambda e: [x.value for x in e]), default=VisitorParkingStatus.ACTIVE, nullable=False, index=True)
     purpose         = Column(String(255), nullable=True)
-    host_flat_id    = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="SET NULL"), nullable=True)
+    host_flat_id    = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="SET NULL"), nullable=True, index=True)
     notes           = Column(Text, nullable=True)
 
     # RFID/access readiness
@@ -227,10 +227,10 @@ class ParkingViolation(Base, TimestampMixin):
     society_id       = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     slot_id          = Column(UUID(as_uuid=True), ForeignKey("parking_slots.id", ondelete="SET NULL"), nullable=True, index=True)
     vehicle_number   = Column(String(30), nullable=False, index=True)
-    vehicle_id       = Column(UUID(as_uuid=True), ForeignKey("vehicles.id", ondelete="SET NULL"), nullable=True)
+    vehicle_id       = Column(UUID(as_uuid=True), ForeignKey("vehicles.id", ondelete="SET NULL"), nullable=True, index=True)
     violation_type   = Column(Enum(ViolationType, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
-    reported_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    resolved_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reported_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    resolved_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     description      = Column(Text, nullable=True)
     photo_url        = Column(String(500), nullable=True)
@@ -257,12 +257,12 @@ class ParkingAccessLog(Base, TimestampMixin):
     slot_id        = Column(UUID(as_uuid=True), ForeignKey("parking_slots.id", ondelete="SET NULL"), nullable=True, index=True)
     vehicle_id     = Column(UUID(as_uuid=True), ForeignKey("vehicles.id", ondelete="SET NULL"), nullable=True, index=True)
     vehicle_number = Column(String(30), nullable=False, index=True)
-    user_id        = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    user_id        = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     access_type    = Column(Enum(AccessType, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     access_method  = Column(Enum(AccessMethod, values_callable=lambda e: [x.value for x in e]), default=AccessMethod.MANUAL, nullable=False)
     access_time    = Column(DateTime, nullable=False, index=True)
-    gate_id        = Column(UUID(as_uuid=True), nullable=True)   # Gate ref
+    gate_id        = Column(UUID(as_uuid=True), ForeignKey("gates.id", ondelete="SET NULL"), nullable=True, index=True)   # Gate ref
     rfid_tag       = Column(String(100), nullable=True)          # scanned RFID
     is_authorized  = Column(Boolean, default=True, nullable=False, index=True)
     notes          = Column(Text, nullable=True)

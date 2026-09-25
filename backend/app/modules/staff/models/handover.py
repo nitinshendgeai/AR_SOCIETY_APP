@@ -60,9 +60,9 @@ class StaffHandover(Base, TimestampMixin):
                                 nullable=True, index=True)
     incoming_staff_id = Column(UUID(as_uuid=True), ForeignKey("staff.id", ondelete="SET NULL"),
                                 nullable=True, index=True)
-    duty_assignment_id = Column(UUID(as_uuid=True), nullable=True)  # linked duty if any
+    duty_assignment_id = Column(UUID(as_uuid=True), ForeignKey("duty_assignments.id", ondelete="SET NULL"), nullable=True, index=True)  # linked duty if any
     verified_by       = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"),
-                                nullable=True)
+                                nullable=True, index=True)
 
     # Location / area being handed over
     area             = Column(String(255), nullable=True)   # "Main Gate", "Lobby", "B-Block"

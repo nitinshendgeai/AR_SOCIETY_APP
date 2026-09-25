@@ -26,7 +26,7 @@ class ResidentEditRequest(Base, TimestampMixin):
     status  = Column(Enum(ResidentEditRequestStatus, values_callable=lambda e: [x.value for x in e]),
                       default=ResidentEditRequestStatus.PENDING, nullable=False, index=True)
 
-    reviewed_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reviewed_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     reviewed_at      = Column(DateTime, nullable=True)
     rejection_reason = Column(Text, nullable=True)
 

@@ -176,6 +176,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
   final isBiometricLocked = ref.watch(biometricLockProvider);
 
+  // Screens scoped to a society normally get its id from the screen that
+  // opened them (`extra`). On the web a page can also be opened by URL or
+  // reloaded, which loses `extra`; fall back to the signed-in user's society.
+  final sessionSocietyId = authState is AuthAuthenticated
+      ? authState.user.societyId ?? ''
+      : '';
+
+  // Detail/edit pages receive their record through `extra`. Opened by URL or
+  // after a reload there is no record to show, so go back to its list.
+  String? backToListWithoutRecord(GoRouterState state, String list) =>
+      state.extra == null ? list : null;
+
   final router = GoRouter(
     initialLocation: AppRoutes.splash,
     debugLogDiagnostics: false,
@@ -326,10 +338,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               final String societyId;
               final String? department;
               if (extra is Map<String, dynamic>) {
-                societyId  = extra['societyId'] as String? ?? '';
+                societyId  = extra['societyId'] as String? ?? sessionSocietyId;
                 department = extra['department'] as String?;
               } else {
-                societyId  = extra as String? ?? '';
+                societyId  = extra as String? ?? sessionSocietyId;
                 department = null;
               }
               return AttendanceApprovalScreen(societyId: societyId, department: department);
@@ -363,13 +375,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.staffDutyOverview,
             builder: (_, state) => DutyOverviewScreen(
-              societyId: state.extra as String? ?? '',
+              societyId: state.extra as String? ?? sessionSocietyId,
             ),
           ),
           GoRoute(
             path: AppRoutes.staffAttendanceCorrections,
             builder: (_, state) => AttendanceCorrectionScreen(
-              societyId: state.extra as String? ?? '',
+              societyId: state.extra as String? ?? sessionSocietyId,
             ),
           ),
           GoRoute(
@@ -404,6 +416,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.staffDetail,
+            redirect: (_, state) => backToListWithoutRecord(state, AppRoutes.staffList),
             builder: (_, state) {
               final staff = state.extra as StaffEntity;
               return StaffDetailScreen(staff: staff);
@@ -411,7 +424,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.staffEdit,
-            redirect: (_, __) {
+            redirect: (_, state) {
+              if (state.extra == null) return AppRoutes.staffList;
               if (authState is AuthAuthenticated) {
                 final user = (authState as AuthAuthenticated).user;
                 if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
@@ -438,7 +452,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.staffHandover,
             builder: (_, state) => HandoverScreen(
               staffId: state.pathParameters['staffId']!,
-              societyId: state.extra as String? ?? '',
+              societyId: state.extra as String? ?? sessionSocietyId,
             ),
           ),
           // Visitor routes (specific paths before parameterised)
@@ -446,7 +460,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.visitorsCreate,
             builder: (_, state) => CreateVisitorScreen(
               societyId: state.extra as String? ??
-                  state.uri.queryParameters['societyId'] ?? '',
+                  state.uri.queryParameters['societyId'] ?? sessionSocietyId,
             ),
           ),
           GoRoute(
@@ -504,6 +518,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.usersEdit,
+            redirect: (_, state) => backToListWithoutRecord(
+                state, AppRoutes.usersDetail.replaceFirst(':userId', state.pathParameters['userId']!)),
             builder: (_, state) {
               final user = state.extra as AdminUserModel;
               return EditUserScreen(user: user);
@@ -511,6 +527,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.usersRoles,
+            redirect: (_, state) => backToListWithoutRecord(
+                state, AppRoutes.usersDetail.replaceFirst(':userId', state.pathParameters['userId']!)),
             builder: (_, state) {
               final user = state.extra as AdminUserModel;
               return RoleAssignmentScreen(user: user);
@@ -638,11 +656,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           // Society Structure — Floors (nested under wing)
           GoRoute(
             path: AppRoutes.floorsByWing,
+            redirect: (_, state) => backToListWithoutRecord(state, AppRoutes.wingsList),
             builder: (_, state) =>
                 FloorListScreen(wing: state.extra as WingModel),
           ),
           GoRoute(
             path: AppRoutes.floorForm,
+            redirect: (_, state) => backToListWithoutRecord(state, AppRoutes.wingsList),
             builder: (_, state) {
               final extra = state.extra as Map<String, dynamic>;
               return FloorFormScreen(
@@ -668,6 +688,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.flatDetail,
+            redirect: (_, state) => backToListWithoutRecord(state, AppRoutes.flatsList),
             builder: (_, state) =>
                 FlatDetailScreen(flat: state.extra as FlatModel),
           ),
@@ -699,6 +720,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.residentDetail,
+            redirect: (_, state) => backToListWithoutRecord(state, AppRoutes.residentsList),
             builder: (_, state) => ResidentDetailScreen(resident: state.extra as ResidentModel),
           ),
           GoRoute(
@@ -732,6 +754,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.tenantDetail,
+            redirect: (_, state) => backToListWithoutRecord(state, AppRoutes.tenantsList),
             builder: (_, state) => TenantDetailScreen(tenant: state.extra as TenantModel),
           ),
           GoRoute(

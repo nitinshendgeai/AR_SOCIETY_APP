@@ -140,8 +140,8 @@ class Staff(Base, TimestampMixin):
 
     # Employment
     department        = Column(Enum(StaffDepartment, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
-    designation_id    = Column(UUID(as_uuid=True), ForeignKey("staff_designations.id", ondelete="SET NULL"), nullable=True)
-    shift_id          = Column(UUID(as_uuid=True), ForeignKey("staff_shifts.id", ondelete="SET NULL"), nullable=True)
+    designation_id    = Column(UUID(as_uuid=True), ForeignKey("staff_designations.id", ondelete="SET NULL"), nullable=True, index=True)
+    shift_id          = Column(UUID(as_uuid=True), ForeignKey("staff_shifts.id", ondelete="SET NULL"), nullable=True, index=True)
     status            = Column(Enum(StaffStatus, values_callable=lambda e: [x.value for x in e]), default=StaffStatus.PROBATION, nullable=False, index=True)
     joining_date      = Column(Date, nullable=True)
     termination_date  = Column(Date, nullable=True)
@@ -194,8 +194,8 @@ class DutyAssignment(Base, TimestampMixin):
 
     society_id   = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     staff_id     = Column(UUID(as_uuid=True), ForeignKey("staff.id", ondelete="CASCADE"), nullable=False, index=True)
-    shift_id     = Column(UUID(as_uuid=True), ForeignKey("staff_shifts.id", ondelete="SET NULL"), nullable=True)
-    assigned_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    shift_id     = Column(UUID(as_uuid=True), ForeignKey("staff_shifts.id", ondelete="SET NULL"), nullable=True, index=True)
+    assigned_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     duty_name    = Column(String(255), nullable=False)
     description  = Column(Text, nullable=True)
@@ -206,11 +206,11 @@ class DutyAssignment(Base, TimestampMixin):
     is_recurring = Column(Boolean, default=False, nullable=False)
     is_completed = Column(Boolean, default=False, nullable=False)
     completed_at = Column(DateTime, nullable=True)
-    verified_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    verified_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     verified_at  = Column(DateTime, nullable=True)
     notes        = Column(Text, nullable=True)
 
-    checklist_template_id = Column(UUID(as_uuid=True), ForeignKey("checklist_templates.id", ondelete="SET NULL"), nullable=True)
+    checklist_template_id = Column(UUID(as_uuid=True), ForeignKey("checklist_templates.id", ondelete="SET NULL"), nullable=True, index=True)
 
     society  = relationship("Society")
     staff    = relationship("Staff", back_populates="duties")
@@ -239,7 +239,7 @@ class ChecklistTemplate(Base, TimestampMixin):
     department  = Column(Enum(StaffDepartment, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     name        = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    created_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     society = relationship("Society")
     creator = relationship("User", foreign_keys=[created_by])
@@ -269,7 +269,7 @@ class DutyChecklistItem(Base, TimestampMixin):
     __tablename__ = "duty_checklist_items"
 
     duty_id           = Column(UUID(as_uuid=True), ForeignKey("duty_assignments.id", ondelete="CASCADE"), nullable=False, index=True)
-    template_item_id  = Column(UUID(as_uuid=True), ForeignKey("checklist_template_items.id", ondelete="SET NULL"), nullable=True)
+    template_item_id  = Column(UUID(as_uuid=True), ForeignKey("checklist_template_items.id", ondelete="SET NULL"), nullable=True, index=True)
     sequence          = Column(Integer, nullable=False, default=0)
     title             = Column(String(255), nullable=False)
     description       = Column(Text, nullable=True)
@@ -299,19 +299,19 @@ class StaffAttendance(Base, TimestampMixin):
     check_out_time   = Column(DateTime, nullable=True)
     working_hours    = Column(Float, nullable=True)     # computed on checkout
     overtime_hours   = Column(Float, nullable=True)     # payroll-ready
-    is_manual_entry  = Column(Boolean, default=False)   # admin override flag
+    is_manual_entry  = Column(Boolean, default=False, nullable=False)   # admin override flag
     # Punch-in approval
     is_approved      = Column(Boolean, default=False, nullable=False, index=True)
-    approved_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    approved_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     approved_at      = Column(DateTime, nullable=True)
     approval_notes   = Column(Text, nullable=True)
     # Punch-out approval
     is_checkout_approved    = Column(Boolean, default=False, nullable=False)
-    checkout_approved_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    checkout_approved_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     checkout_approved_at    = Column(DateTime, nullable=True)
     checkout_approval_notes = Column(Text, nullable=True)
 
-    marked_by        = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    marked_by        = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     notes            = Column(Text, nullable=True)
 
     society          = relationship("Society")
@@ -335,12 +335,12 @@ class StaffTask(Base, TimestampMixin):
 
     society_id    = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     staff_id      = Column(UUID(as_uuid=True), ForeignKey("staff.id", ondelete="CASCADE"), nullable=False, index=True)
-    assigned_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    verified_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    assigned_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    verified_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Link to complaint/visitor if applicable
-    complaint_id  = Column(UUID(as_uuid=True), nullable=True)
-    visitor_id    = Column(UUID(as_uuid=True), nullable=True)
+    complaint_id  = Column(UUID(as_uuid=True), ForeignKey("complaints.id", ondelete="SET NULL"), nullable=True, index=True)
+    visitor_id    = Column(UUID(as_uuid=True), ForeignKey("visitors.id", ondelete="SET NULL"), nullable=True, index=True)
 
     title         = Column(String(255), nullable=False)
     description   = Column(Text, nullable=True)
@@ -369,7 +369,7 @@ class StaffLeave(Base, TimestampMixin):
 
     society_id   = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     staff_id     = Column(UUID(as_uuid=True), ForeignKey("staff.id", ondelete="CASCADE"), nullable=False, index=True)
-    approved_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    approved_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     leave_type   = Column(Enum(LeaveType, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     from_date    = Column(Date, nullable=False)
@@ -417,21 +417,21 @@ class StaffRoster(Base, TimestampMixin):
 
     society_id   = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     staff_id     = Column(UUID(as_uuid=True), ForeignKey("staff.id", ondelete="CASCADE"), nullable=False, index=True)
-    shift_id     = Column(UUID(as_uuid=True), ForeignKey("staff_shifts.id", ondelete="SET NULL"), nullable=True)
-    created_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    shift_id     = Column(UUID(as_uuid=True), ForeignKey("staff_shifts.id", ondelete="SET NULL"), nullable=True, index=True)
+    created_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     week_start   = Column(Date, nullable=False, index=True)
     week_end     = Column(Date, nullable=False)
     roster_status = Column(Enum(RosterStatus, values_callable=lambda e: [x.value for x in e]), default=RosterStatus.DRAFT, nullable=False)
 
-    monday    = Column(Boolean, default=True)
-    tuesday   = Column(Boolean, default=True)
-    wednesday = Column(Boolean, default=True)
-    thursday  = Column(Boolean, default=True)
-    friday    = Column(Boolean, default=True)
-    saturday  = Column(Boolean, default=True)
-    sunday    = Column(Boolean, default=False)
-    is_holiday_week = Column(Boolean, default=False)
+    monday    = Column(Boolean, default=True, nullable=False)
+    tuesday   = Column(Boolean, default=True, nullable=False)
+    wednesday = Column(Boolean, default=True, nullable=False)
+    thursday  = Column(Boolean, default=True, nullable=False)
+    friday    = Column(Boolean, default=True, nullable=False)
+    saturday  = Column(Boolean, default=True, nullable=False)
+    sunday    = Column(Boolean, default=False, nullable=False)
+    is_holiday_week = Column(Boolean, default=False, nullable=False)
     notes     = Column(Text, nullable=True)
 
     society = relationship("Society")

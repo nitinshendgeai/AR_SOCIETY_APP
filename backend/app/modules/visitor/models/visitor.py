@@ -73,7 +73,7 @@ class Visitor(Base, TimestampMixin):
     society_id   = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     flat_id      = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="SET NULL"), nullable=True, index=True)
     resident_id  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
-    gate_id      = Column(UUID(as_uuid=True), ForeignKey("gates.id", ondelete="SET NULL"), nullable=True)
+    gate_id      = Column(UUID(as_uuid=True), ForeignKey("gates.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Workflow status
     status             = Column(Enum(VisitorStatus, values_callable=lambda e: [x.value for x in e]), default=VisitorStatus.PENDING, nullable=False, index=True)
@@ -82,12 +82,12 @@ class Visitor(Base, TimestampMixin):
     checked_out_at     = Column(DateTime, nullable=True)
 
     # Approval
-    approved_by        = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    approved_by        = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     approved_at        = Column(DateTime, nullable=True)
     rejection_reason   = Column(Text, nullable=True)
 
     # Guard who logged
-    logged_by          = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    logged_by          = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # QR pass (future)
     qr_token           = Column(String(255), nullable=True, unique=True, index=True)
@@ -133,9 +133,9 @@ class VisitorLog(Base, TimestampMixin):
 
     visitor_id   = Column(UUID(as_uuid=True), ForeignKey("visitors.id", ondelete="CASCADE"), nullable=False, index=True)
     action       = Column(String(50), nullable=False)      # CREATED, APPROVED, REJECTED, CHECKED_IN, CHECKED_OUT
-    performed_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    performed_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     notes        = Column(Text, nullable=True)
-    gate_id      = Column(UUID(as_uuid=True), ForeignKey("gates.id", ondelete="SET NULL"), nullable=True)
+    gate_id      = Column(UUID(as_uuid=True), ForeignKey("gates.id", ondelete="SET NULL"), nullable=True, index=True)
 
     visitor      = relationship("Visitor", back_populates="logs")
     performed_by_user = relationship("User", foreign_keys=[performed_by])

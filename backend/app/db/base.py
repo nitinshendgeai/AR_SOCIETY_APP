@@ -14,9 +14,8 @@ class TimestampMixin:
 
     id = Column(
         UUID(as_uuid=True),
-        primary_key=True,
+        primary_key=True,   # the primary key is already indexed
         default=uuid.uuid4,
-        index=True,
         nullable=False,
     )
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

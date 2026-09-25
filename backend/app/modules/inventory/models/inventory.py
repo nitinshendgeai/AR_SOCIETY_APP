@@ -145,7 +145,7 @@ class InventoryStock(Base, TimestampMixin):
     item_id         = Column(UUID(as_uuid=True), ForeignKey("inventory_items.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     society_id      = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     current_quantity = Column(Float, default=0, nullable=False)
-    last_updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    last_updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     item    = relationship("InventoryItem", back_populates="stock")
     society = relationship("Society")
@@ -169,7 +169,7 @@ class InventoryTransaction(Base, TimestampMixin):
     total_cost       = Column(Numeric(12, 2), nullable=True)
     reference_id     = Column(String(100), nullable=True)  # issue/return/PO ref
     notes            = Column(Text, nullable=True)
-    performed_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    performed_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     society  = relationship("Society")
     item     = relationship("InventoryItem", back_populates="transactions")
@@ -185,9 +185,9 @@ class InventoryIssue(Base, TimestampMixin):
     item_id        = Column(UUID(as_uuid=True), ForeignKey("inventory_items.id", ondelete="CASCADE"), nullable=False, index=True)
     issued_to_user = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     issued_to_staff = Column(UUID(as_uuid=True), nullable=True)   # staff_id ref
-    issued_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    complaint_id   = Column(UUID(as_uuid=True), nullable=True)   # linked complaint
-    task_id        = Column(UUID(as_uuid=True), nullable=True)   # linked task
+    issued_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    complaint_id   = Column(UUID(as_uuid=True), ForeignKey("complaints.id", ondelete="SET NULL"), nullable=True, index=True)   # linked complaint
+    task_id        = Column(UUID(as_uuid=True), ForeignKey("staff_tasks.id", ondelete="SET NULL"), nullable=True, index=True)   # linked task
 
     quantity_issued   = Column(Float, nullable=False)
     quantity_returned = Column(Float, default=0, nullable=False)
@@ -213,8 +213,8 @@ class InventoryReturn(Base, TimestampMixin):
     society_id     = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     quantity       = Column(Float, nullable=False)
     condition      = Column(String(50), nullable=True)   # good / damaged / lost
-    returned_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    received_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    returned_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    received_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     notes          = Column(Text, nullable=True)
 
     issue       = relationship("InventoryIssue", back_populates="returns")
@@ -252,7 +252,7 @@ class Asset(Base, TimestampMixin):
 
     # Assignment
     assigned_to_staff = Column(UUID(as_uuid=True), nullable=True)
-    assigned_to_user  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    assigned_to_user  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     assigned_at       = Column(DateTime, nullable=True)
 
     society      = relationship("Society")
@@ -282,7 +282,7 @@ class AssetMaintenance(Base, TimestampMixin):
     description       = Column(Text, nullable=True)
     findings          = Column(Text, nullable=True)
     next_due_date     = Column(Date, nullable=True)
-    performed_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    performed_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     asset    = relationship("Asset", back_populates="maintenance")
     society  = relationship("Society")
@@ -318,7 +318,7 @@ class AssetUsageLog(Base, TimestampMixin):
 
     asset_id     = Column(UUID(as_uuid=True), ForeignKey("assets.id", ondelete="CASCADE"), nullable=False, index=True)
     society_id   = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
-    logged_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    logged_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     action       = Column(String(100), nullable=False)  # ASSIGNED, SERVICED, REPAIRED, RETIRED
     notes        = Column(Text, nullable=True)
     cost         = Column(Numeric(10, 2), nullable=True)

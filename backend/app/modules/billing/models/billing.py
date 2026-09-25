@@ -119,7 +119,7 @@ class FinancialPeriod(Base, TimestampMixin):
     period_start = Column(Date, nullable=False, index=True)
     period_end   = Column(Date, nullable=False)
     is_closed    = Column(Boolean, default=False, nullable=False)  # locked after reconciliation
-    closed_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    closed_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     society  = relationship("Society")
     closer   = relationship("User", foreign_keys=[closed_by])
@@ -232,7 +232,7 @@ class BillingCycle(Base, TimestampMixin):
 
     society_id    = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     period_id     = Column(UUID(as_uuid=True), ForeignKey("financial_periods.id", ondelete="SET NULL"), nullable=True, index=True)
-    created_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     name          = Column(String(150), nullable=False)      # "May 2026 Maintenance"
     cycle_start   = Column(Date, nullable=False)
@@ -264,7 +264,7 @@ class MaintenanceBill(Base, TimestampMixin):
     cycle_id      = Column(UUID(as_uuid=True), ForeignKey("billing_cycles.id", ondelete="CASCADE"), nullable=False, index=True)
     flat_id       = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="SET NULL"), nullable=False, index=True)
     resident_id   = Column(UUID(as_uuid=True), ForeignKey("residents.id", ondelete="SET NULL"), nullable=True, index=True)
-    generated_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    generated_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     invoice_number  = Column(String(30), nullable=False, unique=True, index=True)
     bill_status     = Column(Enum(BillStatus, values_callable=lambda e: [x.value for x in e]), default=BillStatus.DRAFT, nullable=False, index=True)
@@ -334,7 +334,7 @@ class PaymentReceipt(Base, TimestampMixin):
     society_id      = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     bill_id         = Column(UUID(as_uuid=True), ForeignKey("maintenance_bills.id", ondelete="CASCADE"), nullable=False, index=True)
     flat_id         = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="SET NULL"), nullable=True, index=True)
-    received_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    received_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     receipt_number  = Column(String(30), nullable=False, unique=True, index=True)
     payment_date    = Column(Date, nullable=False, index=True)
@@ -377,7 +377,7 @@ class DueTracker(Base, TimestampMixin):
     last_payment_date = Column(Date, nullable=True)
     last_bill_date   = Column(Date, nullable=True)
     overdue_months   = Column(Integer, default=0, nullable=False)   # for reporting
-    last_updated_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    last_updated_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     society = relationship("Society")
     flat    = relationship("Flat")
@@ -443,8 +443,8 @@ class OnlinePaymentSubmission(Base, TimestampMixin):
     wing_id         = Column(UUID(as_uuid=True), ForeignKey("wings.id", ondelete="SET NULL"), nullable=True, index=True)
     flat_id         = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="SET NULL"), nullable=False, index=True)
     bill_id         = Column(UUID(as_uuid=True), ForeignKey("maintenance_bills.id", ondelete="SET NULL"), nullable=True, index=True)
-    recorded_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    reviewed_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    recorded_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    reviewed_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     receipt_number  = Column(String(30), nullable=False, unique=True, index=True)
     amount          = Column(Numeric(12, 2), nullable=False)
@@ -495,9 +495,9 @@ class BankStatementEntry(Base, TimestampMixin):
     __tablename__ = "bank_statement_entries"
 
     society_id             = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
-    imported_by            = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    imported_by            = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     matched_submission_id  = Column(UUID(as_uuid=True), ForeignKey("online_payment_submissions.id", ondelete="SET NULL"), nullable=True, index=True)
-    matched_by             = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    matched_by             = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     txn_date      = Column(Date, nullable=False, index=True)
     description   = Column(String(500), nullable=False)
