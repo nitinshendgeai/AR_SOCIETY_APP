@@ -411,8 +411,17 @@ class TableSearchField extends StatelessWidget {
       );
 }
 
-/// Date/time for table cells: "25 Sep 2026, 14:05" (local time), or "—".
-String tableDateTime(DateTime? d) => d == null ? '—' : DateFormat('d MMM yyyy, HH:mm').format(d.toLocal());
+/// Date/time for table cells in local time, as short as stays unambiguous:
+/// "Today, 14:05", "25 Sep, 14:05" this year, "25 Sep 2025, 14:05" before; "—" when null.
+String tableDateTime(DateTime? d) {
+  if (d == null) return '—';
+  final local = d.toLocal();
+  final now = DateTime.now();
+  if (local.year == now.year && local.month == now.month && local.day == now.day) {
+    return 'Today, ${DateFormat('HH:mm').format(local)}';
+  }
+  return DateFormat(local.year == now.year ? 'd MMM, HH:mm' : 'd MMM yyyy, HH:mm').format(local);
+}
 
 /// Date for table cells: "25 Sep 2026", or "—".
 String tableDate(DateTime? d) => d == null ? '—' : DateFormat('d MMM yyyy').format(d.toLocal());
