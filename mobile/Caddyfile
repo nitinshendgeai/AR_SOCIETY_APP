@@ -2,6 +2,12 @@
     root * /srv
     encode gzip
 
+    # The app moved from erpariana.duxos.in to society.duxos.in; send old
+    # bookmarks and shared links to the same path on the new domain.
+    # (Railway passes the original Host header through to Caddy.)
+    @oldDomain host erpariana.duxos.in
+    redir @oldDomain https://society.duxos.in{uri} permanent
+
     # Flutter web's file names aren't content-hashed (main.dart.js,
     # flutter_bootstrap.js, index.html…), so let browsers keep them but make
     # them revalidate on every load — Caddy answers 304 when nothing changed,
