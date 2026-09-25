@@ -1,6 +1,14 @@
 :{$PORT} {
     root * /srv
+    encode gzip
+
+    # Flutter web's file names aren't content-hashed (main.dart.js,
+    # flutter_bootstrap.js, index.html…), so let browsers keep them but make
+    # them revalidate on every load — Caddy answers 304 when nothing changed,
+    # and a new deploy is picked up immediately instead of after a heuristic
+    # cache expiry.
+    header Cache-Control "no-cache"
+
     try_files {path} /index.html
     file_server
-    encode gzip
 }

@@ -11,6 +11,7 @@ import 'package:ar_society_app/features/maintenance_billing/presentation/provide
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/billing_cycle_screen.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/core/layout/app_sheet.dart';
 
 /// Society side of maintenance billing: set up charge heads once, then each
 /// period create a cycle → generate one bill per flat → issue to residents.
@@ -32,8 +33,8 @@ class _MaintenanceBillingScreenState extends ConsumerState<MaintenanceBillingScr
     super.dispose();
   }
 
-  void _openSheet(Widget sheet) => showModalBottomSheet(
-        context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+  void _openSheet(Widget sheet) => showAppSheet(
+        context: context,
         builder: (_) => sheet,
       );
 
@@ -404,8 +405,8 @@ class _ChargeHeadsTab extends ConsumerWidget {
           ),
         ]),
         data: (charges) {
-          void loadStandard() => showModalBottomSheet(
-                context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+          void loadStandard() => showAppSheet(
+                context: context,
                 builder: (_) => _LoadFromElementsSheet(societyId: societyId, existing: charges),
               );
           final canManageElements = ref.watch(currentUserProvider)?.isAdminOrCommittee ?? false;

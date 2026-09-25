@@ -52,6 +52,29 @@
     <p>DUX OS</p>
   </div>
 
+  <script>
+    // Earlier builds registered Flutter's service worker, whose cache kept
+    // serving an old version after deploys. Remove it and its caches, then
+    // reload once so returning visitors get the current build.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (regs) {
+        if (!regs.length) return;
+        var cleanup = regs.map(function (r) { return r.unregister(); });
+        if (window.caches) {
+          cleanup.push(caches.keys().then(function (keys) {
+            return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+          }));
+        }
+        Promise.all(cleanup).then(function () {
+          try {
+            if (sessionStorage.getItem('sw-cleared')) return;
+            sessionStorage.setItem('sw-cleared', '1');
+          } catch (e) { return; }
+          location.reload();
+        });
+      });
+    }
+  </script>
   <script src="flutter_bootstrap.js" async></script>
   <script>
     window.addEventListener('flutter-first-frame', function () {

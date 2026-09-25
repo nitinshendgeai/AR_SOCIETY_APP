@@ -6,6 +6,7 @@ import 'package:ar_society_app/features/resident_master/presentation/providers/r
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/core/layout/app_sheet.dart';
 
 // ── Canonical occupancy move-in / move-out actions ──────────────────────────
 //
@@ -98,12 +99,8 @@ Future<void> _showMoveSheet(
   required VoidCallback onSettled,
   String? warning,
 }) {
-  return showModalBottomSheet(
+  return showAppSheet(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    // Cap the sheet's width on desktop/laptop-width windows so it doesn't
-    // stretch full-bleed; narrower screens are unaffected.
     constraints: const BoxConstraints(maxWidth: 480),
     builder: (ctx) => _MoveSheetBody(
       title: title,

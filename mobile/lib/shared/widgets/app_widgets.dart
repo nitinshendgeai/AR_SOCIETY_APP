@@ -332,63 +332,67 @@ class KpiCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppTheme.cardBg,
-      borderRadius: BorderRadius.circular(AppTheme.radiusL),
-      child: InkWell(
-        onTap: onTap,
+    // Shadow sits on an outer box *behind* the white card: painted on a
+    // transparent box above the Material it tinted the whole card gray.
+    return DecoratedBox(
+      decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppTheme.radiusL),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppTheme.radiusL),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Material(
+        color: AppTheme.cardBg,
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(icon, color: color, size: 17),
                     ),
-                    child: Icon(icon, color: color, size: 17),
-                  ),
-                  const Spacer(),
-                  if (onTap != null)
-                    Icon(Icons.chevron_right_rounded, color: color.withOpacity(0.6), size: 16),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+                    const Spacer(),
+                    if (onTap != null)
+                      Icon(Icons.chevron_right_rounded, color: color.withOpacity(0.6), size: 16),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(label,
+                const SizedBox(height: 10),
+                Text(
+                  value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
-              if (note != null) ...[
-                const SizedBox(height: 3),
-                Text(note!,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11, color: AppTheme.textTertiary)),
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
+                if (note != null) ...[
+                  const SizedBox(height: 3),
+                  Text(note!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textTertiary)),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -396,7 +400,7 @@ class KpiCard extends StatelessWidget {
   }
 }
 
-/// A responsive 2-column grid of [KpiCard]s — the standard layout for a
+/// A responsive grid of [KpiCard]s — the standard layout for a
 /// dashboard's summary row.
 class KpiGrid extends StatelessWidget {
   final List<KpiCard> cards;
@@ -404,15 +408,23 @@ class KpiGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 1.5,
-      children: cards,
-    );
+    return LayoutBuilder(builder: (context, constraints) {
+      // Phones: two square-ish tiles per row. Wider screens: up to four
+      // fixed-height tiles per row, instead of two tiles stretched to
+      // hundreds of pixels tall by the aspect ratio.
+      final wide = constraints.maxWidth >= 600;
+      final columns = wide ? (constraints.maxWidth ~/ 220).clamp(2, 4) : 2;
+      return GridView(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: wide
+            ? SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns, mainAxisSpacing: 12, crossAxisSpacing: 12, mainAxisExtent: 136)
+            : const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 1.5),
+        children: cards,
+      );
+    });
   }
 }
 

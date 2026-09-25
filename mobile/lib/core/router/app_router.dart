@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/auth/presentation/screens/login_screen.dart';
@@ -276,200 +277,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (_, __) => const ChangePasswordScreen()),
       GoRoute(path: AppRoutes.biometricLock,
           builder: (_, __) => const BiometricLockScreen()),
-      GoRoute(path: AppRoutes.home, redirect: (_, __) {
-        if (authState is AuthAuthenticated) {
-          return userRoleHome((authState as AuthAuthenticated).user);
-        }
-        return AppRoutes.login;
-      }),
-      GoRoute(path: AppRoutes.adminHome,
-          builder: (_, __) => const AdminDashboardScreen()),
-      GoRoute(path: AppRoutes.committeeHome,
-          builder: (_, __) => const CommitteeDashboardScreen()),
-      GoRoute(path: AppRoutes.residentHome,
-          builder: (_, __) => const ResidentDashboardScreen()),
-      GoRoute(path: AppRoutes.securityHome,
-          builder: (_, __) => const SecurityDashboardScreen()),
-      GoRoute(path: AppRoutes.managerHome,
-          builder: (_, __) => const ManagerDashboardScreen()),
-      GoRoute(path: AppRoutes.supervisorHome,
-          builder: (_, __) => const SupervisorDashboardScreen()),
-      GoRoute(path: AppRoutes.staffHome,
-          builder: (_, __) => const StaffHomeScreen()),
-      GoRoute(
-        path: AppRoutes.staffApprovals,
-        builder: (_, state) {
-          final extra = state.extra;
-          final String societyId;
-          final String? department;
-          if (extra is Map<String, dynamic>) {
-            societyId  = extra['societyId'] as String? ?? '';
-            department = extra['department'] as String?;
-          } else {
-            societyId  = extra as String? ?? '';
-            department = null;
-          }
-          return AttendanceApprovalScreen(societyId: societyId, department: department);
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.parkingGateCheck,
-        builder: (_, __) => const GateCheckScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.parkingManagement,
-        redirect: (_, __) {
-          if (authState is AuthAuthenticated) {
-            final user = (authState as AuthAuthenticated).user;
-            if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
-          }
-          return null;
-        },
-        builder: (_, __) => const ParkingManagementScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.staffAssignDuty,
-        builder: (_, state) {
-          final extra = state.extra as Map<String, dynamic>? ?? {};
-          return DutyAssignScreen(
-            societyId: extra['societyId'] as String? ?? '',
-            preSelectedStaffId: extra['staffId'] as String?,
-          );
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.staffDutyOverview,
-        builder: (_, state) => DutyOverviewScreen(
-          societyId: state.extra as String? ?? '',
-        ),
-      ),
-      GoRoute(
-        path: AppRoutes.staffAttendanceCorrections,
-        builder: (_, state) => AttendanceCorrectionScreen(
-          societyId: state.extra as String? ?? '',
-        ),
-      ),
-      GoRoute(
-        path: AppRoutes.staffList,
-        builder: (_, state) {
-          final dept = state.uri.queryParameters['department'];
-          return StaffListScreen(filterDepartment: dept);
-        },
-      ),
-      // Staff Master CRUD — literal /add before parameterised /:staffId/*
-      GoRoute(
-        path: AppRoutes.staffAdd,
-        redirect: (_, __) {
-          if (authState is AuthAuthenticated) {
-            final user = (authState as AuthAuthenticated).user;
-            if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
-          }
-          return null;
-        },
-        builder: (_, __) => const StaffAddScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.staffImport,
-        redirect: (_, __) {
-          if (authState is AuthAuthenticated) {
-            final user = (authState as AuthAuthenticated).user;
-            if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
-          }
-          return null;
-        },
-        builder: (_, __) => const StaffImportScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.staffDetail,
-        builder: (_, state) {
-          final staff = state.extra as StaffEntity;
-          return StaffDetailScreen(staff: staff);
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.staffEdit,
-        redirect: (_, __) {
-          if (authState is AuthAuthenticated) {
-            final user = (authState as AuthAuthenticated).user;
-            if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
-          }
-          return null;
-        },
-        builder: (_, state) {
-          final staff = state.extra as StaffEntity;
-          return StaffEditScreen(staff: staff);
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.staffAttendance,
-        builder: (_, state) => AttendanceScreen(
-          staffId: state.pathParameters['staffId']!,
-        ),
-      ),
-      GoRoute(
-        path: AppRoutes.staffDuties,
-        builder: (_, state) => DutiesScreen(
-            staffId: state.pathParameters['staffId']!),
-      ),
-      GoRoute(
-        path: AppRoutes.staffHandover,
-        builder: (_, state) => HandoverScreen(
-          staffId: state.pathParameters['staffId']!,
-          societyId: state.extra as String? ?? '',
-        ),
-      ),
-      // Visitor routes (specific paths before parameterised)
-      GoRoute(
-        path: AppRoutes.visitorsCreate,
-        builder: (_, state) => CreateVisitorScreen(
-          societyId: state.extra as String? ??
-              state.uri.queryParameters['societyId'] ?? '',
-        ),
-      ),
-      GoRoute(
-        path: AppRoutes.visitorsMy,
-        builder: (_, __) => const VisitorListScreen(isMy: true),
-      ),
-      GoRoute(
-        path: AppRoutes.visitorsPending,
-        builder: (_, __) => const VisitorApprovalsScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.visitorsSociety,
-        builder: (_, state) => VisitorListScreen(
-          isMy: false,
-          societyId: state.pathParameters['societyId']!,
-        ),
-      ),
-      // Complaint routes (literal 'create' and 'society' before :complaintId)
-      GoRoute(
-        path: AppRoutes.complaints,
-        builder: (_, __) => const ComplaintListScreen(isMy: true),
-      ),
-      GoRoute(
-        path: AppRoutes.complaintsCreate,
-        builder: (_, state) => CreateComplaintScreen(
-          societyId: state.uri.queryParameters['societyId'] ?? '',
-        ),
-      ),
-      GoRoute(
-        path: AppRoutes.complaintsAssigned,
-        builder: (_, __) =>
-            const ComplaintListScreen(isMy: false, assignedToMe: true),
-      ),
-      GoRoute(
-        path: AppRoutes.complaintsSociety,
-        builder: (_, state) => ComplaintListScreen(
-          isMy: false,
-          societyId: state.pathParameters['societyId']!,
-        ),
-      ),
-      GoRoute(
-        path: AppRoutes.complaintsDetail,
-        builder: (_, state) => ComplaintDetailScreen(
-          complaintId: state.pathParameters['complaintId']!,
-        ),
-      ),
       // Onboarding wizard (auth-gated; redirect target for new users)
       GoRoute(
         path: AppRoutes.setupWizard,
@@ -486,256 +293,458 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return TrialSuccessScreen(result: result);
         },
       ),
-      // Users & Roles (literal 'create' before :userId)
-      GoRoute(
-        path: AppRoutes.usersList,
-        builder: (_, __) => const UserListScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.usersCreate,
-        builder: (_, __) => const CreateUserScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.usersEdit,
-        builder: (_, state) {
-          final user = state.extra as AdminUserModel;
-          return EditUserScreen(user: user);
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.usersRoles,
-        builder: (_, state) {
-          final user = state.extra as AdminUserModel;
-          return RoleAssignmentScreen(user: user);
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.usersDetail,
-        builder: (_, state) =>
-            UserDetailScreen(userId: state.pathParameters['userId']!),
-      ),
-      GoRoute(
-        path: AppRoutes.permissionMatrix,
-        redirect: (_, __) {
-          if (authState is AuthAuthenticated) {
-            final user = (authState as AuthAuthenticated).user;
-            if (!user.isAdmin) return userRoleHome(user);
-          }
-          return null;
-        },
-        builder: (_, __) => const PermissionMatrixScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.formsMatrix,
-        redirect: (_, __) {
-          if (authState is AuthAuthenticated) {
-            final user = (authState as AuthAuthenticated).user;
-            if (!user.isAdmin) return userRoleHome(user);
-          }
-          return null;
-        },
-        builder: (_, __) => const FormsMatrixScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.checklistTemplates,
-        redirect: (_, __) {
-          if (authState is AuthAuthenticated) {
-            final user = (authState as AuthAuthenticated).user;
-            if (!user.isAdminOrCommittee) return userRoleHome(user);
-          }
-          return null;
-        },
-        builder: (_, __) => const ChecklistTemplatesScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.onlinePayments,
-        redirect: (_, __) {
-          if (authState is AuthAuthenticated) {
-            final user = (authState as AuthAuthenticated).user;
-            if (!(user.isAdminOrCommittee || user.isManager)) return userRoleHome(user);
-          }
-          return null;
-        },
-        builder: (_, __) => const OnlinePaymentsListScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.bankReconciliation,
-        redirect: (_, __) {
-          if (authState is AuthAuthenticated) {
-            final user = (authState as AuthAuthenticated).user;
-            if (!(user.isAdminOrCommittee || user.isManager)) return userRoleHome(user);
-          }
-          return null;
-        },
-        builder: (_, __) => const BankReconciliationScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.vendorBills,
-        redirect: (_, __) {
-          if (authState is AuthAuthenticated) {
-            final user = (authState as AuthAuthenticated).user;
-            if (!(user.isAdminOrCommittee || user.isManager)) return userRoleHome(user);
-          }
-          return null;
-        },
-        builder: (_, __) => const VendorBillsScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.maintenanceBilling,
-        redirect: (_, __) {
-          if (authState is AuthAuthenticated) {
-            final user = (authState as AuthAuthenticated).user;
-            if (!(user.isAdminOrCommittee || user.isManager)) return userRoleHome(user);
-          }
-          return null;
-        },
-        builder: (_, __) => const MaintenanceBillingScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.maintenanceElements,
-        redirect: (_, __) {
-          if (authState is AuthAuthenticated) {
-            final user = (authState as AuthAuthenticated).user;
-            if (!user.isAdminOrCommittee) return userRoleHome(user);
-          }
-          return null;
-        },
-        builder: (_, __) => const MaintenanceElementsScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.myBills,
-        builder: (_, __) => const MyBillsScreen(),
-      ),
-      // Society Settings
-      GoRoute(
-        path: AppRoutes.societySettings,
-        redirect: (_, __) {
-          if (authState is AuthAuthenticated) {
-            final user = (authState as AuthAuthenticated).user;
-            if (!user.isAdminOrCommittee) return userRoleHome(user);
-          }
-          return null;
-        },
-        builder: (_, __) => const SocietySettingsScreen(),
-      ),
-      // Society Structure — Wings
-      GoRoute(
-        path: AppRoutes.wingsList,
-        builder: (_, __) => const WingListScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.wingForm,
-        builder: (_, state) =>
-            WingFormScreen(wing: state.extra as WingModel?),
-      ),
-      // Society Structure — Floors (nested under wing)
-      GoRoute(
-        path: AppRoutes.floorsByWing,
-        builder: (_, state) =>
-            FloorListScreen(wing: state.extra as WingModel),
-      ),
-      GoRoute(
-        path: AppRoutes.floorForm,
-        builder: (_, state) {
-          final extra = state.extra as Map<String, dynamic>;
-          return FloorFormScreen(
-            wing:  extra['wing'] as WingModel,
-            floor: extra['floor'] as FloorModel?,
-          );
-        },
-      ),
-      // Society Structure — Flats
-      GoRoute(
-        path: AppRoutes.flatsList,
-        builder: (_, __) => const FlatListScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.flatsByWing,
-        builder: (_, state) {
-          final extra = state.extra as Map<String, dynamic>?;
-          return FlatListScreen(
-            filterWing:  extra?['wing'] as WingModel?,
-            filterFloor: extra?['floor'] as FloorModel?,
-          );
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.flatDetail,
-        builder: (_, state) =>
-            FlatDetailScreen(flat: state.extra as FlatModel),
-      ),
-      GoRoute(
-        path: AppRoutes.flatForm,
-        builder: (_, state) {
-          final extra = state.extra as Map<String, dynamic>?;
-          return FlatFormScreen(
-            flat:         extra?['flat'] as FlatModel?,
-            defaultWing:  extra?['wing'] as WingModel?,
-            defaultFloor: extra?['floor'] as FloorModel?,
-          );
-        },
-      ),
-      // Society Structure wizard (wings/floors/flats setup)
-      GoRoute(
-        path: AppRoutes.structureWizard,
-        builder: (_, __) => const structure_wizard.SetupWizardScreen(),
-      ),
-      // Resident Master (Phase M1.4) — literal paths before /form and /detail
-      // carry all state via `extra` (mirrors the Flat routes above), so no
-      // path-parameter ordering conflicts.
-      GoRoute(
-        path: AppRoutes.residentsList,
-        builder: (_, state) {
-          final extra = state.extra as Map<String, dynamic>?;
-          return ResidentListScreen(filterFlat: extra?['flat'] as FlatModel?);
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.residentDetail,
-        builder: (_, state) => ResidentDetailScreen(resident: state.extra as ResidentModel),
-      ),
-      GoRoute(
-        path: AppRoutes.residentForm,
-        builder: (_, state) {
-          final extra = state.extra as Map<String, dynamic>?;
-          return ResidentFormScreen(
-            resident: extra?['resident'] as ResidentModel?,
-            defaultFlat: extra?['flat'] as FlatModel?,
-          );
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.residentImport,
-        builder: (_, __) => const ResidentImportScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.editMyProfile,
-        builder: (_, __) => const EditMyProfileScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.pendingResidentChanges,
-        builder: (_, __) => const PendingResidentChangesScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.tenantsList,
-        builder: (_, state) {
-          final extra = state.extra as Map<String, dynamic>?;
-          return TenantListScreen(filterFlat: extra?['flat'] as FlatModel?);
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.tenantDetail,
-        builder: (_, state) => TenantDetailScreen(tenant: state.extra as TenantModel),
-      ),
-      GoRoute(
-        path: AppRoutes.tenantForm,
-        builder: (_, state) {
-          final extra = state.extra as Map<String, dynamic>?;
-          return TenantFormScreen(
-            tenant: extra?['tenant'] as TenantModel?,
-            defaultFlat: extra?['flat'] as FlatModel?,
-          );
-        },
+      // Every signed-in page renders inside AppShell, which adds the
+      // desktop sidebar and top bar on wide screens (web ERP layout) and is
+      // a pass-through on phones.
+      ShellRoute(
+        builder: (_, state, child) => AppShell(location: state.uri.path, child: child),
+        routes: [
+          GoRoute(path: AppRoutes.home, redirect: (_, __) {
+            if (authState is AuthAuthenticated) {
+              return userRoleHome((authState as AuthAuthenticated).user);
+            }
+            return AppRoutes.login;
+          }),
+          GoRoute(path: AppRoutes.adminHome,
+              builder: (_, __) => const AdminDashboardScreen()),
+          GoRoute(path: AppRoutes.committeeHome,
+              builder: (_, __) => const CommitteeDashboardScreen()),
+          GoRoute(path: AppRoutes.residentHome,
+              builder: (_, __) => const ResidentDashboardScreen()),
+          GoRoute(path: AppRoutes.securityHome,
+              builder: (_, __) => const SecurityDashboardScreen()),
+          GoRoute(path: AppRoutes.managerHome,
+              builder: (_, __) => const ManagerDashboardScreen()),
+          GoRoute(path: AppRoutes.supervisorHome,
+              builder: (_, __) => const SupervisorDashboardScreen()),
+          GoRoute(path: AppRoutes.staffHome,
+              builder: (_, __) => const StaffHomeScreen()),
+          GoRoute(
+            path: AppRoutes.staffApprovals,
+            builder: (_, state) {
+              final extra = state.extra;
+              final String societyId;
+              final String? department;
+              if (extra is Map<String, dynamic>) {
+                societyId  = extra['societyId'] as String? ?? '';
+                department = extra['department'] as String?;
+              } else {
+                societyId  = extra as String? ?? '';
+                department = null;
+              }
+              return AttendanceApprovalScreen(societyId: societyId, department: department);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.parkingGateCheck,
+            builder: (_, __) => const GateCheckScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.parkingManagement,
+            redirect: (_, __) {
+              if (authState is AuthAuthenticated) {
+                final user = (authState as AuthAuthenticated).user;
+                if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
+              }
+              return null;
+            },
+            builder: (_, __) => const ParkingManagementScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.staffAssignDuty,
+            builder: (_, state) {
+              final extra = state.extra as Map<String, dynamic>? ?? {};
+              return DutyAssignScreen(
+                societyId: extra['societyId'] as String? ?? '',
+                preSelectedStaffId: extra['staffId'] as String?,
+              );
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.staffDutyOverview,
+            builder: (_, state) => DutyOverviewScreen(
+              societyId: state.extra as String? ?? '',
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.staffAttendanceCorrections,
+            builder: (_, state) => AttendanceCorrectionScreen(
+              societyId: state.extra as String? ?? '',
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.staffList,
+            builder: (_, state) {
+              final dept = state.uri.queryParameters['department'];
+              return StaffListScreen(filterDepartment: dept);
+            },
+          ),
+          // Staff Master CRUD — literal /add before parameterised /:staffId/*
+          GoRoute(
+            path: AppRoutes.staffAdd,
+            redirect: (_, __) {
+              if (authState is AuthAuthenticated) {
+                final user = (authState as AuthAuthenticated).user;
+                if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
+              }
+              return null;
+            },
+            builder: (_, __) => const StaffAddScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.staffImport,
+            redirect: (_, __) {
+              if (authState is AuthAuthenticated) {
+                final user = (authState as AuthAuthenticated).user;
+                if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
+              }
+              return null;
+            },
+            builder: (_, __) => const StaffImportScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.staffDetail,
+            builder: (_, state) {
+              final staff = state.extra as StaffEntity;
+              return StaffDetailScreen(staff: staff);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.staffEdit,
+            redirect: (_, __) {
+              if (authState is AuthAuthenticated) {
+                final user = (authState as AuthAuthenticated).user;
+                if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
+              }
+              return null;
+            },
+            builder: (_, state) {
+              final staff = state.extra as StaffEntity;
+              return StaffEditScreen(staff: staff);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.staffAttendance,
+            builder: (_, state) => AttendanceScreen(
+              staffId: state.pathParameters['staffId']!,
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.staffDuties,
+            builder: (_, state) => DutiesScreen(
+                staffId: state.pathParameters['staffId']!),
+          ),
+          GoRoute(
+            path: AppRoutes.staffHandover,
+            builder: (_, state) => HandoverScreen(
+              staffId: state.pathParameters['staffId']!,
+              societyId: state.extra as String? ?? '',
+            ),
+          ),
+          // Visitor routes (specific paths before parameterised)
+          GoRoute(
+            path: AppRoutes.visitorsCreate,
+            builder: (_, state) => CreateVisitorScreen(
+              societyId: state.extra as String? ??
+                  state.uri.queryParameters['societyId'] ?? '',
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.visitorsMy,
+            builder: (_, __) => const VisitorListScreen(isMy: true),
+          ),
+          GoRoute(
+            path: AppRoutes.visitorsPending,
+            builder: (_, __) => const VisitorApprovalsScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.visitorsSociety,
+            builder: (_, state) => VisitorListScreen(
+              isMy: false,
+              societyId: state.pathParameters['societyId']!,
+            ),
+          ),
+          // Complaint routes (literal 'create' and 'society' before :complaintId)
+          GoRoute(
+            path: AppRoutes.complaints,
+            builder: (_, __) => const ComplaintListScreen(isMy: true),
+          ),
+          GoRoute(
+            path: AppRoutes.complaintsCreate,
+            builder: (_, state) => CreateComplaintScreen(
+              societyId: state.uri.queryParameters['societyId'] ?? '',
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.complaintsAssigned,
+            builder: (_, __) =>
+                const ComplaintListScreen(isMy: false, assignedToMe: true),
+          ),
+          GoRoute(
+            path: AppRoutes.complaintsSociety,
+            builder: (_, state) => ComplaintListScreen(
+              isMy: false,
+              societyId: state.pathParameters['societyId']!,
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.complaintsDetail,
+            builder: (_, state) => ComplaintDetailScreen(
+              complaintId: state.pathParameters['complaintId']!,
+            ),
+          ),
+          // Users & Roles (literal 'create' before :userId)
+          GoRoute(
+            path: AppRoutes.usersList,
+            builder: (_, __) => const UserListScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.usersCreate,
+            builder: (_, __) => const CreateUserScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.usersEdit,
+            builder: (_, state) {
+              final user = state.extra as AdminUserModel;
+              return EditUserScreen(user: user);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.usersRoles,
+            builder: (_, state) {
+              final user = state.extra as AdminUserModel;
+              return RoleAssignmentScreen(user: user);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.usersDetail,
+            builder: (_, state) =>
+                UserDetailScreen(userId: state.pathParameters['userId']!),
+          ),
+          GoRoute(
+            path: AppRoutes.permissionMatrix,
+            redirect: (_, __) {
+              if (authState is AuthAuthenticated) {
+                final user = (authState as AuthAuthenticated).user;
+                if (!user.isAdmin) return userRoleHome(user);
+              }
+              return null;
+            },
+            builder: (_, __) => const PermissionMatrixScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.formsMatrix,
+            redirect: (_, __) {
+              if (authState is AuthAuthenticated) {
+                final user = (authState as AuthAuthenticated).user;
+                if (!user.isAdmin) return userRoleHome(user);
+              }
+              return null;
+            },
+            builder: (_, __) => const FormsMatrixScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.checklistTemplates,
+            redirect: (_, __) {
+              if (authState is AuthAuthenticated) {
+                final user = (authState as AuthAuthenticated).user;
+                if (!user.isAdminOrCommittee) return userRoleHome(user);
+              }
+              return null;
+            },
+            builder: (_, __) => const ChecklistTemplatesScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.onlinePayments,
+            redirect: (_, __) {
+              if (authState is AuthAuthenticated) {
+                final user = (authState as AuthAuthenticated).user;
+                if (!(user.isAdminOrCommittee || user.isManager)) return userRoleHome(user);
+              }
+              return null;
+            },
+            builder: (_, __) => const OnlinePaymentsListScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.bankReconciliation,
+            redirect: (_, __) {
+              if (authState is AuthAuthenticated) {
+                final user = (authState as AuthAuthenticated).user;
+                if (!(user.isAdminOrCommittee || user.isManager)) return userRoleHome(user);
+              }
+              return null;
+            },
+            builder: (_, __) => const BankReconciliationScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.vendorBills,
+            redirect: (_, __) {
+              if (authState is AuthAuthenticated) {
+                final user = (authState as AuthAuthenticated).user;
+                if (!(user.isAdminOrCommittee || user.isManager)) return userRoleHome(user);
+              }
+              return null;
+            },
+            builder: (_, __) => const VendorBillsScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.maintenanceBilling,
+            redirect: (_, __) {
+              if (authState is AuthAuthenticated) {
+                final user = (authState as AuthAuthenticated).user;
+                if (!(user.isAdminOrCommittee || user.isManager)) return userRoleHome(user);
+              }
+              return null;
+            },
+            builder: (_, __) => const MaintenanceBillingScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.maintenanceElements,
+            redirect: (_, __) {
+              if (authState is AuthAuthenticated) {
+                final user = (authState as AuthAuthenticated).user;
+                if (!user.isAdminOrCommittee) return userRoleHome(user);
+              }
+              return null;
+            },
+            builder: (_, __) => const MaintenanceElementsScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.myBills,
+            builder: (_, __) => const MyBillsScreen(),
+          ),
+          // Society Settings
+          GoRoute(
+            path: AppRoutes.societySettings,
+            redirect: (_, __) {
+              if (authState is AuthAuthenticated) {
+                final user = (authState as AuthAuthenticated).user;
+                if (!user.isAdminOrCommittee) return userRoleHome(user);
+              }
+              return null;
+            },
+            builder: (_, __) => const SocietySettingsScreen(),
+          ),
+          // Society Structure — Wings
+          GoRoute(
+            path: AppRoutes.wingsList,
+            builder: (_, __) => const WingListScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.wingForm,
+            builder: (_, state) =>
+                WingFormScreen(wing: state.extra as WingModel?),
+          ),
+          // Society Structure — Floors (nested under wing)
+          GoRoute(
+            path: AppRoutes.floorsByWing,
+            builder: (_, state) =>
+                FloorListScreen(wing: state.extra as WingModel),
+          ),
+          GoRoute(
+            path: AppRoutes.floorForm,
+            builder: (_, state) {
+              final extra = state.extra as Map<String, dynamic>;
+              return FloorFormScreen(
+                wing:  extra['wing'] as WingModel,
+                floor: extra['floor'] as FloorModel?,
+              );
+            },
+          ),
+          // Society Structure — Flats
+          GoRoute(
+            path: AppRoutes.flatsList,
+            builder: (_, __) => const FlatListScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.flatsByWing,
+            builder: (_, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              return FlatListScreen(
+                filterWing:  extra?['wing'] as WingModel?,
+                filterFloor: extra?['floor'] as FloorModel?,
+              );
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.flatDetail,
+            builder: (_, state) =>
+                FlatDetailScreen(flat: state.extra as FlatModel),
+          ),
+          GoRoute(
+            path: AppRoutes.flatForm,
+            builder: (_, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              return FlatFormScreen(
+                flat:         extra?['flat'] as FlatModel?,
+                defaultWing:  extra?['wing'] as WingModel?,
+                defaultFloor: extra?['floor'] as FloorModel?,
+              );
+            },
+          ),
+          // Society Structure wizard (wings/floors/flats setup)
+          GoRoute(
+            path: AppRoutes.structureWizard,
+            builder: (_, __) => const structure_wizard.SetupWizardScreen(),
+          ),
+          // Resident Master (Phase M1.4) — literal paths before /form and /detail
+          // carry all state via `extra` (mirrors the Flat routes above), so no
+          // path-parameter ordering conflicts.
+          GoRoute(
+            path: AppRoutes.residentsList,
+            builder: (_, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              return ResidentListScreen(filterFlat: extra?['flat'] as FlatModel?);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.residentDetail,
+            builder: (_, state) => ResidentDetailScreen(resident: state.extra as ResidentModel),
+          ),
+          GoRoute(
+            path: AppRoutes.residentForm,
+            builder: (_, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              return ResidentFormScreen(
+                resident: extra?['resident'] as ResidentModel?,
+                defaultFlat: extra?['flat'] as FlatModel?,
+              );
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.residentImport,
+            builder: (_, __) => const ResidentImportScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.editMyProfile,
+            builder: (_, __) => const EditMyProfileScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.pendingResidentChanges,
+            builder: (_, __) => const PendingResidentChangesScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.tenantsList,
+            builder: (_, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              return TenantListScreen(filterFlat: extra?['flat'] as FlatModel?);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.tenantDetail,
+            builder: (_, state) => TenantDetailScreen(tenant: state.extra as TenantModel),
+          ),
+          GoRoute(
+            path: AppRoutes.tenantForm,
+            builder: (_, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              return TenantFormScreen(
+                tenant: extra?['tenant'] as TenantModel?,
+                defaultFlat: extra?['flat'] as FlatModel?,
+              );
+            },
+          ),
+        ],
       ),
     ],
     errorBuilder: (context, state) =>

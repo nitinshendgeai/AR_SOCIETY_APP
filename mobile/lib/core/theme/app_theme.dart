@@ -356,4 +356,162 @@ class AppTheme {
       ),
     );
   }
+
+  /// Density pass for desktop-width web (the ERP layout AppShell switches
+  /// to at >=1024px), layered over [lightTheme]. Phones keep the roomy
+  /// touch-first theme; on a mouse-driven wide screen the web-ERP norms
+  /// apply instead (Material 3 desktop / Fluent / Fiori): 14px body text,
+  /// 40px auto-width buttons rather than full-width 52px slabs, outlined
+  /// fields with a clear focus ring, hover states, thin-bordered cards, and
+  /// page titles set as left-aligned headings.
+  static ThemeData desktopTheme(ThemeData base) {
+    final t = base.textTheme;
+    final textTheme = t.copyWith(
+      titleLarge:  t.titleLarge?.copyWith(fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.2),
+      titleMedium: t.titleMedium?.copyWith(fontSize: 15),
+      titleSmall:  t.titleSmall?.copyWith(fontSize: 13.5),
+      bodyLarge:   t.bodyLarge?.copyWith(fontSize: 15, height: 1.4),
+      bodyMedium:  t.bodyMedium?.copyWith(fontSize: 14, height: 1.4),
+      bodySmall:   t.bodySmall?.copyWith(fontSize: 12.5),
+      labelLarge:  t.labelLarge?.copyWith(fontSize: 14),
+    );
+    const buttonText = TextStyle(fontFamily: _fontFamily, fontSize: 14, fontWeight: FontWeight.w600);
+    final buttonShape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(8));
+    const buttonSize = Size(64, 40);
+    const buttonPadding = EdgeInsets.symmetric(horizontal: 18);
+    // Desktop platforms default to compact density, which would shave the
+    // 40px button height down to 32px — too small a click target.
+
+    OutlineInputBorder outline(Color color, [double width = 1]) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: color, width: width),
+        );
+
+    return base.copyWith(
+      textTheme: textTheme,
+      splashFactory: InkRipple.splashFactory,
+      hoverColor: textPrimary.withOpacity(0.04),
+
+      appBarTheme: base.appBarTheme.copyWith(
+        toolbarHeight: 64,
+        titleSpacing: 24,
+        titleTextStyle: textTheme.titleLarge,
+      ),
+
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primary,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: primary.withOpacity(0.35),
+          disabledForegroundColor: Colors.white.withOpacity(0.8),
+          minimumSize: buttonSize,
+          padding: buttonPadding,
+          visualDensity: VisualDensity.standard,
+          elevation: 0,
+          shadowColor: Colors.transparent,
+          shape: buttonShape,
+          textStyle: buttonText,
+        ).copyWith(
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.disabled)) return primary.withOpacity(0.35);
+            if (states.contains(WidgetState.hovered)) return primaryDark;
+            return primary;
+          }),
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        ),
+      ),
+
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: buttonSize,
+          padding: buttonPadding,
+          visualDensity: VisualDensity.standard,
+          shape: buttonShape,
+          textStyle: buttonText,
+        ),
+      ),
+
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: textPrimary,
+          backgroundColor: cardBg,
+          minimumSize: buttonSize,
+          padding: buttonPadding,
+          visualDensity: VisualDensity.standard,
+          side: const BorderSide(color: Color(0xFFD1D1D6)),
+          shape: buttonShape,
+          textStyle: buttonText,
+        ).copyWith(
+          overlayColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.hovered) || states.contains(WidgetState.pressed)
+                ? textPrimary.withOpacity(0.05)
+                : null,
+          ),
+        ),
+      ),
+
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: primary,
+          minimumSize: const Size(48, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          shape: buttonShape,
+          textStyle: buttonText,
+        ),
+      ),
+
+      floatingActionButtonTheme: base.floatingActionButtonTheme.copyWith(
+        backgroundColor: primary,
+        foregroundColor: Colors.white,
+        elevation: 2,
+        hoverElevation: 4,
+        extendedTextStyle: buttonText,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+
+      // Outlined white fields: on a large light-gray canvas a gray fill
+      // reads as disabled, and forms need visible field boundaries.
+      inputDecorationTheme: base.inputDecorationTheme.copyWith(
+        fillColor: cardBg,
+        hoverColor: Colors.transparent,
+        border: outline(const Color(0xFFD1D1D6)),
+        enabledBorder: outline(const Color(0xFFD1D1D6)),
+        focusedBorder: outline(primary, 2),
+        errorBorder: outline(error),
+        focusedErrorBorder: outline(error, 2),
+        disabledBorder: outline(border),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        labelStyle: const TextStyle(fontFamily: _fontFamily, fontSize: 14, fontWeight: FontWeight.w400, color: textSecondary),
+        hintStyle: const TextStyle(fontFamily: _fontFamily, fontSize: 14, fontWeight: FontWeight.w400, color: textTertiary),
+      ),
+
+      cardTheme: base.cardTheme.copyWith(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: border),
+        ),
+      ),
+
+      dialogTheme: base.dialogTheme.copyWith(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        titleTextStyle: textTheme.titleLarge,
+        contentTextStyle: textTheme.bodyMedium?.copyWith(color: textSecondary),
+      ),
+
+      listTileTheme: base.listTileTheme.copyWith(
+        titleTextStyle: textTheme.bodyLarge?.copyWith(fontSize: 14.5),
+        subtitleTextStyle: textTheme.bodySmall,
+        minVerticalPadding: 10,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+
+      scrollbarTheme: const ScrollbarThemeData(
+        thumbVisibility: WidgetStatePropertyAll(true),
+        thickness: WidgetStatePropertyAll(8),
+        radius: Radius.circular(4),
+      ),
+
+      tooltipTheme: base.tooltipTheme.copyWith(waitDuration: const Duration(milliseconds: 400)),
+    );
+  }
 }

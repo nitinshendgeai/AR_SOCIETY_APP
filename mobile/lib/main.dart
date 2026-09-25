@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/config/env.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 
 Future<void> main() async {
@@ -45,6 +46,11 @@ class ArSocietyApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: router,
+      // Desktop-width web gets the denser ERP theme; phones keep the
+      // touch-first one. Re-evaluated as the browser window is resized.
+      builder: (context, child) => isDesktopLayout(context)
+          ? Theme(data: AppTheme.desktopTheme(Theme.of(context)), child: child!)
+          : child!,
     );
   }
 }

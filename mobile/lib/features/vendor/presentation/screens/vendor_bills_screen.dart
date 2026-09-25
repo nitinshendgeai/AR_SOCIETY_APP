@@ -6,6 +6,8 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/features/vendor/domain/entities/vendor_entities.dart';
 import 'package:ar_society_app/features/vendor/presentation/providers/vendor_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/core/layout/app_sheet.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 
 /// FMC Manager/Admin/Committee: bills owed to vendors and payments made
 /// against them — the society's payable side, the mirror of the
@@ -40,8 +42,8 @@ class _VendorBillsScreenState extends ConsumerState<VendorBillsScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showModalBottomSheet(
-          context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+        onPressed: () => showAppSheet(
+          context: context,
           builder: (_) => _AddBillSheet(societyId: societyId),
         ),
         icon: const Icon(Icons.add_rounded),
@@ -119,8 +121,8 @@ class _VendorBillsScreenState extends ConsumerState<VendorBillsScreen> {
                     itemCount: filtered.length,
                     itemBuilder: (_, i) => _BillCard(
                       invoice: filtered[i],
-                      onTap: () => showModalBottomSheet(
-                        context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+                      onTap: () => showAppSheet(
+                        context: context,
                         builder: (_) => _BillDetailSheet(invoice: filtered[i], societyId: societyId),
                       ),
                     ),
@@ -262,10 +264,12 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
   @override
   Widget build(BuildContext context) {
     final vendorsAsync = ref.watch(vendorsProvider(widget.societyId));
+    // Fills the side panel on desktop; a draggable part-height sheet on phones.
+    final panel = isDesktopLayout(context);
     return DraggableScrollableSheet(
-      initialChildSize: 0.85,
+      initialChildSize: panel ? 1 : 0.85,
       minChildSize: 0.5,
-      maxChildSize: 0.95,
+      maxChildSize: panel ? 1 : 0.95,
       expand: false,
       builder: (context, scrollController) => Container(
         decoration: const BoxDecoration(
@@ -505,8 +509,8 @@ class _BillDetailSheet extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: () {
                     Navigator.pop(context);
-                    showModalBottomSheet(
-                      context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+                    showAppSheet(
+                      context: context,
                       builder: (_) => _RecordPaymentSheet(invoice: invoice, societyId: societyId),
                     );
                   },
