@@ -79,7 +79,7 @@ class Notice(Base, TimestampMixin):
     __tablename__ = "notices"
 
     society_id           = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
-    created_by           = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_by           = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     title                = Column(String(255), nullable=False)
     content              = Column(Text, nullable=False)
@@ -118,7 +118,7 @@ class NoticeAcknowledgement(Base, TimestampMixin):
 
     notice_id  = Column(UUID(as_uuid=True), ForeignKey("notices.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    flat_id    = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="SET NULL"), nullable=True)
+    flat_id    = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="SET NULL"), nullable=True, index=True)
     ack_at     = Column(DateTime, nullable=False)
     notes      = Column(Text, nullable=True)
 
@@ -136,7 +136,7 @@ class Announcement(Base, TimestampMixin):
     __tablename__ = "announcements"
 
     society_id   = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
-    created_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     title        = Column(String(255), nullable=False)
     content      = Column(Text, nullable=False)
@@ -176,8 +176,8 @@ class EmergencyAlert(Base, TimestampMixin):
     __tablename__ = "emergency_alerts"
 
     society_id   = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
-    triggered_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    resolved_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    triggered_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    resolved_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     alert_type   = Column(Enum(AlertType, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     status       = Column(Enum(AlertStatus, values_callable=lambda e: [x.value for x in e]), default=AlertStatus.ACTIVE, nullable=False, index=True)

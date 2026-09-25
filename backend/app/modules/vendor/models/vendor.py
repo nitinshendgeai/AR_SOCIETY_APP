@@ -147,7 +147,7 @@ class Vendor(Base, TimestampMixin):
     notes             = Column(Text, nullable=True)
     blacklist_reason  = Column(Text, nullable=True)
 
-    registered_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    registered_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     society      = relationship("Society")
     registrar    = relationship("User", foreign_keys=[registered_by])
@@ -183,8 +183,8 @@ class AMCContract(Base, TimestampMixin):
 
     society_id       = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     vendor_id        = Column(UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="CASCADE"), nullable=False, index=True)
-    asset_id         = Column(UUID(as_uuid=True), nullable=True, index=True)   # optional asset linkage
-    created_by       = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    asset_id         = Column(UUID(as_uuid=True), ForeignKey("assets.id", ondelete="SET NULL"), nullable=True, index=True)   # optional asset linkage
+    created_by       = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     contract_number  = Column(String(50), nullable=False, unique=True, index=True)
     contract_name    = Column(String(255), nullable=False)
@@ -209,12 +209,12 @@ class AMCContract(Base, TimestampMixin):
     document_url      = Column(String(500), nullable=True)
 
     # Alert flags
-    alert_sent_60     = Column(Boolean, default=False)
-    alert_sent_30     = Column(Boolean, default=False)
-    alert_sent_7      = Column(Boolean, default=False)
+    alert_sent_60     = Column(Boolean, default=False, nullable=False)
+    alert_sent_30     = Column(Boolean, default=False, nullable=False)
+    alert_sent_7      = Column(Boolean, default=False, nullable=False)
 
     # Renewal linkage
-    renewed_from_id   = Column(UUID(as_uuid=True), nullable=True)
+    renewed_from_id   = Column(UUID(as_uuid=True), ForeignKey("amc_contracts.id", ondelete="SET NULL"), nullable=True, index=True)
 
     society   = relationship("Society")
     vendor    = relationship("Vendor", back_populates="contracts")
@@ -240,7 +240,7 @@ class AMCServiceSchedule(Base, TimestampMixin):
     status         = Column(Enum(ScheduleStatus, values_callable=lambda e: [x.value for x in e]), default=ScheduleStatus.SCHEDULED, nullable=False, index=True)
     completed_date = Column(Date, nullable=True)
     notes          = Column(Text, nullable=True)
-    visit_log_id   = Column(UUID(as_uuid=True), nullable=True)   # ref to ServiceVisitLog
+    visit_log_id   = Column(UUID(as_uuid=True), ForeignKey("service_visit_logs.id", ondelete="SET NULL"), nullable=True, index=True)   # ref to ServiceVisitLog
 
     contract = relationship("AMCContract", back_populates="schedules")
     society  = relationship("Society")
@@ -254,10 +254,10 @@ class ServiceRequest(Base, TimestampMixin):
     society_id     = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     vendor_id      = Column(UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True, index=True)
     raised_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
-    assigned_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    verified_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    complaint_id   = Column(UUID(as_uuid=True), nullable=True)   # linked complaint
-    asset_id       = Column(UUID(as_uuid=True), nullable=True)   # linked asset
+    assigned_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    verified_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    complaint_id   = Column(UUID(as_uuid=True), ForeignKey("complaints.id", ondelete="SET NULL"), nullable=True, index=True)   # linked complaint
+    asset_id       = Column(UUID(as_uuid=True), ForeignKey("assets.id", ondelete="SET NULL"), nullable=True, index=True)   # linked asset
 
     request_number = Column(String(20), nullable=False, unique=True, index=True)
     title          = Column(String(255), nullable=False)
@@ -303,8 +303,8 @@ class ServiceVisitLog(Base, TimestampMixin):
     request_id     = Column(UUID(as_uuid=True), ForeignKey("service_requests.id", ondelete="CASCADE"), nullable=True, index=True)
     contract_id    = Column(UUID(as_uuid=True), ForeignKey("amc_contracts.id", ondelete="SET NULL"), nullable=True, index=True)
     society_id     = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
-    vendor_id      = Column(UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True)
-    logged_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    vendor_id      = Column(UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True, index=True)
+    logged_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     visit_date     = Column(Date, nullable=False, index=True)
     check_in_time  = Column(DateTime, nullable=True)
@@ -335,9 +335,9 @@ class VendorInvoice(Base, TimestampMixin):
 
     society_id     = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     vendor_id      = Column(UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="CASCADE"), nullable=False, index=True)
-    contract_id    = Column(UUID(as_uuid=True), ForeignKey("amc_contracts.id", ondelete="SET NULL"), nullable=True)
-    request_id     = Column(UUID(as_uuid=True), ForeignKey("service_requests.id", ondelete="SET NULL"), nullable=True)
-    approved_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    contract_id    = Column(UUID(as_uuid=True), ForeignKey("amc_contracts.id", ondelete="SET NULL"), nullable=True, index=True)
+    request_id     = Column(UUID(as_uuid=True), ForeignKey("service_requests.id", ondelete="SET NULL"), nullable=True, index=True)
+    approved_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     invoice_number = Column(String(50), nullable=False, index=True)
     invoice_date   = Column(Date, nullable=False, index=True)

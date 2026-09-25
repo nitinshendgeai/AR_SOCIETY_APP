@@ -23,7 +23,7 @@ class Vehicle(Base, TimestampMixin):
     flat_id        = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="CASCADE"), nullable=True, index=True)
     resident_id    = Column(UUID(as_uuid=True), ForeignKey("residents.id", ondelete="SET NULL"), nullable=True, index=True)
     tenant_id      = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="SET NULL"), nullable=True, index=True)
-    registered_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    registered_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Identity
     vehicle_number = Column(String(30), nullable=False, index=True)

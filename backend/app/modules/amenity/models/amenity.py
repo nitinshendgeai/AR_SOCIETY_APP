@@ -164,7 +164,7 @@ class AmenityBlackoutDate(Base, TimestampMixin):
     amenity_id  = Column(UUID(as_uuid=True), ForeignKey("amenities.id", ondelete="CASCADE"), nullable=False, index=True)
     blackout_date = Column(Date, nullable=False, index=True)
     reason        = Column(String(255), nullable=True)
-    created_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     amenity = relationship("Amenity", back_populates="blackouts")
 
@@ -176,10 +176,10 @@ class AmenityBooking(Base, TimestampMixin):
 
     # References
     amenity_id    = Column(UUID(as_uuid=True), ForeignKey("amenities.id", ondelete="CASCADE"), nullable=False, index=True)
-    slot_id       = Column(UUID(as_uuid=True), ForeignKey("amenity_slots.id", ondelete="SET NULL"), nullable=True)
+    slot_id       = Column(UUID(as_uuid=True), ForeignKey("amenity_slots.id", ondelete="SET NULL"), nullable=True, index=True)
     booked_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=False, index=True)
     society_id    = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
-    flat_id       = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="SET NULL"), nullable=True)
+    flat_id       = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Booking details
     booking_date  = Column(Date, nullable=False, index=True)
@@ -193,7 +193,7 @@ class AmenityBooking(Base, TimestampMixin):
     status        = Column(Enum(BookingStatus, values_callable=lambda e: [x.value for x in e]), default=BookingStatus.PENDING, nullable=False, index=True)
 
     # Approval
-    approved_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    approved_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     approved_at   = Column(DateTime, nullable=True)
     rejection_reason = Column(Text, nullable=True)
     cancelled_at  = Column(DateTime, nullable=True)
@@ -226,7 +226,7 @@ class AmenityUsageLog(Base, TimestampMixin):
     booking_id    = Column(UUID(as_uuid=True), ForeignKey("amenity_bookings.id", ondelete="CASCADE"), nullable=False, index=True)
     amenity_id    = Column(UUID(as_uuid=True), ForeignKey("amenities.id", ondelete="CASCADE"), nullable=False, index=True)
     society_id    = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
-    used_by       = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    used_by       = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     actual_start  = Column(DateTime, nullable=True)
     actual_end    = Column(DateTime, nullable=True)
     guest_count   = Column(Integer, nullable=True)

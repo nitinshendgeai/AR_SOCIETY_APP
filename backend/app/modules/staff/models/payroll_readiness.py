@@ -73,7 +73,7 @@ class StaffSalaryStructure(Base, TimestampMixin):
     working_days_per_month = Column(Integer, default=26, nullable=False)
     paid_leaves_per_year   = Column(Integer, default=12, nullable=False)
 
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     society = relationship("Society")
     staff   = relationship("Staff")
@@ -95,8 +95,8 @@ class AttendanceCorrection(Base, TimestampMixin):
     society_id        = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     staff_id          = Column(UUID(as_uuid=True), ForeignKey("staff.id", ondelete="CASCADE"), nullable=False, index=True)
     attendance_id     = Column(UUID(as_uuid=True), ForeignKey("staff_attendance.id", ondelete="CASCADE"), nullable=False, index=True)
-    requested_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    approved_by       = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    requested_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    approved_by       = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     correction_date   = Column(Date, nullable=False, index=True)
     original_status   = Column(String(50), nullable=True)
@@ -155,7 +155,7 @@ class MonthlyAttendanceSummary(Base, TimestampMixin):
 
     # Status
     is_finalized      = Column(Boolean, default=False, nullable=False)  # locked for payroll
-    finalized_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    finalized_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     society   = relationship("Society")
     staff     = relationship("Staff")

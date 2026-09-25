@@ -22,7 +22,7 @@ class AgreementTracker(Base, TimestampMixin):
     society_id      = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     flat_id         = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="CASCADE"), nullable=False, index=True)
     tenant_id       = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
-    resident_id     = Column(UUID(as_uuid=True), ForeignKey("residents.id", ondelete="SET NULL"), nullable=True)
+    resident_id     = Column(UUID(as_uuid=True), ForeignKey("residents.id", ondelete="SET NULL"), nullable=True, index=True)
 
     agreement_number = Column(String(50), nullable=True, index=True)
     start_date      = Column(Date, nullable=False, index=True)
@@ -37,11 +37,11 @@ class AgreementTracker(Base, TimestampMixin):
     # orphaned renewal_of_id values exist. ondelete=SET NULL: if a prior
     # agreement row is ever hard-deleted, a renewal chain shouldn't be
     # blocked from existing, it just loses that one historical link.
-    renewal_of_id   = Column(UUID(as_uuid=True), ForeignKey("agreement_tracker.id", ondelete="SET NULL"), nullable=True)
+    renewal_of_id   = Column(UUID(as_uuid=True), ForeignKey("agreement_tracker.id", ondelete="SET NULL"), nullable=True, index=True)
     termination_reason = Column(Text, nullable=True)
-    alert_sent_30   = Column(Boolean, default=False)  # 30-day expiry alert sent
-    alert_sent_7    = Column(Boolean, default=False)  # 7-day expiry alert sent
-    created_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    alert_sent_30   = Column(Boolean, default=False, nullable=False)  # 30-day expiry alert sent
+    alert_sent_7    = Column(Boolean, default=False, nullable=False)  # 7-day expiry alert sent
+    created_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     society  = relationship("Society")
     flat     = relationship("Flat")

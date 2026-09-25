@@ -71,7 +71,7 @@ class Complaint(Base, TimestampMixin):
     raised_by        = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=False, index=True)
     assigned_to         = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     assigned_department = Column(String(50), nullable=True, index=True)   # security|housekeeping|technical
-    assigned_by         = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    assigned_by         = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Timestamps
     assigned_at      = Column(DateTime, nullable=True)
@@ -114,7 +114,7 @@ class ComplaintComment(Base, TimestampMixin):
     __tablename__ = "complaint_comments"
 
     complaint_id  = Column(UUID(as_uuid=True), ForeignKey("complaints.id", ondelete="CASCADE"), nullable=False, index=True)
-    author_id     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=False)
+    author_id     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=False, index=True)
     body          = Column(Text, nullable=False)
     is_internal   = Column(Boolean, default=False, nullable=False)  # staff-only notes
 
@@ -126,7 +126,7 @@ class ComplaintAttachment(Base, TimestampMixin):
     __tablename__ = "complaint_attachments"
 
     complaint_id  = Column(UUID(as_uuid=True), ForeignKey("complaints.id", ondelete="CASCADE"), nullable=False, index=True)
-    uploaded_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    uploaded_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     file_name     = Column(String(255), nullable=False)
     file_url      = Column(String(500), nullable=False)   # S3/cloud URL
     file_size     = Column(Integer, nullable=True)        # bytes
@@ -143,7 +143,7 @@ class ComplaintStatusHistory(Base, TimestampMixin):
     complaint_id  = Column(UUID(as_uuid=True), ForeignKey("complaints.id", ondelete="CASCADE"), nullable=False, index=True)
     from_status   = Column(Enum(ComplaintStatus, values_callable=lambda e: [x.value for x in e]), nullable=True)
     to_status     = Column(Enum(ComplaintStatus, values_callable=lambda e: [x.value for x in e]), nullable=False)
-    changed_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    changed_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     notes         = Column(Text, nullable=True)
 
     complaint  = relationship("Complaint", back_populates="status_history")
