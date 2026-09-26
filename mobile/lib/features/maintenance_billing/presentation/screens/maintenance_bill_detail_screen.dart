@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
@@ -50,22 +51,37 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
     }
   }
 
-  /// Share or download the bill's PDF. Both work on the web (no temp files):
-  /// sharing uses the browser's share sheet where it can share files and
-  /// downloads it otherwise.
-  Future<void> _pdf(MaintenanceBill bill, {required bool share}) async {
+  /// Share or download the bill's PDF.
+  Future<void> _pdf(MaintenanceBill bill, {required bool share}) => _sharePdf(
+        () => ref.read(maintenanceBillingApiProvider).billPdf(bill.id),
+        fileName: '${bill.invoiceNumber}.pdf',
+        subject: 'Maintenance Bill ${bill.invoiceNumber}',
+        share: share,
+      );
+
+  /// Share or download a payment's receipt — a separate document from the bill.
+  Future<void> _receipt(BillPayment p, {required bool share}) => _sharePdf(
+        () => ref.read(maintenanceBillingApiProvider).receiptPdf(p.receiptNumber),
+        fileName: 'Receipt-${p.receiptNumber}.pdf',
+        subject: 'Payment Receipt ${p.receiptNumber}',
+        share: share,
+      );
+
+  /// Both work on the web (no temp files): sharing uses the browser's share
+  /// sheet where it can share files and downloads it otherwise.
+  Future<void> _sharePdf(Future<Uint8List> Function() load,
+      {required String fileName, required String subject, required bool share}) async {
     setState(() => _busy = true);
     try {
-      final bytes = await ref.read(maintenanceBillingApiProvider).billPdf(bill.id);
-      final fileName = '${bill.invoiceNumber}.pdf';
+      final bytes = await load();
       if (share) {
         await Share.shareXFiles(
           [XFile.fromData(bytes, name: fileName, mimeType: 'application/pdf')],
           fileNameOverrides: [fileName],
-          subject: 'Maintenance Bill ${bill.invoiceNumber}',
+          subject: subject,
         );
       } else if (await saveFileBytes(bytes, fileName, mimeType: 'application/pdf') && mounted) {
-        AppToast.success(context, 'Bill $fileName downloaded');
+        AppToast.success(context, '$fileName downloaded');
       }
     } catch (e) {
       if (mounted) showErrorToast(context, e);
@@ -178,6 +194,18 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
                               paymentModeLabel(p.paymentMode),
                               p.receiptNumber,
                             ].join(' · ')),
+                            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                              IconButton(
+                                tooltip: 'Download receipt',
+                                icon: const Icon(Icons.download_rounded),
+                                onPressed: _busy ? null : () => _receipt(p, share: false),
+                              ),
+                              IconButton(
+                                tooltip: 'Share receipt',
+                                icon: const Icon(Icons.share_rounded),
+                                onPressed: _busy ? null : () => _receipt(p, share: true),
+                              ),
+                            ]),
                           ),
                       ]),
               ),

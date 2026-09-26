@@ -30,6 +30,7 @@ from app.models.flat import Flat
 from app.models.wing import Wing
 from app.models.resident import Resident
 from app.modules.billing.services.bill_pdf import generate_maintenance_bill_pdf
+from app.modules.billing.services.receipt_pdf import generate_payment_receipt_pdf
 from app.modules.billing.services.maintenance_calculator import MaintenanceCalculator, default_settings
 from app.modules.billing.services.standard_elements import seed_standard_elements
 from app.models.user import User
@@ -499,7 +500,46 @@ class BillingService:
 
     def generate_bill_pdf(self, bill_id: UUID) -> bytes:
         bill = self.get_bill(bill_id)
-        return generate_maintenance_bill_pdf(bill, self.get_maintenance_settings(bill.society_id))
+        return generate_maintenance_bill_pdf(bill, self.get_maintenance_settings(bill.society_id),
+                                             **self._bill_print_context(bill))
+
+    def _bill_print_context(self, bill: MaintenanceBill) -> dict:
+        """What the printed bill needs beyond the bill itself: every charge
+        head of the society (unbilled heads print as 0.00) and the unpaid
+        interest inside the arrears."""
+        heads = (
+            self.db.query(MaintenanceChargeConfig)
+            .outerjoin(MaintenanceElement, MaintenanceElement.id == MaintenanceChargeConfig.element_id)
+            .filter(MaintenanceChargeConfig.society_id == bill.society_id,
+                    MaintenanceChargeConfig.is_active == True)
+            .order_by(MaintenanceElement.sort_order.asc().nullslast(), MaintenanceChargeConfig.created_at)
+            .all()
+        )
+        names: List[str] = []
+        for c in heads:
+            if c.effective_to and c.effective_to < bill.bill_date:
+                continue
+            if c.effective_from and c.effective_from > bill.bill_date:
+                continue
+            if c.name not in names:
+                names.append(c.name)
+
+        earlier = (
+            self.db.query(MaintenanceBill)
+            .filter(MaintenanceBill.flat_id == bill.flat_id, MaintenanceBill.id != bill.id,
+                    MaintenanceBill.cycle_id != bill.cycle_id, MaintenanceBill.is_active == True,
+                    MaintenanceBill.bill_status != BillStatus.CANCELLED,
+                    MaintenanceBill.bill_date <= bill.bill_date,
+                    MaintenanceBill.created_at < bill.created_at)
+            .all()
+        )
+        # Interest is billed as a PENALTY line; what's still unpaid of it is
+        # at most the bill's outstanding (payments settle the bill as a whole).
+        interest = sum((
+            min(Decimal(b.outstanding), sum((Decimal(li.total) for li in b.line_items
+                                             if li.charge_type == ChargeType.PENALTY), Decimal(0)))
+            for b in earlier if b.outstanding and b.outstanding > 0), Decimal(0))
+        return {"charge_heads": names, "accumulated_interest": interest}
 
     def get_overdue_bills(self, society_id: UUID) -> List[MaintenanceBill]:
         return self.bill_repo.get_overdue(society_id)
@@ -814,7 +854,17 @@ class BillingService:
         return entry
 
     def generate_online_payment_receipt_pdf(self, submission_id: UUID) -> bytes:
-        from app.modules.billing.services.receipt_pdf import generate_online_payment_receipt_pdf
-        submission = self.get_online_payment_submission(submission_id)
-        society_name = submission.society.name if submission.society else "Society"
-        return generate_online_payment_receipt_pdf(submission, society_name)
+        return generate_payment_receipt_pdf(self.get_online_payment_submission(submission_id))
+
+    def get_payment_by_receipt_number(self, receipt_number: str):
+        """The payment a receipt number belongs to — a PaymentReceipt, or an
+        OnlinePaymentSubmission from the Record Payment form."""
+        payment = (self.db.query(PaymentReceipt).filter(PaymentReceipt.receipt_number == receipt_number).first()
+                   or self.db.query(OnlinePaymentSubmission)
+                   .filter(OnlinePaymentSubmission.receipt_number == receipt_number).first())
+        if not payment:
+            raise HTTPException(404, "Receipt not found")
+        return payment
+
+    def generate_receipt_pdf(self, payment) -> bytes:
+        return generate_payment_receipt_pdf(payment)
