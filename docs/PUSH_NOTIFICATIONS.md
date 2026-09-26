@@ -5,9 +5,21 @@ resident's approve/reject for the guard — are pushed to the user's phone and
 browser, so they arrive even when the app is closed. Everything else stays an
 in-app notification.
 
-Push is **off until Firebase is configured**. Without the settings below the
-app and API behave exactly as before (residents still see waiting visitors on
-their dashboard, refreshed every 15 seconds).
+Firebase project: **`society-app-186ff`** (project number 666567205264).
+Its settings — API key, web and Android app ids, sender id, Web Push key —
+are built into the app (`mobile/lib/core/push/push_config.dart` and
+`mobile/web/firebase-config.js`); they aren't secret. The one secret, the
+service-account key the backend sends with, is set only on Railway.
+
+| Where | Status |
+|---|---|
+| Web app (society.duxos.in) | built in |
+| Backend | needs `FIREBASE_SERVICE_ACCOUNT_JSON` on Railway |
+| Android app (`com.arsociety.app`) | built in |
+
+Until the backend has the service-account key, nothing is pushed and the app
+behaves as before (residents still see waiting visitors on their dashboard,
+refreshed every 15 seconds).
 
 ## How it works
 
@@ -22,52 +34,29 @@ their dashboard, refreshed every 15 seconds).
 4. Tokens FCM reports as unregistered (app uninstalled, browser data cleared)
    are switched off. Signing out unregisters the device.
 
-## One-time setup
+## Setup
 
-### 1. Create the Firebase project
-1. <https://console.firebase.google.com> → **Add project** (Google Analytics
-   not needed).
-2. **Project settings → General → Your apps → Add app → Web** (nickname e.g.
-   "DUX OS web"). Copy from the config it shows: `apiKey`, `projectId`,
-   `messagingSenderId`, `appId`.
-3. **Project settings → Cloud Messaging → Web configuration → Web Push
-   certificates → Generate key pair.** Copy the key (the VAPID key).
-4. **Project settings → Service accounts → Generate new private key.** This
-   downloads a JSON file — keep it secret; it lets the server send pushes.
+### 1. Backend (Railway service `AR_SOCIETY_APP`) — required
+1. Firebase console → project `society-app-186ff` → **Project settings →
+   Service accounts → Generate new private key**. This downloads a JSON file;
+   keep it secret (it lets anyone send pushes as the app) and never commit it.
+2. Railway → `AR_SOCIETY_APP` → **Variables** → add
+   `FIREBASE_SERVICE_ACCOUNT_JSON` with the whole file contents as its value.
+3. Optional: `WEB_APP_URL` (default `https://society.duxos.in`) — where a
+   clicked web notification opens.
 
-### 2. Backend (Railway service `AR_SOCIETY_APP`)
-| Variable | Value |
-|---|---|
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | the whole contents of the service-account JSON file |
-| `WEB_APP_URL` | `https://society.duxos.in` (default; change only if the web app moves) |
+### 2. Android app
+Nothing to set: the Firebase Android app for package `com.arsociety.app`
+(App ID `1:666567205264:android:3254d0b9cf88d241129315`) is built into
+`push_config.dart`, and no `google-services.json` or Google services Gradle
+plugin is needed. If the app's `applicationId` ever changes, register a new
+Firebase Android app with the new package and update `androidAppId`.
 
-### 3. Web app (Railway service `superb-charm`)
-These are build variables — Railway passes them to the Dockerfile's `ARG`s, so
-**redeploy** after adding them.
-
-| Variable | From step 1 |
-|---|---|
-| `FIREBASE_API_KEY` | `apiKey` |
-| `FIREBASE_PROJECT_ID` | `projectId` |
-| `FIREBASE_MESSAGING_SENDER_ID` | `messagingSenderId` |
-| `FIREBASE_WEB_APP_ID` | `appId` (the web one, `1:…:web:…`) |
-| `FIREBASE_VAPID_KEY` | the Web Push certificate key |
-
-These web values are not secrets (they end up in the browser either way); the
-service-account JSON is.
-
-### 4. Android app
-1. Firebase console → **Add app → Android**, package name `com.arsociety.app`.
-   Copy its `appId` (`1:…:android:…`). No `google-services.json` is needed —
-   the app is configured from build flags.
-2. Build with:
-   ```
-   flutter build apk --release \
-     --dart-define=API_BASE_URL=https://arsocietyapp-production.up.railway.app/api/v1 \
-     --dart-define=FIREBASE_API_KEY=… --dart-define=FIREBASE_PROJECT_ID=… \
-     --dart-define=FIREBASE_MESSAGING_SENDER_ID=… \
-     --dart-define=FIREBASE_ANDROID_APP_ID=1:…:android:…
-   ```
+### Pointing a build at another Firebase project
+Override the built-in values with `--dart-define=FIREBASE_API_KEY=…`,
+`FIREBASE_PROJECT_ID`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_WEB_APP_ID`,
+`FIREBASE_VAPID_KEY`, `FIREBASE_ANDROID_APP_ID` — for the web Docker build, as variables on the Railway
+web service (the Dockerfile then also rewrites `firebase-config.js`).
 
 ## Checking it works
 1. Sign in on the web app as a resident and click **Allow** when the browser

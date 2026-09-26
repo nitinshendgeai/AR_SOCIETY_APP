@@ -14,8 +14,10 @@ RUN touch .env
 ARG API_BASE_URL=https://arsocietyapp-production.up.railway.app/api/v1
 ARG APP_ENV=production
 
-# Push notifications (optional): the Firebase web app's settings, set as
-# variables on this Railway service. See docs/PUSH_NOTIFICATIONS.md.
+# Push notifications: the Firebase web settings are built in
+# (lib/core/push/push_config.dart, web/firebase-config.js). Set these on the
+# Railway service only to point the build at a different Firebase project.
+# See docs/PUSH_NOTIFICATIONS.md.
 ARG FIREBASE_API_KEY=""
 ARG FIREBASE_PROJECT_ID=""
 ARG FIREBASE_MESSAGING_SENDER_ID=""
