@@ -14,6 +14,7 @@ from app.models.vehicle      import Vehicle, VehicleType
 from app.models.audit_log    import AuditLog, AuditAction
 from app.models.notification import Notification, NotificationChannel, NotificationStatus, NotificationType
 from app.models.device_token import DeviceToken
+from app.models.password_reset_request import PasswordResetRequest, PasswordResetStatus
 
 # Visitor module
 from app.modules.visitor.models.visitor import Gate, Visitor, VisitorVehicle, VisitorLog, VisitorType, VisitorStatus, GateType

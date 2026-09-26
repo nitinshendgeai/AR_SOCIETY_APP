@@ -37,6 +37,7 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
       appBar: AppBar(
         title: const Text('Users & Roles'),
         actions: [
+          _ResetRequestsButton(onPressed: () => context.push(AppRoutes.passwordResetRequests)),
           if (desktop)
             HeaderActionButton(icon: Icons.person_add_rounded, label: 'Create User', onPressed: _createUser)
           else
@@ -634,6 +635,28 @@ class _ErrorView extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+
+/// Opens the "Forgot password?" requests; the badge counts pending ones.
+class _ResetRequestsButton extends ConsumerWidget {
+  final VoidCallback onPressed;
+  const _ResetRequestsButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pending = ref.watch(passwordResetRequestsProvider('pending')).valueOrNull?.length ?? 0;
+    return IconButton(
+      tooltip: 'Password reset requests',
+      onPressed: onPressed,
+      icon: Badge(
+        isLabelVisible: pending > 0,
+        label: Text('$pending'),
+        backgroundColor: AppTheme.error,
+        child: const Icon(Icons.lock_reset_rounded),
       ),
     );
   }

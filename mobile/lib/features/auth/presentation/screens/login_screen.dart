@@ -6,6 +6,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/config/env.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:ar_society_app/features/auth/presentation/widgets/forgot_password_dialog.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart'
     show rmPhoneValidator;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
@@ -148,7 +149,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 24),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: isLoading
+                                ? null
+                                : () => showForgotPasswordDialog(context,
+                                    initialIdentifier: _emailCtrl.text),
+                            child: const Text('Forgot password?'),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
 
                         // Login button
                         AppPrimaryButton(

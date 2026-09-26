@@ -1,12 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
@@ -16,6 +13,7 @@ import 'package:ar_society_app/features/resident_master/presentation/widgets/res
 import 'package:ar_society_app/features/society_settings/presentation/providers/society_settings_providers.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
+import 'package:ar_society_app/shared/utils/csv_file.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 const _templateHeader = [
@@ -142,6 +140,14 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
     );
   }
 
+  /// Saves a CSV the user keeps — a browser download on the web, the system
+  /// "Save as" dialog on the phone (no temp files, which the web can't write).
+  Future<void> _saveCsv(String csv, String fileName, String what) async {
+    if (await saveCsvFile(csv, fileName) && mounted) {
+      AppToast.success(context, '$what downloaded as $fileName');
+    }
+  }
+
   Future<void> _downloadTemplate() async {
     try {
       final rows = [
@@ -149,11 +155,7 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
         ['A Wing', '101', 'Ramesh Kumar', 'owner', 'yes', '9876543210', 'ramesh@example.com', '1'],
       ];
       final csvString = const ListToCsvConverter().convert(rows);
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/resident_import_template.csv');
-      await file.writeAsBytes(utf8.encode(csvString));
-      await Share.shareXFiles([XFile(file.path)],
-          subject: 'Resident Import Template');
+      await _saveCsv(csvString, 'resident_import_template.csv', 'Template');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -189,11 +191,7 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
         for (final r in badRows) [...paddedRaw(r.raw), r.message ?? 'Import failed'],
       ];
       final csvString = const ListToCsvConverter().convert(csvRows);
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/resident_import_errors.csv');
-      await file.writeAsBytes(utf8.encode(csvString));
-      await Share.shareXFiles([XFile(file.path)],
-          subject: 'Resident Import Errors');
+      await _saveCsv(csvString, 'resident_import_errors.csv', 'Error rows');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -209,15 +207,17 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['csv'],
+      // Read the contents on every platform: on the web a picked file has
+      // no path (file_picker throws if `path` is even read).
+      withData: true,
     );
     final picked = result?.files.single;
     if (picked == null) return;
 
     setState(() => _pickingFile = true);
     try {
-      final bytes = picked.path != null
-          ? await File(picked.path!).readAsBytes()
-          : picked.bytes!;
+      final bytes = picked.bytes;
+      if (bytes == null) throw 'the file could not be read';
       final content = _decodeCsvBytes(bytes);
 
       // Await the wing/flat reference data rather than reading whatever
@@ -266,8 +266,7 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
     List<WingModel> wings,
     List<FlatModel> flats,
   ) {
-    final table = const CsvToListConverter(shouldParseNumbers: false)
-        .convert(csvString)
+    final table = readCsvRows(csvString)
         .where((r) => r.any((c) => c.toString().trim().isNotEmpty))
         .toList();
     if (table.isEmpty) return [];

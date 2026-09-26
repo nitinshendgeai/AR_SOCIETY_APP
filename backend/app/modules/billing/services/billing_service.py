@@ -499,8 +499,7 @@ class BillingService:
 
     def generate_bill_pdf(self, bill_id: UUID) -> bytes:
         bill = self.get_bill(bill_id)
-        society_name = bill.society.name if bill.society else "Society"
-        return generate_maintenance_bill_pdf(bill, society_name)
+        return generate_maintenance_bill_pdf(bill, self.get_maintenance_settings(bill.society_id))
 
     def get_overdue_bills(self, society_id: UUID) -> List[MaintenanceBill]:
         return self.bill_repo.get_overdue(society_id)

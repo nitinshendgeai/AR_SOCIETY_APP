@@ -57,6 +57,23 @@ class UserRemoteDataSource {
     return PasswordResetResult.fromJson(r.data as Map<String, dynamic>);
   }
 
+  /// GET /users/password-reset-requests?status=pending|completed|dismissed|all
+  Future<List<PasswordResetRequestModel>> listResetRequests({String status = 'pending'}) async {
+    final r = await _dio.get('/users/password-reset-requests', queryParameters: {'status': status});
+    return (r.data as List)
+        .map((e) => PasswordResetRequestModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<PasswordResetResult> resolveResetRequest(String requestId) async {
+    final r = await _dio.post('/users/password-reset-requests/$requestId/reset');
+    return PasswordResetResult.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<void> dismissResetRequest(String requestId) async {
+    await _dio.post('/users/password-reset-requests/$requestId/dismiss');
+  }
+
   Future<void> deleteUser(String id) async {
     await _dio.delete('/users/$id');
   }

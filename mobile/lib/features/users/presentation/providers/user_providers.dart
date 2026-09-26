@@ -202,3 +202,11 @@ final myFormCodesProvider = FutureProvider<List<String>>((ref) async {
   if (user == null) return const [];
   return ref.read(userAdminRepoProvider).getMyForms();
 });
+
+// ── "Forgot password?" requests ───────────────────────────────────────────────
+
+/// Requests by status: 'pending' (the badge on Users & Roles) or 'all'.
+final passwordResetRequestsProvider =
+    FutureProvider.autoDispose.family<List<PasswordResetRequestModel>, String>(
+  (ref, status) => ref.read(userAdminRepoProvider).listResetRequests(status: status),
+);

@@ -1201,6 +1201,12 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
   late final _gstRateCtrl = TextEditingController(text: _trim(widget.rules.gstRatePct));
   late final _gstThresholdCtrl = TextEditingController(text: _trim(widget.rules.gstThresholdMonthly));
   late bool _gst = widget.rules.gstEnabled;
+  late final _accountNameCtrl = TextEditingController(text: widget.rules.bankAccountName ?? '');
+  late final _bankNameCtrl = TextEditingController(text: widget.rules.bankName ?? '');
+  late final _accountNoCtrl = TextEditingController(text: widget.rules.bankAccountNumber ?? '');
+  late final _ifscCtrl = TextEditingController(text: widget.rules.bankIfsc ?? '');
+  late final _upiCtrl = TextEditingController(text: widget.rules.upiId ?? '');
+  late final _billNotesCtrl = TextEditingController(text: widget.rules.billNotes ?? '');
   bool _saving = false;
 
   static String _trim(String v) {
@@ -1211,7 +1217,8 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
 
   @override
   void dispose() {
-    for (final c in [_costCtrl, _interestCtrl, _graceCtrl, _nocCtrl, _gstRateCtrl, _gstThresholdCtrl]) {
+    for (final c in [_costCtrl, _interestCtrl, _graceCtrl, _nocCtrl, _gstRateCtrl, _gstThresholdCtrl,
+      _accountNameCtrl, _bankNameCtrl, _accountNoCtrl, _ifscCtrl, _upiCtrl, _billNotesCtrl]) {
       c.dispose();
     }
     super.dispose();
@@ -1238,6 +1245,13 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
         'gst_enabled': _gst,
         'gst_rate_pct': _gstRateCtrl.text.trim(),
         'gst_threshold_monthly': _gstThresholdCtrl.text.trim(),
+        // Empty clears the field on the backend.
+        'bank_account_name': _accountNameCtrl.text.trim(),
+        'bank_name': _bankNameCtrl.text.trim(),
+        'bank_account_number': _accountNoCtrl.text.trim(),
+        'bank_ifsc': _ifscCtrl.text.trim().toUpperCase(),
+        'upi_id': _upiCtrl.text.trim(),
+        'bill_notes': _billNotesCtrl.text.trim(),
       });
       ref.invalidate(maintenanceRulesProvider(widget.societyId));
       if (mounted) AppToast.success(context, 'Rules saved — they apply to bills generated from now on');
@@ -1350,6 +1364,65 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
                   validator: _range(1e7),
                 ),
               ],
+            ],
+          ),
+          _section(
+            'Payment details on bills',
+            'Printed on every maintenance bill so members know where to pay. '
+                'Leave blank what doesn\'t apply.',
+            [
+              TextFormField(
+                controller: _accountNameCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'Account name', hintText: 'e.g. Green Park Co-operative Housing Society Ltd'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _bankNameCtrl,
+                decoration: const InputDecoration(labelText: 'Bank and branch'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _accountNoCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Account number'),
+                validator: (v) {
+                  final t = (v ?? '').replaceAll(' ', '');
+                  if (t.isEmpty) return null;
+                  return RegExp(r'^\d{6,20}$').hasMatch(t) ? null : '6-20 digits';
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _ifscCtrl,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(labelText: 'IFSC', hintText: 'e.g. SBIN0001234'),
+                validator: (v) {
+                  final t = (v ?? '').trim().toUpperCase();
+                  if (t.isEmpty) return null;
+                  return RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$').hasMatch(t) ? null : 'e.g. SBIN0001234';
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _upiCtrl,
+                decoration: const InputDecoration(labelText: 'UPI ID', hintText: 'e.g. society@okaxis'),
+                validator: (v) {
+                  final t = (v ?? '').trim();
+                  if (t.isEmpty) return null;
+                  return RegExp(r'^[\w.\-]{2,}@[A-Za-z][\w.]*$').hasMatch(t) ? null : 'e.g. society@okaxis';
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _billNotesCtrl,
+                maxLines: 3,
+                maxLength: 1000,
+                decoration: const InputDecoration(
+                  labelText: 'Extra notes on bills (optional)',
+                  hintText: 'One per line, e.g. "Cheques in the office drop box by the 10th"',
+                ),
+              ),
             ],
           ),
           ElevatedButton(

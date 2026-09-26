@@ -149,3 +149,52 @@ class PasswordResetResult {
       PasswordResetResult(
           temporaryPassword: json['temporary_password'] as String);
 }
+
+/// A member's "Forgot password?" request from the login screen, waiting for
+/// (or handled by) a society admin.
+class PasswordResetRequestModel {
+  final String id;
+  final String userId;
+  final String fullName;
+  final String? contact;
+  final List<String> roles;
+  final List<String> flats;
+  final String identifier;
+  final String status;       // pending | completed | dismissed
+  final DateTime requestedAt;
+  final DateTime lastAskedAt;
+  final String? resolvedBy;
+  final DateTime? resolvedAt;
+
+  const PasswordResetRequestModel({
+    required this.id,
+    required this.userId,
+    required this.fullName,
+    this.contact,
+    required this.roles,
+    required this.flats,
+    required this.identifier,
+    required this.status,
+    required this.requestedAt,
+    required this.lastAskedAt,
+    this.resolvedBy,
+    this.resolvedAt,
+  });
+
+  bool get isPending => status == 'pending';
+
+  factory PasswordResetRequestModel.fromJson(Map<String, dynamic> j) => PasswordResetRequestModel(
+        id: j['id'] as String,
+        userId: j['user_id'] as String,
+        fullName: j['full_name'] as String? ?? '—',
+        contact: j['contact'] as String?,
+        roles: (j['roles'] as List? ?? const []).cast<String>(),
+        flats: (j['flats'] as List? ?? const []).cast<String>(),
+        identifier: j['identifier'] as String? ?? '',
+        status: j['status'] as String,
+        requestedAt: DateTime.parse(j['requested_at'] as String),
+        lastAskedAt: DateTime.parse(j['last_asked_at'] as String),
+        resolvedBy: j['resolved_by'] as String?,
+        resolvedAt: j['resolved_at'] == null ? null : DateTime.parse(j['resolved_at'] as String),
+      );
+}

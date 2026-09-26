@@ -12,8 +12,14 @@ from app.schemas.user import UserUpdate, AdminUserCreate
 from app.core.security import hash_password
 
 
+# Temporary passwords are often read out to the member (phone, office
+# counter), so leave out characters that look or sound alike: 0/O/o, 1/l/I.
+_TEMP_PASSWORD_ALPHABET = "".join(
+    c for c in string.ascii_letters + string.digits if c not in "0Oo1lI")
+
+
 def _generate_temp_password(length: int = 12) -> str:
-    alphabet = string.ascii_letters + string.digits + "!@#$"
+    alphabet = _TEMP_PASSWORD_ALPHABET
     while True:
         pwd = "".join(secrets.choice(alphabet) for _ in range(length))
         if (any(c.isupper() for c in pwd)

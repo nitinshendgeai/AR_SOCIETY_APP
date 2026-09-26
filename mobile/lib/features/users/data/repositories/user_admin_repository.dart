@@ -40,6 +40,14 @@ class UserAdminRepository {
 
   Future<void> deleteUser(String id) => _ds.deleteUser(id);
 
+  Future<List<PasswordResetRequestModel>> listResetRequests({String status = 'pending'}) =>
+      _ds.listResetRequests(status: status);
+
+  Future<PasswordResetResult> resolveResetRequest(String requestId) =>
+      _ds.resolveResetRequest(requestId);
+
+  Future<void> dismissResetRequest(String requestId) => _ds.dismissResetRequest(requestId);
+
   Future<List<RoleModel>> listRoles() => _ds.listRoles();
 
   Future<List<PermissionModel>> listPermissions() => _ds.listPermissions();
