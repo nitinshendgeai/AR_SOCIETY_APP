@@ -215,11 +215,12 @@ def test_get_receipt_pdf(client, db):
 
 def test_receipt_pdf_states_on_account_purpose(client, db):
     # The whole point of `purpose` is that it shows up on the printed
-    # receipt as "on account of <purpose>".
+    # receipt as "On Account of <purpose>".
     society, wing, flat, manager, admin, resident = _rig(db)
     created = _submit(client, flat.id, manager["headers"], purpose="parking").json()
     r = client.get(f"/api/v1/billing/online-payments/{created['id']}/receipt", headers=manager["headers"])
-    assert b"on account of Parking charges" in _pdf_text_stream(r.content)
+    text = _pdf_text_stream(r.content)
+    assert b"ON ACCOUNT" in text and b"On Account of Parking Charges" in text
 
 
 def test_export_csv(client, db):
@@ -365,8 +366,8 @@ def test_receipt_pdf_shows_bill_number_when_on_bill(client, db):
 
     r = client.get(f"/api/v1/billing/online-payments/{created['id']}/receipt", headers=manager["headers"])
     text = _pdf_text_stream(r.content)
-    assert bill.invoice_number.encode() in text
-    assert b"against Bill" in text
+    assert b"ON BILLING" in text
+    assert f"Towards Bill No. {bill.invoice_number}".encode() in text
 
 
 def test_outstanding_only_filters_paid_bills(client, db):

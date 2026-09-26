@@ -739,6 +739,16 @@ class MaintenanceBillingApi {
     return Uint8List.fromList(r.data!);
   }
 
+  /// A payment's receipt — its own document, for payments on a bill or on
+  /// account (receipts are never printed on the bill).
+  Future<Uint8List> receiptPdf(String receiptNumber) async {
+    final r = await _dio.get<List<int>>(
+      '/billing/receipts/${Uri.encodeComponent(receiptNumber)}/pdf',
+      options: Options(responseType: ResponseType.bytes),
+    );
+    return Uint8List.fromList(r.data!);
+  }
+
   Future<MyBillsSummary> myBills() async {
     final r = await _dio.get('/billing/bills/me');
     return MyBillsSummary.fromJson(r.data as Map<String, dynamic>);

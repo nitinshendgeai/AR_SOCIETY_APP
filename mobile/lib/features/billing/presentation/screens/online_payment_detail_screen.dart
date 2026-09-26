@@ -1,7 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -69,16 +67,19 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
     }
   }
 
-  Future<void> _shareReceipt() async {
+  Future<void> _shareReceipt(String receiptNumber) async {
     setState(() => _sharingReceipt = true);
     try {
       final result = await ref.read(billingRepositoryProvider).getReceiptPdfBytes(widget.paymentId);
       switch (result) {
         case BillingSuccess(:final data):
-          final dir = await getTemporaryDirectory();
-          final file = File('${dir.path}/receipt_${widget.paymentId}.pdf');
-          await file.writeAsBytes(data);
-          await Share.shareXFiles([XFile(file.path)], subject: 'Payment Receipt');
+          // From memory, not a temp file, so it works on the web too.
+          final fileName = 'Receipt-$receiptNumber.pdf';
+          await Share.shareXFiles(
+            [XFile.fromData(data, name: fileName, mimeType: 'application/pdf')],
+            fileNameOverrides: [fileName],
+            subject: 'Payment Receipt',
+          );
         case BillingFailure(:final message):
           throw Exception(message);
       }
@@ -146,7 +147,7 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
             }),
           const SizedBox(height: 20),
           OutlinedButton.icon(
-            onPressed: _sharingReceipt ? null : _shareReceipt,
+            onPressed: _sharingReceipt ? null : () => _shareReceipt(payment.receiptNumber),
             icon: _sharingReceipt
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.receipt_long_outlined),

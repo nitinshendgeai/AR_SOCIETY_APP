@@ -577,6 +577,23 @@ def record_payment(data: PaymentCreate, request: Request, db: Session = Depends(
 def flat_receipts(flat_id: UUID, skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     return BillingService(db).get_flat_receipts(flat_id, skip, limit)
 
+@router.get("/receipts/{receipt_number}/pdf", dependencies=[Depends(any_member)])
+def get_receipt_pdf(receipt_number: str, db: Session = Depends(get_db),
+                    user: User = Depends(get_current_user)):
+    """The receipt for one payment — on billing or on account — as its own
+    document (receipts are never printed on the maintenance bill). Members
+    get the receipts of their own flats."""
+    svc = BillingService(db)
+    payment = svc.get_payment_by_receipt_number(receipt_number)
+    try:
+        _ensure_can_view_flat(db, user, payment.flat_id)
+    except HTTPException:
+        raise HTTPException(404, "Receipt not found")
+    return Response(
+        content=svc.generate_receipt_pdf(payment), media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename=Receipt-{receipt_number}.pdf"},
+    )
+
 
 # ── Dues ──────────────────────────────────────────────────────────────────────
 @router.get("/dues/flat/{flat_id}/{society_id}", dependencies=[Depends(any_member)])
