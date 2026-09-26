@@ -140,9 +140,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             // no minimum length here. That's a password-
                             // creation rule (see RegisterRequest/
                             // ChangePasswordRequest's 8-char minimum), and
-                            // auto-provisioned accounts (e.g. Resident's
-                            // default "1234") are shorter than any such
-                            // minimum until the forced first-login change.
+                            // passwords set before that rule may be shorter.
                             if (v == null || v.isEmpty) {
                               return 'Password is required';
                             }
@@ -181,7 +179,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                 // Demo format hint — debug/staging builds only; the exact
                 // default-password convention it documents (Admin@1234,
-                // resident "1234") isn't something to hand an unauthenticated
+                // resident "admin1234") isn't something to hand an unauthenticated
                 // visitor on a production login screen.
                 if (!Env.isProduction) ...[
                   const SizedBox(height: 16),
@@ -382,7 +380,7 @@ class _DemoFormatHintState extends State<_DemoFormatHint> {
                 const SizedBox(height: 14),
                 const Text(
                   'Residents and tenants added by the society sign in with '
-                  'their mobile number and password 1234, then must set a '
+                  'their mobile number and password admin1234, then must set a '
                   'new password on first login.',
                   style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),

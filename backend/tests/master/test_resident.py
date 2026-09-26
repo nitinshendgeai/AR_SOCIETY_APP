@@ -63,6 +63,20 @@ def test_create_resident(client, db, society_a):
     assert any("mobile number" in w.lower() for w in body["warnings"])
 
 
+def test_resident_login_created_with_default_password(client, db, society_a):
+    """A resident added with a mobile number gets a login: the mobile number
+    and the default password admin1234, to be changed at the first sign-in."""
+    r = client.post("/api/v1/residents/", json={
+        "flat_id": str(society_a["flat"].id), "full_name": "Kiran Owner", "phone": "9000000011",
+    }, headers=society_a["admin"]["headers"])
+    assert r.status_code == 201, r.text
+    assert any("Password: admin1234" in w for w in r.json()["warnings"])
+    login = client.post("/api/v1/auth/login", json={"email": "9000000011", "password": "admin1234"})
+    assert login.status_code == 200, login.text
+    me = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {login.json()['access_token']}"})
+    assert me.json()["must_change_password"] is True
+
+
 def test_read_one_resident(client, db, society_a):
     created = client.post("/api/v1/residents/", json={
         "flat_id": str(society_a["flat"].id), "full_name": "Bob Owner",
