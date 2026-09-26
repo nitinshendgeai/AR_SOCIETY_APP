@@ -1,9 +1,10 @@
+import re
 from typing import List, Optional
 from uuid import UUID
 from datetime import date
 from decimal import Decimal
 from fastapi import APIRouter, Depends, Request, UploadFile, File, Form, HTTPException, Query
-from pydantic import Field
+from pydantic import Field, field_validator
 from fastapi.responses import Response, StreamingResponse
 from io import BytesIO
 from sqlalchemy.orm import Session
@@ -274,6 +275,40 @@ class MaintenanceSettingsUpdate(OrmBase):
     gst_enabled: Optional[bool] = None
     gst_rate_pct: Optional[Decimal] = Field(None, ge=0, le=28)
     gst_threshold_monthly: Optional[Decimal] = Field(None, ge=0)
+    # Payment details printed on bills. Empty text clears a field.
+    bank_account_name: Optional[str] = Field(None, max_length=150)
+    bank_name: Optional[str] = Field(None, max_length=100)
+    bank_account_number: Optional[str] = Field(None, max_length=40)
+    bank_ifsc: Optional[str] = Field(None, max_length=20)
+    upi_id: Optional[str] = Field(None, max_length=100)
+    bill_notes: Optional[str] = Field(None, max_length=1000)
+
+    @field_validator("bank_account_name", "bank_name", "bank_account_number",
+                     "bank_ifsc", "upi_id", "bill_notes")
+    @classmethod
+    def _blank_is_none(cls, v):
+        return (v.strip() or None) if isinstance(v, str) else v
+
+    @field_validator("bank_account_number")
+    @classmethod
+    def _account_number(cls, v):
+        if v and not re.fullmatch(r"\d{6,20}", v.replace(" ", "")):
+            raise ValueError("Account number should be 6-20 digits")
+        return v.replace(" ", "") if v else v
+
+    @field_validator("bank_ifsc")
+    @classmethod
+    def _ifsc(cls, v):
+        if v and not re.fullmatch(r"[A-Z]{4}0[A-Z0-9]{6}", v.upper()):
+            raise ValueError("IFSC should look like SBIN0001234")
+        return v.upper() if v else v
+
+    @field_validator("upi_id")
+    @classmethod
+    def _upi(cls, v):
+        if v and not re.fullmatch(r"[\w.\-]{2,}@[A-Za-z][\w.]*", v):
+            raise ValueError("UPI ID should look like society@okaxis")
+        return v
 
 
 def _settings_out(st) -> dict:
@@ -286,6 +321,12 @@ def _settings_out(st) -> dict:
         "gst_enabled": st.gst_enabled,
         "gst_rate_pct": str(st.gst_rate_pct),
         "gst_threshold_monthly": str(st.gst_threshold_monthly),
+        "bank_account_name": st.bank_account_name,
+        "bank_name": st.bank_name,
+        "bank_account_number": st.bank_account_number,
+        "bank_ifsc": st.bank_ifsc,
+        "upi_id": st.upi_id,
+        "bill_notes": st.bill_notes,
     }
 
 @router.get("/maintenance-settings/{society_id}", dependencies=[Depends(manager_above)])

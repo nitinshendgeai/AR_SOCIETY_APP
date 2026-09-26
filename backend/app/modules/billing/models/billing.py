@@ -218,6 +218,14 @@ class MaintenanceSettings(Base, TimestampMixin):
     gst_rate_pct               = Column(Numeric(5, 2), default=18, nullable=False)
     gst_threshold_monthly      = Column(Numeric(10, 2), default=7500, nullable=False)
 
+    # Printed on every bill so members know where to pay (all optional).
+    bank_account_name   = Column(String(150), nullable=True)
+    bank_name           = Column(String(100), nullable=True)
+    bank_account_number = Column(String(40), nullable=True)
+    bank_ifsc           = Column(String(20), nullable=True)
+    upi_id              = Column(String(100), nullable=True)
+    bill_notes          = Column(Text, nullable=True)   # extra lines under the bye-law notes
+
     society = relationship("Society")
 
 

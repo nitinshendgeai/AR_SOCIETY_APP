@@ -168,6 +168,13 @@ class MaintenanceRules {
   final bool gstEnabled;
   final String gstRatePct;
   final String gstThresholdMonthly;
+  // Printed on bills so members know where to pay.
+  final String? bankAccountName;
+  final String? bankName;
+  final String? bankAccountNumber;
+  final String? bankIfsc;
+  final String? upiId;
+  final String? billNotes;
 
   const MaintenanceRules({
     this.constructionCostPerSqft,
@@ -177,6 +184,12 @@ class MaintenanceRules {
     this.gstEnabled = false,
     this.gstRatePct = '18',
     this.gstThresholdMonthly = '7500',
+    this.bankAccountName,
+    this.bankName,
+    this.bankAccountNumber,
+    this.bankIfsc,
+    this.upiId,
+    this.billNotes,
   });
 
   factory MaintenanceRules.fromJson(Map<String, dynamic> j) => MaintenanceRules(
@@ -187,6 +200,12 @@ class MaintenanceRules {
         gstEnabled: j['gst_enabled'] as bool? ?? false,
         gstRatePct: _str(j['gst_rate_pct']),
         gstThresholdMonthly: _str(j['gst_threshold_monthly']),
+        bankAccountName: j['bank_account_name'] as String?,
+        bankName: j['bank_name'] as String?,
+        bankAccountNumber: j['bank_account_number'] as String?,
+        bankIfsc: j['bank_ifsc'] as String?,
+        upiId: j['upi_id'] as String?,
+        billNotes: j['bill_notes'] as String?,
       );
 }
 
