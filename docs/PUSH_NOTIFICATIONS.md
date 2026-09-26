@@ -6,8 +6,8 @@ browser, so they arrive even when the app is closed. Everything else stays an
 in-app notification.
 
 Firebase project: **`society-app-186ff`** (project number 666567205264).
-Its web settings — API key, web app id, sender id, Web Push key — are built
-into the app (`mobile/lib/core/push/push_config.dart` and
+Its settings — API key, web and Android app ids, sender id, Web Push key —
+are built into the app (`mobile/lib/core/push/push_config.dart` and
 `mobile/web/firebase-config.js`); they aren't secret. The one secret, the
 service-account key the backend sends with, is set only on Railway.
 
@@ -15,7 +15,7 @@ service-account key the backend sends with, is set only on Railway.
 |---|---|
 | Web app (society.duxos.in) | built in |
 | Backend | needs `FIREBASE_SERVICE_ACCOUNT_JSON` on Railway |
-| Android app | needs a Firebase Android app for package `com.arsociety.app` |
+| Android app (`com.arsociety.app`) | built in |
 
 Until the backend has the service-account key, nothing is pushed and the app
 behaves as before (residents still see waiting visitors on their dashboard,
@@ -46,18 +46,16 @@ refreshed every 15 seconds).
    clicked web notification opens.
 
 ### 2. Android app
-The app's package is `com.arsociety.app` (`android/app/build.gradle`).
-Firebase console → **Add app → Android** with exactly that package name, then
-put its App ID (`1:666567205264:android:…`) in `androidAppId` in
-`push_config.dart` (or build with
-`--dart-define=FIREBASE_ANDROID_APP_ID=…`). No `google-services.json` is
-needed. (An Android app registered under a different package name, such as
-`com.arsociety.ar_society_app`, won't receive pushes — remove it.)
+Nothing to set: the Firebase Android app for package `com.arsociety.app`
+(App ID `1:666567205264:android:3254d0b9cf88d241129315`) is built into
+`push_config.dart`, and no `google-services.json` or Google services Gradle
+plugin is needed. If the app's `applicationId` ever changes, register a new
+Firebase Android app with the new package and update `androidAppId`.
 
 ### Pointing a build at another Firebase project
 Override the built-in values with `--dart-define=FIREBASE_API_KEY=…`,
 `FIREBASE_PROJECT_ID`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_WEB_APP_ID`,
-`FIREBASE_VAPID_KEY` — for the web Docker build, as variables on the Railway
+`FIREBASE_VAPID_KEY`, `FIREBASE_ANDROID_APP_ID` — for the web Docker build, as variables on the Railway
 web service (the Dockerfile then also rewrites `firebase-config.js`).
 
 ## Checking it works

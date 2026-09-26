@@ -18,10 +18,10 @@ class PushConfig {
       '666567205264');
   static String get webAppId => _or(const String.fromEnvironment('FIREBASE_WEB_APP_ID'),
       '1:666567205264:web:f36b3aa4c22329cb129315');
-  /// Not registered yet: the Android app needs a Firebase app for package
-  /// `com.arsociety.app`; until its id is added here (or passed with
-  /// --dart-define) push stays off in the Android build.
-  static String get androidAppId => _or(const String.fromEnvironment('FIREBASE_ANDROID_APP_ID'), '');
+  /// The Firebase Android app for package `com.arsociety.app` (must match
+  /// applicationId in android/app/build.gradle).
+  static String get androidAppId => _or(const String.fromEnvironment('FIREBASE_ANDROID_APP_ID'),
+      '1:666567205264:android:3254d0b9cf88d241129315');
   /// Web push certificate key (Cloud Messaging → Web configuration).
   static String get vapidKey => _or(const String.fromEnvironment('FIREBASE_VAPID_KEY'),
       'BB1lhX-nQXM73kd9_FSal99Blt_YtsRFInQ49GT-qoR-4mCaqj0cymidC1Qx8EhPd2dCrN52DAAJumM1CcX0xLA');
