@@ -158,30 +158,43 @@ class AppRoutes {
 
 // ── Router provider ───────────────────────────────────────────────────────────
 //
-// appRouterProvider watches authProvider directly. Riverpod rebuilds the router
-// whenever auth state changes. This is the safe pattern: no ref.read() inside
-// GoRouter callbacks (which run outside Riverpod's build context and fail in
+// The router is built once. Auth and biometric-lock state are copied into
+// local variables by ref.listen, and `refreshListenable` makes GoRouter re-run
+// its redirects when they change. GoRouter callbacks read those variables —
+// never ref.read() (it runs outside Riverpod's build context and fails in
 // dart2js release builds with "Instance of 'minified:...'").
+//
+// It used to ref.watch(authProvider), which built a brand-new GoRouter on
+// every auth transition — recreating the screen on show. On the login screen
+// that meant a wrong password (loading → error) wiped the email and password
+// the user had typed.
 
 // Remembers a deep-linked location (bookmark, shared link, browser refresh)
 // requested while auth state was still AuthInitial, so it can be restored
 // once the session check resolves — instead of being lost to the forced
-// splash hop below. Declared at file scope (not inside the provider) because
-// appRouterProvider rebuilds a brand-new GoRouter/closure on every auth
-// transition, so a variable local to the builder would not survive from
-// AuthInitial through to AuthAuthenticated.
+// splash hop below.
 String? _pendingDeepLink;
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
-  final isBiometricLocked = ref.watch(biometricLockProvider);
+  var authState = ref.read(authProvider);
+  var isBiometricLocked = ref.read(biometricLockProvider);
+  final refresh = ValueNotifier(0);   // bumped to make GoRouter re-run redirects
+  ref.listen<AuthState>(authProvider, (_, next) {
+    authState = next;
+    refresh.value++;
+  });
+  ref.listen<bool>(biometricLockProvider, (_, next) {
+    isBiometricLocked = next;
+    refresh.value++;
+  });
 
   // Screens scoped to a society normally get its id from the screen that
   // opened them (`extra`). On the web a page can also be opened by URL or
   // reloaded, which loses `extra`; fall back to the signed-in user's society.
-  final sessionSocietyId = authState is AuthAuthenticated
-      ? authState.user.societyId ?? ''
-      : '';
+  String sessionSocietyId() {
+    final auth = authState;
+    return auth is AuthAuthenticated ? auth.user.societyId ?? '' : '';
+  }
 
   // Detail/edit pages receive their record through `extra`. Opened by URL or
   // after a reload there is no record to show, so go back to its list.
@@ -191,6 +204,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     initialLocation: AppRoutes.splash,
     debugLogDiagnostics: false,
+    refreshListenable: refresh,
 
     redirect: (context, state) {
       final path = state.matchedLocation;
@@ -338,10 +352,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               final String societyId;
               final String? department;
               if (extra is Map<String, dynamic>) {
-                societyId  = extra['societyId'] as String? ?? sessionSocietyId;
+                societyId  = extra['societyId'] as String? ?? sessionSocietyId();
                 department = extra['department'] as String?;
               } else {
-                societyId  = extra as String? ?? sessionSocietyId;
+                societyId  = extra as String? ?? sessionSocietyId();
                 department = null;
               }
               return AttendanceApprovalScreen(societyId: societyId, department: department);
@@ -375,13 +389,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.staffDutyOverview,
             builder: (_, state) => DutyOverviewScreen(
-              societyId: state.extra as String? ?? sessionSocietyId,
+              societyId: state.extra as String? ?? sessionSocietyId(),
             ),
           ),
           GoRoute(
             path: AppRoutes.staffAttendanceCorrections,
             builder: (_, state) => AttendanceCorrectionScreen(
-              societyId: state.extra as String? ?? sessionSocietyId,
+              societyId: state.extra as String? ?? sessionSocietyId(),
             ),
           ),
           GoRoute(
@@ -452,7 +466,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.staffHandover,
             builder: (_, state) => HandoverScreen(
               staffId: state.pathParameters['staffId']!,
-              societyId: state.extra as String? ?? sessionSocietyId,
+              societyId: state.extra as String? ?? sessionSocietyId(),
             ),
           ),
           // Visitor routes (specific paths before parameterised)
@@ -460,7 +474,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.visitorsCreate,
             builder: (_, state) => CreateVisitorScreen(
               societyId: state.extra as String? ??
-                  state.uri.queryParameters['societyId'] ?? sessionSocietyId,
+                  state.uri.queryParameters['societyId'] ?? sessionSocietyId(),
             ),
           ),
           GoRoute(
@@ -774,7 +788,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         Scaffold(body: Center(child: Text('Route not found: ${state.uri}'))),
   );
 
-  ref.onDispose(router.dispose);
+  ref.onDispose(() {
+    router.dispose();
+    refresh.dispose();
+  });
   return router;
 });
 

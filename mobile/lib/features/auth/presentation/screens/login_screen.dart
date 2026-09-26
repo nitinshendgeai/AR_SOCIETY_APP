@@ -31,6 +31,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _submit() async {
+    // The loading overlay blocks taps, not the keyboard: ignore Enter
+    // pressed again while a sign-in is already in flight.
+    if (ref.read(authProvider) is AuthLoading) return;
     if (!_formKey.currentState!.validate()) return;
     await ref.read(authProvider.notifier).login(
           email: _emailCtrl.text.trim(),
