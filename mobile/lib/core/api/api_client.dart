@@ -44,6 +44,7 @@ class _AuthInterceptor extends QueuedInterceptor {
     final isAuthEndpoint = options.path.contains('/auth/login') ||
         options.path.contains('/auth/register') ||
         options.path.contains('/auth/refresh') ||
+        options.path.contains('/auth/forgot-password') ||
         options.path.contains('/public/');
 
     if (!isAuthEndpoint) {

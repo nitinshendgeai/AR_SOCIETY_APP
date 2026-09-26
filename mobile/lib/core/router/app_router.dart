@@ -43,6 +43,7 @@ import 'package:ar_society_app/features/users/data/models/user_admin_models.dart
 import 'package:ar_society_app/features/users/presentation/screens/user_list_screen.dart';
 import 'package:ar_society_app/features/users/presentation/screens/user_detail_screen.dart';
 import 'package:ar_society_app/features/users/presentation/screens/create_user_screen.dart';
+import 'package:ar_society_app/features/users/presentation/screens/password_reset_requests_screen.dart';
 import 'package:ar_society_app/features/users/presentation/screens/edit_user_screen.dart';
 import 'package:ar_society_app/features/users/presentation/screens/role_assignment_screen.dart';
 import 'package:ar_society_app/features/users/presentation/screens/permission_matrix_screen.dart';
@@ -120,6 +121,7 @@ class AppRoutes {
   // Users & Roles
   static const usersList          = '/users';
   static const usersCreate        = '/users/create';
+  static const passwordResetRequests = '/users/password-requests';
   static const usersDetail        = '/users/:userId';
   static const usersEdit          = '/users/:userId/edit';
   static const usersRoles         = '/users/:userId/roles';
@@ -529,6 +531,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.usersCreate,
             builder: (_, __) => const CreateUserScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.passwordResetRequests,
+            builder: (_, __) => const PasswordResetRequestsScreen(),
           ),
           GoRoute(
             path: AppRoutes.usersEdit,

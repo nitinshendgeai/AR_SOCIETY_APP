@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from app.db.session import get_db
 from app.schemas.user import UserOut, UserUpdate, AdminUserCreate, PasswordResetResponse
 from app.services.user_service import UserService
+from app.services.password_reset_service import PasswordResetService
+from app.models.password_reset_request import PasswordResetStatus
 from app.core.dependencies import require_admin
 from app.models.user import User
 from pydantic import BaseModel
@@ -55,6 +57,42 @@ def create_user(
     sid = _society_id(current_user)
     user, _ = UserService(db).create(data, sid)
     return UserOut.from_orm_with_roles(user)
+
+
+# ── "Forgot password?" requests (declared before /{user_id}) ──────────────────
+
+@router.get("/password-reset-requests")
+def list_password_reset_requests(
+    status: str = "pending",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Members who asked for a new password from the login screen.
+    `status`: pending (default), completed, dismissed, or all."""
+    if status != "all" and status not in {s.value for s in PasswordResetStatus}:
+        raise HTTPException(422, "status must be pending, completed, dismissed or all")
+    return PasswordResetService(db).list_requests(
+        _society_id(current_user), None if status == "all" else PasswordResetStatus(status))
+
+
+@router.post("/password-reset-requests/{request_id}/reset", response_model=PasswordResetResponse)
+def resolve_password_reset_request(
+    request_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Reset the member's password; the temporary one is returned to give them."""
+    temp_pwd = PasswordResetService(db).resolve(request_id, current_user)
+    return PasswordResetResponse(temporary_password=temp_pwd)
+
+
+@router.post("/password-reset-requests/{request_id}/dismiss")
+def dismiss_password_reset_request(
+    request_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    return PasswordResetService(db).dismiss(request_id, current_user)
 
 
 @router.get("/{user_id}", response_model=UserOut)
@@ -110,6 +148,7 @@ def reset_password(
 ):
     sid = _society_id(current_user)
     _, temp_pwd = UserService(db).reset_password(user_id, sid)
+    PasswordResetService(db).close_pending_for_user(user_id, current_user)
     return PasswordResetResponse(temporary_password=temp_pwd)
 
 
