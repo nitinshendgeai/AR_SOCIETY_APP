@@ -1,7 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -10,6 +8,7 @@ import 'package:ar_society_app/features/billing/presentation/screens/online_paym
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/billing_cycle_screen.dart' show billStatusColor;
+import 'package:ar_society_app/shared/utils/file_saver.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// One maintenance bill. [canManage] (society side) adds Issue / Record
@@ -51,14 +50,23 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
     }
   }
 
-  Future<void> _sharePdf(MaintenanceBill bill) async {
+  /// Share or download the bill's PDF. Both work on the web (no temp files):
+  /// sharing uses the browser's share sheet where it can share files and
+  /// downloads it otherwise.
+  Future<void> _pdf(MaintenanceBill bill, {required bool share}) async {
     setState(() => _busy = true);
     try {
       final bytes = await ref.read(maintenanceBillingApiProvider).billPdf(bill.id);
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/${bill.invoiceNumber}.pdf');
-      await file.writeAsBytes(bytes);
-      await Share.shareXFiles([XFile(file.path)], subject: 'Maintenance Bill ${bill.invoiceNumber}');
+      final fileName = '${bill.invoiceNumber}.pdf';
+      if (share) {
+        await Share.shareXFiles(
+          [XFile.fromData(bytes, name: fileName, mimeType: 'application/pdf')],
+          fileNameOverrides: [fileName],
+          subject: 'Maintenance Bill ${bill.invoiceNumber}',
+        );
+      } else if (await saveFileBytes(bytes, fileName, mimeType: 'application/pdf') && mounted) {
+        AppToast.success(context, 'Bill $fileName downloaded');
+      }
     } catch (e) {
       if (mounted) showErrorToast(context, e);
     } finally {
@@ -119,12 +127,18 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
       appBar: AppBar(
         title: Text(billAsync.valueOrNull?.invoiceNumber ?? 'Bill'),
         actions: [
-          if (billAsync.valueOrNull != null)
+          if (billAsync.valueOrNull != null) ...[
+            IconButton(
+              tooltip: 'Download PDF',
+              icon: const Icon(Icons.download_rounded),
+              onPressed: _busy ? null : () => _pdf(billAsync.value!, share: false),
+            ),
             IconButton(
               tooltip: 'Share PDF',
               icon: const Icon(Icons.ios_share_rounded),
-              onPressed: _busy ? null : () => _sharePdf(billAsync.value!),
+              onPressed: _busy ? null : () => _pdf(billAsync.value!, share: true),
             ),
+          ],
         ],
       ),
       bottomNavigationBar: billAsync.valueOrNull == null ? null : _actions(billAsync.value!),
