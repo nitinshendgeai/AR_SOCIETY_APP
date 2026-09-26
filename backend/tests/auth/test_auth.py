@@ -65,6 +65,35 @@ def test_login_nonexistent_user(client):
     assert r.status_code == 401
 
 
+def _login(client, identifier, password="Test@1234"):
+    return client.post("/api/v1/auth/login", json={"email": identifier, "password": password})
+
+
+def test_login_email_ignores_case_and_surrounding_spaces(client, db):
+    # Phone keyboards capitalise the first letter of the field.
+    make_user(db, "casey@test.com")
+    for typed in ("Casey@test.com", "CASEY@TEST.COM", "  casey@test.com "):
+        assert _login(client, typed).status_code == 200, typed
+
+
+def test_login_mobile_number_in_any_common_format(client, db):
+    user = make_user(db, "resident.9876543210@duxos.local")["user"]
+    user.phone = "9876543210"
+    db.commit()
+    for typed in ("9876543210", "98765 43210", "+91 98765-43210", "+919876543210",
+                  "919876543210", "09876543210"):
+        assert _login(client, typed).status_code == 200, typed
+
+
+def test_login_mobile_number_still_needs_the_right_password(client, db):
+    user = make_user(db, "resident.9123456780@duxos.local")["user"]
+    user.phone = "9123456780"
+    db.commit()
+    r = _login(client, "+91 91234 56780", "Wrong@123")
+    assert r.status_code == 401
+    assert r.json()["detail"] == "Invalid email/mobile number or password"
+
+
 # ── JWT Validation ────────────────────────────────────────────────────────────
 
 def test_me_with_valid_token(client, db):
