@@ -20,7 +20,7 @@ from app.models.user import User, UserStatus
 from app.repositories.user_repo import UserRepository
 from app.core.security import hash_password
 
-DEFAULT_PASSWORD = "1234"
+DEFAULT_PASSWORD = "admin1234"
 
 
 def provision_login_by_phone(
