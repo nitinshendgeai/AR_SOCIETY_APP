@@ -137,11 +137,13 @@ class FlatsBySocietyNotifier extends AsyncNotifier<List<FlatModel>> {
     double? areaSqft,
     String? occupancyStatus,
     String? remarks,
+    String? virtualAccountNumber,
   }) async {
     final flat = await ref.read(structureRepoProvider).createFlat(
           flatNumber: flatNumber, wingId: wingId, floor: floor,
           flatType: flatType, areaSqft: areaSqft,
           occupancyStatus: occupancyStatus, remarks: remarks,
+          virtualAccountNumber: virtualAccountNumber,
         );
     state = AsyncData([...(state.valueOrNull ?? []), flat]);
     return flat;

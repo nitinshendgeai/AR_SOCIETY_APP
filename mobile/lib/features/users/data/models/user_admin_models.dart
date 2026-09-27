@@ -40,6 +40,13 @@ class AdminUserModel {
       );
 
   String get primaryRole => roles.isNotEmpty ? roles.first : 'No Role';
+
+  /// The e-mail to show, or null for the placeholder address accounts made
+  /// from a mobile number carry (resident.<mobile>@duxos.local).
+  String? get displayEmail => email.endsWith('@duxos.local') ? null : email;
+
+  /// E-mail when there's a real one, else the mobile number.
+  String get contactLine => displayEmail ?? phone ?? '';
   String get initials {
     final parts = fullName.trim().split(' ');
     if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();

@@ -88,6 +88,16 @@ class AppShell extends ConsumerWidget {
     // keep their section highlighted: fall back to the entry sharing the
     // first path segment.
     final segment = _firstSegment(location);
+    // Wings and flats are managed from the Setup Wizard, which has no
+    // path segment in common with them.
+    final alias = _sectionAliases[segment];
+    if (alias != null) {
+      for (final c in categories) {
+        for (final item in c.items) {
+          if (item.route == alias) return (c, item);
+        }
+      }
+    }
     for (final c in categories) {
       for (final item in c.items) {
         if (item.route != null && _firstSegment(item.route!) == segment) return (c, item);
@@ -95,6 +105,11 @@ class AppShell extends ConsumerWidget {
     }
     return null;
   }
+
+  static const _sectionAliases = {
+    'wings': AppRoutes.structureWizard,
+    'flats': AppRoutes.structureWizard,
+  };
 
   static String _firstSegment(String path) => path.split('/').firstWhere((p) => p.isNotEmpty, orElse: () => '');
 

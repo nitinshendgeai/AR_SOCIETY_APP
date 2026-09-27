@@ -1,7 +1,24 @@
+import re
 from typing import Optional
 from uuid import UUID
+from pydantic import field_validator
 from app.schemas.common import OrmBase, TimestampSchema
 from app.models.flat import FlatType, OccupancyStatus
+
+_VAN = re.compile(r"^[A-Z0-9]{4,30}$")
+
+
+def _clean_van(v: Optional[str]) -> Optional[str]:
+    """Virtual account number: spaces and dashes dropped, upper-cased;
+    blank means none."""
+    if v is None:
+        return None
+    v = re.sub(r"[\s-]", "", v).upper()
+    if not v:
+        return None
+    if not _VAN.match(v):
+        raise ValueError("Virtual account number must be 4-30 letters or digits")
+    return v
 
 
 class FlatCreate(OrmBase):
@@ -11,7 +28,10 @@ class FlatCreate(OrmBase):
     area_sqft:        Optional[float] = None
     occupancy_status: Optional[OccupancyStatus] = None
     remarks:          Optional[str] = None
+    virtual_account_number: Optional[str] = None
     wing_id:          UUID
+
+    _van = field_validator("virtual_account_number")(_clean_van)
 
 
 class FlatUpdate(OrmBase):
@@ -33,6 +53,10 @@ class FlatUpdate(OrmBase):
     flat_type:        Optional[FlatType] = None
     area_sqft:        Optional[float] = None
     remarks:          Optional[str] = None
+    # Sent as null or "" to clear it (see FlatService.update)
+    virtual_account_number: Optional[str] = None
+
+    _van = field_validator("virtual_account_number")(_clean_van)
 
 
 class FlatOut(TimestampSchema):
@@ -42,5 +66,6 @@ class FlatOut(TimestampSchema):
     area_sqft:        Optional[float]
     occupancy_status: Optional[OccupancyStatus]
     remarks:          Optional[str]
+    virtual_account_number: Optional[str] = None
     wing_id:          UUID
     wing_name:        Optional[str] = None   # populated by service helper

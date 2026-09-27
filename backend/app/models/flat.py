@@ -42,6 +42,11 @@ class Flat(Base, TimestampMixin):
     parking_slot       = Column(String(20), nullable=True)
     parking_slot_2     = Column(String(20), nullable=True)  # second slot
 
+    # The bank's virtual account number for this flat (VAN): members pay
+    # their maintenance by NEFT to it, and the bank reports which flat paid.
+    # Printed on the bill.
+    virtual_account_number = Column(String(40), nullable=True)
+
     # KYC / docs readiness
     kyc_verified       = Column(Boolean, default=False, nullable=False)
     remarks            = Column(Text, nullable=True)

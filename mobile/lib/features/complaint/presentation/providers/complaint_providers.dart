@@ -197,3 +197,14 @@ final openComplaintsCountProvider =
     ComplaintFailure() => 0,
   };
 });
+
+// ── My open complaints count (resident dashboard) ─────────────────────────────
+
+final myOpenComplaintsCountProvider = FutureProvider.autoDispose<int>((ref) async {
+  const done = {ComplaintStatus.resolved, ComplaintStatus.closed, ComplaintStatus.rejected};
+  final result = await ref.read(complaintRepositoryProvider).listMyComplaints();
+  return switch (result) {
+    ComplaintSuccess(:final data) => data.where((c) => !done.contains(c.status)).length,
+    ComplaintFailure() => 0,
+  };
+});

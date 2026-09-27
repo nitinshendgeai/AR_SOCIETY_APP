@@ -94,6 +94,8 @@ class FlatModel {
   final double? areaSqft;
   final String? occupancyStatus;
   final String? remarks;
+  /// The bank's virtual account number for this flat — printed on its bills.
+  final String? virtualAccountNumber;
   final String wingId;
   final String? wingName;
   final bool isActive;
@@ -106,6 +108,7 @@ class FlatModel {
     this.areaSqft,
     this.occupancyStatus,
     this.remarks,
+    this.virtualAccountNumber,
     required this.wingId,
     this.wingName,
     this.isActive = true,
@@ -119,6 +122,7 @@ class FlatModel {
         areaSqft: (j['area_sqft'] as num?)?.toDouble(),
         occupancyStatus: j['occupancy_status'] as String?,
         remarks: j['remarks'] as String?,
+        virtualAccountNumber: j['virtual_account_number'] as String?,
         wingId: j['wing_id'] as String,
         wingName: j['wing_name'] as String?,
         isActive: j['is_active'] as bool? ?? true,

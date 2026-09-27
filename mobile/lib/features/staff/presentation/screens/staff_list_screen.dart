@@ -276,7 +276,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
     return RefreshIndicator(
       onRefresh: () async => _load(),
       child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
         itemCount: filtered.length,
         itemBuilder: (_, i) => Padding(
           padding: const EdgeInsets.only(bottom: 10),

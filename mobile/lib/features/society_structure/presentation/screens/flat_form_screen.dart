@@ -22,6 +22,7 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
   final _flatNumber   = TextEditingController();
   final _area         = TextEditingController();
   final _remarks      = TextEditingController();
+  final _van          = TextEditingController();
 
   String? _selectedWingId;
   String? _selectedFlatType;
@@ -46,6 +47,7 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
       _flatNumber.text   = widget.flat!.flatNumber;
       _area.text         = widget.flat!.areaSqft?.toStringAsFixed(0) ?? '';
       _remarks.text      = widget.flat!.remarks ?? '';
+      _van.text          = widget.flat!.virtualAccountNumber ?? '';
       _selectedWingId    = widget.flat!.wingId;
       _selectedFlatType  = widget.flat!.flatType;
       // Occupancy status is deliberately NOT loaded here — it is display-only
@@ -65,6 +67,7 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
     _flatNumber.dispose();
     _area.dispose();
     _remarks.dispose();
+    _van.dispose();
     super.dispose();
   }
 
@@ -91,6 +94,8 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
           'remarks': _remarks.text.trim().isEmpty
               ? null
               : _remarks.text.trim(),
+          // Always sent, so clearing the field removes the VAN
+          'virtual_account_number': _van.text.trim(),
         };
         await ref.read(flatsBySocietyProvider.notifier).updateFlat(widget.flat!.id, data);
       } else {
@@ -106,6 +111,7 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
           remarks: _remarks.text.trim().isEmpty
               ? null
               : _remarks.text.trim(),
+          virtualAccountNumber: _van.text.trim(),
         );
       }
       if (mounted) Navigator.pop(context);
@@ -236,6 +242,27 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
                     .toList(),
                 onChanged: (v) => setState(() => _selectedOccupancy = v),
               ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _van,
+              textCapitalization: TextCapitalization.characters,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9 -]')),
+                LengthLimitingTextInputFormatter(40),
+              ],
+              decoration: const InputDecoration(
+                labelText: 'Virtual A/c No. (VAN)',
+                hintText: 'From the society\'s bank, for NEFT payments (optional)',
+                helperText: 'Printed on this flat\'s maintenance bills',
+              ),
+              validator: (v) {
+                final van = (v ?? '').replaceAll(RegExp(r'[\s-]'), '');
+                if (van.isEmpty) return null;
+                return RegExp(r'^[A-Za-z0-9]{4,30}$').hasMatch(van)
+                    ? null
+                    : 'Use 4-30 letters or digits';
+              },
+            ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _remarks,

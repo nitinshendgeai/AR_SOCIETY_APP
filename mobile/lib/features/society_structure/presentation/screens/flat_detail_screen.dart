@@ -208,6 +208,8 @@ class _DetailsCard extends StatelessWidget {
             _Row(
                 label: 'Area',
                 value: '${flat.areaSqft!.toStringAsFixed(0)} sq ft'),
+          if (flat.virtualAccountNumber != null)
+            _Row(label: 'Virtual A/c No.', value: flat.virtualAccountNumber!),
           _Row(label: 'Status', value: flat.isActive ? 'Active' : 'Inactive'),
           if (flat.remarks != null && flat.remarks!.isNotEmpty)
             _Row(label: 'Remarks', value: flat.remarks!),

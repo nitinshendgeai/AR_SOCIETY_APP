@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/shared/widgets/app_data_table.dart' show HeaderActionButton;
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/parking/domain/entities/parking_entities.dart';
 import 'package:ar_society_app/features/parking/presentation/providers/parking_providers.dart';
@@ -70,12 +72,27 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
       backgroundColor: AppTheme.surface,
       appBar: AppBar(
         title: const Text('Parking Management'),
+        actions: [
+          if (isDesktopLayout(context))
+            AnimatedBuilder(
+              animation: _tab,
+              builder: (_, __) => HeaderActionButton(
+                icon: _tab.index == 0 ? Icons.add_road_rounded : Icons.assignment_add,
+                label: _tab.index == 0 ? 'Add Slot' : 'Allocate Parking',
+                onPressed: societyId.isEmpty
+                    ? null
+                    : () => _tab.index == 0
+                        ? _showAddSlotFlow(context, societyId)
+                        : _showAllocateFlow(context, societyId),
+              ),
+            ),
+        ],
         bottom: TabBar(
           controller: _tab,
           tabs: const [Tab(text: 'Slots'), Tab(text: 'Allocations')],
         ),
       ),
-      floatingActionButton: AnimatedBuilder(
+      floatingActionButton: isDesktopLayout(context) ? null : AnimatedBuilder(
         animation: _tab,
         builder: (_, __) => FloatingActionButton.extended(
           onPressed: societyId.isEmpty

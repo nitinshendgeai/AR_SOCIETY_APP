@@ -50,6 +50,19 @@ class FlatRepository(BaseRepository[Flat]):
         flats.sort(key=lambda f: (natural_sort_key(f.wing.name), natural_sort_key(f.flat_number)))
         return flats
 
+    def assert_unique_van(self, society_id: UUID, van: str, exclude_id: Optional[UUID] = None) -> None:
+        """A virtual account number identifies one flat of the society."""
+        q = (self.db.query(Flat).join(Wing, Flat.wing_id == Wing.id)
+             .filter(Wing.society_id == society_id, Flat.is_active == True,
+                     Flat.virtual_account_number == van))
+        if exclude_id:
+            q = q.filter(Flat.id != exclude_id)
+        other = q.first()
+        if other:
+            raise HTTPException(
+                409, f"Virtual account number {van} is already set for flat "
+                     f"{other.wing.name}-{other.flat_number}")
+
     def assert_unique_flat_number(self, wing_id: UUID, flat_number: str,
                                    exclude_id: Optional[UUID] = None) -> None:
         q = self.db.query(Flat).filter(

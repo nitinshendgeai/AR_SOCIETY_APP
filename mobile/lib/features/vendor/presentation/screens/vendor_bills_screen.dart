@@ -150,7 +150,7 @@ class _VendorBillsScreenState extends ConsumerState<VendorBillsScreen> {
                   KpiCard(
                     icon: Icons.account_balance_wallet_rounded,
                     label: 'Outstanding',
-                    value: '₹${outstandingTotal.toStringAsFixed(0)}',
+                    value: tableMoney(outstandingTotal),
                     color: AppTheme.error,
                   ),
                 ]),
@@ -247,18 +247,24 @@ class _BillCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         onTap: onTap,
-        title: Text('${invoice.vendorName ?? 'Vendor'} — ₹${invoice.totalAmount}',
+        contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        title: Text(invoice.vendorName ?? 'Vendor',
             maxLines: 1, overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text(
-            '${invoice.invoiceNumber} · '
-            '${invoice.invoiceDate.day}/${invoice.invoiceDate.month}/${invoice.invoiceDate.year}'
-            '${!invoice.isPaid ? ' · Due ₹${invoice.outstanding}' : ''}'),
-        trailing: Chip(
-          label: Text(invoice.isPaid ? 'Paid' : 'Unpaid',
-              style: TextStyle(fontSize: 11, color: statusColor)),
-          backgroundColor: statusColor.withOpacity(0.12),
-          side: BorderSide.none,
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text('${invoice.invoiceNumber} · ${tableDate(invoice.invoiceDate)}',
+              maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(tableMoney(invoice.isPaid ? invoice.totalAmount : invoice.outstanding),
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            const SizedBox(height: 4),
+            StatusPill(invoice.isPaid ? 'Paid' : 'Unpaid', statusColor),
+          ],
         ),
       ),
     );

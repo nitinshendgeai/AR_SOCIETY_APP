@@ -24,7 +24,9 @@ page:
    GST was charged).
 2. **Details box** — Name, Flat No., Area sq ft, Mobile No, Mail ID (the
    bill's resident, else the flat's primary owner; placeholder e-mails are
-   left out) | Bill No., Bill Date, Due Date, Bill Period.
+   left out) | Bill No., Bill Date, Due Date, Bill Period, and Virtual A/c
+   No.(VAN) when the flat has one (`flats.virtual_account_number`, set on the
+   flat's edit screen — the bank's per-flat account for NEFT payments).
 3. **Heads** (No / Head / Amount) — always these nine, 0.00 when nothing is
    charged under one:
    Maintenance Charges, Sinking Fund, Repair & Maintenance Fund, Property
@@ -45,7 +47,8 @@ page:
    (interest billed earlier and still unpaid); discount when given; Total
    Maintenance Payable Amount.
 5. **Notes** — NEFT details (beneficiary, account no. and IFSC, bank, UPI
-   from Rules → Payment details on bills), interest @ X% p.a. on late
+   from Rules → Payment details on bills; a flat with a VAN is told to pay to
+   "Virtual Ac No Mentioned Above in Bill" instead of the society account), interest @ X% p.a. on late
    payment, queries within 7 days, dues subject to final audit, the
    society's own `bill_notes`, computer-generated bill.
 6. **Receipts towards the previous bill** — "Receipts: Towards Bill No. X

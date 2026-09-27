@@ -229,7 +229,7 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
                 : RefreshIndicator(
                     onRefresh: () async => _load(),
                     child: ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
                       itemCount: tenants.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
                       itemBuilder: (_, i) => _TenantCard(tenant: tenants[i], flat: flatsById[tenants[i].flatId]),

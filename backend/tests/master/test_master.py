@@ -120,6 +120,34 @@ def test_flats_by_wing_ordered_naturally_by_flat_number(client, db):
     assert numbers == ["A-101", "A-102", "A-201", "A-1702", "A-2101"]
 
 
+def test_flat_virtual_account_number(client, db):
+    """The bank's virtual account number (VAN) for a flat: cleaned up and
+    upper-cased, unique within the society, and clearable."""
+    admin   = make_user(db, "adm-van@master.com", role="Society Admin")
+    society = make_society(db, "VAN Society")
+    wing    = make_wing(db, society.id, "Wing V")
+    h = admin["headers"]
+    r = client.post("/api/v1/flats/", json={
+        "flat_number": "301", "wing_id": str(wing.id), "virtual_account_number": " shar-a 0301 ",
+    }, headers=h)
+    assert r.status_code == 201, r.text
+    flat_id = r.json()["id"]
+    assert r.json()["virtual_account_number"] == "SHARA0301"
+
+    other = client.post("/api/v1/flats/", json={"flat_number": "302", "wing_id": str(wing.id)}, headers=h).json()
+    assert other["virtual_account_number"] is None
+    r = client.patch(f"/api/v1/flats/{other['id']}", json={"virtual_account_number": "SHARA0301"}, headers=h)
+    assert r.status_code == 409 and "V-301" in r.json()["detail"].replace("Wing ", "")
+    r = client.patch(f"/api/v1/flats/{other['id']}", json={"virtual_account_number": "no@good"}, headers=h)
+    assert r.status_code == 422
+
+    # Other edits leave it alone; "" clears it
+    r = client.patch(f"/api/v1/flats/{flat_id}", json={"remarks": "corner flat"}, headers=h)
+    assert r.json()["virtual_account_number"] == "SHARA0301"
+    r = client.patch(f"/api/v1/flats/{flat_id}", json={"virtual_account_number": ""}, headers=h)
+    assert r.status_code == 200 and r.json()["virtual_account_number"] is None
+
+
 # ── Floor ─────────────────────────────────────────────────────────────────────
 
 def test_floor_number_reusable_after_delete(client, db):
