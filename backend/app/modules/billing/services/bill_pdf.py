@@ -363,12 +363,14 @@ def generate_maintenance_bill_pdf(
         ("Mobile No", escape(m.phone or "") if m else ""),
         ("Mail ID", escape(email)),
     ], [36 * mm, width * 0.55 - 28 * mm])
+    van = flat.virtual_account_number if flat else None
     right = _kv([
         ("Bill No.", escape(bill.invoice_number)),
         ("Bill Date", _dm(bill.bill_date)),
         ("Due Date", _dm(bill.due_date)),
         ("Bill Period", period),
-    ], [24 * mm, width * 0.45 - 28 * mm])
+        *([("Virtual A/c No.(VAN)", escape(van))] if van else []),
+    ], [33 * mm, width * 0.45 - 37 * mm])
     box = Table([[left, right]], colWidths=[width * 0.55, width * 0.45])
     box.setStyle(TableStyle([
         ("BOX", (0, 0), (-1, -1), 0.8, RULE), ("VALIGN", (0, 0), (-1, -1), "TOP"),
@@ -438,12 +440,15 @@ def generate_maintenance_bill_pdf(
 
     # ── Notes ──
     notes: List[str] = []
-    if settings and (settings.bank_account_number or settings.upi_id):
+    if settings and (settings.bank_account_number or settings.upi_id or van):
         pay_to = settings.bank_account_name or society_name
         notes.append("We recommend payment through NEFT, giving following details")
         sub = [f"(a) <b>Beneficiary Name: {escape(pay_to.upper())}</b>"]
-        if settings.bank_account_number:
-            acct = f"(b) <b>Account No: {escape(settings.bank_account_number)}</b>"
+        # A flat with a virtual account number pays to it, so the bank can
+        # tell which flat paid.
+        account = "Virtual Ac No Mentioned Above in Bill" if van else settings.bank_account_number
+        if account:
+            acct = f"(b) <b>Account No: {escape(account)}</b>"
             if settings.bank_ifsc:
                 acct += f" with <b>IFSC Code: {escape(settings.bank_ifsc)}</b>"
             sub.append(acct)

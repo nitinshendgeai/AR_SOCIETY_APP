@@ -123,6 +123,25 @@ def test_bill_layout_heads_totals_and_notes(client, db):
     ]:
         assert expected in text, expected
     assert "Receipts: Towards" not in text      # the flat's first bill
+    assert "Virtual A/c No." not in text        # the flat has none
+
+
+def test_virtual_account_number_on_the_bill(client, db):
+    society, flat1, flat2, manager, resident, other, cycle_id = _generated_cycle(client, db, "pdf5")
+    flat1.virtual_account_number = "SHARA0101"
+    db.commit()
+    r = client.put(f"/api/v1/billing/maintenance-settings/{society.id}", json={
+        "bank_account_name": "MB Society pdf5 CHS Ltd", "bank_account_number": "123456789012",
+        "bank_ifsc": "SVCB0000045", "bank_name": "SVC Co-Op Bank Ltd",
+    }, headers=manager["headers"])
+    assert r.status_code == 200, r.text
+    bill_id = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=flat1.id).one().id
+
+    _, text = _bill_pdf(db, bill_id)
+    assert "Virtual A/c No.(VAN) : SHARA0101" in text
+    # Members pay to the flat's VAN, not the society's account number
+    assert "(b) Account No: Virtual Ac No Mentioned Above in Bill with IFSC Code: SVCB0000045" in text
+    assert "123456789012" not in text
 
 
 def test_member_fallback_and_own_payments_not_listed(client, db):

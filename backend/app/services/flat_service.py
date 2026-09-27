@@ -30,6 +30,8 @@ class FlatService:
         if not wing:
             raise HTTPException(status_code=404, detail="Wing not found")
         self.repo.assert_unique_flat_number(data.wing_id, data.flat_number)
+        if data.virtual_account_number:
+            self.repo.assert_unique_van(wing.society_id, data.virtual_account_number)
         flat = Flat(**data.model_dump())
         return _enrich(self.repo.create(flat))
 
@@ -57,6 +59,11 @@ class FlatService:
         if not flat:
             raise HTTPException(status_code=404, detail="Flat not found")
         patch = data.model_dump(exclude_none=True)
+        # Unlike the other fields, the VAN can be cleared (sent as null / "")
+        if "virtual_account_number" in data.model_fields_set:
+            patch["virtual_account_number"] = data.virtual_account_number
+            if data.virtual_account_number:
+                self.repo.assert_unique_van(flat.wing.society_id, data.virtual_account_number, exclude_id=id)
         if "flat_number" in patch and patch["flat_number"] != flat.flat_number:
             self.repo.assert_unique_flat_number(
                 flat.wing_id, patch["flat_number"], exclude_id=id
