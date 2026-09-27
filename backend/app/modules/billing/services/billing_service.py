@@ -504,26 +504,16 @@ class BillingService:
                                              **self._bill_print_context(bill))
 
     def _bill_print_context(self, bill: MaintenanceBill) -> dict:
-        """What the printed bill needs beyond the bill itself: every charge
-        head of the society (unbilled heads print as 0.00) and the unpaid
-        interest inside the arrears."""
+        """What the printed bill needs beyond the bill itself: which standard
+        element each charge head came from (decides the bill head it's shown
+        under), the unpaid interest inside the arrears, and the flat's
+        previous bill (its receipts are listed at the foot)."""
         heads = (
-            self.db.query(MaintenanceChargeConfig)
-            .outerjoin(MaintenanceElement, MaintenanceElement.id == MaintenanceChargeConfig.element_id)
-            .filter(MaintenanceChargeConfig.society_id == bill.society_id,
-                    MaintenanceChargeConfig.is_active == True)
-            .order_by(MaintenanceElement.sort_order.asc().nullslast(), MaintenanceChargeConfig.created_at)
+            self.db.query(MaintenanceChargeConfig.name, MaintenanceElement.code)
+            .join(MaintenanceElement, MaintenanceElement.id == MaintenanceChargeConfig.element_id)
+            .filter(MaintenanceChargeConfig.society_id == bill.society_id)
             .all()
         )
-        names: List[str] = []
-        for c in heads:
-            if c.effective_to and c.effective_to < bill.bill_date:
-                continue
-            if c.effective_from and c.effective_from > bill.bill_date:
-                continue
-            if c.name not in names:
-                names.append(c.name)
-
         earlier = (
             self.db.query(MaintenanceBill)
             .filter(MaintenanceBill.flat_id == bill.flat_id, MaintenanceBill.id != bill.id,
@@ -531,6 +521,7 @@ class BillingService:
                     MaintenanceBill.bill_status != BillStatus.CANCELLED,
                     MaintenanceBill.bill_date <= bill.bill_date,
                     MaintenanceBill.created_at < bill.created_at)
+            .order_by(MaintenanceBill.bill_date.desc(), MaintenanceBill.created_at.desc())
             .all()
         )
         # Interest is billed as a PENALTY line; what's still unpaid of it is
@@ -539,7 +530,11 @@ class BillingService:
             min(Decimal(b.outstanding), sum((Decimal(li.total) for li in b.line_items
                                              if li.charge_type == ChargeType.PENALTY), Decimal(0)))
             for b in earlier if b.outstanding and b.outstanding > 0), Decimal(0))
-        return {"charge_heads": names, "accumulated_interest": interest}
+        return {
+            "element_codes": {name: code for name, code in heads},
+            "accumulated_interest": interest,
+            "previous_bill": earlier[0] if earlier else None,
+        }
 
     def get_overdue_bills(self, society_id: UUID) -> List[MaintenanceBill]:
         return self.bill_repo.get_overdue(society_id)
