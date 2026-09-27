@@ -106,7 +106,7 @@ class _CreateComplaintScreenState
       appBar: AppBar(title: const Text('New Complaint')),
       body: AppLoadingOverlay(
         isLoading: _isLoading,
-        child: Form(
+        child: ResponsiveBody(child: Form(
           key: _formKey,
           child: ListView(
             padding: const EdgeInsets.all(20),
@@ -202,8 +202,9 @@ class _CreateComplaintScreenState
                         data: (wings) => DropdownButtonFormField<String>(
                           value: _selectedWingId,
                           decoration: const InputDecoration(
-                            labelText: 'Wing',
-                            hintText: 'Optional — leave blank for a society-wide issue',
+                            labelText: 'Wing (optional)',
+                            hintText: 'Select wing',
+                            helperText: 'Leave blank for a society-wide issue',
                           ),
                           items: wings
                               .map((w) => DropdownMenuItem(
@@ -308,7 +309,7 @@ class _CreateComplaintScreenState
               ),
             ],
           ),
-        ),
+        )),
       ),
     );
   }

@@ -370,13 +370,13 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
             subtitle: widget.assignedToMe
                 ? 'Complaints assigned to you will show up here'
                 : widget.isMy
-                    ? 'Tap + to raise a new complaint'
+                    ? 'Tap "New Complaint" to raise one'
                     : 'No complaints have been raised in this society',
           ),
         );
       }
       return ListView.separated(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
         itemCount: state.complaints.length,
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (_, i) {

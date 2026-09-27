@@ -6,6 +6,8 @@ import 'package:ar_society_app/features/visitor/data/repositories/visitor_reposi
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart' show myResidentProvider;
 
 class CreateVisitorScreen extends ConsumerStatefulWidget {
   final String societyId;
@@ -26,6 +28,28 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
   bool _isLoading    = false;
 
   @override
+  void initState() {
+    super.initState();
+    // A resident expecting a visitor almost always means their own flat
+    if (ref.read(currentUserProvider)?.isResident ?? false) _prefillMyFlat();
+  }
+
+  Future<void> _prefillMyFlat() async {
+    try {
+      final resident = await ref.read(myResidentProvider.future);
+      if (resident == null) return;
+      final flat = await ref.read(flatByIdProvider(resident.flatId).future);
+      if (!mounted || _wingId != null) return;
+      setState(() {
+        _wingId = flat.wingId;
+        _flatId = flat.id;
+      });
+    } catch (_) {
+      // Leave the pickers empty; the resident can still choose.
+    }
+  }
+
+  @override
   void dispose() {
     _nameCtrl.dispose();
     _mobileCtrl.dispose();
@@ -38,7 +62,7 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(title: const Text('Log Visitor')),
-      body: Form(
+      body: ResponsiveBody(child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -129,7 +153,7 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 

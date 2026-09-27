@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/shared/widgets/app_data_table.dart' show HeaderActionButton;
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
@@ -38,19 +40,28 @@ class _WingListScreenState extends ConsumerState<WingListScreen> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(wingsProvider);
+    final desktop = isDesktopLayout(context);
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(
         title: const Text('Wings'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add_rounded),
-            tooltip: 'Add Wing',
-            onPressed: () => context.push(AppRoutes.wingForm),
-          ),
+          if (desktop)
+            HeaderActionButton(
+              icon: Icons.add_rounded,
+              label: 'Add Wing',
+              onPressed: () => context.push(AppRoutes.wingForm),
+            ),
         ],
       ),
+      floatingActionButton: desktop
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => context.push(AppRoutes.wingForm),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Add Wing'),
+            ),
       body: ResponsiveBody(child: Column(
         children: [
           Padding(
@@ -116,7 +127,7 @@ class _WingListScreenState extends ConsumerState<WingListScreen> {
                         const SizedBox(height: 12),
                         Text(
                           wings.isEmpty
-                              ? 'No wings yet.\nTap + to add the first wing.'
+                              ? 'No wings yet.\nTap "Add Wing" to add the first one.'
                               : 'No wings match your search.',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
@@ -130,7 +141,7 @@ class _WingListScreenState extends ConsumerState<WingListScreen> {
                   onRefresh: () =>
                       ref.read(wingsProvider.notifier).refresh(),
                   child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
                     itemCount: filtered.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (_, i) => _WingCard(wing: filtered[i]),

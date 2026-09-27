@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/shared/widgets/app_data_table.dart' show HeaderActionButton;
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
@@ -44,6 +46,7 @@ class _ChecklistTemplatesScreenState extends ConsumerState<ChecklistTemplatesScr
       return const Scaffold(body: Center(child: Text('No society context')));
     }
     final templatesAsync = ref.watch(checklistTemplatesProvider(societyId));
+    final desktop = isDesktopLayout(context);
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
@@ -54,13 +57,21 @@ class _ChecklistTemplatesScreenState extends ConsumerState<ChecklistTemplatesScr
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () => ref.read(checklistTemplatesProvider(societyId).notifier).refresh(),
           ),
+          if (desktop)
+            HeaderActionButton(
+              icon: Icons.add_rounded,
+              label: 'New Template',
+              onPressed: () => _openEditor(context, societyId: societyId),
+            ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openEditor(context, societyId: societyId),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('New Template'),
-      ),
+      floatingActionButton: desktop
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => _openEditor(context, societyId: societyId),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('New Template'),
+            ),
       body: Column(
         children: [
           SizedBox(

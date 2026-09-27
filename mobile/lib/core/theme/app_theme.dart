@@ -53,6 +53,8 @@ class AppTheme {
   static const Color surface   = Color(0xFFF2F2F7);
   static const Color cardBg    = Color(0xFFFFFFFF);
   static const Color inputFill = Color(0xFFF2F3F6);
+  /// Outline of an idle form field.
+  static const Color fieldBorder = Color(0xFFDADCE2);
 
   // ── Text ─────────────────────────────────────────────────────────────────
   static const Color textPrimary   = Color(0xFF1C1C1E);
@@ -192,20 +194,35 @@ class AppTheme {
         style: IconButton.styleFrom(foregroundColor: textPrimary),
       ),
 
-      // Border-less filled fields — an inset gray fill rather than an
-      // outlined box, with the accent only appearing once a field is
-      // actually focused.
+      // One look for every screen's main action button (some screens set
+      // these colours themselves; the rest got Material's pale tonal FAB).
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: primary,
+        foregroundColor: Colors.white,
+        elevation: 3,
+        extendedTextStyle: const TextStyle(fontFamily: _fontFamily, fontSize: 16, fontWeight: FontWeight.w600),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+
+      // White fields with a hairline border. Most forms sit straight on
+      // the gray `surface` canvas, where a gray fill disappeared into the
+      // page; the accent only appears once a field is focused.
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: inputFill,
+        fillColor: cardBg,
+        hoverColor: Colors.transparent,
         isDense: true,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusM),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: fieldBorder),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusM),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: fieldBorder),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radiusM),
+          borderSide: const BorderSide(color: border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusM),

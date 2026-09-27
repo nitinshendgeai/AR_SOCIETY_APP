@@ -266,7 +266,7 @@ class _ProfileHeader extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                         fontSize: 18)),
                 const SizedBox(height: 2),
-                Text(user.email,
+                Text(user.contactLine,
                     style: TextStyle(
                         color: Colors.white.withOpacity(0.8),
                         fontSize: 13)),
@@ -321,7 +321,7 @@ class _InfoCard extends StatelessWidget {
           _InfoRow(
               icon: Icons.email_outlined,
               label: 'Email',
-              value: user.email),
+              value: user.displayEmail ?? 'Not set — signs in with mobile number'),
           if (user.phone != null) ...[
             const Divider(height: 20),
             _InfoRow(

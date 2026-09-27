@@ -158,15 +158,16 @@ class _FlatListScreenState extends ConsumerState<FlatListScreen> {
         title: Text(title),
         actions: [
           if (desktop)
-            HeaderActionButton(icon: Icons.add_rounded, label: 'Add Flat', onPressed: _addFlat)
-          else
-            IconButton(
-              icon: const Icon(Icons.add_rounded),
-              tooltip: 'Add Flat',
-              onPressed: _addFlat,
-            ),
+            HeaderActionButton(icon: Icons.add_rounded, label: 'Add Flat', onPressed: _addFlat),
         ],
       ),
+      floatingActionButton: desktop
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _addFlat,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Add Flat'),
+            ),
       body: desktop ? _table(async) : ResponsiveBody(child: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -207,7 +208,7 @@ class _FlatListScreenState extends ConsumerState<FlatListScreen> {
                       const SizedBox(height: 12),
                       Text(
                         flats.isEmpty
-                            ? 'No flats yet.\nTap + to add the first flat.'
+                            ? 'No flats yet.\nTap "Add Flat" to add the first one.'
                             : 'No flats match your filters.',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
@@ -222,7 +223,7 @@ class _FlatListScreenState extends ConsumerState<FlatListScreen> {
                 onRefresh: () =>
                     ref.read(flatsBySocietyProvider.notifier).refresh(),
                 child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
                   itemCount: filtered.length,
                   separatorBuilder: (_, __) =>
                       const SizedBox(height: 10),

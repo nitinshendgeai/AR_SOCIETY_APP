@@ -127,7 +127,7 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(title: const Text('Add Staff')),
-      body: Form(
+      body: ResponsiveBody(child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -341,7 +341,7 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 

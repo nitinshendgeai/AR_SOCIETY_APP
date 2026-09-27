@@ -20,7 +20,8 @@ import 'package:ar_society_app/features/maintenance_billing/presentation/provide
 import 'package:ar_society_app/features/dashboard/dashboard_stats.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart' show pendingVisitorApprovalsProvider;
 import 'package:ar_society_app/features/visitor/presentation/widgets/pending_visitors_banner.dart';
-import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart' show flatsBySocietyProvider;
+import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart' show flatByIdProvider, flatsBySocietyProvider;
+import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart' show myResidentProvider;
 
 // ── Shared scaffold wrapper ───────────────────────────────────────────────────
 
@@ -794,6 +795,10 @@ class ResidentDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
     final waiting = ref.watch(pendingVisitorApprovalsProvider).valueOrNull?.length ?? 0;
+    final openComplaints = ref.watch(myOpenComplaintsCountProvider);
+    final myFlatId = ref.watch(myResidentProvider).valueOrNull?.flatId;
+    final myFlat = myFlatId == null ? null : ref.watch(flatByIdProvider(myFlatId)).valueOrNull;
+    final residentLoaded = ref.watch(myResidentProvider).hasValue;
     return _DashboardShell(
       title: 'Resident Dashboard',
       children: [
@@ -812,8 +817,20 @@ class ResidentDashboardScreen extends ConsumerWidget {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           children: [
-            const _SummaryCard(icon: Icons.report_problem_rounded, label: 'Open Complaints', value: '--', color: AppTheme.error),
-            const _SummaryCard(icon: Icons.campaign_rounded, label: 'Notices', value: '--', color: AppTheme.primary),
+            _SummaryCard(
+              icon: Icons.report_problem_rounded,
+              label: 'Open Complaints',
+              value: openComplaints.when(data: (n) => '$n', loading: () => '…', error: (_, __) => '0'),
+              color: AppTheme.error,
+              onTap: () => context.push(AppRoutes.complaints),
+            ),
+            _SummaryCard(
+              icon: Icons.how_to_reg_rounded,
+              label: 'Visitors Waiting',
+              value: '$waiting',
+              color: AppTheme.primary,
+              onTap: () => context.push(AppRoutes.visitorsPending),
+            ),
             _SummaryCard(
               icon: Icons.receipt_long_rounded,
               label: 'Bills Due',
@@ -827,7 +844,12 @@ class ResidentDashboardScreen extends ConsumerWidget {
                   : AppTheme.warning,
               onTap: () => context.push(AppRoutes.myBills),
             ),
-            const _SummaryCard(icon: Icons.home_rounded, label: 'My Flat', value: '--', color: AppTheme.success),
+            _SummaryCard(
+              icon: Icons.home_rounded,
+              label: 'My Flat',
+              value: myFlat?.displayName ?? (residentLoaded && myFlatId == null ? 'Not linked' : '…'),
+              color: AppTheme.success,
+            ),
           ],
         ),
         const SizedBox(height: 18),
@@ -854,7 +876,18 @@ class ResidentDashboardScreen extends ConsumerWidget {
         ]),
         const SizedBox(height: 18),
         _OperationalPanel(title: 'Recent updates', children: [
-          const _InfoTile(icon: Icons.info_outline_rounded, title: 'Notice board', value: 'Check notices via Society Updates', color: AppTheme.primary),
+          _InfoTile(
+            icon: Icons.receipt_long_rounded,
+            title: 'Maintenance',
+            value: ref.watch(myBillsProvider).when(
+                  data: (s) => s.openCount == 0
+                      ? 'All bills paid'
+                      : '${formatRupees(s.totalOutstanding)} due on ${s.openCount} bill${s.openCount == 1 ? '' : 's'}',
+                  loading: () => '…',
+                  error: (_, __) => 'Open My Bills to check',
+                ),
+            color: AppTheme.primary,
+          ),
           const SizedBox(height: 8),
           _InfoTile(
             icon: Icons.pending_actions_rounded,
