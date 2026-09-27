@@ -76,7 +76,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
       appBar: AppBar(
         title: const Text('Staff'),
         actions: [
-          if (user?.isAdminOrCommittee ?? false)
+          if ((user?.isAdminOrCommittee ?? false) || (user?.isManager ?? false))
             IconButton(
               icon: const Icon(Icons.upload_file_rounded),
               tooltip: 'Import Staff',
@@ -86,7 +86,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
               },
             ),
           IconButton(icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh', onPressed: _load),
-          if (desktop && societyId != null && (user?.isAdminOrCommittee ?? false))
+          if (desktop && societyId != null && ((user?.isAdminOrCommittee ?? false) || (user?.isManager ?? false)))
             HeaderActionButton(
               icon: Icons.person_add_rounded,
               label: 'Add Staff',
@@ -94,7 +94,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
             ),
         ],
       ),
-      floatingActionButton: (!desktop && societyId != null && (user?.isAdminOrCommittee ?? false))
+      floatingActionButton: (!desktop && societyId != null && ((user?.isAdminOrCommittee ?? false) || (user?.isManager ?? false)))
           ? FloatingActionButton.extended(
               onPressed: () => context.push('/staff/add'),
               backgroundColor: AppTheme.primary,

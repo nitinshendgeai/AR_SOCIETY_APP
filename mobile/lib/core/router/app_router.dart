@@ -413,7 +413,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             redirect: (_, __) {
               if (authState is AuthAuthenticated) {
                 final user = (authState as AuthAuthenticated).user;
-                if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
+                if (!user.isAdmin && !user.isCommittee && !user.isManager) return AppRoutes.staffHome;
               }
               return null;
             },
@@ -424,7 +424,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             redirect: (_, __) {
               if (authState is AuthAuthenticated) {
                 final user = (authState as AuthAuthenticated).user;
-                if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
+                if (!user.isAdmin && !user.isCommittee && !user.isManager) return AppRoutes.staffHome;
               }
               return null;
             },
@@ -444,7 +444,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               if (state.extra == null) return AppRoutes.staffList;
               if (authState is AuthAuthenticated) {
                 final user = (authState as AuthAuthenticated).user;
-                if (!user.isAdmin && !user.isCommittee) return AppRoutes.staffHome;
+                if (!user.isAdmin && !user.isCommittee && !user.isManager) return AppRoutes.staffHome;
               }
               return null;
             },
@@ -586,7 +586,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             redirect: (_, __) {
               if (authState is AuthAuthenticated) {
                 final user = (authState as AuthAuthenticated).user;
-                if (!user.isAdminOrCommittee) return userRoleHome(user);
+                if (!(user.isAdminOrCommittee || user.isManager)) return userRoleHome(user);
               }
               return null;
             },

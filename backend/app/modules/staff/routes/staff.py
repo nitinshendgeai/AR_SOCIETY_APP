@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.core.dependencies import (
     get_current_user, require_roles,
-    require_admin_committee, require_manager_above,
+    require_manager_above,
     require_supervisor_above, require_any_staff, require_any_member,
 )
 from app.models.user import User
@@ -27,7 +27,9 @@ from app.modules.staff.services.staff_service import StaffService
 
 router = APIRouter(prefix="/staff", tags=["Staff Operations"])
 
-admin_or_committee = require_admin_committee
+# The staff module (master, designations, shifts, attendance, leaves, roster,
+# checklist templates) is run by the society's Manager as well as the
+# committee; supervisors keep their department-scoped access below.
 supervisor_above   = require_supervisor_above
 any_auth           = require_any_member
 any_staff          = require_any_staff
@@ -56,39 +58,39 @@ def _resolve_dept(user: User, requested_dept: Optional[str], db: Session) -> Opt
 
 # ── Designations ──────────────────────────────────────────────────────────────
 @router.post("/designations", response_model=DesignationOut, status_code=201,
-             dependencies=[Depends(admin_or_committee)])
+             dependencies=[Depends(manager_or_above)])
 def create_designation(data: DesignationCreate, db: Session = Depends(get_db),
                        user: User = Depends(get_current_user)):
     return StaffService(db).create_designation(data, user)
 
 @router.get("/designations/{society_id}", response_model=List[DesignationOut],
-            dependencies=[Depends(admin_or_committee)])
+            dependencies=[Depends(manager_or_above)])
 def list_designations(society_id: UUID, db: Session = Depends(get_db)):
     return StaffService(db).list_designations(society_id)
 
 
 # ── Shifts ────────────────────────────────────────────────────────────────────
 @router.post("/shifts", response_model=ShiftOut, status_code=201,
-             dependencies=[Depends(admin_or_committee)])
+             dependencies=[Depends(manager_or_above)])
 def create_shift(data: ShiftCreate, db: Session = Depends(get_db),
                  user: User = Depends(get_current_user)):
     return StaffService(db).create_shift(data, user)
 
 @router.get("/shifts/{society_id}", response_model=List[ShiftOut],
-            dependencies=[Depends(admin_or_committee)])
+            dependencies=[Depends(manager_or_above)])
 def list_shifts(society_id: UUID, db: Session = Depends(get_db)):
     return StaffService(db).list_shifts(society_id)
 
 
 # ── Staff CRUD ────────────────────────────────────────────────────────────────
 @router.post("/", response_model=StaffOut, status_code=201,
-             dependencies=[Depends(admin_or_committee)])
+             dependencies=[Depends(manager_or_above)])
 def create_staff(data: StaffCreate, request: Request, db: Session = Depends(get_db),
                  user: User = Depends(get_current_user)):
     return StaffService(db).create_staff(data, user, request)
 
 @router.patch("/{staff_id}", response_model=StaffOut,
-              dependencies=[Depends(admin_or_committee)])
+              dependencies=[Depends(manager_or_above)])
 def update_staff(staff_id: UUID, data: StaffUpdate, request: Request,
                  db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return StaffService(db).update_staff(staff_id, data, user, request)
@@ -128,7 +130,7 @@ def list_staff(
     return StaffService(db).list_staff(society_id, skip, limit, effective_dept)
 
 @router.get("/society/{society_id}/department/{department}", response_model=List[StaffOut],
-            dependencies=[Depends(admin_or_committee)])
+            dependencies=[Depends(manager_or_above)])
 def list_by_department(society_id: UUID, department: StaffDepartment,
                        db: Session = Depends(get_db)):
     return StaffService(db).list_by_department(society_id, department)
@@ -177,7 +179,7 @@ def complete_checklist_item(duty_id: UUID, item_id: UUID, data: DutyChecklistIte
 
 # ── Checklist Templates ───────────────────────────────────────────────────────
 @router.post("/checklist-templates", response_model=ChecklistTemplateOut, status_code=201,
-             dependencies=[Depends(admin_or_committee)])
+             dependencies=[Depends(manager_or_above)])
 def create_checklist_template(data: ChecklistTemplateCreate, db: Session = Depends(get_db),
                               user: User = Depends(get_current_user)):
     return StaffService(db).create_checklist_template(data, user)
@@ -195,13 +197,13 @@ def get_checklist_template(template_id: UUID, db: Session = Depends(get_db)):
     return StaffService(db).get_checklist_template(template_id)
 
 @router.patch("/checklist-templates/{template_id}", response_model=ChecklistTemplateOut,
-              dependencies=[Depends(admin_or_committee)])
+              dependencies=[Depends(manager_or_above)])
 def update_checklist_template(template_id: UUID, data: ChecklistTemplateUpdate,
                               db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return StaffService(db).update_checklist_template(template_id, data, user)
 
 @router.delete("/checklist-templates/{template_id}", status_code=204,
-               dependencies=[Depends(admin_or_committee)])
+               dependencies=[Depends(manager_or_above)])
 def delete_checklist_template(template_id: UUID, db: Session = Depends(get_db)):
     StaffService(db).delete_checklist_template(template_id)
 
@@ -218,7 +220,7 @@ def check_out(staff_id: UUID, data: AttendanceCheckOut, request: Request,
     return StaffService(db).check_out(staff_id, data, user, request)
 
 @router.post("/attendance/manual", response_model=AttendanceOut,
-             dependencies=[Depends(admin_or_committee)])
+             dependencies=[Depends(manager_or_above)])
 def manual_attendance(data: AttendanceManualEntry, db: Session = Depends(get_db),
                       user: User = Depends(get_current_user)):
     return StaffService(db).manual_attendance(data, user)
@@ -229,14 +231,14 @@ def get_attendance(staff_id: UUID, skip: int = 0, limit: int = 50,
     return StaffService(db).get_attendance(staff_id, user, skip, limit)
 
 @router.get("/attendance/daily/{society_id}", response_model=List[AttendanceOut],
-            dependencies=[Depends(admin_or_committee)])
+            dependencies=[Depends(manager_or_above)])
 def daily_attendance(society_id: UUID,
                      att_date: date = Query(..., description="YYYY-MM-DD"),
                      db: Session = Depends(get_db)):
     return StaffService(db).get_daily_attendance(society_id, att_date)
 
 @router.get("/attendance/pending/{society_id}", response_model=List[AttendanceOut],
-            dependencies=[Depends(admin_or_committee)])
+            dependencies=[Depends(manager_or_above)])
 def pending_attendance(society_id: UUID, db: Session = Depends(get_db)):
     return StaffService(db).get_pending_attendance(society_id)
 
@@ -311,7 +313,7 @@ def attendance_summary(
 # ── Tasks ─────────────────────────────────────────────────────────────────────
 @router.post("/tasks", response_model=TaskOut, status_code=201)
 def create_task(data: TaskCreate, request: Request, db: Session = Depends(get_db),
-                user: User = Depends(admin_or_committee)):
+                user: User = Depends(manager_or_above)):
     return StaffService(db).create_task(data, user, request)
 
 @router.post("/tasks/{task_id}/status", response_model=TaskOut)
@@ -337,7 +339,7 @@ def active_tasks(staff_id: UUID, db: Session = Depends(get_db)):
     return StaffService(db).get_active_tasks(staff_id)
 
 @router.get("/tasks/society/{society_id}", response_model=List[TaskOut],
-            dependencies=[Depends(admin_or_committee)])
+            dependencies=[Depends(manager_or_above)])
 def society_tasks(society_id: UUID, skip: int = 0, limit: int = 50,
                   db: Session = Depends(get_db)):
     return StaffService(db).get_society_tasks(society_id, skip, limit)
@@ -351,16 +353,16 @@ def apply_leave(staff_id: UUID, data: LeaveCreate, db: Session = Depends(get_db)
 
 @router.post("/leaves/{leave_id}/approve", response_model=LeaveOut)
 def approve_leave(leave_id: UUID, data: LeaveApproveRequest, request: Request,
-                  db: Session = Depends(get_db), user: User = Depends(admin_or_committee)):
+                  db: Session = Depends(get_db), user: User = Depends(manager_or_above)):
     return StaffService(db).approve_leave(leave_id, data, user, request)
 
 @router.post("/leaves/{leave_id}/reject", response_model=LeaveOut)
 def reject_leave(leave_id: UUID, data: LeaveRejectRequest, request: Request,
-                 db: Session = Depends(get_db), user: User = Depends(admin_or_committee)):
+                 db: Session = Depends(get_db), user: User = Depends(manager_or_above)):
     return StaffService(db).reject_leave(leave_id, data, user, request)
 
 @router.get("/leaves/pending/{society_id}", response_model=List[LeaveOut],
-            dependencies=[Depends(admin_or_committee)])
+            dependencies=[Depends(manager_or_above)])
 def pending_leaves(society_id: UUID, db: Session = Depends(get_db)):
     return StaffService(db).get_pending_leaves(society_id)
 
@@ -426,14 +428,14 @@ class RosterOut(TS2):
     thursday: bool; friday: bool; saturday: bool; sunday: bool
 
 @router.post("/roster", response_model=RosterOut, status_code=201,
-             dependencies=[Depends(admin_or_committee)])
+             dependencies=[Depends(manager_or_above)])
 def create_roster(data: RosterCreate, db: Session = Depends(get_db),
                   user: User = Depends(get_current_user)):
     roster = StaffRoster(**data.model_dump(), created_by=user.id)
     db.add(roster); db.commit(); db.refresh(roster); return roster
 
 @router.patch("/roster/{roster_id}/publish", response_model=RosterOut,
-              dependencies=[Depends(admin_or_committee)])
+              dependencies=[Depends(manager_or_above)])
 def publish_roster(roster_id: UUID, db: Session = Depends(get_db)):
     r = db.query(StaffRoster).filter(StaffRoster.id==roster_id).first()
     if not r: raise HTTPException(status_code=404, detail="Roster not found")
@@ -441,7 +443,7 @@ def publish_roster(roster_id: UUID, db: Session = Depends(get_db)):
     db.commit(); db.refresh(r); return r
 
 @router.get("/roster/society/{society_id}", response_model=List[RosterOut],
-            dependencies=[Depends(admin_or_committee)])
+            dependencies=[Depends(manager_or_above)])
 def list_rosters(society_id: UUID, db: Session = Depends(get_db)):
     return db.query(StaffRoster).filter(StaffRoster.society_id==society_id, StaffRoster.is_active==True)\
         .order_by(StaffRoster.week_start.desc()).limit(20).all()
