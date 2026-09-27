@@ -36,7 +36,8 @@ from app.modules.billing.models.billing import (
     MaintenanceBill, OnlinePaymentSubmission, PaymentMode, PaymentReceipt, ReconciliationStatus,
 )
 from app.modules.billing.services.bill_pdf import (
-    ACCENT, FRAME, S, _bill_month, _d, _inr, _p, flat_label, member_name, rs_in_words, sign_off, society_header,
+    ACCENT, FRAME, MODE_LABEL, S, _bill_month, _d, _inr, _p, flat_label, member_name, rs_in_words, sign_off,
+    society_header,
 )
 
 Payment = Union[PaymentReceipt, OnlinePaymentSubmission]
@@ -46,17 +47,10 @@ _TITLE = ParagraphStyle("receipt", parent=S["cell"], fontName="Helvetica-Bold", 
 _KIND = ParagraphStyle("receipt_kind", parent=S["cell"], fontName="Helvetica-Bold", fontSize=7.5,
                        leading=9, alignment=TA_CENTER, textColor=ACCENT)
 
-_MODE_LABEL = {
-    PaymentMode.CASH: "Cash", PaymentMode.CHEQUE: "Cheque", PaymentMode.UPI: "UPI",
-    PaymentMode.NEFT: "NEFT", PaymentMode.RTGS: "RTGS", PaymentMode.BANK_TRANSFER: "Bank Transfer",
-    PaymentMode.ONLINE_GATEWAY: "Online",
-}
-
-
 def payment_detail(p: Payment) -> str:
     """'Cheque No. 004512, UBI, Dahisar (E)' / 'UPI Ref. 4221…' / 'Cash'.
     The Record Payment form keeps a cheque's number in transaction_ref."""
-    mode = _MODE_LABEL.get(p.payment_mode, p.payment_mode.value.replace("_", " ").title())
+    mode = MODE_LABEL.get(p.payment_mode, p.payment_mode.value.replace("_", " ").title())
     ref = getattr(p, "cheque_number", None) or p.transaction_ref
     detail = mode
     if ref and p.payment_mode == PaymentMode.CHEQUE:
@@ -100,7 +94,7 @@ def generate_payment_receipt_pdf(p: Payment, *, compress: bool = True) -> bytes:
         pageCompression=1 if compress else 0,
     )
     width = doc.width
-    story = [society_header(society, width), Spacer(1, 3 * mm)]
+    story = [*society_header(society, width), Spacer(1, 3 * mm)]
 
     kind = "ON BILLING" if bill is not None else "ON ACCOUNT"
     heading = [Paragraph("<u>RECEIPT</u>", _TITLE), Paragraph(escape(kind), _KIND)]

@@ -1,21 +1,24 @@
 """Maintenance bill PDF — laid out like a Mumbai housing society's
-maintenance bill: boxed society header, member/flat/bill no./dates/area,
-every charge head (0.00 when not charged), principal arrears and
-accumulated interest, grand total in words, the numbered notes, and the
-receipt for the previous bill's payment."""
+maintenance bill: letterhead band, member and bill details, the fixed bill
+heads (monthly expenses together as "Maintenance Charges", 0.00 for heads
+not charged), current bill / arrears / interest / total payable, the notes,
+and the receipts towards the flat's previous bill."""
 import re
 from datetime import date
+from decimal import Decimal
+from types import SimpleNamespace
 from uuid import UUID
 
 from app.models.resident import Resident
-from decimal import Decimal
 
 from app.modules.billing.models.billing import (
     ChargeType, InvoiceLineItem, MaintenanceBill, PaymentMode, PaymentReceipt,
 )
-from app.modules.billing.services.bill_pdf import _inr, amount_in_words, generate_maintenance_bill_pdf, rs_in_words
+from app.modules.billing.services.bill_pdf import (
+    _inr, amount_in_words, bill_head, generate_maintenance_bill_pdf, rs_in_words,
+)
 from app.modules.billing.services.billing_service import BillingService
-from tests.billing.test_maintenance_billing import _charge, _cycle, _generated_cycle
+from tests.billing.test_maintenance_billing import _charge, _cycle, _generated_cycle, _rig
 
 
 def _text(pdf: bytes) -> str:
@@ -43,53 +46,86 @@ def _bill_pdf(db, bill_id):
     return bill, " ".join(_text(pdf).replace("|", " ").split())
 
 
-def test_bill_carries_society_identity_member_charges_totals_and_notes(client, db):
-    society, flat1, flat2, manager, resident, other, cycle_id = _generated_cycle(client, db, "pdf1")
+def test_monthly_expenses_share_one_head_and_levies_keep_their_own():
+    def head(desc, charge_type=ChargeType.OTHER, code=None):
+        return bill_head(SimpleNamespace(description=desc, charge_type=charge_type), code)
+
+    for desc, ctype, code in [("Service Charges", ChargeType.MAINTENANCE, "service_charges"),
+                              ("Water Charges", ChargeType.WATER, "water_charges"),
+                              ("Lift Maintenance", ChargeType.MAINTENANCE, "lift_maintenance"),
+                              ("Building Insurance", ChargeType.OTHER, "insurance"),
+                              ("Clubhouse", ChargeType.AMENITIES, None)]:
+        assert head(desc, ctype, code) == "Maintenance Charges", desc
+    assert head("Property Tax", ChargeType.OTHER, "property_tax") == "Property Tax"
+    assert head("Municipal Tax") == "Property Tax"
+    assert head("Sinking Fund", ChargeType.SINKING_FUND) == "Sinking Fund"
+    assert head("Repairs & Maintenance Fund", ChargeType.REPAIR_FUND) == "Repair & Maintenance Fund"
+    assert head("Non-occupancy charges (10% of service charges)", ChargeType.MAINTENANCE) == "Non Occupancy Charges"
+    assert head("Parking Charges", ChargeType.PARKING) == "Parking Charges"
+    assert head("Cheque Bounce Charges") == "Cheque Bounce Charges"
+    assert head("In & Out Charges") == "In & Out Charges"
+    assert head("Festival Fund") == "Other Charges"
+    assert head("Legal Charges", ChargeType.OTHER, "education_fund") == "Maintenance Charges"
+
+
+def test_bill_layout_heads_totals_and_notes(client, db):
+    society, flat1, flat2, manager, resident, other = _rig(db, "pdf1")
     society.registration_number = "MUM/HSG/TC/9876/2015"
     society.address, society.city, society.pincode = "Plot 7, Sector 3", "Navi Mumbai", "400703"
     society.gst_number = "27AAAAA0000A1Z5"
     flat1.area_sqft = 437
     db.commit()
+    h = manager["headers"]
+    _charge(client, h, society.id, amount="2500.00")
+    _charge(client, h, society.id, name="Water", amount="300.00", tax="18", charge_type="water")
+    _charge(client, h, society.id, name="Sinking Fund", amount="100.00", charge_type="sinking_fund")
+    _charge(client, h, society.id, name="Festival Fund", amount="50.00", charge_type="other")
     r = client.put(f"/api/v1/billing/maintenance-settings/{society.id}", json={
         "bank_account_name": "MB Society pdf1 CHS Ltd", "bank_name": "Saraswat Bank",
         "bank_account_number": "1234 5678 9012", "bank_ifsc": "srcb0000123", "upi_id": "mbsociety@sbi",
         "interest_rate_pct": "21", "interest_grace_days": 5,
         "bill_notes": "Parking stickers are issued at the office.",
-    }, headers=manager["headers"])
+    }, headers=h)
     assert r.status_code == 200, r.text
     assert (r.json()["bank_ifsc"], r.json()["bank_account_number"]) == ("SRCB0000123", "123456789012")
-    # A head this flat isn't charged still prints, at 0.00 — as on a society bill
-    assert _charge(client, manager["headers"], society.id, name="Festival Fund", amount="0.00").status_code == 201
-    client.post(f"/api/v1/billing/cycles/{cycle_id}/issue-all", headers=manager["headers"])
+    cycle_id = _cycle(client, h, society.id).json()["id"]
+    assert client.post(f"/api/v1/billing/cycles/{cycle_id}/generate-bills", headers=h).status_code == 200
+    client.post(f"/api/v1/billing/cycles/{cycle_id}/issue-all", headers=h)
     bill_id = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=flat1.id).one().id
 
     bill, text = _bill_pdf(db, bill_id)
+    cycle = bill.cycle
     for expected in [
-        "MB SOCIETY PDF1", "Regn. No. MUM/HSG/TC/9876/2015",
-        "PLOT 7, SECTOR 3, NAVI MUMBAI, MAHARASHTRA 400703.", "GSTIN: 27AAAAA0000A1Z5",
-        "TAX INVOICE",                              # the water head carries 18% GST
-        "Name : ASHA RAO", "FLAT NO Tower A 101",
-        f"Bill No. : {bill.invoice_number}", f"Bill Date : {bill.bill_date:%d/%m/%Y}",
-        f"Due Date {bill.due_date:%d/%m/%Y}", "Area Carpet: 437 Sq. Feet",
-        "P a r t i c u l a r s Amount (in Rs.)",
-        "Maintenance 2,500.00 Water 300.00 Festival Fund 0.00 GST @ 18% 54.00",
-        "Principal Amount Dues : 0.00 Total : 2,854.00",    # 2,500 + 300 + 18% of 300
-        "Accumulated Interest 0.00 Arrears / Advance 0.00",
-        "Interest on Principal Arrears 0.00",
-        "Rs. Two Thousand Eight Hundred Fifty Four only. Grand Total : 2,854.00",
-        "1. PL. INFORM SOCIETY OFFICE WITHIN 7 DAYS IN CASE OF DISCREPANCY IF ANY.",
-        "INT @21% P.A. WILL BE LEVIED ON UNPAID BILLS AFTER THE DUE DATE (GRACE PERIOD 5 DAYS).",
-        "3. YOU CAN PAY BILL BY NEFT fvg. MB SOCIETY PDF1 CHS LTD. SARASWAT BANK A/C No.123456789012 "
-        "IFSC :SRCB0000123. UPI ID: mbsociety@sbi.",
-        "4. Parking stickers are issued at the office.",
-        "5. RECEIPT ARE SUBJECT TO REALISATION OF CHEQUE.",
-        "For MB SOCIETY PDF1", "HON. SECRETARY / TREASURER / CHAIRMAN",
+        "MB SOCIETY PDF1",
+        "Regn. No. MUM/HSG/TC/9876/2015 PLOT 7, SECTOR 3, NAVI MUMBAI, MAHARASHTRA 400703",  # "|" joins them
+        "GSTIN: 27AAAAA0000A1Z5",
+        "Maintenance Bill / Tax Invoice",           # the water head carries 18% GST
+        "Name : Asha Rao", "Flat No. : Tower A 101", "Area sq ft : 437",
+        f"Bill No. : {bill.invoice_number}", f"Bill Date : {bill.bill_date:%d-%b-%Y}",
+        f"Due Date : {bill.due_date:%d-%b-%Y}",
+        f"Bill Period : {cycle.cycle_start:%d-%b-%Y} to {cycle.cycle_end:%d-%b-%Y}",
+        "No Head Amount (Rs.)",
+        # Maintenance + Water (monthly expenses) together; levies on their own heads
+        "1 Maintenance Charges 2,800.00 2 Sinking Fund 100.00 3 Repair & Maintenance Fund 0.00 "
+        "4 Property Tax 0.00 5 Non Occupancy Charges 0.00 6 Parking Charges 0.00 "
+        "7 Cheque Bounce Charges 0.00 8 In & Out Charges 0.00 9 Other Charges 50.00 10 GST @ 18% 54.00",
+        "Current Bill Amount 3,004.00 Arrears/Advances 0.00 Current Interest/ Late Fees 0.00 "
+        "Previous Interest/ Late Fees 0.00 Total Maintenance Payable Amount Rs. 3,004.00",
+        "Notes * We recommend payment through NEFT, giving following details",
+        "(a) Beneficiary Name: MB SOCIETY PDF1 CHS LTD",
+        "(b) Account No: 123456789012 with IFSC Code: SRCB0000123",
+        "(c) Bank: Saraswat Bank", "(d) UPI ID: mbsociety@sbi",
+        "* Interest @ 21% p.a. will be charged on dues not paid by the due date (grace period 5 days).",
+        "* Any queries related to the bill should be raised within 7 days of bill issuance",
+        "* Outstanding dues are subject to final audit.",
+        "* Parking stickers are issued at the office.",
+        "This is a Computer Generated bill, hence no signature is required.",
     ]:
         assert expected in text, expected
-    assert "RECEIPT for Previous Bill" not in text      # the flat's first bill
+    assert "Receipts: Towards" not in text      # the flat's first bill
 
 
-def test_payments_and_member_fallback_on_the_bill(client, db):
+def test_member_fallback_and_own_payments_not_listed(client, db):
     society, flat1, flat2, manager, resident, other, cycle_id = _generated_cycle(client, db, "pdf2")
     client.post(f"/api/v1/billing/cycles/{cycle_id}/issue-all", headers=manager["headers"])
     bill = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=flat2.id).one()
@@ -105,14 +141,16 @@ def test_payments_and_member_fallback_on_the_bill(client, db):
     db.expire_all()
 
     bill, text = _bill_pdf(db, bill.id)
-    assert "Name : VIK MEHTA" in text
-    # Payments are acknowledged on their own receipt, never on the bill
-    assert r.json()["receipt_number"] not in text and "Receipt No." not in text and "Received" not in text
+    assert "Name : Vik Mehta" in text
+    # The foot lists receipts towards the previous bill only; this bill's
+    # payment has its own receipt document.
+    assert r.json()["receipt_number"] not in text and "Receipts: Towards" not in text
 
 
-def test_arrears_split_into_principal_and_accumulated_interest(client, db):
-    """Arrears print as principal plus the interest billed earlier and still
-    unpaid; the earlier bill's payment is not printed on this bill."""
+def test_arrears_interest_and_previous_bill_receipts(client, db):
+    """Arrears print without the interest billed earlier and still unpaid,
+    which shows as Previous Interest; the payments towards the previous bill
+    are listed at the foot."""
     society, flat1, flat2, manager, resident, other, cycle_id = _generated_cycle(client, db, "pdf4")
     client.post(f"/api/v1/billing/cycles/{cycle_id}/issue-all", headers=manager["headers"])
     first = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=flat1.id).one()
@@ -134,10 +172,15 @@ def test_arrears_split_into_principal_and_accumulated_interest(client, db):
     assert second.previous_dues == Decimal("900.00")
 
     _, text = _bill_pdf(db, second.id)
-    for expected in ["Principal Amount Dues : 854.00", "Accumulated Interest 46.00", "Arrears / Advance 900.00",
-                     "Rs. Three Thousand Seven Hundred Fifty Four only. Grand Total : 3,754.00"]:
+    month = f"{first.cycle.cycle_start:%b-%Y}"
+    for expected in [
+        "Current Bill Amount 2,854.00 Arrears/Advances 854.00 Current Interest/ Late Fees 0.00 "
+        "Previous Interest/ Late Fees 46.00 Total Maintenance Payable Amount Rs. 3,754.00",
+        f"Receipts: Towards Bill No. {first.invoice_number} for {month}",
+        "Receipt No. Date Amount Tra. Type Reference No. Cheque Bank Name Narration:",
+        f"10763 28-Jul-26 2,000.00 CHEQUE 004512 UBI Maintenance paid for {month}",
+    ]:
         assert expected in text, expected
-    assert "10763" not in text and "Receipt No." not in text
 
 
 def test_bill_payment_details_are_validated(client, db):

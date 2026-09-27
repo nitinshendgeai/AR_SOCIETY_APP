@@ -14,35 +14,47 @@
 ```
 
 ## Bill PDF (`GET /billing/bills/{id}/pdf`)
-Built by `bill_pdf.generate_maintenance_bill_pdf` in the layout Mumbai
-co-operative housing societies use for their monthly bill (Maharashtra model
-bye-laws — charges under bye-laws 65-67, arrears and interest on arrears shown
-on the bill). One A4 page for a typical bill:
+Built by `bill_pdf.generate_maintenance_bill_pdf`, in the layout Mumbai
+housing societies commonly send (Maharashtra model bye-laws — charges under
+bye-laws 65-67, arrears and interest on arrears shown on the bill). One A4
+page:
 
-1. **Header box** — society name, Regn. No., address, GSTIN/PAN (Society Settings).
-2. **Bill details** — "Bill for the Month of Aug-2026" (or the period, for a
-   bill covering several months), member name (the bill's resident, else the
-   flat's primary owner) and flat on the left; bill no., bill date, due date
-   and carpet area on the right. "TAX INVOICE" when GST was charged.
-3. **Particulars** — every active charge head of the society in element
-   order, with 0.00 for the heads this flat isn't charged, then any other
-   lines (e.g. non-occupancy charges) and "GST @ X%" when charged.
-4. **Summary** — left: Principal Amount Dues and Accumulated Interest (the
-   arrears split into principal and interest billed earlier but still
-   unpaid) and the grand total in words; right: Total (this month's
-   charges), Arrears / Advance (`previous_dues`), Interest on Principal
-   Arrears (the calculator's interest line), late fee / discount when set,
-   and the Grand Total.
-5. **Notes** — discrepancies within 7 days; flat and bill no. on the cheque
-   and interest @ X% p.a. on unpaid bills; how to pay by NEFT (account name,
-   bank, account no., IFSC, UPI from the Rules tab) or cheque in favour of
-   the society; the society's own `bill_notes`, one per line; receipts
-   subject to realisation of cheque.
-6. **Sign-off** — "For <Society>", Hon. Secretary / Treasurer / Chairman.
+1. **Letterhead** — grey band with the society name, Regn. No., address and
+   GSTIN/PAN, over a red rule; then "Maintenance Bill" ("/ Tax Invoice" when
+   GST was charged).
+2. **Details box** — Name, Flat No., Area sq ft, Mobile No, Mail ID (the
+   bill's resident, else the flat's primary owner; placeholder e-mails are
+   left out) | Bill No., Bill Date, Due Date, Bill Period.
+3. **Heads** (No / Head / Amount) — always these nine, 0.00 when nothing is
+   charged under one:
+   Maintenance Charges, Sinking Fund, Repair & Maintenance Fund, Property
+   Tax, Non Occupancy Charges, Parking Charges, Cheque Bounce Charges, In &
+   Out Charges, Other Charges — then "GST @ X%" when charged.
+   The society's **monthly running expenses are shown together under
+   "Maintenance Charges"**: charge heads created from the service charges,
+   water, common electricity, lift, security, housekeeping, insurance, lease
+   rent / NA tax, education fund and amenities elements, and custom heads of
+   the maintenance / water / amenities types. Property tax, the sinking and
+   repair funds, non-occupancy and parking keep their own heads (bye-laws
+   65-67 want them shown separately); cheque-bounce and in-&-out charges
+   are matched by name; anything else is "Other Charges"
+   (`bill_pdf.bill_head`).
+4. **Totals** — Current Bill Amount; Arrears/Advances (`previous_dues`
+   less the interest in it); Current Interest/ Late Fees (this bill's
+   interest-on-arrears line and late fee); Previous Interest/ Late Fees
+   (interest billed earlier and still unpaid); discount when given; Total
+   Maintenance Payable Amount.
+5. **Notes** — NEFT details (beneficiary, account no. and IFSC, bank, UPI
+   from Rules → Payment details on bills), interest @ X% p.a. on late
+   payment, queries within 7 days, dues subject to final audit, the
+   society's own `bill_notes`, computer-generated bill.
+6. **Receipts towards the previous bill** — "Receipts: Towards Bill No. X
+   for <month>": receipt no., date, amount, transaction type, reference,
+   cheque bank, narration. (Each payment's receipt is still its own
+   document, below.)
 
-`BillingService._bill_print_context` supplies the charge heads and the
-unpaid interest inside the arrears. Payments are **not** printed on the bill —
-each has its own receipt.
+`BillingService._bill_print_context` supplies each charge head's element,
+the unpaid interest inside the arrears and the flat's previous bill.
 
 ## Payment receipt (`GET /billing/receipts/{receipt_no}/pdf`)
 Every amount received gets a receipt of its own (model bye-laws), built by
