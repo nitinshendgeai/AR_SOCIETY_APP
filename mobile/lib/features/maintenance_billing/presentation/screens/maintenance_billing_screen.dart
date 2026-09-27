@@ -455,7 +455,8 @@ class _ChargeHeadsTab extends ConsumerWidget {
                 context: context,
                 builder: (_) => _LoadFromElementsSheet(societyId: societyId, existing: charges),
               );
-          final canManageElements = ref.watch(currentUserProvider)?.isAdminOrCommittee ?? false;
+          final me = ref.watch(currentUserProvider);
+          final canManageElements = (me?.isAdminOrCommittee ?? false) || (me?.isManager ?? false);
           void suggestBudget() => showAppSheet(
                 context: context,
                 builder: (_) => _BudgetSuggestionSheet(societyId: societyId),

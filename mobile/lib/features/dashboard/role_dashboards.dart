@@ -15,7 +15,7 @@ import 'package:ar_society_app/features/staff/presentation/providers/staff_provi
 import 'package:ar_society_app/features/complaint/presentation/providers/complaint_providers.dart';
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
-import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart' show amountOf, formatRupees;
+import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart' show BillingCycle, amountOf, formatRupees;
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart' show billingCyclesProvider, myBillsProvider;
 import 'package:ar_society_app/features/dashboard/dashboard_stats.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart' show pendingVisitorApprovalsProvider;
@@ -1000,6 +1000,14 @@ class ManagerDashboardScreen extends ConsumerWidget {
     final deptBreakdown = (summary['department_breakdown'] as Map?)
         ?.cast<String, dynamic>() ?? {};
 
+    // Maintenance billing — the manager runs it day to day
+    final cycles = societyId == null ? null : ref.watch(billingCyclesProvider(societyId)).valueOrNull;
+    String cycleSum(String Function(BillingCycle c) field) => cycles == null
+        ? '--'
+        : formatRupees('${cycles.fold<double>(0, (sum, c) => sum + amountOf(field(c)))}');
+    final maintenanceDues = cycleSum((c) => c.totalOutstanding);
+    final maintenanceCollected = cycleSum((c) => c.totalCollected);
+
     return _DashboardShell(
       title: 'Manager Dashboard',
       children: [
@@ -1098,6 +1106,43 @@ class ManagerDashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(width: 8),
           _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: AppRoutes.complaintsAssigned),
+        ]),
+        const SizedBox(height: 18),
+        const _SectionLabel('Maintenance'),
+        const SizedBox(height: 10),
+        GridView(
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 280,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            mainAxisExtent: 130,
+          ),
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            _SummaryCard(
+              icon: Icons.account_balance_wallet_rounded,
+              label: 'Maintenance Dues',
+              value: maintenanceDues,
+              color: AppTheme.error,
+              onTap: () => context.push(AppRoutes.maintenanceBilling),
+            ),
+            _SummaryCard(
+              icon: Icons.savings_rounded,
+              label: 'Collected',
+              value: maintenanceCollected,
+              color: AppTheme.success,
+              onTap: () => context.push(AppRoutes.maintenanceBilling),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(children: const [
+          _QuickActionChip(icon: Icons.receipt_long_rounded, label: 'Maintenance Billing', route: AppRoutes.maintenanceBilling),
+          SizedBox(width: 8),
+          _QuickActionChip(icon: Icons.payments_rounded, label: 'Payments', route: AppRoutes.onlinePayments),
+          SizedBox(width: 8),
+          _QuickActionChip(icon: Icons.request_quote_rounded, label: 'Vendor Bills', route: AppRoutes.vendorBills),
         ]),
         const SizedBox(height: 18),
       ],
