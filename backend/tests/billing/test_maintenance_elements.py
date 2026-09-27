@@ -61,12 +61,15 @@ def test_admin_adds_custom_element_with_unique_code(client, db):
     assert a.json()["is_system"] is False
 
 
-def test_manager_can_read_but_not_edit_the_master(client, db):
+def test_manager_edits_the_master_resident_cannot(client, db):
     society, admin, manager = _rig(db, "s4")
     el = _elements(client, manager, society.id)[0]
     r = client.patch(f"/api/v1/billing/elements/{el['id']}", json={"name": "X"}, headers=manager)
-    assert r.status_code == 403
-    r = client.post("/api/v1/billing/elements", json={"society_id": str(society.id), "name": "X"}, headers=manager)
+    assert r.status_code == 200, r.text
+    r = client.post("/api/v1/billing/elements", json={"society_id": str(society.id), "name": "Y"}, headers=manager)
+    assert r.status_code == 201, r.text
+    resident = make_user(db, "res@els4.com", role="Resident")["headers"]
+    r = client.patch(f"/api/v1/billing/elements/{el['id']}", json={"name": "Z"}, headers=resident)
     assert r.status_code == 403
 
 

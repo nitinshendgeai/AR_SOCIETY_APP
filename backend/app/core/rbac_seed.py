@@ -174,7 +174,7 @@ FORM_ROLE_GRANTS = {
     "vendor_bills":             tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
     "maintenance_billing":      tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
     "my_bills":                 _RESIDENT_ONLY_ROLE,
-    "maintenance_elements":     _ADMIN_OR_COMMITTEE_ROLES,
+    "maintenance_elements":     tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
 }
 
 

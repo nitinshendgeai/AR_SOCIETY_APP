@@ -412,7 +412,10 @@ class _UserMenu extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(user.fullName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            Text(user.primaryRole,
+            // The role's own name, as on the dashboard greeting ("Manager",
+            // "Society Admin"); primaryRole only knows the routing groups
+            // and showed a Manager as "Resident".
+            Text(user.roles.firstOrNull ?? user.primaryRole,
                 style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
           ],
         ),

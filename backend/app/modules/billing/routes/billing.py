@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.core.dependencies import (
     get_current_user, require_roles, _user_has_permission,
-    require_admin_committee, require_any_member, require_manager_above,
+    require_any_member, require_manager_above,
 )
 from app.models.user import User
 from app.modules.billing.models.billing import (
@@ -27,7 +27,9 @@ from typing import Optional
 
 router = APIRouter(prefix="/billing", tags=["Maintenance Billing & Finance"])
 
-admin_committee = require_admin_committee
+# The whole maintenance module (periods, charge heads and elements, cycles,
+# bills, payments, dues, interest rules) is open to Manager and above: the
+# society's manager runs billing day to day, not only the committee.
 any_member      = require_any_member
 manager_above   = require_manager_above
 
@@ -114,17 +116,17 @@ def _online_payment_out(s) -> dict:
 
 
 # ── Financial Periods ─────────────────────────────────────────────────────────
-@router.post("/periods", status_code=201, dependencies=[Depends(admin_committee)])
+@router.post("/periods", status_code=201, dependencies=[Depends(manager_above)])
 def create_period(data: PeriodCreate, db: Session = Depends(get_db),
                   user: User = Depends(get_current_user)):
     return BillingService(db).create_period(data.model_dump(), user)
 
-@router.post("/periods/{period_id}/close", dependencies=[Depends(admin_committee)])
+@router.post("/periods/{period_id}/close", dependencies=[Depends(manager_above)])
 def close_period(period_id: UUID, db: Session = Depends(get_db),
                  user: User = Depends(get_current_user)):
     return BillingService(db).close_period(period_id, user)
 
-@router.get("/periods/{society_id}", dependencies=[Depends(admin_committee)])
+@router.get("/periods/{society_id}", dependencies=[Depends(manager_above)])
 def list_periods(society_id: UUID, db: Session = Depends(get_db)):
     return BillingService(db).list_periods(society_id)
 
@@ -243,12 +245,12 @@ def _element_out(e) -> dict:
 def list_elements(society_id: UUID, include_inactive: bool = False, db: Session = Depends(get_db)):
     return [_element_out(e) for e in BillingService(db).list_elements(society_id, include_inactive)]
 
-@router.post("/elements", status_code=201, dependencies=[Depends(admin_committee)])
+@router.post("/elements", status_code=201, dependencies=[Depends(manager_above)])
 def create_element(data: ElementCreate, db: Session = Depends(get_db),
                    user: User = Depends(get_current_user)):
     return _element_out(BillingService(db).create_element(data.model_dump(), user))
 
-@router.patch("/elements/{element_id}", dependencies=[Depends(admin_committee)])
+@router.patch("/elements/{element_id}", dependencies=[Depends(manager_above)])
 def update_element(element_id: UUID, data: ElementUpdate, db: Session = Depends(get_db),
                    user: User = Depends(get_current_user)):
     changes = data.model_dump(exclude_unset=True)
@@ -568,7 +570,7 @@ def outstanding_bills(society_id: UUID, db: Session = Depends(get_db)):
 
 
 # ── Payments & Receipts ───────────────────────────────────────────────────────
-@router.post("/payments", status_code=201, dependencies=[Depends(admin_committee)])
+@router.post("/payments", status_code=201, dependencies=[Depends(manager_above)])
 def record_payment(data: PaymentCreate, request: Request, db: Session = Depends(get_db),
                    user: User = Depends(get_current_user)):
     return BillingService(db).record_payment(data.model_dump(), user, request)
@@ -600,18 +602,18 @@ def get_receipt_pdf(receipt_number: str, db: Session = Depends(get_db),
 def flat_dues(flat_id: UUID, society_id: UUID, db: Session = Depends(get_db)):
     return BillingService(db).get_flat_due(flat_id, society_id)
 
-@router.get("/dues/outstanding/{society_id}", dependencies=[Depends(admin_committee)])
+@router.get("/dues/outstanding/{society_id}", dependencies=[Depends(manager_above)])
 def all_outstanding_dues(society_id: UUID, db: Session = Depends(get_db)):
     return BillingService(db).get_all_outstanding_dues(society_id)
 
 
 # ── Penalty Rules ─────────────────────────────────────────────────────────────
-@router.post("/penalty-rules", status_code=201, dependencies=[Depends(admin_committee)])
+@router.post("/penalty-rules", status_code=201, dependencies=[Depends(manager_above)])
 def create_penalty_rule(data: PenaltyRuleCreate, db: Session = Depends(get_db),
                          user: User = Depends(get_current_user)):
     return BillingService(db).create_penalty_rule(data.model_dump(), user)
 
-@router.get("/penalty-rules/{society_id}", dependencies=[Depends(admin_committee)])
+@router.get("/penalty-rules/{society_id}", dependencies=[Depends(manager_above)])
 def list_penalty_rules(society_id: UUID, db: Session = Depends(get_db)):
     return BillingService(db).list_penalty_rules(society_id)
 
