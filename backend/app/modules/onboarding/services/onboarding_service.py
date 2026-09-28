@@ -18,8 +18,10 @@ from app.models.society import Society, AccountStatus
 from app.models.role import Role
 from app.models.user import User, UserRole, UserStatus
 from app.models.audit_log import AuditAction
+from app.core.config import settings
 from app.core.security import hash_password
 from app.services.audit_service import AuditService
+from app.services.email_service import EmailService
 from app.modules.onboarding.schemas.onboarding import SelfRegistrationRequest
 from app.modules.staff.models.staff import (
     StaffDesignation, StaffShift, StaffDepartment, ShiftType,
@@ -139,6 +141,8 @@ class OnboardingService:
             },
         )
 
+        self._notify_admin_of_registration(society, data, creds)
+
         return {
             "society_id":     str(society.id),
             "society_name":   society.name,
@@ -202,6 +206,31 @@ class OnboardingService:
         return {"terms_accepted": True, "message": "Terms accepted successfully"}
 
     # ── Internal helpers ──────────────────────────────────────────────────────
+
+    def _notify_admin_of_registration(self, society: Society, data: SelfRegistrationRequest,
+                                       creds: list) -> None:
+        """Tell the platform admin a new society registered — the default
+        users created for it and their temporary passwords, since the
+        credentials are only ever returned once, in the register response."""
+        lines = [
+            "A new society has self-registered on AR Society ERP.",
+            "",
+            f"Society:       {society.name} ({society.society_code})",
+            f"Contact:       {data.contact_person_name} <{data.contact_email}>, {data.contact_mobile}",
+            f"Location:      {data.city}, {data.state}, {data.country}",
+            f"Wings / Flats: {data.total_wings} / {data.total_flats}",
+            f"Trial ends:    {society.trial_end_date}",
+            "",
+            "Default users created (must change password at first login):",
+        ]
+        for c in creds:
+            lines.append(f"  - {c['role']:<20} {c['email']:<35} {c['password']}")
+
+        EmailService.send(
+            to=settings.ADMIN_NOTIFICATION_EMAIL,
+            subject=f"New society registered: {society.name} ({society.society_code})",
+            body_text="\n".join(lines),
+        )
 
     def _validate_uniqueness(self, data: SelfRegistrationRequest):
         errors = []

@@ -72,8 +72,24 @@ Client → POST /api/v1/public/register
   ├── Create Default Users (4 users: admin, chairman, secretary, treasurer)
   │     └── All: must_change_password=True
   ├── Audit log: "society_self_registered"
+  ├── Email admin@duxos.in — registration details + default user credentials
   └── Return society + credentials
 ```
+
+## Admin Notification Email
+
+On every successful registration, `admin@duxos.in` (configurable via the
+`ADMIN_NOTIFICATION_EMAIL` env var) is emailed:
+
+- The new society's registration details (name, code, contact, location, trial end date)
+- Every default user created, with role, email, and temporary password
+
+This is sent over SMTP (`SMTP_HOST`/`SMTP_PORT`/`SMTP_USERNAME`/`SMTP_PASSWORD`/
+`SMTP_FROM_EMAIL`/`SMTP_USE_TLS` env vars — see `backend/.env.example`). While
+`SMTP_HOST` is unset, sending is a no-op and registration is unaffected — the
+credentials are still returned once in the API response either way. Delivery
+runs on a background thread so a slow or failing SMTP call never blocks the
+registration request.
 
 ## Security Notes
 
