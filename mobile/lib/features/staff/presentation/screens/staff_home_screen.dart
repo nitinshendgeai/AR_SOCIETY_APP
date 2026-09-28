@@ -48,11 +48,15 @@ class StaffHomeScreen extends ConsumerWidget {
     final isManager = roles.any((r) =>
         r.contains('Manager') || r.contains('Committee'));
     final showManagement = (isSupervisor || isManager) && societyId != null;
+    // A manager / committee member with no staff record of their own uses
+    // this page only to manage the staff: no "My Operations" or missing-
+    // profile notice for them.
+    final managerOnly = showManagement && !staffAsync.isLoading && staffAsync.valueOrNull == null;
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(
-        title: const Text('Staff Portal'),
+        title: Text(managerOnly ? 'Staff Management' : 'Staff Portal'),
         actions: [
           // On desktop the account menu in the top bar handles sign-out.
           if (!isDesktopLayout(context))
@@ -105,7 +109,9 @@ class StaffHomeScreen extends ConsumerWidget {
                                 fontWeight: FontWeight.w700),
                           ),
                           Text(
-                            user?.roleLabel ?? 'Staff Member',
+                            managerOnly
+                                ? (user?.roles.firstOrNull ?? 'Manager')
+                                : user?.roleLabel ?? 'Staff Member',
                             style: const TextStyle(
                                 color: Colors.white70, fontSize: 13),
                           ),
@@ -118,6 +124,7 @@ class StaffHomeScreen extends ConsumerWidget {
 
               const SizedBox(height: 20),
 
+              if (!managerOnly) ...[
               // ── Profile resolution status ─────────────────────────────────
               _StaffProfileStatus(staffAsync: staffAsync, staffId: staffId),
 
@@ -173,9 +180,11 @@ class StaffHomeScreen extends ConsumerWidget {
                 ],
               ),
 
+              ],
+
               // ── Management (supervisors / managers only) ───────────────────
               if (showManagement) ...[
-                const SizedBox(height: 24),
+                if (!managerOnly) const SizedBox(height: 24),
                 const SectionHeader(title: 'Management'),
                 const SizedBox(height: 14),
                 GridView(

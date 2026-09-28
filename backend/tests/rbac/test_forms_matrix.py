@@ -40,9 +40,10 @@ def test_gaps_in_old_dashboard_logic_are_preserved_by_default():
     grant them more explicitly via the Forms Matrix). Manager's gap was
     later deliberately, partially closed: the FMC Manager is who records
     online payments, reconciles them against the bank statement, pays
-    vendor bills, and runs maintenance billing, so "online_payments",
-    "bank_reconciliation", "vendor_bills", "maintenance_billing" and
-    "maintenance_elements" were added to Manager's default grants (see
+    vendor bills, runs maintenance billing and manages the staff, so
+    "online_payments", "bank_reconciliation", "vendor_bills",
+    "maintenance_billing", "maintenance_elements", "staff" and
+    "checklist_templates" were added to Manager's default grants (see
     FORM_ROLE_GRANTS)."""
     codes_by_role = default_role_form_codes()
     for role_name in ("Platform Admin", "Gym Trainer", "Tenant"):
@@ -51,7 +52,7 @@ def test_gaps_in_old_dashboard_logic_are_preserved_by_default():
         )
     assert set(codes_by_role.get("Manager", [])) == {
         "visitors", "complaints", "online_payments", "bank_reconciliation", "vendor_bills",
-        "maintenance_billing", "maintenance_elements",
+        "maintenance_billing", "maintenance_elements", "staff", "checklist_templates",
     }
 
 
@@ -104,7 +105,7 @@ def test_my_forms_returns_default_grants_for_own_role(client, db):
     # vendor bills.
     assert set(r.json()["form_codes"]) == {
         "visitors", "complaints", "online_payments", "bank_reconciliation", "vendor_bills",
-        "maintenance_billing", "maintenance_elements",
+        "maintenance_billing", "maintenance_elements", "staff", "checklist_templates",
     }
 
     resident = make_user(db, "formsres4@rbac.com", role="Resident")
@@ -114,17 +115,17 @@ def test_my_forms_returns_default_grants_for_own_role(client, db):
 
 
 def test_admin_can_grant_form_and_it_takes_effect_immediately(client, db):
-    """Granting Manager the 'staff' form should show up in Manager's own
-    /roles/forms/mine — proving the matrix edit is live."""
+    """Granting Manager the 'parking_management' form should show up in
+    Manager's own /roles/forms/mine — proving the matrix edit is live."""
     admin   = make_user(db, "formsadmin3@rbac.com", role="Society Admin")
     manager = make_user(db, "formsmgr2@rbac.com", role="Manager")
 
     pre = client.get("/api/v1/roles/forms/mine", headers=manager["headers"])
-    assert "staff" not in pre.json()["form_codes"]
+    assert "parking_management" not in pre.json()["form_codes"]
 
     manager_role = db.query(Role).filter(Role.name == "Manager").first()
     current_codes = {rf.form.code for rf in manager_role.role_forms}
-    updated_codes = sorted(current_codes | {"staff"})
+    updated_codes = sorted(current_codes | {"parking_management"})
 
     put = client.put(
         f"/api/v1/roles/{manager_role.id}/forms",
@@ -135,7 +136,7 @@ def test_admin_can_grant_form_and_it_takes_effect_immediately(client, db):
     assert set(put.json()["form_codes"]) == set(updated_codes)
 
     post = client.get("/api/v1/roles/forms/mine", headers=manager["headers"])
-    assert "staff" in post.json()["form_codes"]
+    assert "parking_management" in post.json()["form_codes"]
 
 
 def test_admin_can_revoke_form(client, db):
