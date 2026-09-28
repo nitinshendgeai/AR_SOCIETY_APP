@@ -32,6 +32,19 @@ class Settings(BaseSettings):
     SUPERADMIN_EMAIL: Optional[str] = None
     SUPERADMIN_PASSWORD: Optional[str] = None
 
+    # Transactional email (SMTP). While SMTP_HOST is empty, email is off
+    # and every EmailService call is a no-op.
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_USE_TLS: bool = True
+
+    # Notified when a society self-registers (registration details and the
+    # default users + temporary passwords created for it).
+    ADMIN_NOTIFICATION_EMAIL: str = "admin@duxos.in"
+
     class Config:
         env_file = ".env"
         case_sensitive = True
