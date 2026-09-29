@@ -80,11 +80,13 @@ class VendorInvoicesNotifier extends FamilyAsyncNotifier<List<VendorInvoiceEntit
     double gstAmount = 0,
     required double totalAmount,
     String? description,
+    String? expenseAccountId,
   }) async {
     final result = await ref.read(vendorRepositoryProvider).createInvoice(
           societyId: arg, vendorId: vendorId, invoiceNumber: invoiceNumber,
           invoiceDate: invoiceDate, dueDate: dueDate, amount: amount,
           gstAmount: gstAmount, totalAmount: totalAmount, description: description,
+          expenseAccountId: expenseAccountId,
         );
     switch (result) {
       case VendorSuccess(:final data):

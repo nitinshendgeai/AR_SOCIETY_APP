@@ -44,6 +44,7 @@ class VendorRemoteDataSource {
     double gstAmount = 0,
     required double totalAmount,
     String? description,
+    String? expenseAccountId,
   }) async {
     final r = await _dio.post('/vendors/invoices', data: {
       'society_id': societyId,
@@ -55,6 +56,7 @@ class VendorRemoteDataSource {
       'gst_amount': gstAmount.toString(),
       'total_amount': totalAmount.toString(),
       if (description != null && description.isNotEmpty) 'description': description,
+      if (expenseAccountId != null) 'expense_account_id': expenseAccountId,
     });
     return VendorInvoiceModel.fromJson(r.data as Map<String, dynamic>);
   }

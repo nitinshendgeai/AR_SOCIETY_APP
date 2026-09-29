@@ -52,6 +52,12 @@ import 'package:ar_society_app/features/staff/presentation/screens/checklist_tem
 import 'package:ar_society_app/features/billing/presentation/screens/online_payments_list_screen.dart';
 import 'package:ar_society_app/features/billing/presentation/screens/bank_reconciliation_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/vendor_bills_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/accounts_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/chart_of_accounts_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/day_book_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/ledger_statement_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/members_ledger_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/voucher_form_screen.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/maintenance_billing_screen.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/my_bills_screen.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/maintenance_elements_screen.dart';
@@ -134,6 +140,12 @@ class AppRoutes {
   static const maintenanceBilling = '/billing/maintenance';
   static const myBills            = '/billing/my-bills';
   static const maintenanceElements = '/billing/maintenance-elements';
+  static const accounts           = '/accounts';
+  static const accountsChart      = '/accounts/chart';
+  static const accountsDayBook    = '/accounts/day-book';
+  static const accountsMembers    = '/accounts/members';
+  static const accountsVoucherNew = '/accounts/vouchers/new';
+  static const accountsLedger     = '/accounts/ledger/:accountId';
   // Society Settings
   static const societySettings    = '/society-settings';
   // Society Structure
@@ -625,6 +637,37 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             },
             builder: (_, __) => const VendorBillsScreen(),
           ),
+          // The society's books — Admin, committee and Manager.
+          for (final (path, builder) in <(String, Widget Function(GoRouterState))>[
+            (AppRoutes.accounts, (_) => const AccountsScreen()),
+            (AppRoutes.accountsChart, (_) => const ChartOfAccountsScreen()),
+            (AppRoutes.accountsDayBook, (_) => const DayBookScreen()),
+            (AppRoutes.accountsMembers, (_) => const MembersLedgerScreen()),
+            (AppRoutes.accountsVoucherNew, (s) {
+              final type = s.uri.queryParameters['type'] ?? 'receipt';
+              return VoucherFormScreen(key: ValueKey(type), type: type);
+            }),
+            (
+              AppRoutes.accountsLedger,
+              (s) => LedgerStatementScreen(
+                    accountId: s.pathParameters['accountId']!,
+                    flatId: s.uri.queryParameters['flat'],
+                    vendorId: s.uri.queryParameters['vendor'],
+                    title: s.uri.queryParameters['title'],
+                  ),
+            ),
+          ])
+            GoRoute(
+              path: path,
+              redirect: (_, __) {
+                if (authState is AuthAuthenticated) {
+                  final user = (authState as AuthAuthenticated).user;
+                  if (!(user.isAdminOrCommittee || user.isManager)) return userRoleHome(user);
+                }
+                return null;
+              },
+              builder: (_, state) => builder(state),
+            ),
           GoRoute(
             path: AppRoutes.maintenanceBilling,
             redirect: (_, __) {

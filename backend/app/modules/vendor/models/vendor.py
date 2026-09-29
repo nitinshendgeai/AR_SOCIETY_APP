@@ -353,6 +353,9 @@ class VendorInvoice(Base, TimestampMixin):
     bank_name      = Column(String(100), nullable=True)
     description    = Column(Text, nullable=True)
     doc_url        = Column(String(500), nullable=True)
+    # Expense head (accounts ledger) the bill is booked to; unset: by the
+    # vendor's category (see accounts/services/chart_of_accounts.py).
+    expense_account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
 
     society  = relationship("Society")
     vendor   = relationship("Vendor", back_populates="invoices")

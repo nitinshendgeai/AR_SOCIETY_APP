@@ -66,12 +66,14 @@ class VendorRepository {
     double gstAmount = 0,
     required double totalAmount,
     String? description,
+    String? expenseAccountId,
   }) async {
     try {
       final m = await _ds.createInvoice(
         societyId: societyId, vendorId: vendorId, invoiceNumber: invoiceNumber,
         invoiceDate: invoiceDate, dueDate: dueDate, amount: amount,
         gstAmount: gstAmount, totalAmount: totalAmount, description: description,
+        expenseAccountId: expenseAccountId,
       );
       return VendorSuccess(m.toEntity());
     } catch (e) { return _handle(e); }
