@@ -65,6 +65,7 @@ def _invoice_out(i) -> dict:
         "payment_ref": i.payment_ref,
         "bank_name": i.bank_name,
         "description": i.description,
+        "expense_account_id": str(i.expense_account_id) if i.expense_account_id else None,
         "created_at": i.created_at.isoformat() if i.created_at else None,
     }
 
@@ -130,6 +131,7 @@ class VendorInvoiceCreate(OrmBase):
     invoice_number: str; invoice_date: date; due_date: Optional[date] = None
     amount: Decimal; gst_amount: Decimal = Decimal(0); total_amount: Decimal
     description: Optional[str] = None; doc_url: Optional[str] = None
+    expense_account_id: Optional[UUID] = None  # accounts ledger; default by vendor category
 
 class RecordPaymentRequest(OrmBase):
     amount: Decimal; paid_date: date; payment_mode: VendorPaymentMode

@@ -50,6 +50,7 @@ const appMenuCategories = [
     AppMenuItem('online_payments', 'Payments', Icons.receipt_long_rounded, AppRoutes.onlinePayments),
     AppMenuItem('bank_reconciliation', 'Bank Reconciliation', Icons.account_balance_rounded, AppRoutes.bankReconciliation),
     AppMenuItem('vendor_bills', 'Vendor Bills', Icons.storefront_rounded, AppRoutes.vendorBills),
+    AppMenuItem('accounts', 'Accounts', Icons.account_balance_wallet_rounded, AppRoutes.accounts),
   ]),
   AppMenuCategory('Administration', Icons.admin_panel_settings_rounded, [
     AppMenuItem('users_roles', 'Users & Roles', Icons.people_rounded, AppRoutes.usersList),

@@ -1,3 +1,4 @@
+import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -288,6 +289,7 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
   final _gstCtrl = TextEditingController(text: '0');
   final _descCtrl = TextEditingController();
   String? _vendorId;
+  String? _expenseAccountId;
   DateTime _invoiceDate = DateTime.now();
   DateTime? _dueDate;
   bool _saving = false;
@@ -335,7 +337,9 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
             gstAmount: double.tryParse(_gstCtrl.text) ?? 0,
             totalAmount: _total,
             description: _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+            expenseAccountId: _expenseAccountId,
           );
+      invalidateBooks(ref);
       if (mounted) {
         Navigator.pop(context);
         AppToast.success(context, 'Bill added');
@@ -445,6 +449,26 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
               const SizedBox(height: 8),
               Text('Total: ₹${_total.toStringAsFixed(2)}',
                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+              const SizedBox(height: 12),
+              // The expense head the bill is booked to in the accounts.
+              ref.watch(ledgersProvider(widget.societyId)).maybeWhen(
+                    data: (ledgers) => DropdownButtonFormField<String?>(
+                      initialValue: _expenseAccountId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Expense head (optional)',
+                        helperText: 'Leave as is to book it by the vendor\'s category',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem<String?>(value: null, child: Text('By vendor category')),
+                        for (final l in ledgers.where((l) => l.nature == 'expense'))
+                          DropdownMenuItem<String?>(value: l.id, child: Text(l.name, overflow: TextOverflow.ellipsis)),
+                      ],
+                      onChanged: (v) => setState(() => _expenseAccountId = v),
+                    ),
+                    orElse: () => const SizedBox.shrink(),
+                  ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _descCtrl,
@@ -654,6 +678,7 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
             paymentRef: _refCtrl.text.trim().isEmpty ? null : _refCtrl.text.trim(),
             bankName: _bankCtrl.text.trim().isEmpty ? null : _bankCtrl.text.trim(),
           );
+      invalidateBooks(ref);
       if (mounted) {
         Navigator.pop(context);
         AppToast.success(context, 'Payment recorded');

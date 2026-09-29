@@ -94,6 +94,9 @@ from app.modules.vendor.models.vendor import (
     ServiceRequestStatus, ServiceRequestPriority, ScheduleStatus,
 )
 
+# Accounts module models
+from app.modules.accounts.models.accounts import Account, AccountGroup, Voucher, VoucherEntry
+
 # Handover models
 from app.modules.staff.models.handover import (
     StaffHandover, HandoverItem,

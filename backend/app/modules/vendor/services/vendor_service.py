@@ -29,6 +29,12 @@ class VendorService_:  # trailing underscore avoids clash with model name
         self.contract_repo = AMCContractRepo(db)
         self.sr_repo       = ServiceRequestRepo(db)
 
+    def _post(self, hook: str, *args) -> None:
+        """Post to the society's books (see accounts/services/postings.py);
+        never fails the vendor action."""
+        from app.modules.accounts.services.postings import AccountPostings
+        AccountPostings(self.db).run(hook, *args)
+
     def _audit(self, action, entity, entity_type, user, request=None, **kw):
         AuditService.log(db=self.db, action=action, module="vendor",
                          entity_id=str(entity.id), entity_type=entity_type,
@@ -266,8 +272,15 @@ class VendorService_:  # trailing underscore avoids clash with model name
     # ── Vendor Invoices ───────────────────────────────────────────────────────
 
     def create_vendor_invoice(self, data: dict, user: User) -> VendorInvoice:
+        if data.get("expense_account_id"):
+            from app.modules.accounts.models.accounts import Account
+            head = self.db.query(Account).filter(Account.id == data["expense_account_id"]).first()
+            if not head or head.society_id != data["society_id"] or not head.is_active:
+                raise HTTPException(422, "Expense head not found in this society")
         inv = VendorInvoice(**data)
         self.db.add(inv)
+        self.db.flush()
+        self._post("post_vendor_invoice", inv, user)
         self.db.commit()
         self.db.refresh(inv)
         return inv
@@ -298,6 +311,9 @@ class VendorService_:  # trailing underscore avoids clash with model name
         inv.approved_by  = user.id
         if inv.paid_amount >= inv.total_amount:
             inv.is_paid = True
+        detail = payment_mode.value.replace("_", " ").upper() + (f" {transaction_ref}" if transaction_ref else "")
+        self._post("post_vendor_payment", inv, amount, paid_date, payment_mode == VendorPaymentMode.CASH,
+                   detail, user)
 
         self._audit(AuditAction.UPDATE, inv, "VendorInvoice", user,
                     new_values={"amount": str(amount), "paid_amount": str(inv.paid_amount),

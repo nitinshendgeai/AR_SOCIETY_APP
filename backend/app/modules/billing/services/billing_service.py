@@ -61,6 +61,18 @@ class BillingService:
         self.online_payment_repo = OnlinePaymentSubmissionRepo(db)
         self.bank_statement_repo = BankStatementEntryRepo(db)
 
+    @property
+    def postings(self):
+        """The society's books — every issued bill, cancellation and payment
+        is posted to the accounts as it happens (see accounts/services/postings.py)."""
+        if not hasattr(self, "_postings"):
+            from app.modules.accounts.services.postings import AccountPostings
+            self._postings = AccountPostings(self.db)
+        return self._postings
+
+    def _post(self, hook: str, *args) -> None:
+        self.postings.run(hook, *args)
+
     def _audit(self, action, entity, entity_type, user, request=None, **kw):
         AuditService.log(db=self.db, action=action, module="billing",
                          entity_id=str(entity.id), entity_type=entity_type,
@@ -312,6 +324,7 @@ class BillingService:
     def _issue(self, bill: MaintenanceBill, user: User, request=None) -> None:
         bill.bill_status = BillStatus.ISSUED
         bill.issued_at   = datetime.utcnow()
+        self._post("post_bill", bill, user)
 
         # Every active resident of the flat with an app login is notified,
         # not only bill.resident — the primary owner often has no account
@@ -407,6 +420,7 @@ class BillingService:
         bill.bill_status        = BillStatus.CANCELLED
         bill.cancelled_at       = datetime.utcnow()
         bill.cancellation_reason = reason
+        self._post("cancel_bill", bill, user)
         self.db.commit()
         self.db.refresh(bill)
         return bill
@@ -463,6 +477,7 @@ class BillingService:
         self.db.flush()
 
         self._apply_payment_to_bill(bill, amount, data["payment_date"], user)
+        self._post("post_receipt", receipt, user)
 
         self._audit(AuditAction.CREATE, receipt, "PaymentReceipt", user, request,
                     new_values={"amount": str(amount), "mode": data.get("payment_mode"),
@@ -632,6 +647,7 @@ class BillingService:
 
         if bill is not None:
             self._apply_payment_to_bill(bill, amount, payment_date, user)
+        self._post("post_online_payment", submission, user)
 
         self._audit(AuditAction.CREATE, submission, "OnlinePaymentSubmission", user,
                     new_values={"amount": str(amount), "flat": flat.flat_number,
@@ -660,6 +676,7 @@ class BillingService:
         submission.reviewed_at = datetime.utcnow()
         if review_notes is not None:
             submission.review_notes = review_notes
+        self._post("online_payment_status_changed", submission, user)
         self._audit(AuditAction.UPDATE, submission, "OnlinePaymentSubmission", user,
                     new_values={"status": status.value, "receipt_number": submission.receipt_number})
         self.db.commit()

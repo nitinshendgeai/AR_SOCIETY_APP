@@ -133,6 +133,7 @@ FORM_DEFINITIONS = [
     ("maintenance_billing",       "Maintenance Billing",        "Charge heads, billing cycles, and generating/issuing flat maintenance bills"),
     ("my_bills",                  "My Bills",                   "Resident view of their own flat's maintenance bills"),
     ("maintenance_elements",      "Maintenance Elements",       "Master list of maintenance elements charge heads are created from"),
+    ("accounts",                  "Accounts",                   "Chart of accounts, vouchers, cash and bank books, and ledgers"),
 ]
 
 _ADMIN_OR_COMMITTEE_ROLES = (
@@ -175,6 +176,7 @@ FORM_ROLE_GRANTS = {
     "maintenance_billing":      tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
     "my_bills":                 _RESIDENT_ONLY_ROLE,
     "maintenance_elements":     tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
+    "accounts":                 tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
 }
 
 
