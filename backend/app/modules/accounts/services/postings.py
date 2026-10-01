@@ -33,7 +33,9 @@ from sqlalchemy.orm import Session
 
 from app.models.user import User
 from app.modules.accounts.models.accounts import Account, Voucher
-from app.modules.accounts.services.accounts_service import ZERO, AccountsService, Line, money
+from app.modules.accounts.services.accounts_service import (
+    ZERO, AccountsService, Line, fiscal_year, live_posting, money,
+)
 from app.modules.accounts.services.chart_of_accounts import VENDOR_CATEGORY_LEDGER, bill_line_ledger_key
 from app.modules.billing.models.billing import (
     BillStatus, MaintenanceBill, MaintenanceChargeConfig, MaintenanceElement, OnlinePaymentSubmission,
@@ -65,15 +67,24 @@ class AccountPostings:
 
     def active_voucher(self, source_type: str, source_id: UUID) -> Optional[Voucher]:
         return self.db.query(Voucher).filter(
-            Voucher.source_type == source_type, Voucher.source_id == source_id,
-            Voucher.is_cancelled == False).first()
+            Voucher.source_type == source_type, Voucher.source_id == source_id, live_posting()).first()
 
     def _cancel_source(self, source_type: str, source_id: UUID, reason: str, user: Optional[User]) -> bool:
+        """Cancel the posting of a cancelled bill or payment — or, if its
+        year's books are closed, reverse it in the open year."""
         voucher = self.active_voucher(source_type, source_id)
         if voucher:
-            self.accounts.cancel(voucher, reason, user)
+            self.accounts.void(voucher, reason, user)
             return True
         return False
+
+    def _post(self, society_id: UUID, voucher_type: str, d: date, lines, *, narration: str, **kw) -> Voucher:
+        """Post on the document's own date — or, if that year's books are
+        closed, on the first day of the next open year."""
+        on = self.accounts.open_posting_date(society_id, d)
+        if on != d:
+            narration = f"{narration} (dated {d:%d %b %Y}; FY {fiscal_year(d)} books closed)"
+        return self.accounts.build_voucher(society_id, voucher_type, on, lines, narration=narration, **kw)
 
     def _element_code(self, society_id: UUID, description: str) -> Optional[str]:
         if society_id not in self._element_codes:
@@ -128,7 +139,7 @@ class AccountPostings:
                 lines.append(Line(self.accounts.system_account(sid, key), credit=amount))
             elif amount < 0:
                 lines.append(Line(self.accounts.system_account(sid, key), debit=-amount))
-        return self.accounts.build_voucher(
+        return self._post(
             sid, "bill", bill.bill_date, lines, user=user,
             narration=f"{_bill_month(bill)} — {_member_of(flat, bill.resident)}",
             reference=bill.invoice_number, source_type="maintenance_bill", source_id=bill.id)
@@ -150,7 +161,7 @@ class AccountPostings:
         against = f" against Bill {p.bill.invoice_number}" if p.bill else " on account"
         narration = (f"Received from {_member_of(flat, p.bill.resident if p.bill else None)} "
                      f"vide {payment_detail(p)}{against}")
-        return self.accounts.build_voucher(
+        return self._post(
             sid, "receipt", p.payment_date,
             [Line(cash_bank, debit=money(p.amount)), Line(dues, credit=money(p.amount), flat_id=flat_id)],
             narration=narration, reference=p.receipt_number, source_type=source_type, source_id=p.id, user=user)
@@ -189,7 +200,7 @@ class AccountPostings:
         sid, total = inv.society_id, money(inv.total_amount)
         creditors = self.accounts.system_account(sid, "sundry_creditors")
         vendor = inv.vendor.company_name if inv.vendor else "vendor"
-        return self.accounts.build_voucher(
+        return self._post(
             sid, "purchase", inv.invoice_date,
             [Line(self._expense_account(inv), debit=total),
              Line(creditors, credit=total, vendor_id=inv.vendor_id)],
@@ -205,7 +216,7 @@ class AccountPostings:
         sid = inv.society_id
         creditors = self.accounts.system_account(sid, "sundry_creditors")
         vendor = inv.vendor.company_name if inv.vendor else "vendor"
-        return self.accounts.build_voucher(
+        return self._post(
             sid, "payment", paid_date,
             [Line(creditors, debit=amount, vendor_id=inv.vendor_id),
              Line(self._cash_or_bank(sid, is_cash), credit=amount)],
@@ -215,8 +226,7 @@ class AccountPostings:
 
     def _posted_vendor_payments(self, inv_id: UUID) -> Decimal:
         return money(self.db.query(func.coalesce(func.sum(Voucher.amount), 0)).filter(
-            Voucher.source_type == "vendor_payment", Voucher.source_id == inv_id,
-            Voucher.is_cancelled == False).scalar())
+            Voucher.source_type == "vendor_payment", Voucher.source_id == inv_id, live_posting()).scalar())
 
     # ── Catch-up ──────────────────────────────────────────────────────────────
 
@@ -225,8 +235,7 @@ class AccountPostings:
         the Accounts screen to show without loading every bill."""
         def posted(source_type):
             return select(Voucher.source_id).where(
-                Voucher.society_id == society_id, Voucher.source_type == source_type,
-                Voucher.is_cancelled == False)
+                Voucher.society_id == society_id, Voucher.source_type == source_type, live_posting())
 
         def count(model, *conditions) -> int:
             return self.db.query(func.count(model.id)).filter(model.society_id == society_id, *conditions).scalar()
@@ -244,7 +253,7 @@ class AccountPostings:
              + count(VendorInvoice, VendorInvoice.is_active == True, VendorInvoice.id.not_in(posted("vendor_invoice"))))
         paid_posted = (select(Voucher.source_id, func.sum(Voucher.amount).label("amount"))
                        .where(Voucher.society_id == society_id, Voucher.source_type == "vendor_payment",
-                              Voucher.is_cancelled == False)
+                              live_posting())
                        .group_by(Voucher.source_id).subquery())
         n += (self.db.query(func.count(VendorInvoice.id))
               .outerjoin(paid_posted, paid_posted.c.source_id == VendorInvoice.id)
@@ -263,8 +272,7 @@ class AccountPostings:
 
         def active_ids(source_type):
             return {sid for (sid,) in self.db.query(Voucher.source_id).filter(
-                Voucher.society_id == society_id, Voucher.source_type == source_type,
-                Voucher.is_cancelled == False)}
+                Voucher.society_id == society_id, Voucher.source_type == source_type, live_posting())}
 
         posted_bills = active_ids("maintenance_bill")
         for bill in self.db.query(MaintenanceBill).filter(MaintenanceBill.society_id == society_id).order_by(

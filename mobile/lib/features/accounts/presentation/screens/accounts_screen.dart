@@ -86,6 +86,9 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
     if (societyId == null) return const Scaffold(body: Center(child: Text('No society context')));
     final summaryAsync = ref.watch(accountsSummaryProvider(societyId));
     final desktop = isDesktopLayout(context);
+    // Phone tiles are too narrow for "₹11,44,973.82"; they show "₹11.45 L".
+    final narrow = MediaQuery.sizeOf(context).width < 600;
+    String money(num v) => narrow ? formatInrShort(v) : formatInr(v);
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
@@ -128,21 +131,21 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                   KpiCard(
                     icon: Icons.account_balance_rounded,
                     label: 'Bank Balance',
-                    value: formatInr(s.bank),
+                    value: money(s.bank),
                     color: AppTheme.primary,
                     onTap: _bankLedger(s) == null ? null : () => context.push(ledgerRoute(_bankLedger(s)!.id)),
                   ),
                   KpiCard(
                     icon: Icons.payments_rounded,
                     label: 'Cash in Hand',
-                    value: formatInr(s.cash),
+                    value: money(s.cash),
                     color: AppTheme.success,
                     onTap: _cashLedger(s) == null ? null : () => context.push(ledgerRoute(_cashLedger(s)!.id)),
                   ),
                   KpiCard(
                     icon: Icons.groups_rounded,
                     label: "Members' Dues",
-                    value: formatInr(s.membersDues.amount),
+                    value: money(s.membersDues.amount),
                     note: s.membersDues.type == 'Cr' && !s.membersDues.isZero ? 'Net advance received' : 'Receivable',
                     color: AppTheme.warning,
                     onTap: () => context.push(AppRoutes.accountsMembers),
@@ -150,21 +153,21 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                   KpiCard(
                     icon: Icons.storefront_rounded,
                     label: 'Payable to Vendors',
-                    value: formatInr(s.creditors),
+                    value: money(s.creditors),
                     color: AppTheme.error,
                     onTap: () => context.push(AppRoutes.vendorBills),
                   ),
                   KpiCard(
                     icon: Icons.trending_up_rounded,
                     label: 'Income ${s.fy}',
-                    value: formatInr(s.fyIncome),
+                    value: money(s.fyIncome),
                     color: AppTheme.success,
                     onTap: () => context.push(AppRoutes.accountsChart),
                   ),
                   KpiCard(
                     icon: Icons.trending_down_rounded,
                     label: 'Expenditure ${s.fy}',
-                    value: formatInr(s.fyExpense),
+                    value: money(s.fyExpense),
                     note: '${s.fySurplus >= 0 ? 'Surplus' : 'Deficit'} ${formatInr(s.fySurplus.abs())}',
                     color: AppTheme.secondary,
                     onTap: () => context.push(AppRoutes.accountsChart),
@@ -181,6 +184,9 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                       () => context.push(AppRoutes.accountsMembers)),
                   _BookItem(Icons.storefront_rounded, 'Vendor Bills', 'Bills booked and paid',
                       () => context.push(AppRoutes.vendorBills)),
+                  _BookItem(Icons.summarize_rounded, 'Financial Statements',
+                      'Balance Sheet, I&E, Trial Balance · Year-end closing',
+                      () => context.push(AppRoutes.accountsStatements)),
                 ]),
                 const SizedBox(height: 22),
                 const _SectionTitle('Cash & Bank Books'),

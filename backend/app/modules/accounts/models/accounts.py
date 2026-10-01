@@ -16,6 +16,13 @@ Society accounts — double-entry books of a co-operative housing society.
   flat (the member's sub-ledger); lines on Sundry Creditors the vendor.
 
 Every voucher balances: total debits == total credits.
+
+- FinancialYearClosing: a financial year whose books are closed. Closing
+  posts a Year-end Closing voucher dated 31 March that transfers every
+  income and expenditure ledger to the Income & Expenditure Account (and the
+  Reserve Fund share of the surplus), then locks the year: no voucher can be
+  entered or cancelled in it. A bill or payment cancelled after its year is
+  closed is reversed in the open year instead (Voucher.reversal_of_id).
 """
 from sqlalchemy import (
     Boolean, Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint,
@@ -38,6 +45,7 @@ VOUCHER_TYPES = {
     "contra":   ("CV", "Contra"),
     "bill":     ("BV", "Member Bill"),
     "purchase": ("PU", "Purchase"),
+    "closing":  ("YC", "Year-end Closing"),
 }
 MANUAL_VOUCHER_TYPES = ("receipt", "payment", "journal", "contra")
 
@@ -119,6 +127,11 @@ class Voucher(Base, TimestampMixin):
     cancelled_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     cancel_reason = Column(Text, nullable=True)
 
+    # A voucher of a closed year can't be cancelled; it is reversed by a
+    # voucher in the open year, which points back at it.
+    reversal_of_id = Column(UUID(as_uuid=True), ForeignKey("vouchers.id", ondelete="SET NULL"), nullable=True)
+    reversed_at    = Column(DateTime, nullable=True)
+
     entries = relationship("VoucherEntry", back_populates="voucher", cascade="all, delete-orphan",
                            order_by="VoucherEntry.line_no")
     creator = relationship("User", foreign_keys=[created_by])
@@ -143,3 +156,34 @@ class VoucherEntry(Base, TimestampMixin):
     account = relationship("Account")
     flat    = relationship("Flat")
     vendor  = relationship("Vendor")
+
+
+class FinancialYearClosing(Base, TimestampMixin):
+    """A financial year (1 April – 31 March) whose books are closed. Closed
+    while `reopened_at` is unset; reopening keeps the row for the record."""
+    __tablename__ = "account_year_closings"
+
+    society_id         = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    fiscal_year        = Column(String(7), nullable=False, index=True)       # "2025-26"
+    year_start         = Column(Date, nullable=False)
+    year_end           = Column(Date, nullable=False)
+    total_income       = Column(Numeric(14, 2), default=0, nullable=False)
+    total_expenditure  = Column(Numeric(14, 2), default=0, nullable=False)
+    surplus            = Column(Numeric(14, 2), default=0, nullable=False)   # negative: deficit
+    reserve_pct        = Column(Numeric(5, 2), default=0, nullable=False)
+    reserve_transfer   = Column(Numeric(14, 2), default=0, nullable=False)
+    closing_voucher_id = Column(UUID(as_uuid=True), ForeignKey("vouchers.id", ondelete="SET NULL"), nullable=True)
+    notes              = Column(Text, nullable=True)
+    closed_at          = Column(DateTime, nullable=False)
+    closed_by          = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reopened_at        = Column(DateTime, nullable=True)
+    reopened_by        = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reopen_reason      = Column(Text, nullable=True)
+
+    closing_voucher = relationship("Voucher", foreign_keys=[closing_voucher_id])
+    closer          = relationship("User", foreign_keys=[closed_by])
+    reopener        = relationship("User", foreign_keys=[reopened_by])
+
+    @property
+    def is_closed(self) -> bool:
+        return self.reopened_at is None

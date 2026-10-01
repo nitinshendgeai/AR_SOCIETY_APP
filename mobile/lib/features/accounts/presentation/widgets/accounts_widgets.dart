@@ -296,6 +296,15 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
                   style: const TextStyle(fontSize: 13, color: AppTheme.error, fontWeight: FontWeight.w600)),
             ),
           ],
+          if (v.isReversed) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: AppTheme.warningSoft, borderRadius: BorderRadius.circular(10)),
+              child: const Text('Reversed by an entry in a later year (this year\'s books are closed).',
+                  style: TextStyle(fontSize: 13, color: AppTheme.warning, fontWeight: FontWeight.w600)),
+            ),
+          ],
           const SizedBox(height: 14),
           _EntriesTable(v),
           if ((v.narration ?? '').isNotEmpty) ...[
@@ -316,12 +325,24 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
               const Icon(Icons.auto_awesome_rounded, size: 16, color: AppTheme.primary),
               const SizedBox(width: 6),
               Expanded(
-                child: Text('${v.sourceLabel} — cancel it from there, not here.',
+                child: Text(
+                    v.sourceType == null ? v.sourceLabel! : '${v.sourceLabel} — cancel it from there, not here.',
                     style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
               ),
             ]),
           ],
-          if (!v.isAuto && !v.isCancelled) ...[
+          if (v.isLocked) ...[
+            const SizedBox(height: 12),
+            Row(children: [
+              const Icon(Icons.lock_outline_rounded, size: 16, color: AppTheme.textSecondary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text('The books for FY ${v.fiscalYear} are closed — this entry can\'t be changed.',
+                    style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+              ),
+            ]),
+          ],
+          if (!v.isAuto && !v.isCancelled && !v.isLocked) ...[
             const SizedBox(height: 18),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error),

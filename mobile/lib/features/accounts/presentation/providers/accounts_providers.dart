@@ -38,6 +38,16 @@ final voucherProvider = FutureProvider.autoDispose.family<Voucher, String>(
   (ref, id) => ref.watch(accountsApiProvider).voucher(id),
 );
 
+final financialYearsProvider = FutureProvider.autoDispose.family<List<FinancialYear>, String>(
+  (ref, societyId) => ref.watch(accountsApiProvider).years(societyId),
+);
+
+typedef ReportKey = ({String societyId, String report, String fy});
+
+final financialReportProvider = FutureProvider.autoDispose.family<FinancialReport, ReportKey>(
+  (ref, k) => ref.watch(accountsApiProvider).report(k.societyId, k.report, k.fy),
+);
+
 /// Everything a new or cancelled voucher can change.
 void invalidateBooks(WidgetRef ref) {
   ref.invalidate(accountsSummaryProvider);
@@ -46,4 +56,6 @@ void invalidateBooks(WidgetRef ref) {
   ref.invalidate(ledgerStatementProvider);
   ref.invalidate(vouchersProvider);
   ref.invalidate(voucherProvider);
+  ref.invalidate(financialYearsProvider);
+  ref.invalidate(financialReportProvider);
 }
