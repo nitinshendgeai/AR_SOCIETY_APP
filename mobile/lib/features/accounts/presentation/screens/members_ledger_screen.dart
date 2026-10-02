@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart';
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
@@ -36,7 +37,14 @@ class _MembersLedgerScreenState extends ConsumerState<MembersLedgerScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text("Members' Ledger")),
+      appBar: AppBar(title: const Text("Members' Ledger"), actions: [
+        TextButton.icon(
+          onPressed: () => context.push(AppRoutes.defaulters),
+          icon: const Icon(Icons.warning_amber_rounded, size: 18),
+          label: const Text('Defaulters'),
+        ),
+        const SizedBox(width: 8),
+      ]),
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(membersLedgerProvider(societyId)),
         child: async.when(

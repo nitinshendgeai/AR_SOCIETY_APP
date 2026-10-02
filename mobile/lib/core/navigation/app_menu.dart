@@ -48,6 +48,7 @@ const appMenuCategories = [
     AppMenuItem('maintenance_billing', 'Maintenance Billing', Icons.request_quote_rounded, AppRoutes.maintenanceBilling),
     AppMenuItem('maintenance_elements', 'Maintenance Elements', Icons.tune_rounded, AppRoutes.maintenanceElements),
     AppMenuItem('online_payments', 'Payments', Icons.receipt_long_rounded, AppRoutes.onlinePayments),
+    AppMenuItem('defaulters', 'Defaulters', Icons.warning_amber_rounded, AppRoutes.defaulters),
     AppMenuItem('bank_reconciliation', 'Bank Reconciliation', Icons.account_balance_rounded, AppRoutes.bankReconciliation),
     AppMenuItem('vendor_bills', 'Vendor Bills', Icons.storefront_rounded, AppRoutes.vendorBills),
     AppMenuItem('accounts', 'Accounts', Icons.account_balance_wallet_rounded, AppRoutes.accounts),

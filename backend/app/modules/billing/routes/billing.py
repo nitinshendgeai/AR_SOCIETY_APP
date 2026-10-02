@@ -782,3 +782,108 @@ def ignore_bank_entry(
 ):
     entry = BillingService(db).ignore_bank_entry(entry_id, data.reason, user)
     return _bank_entry_out(entry)
+
+
+# ── Members' dues & defaulters ────────────────────────────────────────────────
+#
+# Each flat's maintenance dues aged from the bills' due dates, and the list
+# of defaulters (dues outstanding longer than the limit — 3 months by
+# default) the committee reviews, puts up for the general body and sends
+# reminders from.
+
+class DuesReminderRequest(OrmBase):
+    flat_ids: Optional[List[UUID]] = None   # None: every defaulter
+    min_months: int = Field(default=3, ge=1, le=24)
+
+
+def _defaulters_payload(db: Session, society_id: UUID, min_months: int, include_all: bool) -> dict:
+    from app.modules.billing.services.bill_pdf import flat_label
+    from app.modules.billing.services.defaulters import (
+        AGE_BUCKETS, MemberDues, bill_label, member_contact, months_before,
+    )
+
+    as_of = date.today()
+    cutoff = months_before(as_of, min_months)
+    dues = MemberDues(db).flats(society_id, as_of)
+    settings = BillingService(db).get_maintenance_settings(society_id)
+    flats, totals = [], {k: Decimal(0) for k, _, _ in AGE_BUCKETS}
+    total_outstanding = in_default = defaulters_amount = Decimal(0)
+    defaulters = 0
+    for fd in dues:
+        buckets = fd.by_bucket()
+        beyond = fd.overdue_beyond(cutoff)
+        total_outstanding += fd.total
+        for k, v in buckets.items():
+            totals[k] += v
+        if beyond > 0:
+            defaulters += 1
+            defaulters_amount += fd.total
+            in_default += beyond
+        if not include_all and beyond <= 0:
+            continue
+        name, phone = member_contact(fd.flat)
+        oldest = fd.oldest
+        flats.append({
+            "flat_id": str(fd.flat.id), "flat_label": flat_label(fd.flat),
+            "wing": fd.flat.wing.name if fd.flat.wing else None, "flat_number": fd.flat.flat_number,
+            "member_name": name, "phone": phone,
+            "total": str(money(fd.total)), "in_default": str(money(beyond)), "is_defaulter": beyond > 0,
+            "buckets": {k: str(money(v)) for k, v in buckets.items()},
+            "oldest_due_date": oldest.bill.due_date.isoformat(), "days_overdue": oldest.days_overdue,
+            "unpaid_bills": len(fd.bills), "on_account": str(money(fd.on_account)),
+            "last_payment_date": fd.last_payment_date.isoformat() if fd.last_payment_date else None,
+            "last_payment_amount": str(money(fd.last_payment_amount)) if fd.last_payment_amount is not None else None,
+            "last_reminded_at": fd.last_reminded_at.isoformat() if fd.last_reminded_at else None,
+            "bills": [{
+                "bill_id": str(b.bill.id), "invoice_number": b.bill.invoice_number, "period": bill_label(b.bill),
+                "bill_date": b.bill.bill_date.isoformat(), "due_date": b.bill.due_date.isoformat(),
+                "outstanding": str(money(b.outstanding)), "days_overdue": b.days_overdue, "bucket": b.bucket,
+            } for b in fd.bills],
+        })
+    flats.sort(key=lambda r: ((r["wing"] or ""), _natural(r["flat_number"])))
+    return {
+        "summary": {
+            "as_of": as_of.isoformat(), "min_months": min_months, "include_all": include_all,
+            "default_cutoff": cutoff.isoformat(),
+            "flats_with_dues": len(dues), "total_outstanding": str(money(total_outstanding)),
+            "defaulters": defaulters, "defaulters_outstanding": str(money(defaulters_amount)),
+            "in_default": str(money(in_default)),
+            "buckets": [{"key": k, "label": label, "amount": str(money(totals[k]))} for k, label, _ in AGE_BUCKETS],
+            "interest_rate_pct": str(settings.interest_rate_pct) if settings and settings.interest_rate_pct else None,
+        },
+        "flats": flats,
+    }
+
+
+def _natural(s: str):
+    return [int(p) if p.isdigit() else p.lower() for p in re.split(r"(\d+)", s or "")]
+
+
+@router.get("/defaulters/{society_id}", dependencies=[Depends(manager_above)])
+def defaulters_list(society_id: UUID, min_months: int = Query(3, ge=1, le=24), include_all: bool = False,
+                    format: str = Query("json", pattern="^(json|pdf)$"),
+                    db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Defaulters — flats with dues outstanding more than `min_months`
+    after the due date — or, with include_all, every flat with dues. JSON,
+    or ?format=pdf for the printed list."""
+    from app.core.tenant_scope import assert_society_access
+    assert_society_access(user, society_id)
+    data = _defaulters_payload(db, society_id, min_months, include_all)
+    if format == "pdf":
+        from app.models.society import Society
+        from app.modules.billing.services.defaulters_pdf import render_defaulters_pdf
+        society = db.query(Society).filter(Society.id == society_id).first()
+        return Response(content=render_defaulters_pdf(data, society), media_type="application/pdf",
+                        headers={"Content-Disposition": f"inline; filename=Defaulters-{data['summary']['as_of']}.pdf"})
+    return data
+
+
+@router.post("/defaulters/{society_id}/remind", dependencies=[Depends(manager_above)])
+def remind_defaulters(society_id: UUID, data: DuesReminderRequest, db: Session = Depends(get_db),
+                      user: User = Depends(get_current_user)):
+    """Remind the chosen flats — or every defaulter — of their dues, by app
+    notification to the members who have a login."""
+    from app.core.tenant_scope import assert_society_access
+    from app.modules.billing.services.defaulters import MemberDues
+    assert_society_access(user, society_id)
+    return MemberDues(db).remind(society_id, data.flat_ids, data.min_months, user)

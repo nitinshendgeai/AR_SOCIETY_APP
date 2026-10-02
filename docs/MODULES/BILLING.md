@@ -46,6 +46,14 @@ DRAFT → GENERATED → ISSUED → PARTIALLY_PAID → PAID
 - `advance_balance` on DueTracker
 - `PenaltyRule`: flat/percentage/compound_daily calculation types
 
+## Members' dues & defaulters (`services/defaulters.py`)
+- Each flat's dues = outstanding on its issued bills, less money paid on account (set off against the oldest bills first), aged from each bill's **due date**: not yet due, up to 3 months, 3–6, 6–12, over 1 year.
+- **Defaulter**: some dues outstanding longer than the limit after the due date — 3 months by default (the model bye-laws' three-month rule); 1, 6 or 12 months can be chosen.
+- Per flat: member and phone, buckets, total, oldest due date, unpaid bills, last payment, last reminder.
+- `GET /billing/defaulters/{society_id}?min_months=3&include_all=false&format=json|pdf` — the list; `include_all` lists every flat with dues; the PDF is "List of Defaulters as on <date>" on the letterhead, signed by the Hon. Secretary.
+- `POST /billing/defaulters/{society_id}/remind` `{flat_ids?, min_months}` — app/push notification (module `billing_dues`, entity = flat) to members with a login; without `flat_ids`, every defaulter. The latest one is shown as "Reminded".
+- Screen: Finance → Defaulters (form `defaulters`: Admin, committee, Manager), also linked from Accounts → Members' Ledger. CSV export in the app.
+
 ## RBAC
 | Action | Roles |
 |--------|-------|
