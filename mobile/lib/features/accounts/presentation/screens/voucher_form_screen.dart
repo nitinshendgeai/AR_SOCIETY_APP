@@ -16,6 +16,9 @@ class _Line {
   MemberBalance? flat;
   String side; // dr | cr (journal only)
   final amount = TextEditingController();
+  // Kept as they were when an existing voucher is edited.
+  String? vendorId;
+  String? narration;
   _Line({this.side = 'dr'});
 
   double get value => double.tryParse(amount.text.trim()) ?? 0;
@@ -25,9 +28,13 @@ class _Line {
 /// payments are entered the way a cashier thinks — which cash/bank account,
 /// and who it came from / went to — and the form builds the debit and
 /// credit lines; a journal takes debit and credit lines directly.
+///
+/// With [voucherId]: correct that voucher (same type), giving a reason; the
+/// earlier version stays in its history.
 class VoucherFormScreen extends ConsumerStatefulWidget {
   final String type;
-  const VoucherFormScreen({super.key, required this.type});
+  final String? voucherId;
+  const VoucherFormScreen({super.key, required this.type, this.voucherId});
 
   @override
   ConsumerState<VoucherFormScreen> createState() => _VoucherFormScreenState();
@@ -42,7 +49,70 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
   LedgerAccount? _contraTo;
   final _contraAmount = TextEditingController();
   late List<_Line> _lines = _type == 'journal' ? [_Line(side: 'dr'), _Line(side: 'cr')] : [_Line()];
+  final _reason = TextEditingController();
   bool _saving = false;
+  Voucher? _editing;
+  Object? _loadError;
+
+  bool get _isEdit => widget.voucherId != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEdit) _load();
+  }
+
+  /// Fill the form from the voucher being edited.
+  Future<void> _load() async {
+    final societyId = ref.read(currentUserProvider)?.societyId;
+    if (societyId == null) return;
+    try {
+      final api = ref.read(accountsApiProvider);
+      final v = await api.voucher(widget.voucherId!);
+      final ledgers = await api.ledgers(societyId);
+      final members =
+          v.entries.any((e) => e.flatId != null) ? (await api.members(societyId)).members : const <MemberBalance>[];
+      if (!mounted) return;
+      LedgerAccount? find(String id) => ledgers.where((l) => l.id == id).firstOrNull;
+      _Line line(VoucherEntry e) {
+        final dr = e.debit > 0;
+        return _Line(side: dr ? 'dr' : 'cr')
+          ..account = find(e.accountId)
+          ..flat = e.flatId == null ? null : members.where((m) => m.flatId == e.flatId).firstOrNull
+          ..vendorId = e.vendorId
+          ..narration = e.narration
+          ..amount.text = (dr ? e.debit : e.credit).toStringAsFixed(2);
+      }
+
+      setState(() {
+        _editing = v;
+        _type = v.voucherType;
+        _date = v.voucherDate;
+        _reference.text = v.reference ?? '';
+        _narration.text = v.narration ?? '';
+        for (final l in _lines) {
+          l.amount.dispose();
+        }
+        switch (v.voucherType) {
+          case 'contra':
+            _contraTo = find(v.debits.first.accountId);
+            _cashBank = find(v.credits.first.accountId);
+            _contraAmount.text = v.amount.toStringAsFixed(2);
+            _lines = [];
+          case 'receipt':
+            _cashBank = find(v.debits.first.accountId);
+            _lines = v.credits.map(line).toList();
+          case 'payment':
+            _cashBank = find(v.credits.first.accountId);
+            _lines = v.debits.map(line).toList();
+          default:
+            _lines = v.entries.map(line).toList();
+        }
+      });
+    } catch (e) {
+      if (mounted) setState(() => _loadError = e);
+    }
+  }
 
   @override
   void dispose() {
@@ -52,6 +122,7 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
     _reference.dispose();
     _narration.dispose();
     _contraAmount.dispose();
+    _reason.dispose();
     super.dispose();
   }
 
@@ -77,7 +148,9 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
       return null;
     }
     if (_type != 'journal' && _cashBank == null) {
-      return _type == 'receipt' ? 'Choose the cash or bank account received into' : 'Choose the cash or bank account paid from';
+      return _type == 'receipt'
+          ? 'Choose the cash or bank account received into'
+          : 'Choose the cash or bank account paid from';
     }
     for (final l in _lines) {
       if (l.account == null) return 'Choose a ledger on every line';
@@ -88,6 +161,7 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
       if (_drTotal == 0 || _crTotal == 0) return 'A journal needs at least one debit and one credit line';
       if ((_drTotal - _crTotal).abs() > 0.001) return 'Debits and credits must be equal';
     }
+    if (_isEdit && _reason.text.trim().length < 3) return 'Give the reason for the change';
     return null;
   }
 
@@ -106,6 +180,8 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
         debit: side == 'dr' ? l.value : 0,
         credit: side == 'cr' ? l.value : 0,
         flatId: l.flat?.flatId,
+        vendorId: l.vendorId,
+        narration: l.narration,
       );
     }).toList();
     if (_type == 'receipt') return [VoucherLineInput(accountId: _cashBank!.id, debit: _linesTotal), ...lines];
@@ -121,17 +197,27 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
     }
     setState(() => _saving = true);
     try {
-      final v = await ref.read(accountsApiProvider).createVoucher(
-            societyId: societyId,
-            type: _type,
-            date: _date,
-            lines: _build(),
-            narration: _narration.text.trim(),
-            reference: _reference.text.trim(),
-          );
+      final api = ref.read(accountsApiProvider);
+      final v = _isEdit
+          ? await api.updateVoucher(
+              widget.voucherId!,
+              date: _date,
+              lines: _build(),
+              narration: _narration.text.trim(),
+              reference: _reference.text.trim(),
+              reason: _reason.text.trim(),
+            )
+          : await api.createVoucher(
+              societyId: societyId,
+              type: _type,
+              date: _date,
+              lines: _build(),
+              narration: _narration.text.trim(),
+              reference: _reference.text.trim(),
+            );
       invalidateBooks(ref);
       if (mounted) {
-        AppToast.success(context, '${v.voucherNumber} saved');
+        AppToast.success(context, _isEdit ? '${v.voucherNumber} updated' : '${v.voucherNumber} saved');
         // Opened from a link rather than from within the app: land on the day book.
         context.canPop() ? context.pop() : context.go(AppRoutes.accountsDayBook);
       }
@@ -160,150 +246,190 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
     final ledgers = ledgersAsync.valueOrNull ?? const <LedgerAccount>[];
     final cashBank = ledgers.where((l) => l.isCashOrBank).toList();
     final others = ledgers.where((l) => !l.isCashOrBank).toList();
-    _cashBank ??= _type == 'journal' ? null : cashBank.where((l) => l.isDefaultBank).firstOrNull;
+    if (!_isEdit) _cashBank ??= _type == 'journal' ? null : cashBank.where((l) => l.isDefaultBank).firstOrNull;
+    final loadError = _loadError ?? (ledgers.isEmpty ? ledgersAsync.error : null);
+    final editing = _editing;
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text('New ${voucherTypeLabel(_type)}')),
-      body: ledgersAsync.isLoading && ledgers.isEmpty
-          ? const Center(child: CircularProgressIndicator())
-          : ledgersAsync.hasError && ledgers.isEmpty
-              ? Center(child: Text(friendlyErrorMessage(ledgersAsync.error!), style: const TextStyle(color: AppTheme.error)))
-              : ResponsiveBody(
-                  maxWidth: 820,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-                    children: [
-                      SegmentedButton<String>(
-                        showSelectedIcon: false,
-                        style: const ButtonStyle(
-                          visualDensity: VisualDensity.compact,
-                          padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 4)),
-                          textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                        ),
-                        segments: [
-                          for (final t in kManualVoucherTypes)
-                            ButtonSegment(value: t, label: Text(voucherTypeLabel(t), maxLines: 1, softWrap: false)),
-                        ],
-                        selected: {_type},
-                        onSelectionChanged: (s) => _setType(s.first),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(voucherTypeHint(_type), style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
-                      const SizedBox(height: 16),
-                      _Card(children: [
-                        Row(children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: _pickDate,
-                              child: InputDecorator(
-                                decoration: const InputDecoration(
-                                    labelText: 'Date', suffixIcon: Icon(Icons.calendar_today_rounded, size: 18)),
-                                child: Text(formatAccountsDate(_date)),
+      appBar: AppBar(
+          title: Text(_isEdit ? 'Edit ${editing?.voucherNumber ?? 'voucher'}' : 'New ${voucherTypeLabel(_type)}')),
+      body: loadError != null
+          ? Center(child: Text(friendlyErrorMessage(loadError), style: const TextStyle(color: AppTheme.error)))
+          : (ledgersAsync.isLoading && ledgers.isEmpty) || (_isEdit && editing == null)
+              ? const Center(child: CircularProgressIndicator())
+              : editing != null && !editing.canEdit
+                  ? Center(
+                      child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                          editing.isLocked
+                              ? 'The books for FY ${editing.fiscalYear} are closed — ${editing.voucherNumber} can\'t be changed.'
+                              : '${editing.voucherNumber} can\'t be edited.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: AppTheme.textSecondary)),
+                    ))
+                  : ResponsiveBody(
+                      maxWidth: 820,
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+                        children: [
+                          if (editing != null)
+                            Row(children: [
+                              VoucherTypeChip(_type),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                    'Correct the ${voucherTypeLabel(_type).toLowerCase()} and give the reason. '
+                                    'The voucher keeps its number; the earlier version stays in its history.',
+                                    style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                              ),
+                            ])
+                          else ...[
+                            SegmentedButton<String>(
+                              showSelectedIcon: false,
+                              style: const ButtonStyle(
+                                visualDensity: VisualDensity.compact,
+                                padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 4)),
+                                textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                              ),
+                              segments: [
+                                for (final t in kManualVoucherTypes)
+                                  ButtonSegment(
+                                      value: t, label: Text(voucherTypeLabel(t), maxLines: 1, softWrap: false)),
+                              ],
+                              selected: {_type},
+                              onSelectionChanged: (s) => _setType(s.first),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(voucherTypeHint(_type),
+                                style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                          ],
+                          const SizedBox(height: 16),
+                          _Card(children: [
+                            Row(children: [
+                              Expanded(
+                                child: InkWell(
+                                  onTap: _pickDate,
+                                  child: InputDecorator(
+                                    decoration: const InputDecoration(
+                                        labelText: 'Date', suffixIcon: Icon(Icons.calendar_today_rounded, size: 18)),
+                                    child: Text(formatAccountsDate(_date)),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextField(
+                                  controller: _reference,
+                                  decoration: const InputDecoration(
+                                      labelText: 'Reference', hintText: 'Cheque / UTR / bill no.'),
+                                ),
+                              ),
+                            ]),
+                            if (_type == 'receipt' || _type == 'payment' || _type == 'contra') ...[
+                              const SizedBox(height: 12),
+                              _LedgerField(
+                                label: switch (_type) {
+                                  'receipt' => 'Received into',
+                                  'payment' => 'Paid from',
+                                  _ => 'From (cash / bank)',
+                                },
+                                value: _cashBank,
+                                onTap: () async {
+                                  final l = await pickLedger(context, cashBank, title: 'Cash or bank account');
+                                  if (l != null) setState(() => _cashBank = l);
+                                },
+                              ),
+                            ],
+                            if (_type == 'contra') ...[
+                              const SizedBox(height: 12),
+                              _LedgerField(
+                                label: 'To (cash / bank)',
+                                value: _contraTo,
+                                onTap: () async {
+                                  final l = await pickLedger(context, cashBank, title: 'Cash or bank account');
+                                  if (l != null) setState(() => _contraTo = l);
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              _AmountField(controller: _contraAmount, onChanged: () => setState(() {})),
+                            ],
+                          ]),
+                          if (_type != 'contra') ...[
+                            const SizedBox(height: 16),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 2, bottom: 8),
+                              child: Text(
+                                switch (_type) {
+                                  'receipt' => 'Received from / towards',
+                                  'payment' => 'Paid to / for',
+                                  _ => 'Debit and credit lines',
+                                },
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextField(
-                              controller: _reference,
-                              decoration: const InputDecoration(labelText: 'Reference', hintText: 'Cheque / UTR / bill no.'),
+                            for (final (i, l) in _lines.indexed)
+                              _LineCard(
+                                key: ObjectKey(l),
+                                line: l,
+                                journal: _type == 'journal',
+                                ledgers: others,
+                                societyId: societyId,
+                                onChanged: () => setState(() {}),
+                                onRemove: _lines.length > (_type == 'journal' ? 2 : 1)
+                                    ? () => setState(() {
+                                          _lines.removeAt(i);
+                                          l.amount.dispose();
+                                        })
+                                    : null,
+                              ),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextButton.icon(
+                                onPressed: () => setState(() =>
+                                    _lines.add(_Line(side: _type == 'journal' && _drTotal > _crTotal ? 'cr' : 'dr'))),
+                                icon: const Icon(Icons.add_rounded, size: 18),
+                                label: const Text('Add line'),
+                              ),
                             ),
-                          ),
-                        ]),
-                        if (_type == 'receipt' || _type == 'payment' || _type == 'contra') ...[
-                          const SizedBox(height: 12),
-                          _LedgerField(
-                            label: switch (_type) {
-                              'receipt' => 'Received into',
-                              'payment' => 'Paid from',
-                              _ => 'From (cash / bank)',
-                            },
-                            value: _cashBank,
-                            onTap: () async {
-                              final l = await pickLedger(context, cashBank, title: 'Cash or bank account');
-                              if (l != null) setState(() => _cashBank = l);
-                            },
+                            _Totals(
+                              journal: _type == 'journal',
+                              total: _linesTotal,
+                              dr: _drTotal,
+                              cr: _crTotal,
+                            ),
+                          ],
+                          const SizedBox(height: 16),
+                          _Card(children: [
+                            TextField(
+                              controller: _narration,
+                              minLines: 2,
+                              maxLines: 4,
+                              decoration: const InputDecoration(
+                                  labelText: 'Narration', hintText: 'e.g. MSEDCL electricity bill for Aug-2026'),
+                            ),
+                          ]),
+                          if (_isEdit) ...[
+                            const SizedBox(height: 16),
+                            _Card(children: [
+                              TextField(
+                                controller: _reason,
+                                decoration: const InputDecoration(
+                                    labelText: 'Reason for the change *', hintText: 'e.g. Wrong amount entered'),
+                              ),
+                            ]),
+                          ],
+                          const SizedBox(height: 20),
+                          AppPrimaryButton(
+                            label: _isEdit ? 'Save changes' : 'Save ${voucherTypeLabel(_type)}',
+                            icon: Icons.check_rounded,
+                            isLoading: _saving,
+                            onPressed: () => _save(societyId),
                           ),
                         ],
-                        if (_type == 'contra') ...[
-                          const SizedBox(height: 12),
-                          _LedgerField(
-                            label: 'To (cash / bank)',
-                            value: _contraTo,
-                            onTap: () async {
-                              final l = await pickLedger(context, cashBank, title: 'Cash or bank account');
-                              if (l != null) setState(() => _contraTo = l);
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          _AmountField(controller: _contraAmount, onChanged: () => setState(() {})),
-                        ],
-                      ]),
-                      if (_type != 'contra') ...[
-                        const SizedBox(height: 16),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 2, bottom: 8),
-                          child: Text(
-                            switch (_type) {
-                              'receipt' => 'Received from / towards',
-                              'payment' => 'Paid to / for',
-                              _ => 'Debit and credit lines',
-                            },
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                        for (final (i, l) in _lines.indexed)
-                          _LineCard(
-                            key: ObjectKey(l),
-                            line: l,
-                            journal: _type == 'journal',
-                            ledgers: others,
-                            societyId: societyId,
-                            onChanged: () => setState(() {}),
-                            onRemove: _lines.length > (_type == 'journal' ? 2 : 1)
-                                ? () => setState(() {
-                                      _lines.removeAt(i);
-                                      l.amount.dispose();
-                                    })
-                                : null,
-                          ),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            onPressed: () => setState(() => _lines.add(_Line(
-                                side: _type == 'journal' && _drTotal > _crTotal ? 'cr' : 'dr'))),
-                            icon: const Icon(Icons.add_rounded, size: 18),
-                            label: const Text('Add line'),
-                          ),
-                        ),
-                        _Totals(
-                          journal: _type == 'journal',
-                          total: _linesTotal,
-                          dr: _drTotal,
-                          cr: _crTotal,
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      _Card(children: [
-                        TextField(
-                          controller: _narration,
-                          minLines: 2,
-                          maxLines: 4,
-                          decoration: const InputDecoration(
-                              labelText: 'Narration', hintText: 'e.g. MSEDCL electricity bill for Aug-2026'),
-                        ),
-                      ]),
-                      const SizedBox(height: 20),
-                      AppPrimaryButton(
-                        label: 'Save ${voucherTypeLabel(_type)}',
-                        icon: Icons.check_rounded,
-                        isLoading: _saving,
-                        onPressed: () => _save(societyId),
                       ),
-                    ],
-                  ),
-                ),
+                    ),
     );
   }
 }

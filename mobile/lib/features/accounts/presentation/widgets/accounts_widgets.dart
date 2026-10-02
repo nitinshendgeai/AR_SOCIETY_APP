@@ -1,12 +1,86 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 import 'package:ar_society_app/core/layout/app_sheet.dart';
+import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart';
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
+import 'package:ar_society_app/shared/utils/file_saver.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart' show HeaderActionButton;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+
+String editVoucherRoute(String voucherId) => AppRoutes.accountsVoucherEdit.replaceFirst(':voucherId', voucherId);
+
+/// Downloads the PDF [load] returns as [fileName], or hands it to the share
+/// sheet.
+Future<void> deliverPdf(BuildContext context, Future<Uint8List> Function() load, String fileName,
+    {required bool share, String? subject}) async {
+  final bytes = await load();
+  if (share) {
+    await Share.shareXFiles(
+      [XFile.fromData(bytes, name: fileName, mimeType: 'application/pdf')],
+      fileNameOverrides: [fileName],
+      subject: subject ?? fileName,
+    );
+  } else if (await saveFileBytes(bytes, fileName, mimeType: 'application/pdf') && context.mounted) {
+    AppToast.success(context, '$fileName downloaded');
+  }
+}
+
+/// "Share" and "Download PDF" for an app bar: a labelled button on desktop,
+/// icons on a phone.
+class PdfActions extends StatefulWidget {
+  final Future<Uint8List> Function()? load;
+  final String fileName;
+  final String? subject;
+  const PdfActions({super.key, required this.load, required this.fileName, this.subject});
+
+  @override
+  State<PdfActions> createState() => _PdfActionsState();
+}
+
+class _PdfActionsState extends State<PdfActions> {
+  bool _busy = false;
+
+  Future<void> _run(bool share) async {
+    setState(() => _busy = true);
+    try {
+      await deliverPdf(context, widget.load!, widget.fileName, share: share, subject: widget.subject);
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = !_busy && widget.load != null;
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      IconButton(
+        tooltip: 'Share PDF',
+        onPressed: enabled ? () => _run(true) : null,
+        icon: const Icon(Icons.ios_share_rounded),
+      ),
+      if (isDesktopLayout(context))
+        HeaderActionButton(
+            icon: Icons.download_rounded, label: 'Download PDF', onPressed: enabled ? () => _run(false) : null)
+      else
+        IconButton(
+          tooltip: 'Download PDF',
+          onPressed: enabled ? () => _run(false) : null,
+          icon: const Icon(Icons.download_rounded),
+        ),
+    ]);
+  }
+}
 
 Color voucherTypeColor(String type) => switch (type) {
       'receipt' => AppTheme.success,
@@ -28,8 +102,7 @@ class VoucherTypeChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-      child: Text(voucherTypeLabel(type),
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+      child: Text(voucherTypeLabel(type), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
     );
   }
 }
@@ -49,9 +122,8 @@ class DrCrText extends StatelessWidget {
         style: TextStyle(
           fontSize: fontSize,
           fontWeight: weight,
-          color: value.isZero
-              ? AppTheme.textTertiary
-              : (value.type == 'Cr' ? AppTheme.primaryDark : AppTheme.textPrimary),
+          color:
+              value.isZero ? AppTheme.textTertiary : (value.type == 'Cr' ? AppTheme.primaryDark : AppTheme.textPrimary),
           fontFeatures: const [FontFeature.tabularFigures()],
         ),
       );
@@ -84,7 +156,10 @@ class _LedgerPickerSheetState extends State<_LedgerPickerSheet> {
   Widget build(BuildContext context) {
     final q = _q.toLowerCase();
     final rows = widget.ledgers
-        .where((l) => q.isEmpty || l.name.toLowerCase().contains(q) || (l.code ?? '').contains(q) ||
+        .where((l) =>
+            q.isEmpty ||
+            l.name.toLowerCase().contains(q) ||
+            (l.code ?? '').contains(q) ||
             (l.groupName ?? '').toLowerCase().contains(q))
         .toList();
     final byGroup = <String, List<LedgerAccount>>{};
@@ -210,8 +285,8 @@ class _SheetScaffold extends StatelessWidget {
       );
 }
 
-/// Voucher detail: its lines, narration, where it came from — and, for a
-/// voucher the society entered, Cancel.
+/// Voucher detail: its lines, narration, where it came from, Print, its
+/// edit history — and, for a voucher the society entered, Edit and Cancel.
 Future<void> showVoucherSheet(BuildContext context, String voucherId) =>
     showAppSheet(context: context, panelWidth: 560, builder: (_) => _VoucherSheet(voucherId: voucherId));
 
@@ -225,6 +300,25 @@ class _VoucherSheet extends ConsumerStatefulWidget {
 
 class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
   bool _busy = false;
+
+  Future<void> _print(Voucher v, {required bool share}) async {
+    setState(() => _busy = true);
+    try {
+      await deliverPdf(
+          context, () => ref.read(accountsApiProvider).voucherPdf(v.id), '${v.voucherNumber.replaceAll('/', '-')}.pdf',
+          share: share, subject: '${v.voucherTypeLabel} voucher ${v.voucherNumber}');
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _edit(Voucher v) {
+    final router = GoRouter.of(context);
+    Navigator.pop(context);
+    router.push(editVoucherRoute(v.id));
+  }
 
   Future<void> _cancel(Voucher v) async {
     final reason = TextEditingController();
@@ -281,8 +375,7 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
             VoucherTypeChip(v.voucherType),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(v.voucherNumber,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              child: Text(v.voucherNumber, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
             ),
             Text(formatAccountsDate(v.voucherDate),
                 style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
@@ -306,7 +399,7 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
             ),
           ],
           const SizedBox(height: 14),
-          _EntriesTable(v),
+          _EntriesTable(v.entries, v.amount),
           if ((v.narration ?? '').isNotEmpty) ...[
             const SizedBox(height: 14),
             const Text('Narration', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
@@ -318,6 +411,11 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
             if ((v.reference ?? '').isNotEmpty) _meta('Reference', v.reference!),
             _meta('Financial year', v.fiscalYear),
             if (v.createdByName != null) _meta('Entered by', v.createdByName!),
+            if (v.editedAt != null)
+              _meta(
+                  'Edited',
+                  '${formatAccountsDate(v.editedAt!.toLocal())}'
+                      '${v.editedByName == null ? '' : ' by ${v.editedByName}'}'),
           ]),
           if (v.sourceLabel != null) ...[
             const SizedBox(height: 12),
@@ -342,14 +440,41 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
               ),
             ]),
           ],
-          if (!v.isAuto && !v.isCancelled && !v.isLocked) ...[
-            const SizedBox(height: 18),
+          const SizedBox(height: 18),
+          Wrap(spacing: 10, runSpacing: 10, children: [
             OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error),
-              onPressed: _busy ? null : () => _cancel(v),
-              icon: const Icon(Icons.block_rounded, size: 18),
-              label: const Text('Cancel voucher'),
+              onPressed: _busy ? null : () => _print(v, share: false),
+              icon: const Icon(Icons.print_rounded, size: 18),
+              label: const Text('Print / PDF'),
             ),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : () => _print(v, share: true),
+              icon: const Icon(Icons.ios_share_rounded, size: 18),
+              label: const Text('Share'),
+            ),
+            if (v.canEdit) ...[
+              OutlinedButton.icon(
+                onPressed: _busy ? null : () => _edit(v),
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: const Text('Edit'),
+              ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error),
+                onPressed: _busy ? null : () => _cancel(v),
+                icon: const Icon(Icons.block_rounded, size: 18),
+                label: const Text('Cancel voucher'),
+              ),
+            ],
+          ]),
+          if (v.revisions.isNotEmpty) ...[
+            const SizedBox(height: 22),
+            Text('Edit history (${v.revisions.length})',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            const Text('The voucher as it stood before each change, newest first.',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            const SizedBox(height: 8),
+            for (final r in v.revisions) _RevisionTile(r),
           ],
         ]),
       ),
@@ -362,15 +487,58 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
       ]));
 }
 
+class _RevisionTile extends StatelessWidget {
+  final VoucherRevision r;
+  const _RevisionTile(this.r);
+
+  @override
+  Widget build(BuildContext context) {
+    final who = [
+      if (r.editedAt != null) formatAccountsDate(r.editedAt!.toLocal()),
+      if (r.editedByName != null) 'by ${r.editedByName}',
+    ].join(' ');
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppTheme.border),
+        borderRadius: BorderRadius.circular(AppTheme.radiusS),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+          title: Text('Changed $who', style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+          subtitle: Text(
+              'Reason: ${r.reason}\nWas ${formatInr(r.amount)} on ${formatAccountsDate(r.voucherDate)}'
+              '${r.voucherNumber.isEmpty ? '' : ' · ${r.voucherNumber}'}',
+              style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+          children: [
+            _EntriesTable(r.entries, r.amount),
+            if ((r.narration ?? '').isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text('Narration: ${r.narration}', style: const TextStyle(fontSize: 12.5)),
+            ],
+            if ((r.reference ?? '').isNotEmpty)
+              Text('Reference: ${r.reference}', style: const TextStyle(fontSize: 12.5)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _EntriesTable extends StatelessWidget {
-  final Voucher v;
-  const _EntriesTable(this.v);
+  final List<VoucherEntry> entries;
+  final double amount;
+  const _EntriesTable(this.entries, this.amount);
 
   @override
   Widget build(BuildContext context) {
     const head = TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppTheme.textSecondary);
     const num = TextStyle(fontSize: 13.5, fontFeatures: [FontFeature.tabularFigures()]);
-    Widget amount(double v) =>
+    Widget money(double v) =>
         SizedBox(width: 96, child: Text(v == 0 ? '' : formatInr(v), textAlign: TextAlign.right, style: num));
     return Container(
       decoration: BoxDecoration(
@@ -387,19 +555,18 @@ class _EntriesTable extends StatelessWidget {
             SizedBox(width: 96, child: Text('CREDIT', textAlign: TextAlign.right, style: head)),
           ]),
         ),
-        for (final e in [...v.debits, ...v.credits])
+        for (final e in [...entries.where((e) => e.debit > 0), ...entries.where((e) => e.credit > 0)])
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             child: Row(children: [
               Expanded(
                 child: Padding(
                   padding: EdgeInsets.only(left: e.credit > 0 ? 16 : 0),
-                  child: Text('${e.credit > 0 ? 'To ' : ''}${e.title}',
-                      style: const TextStyle(fontSize: 13.5)),
+                  child: Text('${e.credit > 0 ? 'To ' : ''}${e.title}', style: const TextStyle(fontSize: 13.5)),
                 ),
               ),
-              amount(e.debit),
-              amount(e.credit),
+              money(e.debit),
+              money(e.credit),
             ]),
           ),
         const Divider(height: 1),
@@ -409,11 +576,11 @@ class _EntriesTable extends StatelessWidget {
             const Expanded(child: Text('Total', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700))),
             SizedBox(
                 width: 96,
-                child: Text(formatInr(v.amount),
+                child: Text(formatInr(amount),
                     textAlign: TextAlign.right, style: num.copyWith(fontWeight: FontWeight.w700))),
             SizedBox(
                 width: 96,
-                child: Text(formatInr(v.amount),
+                child: Text(formatInr(amount),
                     textAlign: TextAlign.right, style: num.copyWith(fontWeight: FontWeight.w700))),
           ]),
         ),

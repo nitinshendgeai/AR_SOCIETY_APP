@@ -75,7 +75,18 @@ class _LedgerStatementScreenState extends ConsumerState<LedgerStatementScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text(title, overflow: TextOverflow.ellipsis)),
+      appBar: AppBar(title: Text(title, overflow: TextOverflow.ellipsis), actions: [
+        PdfActions(
+          load: async.valueOrNull == null
+              ? null
+              : () => ref
+                  .read(accountsApiProvider)
+                  .statementPdf(widget.accountId, from: from, to: to, flatId: widget.flatId, vendorId: widget.vendorId),
+          fileName: 'Ledger-${title.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')}.pdf',
+          subject: 'Ledger account — $title',
+        ),
+        const SizedBox(width: 8),
+      ]),
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(ledgerStatementProvider(key)),
         child: ResponsiveBody(

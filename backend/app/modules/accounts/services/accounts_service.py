@@ -6,10 +6,14 @@ Balances are signed debit-positive throughout: a positive balance is a
 debit (Dr) balance, a negative one a credit (Cr) balance. Cancelled
 vouchers never count.
 
-Closed financial years are locked: no voucher can be entered in them or
-cancelled. Automatic postings dated in a closed year are made on the first
-day of the next open year, and a posting of a closed year whose bill or
-payment is later cancelled is reversed in the open year.
+A voucher the society entered (not one the app posted) can be corrected or
+cancelled while its year is open; each correction keeps the earlier version
+in VoucherRevision.
+
+Closed financial years are locked: no voucher can be entered in them,
+corrected or cancelled. Automatic postings dated in a closed year are made
+on the first day of the next open year, and a posting of a closed year whose
+bill or payment is later cancelled is reversed in the open year.
 """
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -27,7 +31,7 @@ from app.models.user import User
 from app.models.wing import Wing
 from app.modules.accounts.models.accounts import (
     DEBIT_NATURES, MANUAL_VOUCHER_TYPES, VOUCHER_TYPES, Account, AccountGroup, FinancialYearClosing, Voucher,
-    VoucherEntry,
+    VoucherEntry, VoucherRevision,
 )
 from app.modules.accounts.services.chart_of_accounts import seed_chart_of_accounts
 from app.modules.billing.models.billing import MaintenanceSettings
@@ -304,6 +308,35 @@ class AccountsService:
                       reversal_of_id: Optional[UUID] = None, user: Optional[User] = None) -> Voucher:
         """Validate that `lines` balance and record the voucher (flushed, not
         committed)."""
+        lines, total = self._balanced(society_id, lines)
+        if voucher_type != "closing":
+            self.assert_open(society_id, voucher_date)
+
+        voucher = Voucher(
+            society_id=society_id, voucher_type=voucher_type,
+            voucher_number=self._next_number(society_id, voucher_type, voucher_date),
+            voucher_date=voucher_date, fiscal_year=fiscal_year(voucher_date), amount=total,
+            narration=narration, reference=reference, source_type=source_type, source_id=source_id,
+            reversal_of_id=reversal_of_id, created_by=user.id if user else None,
+        )
+        self._set_entries(voucher, lines)
+        self.db.add(voucher)
+        self.db.flush()
+        return voucher
+
+    @staticmethod
+    def _set_entries(voucher: Voucher, lines: List[Line]) -> None:
+        for i, l in enumerate(lines):
+            voucher.entries.append(VoucherEntry(
+                account_id=l.account.id, line_no=i + 1, debit=l.debit, credit=l.credit,
+                flat_id=l.flat_id, vendor_id=l.vendor_id, narration=l.narration,
+            ))
+
+    @staticmethod
+    def _balanced(society_id: UUID, lines: List[Line]) -> tuple:
+        """The non-zero lines and their total, once checked: at least two,
+        each a debit or a credit of a positive amount, all in this society,
+        debits equal to credits."""
         lines = [l for l in lines if money(l.debit) or money(l.credit)]
         if len(lines) < 2:
             raise HTTPException(422, "A voucher needs at least one debit and one credit line")
@@ -317,24 +350,7 @@ class AccountsService:
         total_cr = sum((l.credit for l in lines), ZERO)
         if total_dr != total_cr:
             raise HTTPException(422, f"Debits (₹{total_dr}) and credits (₹{total_cr}) must be equal")
-        if voucher_type != "closing":
-            self.assert_open(society_id, voucher_date)
-
-        voucher = Voucher(
-            society_id=society_id, voucher_type=voucher_type,
-            voucher_number=self._next_number(society_id, voucher_type, voucher_date),
-            voucher_date=voucher_date, fiscal_year=fiscal_year(voucher_date), amount=total_dr,
-            narration=narration, reference=reference, source_type=source_type, source_id=source_id,
-            reversal_of_id=reversal_of_id, created_by=user.id if user else None,
-        )
-        for i, l in enumerate(lines):
-            voucher.entries.append(VoucherEntry(
-                account_id=l.account.id, line_no=i + 1, debit=l.debit, credit=l.credit,
-                flat_id=l.flat_id, vendor_id=l.vendor_id, narration=l.narration,
-            ))
-        self.db.add(voucher)
-        self.db.flush()
-        return voucher
+        return lines, total_dr
 
     def _flat_in_society(self, flat_id: UUID, society_id: UUID) -> Flat:
         flat = (self.db.query(Flat).join(Wing, Wing.id == Flat.wing_id)
@@ -352,11 +368,24 @@ class AccountsService:
         society_id, vtype = data["society_id"], data["voucher_type"]
         if vtype not in MANUAL_VOUCHER_TYPES:
             raise HTTPException(422, f"Voucher type must be one of: {', '.join(MANUAL_VOUCHER_TYPES)}")
+        lines = self._manual_lines(society_id, vtype, data["entries"])
+        voucher = self.build_voucher(society_id, vtype, data["voucher_date"], lines,
+                                     narration=data.get("narration"), reference=data.get("reference"),
+                                     user=user)
+        self._audit(AuditAction.CREATE, voucher, user, request,
+                    new_values={"number": voucher.voucher_number, "amount": str(voucher.amount)})
+        self.db.commit()
+        self.db.refresh(voucher)
+        return voucher
+
+    def _manual_lines(self, society_id: UUID, vtype: str, entries: List[dict]) -> List[Line]:
+        """The lines of a Receipt, Payment, Journal or Contra, checked
+        against the rules of its type."""
         chart = self.ensure_chart(society_id)
         members_dues, creditors = chart["members_dues"], chart["sundry_creditors"]
 
         lines = []
-        for e in data["entries"]:
+        for e in entries:
             account = self.get_account(e["account_id"])
             if account.society_id != society_id or not account.is_active:
                 raise HTTPException(422, "Ledger not found in this society")
@@ -388,22 +417,83 @@ class AccountsService:
             raise HTTPException(422, "A contra moves money between cash and bank ledgers only")
         if vtype == "journal" and any(l.account.is_cash_or_bank for l in lines):
             raise HTTPException(422, "A journal doesn't touch cash or bank — use a receipt, payment or contra")
+        return lines
 
-        voucher = self.build_voucher(society_id, vtype, data["voucher_date"], lines,
-                                     narration=data.get("narration"), reference=data.get("reference"),
-                                     user=user)
-        self._audit(AuditAction.CREATE, voucher, user, request,
-                    new_values={"number": voucher.voucher_number, "amount": str(voucher.amount)})
+    @staticmethod
+    def snapshot(voucher: Voucher) -> dict:
+        """The voucher as it stands, for its revision history."""
+        from app.modules.billing.services.bill_pdf import flat_label
+        return {
+            "voucher_number": voucher.voucher_number, "voucher_date": voucher.voucher_date.isoformat(),
+            "amount": str(money(voucher.amount)), "narration": voucher.narration, "reference": voucher.reference,
+            "entries": [{
+                "account_id": str(e.account_id), "account_name": e.account.name if e.account else None,
+                "debit": str(money(e.debit)), "credit": str(money(e.credit)),
+                "flat_id": str(e.flat_id) if e.flat_id else None,
+                "flat_label": flat_label(e.flat) if e.flat else None,
+                "vendor_id": str(e.vendor_id) if e.vendor_id else None,
+                "vendor_name": e.vendor.company_name if e.vendor else None,
+                "narration": e.narration,
+            } for e in voucher.entries],
+        }
+
+    @staticmethod
+    def _assert_manual(voucher: Voucher, action: str) -> None:
+        """Only a live voucher the society entered can be corrected or
+        cancelled; the app's own postings follow their bill or payment."""
+        if voucher.is_cancelled:
+            raise HTTPException(409, "Voucher is already cancelled")
+        if voucher.source_type:
+            raise HTTPException(409, f"This voucher was posted from a bill or payment — {action} that instead")
+        if voucher.voucher_type == "closing":
+            raise HTTPException(409, "A year-end closing voucher is undone by reopening the year")
+        if voucher.reversal_of_id:
+            raise HTTPException(409, "A reversal entry can't be changed or cancelled")
+
+    def update_manual_voucher(self, voucher_id: UUID, data: dict, user: User, request=None) -> Voucher:
+        """Correct a voucher the society entered: its date, narration,
+        reference and lines (the type stays). Both the old and the new date
+        must be in an open year. The voucher keeps its number unless it moves
+        to another financial year; the version before the edit is kept."""
+        voucher = self.get_voucher(voucher_id)
+        self._assert_manual(voucher, "edit")
+        society_id, new_date = voucher.society_id, data["voucher_date"]
+        self.assert_open(society_id, voucher.voucher_date)
+        self.assert_open(society_id, new_date)
+        lines, total = self._balanced(society_id, self._manual_lines(society_id, voucher.voucher_type,
+                                                                     data["entries"]))
+        before = self.snapshot(voucher)
+        voucher.revisions.append(VoucherRevision(
+            revision_no=len(voucher.revisions) + 1, snapshot=before, reason=data["reason"],
+            edited_by=user.id if user else None))
+        if fiscal_year(new_date) != voucher.fiscal_year:
+            voucher.voucher_number = self._next_number(society_id, voucher.voucher_type, new_date)
+            voucher.fiscal_year = fiscal_year(new_date)
+        voucher.voucher_date = new_date
+        voucher.amount = total
+        voucher.narration = data.get("narration")
+        voucher.reference = data.get("reference")
+        voucher.entries.clear()
+        self.db.flush()
+        self._set_entries(voucher, lines)
+        voucher.edited_at = datetime.utcnow()
+        voucher.edited_by = user.id if user else None
+        self._audit(AuditAction.UPDATE, voucher, user, request,
+                    old_values={"number": before["voucher_number"], "date": before["voucher_date"],
+                                "amount": before["amount"]},
+                    new_values={"number": voucher.voucher_number, "date": new_date.isoformat(),
+                                "amount": str(total), "reason": data["reason"]})
         self.db.commit()
-        self.db.refresh(voucher)
-        return voucher
+        self.db.expire_all()
+        return self.get_voucher(voucher.id)
 
     @staticmethod
     def _voucher_loads():
         return (selectinload(Voucher.entries).joinedload(VoucherEntry.account),
                 selectinload(Voucher.entries).joinedload(VoucherEntry.flat).joinedload(Flat.wing),
                 selectinload(Voucher.entries).joinedload(VoucherEntry.vendor),
-                joinedload(Voucher.creator))
+                selectinload(Voucher.revisions).joinedload(VoucherRevision.editor),
+                joinedload(Voucher.creator), joinedload(Voucher.editor))
 
     def get_voucher(self, voucher_id: UUID) -> Voucher:
         v = self.db.query(Voucher).options(*self._voucher_loads()).filter(Voucher.id == voucher_id).first()
@@ -439,14 +529,7 @@ class AccountsService:
 
     def cancel_manual_voucher(self, voucher_id: UUID, reason: str, user: User, request=None) -> Voucher:
         voucher = self.get_voucher(voucher_id)
-        if voucher.is_cancelled:
-            raise HTTPException(409, "Voucher is already cancelled")
-        if voucher.source_type:
-            raise HTTPException(409, "This voucher was posted from a bill or payment — cancel that instead")
-        if voucher.voucher_type == "closing":
-            raise HTTPException(409, "A year-end closing voucher is undone by reopening the year")
-        if voucher.reversal_of_id:
-            raise HTTPException(409, "A reversal entry can't be cancelled")
+        self._assert_manual(voucher, "cancel")
         self.assert_open(voucher.society_id, voucher.voucher_date)
         self.cancel(voucher, reason, user)
         self._audit(AuditAction.UPDATE, voucher, user, request,

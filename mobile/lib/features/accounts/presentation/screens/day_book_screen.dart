@@ -47,6 +47,11 @@ class _DayBookScreenState extends ConsumerState<DayBookScreen> {
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(title: const Text('Day Book'), actions: [
+        PdfActions(
+          load: () => ref.read(accountsApiProvider).dayBookPdf(societyId, type: _type, from: from, to: to),
+          fileName: 'Day-Book-${_allDates ? 'all' : apiDate(_month).substring(0, 7)}.pdf',
+          subject: 'Day Book — ${_allDates ? 'all dates' : _monthLabel(_month)}',
+        ),
         if (desktop)
           HeaderActionButton(icon: Icons.add_rounded, label: 'New Voucher', onPressed: () => chooseNewVoucher(context)),
       ]),
