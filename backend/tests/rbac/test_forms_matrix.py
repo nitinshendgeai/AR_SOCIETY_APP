@@ -43,7 +43,7 @@ def test_gaps_in_old_dashboard_logic_are_preserved_by_default():
     vendor bills, runs maintenance billing, manages the staff and keeps the
     books, so "online_payments", "bank_reconciliation", "vendor_bills",
     "maintenance_billing", "maintenance_elements", "staff",
-    "checklist_templates" and "accounts" were added to Manager's default grants (see
+    "checklist_templates", "accounts" and "defaulters" were added to Manager's default grants (see
     FORM_ROLE_GRANTS)."""
     codes_by_role = default_role_form_codes()
     for role_name in ("Platform Admin", "Gym Trainer", "Tenant"):
@@ -52,7 +52,7 @@ def test_gaps_in_old_dashboard_logic_are_preserved_by_default():
         )
     assert set(codes_by_role.get("Manager", [])) == {
         "visitors", "complaints", "online_payments", "bank_reconciliation", "vendor_bills",
-        "maintenance_billing", "maintenance_elements", "staff", "checklist_templates", "accounts",
+        "maintenance_billing", "maintenance_elements", "staff", "checklist_templates", "accounts", "defaulters",
     }
 
 
@@ -105,7 +105,7 @@ def test_my_forms_returns_default_grants_for_own_role(client, db):
     # vendor bills.
     assert set(r.json()["form_codes"]) == {
         "visitors", "complaints", "online_payments", "bank_reconciliation", "vendor_bills",
-        "maintenance_billing", "maintenance_elements", "staff", "checklist_templates", "accounts",
+        "maintenance_billing", "maintenance_elements", "staff", "checklist_templates", "accounts", "defaulters",
     }
 
     resident = make_user(db, "formsres4@rbac.com", role="Resident")

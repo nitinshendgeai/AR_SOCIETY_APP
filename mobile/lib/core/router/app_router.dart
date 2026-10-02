@@ -55,6 +55,7 @@ import 'package:ar_society_app/features/vendor/presentation/screens/vendor_bills
 import 'package:ar_society_app/features/accounts/presentation/screens/accounts_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/chart_of_accounts_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/day_book_screen.dart';
+import 'package:ar_society_app/features/maintenance_billing/presentation/screens/defaulters_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/financial_report_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/financial_statements_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/ledger_statement_screen.dart';
@@ -149,6 +150,7 @@ class AppRoutes {
   static const accountsVoucherNew = '/accounts/vouchers/new';
   static const accountsLedger     = '/accounts/ledger/:accountId';
   static const accountsStatements = '/accounts/statements';
+  static const defaulters         = '/billing/defaulters';
   static const accountsReport     = '/accounts/statements/:report';
   // Society Settings
   static const societySettings    = '/society-settings';
@@ -663,6 +665,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   ),
             ),
             (AppRoutes.accountsStatements, (_) => const FinancialStatementsScreen()),
+            (AppRoutes.defaulters, (_) => const DefaultersScreen()),
             (
               AppRoutes.accountsReport,
               (s) {
