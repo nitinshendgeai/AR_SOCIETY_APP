@@ -8,8 +8,11 @@ class StructureRemoteDataSource {
 
   // ── Wings ─────────────────────────────────────────────────────────────────
 
-  Future<List<WingModel>> getWingsBySociety(String societyId) async {
-    final r = await _dio.get('/wings/by-society/$societyId');
+  /// [includeInactive]: also the deactivated wings (for the Wings screen,
+  /// where they can be switched on again).
+  Future<List<WingModel>> getWingsBySociety(String societyId, {bool includeInactive = false}) async {
+    final r = await _dio.get('/wings/by-society/$societyId',
+        queryParameters: {if (includeInactive) 'include_inactive': true});
     return (r.data as List)
         .map((e) => WingModel.fromJson(e as Map<String, dynamic>))
         .toList();

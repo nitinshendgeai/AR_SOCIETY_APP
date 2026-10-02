@@ -23,6 +23,7 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
   final _area         = TextEditingController();
   final _remarks      = TextEditingController();
   final _van          = TextEditingController();
+  final _floor        = TextEditingController();
 
   String? _selectedWingId;
   String? _selectedFlatType;
@@ -33,7 +34,7 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
   bool get _isEdit => widget.flat != null;
 
   static const _flatTypes = [
-    '1BHK', '2BHK', '3BHK', '4BHK', 'Studio', 'Duplex', 'Penthouse', 'Shop', 'Office',
+    '1BHK', '2BHK', '3BHK', '4BHK', 'Studio', 'Duplex', 'Penthouse', 'Shop', 'Office', 'Other',
   ];
 
   static const _occupancyStatuses = [
@@ -60,6 +61,7 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
       _selectedWingId    = widget.defaultWing?.id;
       _selectedFloor     = widget.defaultFloor?.floorNumber;
     }
+    _floor.text = _selectedFloor?.toString() ?? '';
   }
 
   @override
@@ -68,6 +70,7 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
     _area.dispose();
     _remarks.dispose();
     _van.dispose();
+    _floor.dispose();
     super.dispose();
   }
 
@@ -81,9 +84,9 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
     setState(() => _saving = true);
     try {
       if (_isEdit) {
+        // The wing isn't sent: a flat stays in its wing (shown read-only below)
         final data = <String, dynamic>{
           'flat_number': _flatNumber.text.trim(),
-          'wing_id': _selectedWingId!,
           if (_selectedFloor != null) 'floor': _selectedFloor,
           if (_selectedFlatType != null) 'flat_type': _selectedFlatType,
           if (_area.text.trim().isNotEmpty)
@@ -137,7 +140,14 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // Wing selector
+            // Wing selector — a flat can't move to another wing, so when
+            // editing it is shown, not chosen
+            if (_isEdit)
+              InputDecorator(
+                decoration: const InputDecoration(labelText: 'Wing'),
+                child: Text(widget.flat!.wingName ?? '—'),
+              )
+            else
             wingsAsync.when(
               loading: () => const LinearProgressIndicator(),
               error: (_, __) => const SizedBox.shrink(),
@@ -154,6 +164,7 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
                   onChanged: (v) => setState(() {
                     _selectedWingId = v;
                     _selectedFloor  = null;
+                    _floor.clear();
                   }),
                   validator: (v) =>
                       v == null ? 'Wing is required' : null,
@@ -172,15 +183,23 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
             ),
             const SizedBox(height: 16),
             TextFormField(
-              initialValue: _selectedFloor?.toString(),
+              controller: _floor,
               keyboardType: TextInputType.number,
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'^-?\d*')),
               ],
               decoration: const InputDecoration(
                 labelText: 'Floor Number',
-                hintText: '0 = Ground (optional)',
+                hintText: '0 = Ground, negative for basement (optional)',
               ),
+              validator: (v) {
+                final t = (v ?? '').trim();
+                if (t.isEmpty) return null;
+                final n = int.tryParse(t);
+                if (n == null) return 'Must be a number';
+                if (n < -10 || n > 200) return 'Floor must be between -10 and 200';
+                return null;
+              },
               onChanged: (v) =>
                   _selectedFloor = v.trim().isEmpty ? null : int.tryParse(v.trim()),
             ),
@@ -189,9 +208,11 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
               value: _selectedFlatType,
               decoration: const InputDecoration(labelText: 'Flat Type'),
               hint: const Text('Select type (optional)'),
-              items: _flatTypes
-                  .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                  .toList(),
+              // A type the list doesn't know (an older record) stays selectable
+              items: [
+                ..._flatTypes,
+                if (_selectedFlatType != null && !_flatTypes.contains(_selectedFlatType)) _selectedFlatType!,
+              ].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
               onChanged: (v) => setState(() => _selectedFlatType = v),
             ),
             const SizedBox(height: 16),
@@ -205,6 +226,12 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
                 labelText: 'Area (sq ft)',
                 hintText: 'e.g. 850 (optional)',
               ),
+              validator: (v) {
+                final t = (v ?? '').trim();
+                if (t.isEmpty) return null;
+                final n = double.tryParse(t);
+                return n == null || n <= 0 ? 'Enter an area above zero' : null;
+              },
             ),
             const SizedBox(height: 16),
             if (_isEdit) ...[

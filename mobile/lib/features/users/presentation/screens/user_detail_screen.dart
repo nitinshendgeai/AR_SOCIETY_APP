@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -7,6 +6,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/features/users/data/models/user_admin_models.dart';
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
+import 'package:ar_society_app/features/users/presentation/widgets/temp_password_dialog.dart';
 
 class UserDetailScreen extends ConsumerWidget {
   final String userId;
@@ -93,7 +93,7 @@ class UserDetailScreen extends ConsumerWidget {
         if (ok && context.mounted) {
           final result =
               await ref.read(userDetailProvider(userId).notifier).resetPassword();
-          if (context.mounted) _showTempPassword(context, result.temporaryPassword);
+          if (context.mounted) showTempPasswordDialog(context, result.temporaryPassword, who: user.fullName);
         }
         break;
       case 'delete':
@@ -141,61 +141,6 @@ class UserDetailScreen extends ConsumerWidget {
       ),
     );
     return result ?? false;
-  }
-
-  void _showTempPassword(BuildContext context, String pwd) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Temporary Password'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Share this with the user. They must change it on login.',
-                style: TextStyle(
-                    fontSize: 13, color: AppTheme.textSecondary)),
-            const SizedBox(height: 12),
-            GestureDetector(
-              onTap: () {
-                Clipboard.setData(ClipboardData(text: pwd));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Copied to clipboard')),
-                );
-              },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.surface,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.border),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(pwd,
-                          style: const TextStyle(
-                              fontFamily: 'monospace',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16)),
-                    ),
-                    const Icon(Icons.copy_rounded,
-                        size: 16, color: AppTheme.primary),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Done'),
-          ),
-        ],
-      ),
-    );
   }
 }
 

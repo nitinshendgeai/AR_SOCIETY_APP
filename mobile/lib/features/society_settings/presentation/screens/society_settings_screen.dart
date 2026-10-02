@@ -240,7 +240,14 @@ class _GeneralTabState extends ConsumerState<_GeneralTab>
             ),
             Row(
               children: [
-                Expanded(child: _Field('Pincode', _pincodeCtrl)),
+                Expanded(
+                  child: _Field('Pincode', _pincodeCtrl,
+                      keyboardType: TextInputType.number,
+                      validator: (v) {
+                        final t = (v ?? '').replaceAll(' ', '');
+                        return t.isEmpty || RegExp(r'^[0-9]{6}$').hasMatch(t) ? null : 'Pincode must be 6 digits';
+                      }),
+                ),
                 const SizedBox(width: 12),
                 Expanded(child: _Field('Country', _countryCtrl)),
               ],
@@ -255,12 +262,24 @@ class _GeneralTabState extends ConsumerState<_GeneralTab>
             Row(children: [
               Expanded(
                 child: _Field('GST Number', _gstCtrl,
-                    hint: 'e.g. 27AAAAA0000A1Z5'),
+                    hint: 'e.g. 27AAAAA0000A1Z5',
+                    validator: (v) {
+                      final t = (v ?? '').replaceAll(' ', '').toUpperCase();
+                      return t.isEmpty || RegExp(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$').hasMatch(t)
+                          ? null
+                          : 'GSTIN is 15 characters, like 27AAAAA0000A1Z5';
+                    }),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _Field('PAN Number', _panCtrl,
-                    hint: 'e.g. AAAAA0000A'),
+                    hint: 'e.g. AAAAA0000A',
+                    validator: (v) {
+                      final t = (v ?? '').replaceAll(' ', '').toUpperCase();
+                      return t.isEmpty || RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$').hasMatch(t)
+                          ? null
+                          : 'PAN looks like ABCDE1234F';
+                    }),
               ),
             ]),
             const SizedBox(height: 24),
@@ -472,6 +491,7 @@ class _SecurityTabState extends ConsumerState<_SecurityTab>
     with AutomaticKeepAliveClientMixin {
   late bool _allowTenantPortal;
   late bool _requireVisitorApproval;
+  final _settingsFormKey = GlobalKey<FormState>();
   late TextEditingController _maintenanceDayCtrl;
   late TextEditingController _lateFeeCtrl;
   bool _saving = false;
@@ -498,6 +518,7 @@ class _SecurityTabState extends ConsumerState<_SecurityTab>
   }
 
   Future<void> _save() async {
+    if (!(_settingsFormKey.currentState?.validate() ?? true)) return;
     setState(() => _saving = true);
     try {
       await ref.read(currentSocietyProvider.notifier).updateSettings({
@@ -531,7 +552,9 @@ class _SecurityTabState extends ConsumerState<_SecurityTab>
     super.build(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
-      child: Column(
+      child: Form(
+        key: _settingsFormKey,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _SectionHeader('Access Controls'),
@@ -553,13 +576,26 @@ class _SecurityTabState extends ConsumerState<_SecurityTab>
           _SectionHeader('Billing Settings'),
           _Field('Maintenance Day (1–28)', _maintenanceDayCtrl,
               hint: 'e.g. 1',
-              keyboardType: TextInputType.number),
+              keyboardType: TextInputType.number,
+              validator: (v) {
+                final t = (v ?? '').trim();
+                if (t.isEmpty) return null;
+                final n = int.tryParse(t);
+                return n == null || n < 1 || n > 28 ? 'Enter a day from 1 to 28' : null;
+              }),
           _Field('Late Fee %', _lateFeeCtrl,
               hint: 'e.g. 5',
-              keyboardType: TextInputType.number),
+              keyboardType: TextInputType.number,
+              validator: (v) {
+                final t = (v ?? '').trim();
+                if (t.isEmpty) return null;
+                final n = int.tryParse(t);
+                return n == null || n < 0 || n > 100 ? 'Enter a percentage from 0 to 100' : null;
+              }),
           const SizedBox(height: 24),
           _SaveButton(saving: _saving, onSave: _save),
         ],
+      ),
       ),
     );
   }

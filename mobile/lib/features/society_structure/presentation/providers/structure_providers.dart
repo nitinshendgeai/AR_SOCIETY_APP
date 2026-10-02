@@ -54,6 +54,15 @@ class WingsNotifier extends AsyncNotifier<List<WingModel>> {
   }
 }
 
+/// Every wing, deactivated ones included — for the Wings screen. The
+/// pickers across the app use [wingsProvider], which holds the active ones.
+/// Rebuilds whenever that changes (a wing added, edited, switched, deleted).
+final allWingsProvider = FutureProvider.autoDispose<List<WingModel>>((ref) async {
+  ref.watch(wingsProvider);
+  final society = await ref.watch(currentSocietyProvider.future);
+  return ref.read(structureRepoProvider).getWingsBySociety(society.id, includeInactive: true);
+});
+
 // ── Floors per wing ───────────────────────────────────────────────────────────
 
 final floorsByWingProvider = AsyncNotifierProviderFamily<FloorsByWingNotifier,

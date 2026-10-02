@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Text, ForeignKey, Index, text
+from sqlalchemy import Column, DateTime, String, Integer, Text, ForeignKey, Index, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.db.base import Base, TimestampMixin
@@ -34,6 +34,9 @@ class Wing(Base, TimestampMixin):
     code         = Column(String(20), nullable=True)       # e.g. "A", "B", "North"
     description  = Column(Text, nullable=True)
     total_floors = Column(Integer, nullable=True)
+    # Set when the wing is deleted. A deactivated wing (is_active false,
+    # deleted_at null) can be switched on again; a deleted one cannot.
+    deleted_at   = Column(DateTime, nullable=True)
 
     society_id = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
 

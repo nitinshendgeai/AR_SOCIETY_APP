@@ -35,7 +35,18 @@ class SocietyService:
 
     def update(self, id: UUID, data: SocietyUpdate, caller_society_id: Optional[UUID] = None) -> Society:
         society = self.get_or_404(id, caller_society_id)
-        return self.repo.update(society, data.model_dump(exclude_none=True))
+        patch = data.model_dump(exclude_none=True)
+        # Names and codes are unique across societies
+        if "name" in patch and patch["name"].lower() != society.name.lower():
+            other = self.repo.get_by_name(patch["name"])
+            if other and other.id != society.id:
+                raise HTTPException(status_code=409, detail="Another society already uses this name")
+        if patch.get("society_code") and patch["society_code"] != society.society_code:
+            taken = self.repo.db.query(Society).filter(
+                Society.society_code == patch["society_code"], Society.id != society.id).first()
+            if taken:
+                raise HTTPException(status_code=409, detail="Another society already uses this code")
+        return self.repo.update(society, patch)
 
     def delete(self, id: UUID, caller_society_id: Optional[UUID] = None) -> None:
         society = self.get_or_404(id, caller_society_id)

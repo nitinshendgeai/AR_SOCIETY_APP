@@ -61,6 +61,8 @@ class _FloorFormScreenState extends ConsumerState<FloorFormScreen> {
             .read(structureRepoProvider)
             .updateFloor(widget.floor!.id, data);
         ref.read(floorsByWingProvider(widget.wing.id).notifier).refresh();
+        // Renumbering a floor moves its flats with it
+        ref.read(flatsBySocietyProvider.notifier).refresh();
       } else {
         final floorNumber = int.parse(_floorNumber.text.trim());
         await ref.read(floorsByWingProvider(widget.wing.id).notifier).create(
@@ -75,12 +77,18 @@ class _FloorFormScreenState extends ConsumerState<FloorFormScreen> {
         if (units > 0) {
           var created = 0;
           try {
-            for (var i = 1; i <= units; i++) {
+            // Numbers the wing already uses are skipped, not collided with
+            final existing = (await ref.read(flatsBySocietyProvider.future))
+                .where((f) => f.wingId == widget.wing.id)
+                .map((f) => f.flatNumber)
+                .toSet();
+            final numbers = nextFlatNumbers(floorNumber, units, existing);
+            for (var i = 0; i < numbers.length; i++) {
               if (mounted) {
-                setState(() => _savingLabel = 'Creating flat $i of $units…');
+                setState(() => _savingLabel = 'Creating flat ${i + 1} of $units…');
               }
               await ref.read(flatsBySocietyProvider.notifier).create(
-                    flatNumber: autoFlatNumber(floorNumber, i),
+                    flatNumber: numbers[i],
                     wingId: widget.wing.id,
                     floor: floorNumber,
                   );
@@ -167,7 +175,9 @@ class _FloorFormScreenState extends ConsumerState<FloorFormScreen> {
               ),
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'Floor number is required';
-                if (int.tryParse(v.trim()) == null) return 'Must be a number';
+                final n = int.tryParse(v.trim());
+                if (n == null) return 'Must be a number';
+                if (n < -10 || n > 200) return 'Floor must be between -10 and 200';
                 return null;
               },
             ),

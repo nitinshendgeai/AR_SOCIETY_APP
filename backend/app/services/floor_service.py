@@ -33,9 +33,11 @@ class FloorService:
         # trusted from the request body — a caller-supplied society_id that
         # doesn't match the wing's real owner would otherwise let a floor be
         # silently attributed to the wrong society.
-        wing = self.wing_repo.get(data.wing_id, society_id=current_user.society_id)
+        wing = self.wing_repo.get_kept(data.wing_id, society_id=current_user.society_id)
         if not wing:
             raise HTTPException(404, "Wing not found")
+        if not wing.is_active:
+            raise HTTPException(409, f"Wing '{wing.name}' is deactivated — activate it first")
         self.repo.assert_unique_number(data.wing_id, data.floor_number)
         payload = data.model_dump()
         payload["society_id"] = wing.society_id
@@ -50,7 +52,7 @@ class FloorService:
         return _enrich(obj, self.repo.db)
 
     def list_by_wing(self, wing_id: UUID, current_user: User) -> List[FloorOut]:
-        wing = self.wing_repo.get(wing_id, society_id=current_user.society_id)
+        wing = self.wing_repo.get_kept(wing_id, society_id=current_user.society_id)
         if not wing:
             raise HTTPException(404, "Wing not found")
         return [_enrich(f, self.repo.db) for f in self.repo.get_by_wing(wing_id)]
@@ -64,8 +66,14 @@ class FloorService:
         if not floor:
             raise HTTPException(404, "Floor not found")
         patch = data.model_dump(exclude_none=True)
-        if "floor_number" in patch and patch["floor_number"] != floor.floor_number:
+        old_number = floor.floor_number
+        renumbered = "floor_number" in patch and patch["floor_number"] != old_number
+        if renumbered:
             self.repo.assert_unique_number(floor.wing_id, patch["floor_number"], exclude_id=id)
+            # The flats on this floor carry its number: they move with it
+            self.repo.db.query(Flat).filter(
+                Flat.wing_id == floor.wing_id, Flat.floor == old_number, Flat.is_active == True,
+            ).update({Flat.floor: patch["floor_number"]}, synchronize_session=False)
         updated = self.repo.update(floor, patch)
         return _enrich(updated, self.repo.db)
 
@@ -73,4 +81,9 @@ class FloorService:
         floor = self.repo.get(id, society_id=current_user.society_id)
         if not floor:
             raise HTTPException(404, "Floor not found")
+        flats = _enrich(floor, self.repo.db).flat_count
+        if flats:
+            raise HTTPException(
+                409, f"{floor.floor_name or 'Floor ' + str(floor.floor_number)} still has "
+                     f"{flats} flat{'s' if flats != 1 else ''}. Delete or move them first.")
         self.repo.soft_delete(floor)

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from uuid import UUID
@@ -41,7 +43,7 @@ class WingService:
         return _enrich(created)
 
     def get_or_404(self, id: UUID, current_user: User) -> WingOut:
-        obj = self.repo.get(id, society_id=current_user.society_id)
+        obj = self.repo.get_kept(id, society_id=current_user.society_id)
         if not obj:
             raise HTTPException(status_code=404, detail="Wing not found")
         return _enrich(obj)
@@ -49,12 +51,13 @@ class WingService:
     def list(self, current_user: User, skip: int = 0, limit: int = 50) -> List[WingOut]:
         return [_enrich(w) for w in self.repo.get_all(skip, limit, society_id=current_user.society_id)]
 
-    def list_by_society(self, society_id: UUID, current_user: User) -> List[WingOut]:
+    def list_by_society(self, society_id: UUID, current_user: User,
+                        include_inactive: bool = False) -> List[WingOut]:
         assert_society_access(current_user, society_id)
-        return [_enrich(w) for w in self.repo.get_by_society(society_id)]
+        return [_enrich(w) for w in self.repo.get_by_society(society_id, include_inactive)]
 
     def update(self, id: UUID, data: WingUpdate, current_user: User) -> WingOut:
-        wing = self.repo.get(id, society_id=current_user.society_id)
+        wing = self.repo.get_kept(id, society_id=current_user.society_id)
         if not wing:
             raise HTTPException(status_code=404, detail="Wing not found")
         patch = data.model_dump(exclude_none=True)
@@ -65,16 +68,32 @@ class WingService:
         return _enrich(self.repo.update(wing, patch))
 
     def toggle_active(self, id: UUID, activate: bool, current_user: User) -> WingOut:
-        wing = self.repo.get(id, society_id=current_user.society_id)
+        # A deactivated wing is still there to be found (and switched on again)
+        wing = self.repo.get_kept(id, society_id=current_user.society_id)
         if not wing:
             raise HTTPException(status_code=404, detail="Wing not found")
+        if activate and not wing.is_active:
+            # Its name or code may have been taken while it was switched off
+            self.repo.assert_unique_name(wing.society_id, wing.name, exclude_id=id)
+            if wing.code:
+                self.repo.assert_unique_code(wing.society_id, wing.code, exclude_id=id)
         wing.is_active = activate
         self.repo.db.commit()
         self.repo.db.refresh(wing)
         return _enrich(wing)
 
     def delete(self, id: UUID, current_user: User) -> None:
-        wing = self.repo.get(id, society_id=current_user.society_id)
+        """Remove a wing that has no flats left; its (empty) floors go with
+        it. A wing with flats is refused — they hold residents and dues."""
+        wing = self.repo.get_kept(id, society_id=current_user.society_id)
         if not wing:
             raise HTTPException(status_code=404, detail="Wing not found")
+        flats = [f for f in wing.flats if f.is_active]
+        if flats:
+            raise HTTPException(
+                409, f"Wing '{wing.name}' still has {len(flats)} flat{'s' if len(flats) != 1 else ''}. "
+                     f"Delete or move them first.")
+        for floor in wing.floors:
+            floor.is_active = False
+        wing.deleted_at = datetime.utcnow()
         self.repo.soft_delete(wing)

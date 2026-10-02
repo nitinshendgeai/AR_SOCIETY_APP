@@ -39,7 +39,7 @@ class _WingListScreenState extends ConsumerState<WingListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final async = ref.watch(wingsProvider);
+    final async = ref.watch(allWingsProvider);
     final desktop = isDesktopLayout(context);
 
     return Scaffold(
@@ -233,11 +233,11 @@ class _WingCard extends ConsumerWidget {
                     Row(children: [
                       _StatChip(
                           icon: Icons.layers_rounded,
-                          label: '${wing.floorCount} floors'),
+                          label: '${wing.floorCount} ${wing.floorCount == 1 ? 'floor' : 'floors'}'),
                       const SizedBox(width: 8),
                       _StatChip(
                           icon: Icons.door_front_door_rounded,
-                          label: '${wing.flatCount} flats'),
+                          label: '${wing.flatCount} ${wing.flatCount == 1 ? 'flat' : 'flats'}'),
                     ]),
                     if (wing.description != null) ...[
                       const SizedBox(height: 4),
@@ -301,7 +301,8 @@ class _WingCard extends ConsumerWidget {
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Delete Wing?'),
-          content: Text('Delete "${wing.name}"? This cannot be undone.'),
+          content: Text('Delete "${wing.name}"? This cannot be undone. A wing that still has flats '
+              'can\'t be deleted — delete or move its flats first.'),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
