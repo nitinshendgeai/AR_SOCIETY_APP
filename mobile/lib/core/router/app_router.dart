@@ -148,6 +148,7 @@ class AppRoutes {
   static const accountsDayBook    = '/accounts/day-book';
   static const accountsMembers    = '/accounts/members';
   static const accountsVoucherNew = '/accounts/vouchers/new';
+  static const accountsVoucherEdit = '/accounts/vouchers/:voucherId/edit';
   static const accountsLedger     = '/accounts/ledger/:accountId';
   static const accountsStatements = '/accounts/statements';
   static const defaulters         = '/billing/defaulters';
@@ -653,6 +654,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               final type = s.uri.queryParameters['type'] ?? 'receipt';
               return VoucherFormScreen(key: ValueKey(type), type: type);
             }),
+            (
+              AppRoutes.accountsVoucherEdit,
+              (s) => VoucherFormScreen(
+                  key: ValueKey('edit/${s.pathParameters['voucherId']}'),
+                  type: 'receipt',
+                  voucherId: s.pathParameters['voucherId']),
+            ),
             (
               AppRoutes.accountsLedger,
               (s) => LedgerStatementScreen(

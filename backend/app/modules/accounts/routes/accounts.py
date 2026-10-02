@@ -1,21 +1,25 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.dependencies import get_current_user, require_admin_committee, require_manager_above
 from app.core.tenant_scope import assert_society_access
 from app.db.session import get_db
+from app.models.flat import Flat
 from app.models.society import Society
 from app.models.user import User
 from app.modules.accounts.models.accounts import VOUCHER_TYPES, Account, Voucher
 from app.modules.accounts.services.accounts_service import AccountsService, dr_cr, fiscal_year, money
 from app.modules.accounts.services.postings import AccountPostings
 from app.modules.accounts.services.reports import REPORTS, FinancialReports
+from app.modules.accounts.services.documents_pdf import (
+    render_day_book_pdf, render_ledger_pdf, render_members_ledger_pdf, render_voucher_pdf,
+)
 from app.modules.accounts.services.reports_pdf import render_report_pdf
 from app.modules.billing.services.bill_pdf import flat_label, member_name
 
@@ -26,6 +30,19 @@ router = APIRouter(prefix="/accounts", tags=["Accounts"], dependencies=[Depends(
 
 def _amount(v) -> str:
     return str(money(v))
+
+
+def _pdf(content: bytes, filename: str) -> Response:
+    return Response(content=content, media_type="application/pdf",
+                    headers={"Content-Disposition": f"inline; filename={filename}"})
+
+
+def _society(db: Session, society_id) -> Optional[Society]:
+    return db.query(Society).filter(Society.id == society_id).first()
+
+
+def _slug(text: str) -> str:
+    return "".join(c if c.isalnum() else "-" for c in text).strip("-")
 
 
 def _account_out(a: Account, balance: Optional[Decimal] = None) -> dict:
@@ -60,6 +77,14 @@ def _voucher_out(v: Voucher, closed_years: frozenset = frozenset()) -> dict:
         "cancelled_at": v.cancelled_at.isoformat() if v.cancelled_at else None,
         "created_by_name": v.creator.full_name if v.creator else None,
         "created_at": v.created_at.isoformat() if v.created_at else None,
+        "edited_by_name": v.editor.full_name if v.editor else None,
+        "edited_at": v.edited_at.isoformat() if v.edited_at else None,
+        "revisions": [{
+            "revision_no": r.revision_no, "reason": r.reason,
+            "edited_at": r.created_at.isoformat() if r.created_at else None,
+            "edited_by_name": r.editor.full_name if r.editor else None,
+            "before": r.snapshot,
+        } for r in reversed(v.revisions)],
         "entries": [{
             "id": str(e.id), "account_id": str(e.account_id),
             "account_name": e.account.name if e.account else None,
@@ -125,6 +150,14 @@ class VoucherCreate(BaseModel):
     entries: List[VoucherLineIn] = Field(min_length=2)
 
 
+class VoucherUpdate(BaseModel):
+    voucher_date: date
+    narration: Optional[str] = None
+    reference: Optional[str] = Field(default=None, max_length=100)
+    entries: List[VoucherLineIn] = Field(min_length=2)
+    reason: str = Field(min_length=3)
+
+
 class CancelRequest(BaseModel):
     reason: str = Field(min_length=3)
 
@@ -173,11 +206,33 @@ def update_ledger(account_id: UUID, data: AccountUpdate, db: Session = Depends(g
 @router.get("/ledgers/{account_id}/statement")
 def ledger_statement(account_id: UUID, date_from: Optional[date] = None, date_to: Optional[date] = None,
                      flat_id: Optional[UUID] = None, vendor_id: Optional[UUID] = None,
+                     format: str = Query("json", pattern="^(json|pdf)$"),
                      db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """A ledger's postings in a period with the running balance — or, with
+    `flat_id` / `vendor_id`, a member's or vendor's account. ?format=pdf: the
+    printed ledger account."""
     svc = AccountsService(db)
     account = svc.get_account(account_id)
     assert_society_access(user, account.society_id)
     st = svc.ledger_statement(account_id, date_from, date_to, flat_id, vendor_id)
+    out = _statement_out(st, date_from, date_to)
+    if format == "pdf":
+        title = None
+        if flat_id:
+            flat = (db.query(Flat).options(joinedload(Flat.wing), selectinload(Flat.residents))
+                    .filter(Flat.id == flat_id).first())
+            title = f"{flat_label(flat)} · {member_name(flat)}" if flat else None
+        elif vendor_id:
+            from app.modules.vendor.models.vendor import Vendor
+            vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+            title = vendor.company_name if vendor else None
+        heading = title or account.name
+        return _pdf(render_ledger_pdf(out, _society(db, account.society_id), title=title),
+                    f"Ledger-{_slug(heading)}.pdf")
+    return out
+
+
+def _statement_out(st: dict, date_from: Optional[date], date_to: Optional[date]) -> dict:
     return {
         "account": _account_out(st["account"]),
         "date_from": date_from.isoformat() if date_from else None,
@@ -197,14 +252,22 @@ def ledger_statement(account_id: UUID, date_from: Optional[date] = None, date_to
 # ── Members' ledger ───────────────────────────────────────────────────────────
 
 @router.get("/members/{society_id}")
-def member_balances(society_id: UUID, as_of: Optional[date] = None, db: Session = Depends(get_db),
-                    user: User = Depends(get_current_user)):
-    """Every flat's balance on Members' Dues (Dr: owes the society)."""
+def member_balances(society_id: UUID, as_of: Optional[date] = None,
+                    format: str = Query("json", pattern="^(json|pdf)$"),
+                    db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Every flat's balance on Members' Dues (Dr: owes the society).
+    ?format=pdf: the printed list with totals."""
     assert_society_access(user, society_id)
     svc = AccountsService(db)
     rows = svc.member_balances(society_id, as_of)
     dues = svc.system_account(society_id, "members_dues")
     db.commit()
+    if format == "pdf":
+        members = [{"flat_label": flat_label(r["flat"]), "member_name": member_name(r["flat"]),
+                    "balance": _amount(r["balance"])} for r in rows]
+        as_of = as_of or date.today()
+        return _pdf(render_members_ledger_pdf(members, _society(db, society_id), as_of),
+                    f"Members-Ledger-{as_of.isoformat()}.pdf")
     return {
         "account_id": str(dues.id),
         "members": [{
@@ -230,6 +293,24 @@ def list_vouchers(society_id: UUID, voucher_type: Optional[str] = None,
     return [_voucher_out(v, closed) for v in rows]
 
 
+@router.get("/day-book/{society_id}/pdf")
+def day_book_pdf(society_id: UUID, voucher_type: Optional[str] = None,
+                 date_from: Optional[date] = None, date_to: Optional[date] = None,
+                 include_cancelled: bool = True, db: Session = Depends(get_db),
+                 user: User = Depends(get_current_user)):
+    """The printed day book: every voucher of the period, oldest first,
+    with its lines."""
+    assert_society_access(user, society_id)
+    svc = AccountsService(db)
+    rows = svc.list_vouchers(society_id, voucher_type, date_from, date_to, include_cancelled, 0, None)
+    rows.sort(key=lambda v: (v.voucher_date, v.created_at or datetime.min))
+    label = VOUCHER_TYPES[voucher_type][1] if voucher_type in VOUCHER_TYPES else None
+    pdf = render_day_book_pdf([_voucher_out(v) for v in rows], _society(db, society_id), date_from, date_to,
+                              type_label=label)
+    span = "-".join(d.isoformat() for d in (date_from, date_to) if d) or "all"
+    return _pdf(pdf, f"Day-Book-{span}.pdf")
+
+
 @router.post("/vouchers", status_code=201)
 def create_voucher(data: VoucherCreate, request: Request, db: Session = Depends(get_db),
                    user: User = Depends(get_current_user)):
@@ -243,6 +324,27 @@ def get_voucher(voucher_id: UUID, db: Session = Depends(get_db), user: User = De
     svc = AccountsService(db)
     v = svc.get_voucher(voucher_id)
     assert_society_access(user, v.society_id)
+    return _voucher_out(v, frozenset(svc.closed_years(v.society_id)))
+
+
+@router.get("/vouchers/{voucher_id}/pdf")
+def voucher_pdf(voucher_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """The voucher printed on half a sheet, with signature boxes."""
+    svc = AccountsService(db)
+    v = svc.get_voucher(voucher_id)
+    assert_society_access(user, v.society_id)
+    return _pdf(render_voucher_pdf(_voucher_out(v), _society(db, v.society_id)),
+                f"{_slug(v.voucher_number)}.pdf")
+
+
+@router.put("/vouchers/{voucher_id}")
+def update_voucher(voucher_id: UUID, data: VoucherUpdate, request: Request, db: Session = Depends(get_db),
+                   user: User = Depends(get_current_user)):
+    """Correct a voucher the society entered, in an open year. The version
+    before the edit is kept in the voucher's history."""
+    svc = AccountsService(db)
+    assert_society_access(user, svc.get_voucher(voucher_id).society_id)
+    v = svc.update_manual_voucher(voucher_id, data.model_dump(), user, request)
     return _voucher_out(v, frozenset(svc.closed_years(v.society_id)))
 
 

@@ -43,6 +43,11 @@ class _MembersLedgerScreenState extends ConsumerState<MembersLedgerScreen> {
           icon: const Icon(Icons.warning_amber_rounded, size: 18),
           label: const Text('Defaulters'),
         ),
+        PdfActions(
+          load: async.valueOrNull == null ? null : () => ref.read(accountsApiProvider).membersLedgerPdf(societyId),
+          fileName: 'Members-Ledger-${apiDate(DateTime.now())}.pdf',
+          subject: "Members' Ledger",
+        ),
         const SizedBox(width: 8),
       ]),
       body: RefreshIndicator(

@@ -23,9 +23,12 @@ Every voucher balances: total debits == total credits.
   Reserve Fund share of the surplus), then locks the year: no voucher can be
   entered or cancelled in it. A bill or payment cancelled after its year is
   closed is reversed in the open year instead (Voucher.reversal_of_id).
+- VoucherRevision: a voucher as it stood before an edit. A voucher the
+  society entered can be corrected while its year is open; the earlier
+  version is kept, with who changed it, when and why.
 """
 from sqlalchemy import (
-    Boolean, Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint,
+    JSON, Boolean, Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -132,9 +135,16 @@ class Voucher(Base, TimestampMixin):
     reversal_of_id = Column(UUID(as_uuid=True), ForeignKey("vouchers.id", ondelete="SET NULL"), nullable=True)
     reversed_at    = Column(DateTime, nullable=True)
 
+    # Last correction; the earlier versions are in VoucherRevision.
+    edited_at = Column(DateTime, nullable=True)
+    edited_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
     entries = relationship("VoucherEntry", back_populates="voucher", cascade="all, delete-orphan",
                            order_by="VoucherEntry.line_no")
     creator = relationship("User", foreign_keys=[created_by])
+    editor  = relationship("User", foreign_keys=[edited_by])
+    revisions = relationship("VoucherRevision", back_populates="voucher", cascade="all, delete-orphan",
+                             order_by="VoucherRevision.revision_no")
 
     def __repr__(self):
         return f"<Voucher {self.voucher_number} ₹{self.amount}>"
@@ -156,6 +166,22 @@ class VoucherEntry(Base, TimestampMixin):
     account = relationship("Account")
     flat    = relationship("Flat")
     vendor  = relationship("Vendor")
+
+
+class VoucherRevision(Base, TimestampMixin):
+    """A voucher as it stood before edit number `revision_no`: date,
+    number, amount, narration, reference and its lines (ledger names
+    included, so the record reads the same if a ledger is renamed)."""
+    __tablename__ = "voucher_revisions"
+
+    voucher_id  = Column(UUID(as_uuid=True), ForeignKey("vouchers.id", ondelete="CASCADE"), nullable=False, index=True)
+    revision_no = Column(Integer, nullable=False)
+    snapshot    = Column(JSON, nullable=False)
+    reason      = Column(Text, nullable=False)
+    edited_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    voucher = relationship("Voucher", back_populates="revisions")
+    editor  = relationship("User", foreign_keys=[edited_by])
 
 
 class FinancialYearClosing(Base, TimestampMixin):

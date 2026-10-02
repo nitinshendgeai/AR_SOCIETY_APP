@@ -12,6 +12,7 @@ Financial statements for each financial year (1 April – 31 March), with previo
 | Account | `accounts` | Ledger under a group; opening balance (Dr/Cr); cash and bank flags and bank details |
 | Voucher | `vouchers` | One transaction, `RV/2026-27/0001`; `source_type`/`source_id` on automatic postings |
 | VoucherEntry | `voucher_entries` | Debit or credit line; `flat_id` on Members' Dues, `vendor_id` on Sundry Creditors |
+| VoucherRevision | `voucher_revisions` | A voucher as it stood before an edit (number, date, amount, narration, lines), with who changed it, when and why |
 | FinancialYearClosing | `account_year_closings` | A closed year: income, expenditure, surplus, Reserve Fund transfer, closing voucher; reopening keeps the row |
 
 ## Standard chart
@@ -28,7 +29,17 @@ Created the first time a society's books are opened (`chart_of_accounts.py`). Co
 | Purchase | PU | Automatic | Vendor bill entered |
 | Year-end Closing | YC | Automatic | The year's books closed (dated 31 March) |
 
-Every voucher balances (total debit = total credit). Cancelling strikes a voucher out of every ledger but keeps it on record; automatic vouchers are cancelled from their source (bill, payment), not directly.
+Every voucher balances (total debit = total credit). Cancelling strikes a voucher out of every ledger but keeps it on record; automatic vouchers are cancelled from their source (bill, payment), not directly. Vouchers are never deleted.
+
+**Editing.** A Receipt, Payment, Contra or Journal the society entered can be corrected while its year is open: date, reference, narration and lines (the type stays), with a reason. The same rules as entering one apply, and both the old and new date must be in an open year. The voucher keeps its number unless it moves to another financial year. The version before each edit is kept in `voucher_revisions` and shown as the voucher's edit history; `edited_at` / `edited_by` record the latest change, and the audit log has each one. Automatic vouchers, closing and reversal entries, cancelled vouchers and those of a closed year can't be edited.
+
+## Printed documents (`documents_pdf.py`)
+| Document | Layout |
+|----------|--------|
+| Voucher | Half sheet (A5 landscape): letterhead, "PAYMENT VOUCHER" etc., number and date, paid to / received from, Dr/Cr lines, amount in words, narration, reference; signature boxes — Prepared by (who entered it), Checked by, Hon. Secretary / Treasurer and, on a payment, Receiver's Signature. Cancelled and revised vouchers say so |
+| Ledger account | A4: opening balance, each posting with particulars, narration and running balance, totals, closing balance; for a ledger, a member's or a vendor's account, for any period; "For the society — Hon. Treasurer" |
+| Day book | A4: every voucher of the period (or one type) with its lines and narration; cancelled ones greyed and left out of the total |
+| Members' ledger | A4: each flat's balance as dues (Dr) or advance (Cr), totals and the net receivable |
 
 ## Automatic postings (`postings.py`)
 ```
@@ -68,9 +79,11 @@ The running year is shown "as on" today and marked provisional. Statements of a 
 | `GET /summary/{society_id}` | Cash, bank, members' dues, creditors, FY income/expenditure, pending postings |
 | `GET /chart/{society_id}` | Groups with ledgers and balances |
 | `GET /ledgers/{society_id}` · `POST /ledgers` · `PATCH /ledgers/{id}` | Ledger master |
-| `GET /ledgers/{id}/statement?date_from&date_to&flat_id&vendor_id` | Ledger / cash book / bank book / member or vendor account |
-| `GET /members/{society_id}` | Flat-wise balances on Members' Dues |
+| `GET /ledgers/{id}/statement?date_from&date_to&flat_id&vendor_id&format=json\|pdf` | Ledger / cash book / bank book / member or vendor account |
+| `GET /members/{society_id}?format=json\|pdf` | Flat-wise balances on Members' Dues |
 | `GET /vouchers/society/{society_id}` · `POST /vouchers` · `GET /vouchers/{id}` · `POST /vouchers/{id}/cancel` | Day book and voucher entry |
+| `PUT /vouchers/{id}` `{voucher_date, narration, reference, entries, reason}` | Correct a voucher the society entered |
+| `GET /vouchers/{id}/pdf` · `GET /day-book/{society_id}/pdf?date_from&date_to&voucher_type` | Printed voucher and day book |
 | `POST /sync/{society_id}` | Catch up automatic postings |
 | `GET /reports/{society_id}/{report}?fy=2025-26&format=json\|pdf` | `trial-balance`, `income-expenditure`, `balance-sheet`, `receipts-payments`, `funds` |
 | `GET /years/{society_id}` | Financial years with result, closed status, whether they can be closed/reopened |

@@ -21,6 +21,7 @@ String formatInrShort(num v) {
   if (a >= 100000) return '$sign₹${(a / 100000).toStringAsFixed(2)} L';
   return formatInr(v);
 }
+
 String formatAccountsDate(DateTime d) => DateFormat('d MMM yyyy').format(d);
 
 /// Start of the Indian financial year (1 April) a date falls in.
@@ -182,6 +183,7 @@ class VoucherEntry {
   final double credit;
   final String? flatId;
   final String? flatLabel;
+  final String? vendorId;
   final String? vendorName;
   final String? narration;
 
@@ -192,6 +194,7 @@ class VoucherEntry {
     required this.credit,
     this.flatId,
     this.flatLabel,
+    this.vendorId,
     this.vendorName,
     this.narration,
   });
@@ -203,6 +206,7 @@ class VoucherEntry {
         credit: _num(j['credit']),
         flatId: j['flat_id'] as String?,
         flatLabel: j['flat_label'] as String?,
+        vendorId: j['vendor_id'] as String?,
         vendorName: j['vendor_name'] as String?,
         narration: j['narration'] as String?,
       );
@@ -236,6 +240,11 @@ class Voucher {
   final String? reversalOfId;
   final String? cancelReason;
   final String? createdByName;
+  final DateTime? editedAt;
+  final String? editedByName;
+
+  /// Earlier versions, newest first.
+  final List<VoucherRevision> revisions;
   final List<VoucherEntry> entries;
 
   const Voucher({
@@ -256,6 +265,9 @@ class Voucher {
     this.reversalOfId,
     this.cancelReason,
     this.createdByName,
+    this.editedAt,
+    this.editedByName,
+    this.revisions = const [],
     required this.entries,
   });
 
@@ -277,10 +289,17 @@ class Voucher {
         reversalOfId: j['reversal_of_id'] as String?,
         cancelReason: j['cancel_reason'] as String?,
         createdByName: j['created_by_name'] as String?,
-        entries: (j['entries'] as List? ?? const [])
-            .map((e) => VoucherEntry.fromJson(e as Map<String, dynamic>))
+        editedAt: j['edited_at'] == null ? null : DateTime.parse(j['edited_at'] as String),
+        editedByName: j['edited_by_name'] as String?,
+        revisions: (j['revisions'] as List? ?? const [])
+            .map((e) => VoucherRevision.fromJson(e as Map<String, dynamic>))
             .toList(),
+        entries:
+            (j['entries'] as List? ?? const []).map((e) => VoucherEntry.fromJson(e as Map<String, dynamic>)).toList(),
       );
+
+  /// Entered by the society, not cancelled, in an open year.
+  bool get canEdit => !isAuto && !isCancelled && !isLocked;
 
   List<VoucherEntry> get debits => entries.where((e) => e.debit > 0).toList();
   List<VoucherEntry> get credits => entries.where((e) => e.credit > 0).toList();
@@ -295,6 +314,50 @@ class Voucher {
         _ when reversalOfId != null => 'Reversal of an entry in a closed year',
         _ => null,
       };
+}
+
+/// A voucher as it stood before one of its edits.
+class VoucherRevision {
+  final int revisionNo;
+  final String reason;
+  final DateTime? editedAt;
+  final String? editedByName;
+  final String voucherNumber;
+  final DateTime voucherDate;
+  final double amount;
+  final String? narration;
+  final String? reference;
+  final List<VoucherEntry> entries;
+
+  const VoucherRevision({
+    required this.revisionNo,
+    required this.reason,
+    this.editedAt,
+    this.editedByName,
+    required this.voucherNumber,
+    required this.voucherDate,
+    required this.amount,
+    this.narration,
+    this.reference,
+    required this.entries,
+  });
+
+  factory VoucherRevision.fromJson(Map<String, dynamic> j) {
+    final b = j['before'] as Map<String, dynamic>? ?? const {};
+    return VoucherRevision(
+      revisionNo: (j['revision_no'] as num?)?.toInt() ?? 0,
+      reason: j['reason'] as String? ?? '',
+      editedAt: j['edited_at'] == null ? null : DateTime.parse(j['edited_at'] as String),
+      editedByName: j['edited_by_name'] as String?,
+      voucherNumber: b['voucher_number'] as String? ?? '',
+      voucherDate: _date(b['voucher_date']),
+      amount: _num(b['amount']),
+      narration: b['narration'] as String?,
+      reference: b['reference'] as String?,
+      entries:
+          (b['entries'] as List? ?? const []).map((e) => VoucherEntry.fromJson(e as Map<String, dynamic>)).toList(),
+    );
+  }
 }
 
 class StatementLine {
@@ -437,13 +500,18 @@ class VoucherLineInput {
   final double debit;
   final double credit;
   final String? flatId;
-  const VoucherLineInput({required this.accountId, this.debit = 0, this.credit = 0, this.flatId});
+  final String? vendorId;
+  final String? narration;
+  const VoucherLineInput(
+      {required this.accountId, this.debit = 0, this.credit = 0, this.flatId, this.vendorId, this.narration});
 
   Map<String, dynamic> toJson() => {
         'account_id': accountId,
         'debit': debit.toStringAsFixed(2),
         'credit': credit.toStringAsFixed(2),
         if (flatId != null) 'flat_id': flatId,
+        if (vendorId != null) 'vendor_id': vendorId,
+        if (narration != null && narration!.isNotEmpty) 'narration': narration,
       };
 }
 
@@ -535,8 +603,8 @@ class ReportRow {
   final int level;
   final String? accountId;
 
-  const ReportRow({required this.label, this.code, required this.values, this.bold = false, this.level = 1,
-      this.accountId});
+  const ReportRow(
+      {required this.label, this.code, required this.values, this.bold = false, this.level = 1, this.accountId});
 
   factory ReportRow.fromJson(Map<String, dynamic> j) => ReportRow(
         label: j['label'] as String? ?? '',
@@ -616,9 +684,7 @@ class FinancialReport {
         provisional: j['provisional'] as bool? ?? false,
         twoSided: j['kind'] == 'two_sided',
         columns: (j['columns'] as List).map((e) => e.toString()).toList(),
-        sides: (j['sides'] as List? ?? const [])
-            .map((e) => ReportSide.fromJson(e as Map<String, dynamic>))
-            .toList(),
+        sides: (j['sides'] as List? ?? const []).map((e) => ReportSide.fromJson(e as Map<String, dynamic>)).toList(),
         rows: (j['rows'] as List? ?? const []).map((e) => ReportRow.fromJson(e as Map<String, dynamic>)).toList(),
         totals: (j['totals'] as List? ?? const []).map(_amt).toList(),
         result: j['result'] == null ? null : ReportRow.fromJson(j['result'] as Map<String, dynamic>),
@@ -644,10 +710,10 @@ class AccountsApi {
   Future<AccountsSummary> summary(String societyId) async =>
       AccountsSummary.fromJson((await _dio.get('/accounts/summary/$societyId')).data as Map<String, dynamic>);
 
-  Future<List<AccountGroupRow>> chart(String societyId) async => ((await _dio.get('/accounts/chart/$societyId'))
-          .data as List)
-      .map((e) => AccountGroupRow.fromJson(e as Map<String, dynamic>))
-      .toList();
+  Future<List<AccountGroupRow>> chart(String societyId) async =>
+      ((await _dio.get('/accounts/chart/$societyId')).data as List)
+          .map((e) => AccountGroupRow.fromJson(e as Map<String, dynamic>))
+          .toList();
 
   Future<List<LedgerAccount>> ledgers(String societyId) async =>
       ((await _dio.get('/accounts/ledgers/$societyId')).data as List)
@@ -706,6 +772,52 @@ class AccountsApi {
     return Voucher.fromJson(r.data as Map<String, dynamic>);
   }
 
+  /// Correct a voucher the society entered; the earlier version is kept.
+  Future<Voucher> updateVoucher(
+    String id, {
+    required DateTime date,
+    required List<VoucherLineInput> lines,
+    required String reason,
+    String? narration,
+    String? reference,
+  }) async {
+    final r = await _dio.put('/accounts/vouchers/$id', data: {
+      'voucher_date': apiDate(date),
+      'narration': (narration?.isEmpty ?? true) ? null : narration,
+      'reference': (reference?.isEmpty ?? true) ? null : reference,
+      'entries': lines.map((l) => l.toJson()).toList(),
+      'reason': reason,
+    });
+    return Voucher.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<Uint8List> _pdf(String path, [Map<String, dynamic>? query]) async {
+    final r =
+        await _dio.get<List<int>>(path, queryParameters: query, options: Options(responseType: ResponseType.bytes));
+    return Uint8List.fromList(r.data!);
+  }
+
+  /// The voucher printed with signature boxes.
+  Future<Uint8List> voucherPdf(String id) => _pdf('/accounts/vouchers/$id/pdf');
+
+  Future<Uint8List> statementPdf(String accountId, {DateTime? from, DateTime? to, String? flatId, String? vendorId}) =>
+      _pdf('/accounts/ledgers/$accountId/statement', {
+        'format': 'pdf',
+        if (from != null) 'date_from': apiDate(from),
+        if (to != null) 'date_to': apiDate(to),
+        if (flatId != null) 'flat_id': flatId,
+        if (vendorId != null) 'vendor_id': vendorId,
+      });
+
+  Future<Uint8List> dayBookPdf(String societyId, {String? type, DateTime? from, DateTime? to}) =>
+      _pdf('/accounts/day-book/$societyId/pdf', {
+        if (type != null) 'voucher_type': type,
+        if (from != null) 'date_from': apiDate(from),
+        if (to != null) 'date_to': apiDate(to),
+      });
+
+  Future<Uint8List> membersLedgerPdf(String societyId) => _pdf('/accounts/members/$societyId', {'format': 'pdf'});
+
   Future<Voucher> cancelVoucher(String id, String reason) async => Voucher.fromJson(
       (await _dio.post('/accounts/vouchers/$id/cancel', data: {'reason': reason})).data as Map<String, dynamic>);
 
@@ -733,9 +845,6 @@ class AccountsApi {
       (await _dio.get('/accounts/reports/$societyId/$report', queryParameters: {'fy': fy})).data
           as Map<String, dynamic>);
 
-  Future<Uint8List> reportPdf(String societyId, String report, String fy) async {
-    final r = await _dio.get<List<int>>('/accounts/reports/$societyId/$report',
-        queryParameters: {'fy': fy, 'format': 'pdf'}, options: Options(responseType: ResponseType.bytes));
-    return Uint8List.fromList(r.data!);
-  }
+  Future<Uint8List> reportPdf(String societyId, String report, String fy) =>
+      _pdf('/accounts/reports/$societyId/$report', {'fy': fy, 'format': 'pdf'});
 }
