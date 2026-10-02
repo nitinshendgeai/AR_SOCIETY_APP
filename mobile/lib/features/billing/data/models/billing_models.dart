@@ -25,6 +25,9 @@ class OnlinePaymentModel {
   final String? screenshotMimeType;
   final String? screenshotFileName;
   final DateTime? createdAt;
+  final List<PaymentSetOff> setOffs;
+  final double appliedAmount;
+  final double unappliedAmount;
 
   OnlinePaymentModel({
     required this.id,
@@ -51,6 +54,9 @@ class OnlinePaymentModel {
     this.screenshotMimeType,
     this.screenshotFileName,
     this.createdAt,
+    this.setOffs = const [],
+    this.appliedAmount = 0,
+    this.unappliedAmount = 0,
   });
 
   factory OnlinePaymentModel.fromJson(Map<String, dynamic> json) {
@@ -79,6 +85,20 @@ class OnlinePaymentModel {
       screenshotMimeType: json['screenshot_mime_type'] as String?,
       screenshotFileName: json['screenshot_file_name'] as String?,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null,
+      setOffs: [
+        for (final a in (json['allocations'] as List? ?? const []))
+          PaymentSetOff(
+            billId: a['bill_id'] as String,
+            invoiceNumber: a['invoice_number'] as String?,
+            billDate: a['bill_date'] != null ? DateTime.parse(a['bill_date'] as String) : null,
+            amount: double.tryParse('${a['amount']}') ?? 0,
+            allocatedAt: a['allocated_at'] != null ? DateTime.parse(a['allocated_at'] as String) : null,
+            releasedAt: a['released_at'] != null ? DateTime.parse(a['released_at'] as String) : null,
+            releasedReason: a['released_reason'] as String?,
+          ),
+      ],
+      appliedAmount: double.tryParse('${json['applied_amount'] ?? 0}') ?? 0,
+      unappliedAmount: double.tryParse('${json['unapplied_amount'] ?? 0}') ?? 0,
     );
   }
 
@@ -107,6 +127,9 @@ class OnlinePaymentModel {
         screenshotMimeType: screenshotMimeType,
         screenshotFileName: screenshotFileName,
         createdAt: createdAt,
+        setOffs: setOffs,
+        appliedAmount: appliedAmount,
+        unappliedAmount: unappliedAmount,
       );
 }
 

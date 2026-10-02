@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:ar_society_app/features/billing/data/payment_setoff_api.dart';
 import 'package:ar_society_app/features/billing/data/repositories/billing_repository.dart';
 import 'package:ar_society_app/features/billing/domain/entities/billing_entities.dart';
 import 'package:ar_society_app/features/billing/presentation/providers/billing_providers.dart';
@@ -74,6 +75,7 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
     return RefreshIndicator(
       onRefresh: () => ref.read(onlinePaymentsProvider(societyId).notifier).refresh(),
       child: ListView(padding: const EdgeInsets.fromLTRB(24, 8, 24, 32), children: [
+        _SetOffBanner(societyId: societyId, padding: const EdgeInsets.only(bottom: 14)),
         if (paymentsAsync.hasValue) ...[
           KpiGrid(cards: [
             KpiCard(
@@ -109,7 +111,7 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
                 flex: 2, sortKey: (p) => p.paymentDate.millisecondsSinceEpoch),
             AppDataColumn.text('Flat', (p) => '${p.wingName ?? ''} ${p.flatNumber ?? ''}'.trim().ifEmpty('—')),
             AppDataColumn.text('For',
-                (p) => p.isOnBill ? 'Bill ${p.billInvoiceNumber ?? ''}' : onlinePaymentPurposeLabel(p.purpose),
+                (p) => p.appliedLabel,
                 flex: 2),
             AppDataColumn.text('Mode', (p) => paymentModeLabel(p.paymentMode)),
             AppDataColumn.text('Reference', (p) => p.transactionRef ?? '—', flex: 2),
@@ -173,6 +175,7 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
             ),
       body: desktop ? _table(societyId, paymentsAsync) : Column(
         children: [
+          _SetOffBanner(societyId: societyId, padding: const EdgeInsets.fromLTRB(16, 12, 16, 0)),
           paymentsAsync.when(
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),
@@ -255,6 +258,76 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
   }
 }
 
+/// Shown while payments recorded on account (before set-off was
+/// automatic) could still settle open bills: one tap sets them off,
+/// oldest bill first.
+class _SetOffBanner extends ConsumerStatefulWidget {
+  final String societyId;
+  final EdgeInsets padding;
+  const _SetOffBanner({required this.societyId, required this.padding});
+
+  @override
+  ConsumerState<_SetOffBanner> createState() => _SetOffBannerState();
+}
+
+class _SetOffBannerState extends ConsumerState<_SetOffBanner> {
+  bool _busy = false;
+
+  Future<void> _apply() async {
+    setState(() => _busy = true);
+    try {
+      final (bills, amount) = await ref.read(paymentSetOffApiProvider).apply(widget.societyId);
+      ref.invalidate(unappliedPaymentsProvider(widget.societyId));
+      ref.invalidate(flatOutstandingBillsProvider);
+      await ref.read(onlinePaymentsProvider(widget.societyId).notifier).refresh();
+      if (mounted) {
+        AppToast.success(context, '${tableMoney(amount)} set off against $bills bill${bills == 1 ? '' : 's'}');
+      }
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final u = ref.watch(unappliedPaymentsProvider(widget.societyId)).valueOrNull;
+    if (u == null || u.flatsWithOpenBills == 0) return const SizedBox.shrink();
+    return Padding(
+      padding: widget.padding,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+        decoration: BoxDecoration(color: AppTheme.warningSoft, borderRadius: BorderRadius.circular(AppTheme.radiusM)),
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          alignment: WrapAlignment.spaceBetween,
+          children: [
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Text(
+                '${tableMoney(u.amountAgainstOpenBills)} paid by ${u.flatsWithOpenBills} '
+                'flat${u.flatsWithOpenBills == 1 ? '' : 's'} is held on account while their bills are still open. '
+                'Set it off against the open bills, oldest first.',
+                style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+              ),
+            ),
+            FilledButton.icon(
+              onPressed: _busy ? null : _apply,
+              icon: _busy
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.playlist_add_check_rounded, size: 18),
+              label: const Text('Set off now'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _FilterChip extends StatelessWidget {
   final String label;
   final bool selected;
@@ -294,7 +367,7 @@ class _PaymentCard extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(
             '${payment.receiptNumber} · '
-            '${payment.isOnBill ? "Bill ${payment.billInvoiceNumber ?? ""}" : onlinePaymentPurposeLabel(payment.purpose)} · '
+            '${payment.appliedLabel} · '
             '${paymentModeLabel(payment.paymentMode)} · '
             '${payment.paymentDate.day}/${payment.paymentDate.month}/${payment.paymentDate.year}'),
         trailing: Chip(

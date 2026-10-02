@@ -62,7 +62,7 @@ def test_dues_are_aged_and_defaulters_listed(client, db):
     assert one_month["summary"]["defaulters"] == 2
 
 
-def test_on_account_payment_set_off_against_oldest_dues(client, db):
+def test_payment_set_off_against_oldest_dues(client, db):
     society, flat1, _flat2, manager, _res = _two_cycles(client, db, "df2")
     h, sid = manager["headers"], str(society.id)
     r = client.post("/api/v1/billing/online-payments", data={
@@ -71,14 +71,17 @@ def test_on_account_payment_set_off_against_oldest_dues(client, db):
     assert r.status_code == 201, r.text
     row = _row(client.get(f"{API}/{sid}", headers=h).json(), flat1)
     assert row["buckets"]["m6_12"] == "1500.00" and row["total"] == "4000.00"
-    assert row["on_account"] == "1000.00"
-    assert row["last_payment_date"] == str(date.today()) and row["last_payment_amount"] == "1000.00"
-
-    # Paying the old bill in full takes the flat off the list
+    # The payment settles the oldest bill; nothing is left on account
+    assert row["on_account"] == "0.00"
     old = db.query(MaintenanceBill).filter(MaintenanceBill.flat_id == flat1.id,
                                            MaintenanceBill.due_date < date.today()).one()
+    db.refresh(old)
+    assert str(old.paid_amount) == "1000.00" and old.bill_status.value == "partially_paid"
+    assert row["last_payment_date"] == str(date.today()) and row["last_payment_amount"] == "1000.00"
+
+    # Paying the rest of the old bill takes the flat off the list
     r = client.post("/api/v1/billing/payments", json={
-        "bill_id": str(old.id), "amount": "2500.00", "payment_date": str(date.today()), "payment_mode": "cash",
+        "bill_id": str(old.id), "amount": "1500.00", "payment_date": str(date.today()), "payment_mode": "cash",
     }, headers=h)
     assert r.status_code == 201, r.text
     assert client.get(f"{API}/{sid}", headers=h).json()["summary"]["defaulters"] == 0

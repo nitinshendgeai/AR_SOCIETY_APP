@@ -22,6 +22,7 @@ marked CANCELLED, with the reason.
 Bank reconciliation is an internal step and never delays or changes the
 receipt.
 """
+from decimal import Decimal
 from io import BytesIO
 from typing import Optional, Union
 
@@ -60,7 +61,26 @@ def payment_detail(p: Payment) -> str:
     return ", ".join([detail] + ([p.bank_name] if p.bank_name else []))
 
 
+def _set_off(p: Payment) -> list:
+    """[(bill, amount)] a recorded payment was set off against."""
+    if isinstance(p, OnlinePaymentSubmission):
+        return [(a.bill, a.amount) for a in p.allocations if a.released_at is None and a.bill is not None]
+    return [(p.bill, p.amount)] if p.bill is not None else []
+
+
 def _towards(p: Payment, bill: Optional[MaintenanceBill]) -> str:
+    set_off = _set_off(p)
+    if len(set_off) == 1 and Decimal(set_off[0][1]) == Decimal(p.amount):
+        bill = set_off[0][0]
+        return (f"Towards Bill No. {bill.invoice_number} Dated : {_d(bill.bill_date)} "
+                f"({_bill_month(bill)})")
+    if set_off:
+        parts = [f"Bill No. {b.invoice_number} ({_bill_month(b)}) Rs. {_inr(a)}" for b, a in set_off]
+        left = Decimal(p.amount) - sum((Decimal(a) for _, a in set_off), Decimal(0))
+        text = "Towards " + "; ".join(parts)
+        if left > 0:
+            text += f"; Advance Rs. {_inr(left)}, to be adjusted against future bills"
+        return text + "."
     if bill is not None:
         return (f"Towards Bill No. {bill.invoice_number} Dated : {_d(bill.bill_date)} "
                 f"({_bill_month(bill)})")
@@ -81,7 +101,8 @@ def _cancelled(p: Payment) -> Optional[str]:
 
 
 def generate_payment_receipt_pdf(p: Payment, *, compress: bool = True) -> bytes:
-    bill = p.bill
+    set_off = _set_off(p)
+    bill = set_off[0][0] if set_off else p.bill
     flat = p.flat or (bill.flat if bill else None)
     society = p.society
     society_name = society.name if society else "Society"

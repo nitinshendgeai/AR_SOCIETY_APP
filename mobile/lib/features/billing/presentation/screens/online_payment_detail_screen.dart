@@ -7,6 +7,7 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/features/billing/data/repositories/billing_repository.dart';
 import 'package:ar_society_app/features/billing/domain/entities/billing_entities.dart';
 import 'package:ar_society_app/features/billing/presentation/providers/billing_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart' show tableMoney;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 class OnlinePaymentDetailScreen extends ConsumerStatefulWidget {
@@ -113,10 +114,7 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 _row('Flat', '${payment.wingName ?? '-'} / ${payment.flatNumber ?? '-'}'),
                 _row('Amount', '₹${payment.amount}'),
-                if (payment.isOnBill)
-                  _row('Bill', payment.billInvoiceNumber ?? payment.billId!)
-                else
-                  _row('On Account Of', onlinePaymentPurposeLabel(payment.purpose)),
+                if (!payment.isOnBill) _row('On Account Of', onlinePaymentPurposeLabel(payment.purpose)),
                 _row('Payment Date',
                     '${payment.paymentDate.day}/${payment.paymentDate.month}/${payment.paymentDate.year}'),
                 _row('Payment Mode', paymentModeLabel(payment.paymentMode)),
@@ -128,6 +126,8 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
               ]),
             ),
           ),
+          const SizedBox(height: 16),
+          _SetOffCard(payment),
           const SizedBox(height: 16),
           const Text('Screenshot', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 8),
@@ -189,4 +189,72 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
           Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500))),
         ]),
       );
+}
+
+/// The bills a payment was set off against, oldest first, and the advance
+/// left over. Set-offs undone by a rejection or a cancelled bill are shown
+/// struck out with the reason.
+class _SetOffCard extends StatelessWidget {
+  final OnlinePaymentEntity payment;
+  const _SetOffCard(this.payment);
+
+  static String _rs(double v) => tableMoney(v);
+
+  @override
+  Widget build(BuildContext context) {
+    final live = payment.liveSetOffs;
+    final released = payment.setOffs.where((a) => !a.isLive).toList();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Set off against bills', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          const SizedBox(height: 4),
+          const Text('A payment settles the flat\'s open bills, oldest first. Anything over is kept as an '
+              'advance and set off against the next bill.',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          const SizedBox(height: 10),
+          if (live.isEmpty && payment.unappliedAmount <= 0)
+            Text(payment.isRejected ? 'Rejected — not set off against any bill.' : 'Not set off against any bill.',
+                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          for (final a in live)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(children: [
+                const Icon(Icons.check_circle_rounded, size: 16, color: AppTheme.success),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Bill ${a.invoiceNumber ?? a.billId}', style: const TextStyle(fontSize: 13.5))),
+                Text(_rs(a.amount), style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          if (payment.unappliedAmount > 0)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(children: [
+                const Icon(Icons.savings_outlined, size: 16, color: AppTheme.primary),
+                const SizedBox(width: 8),
+                const Expanded(
+                    child: Text('Advance — for the next bill', style: TextStyle(fontSize: 13.5))),
+                Text(_rs(payment.unappliedAmount), style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          for (final a in released)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Icon(Icons.undo_rounded, size: 16, color: AppTheme.textTertiary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Bill ${a.invoiceNumber ?? a.billId} — undone${a.releasedReason == null ? '' : ': ${a.releasedReason}'}',
+                      style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                ),
+                Text(_rs(a.amount),
+                    style: const TextStyle(
+                        fontSize: 12.5, color: AppTheme.textTertiary, decoration: TextDecoration.lineThrough)),
+              ]),
+            ),
+        ]),
+      ),
+    );
+  }
 }

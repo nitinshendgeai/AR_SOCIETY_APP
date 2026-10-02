@@ -248,10 +248,12 @@ def _is_interest(li) -> bool:
 
 
 def _payments(bill: MaintenanceBill) -> list:
-    """Payments that count against a bill: receipts not reversed, and on-bill
-    payments not rejected (both count towards paid_amount)."""
-    return [r for r in bill.receipts if not r.is_reversed] + [
-        s for s in bill.online_payments if s.is_active and s.status != ReconciliationStatus.REJECTED]
+    """(payment, amount set off against the bill): receipts not reversed,
+    and recorded payments set off against it (PaymentAllocation) that stand
+    — both count towards paid_amount."""
+    return [(r, r.amount) for r in bill.receipts if not r.is_reversed] + [
+        (a.payment, a.amount) for a in bill.allocations
+        if a.released_at is None and a.payment.is_active and a.payment.status != ReconciliationStatus.REJECTED]
 
 
 def society_header(society, width) -> List:
@@ -507,13 +509,13 @@ def _receipts_table(prev: MaintenanceBill, width) -> Table:
     head = ["Receipt No.", "Date", "Amount", "Tra. Type", "Reference No.", "Cheque Bank Name", "Narration:"]
     rows = [[_p(f"Receipts: Towards Bill No. {prev.invoice_number} for {month}", "cell_cb")] + [""] * 6,
             [_p(h, "rc_b") for h in head]]
-    paid = sorted(_payments(prev), key=lambda p: (p.payment_date, p.receipt_number))
-    for p in paid:
+    paid = sorted(_payments(prev), key=lambda pa: (pa[0].payment_date, pa[0].receipt_number))
+    for p, amount in paid:
         cheque = p.payment_mode == PaymentMode.CHEQUE
         ref = (getattr(p, "cheque_number", None) or p.transaction_ref or "") if p.payment_mode != PaymentMode.CASH else ""
         narration = (p.notes or "").strip() or f"Maintenance paid for {month}"
         rows.append([_p(p.receipt_number, "rc"), _p(p.payment_date.strftime("%d-%b-%y"), "rc"),
-                     _p(_inr(p.amount), "rc_r"), _p(MODE_LABEL.get(p.payment_mode, p.payment_mode.value).upper(), "rc"),
+                     _p(_inr(amount), "rc_r"), _p(MODE_LABEL.get(p.payment_mode, p.payment_mode.value).upper(), "rc"),
                      _p(ref, "rc"), _p(p.bank_name if cheque and p.bank_name else "", "rc"), _p(narration, "rc")])
     if not paid:
         rows.append([_p("No receipts against this bill.", "rc")] + [""] * 6)

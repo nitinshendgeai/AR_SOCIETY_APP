@@ -73,6 +73,15 @@ class BillingService:
     def _post(self, hook: str, *args) -> None:
         self.postings.run(hook, *args)
 
+    @property
+    def allocator(self):
+        """Sets members' payments off against their open bills (see
+        services/allocations.py)."""
+        if not hasattr(self, "_allocator"):
+            from app.modules.billing.services.allocations import PaymentAllocator
+            self._allocator = PaymentAllocator(self.db, self)
+        return self._allocator
+
     def _audit(self, action, entity, entity_type, user, request=None, **kw):
         AuditService.log(db=self.db, action=action, module="billing",
                          entity_id=str(entity.id), entity_type=entity_type,
@@ -325,6 +334,9 @@ class BillingService:
         bill.bill_status = BillStatus.ISSUED
         bill.issued_at   = datetime.utcnow()
         self._post("post_bill", bill, user)
+        # An advance the member has paid is set off against the new bill.
+        self.db.flush()
+        self.allocator.apply_credit(bill.flat_id, user)
 
         # Every active resident of the flat with an app login is notified,
         # not only bill.resident — the primary owner often has no account
@@ -411,6 +423,9 @@ class BillingService:
         if bill.bill_status == BillStatus.PAID:
             raise HTTPException(409, "Cannot cancel a paid bill")
 
+        # Payments set off against it go back to the member's credit
+        self.allocator.release_bill(bill, f"Bill {bill.invoice_number} cancelled: {reason}", user)
+
         # Reverse due tracker
         tracker = self.due_repo.get_by_flat(bill.flat_id)
         if tracker:
@@ -421,6 +436,8 @@ class BillingService:
         bill.cancelled_at       = datetime.utcnow()
         bill.cancellation_reason = reason
         self._post("cancel_bill", bill, user)
+        self.db.flush()
+        self.allocator.apply_credit(bill.flat_id, user)
         self.db.commit()
         self.db.refresh(bill)
         return bill
@@ -645,14 +662,19 @@ class BillingService:
         self.db.add(submission)
         self.db.flush()
 
+        # Against the chosen bill, or set off against the flat's open bills
+        # oldest first; anything left is the member's advance.
         if bill is not None:
-            self._apply_payment_to_bill(bill, amount, payment_date, user)
+            self.allocator.allocate(submission, bill, amount, user)
+            self.allocator._sync_advance(flat.id, user)
+        else:
+            self.allocator.apply_credit(flat.id, user)
         self._post("post_online_payment", submission, user)
 
         self._audit(AuditAction.CREATE, submission, "OnlinePaymentSubmission", user,
                     new_values={"amount": str(amount), "flat": flat.flat_number,
                                 "receipt_number": receipt_number,
-                                "bill": bill.invoice_number if bill else None})
+                                "bills": [a.bill.invoice_number for a in submission.allocations]})
         self.db.commit()
         self.db.refresh(submission)
         return submission
@@ -671,7 +693,15 @@ class BillingService:
     def update_online_payment_status(self, submission_id: UUID, status: ReconciliationStatus,
                                       review_notes: Optional[str], user: User) -> OnlinePaymentSubmission:
         submission = self.get_online_payment_submission(submission_id)
+        was_rejected = submission.status == ReconciliationStatus.REJECTED
         submission.status = status
+        if status == ReconciliationStatus.REJECTED and not was_rejected:
+            # The bills it settled are unpaid again
+            self.allocator.release_payment(
+                submission, f"Payment {submission.receipt_number} rejected: {review_notes or ''}".strip(), user)
+        elif was_rejected and status != ReconciliationStatus.REJECTED:
+            self.db.flush()
+            self.allocator.apply_credit(submission.flat_id, user)
         submission.reviewed_by = user.id
         submission.reviewed_at = datetime.utcnow()
         if review_notes is not None:

@@ -4,6 +4,30 @@
 /// immediately; bank reconciliation (non-cash modes only — cash starts
 /// already `reconciled`) is a separate, later step. See backend
 /// OnlinePaymentSubmission.
+/// Part of a recorded payment set off against one maintenance bill.
+class PaymentSetOff {
+  final String billId;
+  final String? invoiceNumber;
+  final DateTime? billDate;
+  final double amount;
+  final DateTime? allocatedAt;
+  final DateTime? releasedAt;
+  final String? releasedReason;
+
+  const PaymentSetOff({
+    required this.billId,
+    this.invoiceNumber,
+    this.billDate,
+    required this.amount,
+    this.allocatedAt,
+    this.releasedAt,
+    this.releasedReason,
+  });
+
+  /// Still counts — not undone by a rejected payment or a cancelled bill.
+  bool get isLive => releasedAt == null;
+}
+
 class OnlinePaymentEntity {
   final String id;
   final String societyId;
@@ -30,6 +54,12 @@ class OnlinePaymentEntity {
   final String? screenshotFileName;
   final DateTime? createdAt;
 
+  /// The bills this payment was set off against (oldest first), and what
+  /// is left over as the member's advance.
+  final List<PaymentSetOff> setOffs;
+  final double appliedAmount;
+  final double unappliedAmount;
+
   const OnlinePaymentEntity({
     required this.id,
     required this.societyId,
@@ -55,12 +85,28 @@ class OnlinePaymentEntity {
     this.screenshotMimeType,
     this.screenshotFileName,
     this.createdAt,
+    this.setOffs = const [],
+    this.appliedAmount = 0,
+    this.unappliedAmount = 0,
   });
 
   bool get isPending => status == 'pending';
   bool get isReconciled => status == 'reconciled';
   bool get isRejected => status == 'rejected';
-  bool get isOnBill => billId != null;
+  List<PaymentSetOff> get liveSetOffs => setOffs.where((a) => a.isLive).toList();
+  bool get isOnBill => liveSetOffs.isNotEmpty || billId != null;
+
+  /// "Bill INV-…" / "3 bills (INV-… +2)" / "Advance" / the purpose — what the payment went against.
+  String get appliedLabel {
+    final bills = liveSetOffs.map((a) => a.invoiceNumber ?? '').where((n) => n.isNotEmpty).toList();
+    if (bills.isNotEmpty) {
+      final what = bills.length == 1 ? 'Bill ${bills.first}' : '${bills.length} bills (${bills.first} +${bills.length - 1})';
+      return '$what${unappliedAmount > 0 ? ' + advance' : ''}';
+    }
+    if (billId != null) return 'Bill ${billInvoiceNumber ?? ''}';
+    if (unappliedAmount > 0) return 'Advance';
+    return onlinePaymentPurposeLabel(purpose);
+  }
   bool get hasScreenshot => screenshotMimeType != null;
 }
 
