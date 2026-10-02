@@ -21,15 +21,21 @@ class LedgerStatementScreen extends ConsumerStatefulWidget {
   final String? flatId;
   final String? vendorId;
   final String? title;
-  const LedgerStatementScreen({super.key, required this.accountId, this.flatId, this.vendorId, this.title});
+
+  /// Opens on this period (e.g. a financial year, from a statement).
+  final DateTime? from;
+  final DateTime? to;
+  const LedgerStatementScreen(
+      {super.key, required this.accountId, this.flatId, this.vendorId, this.title, this.from, this.to});
 
   @override
   ConsumerState<LedgerStatementScreen> createState() => _LedgerStatementScreenState();
 }
 
 class _LedgerStatementScreenState extends ConsumerState<LedgerStatementScreen> {
-  _Period _period = _Period.thisYear;
-  DateTimeRange? _custom;
+  late _Period _period = widget.from != null && widget.to != null ? _Period.custom : _Period.thisYear;
+  late DateTimeRange? _custom =
+      widget.from != null && widget.to != null ? DateTimeRange(start: widget.from!, end: widget.to!) : null;
 
   (DateTime?, DateTime?) get _range {
     final today = DateTime.now();

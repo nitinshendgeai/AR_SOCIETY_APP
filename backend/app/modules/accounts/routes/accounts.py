@@ -3,17 +3,20 @@ from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user, require_manager_above
+from app.core.dependencies import get_current_user, require_admin_committee, require_manager_above
 from app.core.tenant_scope import assert_society_access
 from app.db.session import get_db
+from app.models.society import Society
 from app.models.user import User
 from app.modules.accounts.models.accounts import VOUCHER_TYPES, Account, Voucher
-from app.modules.accounts.services.accounts_service import AccountsService, dr_cr, money
+from app.modules.accounts.services.accounts_service import AccountsService, dr_cr, fiscal_year, money
 from app.modules.accounts.services.postings import AccountPostings
+from app.modules.accounts.services.reports import REPORTS, FinancialReports
+from app.modules.accounts.services.reports_pdf import render_report_pdf
 from app.modules.billing.services.bill_pdf import flat_label, member_name
 
 # The society's books are kept by those who run it: Admin, the committee
@@ -42,14 +45,17 @@ def _account_out(a: Account, balance: Optional[Decimal] = None) -> dict:
     return out
 
 
-def _voucher_out(v: Voucher) -> dict:
+def _voucher_out(v: Voucher, closed_years: frozenset = frozenset()) -> dict:
+    locked = v.fiscal_year in closed_years
     return {
         "id": str(v.id), "society_id": str(v.society_id), "voucher_type": v.voucher_type,
         "voucher_type_label": VOUCHER_TYPES[v.voucher_type][1], "voucher_number": v.voucher_number,
         "voucher_date": v.voucher_date.isoformat(), "fiscal_year": v.fiscal_year,
         "amount": _amount(v.amount), "narration": v.narration, "reference": v.reference,
         "source_type": v.source_type, "source_id": str(v.source_id) if v.source_id else None,
-        "is_auto": v.source_type is not None,
+        "is_auto": v.source_type is not None or v.voucher_type == "closing" or v.reversal_of_id is not None,
+        "is_locked": locked, "is_reversed": v.reversed_at is not None,
+        "reversal_of_id": str(v.reversal_of_id) if v.reversal_of_id else None,
         "is_cancelled": v.is_cancelled, "cancel_reason": v.cancel_reason,
         "cancelled_at": v.cancelled_at.isoformat() if v.cancelled_at else None,
         "created_by_name": v.creator.full_name if v.creator else None,
@@ -218,9 +224,10 @@ def list_vouchers(society_id: UUID, voucher_type: Optional[str] = None,
                   db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """The day book."""
     assert_society_access(user, society_id)
-    rows = AccountsService(db).list_vouchers(society_id, voucher_type, date_from, date_to,
-                                             include_cancelled, skip, limit)
-    return [_voucher_out(v) for v in rows]
+    svc = AccountsService(db)
+    rows = svc.list_vouchers(society_id, voucher_type, date_from, date_to, include_cancelled, skip, limit)
+    closed = frozenset(svc.closed_years(society_id))
+    return [_voucher_out(v, closed) for v in rows]
 
 
 @router.post("/vouchers", status_code=201)
@@ -233,9 +240,10 @@ def create_voucher(data: VoucherCreate, request: Request, db: Session = Depends(
 
 @router.get("/vouchers/{voucher_id}")
 def get_voucher(voucher_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    v = AccountsService(db).get_voucher(voucher_id)
+    svc = AccountsService(db)
+    v = svc.get_voucher(voucher_id)
     assert_society_access(user, v.society_id)
-    return _voucher_out(v)
+    return _voucher_out(v, frozenset(svc.closed_years(v.society_id)))
 
 
 @router.post("/vouchers/{voucher_id}/cancel")
@@ -274,3 +282,61 @@ def sync_postings(society_id: UUID, db: Session = Depends(get_db), user: User = 
     counts = AccountPostings(db).sync_society(society_id, user)
     db.commit()
     return counts
+
+
+# ── Financial statements & year-end closing ───────────────────────────────────
+
+class CloseYearRequest(BaseModel):
+    reserve_pct: Decimal = Field(default=Decimal(0), ge=0, le=100)
+    notes: Optional[str] = None
+
+
+class ReopenYearRequest(BaseModel):
+    reason: str = Field(min_length=3)
+
+
+@router.get("/reports/{society_id}/{report}")
+def financial_report(society_id: UUID, report: str, fy: Optional[str] = None,
+                     format: str = Query("json", pattern="^(json|pdf)$"),
+                     db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Trial Balance, Income & Expenditure, Balance Sheet, Receipts &
+    Payments or Schedule of Funds for a financial year ('2026-27'; default:
+    the current one) — as data, or ?format=pdf in the printed format."""
+    assert_society_access(user, society_id)
+    fy = fy or fiscal_year(date.today())
+    data = FinancialReports(db).report(society_id, report, fy)
+    if format == "pdf":
+        society = db.query(Society).filter(Society.id == society_id).first()
+        name = REPORTS[report].replace("&", "and").replace(" ", "-")
+        return Response(content=render_report_pdf(data, society), media_type="application/pdf",
+                        headers={"Content-Disposition": f"inline; filename={name}-FY-{fy}.pdf"})
+    return data
+
+
+@router.get("/years/{society_id}")
+def financial_years(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
+    years = FinancialReports(db).years(society_id)
+    db.commit()
+    return years
+
+
+@router.post("/years/{society_id}/{fy}/close", dependencies=[Depends(require_admin_committee)])
+def close_financial_year(society_id: UUID, fy: str, data: CloseYearRequest, db: Session = Depends(get_db),
+                         user: User = Depends(get_current_user)):
+    """Close the books of a year that is over: transfer income and
+    expenditure to the Income & Expenditure Account, carry the chosen share
+    of a surplus to the Reserve Fund, and lock the year. Admin and the
+    committee only."""
+    assert_society_access(user, society_id)
+    rec = FinancialReports(db).close_year(society_id, fy, data.reserve_pct, data.notes, user)
+    return {"fy": rec.fiscal_year, "surplus": str(rec.surplus), "reserve_transfer": str(rec.reserve_transfer),
+            "closing_voucher_id": str(rec.closing_voucher_id) if rec.closing_voucher_id else None}
+
+
+@router.post("/years/{society_id}/{fy}/reopen", dependencies=[Depends(require_admin_committee)])
+def reopen_financial_year(society_id: UUID, fy: str, data: ReopenYearRequest, db: Session = Depends(get_db),
+                          user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
+    rec = FinancialReports(db).reopen_year(society_id, fy, data.reason, user)
+    return {"fy": rec.fiscal_year, "reopened_at": rec.reopened_at.isoformat()}

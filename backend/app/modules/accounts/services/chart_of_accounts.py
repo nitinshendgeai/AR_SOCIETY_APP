@@ -221,8 +221,10 @@ def seed_chart_of_accounts(db: Session, society_id, bank_settings=None) -> Dict[
                          bank_ifsc=bank_settings.bank_ifsc)
         if name in taken_names:
             name = f"{name} (Standard)"
+        nature = groups[group_key].nature
         a = Account(society_id=society_id, group_id=groups[group_key].id, code=code, name=name,
-                    system_key=key, sort_order=(order + 1) * 10, is_system=True, **flags)
+                    system_key=key, sort_order=(order + 1) * 10, is_system=True,
+                    opening_type="dr" if nature in ("asset", "expense") else "cr", **flags)
         db.add(a)
         accounts[key] = a
         taken_names.add(name)

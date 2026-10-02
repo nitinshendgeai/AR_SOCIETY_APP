@@ -95,7 +95,9 @@ from app.modules.vendor.models.vendor import (
 )
 
 # Accounts module models
-from app.modules.accounts.models.accounts import Account, AccountGroup, Voucher, VoucherEntry
+from app.modules.accounts.models.accounts import (
+    Account, AccountGroup, FinancialYearClosing, Voucher, VoucherEntry,
+)
 
 # Handover models
 from app.modules.staff.models.handover import (

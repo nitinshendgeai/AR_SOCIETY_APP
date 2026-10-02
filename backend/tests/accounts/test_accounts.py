@@ -1,7 +1,7 @@
 """Society accounts: the standard chart, vouchers entered by the society,
 the automatic postings from bills, payments and vendor bills, and the
 ledgers built from them."""
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 from uuid import UUID
 

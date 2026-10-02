@@ -5,6 +5,11 @@ balances, ledger statements and the members' (flat-wise) ledger.
 Balances are signed debit-positive throughout: a positive balance is a
 debit (Dr) balance, a negative one a credit (Cr) balance. Cancelled
 vouchers never count.
+
+Closed financial years are locked: no voucher can be entered in them or
+cancelled. Automatic postings dated in a closed year are made on the first
+day of the next open year, and a posting of a closed year whose bill or
+payment is later cancelled is reversed in the open year.
 """
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -21,7 +26,8 @@ from app.models.flat import Flat
 from app.models.user import User
 from app.models.wing import Wing
 from app.modules.accounts.models.accounts import (
-    DEBIT_NATURES, MANUAL_VOUCHER_TYPES, VOUCHER_TYPES, Account, AccountGroup, Voucher, VoucherEntry,
+    DEBIT_NATURES, MANUAL_VOUCHER_TYPES, VOUCHER_TYPES, Account, AccountGroup, FinancialYearClosing, Voucher,
+    VoucherEntry,
 )
 from app.modules.accounts.services.chart_of_accounts import seed_chart_of_accounts
 from app.modules.billing.models.billing import MaintenanceSettings
@@ -44,6 +50,28 @@ def fiscal_year(d: date) -> str:
     """'2026-27' for any date from 1 Apr 2026 to 31 Mar 2027."""
     start = fiscal_year_start(d).year
     return f"{start}-{str(start + 1)[-2:]}"
+
+
+def fiscal_year_bounds(fy: str) -> tuple:
+    """(1 April, 31 March) of '2026-27'."""
+    try:
+        start = int(fy.split("-")[0])
+        if len(fy) != 7 or fy[4] != "-" or fy[5:] != str(start + 1)[-2:]:
+            raise ValueError
+    except (ValueError, IndexError):
+        raise HTTPException(422, "Financial year must look like 2026-27")
+    return date(start, 4, 1), date(start + 1, 3, 31)
+
+
+def previous_fiscal_year(fy: str) -> str:
+    start = int(fy[:4]) - 1
+    return f"{start}-{str(start + 1)[-2:]}"
+
+
+def live_posting():
+    """A voucher still in effect for its source: neither cancelled nor
+    reversed in a later year."""
+    return (Voucher.is_cancelled == False) & Voucher.reversed_at.is_(None)  # noqa: E712
 
 
 def signed_opening(account: Account) -> Decimal:
@@ -72,11 +100,40 @@ class AccountsService:
     def __init__(self, db: Session):
         self.db = db
         self._charts: Dict[UUID, Dict[str, Account]] = {}
+        self._closed: Dict[UUID, set] = {}
 
     def _audit(self, action, entity, user, request=None, **kw):
         AuditService.log(db=self.db, action=action, module="accounts",
                          entity_id=str(entity.id), entity_type=type(entity).__name__,
                          user=user, request=request, **kw)
+
+    # ── Closed years ──────────────────────────────────────────────────────────
+
+    def closed_years(self, society_id: UUID) -> set:
+        """Financial years ('2025-26') whose books are closed."""
+        if society_id not in self._closed:
+            self._closed[society_id] = {fy for (fy,) in self.db.query(FinancialYearClosing.fiscal_year).filter(
+                FinancialYearClosing.society_id == society_id, FinancialYearClosing.reopened_at.is_(None),
+                FinancialYearClosing.is_active == True)}  # noqa: E712
+        return self._closed[society_id]
+
+    def forget_closed_years(self, society_id: UUID) -> None:
+        self._closed.pop(society_id, None)
+
+    def is_closed(self, society_id: UUID, d: date) -> bool:
+        return fiscal_year(d) in self.closed_years(society_id)
+
+    def open_posting_date(self, society_id: UUID, d: date) -> date:
+        """`d`, or — when its year's books are closed — the first day of the
+        next year that is open."""
+        while self.is_closed(society_id, d):
+            d = date(fiscal_year_start(d).year + 1, 4, 1)
+        return d
+
+    def assert_open(self, society_id: UUID, d: date) -> None:
+        if self.is_closed(society_id, d):
+            raise HTTPException(409, f"The books for FY {fiscal_year(d)} are closed — "
+                                     "enter it in the current year, or reopen that year first")
 
     # ── Chart of accounts ─────────────────────────────────────────────────────
 
@@ -147,10 +204,23 @@ class AccountsService:
                                                    Account.is_default_bank == True, Account.id != keep.id):
             other.is_default_bank = False
 
+    def _check_opening(self, society_id: UUID, nature: str, amount, changing: bool) -> None:
+        """Income and expenditure ledgers start every year at nil — a
+        surplus brought forward belongs on the Income & Expenditure Account
+        ledger. Opening balances are fixed once a year's books are closed,
+        since every later year is built on them."""
+        if money(amount) and nature in ("income", "expense"):
+            raise HTTPException(422, "Income and expenditure ledgers have no opening balance — put the surplus "
+                                     "brought forward on the Income & Expenditure Account ledger")
+        if changing and self.closed_years(society_id):
+            raise HTTPException(409, "Opening balances can't change once a year's books are closed")
+
     def create_account(self, data: dict, user: User) -> Account:
         society_id = data["society_id"]
         self.ensure_chart(society_id)
         group = self._group_for(society_id, data["group_id"])
+        self._check_opening(society_id, group.nature, data.get("opening_balance"),
+                            changing=bool(money(data.get("opening_balance"))))
         self._name_free(society_id, data["name"])
         if data.get("is_bank") and data.get("is_cash"):
             raise HTTPException(422, "A ledger is either a cash or a bank account, not both")
@@ -188,10 +258,16 @@ class AccountsService:
         for field in ("code", "description", "bank_name", "bank_account_number", "bank_ifsc", "bank_branch"):
             if field in data:
                 setattr(account, field, data[field])
-        if "opening_balance" in data and data["opening_balance"] is not None:
-            account.opening_balance = money(data["opening_balance"])
-        if data.get("opening_type") in ("dr", "cr"):
-            account.opening_type = data["opening_type"]
+        new_amount = (money(data["opening_balance"]) if data.get("opening_balance") is not None
+                      else money(account.opening_balance))
+        nature = self._group_for(account.society_id, account.group_id).nature
+        new_type = (data["opening_type"] if data.get("opening_type") in ("dr", "cr")
+                    else account.opening_type if money(account.opening_balance)
+                    else "dr" if nature in DEBIT_NATURES else "cr")   # a new balance sits on the ledger's usual side
+        changing = new_amount != money(account.opening_balance) or bool(
+            new_amount and new_type != account.opening_type)
+        self._check_opening(account.society_id, nature, new_amount, changing)
+        account.opening_balance, account.opening_type = new_amount, new_type
         if data.get("is_default_bank"):
             if not account.is_bank:
                 raise HTTPException(422, "Only a bank ledger can be the default bank")
@@ -225,7 +301,7 @@ class AccountsService:
     def build_voucher(self, society_id: UUID, voucher_type: str, voucher_date: date, lines: List[Line], *,
                       narration: Optional[str] = None, reference: Optional[str] = None,
                       source_type: Optional[str] = None, source_id: Optional[UUID] = None,
-                      user: Optional[User] = None) -> Voucher:
+                      reversal_of_id: Optional[UUID] = None, user: Optional[User] = None) -> Voucher:
         """Validate that `lines` balance and record the voucher (flushed, not
         committed)."""
         lines = [l for l in lines if money(l.debit) or money(l.credit)]
@@ -241,13 +317,15 @@ class AccountsService:
         total_cr = sum((l.credit for l in lines), ZERO)
         if total_dr != total_cr:
             raise HTTPException(422, f"Debits (₹{total_dr}) and credits (₹{total_cr}) must be equal")
+        if voucher_type != "closing":
+            self.assert_open(society_id, voucher_date)
 
         voucher = Voucher(
             society_id=society_id, voucher_type=voucher_type,
             voucher_number=self._next_number(society_id, voucher_type, voucher_date),
             voucher_date=voucher_date, fiscal_year=fiscal_year(voucher_date), amount=total_dr,
             narration=narration, reference=reference, source_type=source_type, source_id=source_id,
-            created_by=user.id if user else None,
+            reversal_of_id=reversal_of_id, created_by=user.id if user else None,
         )
         for i, l in enumerate(lines):
             voucher.entries.append(VoucherEntry(
@@ -340,12 +418,36 @@ class AccountsService:
         voucher.cancel_reason = reason
         return voucher
 
+    def reverse(self, voucher: Voucher, reason: str, user: Optional[User]) -> Voucher:
+        """Undo a voucher of a closed year by posting its mirror image in
+        the open year; the original stays in that year's books."""
+        lines = [Line(e.account, debit=money(e.credit), credit=money(e.debit), flat_id=e.flat_id,
+                      vendor_id=e.vendor_id, narration=e.narration) for e in voucher.entries]
+        reversal = self.build_voucher(
+            voucher.society_id, "journal", self.open_posting_date(voucher.society_id, date.today()), lines,
+            narration=f"Reversal of {voucher.voucher_number} (FY {voucher.fiscal_year}, books closed): {reason}",
+            reference=voucher.voucher_number, reversal_of_id=voucher.id, user=user)
+        voucher.reversed_at = datetime.utcnow()
+        return reversal
+
+    def void(self, voucher: Voucher, reason: str, user: Optional[User]) -> None:
+        """Cancel a voucher, or reverse it if its year's books are closed."""
+        if self.is_closed(voucher.society_id, voucher.voucher_date):
+            self.reverse(voucher, reason, user)
+        else:
+            self.cancel(voucher, reason, user)
+
     def cancel_manual_voucher(self, voucher_id: UUID, reason: str, user: User, request=None) -> Voucher:
         voucher = self.get_voucher(voucher_id)
         if voucher.is_cancelled:
             raise HTTPException(409, "Voucher is already cancelled")
         if voucher.source_type:
             raise HTTPException(409, "This voucher was posted from a bill or payment — cancel that instead")
+        if voucher.voucher_type == "closing":
+            raise HTTPException(409, "A year-end closing voucher is undone by reopening the year")
+        if voucher.reversal_of_id:
+            raise HTTPException(409, "A reversal entry can't be cancelled")
+        self.assert_open(voucher.society_id, voucher.voucher_date)
         self.cancel(voucher, reason, user)
         self._audit(AuditAction.UPDATE, voucher, user, request,
                     new_values={"cancelled": True, "reason": reason, "number": voucher.voucher_number})

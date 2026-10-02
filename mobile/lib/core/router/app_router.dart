@@ -55,6 +55,8 @@ import 'package:ar_society_app/features/vendor/presentation/screens/vendor_bills
 import 'package:ar_society_app/features/accounts/presentation/screens/accounts_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/chart_of_accounts_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/day_book_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/financial_report_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/financial_statements_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/ledger_statement_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/members_ledger_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/voucher_form_screen.dart';
@@ -146,6 +148,8 @@ class AppRoutes {
   static const accountsMembers    = '/accounts/members';
   static const accountsVoucherNew = '/accounts/vouchers/new';
   static const accountsLedger     = '/accounts/ledger/:accountId';
+  static const accountsStatements = '/accounts/statements';
+  static const accountsReport     = '/accounts/statements/:report';
   // Society Settings
   static const societySettings    = '/society-settings';
   // Society Structure
@@ -654,7 +658,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     flatId: s.uri.queryParameters['flat'],
                     vendorId: s.uri.queryParameters['vendor'],
                     title: s.uri.queryParameters['title'],
+                    from: DateTime.tryParse(s.uri.queryParameters['from'] ?? ''),
+                    to: DateTime.tryParse(s.uri.queryParameters['to'] ?? ''),
                   ),
+            ),
+            (AppRoutes.accountsStatements, (_) => const FinancialStatementsScreen()),
+            (
+              AppRoutes.accountsReport,
+              (s) {
+                final report = s.pathParameters['report']!;
+                final fy = s.uri.queryParameters['fy'] ?? '';
+                return FinancialReportScreen(key: ValueKey('$report/$fy'), report: report, fy: fy);
+              },
             ),
           ])
             GoRoute(

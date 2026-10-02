@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -10,6 +12,15 @@ String apiDate(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
 
 final _inr = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
 String formatInr(num v) => _inr.format(v);
+
+/// "₹11.45 L", "₹1.20 Cr" — for tiles too narrow for the full figure.
+String formatInrShort(num v) {
+  final a = v.abs();
+  final sign = v < 0 ? '-' : '';
+  if (a >= 10000000) return '$sign₹${(a / 10000000).toStringAsFixed(2)} Cr';
+  if (a >= 100000) return '$sign₹${(a / 100000).toStringAsFixed(2)} L';
+  return formatInr(v);
+}
 String formatAccountsDate(DateTime d) => DateFormat('d MMM yyyy').format(d);
 
 /// Start of the Indian financial year (1 April) a date falls in.
@@ -41,6 +52,7 @@ const kVoucherTypes = <String, String>{
   'journal': 'Journal',
   'bill': 'Member Bill',
   'purchase': 'Purchase',
+  'closing': 'Year-end Closing',
 };
 
 String voucherTypeLabel(String t) => kVoucherTypes[t] ?? t;
@@ -215,6 +227,13 @@ class Voucher {
   final String? sourceType;
   final bool isAuto;
   final bool isCancelled;
+
+  /// Its financial year's books are closed — it can't be changed.
+  final bool isLocked;
+
+  /// Undone by a reversal entry in a later year (its own year was closed).
+  final bool isReversed;
+  final String? reversalOfId;
   final String? cancelReason;
   final String? createdByName;
   final List<VoucherEntry> entries;
@@ -232,6 +251,9 @@ class Voucher {
     this.sourceType,
     required this.isAuto,
     required this.isCancelled,
+    this.isLocked = false,
+    this.isReversed = false,
+    this.reversalOfId,
     this.cancelReason,
     this.createdByName,
     required this.entries,
@@ -250,6 +272,9 @@ class Voucher {
         sourceType: j['source_type'] as String?,
         isAuto: j['is_auto'] as bool? ?? false,
         isCancelled: j['is_cancelled'] as bool? ?? false,
+        isLocked: j['is_locked'] as bool? ?? false,
+        isReversed: j['is_reversed'] as bool? ?? false,
+        reversalOfId: j['reversal_of_id'] as String?,
         cancelReason: j['cancel_reason'] as String?,
         createdByName: j['created_by_name'] as String?,
         entries: (j['entries'] as List? ?? const [])
@@ -266,6 +291,8 @@ class Voucher {
         'payment_receipt' || 'online_payment' => 'Posted from payment receipt',
         'vendor_invoice' => 'Posted from vendor bill',
         'vendor_payment' => 'Posted from vendor payment',
+        _ when voucherType == 'closing' => 'Posted when the year\'s books were closed',
+        _ when reversalOfId != null => 'Reversal of an entry in a closed year',
         _ => null,
       };
 }
@@ -420,6 +447,193 @@ class VoucherLineInput {
       };
 }
 
+// ── Financial years & statements ─────────────────────────────────────────────
+
+class FinancialYear {
+  final String fy;
+  final DateTime start;
+  final DateTime end;
+  final bool isCurrent;
+  final bool isClosed;
+  final bool hasEntries;
+  final double income;
+  final double expenditure;
+  final double surplus;
+  final bool canClose;
+  final String? closeBlockedReason;
+  final bool canReopen;
+  final double suggestedReservePct;
+  final DateTime? closedAt;
+  final String? closedByName;
+  final double? reservePct;
+  final double? reserveTransfer;
+  final String? closingVoucherId;
+
+  const FinancialYear({
+    required this.fy,
+    required this.start,
+    required this.end,
+    required this.isCurrent,
+    required this.isClosed,
+    required this.hasEntries,
+    required this.income,
+    required this.expenditure,
+    required this.surplus,
+    required this.canClose,
+    this.closeBlockedReason,
+    required this.canReopen,
+    required this.suggestedReservePct,
+    this.closedAt,
+    this.closedByName,
+    this.reservePct,
+    this.reserveTransfer,
+    this.closingVoucherId,
+  });
+
+  factory FinancialYear.fromJson(Map<String, dynamic> j) => FinancialYear(
+        fy: j['fy'] as String,
+        start: _date(j['start']),
+        end: _date(j['end']),
+        isCurrent: j['is_current'] as bool? ?? false,
+        isClosed: j['is_closed'] as bool? ?? false,
+        hasEntries: j['has_entries'] as bool? ?? false,
+        income: _num(j['income']),
+        expenditure: _num(j['expenditure']),
+        surplus: _num(j['surplus']),
+        canClose: j['can_close'] as bool? ?? false,
+        closeBlockedReason: j['close_blocked_reason'] as String?,
+        canReopen: j['can_reopen'] as bool? ?? false,
+        suggestedReservePct: _num(j['suggested_reserve_pct']),
+        closedAt: j['closed_at'] == null ? null : DateTime.parse(j['closed_at'] as String).toLocal(),
+        closedByName: j['closed_by_name'] as String?,
+        reservePct: j['reserve_pct'] == null ? null : _num(j['reserve_pct']),
+        reserveTransfer: j['reserve_transfer'] == null ? null : _num(j['reserve_transfer']),
+        closingVoucherId: j['closing_voucher_id'] as String?,
+      );
+
+  /// "FY 2026-27"
+  String get label => 'FY $fy';
+}
+
+/// The financial statements, as the backend names them.
+const kFinancialReports = <String, (String, String)>{
+  'balance-sheet': ('Balance Sheet', 'Funds, liabilities and assets as at the year end'),
+  'income-expenditure': ('Income & Expenditure', 'The year\'s income, expenditure and surplus'),
+  'receipts-payments': ('Receipts & Payments', 'Cash and bank in and out, with balances'),
+  'trial-balance': ('Trial Balance', 'Every ledger\'s balance — debits equal credits'),
+  'funds': ('Schedule of Funds', 'Sinking, repair and other funds — additions and use'),
+};
+
+/// One amount of a statement: a blank is null.
+double? _amt(Object? v) => (v == null || v == '') ? null : double.tryParse(v.toString());
+
+class ReportRow {
+  final String label;
+  final String? code;
+  final List<double?> values;
+  final bool bold;
+  final int level;
+  final String? accountId;
+
+  const ReportRow({required this.label, this.code, required this.values, this.bold = false, this.level = 1,
+      this.accountId});
+
+  factory ReportRow.fromJson(Map<String, dynamic> j) => ReportRow(
+        label: j['label'] as String? ?? '',
+        code: j['code'] as String?,
+        values: ((j['amounts'] ?? j['cells']) as List? ?? const []).map(_amt).toList(),
+        bold: j['bold'] as bool? ?? false,
+        level: (j['level'] as num?)?.toInt() ?? 1,
+        accountId: j['account_id'] as String?,
+      );
+}
+
+class ReportSection {
+  final String? title;
+  final List<ReportRow> rows;
+  final List<double?> total;
+  const ReportSection({this.title, required this.rows, required this.total});
+
+  factory ReportSection.fromJson(Map<String, dynamic> j) => ReportSection(
+        title: j['title'] as String?,
+        rows: (j['rows'] as List).map((e) => ReportRow.fromJson(e as Map<String, dynamic>)).toList(),
+        total: (j['total'] as List? ?? const []).map(_amt).toList(),
+      );
+}
+
+class ReportSide {
+  final String title;
+  final List<ReportSection> sections;
+  final List<double?> total;
+  const ReportSide({required this.title, required this.sections, required this.total});
+
+  factory ReportSide.fromJson(Map<String, dynamic> j) => ReportSide(
+        title: j['title'] as String,
+        sections: (j['sections'] as List).map((e) => ReportSection.fromJson(e as Map<String, dynamic>)).toList(),
+        total: (j['total'] as List).map(_amt).toList(),
+      );
+}
+
+/// A financial statement: two-sided (Income & Expenditure, Balance Sheet,
+/// Receipts & Payments — [sides], one amount per year in [columns]) or a
+/// table (Trial Balance, Schedule of Funds — [rows] of [columns] cells).
+class FinancialReport {
+  final String report;
+  final String title;
+  final String heading;
+  final String fy;
+  final bool provisional;
+  final bool twoSided;
+  final List<String> columns;
+  final List<ReportSide> sides;
+  final List<ReportRow> rows;
+  final List<double?> totals;
+  final ReportRow? result;
+  final List<String> notes;
+  final bool balanced;
+
+  const FinancialReport({
+    required this.report,
+    required this.title,
+    required this.heading,
+    required this.fy,
+    required this.provisional,
+    required this.twoSided,
+    required this.columns,
+    this.sides = const [],
+    this.rows = const [],
+    this.totals = const [],
+    this.result,
+    this.notes = const [],
+    required this.balanced,
+  });
+
+  factory FinancialReport.fromJson(Map<String, dynamic> j) => FinancialReport(
+        report: j['report'] as String,
+        title: j['title'] as String,
+        heading: j['heading'] as String,
+        fy: j['fy'] as String,
+        provisional: j['provisional'] as bool? ?? false,
+        twoSided: j['kind'] == 'two_sided',
+        columns: (j['columns'] as List).map((e) => e.toString()).toList(),
+        sides: (j['sides'] as List? ?? const [])
+            .map((e) => ReportSide.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        rows: (j['rows'] as List? ?? const []).map((e) => ReportRow.fromJson(e as Map<String, dynamic>)).toList(),
+        totals: (j['totals'] as List? ?? const []).map(_amt).toList(),
+        result: j['result'] == null ? null : ReportRow.fromJson(j['result'] as Map<String, dynamic>),
+        notes: (j['notes'] as List? ?? const []).map((e) => e.toString()).toList(),
+        balanced: j['balanced'] as bool? ?? true,
+      );
+}
+
+/// "1,234.00", "(1,234.00)" for a negative amount, "" for a blank.
+String formatStatementAmount(double? v) {
+  if (v == null || v == 0) return '';
+  final s = NumberFormat('#,##,##0.00', 'en_IN').format(v.abs());
+  return v < 0 ? '($s)' : s;
+}
+
 // ── API ──────────────────────────────────────────────────────────────────────
 
 /// FastAPI /accounts/* — the society's books.
@@ -499,4 +713,29 @@ class AccountsApi {
   /// returns how many vouchers were posted or cancelled.
   Future<int> sync(String societyId) async =>
       ((await _dio.post('/accounts/sync/$societyId')).data as Map<String, dynamic>)['total'] as int? ?? 0;
+
+  /// Every financial year with entries up to the current one, newest first.
+  Future<List<FinancialYear>> years(String societyId) async =>
+      ((await _dio.get('/accounts/years/$societyId')).data as List)
+          .map((e) => FinancialYear.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+  Future<void> closeYear(String societyId, String fy, {required double reservePct, String? notes}) =>
+      _dio.post('/accounts/years/$societyId/$fy/close', data: {
+        'reserve_pct': reservePct.toStringAsFixed(2),
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+      });
+
+  Future<void> reopenYear(String societyId, String fy, String reason) =>
+      _dio.post('/accounts/years/$societyId/$fy/reopen', data: {'reason': reason});
+
+  Future<FinancialReport> report(String societyId, String report, String fy) async => FinancialReport.fromJson(
+      (await _dio.get('/accounts/reports/$societyId/$report', queryParameters: {'fy': fy})).data
+          as Map<String, dynamic>);
+
+  Future<Uint8List> reportPdf(String societyId, String report, String fy) async {
+    final r = await _dio.get<List<int>>('/accounts/reports/$societyId/$report',
+        queryParameters: {'fy': fy, 'format': 'pdf'}, options: Options(responseType: ResponseType.bytes));
+    return Uint8List.fromList(r.data!);
+  }
 }
