@@ -43,6 +43,7 @@ const appMenuCategories = [
     AppMenuItem('staff', 'Staff', Icons.badge_rounded, AppRoutes.staffHome),
     AppMenuItem('checklist_templates', 'Checklist Templates', Icons.checklist_rtl_rounded, AppRoutes.checklistTemplates),
     AppMenuItem('parking_management', 'Parking Management', Icons.local_parking_rounded, AppRoutes.parkingManagement),
+    AppMenuItem('vendors', 'Vendors & Work', Icons.handyman_rounded, AppRoutes.vendorsWork),
   ]),
   AppMenuCategory('Finance', Icons.payments_rounded, [
     AppMenuItem('maintenance_billing', 'Maintenance Billing', Icons.request_quote_rounded, AppRoutes.maintenanceBilling),

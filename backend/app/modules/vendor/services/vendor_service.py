@@ -99,16 +99,39 @@ class VendorService_:  # trailing underscore avoids clash with model name
         self.db.refresh(vendor)
         return vendor
 
-    def update_vendor(self, vendor_id: UUID, data: dict, user: User) -> Vendor:
-        v = self.vendor_repo.get(vendor_id)
-        if not v: raise HTTPException(404, "Vendor not found")
-        return self.vendor_repo.update(v, data)
+    def update_vendor(self, vendor_id: UUID, data: dict, user: User, request=None) -> Vendor:
+        from app.modules.vendor.models.vendor import VendorStatus
+        v = self.get_vendor(vendor_id, user)
+        if data.get("company_name") and data["company_name"].lower() != v.company_name.lower():
+            same = self.db.query(Vendor).filter(
+                Vendor.society_id == v.society_id, Vendor.is_active == True, Vendor.id != v.id,  # noqa: E712
+                func.lower(Vendor.company_name) == data["company_name"].lower()).first()
+            if same:
+                raise HTTPException(409, f"A vendor named '{same.company_name}' ({same.vendor_code}) already exists")
+        if data.get("gst_number"):
+            same = self.db.query(Vendor).filter(
+                Vendor.society_id == v.society_id, Vendor.is_active == True, Vendor.id != v.id,  # noqa: E712
+                Vendor.gst_number == data["gst_number"]).first()
+            if same:
+                raise HTTPException(409, f"GST number {data['gst_number']} already belongs to {same.company_name}")
+        old = {k: getattr(v, k) for k in data}
+        for k, val_ in data.items():
+            setattr(v, k, val_)
+        if "status" in data and data["status"] != VendorStatus.BLACKLISTED:
+            v.blacklist_reason = None
+        self._audit(AuditAction.UPDATE, v, "Vendor", user, request,
+                    old_values={k: str(x) if x is not None else None for k, x in old.items()},
+                    new_values={k: str(x) if x is not None else None for k, x in data.items()})
+        self.db.commit()
+        self.db.refresh(v)
+        return v
 
     def blacklist_vendor(self, vendor_id: UUID, reason: str, user: User) -> Vendor:
         v = self.get_vendor(vendor_id, user)
         from app.modules.vendor.models.vendor import VendorStatus
         v.status = VendorStatus.BLACKLISTED
         v.blacklist_reason = reason
+        self._audit(AuditAction.UPDATE, v, "Vendor", user, new_values={"status": "blacklisted", "reason": reason})
         self.db.commit()
         self.db.refresh(v)
         return v
@@ -172,6 +195,12 @@ class VendorService_:  # trailing underscore avoids clash with model name
         self._scoped(user, c, "Contract")
         if c.status != ContractStatus.DRAFT:
             raise HTTPException(409, f"Contract is already {c.status.value}")
+        if not c.sanctioned_at:
+            raise HTTPException(409, "Record the committee's sanction (and the general body's where needed) "
+                                     "before the contract starts")
+        from app.modules.vendor.models.vendor import VendorStatus
+        if c.vendor.status != VendorStatus.ACTIVE:
+            raise HTTPException(422, f"{c.vendor.company_name} is {c.vendor.status.value} and can't be given work")
         c.status = ContractStatus.ACTIVE
         self.db.commit()
         self.db.refresh(c)
@@ -352,6 +381,9 @@ class VendorService_:  # trailing underscore avoids clash with model name
         vendor = self._vendor_in(data["vendor_id"], society_id)
         self._contract_in(data.get("contract_id"), society_id)
         self._request_in(data.get("request_id"), society_id)
+        if data.get("work_order_id"):
+            from app.modules.vendor.services.work_orders import WorkOrderService
+            WorkOrderService(self.db).check_bill(data["work_order_id"], data)
         same = self.db.query(VendorInvoice).filter(
             VendorInvoice.vendor_id == vendor.id, VendorInvoice.is_active == True,  # noqa: E712
             func.lower(VendorInvoice.invoice_number) == data["invoice_number"].lower()).first()
@@ -390,6 +422,9 @@ class VendorService_:  # trailing underscore avoids clash with model name
         outstanding = inv.total_amount - inv.paid_amount
         if amount > outstanding:
             raise HTTPException(422, f"Payment of {amount} exceeds outstanding balance of {outstanding}")
+        if inv.work_order_id:
+            from app.modules.vendor.services.work_orders import WorkOrderService
+            WorkOrderService(self.db).check_payment(inv, amount)
 
         inv.paid_amount = inv.paid_amount + amount
         inv.payment_mode = payment_mode

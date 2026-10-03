@@ -52,6 +52,9 @@ import 'package:ar_society_app/features/staff/presentation/screens/checklist_tem
 import 'package:ar_society_app/features/billing/presentation/screens/online_payments_list_screen.dart';
 import 'package:ar_society_app/features/billing/presentation/screens/bank_reconciliation_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/vendor_bills_screen.dart';
+import 'package:ar_society_app/features/vendor/presentation/screens/vendors_work_screen.dart';
+import 'package:ar_society_app/features/vendor/presentation/screens/work_order_detail_screen.dart';
+import 'package:ar_society_app/features/vendor/presentation/screens/contract_detail_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/accounts_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/chart_of_accounts_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/day_book_screen.dart';
@@ -140,6 +143,9 @@ class AppRoutes {
   static const onlinePayments     = '/billing/online-payments';
   static const bankReconciliation = '/billing/bank-reconciliation';
   static const vendorBills        = '/vendors/bills';
+  static const vendorsWork        = '/vendors/work';
+  static const workOrderDetail    = '/vendors/work-orders/:id';
+  static const contractDetail     = '/vendors/contracts/:id';
   static const maintenanceBilling = '/billing/maintenance';
   static const myBills            = '/billing/my-bills';
   static const maintenanceElements = '/billing/maintenance-elements';
@@ -644,6 +650,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             },
             builder: (_, __) => const VendorBillsScreen(),
           ),
+          for (final (path, builder) in <(String, Widget Function(GoRouterState))>[
+            (AppRoutes.vendorsWork, (_) => const VendorsWorkScreen()),
+            (AppRoutes.workOrderDetail, (s) => WorkOrderDetailScreen(workOrderId: s.pathParameters['id']!)),
+            (AppRoutes.contractDetail, (s) => ContractDetailScreen(contractId: s.pathParameters['id']!)),
+          ])
+            GoRoute(
+              path: path,
+              redirect: (_, __) {
+                if (authState is AuthAuthenticated) {
+                  final user = (authState as AuthAuthenticated).user;
+                  if (!(user.isAdminOrCommittee || user.isManager)) return userRoleHome(user);
+                }
+                return null;
+              },
+              builder: (_, s) => builder(s),
+            ),
           // The society's books — Admin, committee and Manager.
           for (final (path, builder) in <(String, Widget Function(GoRouterState))>[
             (AppRoutes.accounts, (_) => const AccountsScreen()),

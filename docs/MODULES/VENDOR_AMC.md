@@ -14,7 +14,10 @@ Vendor lifecycle, service contracts (vendor-centric AMC), service requests, visi
 | AMCServiceSchedule | `amc_service_schedules` | Auto-generated visit schedule |
 | ServiceRequest | `service_requests` | Issue → vendor workflow (SRQ-00001) |
 | ServiceVisitLog | `service_visit_logs` | Append-only visit records |
-| VendorInvoice | `vendor_invoices` | GST-ready vendor billing |
+| VendorInvoice | `vendor_invoices` | GST-ready vendor billing (`work_order_id` for bills against a work order) |
+| ProcurementSettings | `procurement_settings` | Committee limit, tender limit, quotations needed (bye-law 157) |
+| WorkOrder | `work_orders` | One-time work given to a vendor (WO-2026-0001), sanction to closure |
+| Quotation | `vendor_quotations` | A vendor's quotation / tender for a work order or a contract |
 
 ## AMC Workflow
 ```
@@ -24,6 +27,39 @@ Create contract (DRAFT) → Activate (ACTIVE)
 → 60/30/7 day expiry alerts via alert_sent_* flags
 → EXPIRED / RENEWED / TERMINATED
 ```
+
+## Work orders and sanctions (`services/work_orders.py`, migration `fd3e4f5a6b7c`)
+Model bye-law 157: the committee may spend on repairs on its own only up to ₹25,000 / ₹50,000 / ₹1,00,000 (up to 25 /
+26–50 / 51+ members) unless the general body fixes another limit; above the general body's tender limit, tenders are
+opened in a committee meeting and the general body decides. A committee member with an interest in a society contract
+is disqualified.
+- **Limits** — `GET/PUT /vendors/procurement-settings/{society}`: blank = the slab for the number of active flats;
+  another figure needs the general body resolution no. and date. Tender limit defaults to the committee limit;
+  `min_quotations` 2–10 (3).
+- **Work order** `DRAFT → SANCTIONED → ISSUED → COMPLETED → CLOSED`, `CANCELLED` from the first three while no bill is
+  recorded. `POST /vendors/work-orders`, `PATCH` (draft; after the sanction only title, location, dates, estimate,
+  expense head), `…/quotations` (+ `DELETE`), `…/sanction`, `…/revise-sanction`, `…/issue`, `…/complete`,
+  `…/release-retention`, `…/close`, `…/cancel`, `…/pdf`; `GET …/society/{id}?status=`.
+- **Sanction** (shared with contracts, `SanctionMixin` columns): one of the quotations; committee resolution no. + date
+  always; above the tender limit at least `min_quotations` vendors, `tenders_opened_on`, no quotation dated after it;
+  above either limit the general body resolution no. + date (not before the opening); a reason when not the lowest;
+  quotation not expired or dated after the meeting; vendor active; `no_interest_declared`; the vendor's mobile/email
+  must not be a committee member's (`committee_interest`). Sanctioned amount = the quotation's total; `sanction_level`
+  committee / general_body.
+- **Money**: bills only once issued, only from its vendor, total ≤ sanctioned (else revise the sanction; the general
+  body's again when needed); a bill without an expense head takes the work order's. Payments: before completion up to
+  `advance_amount`; after, bills less `retention_pct` until `retention_released_on` (allowed from completion +
+  `defect_liability_months`). Close needs every bill paid.
+- **Contracts**: `POST /vendors/contracts/{id}/quotations`, `…/sanction` (sets the vendor and `annual_value` from the
+  quotation); **activation is refused until sanctioned**. Contract output now includes the sanction, quotations and
+  requirements; lists are open to the Manager.
+- **Vendor edit** `PATCH /vendors/{id}` (committee): duplicates refused; status active/inactive/under review (blacklist
+  only via `/blacklist`, with a reason); leaving blacklisted clears the reason. `pincode` accepted on create.
+- **PDF**: the work order on the letterhead with references, scope, value in words, terms, conditions and three
+  signature lines (`work_order_pdf.py`).
+- **App**: Operations → Vendors & Work (form `vendors`: Admin, committee, Manager) — Work Orders, Contracts, Vendors,
+  Limits; work order and contract pages walk through each step. See `docs/GUIDES/VENDOR_MASTERS_COMPLETE_GUIDE.md`.
+- Not built: TDS (s.194C) on contractor payments, two-signatory payment approval, contract expiry notifications.
 
 ## Service Request FSM
 ```
@@ -39,7 +75,8 @@ Any → CANCELLED
 ## RBAC
 | Action | Roles |
 |--------|-------|
-| Manage vendors, contracts | Admin, Committee |
+| Manage vendors; sanction, issue, certify, release retention, close, cancel work; sanction/start contracts; set limits | Admin, Committee |
+| Create work orders and contract drafts, enter quotations and bills, view limits | Admin, Committee, Manager |
 | Create service requests | Admin, Committee, Staff |
 | Assign vendor to SR | Admin, Committee |
 | Update SR status, log visits | Admin, Committee, Staff |

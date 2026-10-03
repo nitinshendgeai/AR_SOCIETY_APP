@@ -92,6 +92,7 @@ from app.modules.vendor.models.vendor import (
     ServiceRequest, ServiceVisitLog, VendorInvoice,
     VendorCategory, VendorStatus, ContractStatus, ServiceFrequency,
     ServiceRequestStatus, ServiceRequestPriority, ScheduleStatus,
+    ProcurementSettings, WorkOrder, WorkOrderStatus, Quotation,
 )
 
 # Accounts module models

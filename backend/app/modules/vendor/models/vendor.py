@@ -16,7 +16,7 @@ from sqlalchemy import (
     DateTime, Date, Enum, ForeignKey, Numeric, UniqueConstraint
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import declared_attr, relationship
 from app.db.base import Base, TimestampMixin
 
 
@@ -95,6 +95,45 @@ class VendorPaymentMode(str, enum.Enum):
     CHEQUE        = "cheque"
     NEFT          = "neft"
     RTGS          = "rtgs"
+
+
+class WorkOrderStatus(str, enum.Enum):
+    DRAFT      = "draft"        # quotations being collected
+    SANCTIONED = "sanctioned"   # awarded by committee / general body resolution
+    ISSUED     = "issued"       # work order given to the vendor
+    COMPLETED  = "completed"    # completion certified by the committee
+    CLOSED     = "closed"       # every bill paid
+    CANCELLED  = "cancelled"
+
+
+class SanctionLevel(str, enum.Enum):
+    COMMITTEE    = "committee"
+    GENERAL_BODY = "general_body"
+
+
+# ── Sanction (who approved spending the society's money, and how) ───────────
+
+class SanctionMixin:
+    """The decision to award a work or contract, as the model bye-laws
+    require it to be recorded: the committee's resolution, the general
+    body's when the amount is beyond what the committee may spend on its own
+    or tenders were needed, the date tenders were opened in the committee
+    meeting, why a quotation other than the lowest was chosen, and the
+    declaration that no committee member has an interest in it."""
+    sanctioned_amount      = Column(Numeric(12, 2), nullable=True)
+    sanction_level         = Column(Enum(SanctionLevel, values_callable=lambda e: [x.value for x in e]), nullable=True)
+    committee_resolution_no = Column(String(50), nullable=True)
+    committee_meeting_date = Column(Date, nullable=True)
+    gb_resolution_no       = Column(String(50), nullable=True)
+    gb_meeting_date        = Column(Date, nullable=True)
+    tenders_opened_on      = Column(Date, nullable=True)
+    selection_reason       = Column(Text, nullable=True)
+    no_interest_declared   = Column(Boolean, default=False, nullable=False)
+    sanctioned_at          = Column(DateTime, nullable=True)
+
+    @declared_attr
+    def sanctioned_by(cls):
+        return Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
 
 # ── ServiceRequest FSM transitions ───────────────────────────────────────────
@@ -181,7 +220,7 @@ class VendorService(Base, TimestampMixin):
 
 # ── AMCContract ───────────────────────────────────────────────────────────────
 
-class AMCContract(Base, TimestampMixin):
+class AMCContract(Base, TimestampMixin, SanctionMixin):
     __tablename__ = "amc_contracts"
 
     society_id       = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -225,7 +264,9 @@ class AMCContract(Base, TimestampMixin):
     society   = relationship("Society")
     vendor    = relationship("Vendor", back_populates="contracts")
     creator   = relationship("User", foreign_keys=[created_by])
+    sanctioner = relationship("User", foreign_keys="AMCContract.sanctioned_by")
     schedules = relationship("AMCServiceSchedule", back_populates="contract", cascade="all, delete-orphan")
+    quotations = relationship("Quotation", back_populates="contract", order_by="Quotation.total_amount")
 
     def days_to_expiry(self) -> int:
         from datetime import date
@@ -346,6 +387,7 @@ class VendorInvoice(Base, TimestampMixin):
     vendor_id      = Column(UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="CASCADE"), nullable=False, index=True)
     contract_id    = Column(UUID(as_uuid=True), ForeignKey("amc_contracts.id", ondelete="SET NULL"), nullable=True, index=True)
     request_id     = Column(UUID(as_uuid=True), ForeignKey("service_requests.id", ondelete="SET NULL"), nullable=True, index=True)
+    work_order_id  = Column(UUID(as_uuid=True), ForeignKey("work_orders.id", ondelete="SET NULL"), nullable=True, index=True)
     approved_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
     invoice_number = Column(String(50), nullable=False, index=True)
@@ -370,4 +412,113 @@ class VendorInvoice(Base, TimestampMixin):
     vendor   = relationship("Vendor", back_populates="invoices")
     contract = relationship("AMCContract")
     request  = relationship("ServiceRequest")
+    work_order = relationship("WorkOrder", back_populates="invoices")
     approver = relationship("User", foreign_keys=[approved_by])
+
+
+# ── Procurement rules (fixed by the general body) ─────────────────────────────
+
+class ProcurementSettings(Base, TimestampMixin):
+    """How much the committee may spend on a work by itself, and above what
+    amount tenders are needed — model bye-law 157. Left blank, the committee
+    limit is the bye-law slab for the society's size (₹25,000 up to 25
+    members, ₹50,000 up to 50, ₹1,00,000 above) and the tender limit equals
+    it. A general body can fix other figures; the resolution is recorded."""
+    __tablename__ = "procurement_settings"
+
+    society_id      = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"),
+                             nullable=False, unique=True, index=True)
+    committee_limit = Column(Numeric(12, 2), nullable=True)
+    tender_limit    = Column(Numeric(12, 2), nullable=True)
+    min_quotations  = Column(Integer, default=3, nullable=False)
+    gb_resolution_no = Column(String(50), nullable=True)     # the general body decision fixing these limits
+    gb_meeting_date = Column(Date, nullable=True)
+
+    society = relationship("Society")
+
+
+# ── Work order ────────────────────────────────────────────────────────────────
+
+class WorkOrder(Base, TimestampMixin, SanctionMixin):
+    """A one-time work given to a vendor: quotations are collected, the work
+    is sanctioned by resolution, the written work order is issued, the
+    committee certifies completion, and the vendor's bills are paid within
+    the sanctioned amount — advance before completion, retention held for
+    the defect liability period."""
+    __tablename__ = "work_orders"
+
+    society_id     = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    vendor_id      = Column(UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True, index=True)
+    service_request_id = Column(UUID(as_uuid=True), ForeignKey("service_requests.id", ondelete="SET NULL"), nullable=True, index=True)
+    complaint_id   = Column(UUID(as_uuid=True), ForeignKey("complaints.id", ondelete="SET NULL"), nullable=True, index=True)
+    asset_id       = Column(UUID(as_uuid=True), ForeignKey("assets.id", ondelete="SET NULL"), nullable=True, index=True)
+    expense_account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+    created_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    completed_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    cancelled_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    wo_number      = Column(String(30), nullable=False, index=True)
+    title          = Column(String(255), nullable=False)
+    scope_of_work  = Column(Text, nullable=True)
+    location       = Column(String(255), nullable=True)
+    category       = Column(Enum(VendorCategory, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
+    estimated_cost = Column(Numeric(12, 2), nullable=True)
+    status         = Column(Enum(WorkOrderStatus, values_callable=lambda e: [x.value for x in e]),
+                            default=WorkOrderStatus.DRAFT, nullable=False, index=True)
+
+    # Terms printed on the work order
+    start_date     = Column(Date, nullable=True)
+    due_date       = Column(Date, nullable=True)       # to be completed by
+    payment_terms  = Column(Text, nullable=True)
+    advance_amount = Column(Numeric(12, 2), default=0, nullable=False)
+    retention_pct  = Column(Numeric(5, 2), default=0, nullable=False)
+    defect_liability_months = Column(Integer, default=0, nullable=False)
+
+    issued_on      = Column(Date, nullable=True)
+    completed_on   = Column(Date, nullable=True)
+    completion_notes = Column(Text, nullable=True)
+    certificate_ref = Column(String(100), nullable=True)   # architect / engineer's certificate, if any
+    retention_released_on = Column(Date, nullable=True)
+    closed_on      = Column(Date, nullable=True)
+    cancelled_at   = Column(DateTime, nullable=True)
+    cancel_reason  = Column(Text, nullable=True)
+
+    __table_args__ = (UniqueConstraint("society_id", "wo_number", name="uq_work_order_society_number"),)
+
+    society    = relationship("Society")
+    vendor     = relationship("Vendor", foreign_keys=[vendor_id])
+    quotations = relationship("Quotation", back_populates="work_order", order_by="Quotation.total_amount")
+    invoices   = relationship("VendorInvoice", back_populates="work_order")
+    sanctioner = relationship("User", foreign_keys="WorkOrder.sanctioned_by")
+    certifier  = relationship("User", foreign_keys=[completed_by])
+    expense_account = relationship("Account", foreign_keys=[expense_account_id])
+
+    def __repr__(self):
+        return f"<WorkOrder {self.wo_number} [{self.status}]>"
+
+
+# ── Quotation / tender ────────────────────────────────────────────────────────
+
+class Quotation(Base, TimestampMixin):
+    """A vendor's offer for a work order or an annual contract."""
+    __tablename__ = "vendor_quotations"
+
+    society_id     = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    work_order_id  = Column(UUID(as_uuid=True), ForeignKey("work_orders.id", ondelete="CASCADE"), nullable=True, index=True)
+    contract_id    = Column(UUID(as_uuid=True), ForeignKey("amc_contracts.id", ondelete="CASCADE"), nullable=True, index=True)
+    vendor_id      = Column(UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="CASCADE"), nullable=False, index=True)
+    received_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    quotation_ref  = Column(String(50), nullable=True)
+    quotation_date = Column(Date, nullable=False)
+    valid_until    = Column(Date, nullable=True)
+    amount         = Column(Numeric(12, 2), nullable=False)
+    gst_amount     = Column(Numeric(12, 2), default=0, nullable=False)
+    total_amount   = Column(Numeric(12, 2), nullable=False)
+    remarks        = Column(Text, nullable=True)
+    doc_url        = Column(String(500), nullable=True)
+    is_selected    = Column(Boolean, default=False, nullable=False)   # the one awarded
+
+    work_order = relationship("WorkOrder", back_populates="quotations")
+    contract   = relationship("AMCContract", back_populates="quotations")
+    vendor     = relationship("Vendor")

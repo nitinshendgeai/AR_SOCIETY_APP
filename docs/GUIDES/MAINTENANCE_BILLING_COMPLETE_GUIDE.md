@@ -1,516 +1,246 @@
-# Complete Maintenance Billing Guide
-## Financial Calculations & Workflow for Residential Society
+# Maintenance Billing — Complete Guide
+
+How the app works out each flat's maintenance bill, where every rupee comes from, and the order in which the
+committee and manager do things. Written against the code (`backend/app/modules/billing/services/maintenance_calculator.py`,
+`budget_suggestions.py`, `standard_elements.py`) and the Maharashtra model bye-laws for co-operative housing
+societies (bye-laws 13(c), 65–71). Check figures against your society's registered bye-laws and general body
+resolutions — the app lets you set them.
 
 ---
 
-## Table of Contents
-1. [Overview & Core Concepts](#overview)
-2. [Maintenance Elements & Service Charges](#elements)
-3. [Expense Ledger Linking](#ledger-linking)
-4. [Financial Calculation Flow](#calculations)
-5. [Step-by-Step Workflow](#workflow)
-6. [Examples with Real Numbers](#examples)
-7. [Standards & Best Practices](#standards)
-
----
-
-## Overview & Core Concepts {#overview}
-
-### What is Maintenance Billing?
-Maintenance billing is the **monthly/quarterly billing to residents for** common area maintenance and operations. It consists of:
-- **Service Charges**: Security, housekeeping, management fees (reduced for non-occupied flats)
-- **Hard-Coded Elements**: Property tax, water, insurance, repairs (no reduction)
-- **Fines/Extra Charges**: Parking violations, damage charges (per-flat)
-
-### Key Principle: Expense-Driven Budgets
-Instead of guessing amounts, the system **calculates budgets from actual spending**:
-1. Committee records all expenses (vendor bills, vouchers)
-2. System links expenses to maintenance elements
-3. When billing, it **annualizes** the spending and suggests amounts
-4. Bills can auto-include these calculated amounts OR use typed amounts
-
-### Financial Accuracy
-- **Double-entry accounting**: Every expense posts to ledgers, bills post revenue
-- **Per-flat precision**: Amounts adjusted by area, occupancy, unit count
-- **GST-ready**: Tax calculated per line item, reported separately
-- **Auditability**: Full ledger trail, reversals, allocations tracked
-
----
-
-## Maintenance Elements & Service Charges {#elements}
-
-### Standard Maintenance Elements (Seeded)
-
-| Element | Code | Type | Basis Options | Service Charge? |
-|---------|------|------|---|---|
-| **Security Services** | security | SERVICE | Annual/Per Flat/Per Sqft | ✅ YES |
-| **Housekeeping & Cleaning** | housekeeping | SERVICE | Annual/Per Flat/Per Sqft | ✅ YES |
-| **Lift Maintenance** | lift_maintenance | FACILITY | Annual/Per Flat/Per Sqft | ❌ NO |
-| **Common Electricity** | common_electricity | UTILITY | Annual/Per Flat/Per Sqft | ❌ NO |
-| **Water Charges** | water_charges | UTILITY | Per Sqft/Annual | ❌ NO |
-| **Property Tax** | property_tax | TAX | Per Flat/Per Sqft | ❌ NO |
-| **Insurance** | insurance | INSURANCE | Annual/Per Flat | ❌ NO |
-| **Lease Rent / NA Tax** | lease_rent_na_tax | TAX | Annual | ❌ NO |
-| **Repair & Maintenance Fund** | repair_fund | FUND | % of Construction Cost | ❌ NO |
-| **Sinking Fund** | sinking_fund | FUND | % of Construction Cost | ❌ NO |
-
-### Service Charge Rule
-**Service charges are reduced proportionally for non-occupied flats** (empty, rented out to commercial use, under renovation).
-
-Formula:
-```
-Service Charge for Flat = Base Amount × (Occupancy Factor)
-Occupancy Factor = 1.0 (occupied), 0.5 (non-occupied), 0.75 (partial)
-```
-
-**Hard-coded elements (Property Tax, Insurance, etc.) are NOT reduced** — every flat pays full amount regardless of occupancy.
-
----
-
-## Expense Ledger Linking {#ledger-linking}
-
-### How It Works
-
-Each **expense ledger** in Chart of Accounts is linked to ONE **maintenance element**:
+## 1. The idea in one picture
 
 ```
-Chart of Accounts (Expense Ledgers)    →    Maintenance Elements
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Security Charges                       →    Security Services
-CCTV & Security Systems Maintenance    →    Security Services
-Housekeeping & Cleaning                →    Housekeeping
-Garden Maintenance                     →    Housekeeping
-Pest Control                           →    Housekeeping
-Lift Maintenance (AMC)                 →    Lift Maintenance
-Electricity Charges (Common Areas)     →    Common Electricity
-Generator / DG Maintenance             →    Common Electricity
-Water Charges                          →    Water Charges
-Property Tax                           →    Property Tax
-Insurance Premium                      →    Insurance
-Lease Rent / NA Tax                    →    Lease Rent / NA Tax
-Repairs & Maintenance — Plumbing       →    (UNLINKED — must link manually)
-Repairs & Maintenance — Electrical     →    (UNLINKED — must link manually)
-Repairs & Maintenance — Building       →    (UNLINKED — must link manually)
-Repairs & Maintenance — General        →    (UNLINKED — must link manually)
-```
-
-### Default Links (Automatic)
-**New societies get default links during setup:**
-- Security Charges + CCTV → Security
-- Housekeeping + Garden + Pest Control → Housekeeping
-- Lift → Lift Maintenance
-- Electricity + Generator → Common Electricity
-- Water → Water Charges
-- Property Tax → Property Tax
-- Insurance → Insurance
-- Lease Rent → Lease Rent / NA Tax
-
-**Existing societies get upgraded via Migration `fc2d3e4f5a6b`**.
-
-### Changing Links (Committee Can Do This)
-**Finance → Chart of Accounts → [Select Ledger] → Edit → "Counts towards Maintenance Element"**
-
-Example: If "Repairs & Maintenance — Plumbing" should count towards repair fund:
-1. Find the ledger in Chart of Accounts
-2. Click Edit (pencil icon)
-3. Select "Repair & Maintenance Fund" from dropdown
-4. Click "Save"
-5. **From now on, all expenses in this ledger count towards that element**
-
-### What Counts Toward an Element?
-Everything posted to the linked ledger:
-- ✅ Vendor bill amounts
-- ✅ Payment vouchers (actual cash paid out)
-- ✅ Journal entries (manual adjustments)
-- ✅ Returns/credits (negative amounts)
-- ❌ Cancelled/reversed entries (excluded from calculations)
-
----
-
-## Financial Calculation Flow {#calculations}
-
-### Step 1: Expense Data Collection
-```
-MONTH 1  →  Record Vendor Bills
-            ├─ Security vendor invoice: ₹50,000
-            ├─ Housekeeping vendor invoice: ₹20,000
-            ├─ Water supplier bill: ₹15,000
-            └─ Insurance premium payment: ₹25,000
-
-MONTH 2  →  Record more bills
-            └─ ... and so on for all months
-```
-
-### Step 2: Calculate Spending Per Element (Budget Suggestions)
-**What happens when you click "Suggest from Expenses":**
-
-```
-Window: Last 12 months
-For each Maintenance Element:
-  1. Find all linked expense ledgers
-  2. Sum all debits (expenses) and credits (returns)
-  3. Calculate net spend = debits - credits
-  4. Determine # of months with activity
-  5. Annualize: Annual Spend = (Net Spend / Months Covered) × 12
-  6. Convert to charge basis (see below)
-```
-
-### Step 3: Basis Conversion
-
-**Annual budget → ₹/flat/month**
-```
-Cost/Flat/Month = (Annual Spend ÷ Total Flats) ÷ 12
-
-Example:
-  Annual security spend: ₹600,000
-  Total flats: 100
-  = (600,000 ÷ 100) ÷ 12
-  = ₹500 per flat per month
-```
-
-**Annual budget → ₹/sqft/month**
-```
-Cost/Sqft/Month = (Annual Spend ÷ Total Area Sqft) ÷ 12
-
-Example:
-  Annual water spend: ₹360,000
-  Total area: 40,000 sqft
-  = (360,000 ÷ 40,000) ÷ 12
-  = ₹0.75 per sqft per month
-```
-
-**Fixed/Single Amount (for insurance, NA tax, etc.)**
-```
-Monthly = Annual Spend ÷ 12
-
-Example:
-  Annual insurance: ₹600,000
-  = ₹50,000 per month (same for all flats)
-```
-
-### Step 4: Apply Service Charge Rule
-If element is a **Service Charge** (Security, Housekeeping):
-```
-Final Amount = Calculated × Occupancy Factor
-
-Occupied flat (100%):     ₹500
-Non-occupied flat (50%):  ₹250
-Partial occupancy (75%):  ₹375
-```
-
-If **Hard-Coded** (Property Tax, Insurance):
-```
-All flats pay FULL calculated amount (no occupancy reduction)
-```
-
-### Step 5: Generate Bill
-```
-Maintenance Bill for Flat A-101:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Line Item                    Amount    Tax    Total
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Security Services           ₹500      ₹90    ₹590
-Housekeeping                ₹300      ₹54    ₹354
-Lift Maintenance            ₹200      ₹36    ₹236
-Water Charges               ₹250      ₹45    ₹295
-Property Tax                ₹150      ₹0     ₹150
-Insurance                   ₹50       ₹0     ₹50
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SUBTOTAL                             ₹1,450
-TAX (18% GST)                        ₹225
-TOTAL DUE                            ₹1,675
+Vendor bills, payment vouchers, journals
+        │  booked to an expense ledger (Accounts → Chart of Accounts)
+        ▼
+Expense ledger  ──linked to──▶  Maintenance element (Security, Lift, Water …)
+                                        │
+                                        ▼
+                       Charge head (how the element is shared per flat)
+                                        │  typed amount, or "budget from expenses"
+                                        ▼
+Billing cycle ──▶ Maintenance calculator ──▶ one bill per flat
+                     + non-occupancy charges (tenant-let flats)
+                     + fines / extra charges on that flat
+                     + GST (only above the threshold)
+                     + interest on arrears
+                                        │
+                                        ▼
+               Issue ──▶ payments set off oldest bill first ──▶ dues & defaulters
 ```
 
 ---
 
-## Step-by-Step Workflow {#workflow}
+## 2. Maintenance elements (the master list)
 
-### Phase 1: Setup (One Time)
-```
-1. Add your standard maintenance elements
-   → Maintenance Billing → Maintenance Elements → "Add from Standard" 
-   → Selects all 9 standard elements
-   
-2. Create charge heads for each element
-   → Maintenance Billing → Charge Heads → "Add from Elements"
-   → System auto-fills basis, GST status from element definition
-   → Set default amount (e.g., ₹500/flat/month for security)
-   
-3. Verify expense ledger links
-   → Finance → Chart of Accounts
-   → Check each ledger's "Counts towards" setting
-   → Adjust if needed (e.g., plumbing repairs → Repair Fund)
-```
+**Where:** Finance → Maintenance Elements.
 
-### Phase 2: Expense Recording (Ongoing, Monthly)
-```
-1. Record all vendor bills
-   → Finance → Vendor Bills → "Add Invoice"
-   → Vendor name, invoice #, date, amount, category
-   → System posts to correct expense ledger automatically
-   
-2. Record vendor payments
-   → Finance → Vendor Bills → "Pay Invoice"
-   → Amount, payment date, method (cash/bank)
-   → System posts to bank/cash ledger + expense ledger
-   
-3. Record other expenses (non-vendor)
-   → Finance → Accounts → Create Voucher (Journal Entry)
-   → Debit: Expense ledger (e.g., Security Charges)
-   → Credit: Bank account
-```
+A society starts with these standard elements (it can edit them, deactivate them, or add its own):
 
-### Phase 3: Billing Cycle Setup (Monthly/Quarterly)
-```
-1. Create billing cycle
-   → Maintenance Billing → Cycles → "Create Cycle"
-   → Name: "October 2026 Maintenance"
-   → Cycle dates: Oct 1 - Oct 31
-   → Due date: Oct 15
-   → Click "Create"
+| Element | Default way of sharing | Service charge? | Bye-law |
+|---|---|---|---|
+| Service Charges (office, staff, stationery, audit fees) | Same amount per flat | Yes | 66–67 |
+| Common Electricity | Annual budget split equally | Yes | 66–67 |
+| Lift Maintenance | Annual budget split equally (every flat, lift users or not) | Yes | 66–67 |
+| Security Services | Annual budget split equally | Yes | 66–67 |
+| Housekeeping | Annual budget split equally | Yes | 66–67 |
+| Property Tax | ₹ per sq ft (as the municipality levies) | No | 66–67 |
+| Water Charges | Annual budget split by area | No | 66–67 |
+| Repairs & Maintenance Fund | 0.75% a year of the flat's construction cost | No | 67(a)(iii) |
+| Sinking Fund | at least 0.25% a year of the flat's construction cost | No | 13(c), 67(a)(v) |
+| Parking Charges | Per allotted slot | No | 66–67 |
+| Building Insurance | Annual budget split by area | No | 66–67 |
+| Lease Rent / NA Tax | Annual budget split by area | No | 66–67 |
+| Education & Training Fund | Annual budget split equally | No | 66–67 |
+| Amenities / Clubhouse | Same amount per flat | No | — |
 
-2. Preview expenses (optional, to see calculated amounts)
-   → Click "Preview" on the cycle
-   → Shows "Budget from Expenses" values (if enabled)
-   → Shows standard typed amounts
-   
-3. Review charge heads
-   → Go back if amounts need adjustment
-   → Edit charge head amounts if needed
-   → OR enable "Budget from Expenses" to auto-calculate
-```
-
-### Phase 4: Bill Generation
-```
-1. Generate bills
-   → Maintenance Billing → Cycles → [Select Cycle]
-   → Click "Generate Bills"
-   → System creates ONE bill per active flat
-   → Each bill includes:
-     - All active charge heads (at calculated or typed amounts)
-     - Service charges reduced for non-occupied flats
-     - Hard-coded elements at full amount
-     - GST per line item
-     
-2. Issue bills
-   → Maintenance Billing → Cycles → [Select Cycle] → Issue All
-   → Residents notified via app/SMS/email
-   → Bills move to ISSUED status (start accruing interest if unpaid)
-```
-
-### Phase 5: Payment & Reconciliation
-```
-1. Record payments
-   → Finance → Payments → "Record Payment"
-   → Flat/member, amount, date, method
-   → System shows auto-allocation across oldest bills
-   → OR use "One Bill" to apply to specific bill
-   
-2. Set off advance payments (old "on account" entries)
-   → Payments → "Apply" button
-   → Oldest bills settled first
-   
-3. Run reconciliation
-   → Finance → Bank Reconciliation
-   → Match payments to deposits
-   → Reverse bounced cheques (system reverses allocations)
-```
-
-### Phase 6: Dues Tracking
-```
-1. Check who's behind on payments
-   → Finance → Defaulters
-   → Shows flats with dues >3 months old (configurable)
-   → Export to PDF for records
-   
-2. Send reminders
-   → Select defaulters, send notification
-   → System sends in-app alert + SMS to member
-```
+**"Service charge" matters for one thing only:** the non-occupancy charge (section 5.2) is a percentage of a
+flat's service-charge lines. It does **not** reduce anyone's bill.
 
 ---
 
-## Examples with Real Numbers {#examples}
+## 3. Charge heads — how an element becomes a per-flat amount
 
-### Example 1: Small Society (50 flats, 25,000 sqft)
+**Where:** Finance → Maintenance Billing → **Charge Heads**. A charge head is made from an element and picks a
+*basis*. The amount you type means something different for each basis:
 
-**EXPENSES RECORDED (Past 12 Months):**
-```
-Security vendors:
-  • ABC Security Services: ₹5,00,000
-  • CCTV maintenance: ₹60,000
-  Total: ₹5,60,000
+| Basis | You enter | Per flat per month |
+|---|---|---|
+| Same for every flat | ₹ per flat per month | the amount |
+| Per sq ft | ₹ per sq ft per month | rate × flat area |
+| % of construction cost | % per year | flat area × construction cost per sq ft × % ÷ 100 ÷ 12 |
+| Annual budget, split equally | ₹ per year | budget ÷ number of active flats ÷ 12 |
+| Annual budget, split by area | ₹ per year | budget × flat area ÷ total area ÷ 12 |
+| Per parking slot | ₹ per slot per month | rate × the flat's allotted slots |
 
-Housekeeping vendors:
-  • Cleaning crew: ₹2,40,000
-  • Garden maintenance: ₹1,20,000
-  Total: ₹3,60,000
+A quarterly cycle multiplies every monthly figure by 3, half-yearly by 6, yearly by 12.
 
-Lift maintenance vendor: ₹1,80,000
-Common electricity bills: ₹7,20,000
-Water supply bills: ₹4,50,000
-Insurance premium: ₹6,00,000
-Property tax paid: ₹3,00,000
-```
-
-**CALCULATED AMOUNTS (Before Occupancy Adjustment):**
-
-| Element | Annual Spend | Basis | Calculated Rate | Monthly/Flat |
-|---------|---|---|---|---|
-| Security | ₹5,60,000 | Per Flat | ₹5,60,000 ÷ 50 ÷ 12 | ₹933 |
-| Housekeeping | ₹3,60,000 | Per Flat | ₹3,60,000 ÷ 50 ÷ 12 | ₹600 |
-| Lift | ₹1,80,000 | Per Flat | ₹1,80,000 ÷ 50 ÷ 12 | ₹300 |
-| Electricity | ₹7,20,000 | Per Sqft | ₹7,20,000 ÷ 25,000 ÷ 12 | ₹2.40/sqft |
-| Water | ₹4,50,000 | Per Sqft | ₹4,50,000 ÷ 25,000 ÷ 12 | ₹1.50/sqft |
-| Insurance | ₹6,00,000 | Fixed | ₹6,00,000 ÷ 12 | ₹50,000 |
-| Property Tax | ₹3,00,000 | Fixed | ₹3,00,000 ÷ 12 | ₹25,000 |
-
-**BILL FOR FLAT (500 sqft, Occupied):**
-```
-Security (Service Charge)        ₹933      × 1.0  = ₹933
-Housekeeping (Service Charge)    ₹600      × 1.0  = ₹600
-Lift Maintenance (Hard-Coded)    ₹300      × 1.0  = ₹300
-Electricity                      ₹2.40     × 500  = ₹1,200
-Water                            ₹1.50     × 500  = ₹750
-Insurance (Hard-Coded)           ₹50,000   ÷ 50   = ₹1,000
-Property Tax (Hard-Coded)        ₹25,000   ÷ 50   = ₹500
-                                                    ────────
-Subtotal: ₹5,283
-GST (18%): ₹951
-TOTAL: ₹6,234
-```
-
-**SAME FLAT, NON-OCCUPIED (50% occupancy):**
-```
-Security (reduced)               ₹933      × 0.5  = ₹467
-Housekeeping (reduced)           ₹600      × 0.5  = ₹300
-Lift Maintenance (FULL)          ₹300      × 1.0  = ₹300
-Electricity                      ₹2.40     × 500  = ₹1,200
-Water                            ₹1.50     × 500  = ₹750
-Insurance (FULL)                 ₹1,000    × 1.0  = ₹1,000
-Property Tax (FULL)              ₹500      × 1.0  = ₹500
-                                                    ────────
-Subtotal: ₹4,517
-GST (18%): ₹813
-TOTAL: ₹5,330
-```
-
-Notice: Service charges reduced by 50%, hard-coded elements paid in full.
+The **construction cost per sq ft** (architect-certified, excluding land) is set once under **Rules**; the sinking and
+repair funds can't be worked out without it, and the preview warns. Flats without an area get ₹0 on area-based heads
+(also warned).
 
 ---
 
-## Standards & Best Practices {#standards}
+## 4. Linking expenses to elements ("budget from expenses")
 
-### Best Practice 1: Monthly Billing Window
-- **Do**: Record expenses every month, bill every month
-- **Why**: Residents expect predictable monthly charges; quick billing feedback on expenses
-- **How**: Set up standing orders for vendor payments on same date each month
+### 4.1 Expense ledgers count towards an element
 
-### Best Practice 2: "Budget from Expenses" for Predictable Costs
-**Enable for:**
-- Security, Housekeeping, Lift Maintenance (actual spending varies)
-- Utilities (electricity, water — seasonal variations)
+**Where:** Finance → Accounts → Chart of Accounts → edit an expense ledger → **Counts towards**.
 
-**Keep as "Typed Amount" for:**
-- Property Tax (government-mandated, not negotiable)
-- Insurance (quotes fixed annually)
-- Fund percentages (policy-driven, not spend-driven)
+New books come with these links:
 
-### Best Practice 3: Reconcile Monthly
-- Record ALL expenses (no cash-in-hand unaccounted spending)
-- Run reconciliation: Payments vs. Bank deposits
-- Flag discrepancies immediately
-- Keep audit trail: every expense linked to ledger, invoice, payment
+| Expense ledger | Counts towards |
+|---|---|
+| Security Charges, CCTV Maintenance | Security Services |
+| Housekeeping, Garden, Pest Control | Housekeeping |
+| Lift Maintenance | Lift Maintenance |
+| Electricity, Generator Maintenance | Common Electricity |
+| Water Charges | Water Charges |
+| Property Tax | Property Tax |
+| Insurance | Building Insurance |
+| Lease Rent | Lease Rent / NA Tax |
 
-### Best Practice 4: Service Charge vs Hard-Coded
-- **Service Charge** = variable by occupancy (makes fairness sense)
-  - Examples: Security (empty flat = less security need), housekeeping (empty = no cleaning)
-- **Hard-Coded** = same for all (legal/policy requirement)
-  - Examples: Property tax (government mandates all units pay), insurance (entire building covered)
+Repairs ledgers (plumbing, electrical, building …) are **not linked** — they are usually paid from the Repairs Fund or
+are one-off. Link them only if your society recovers them through a monthly head.
 
-**Don't guess:** Check bye-laws and local regulations. If unclear, mark as hard-coded initially; can always change.
+Everything posted to a linked ledger counts: vendor bills (Vendor Bills, or bills against a work order), payment
+vouchers and journals. Cancelled vouchers don't.
 
-### Best Practice 5: Occupancy Status
-Keep occupancy status current in the app:
-- **Occupied**: Resident living there → Full service charges
-- **Non-Occupied**: Empty, rented to commercial, renovation → 50% service charges
-- **Partial**: Seasonal, shared lease → 75% service charges
+### 4.2 Where vendor spending lands
 
-### Best Practice 6: Transparency
-- Publish the "Budget from Expenses" calculation quarterly to members
-- Show: "Last year we spent ₹X on Security, budgeting ₹Y per flat for next quarter"
-- Builds trust; residents understand why their bills changed
+A vendor's bill is booked to an expense ledger:
+1. the expense head chosen on the bill, else
+2. the work order's expense head (bills recorded against a work order), else
+3. the ledger for the vendor's category.
 
----
+So a Lift AMC bill lands in *Lift Maintenance*, which counts towards the **Lift Maintenance** element.
 
-## Financial Double-Entry Records
+### 4.3 Suggest from expenses
 
-### When a Vendor Bill is Recorded:
-```
-Debit: Security Charges (Expense)     ₹50,000
-  Credit: Accounts Payable (Liability)           ₹50,000
-(System automatically uses ledger linked to Security element)
-```
+**Where:** Charge Heads → **Suggest from expenses**. For each charge head made from an element, the app takes the last
+N months (12 by default) of net spend on the linked ledgers and:
 
-### When the Bill is Paid:
-```
-Debit: Accounts Payable               ₹50,000
-  Credit: Bank Account (Asset)                   ₹50,000
-```
+1. **Annualises** it: `annual = spent × 12 ÷ months covered`. A society with only 8 months of postings has those 8
+   months scaled up to a year, not treated as a year.
+2. **Converts** it to the head's unit:
+   - Annual budget (equal or by area): `annual`
+   - Same for every flat: `annual ÷ flats ÷ 12`
+   - Per sq ft: `annual ÷ total area ÷ 12`
+   - % of construction cost and parking: not suggested — those are policy rates, not costs to recover.
 
-### When Maintenance Bill is Generated:
-```
-Debit: Accounts Receivable / Flat A-101         ₹6,234
-  Credit: Maintenance Revenue (Income)          ₹5,283
-  Credit: GST Collected (Liability)             ₹951
-(One bill per flat; all maintenance revenue collected this way)
-```
+It also lists expense ledgers with spend that **no element covers**, so nothing is missed. Nothing changes until you
+apply a figure.
 
-### When Payment is Received:
-```
-Debit: Bank Account                  ₹6,234
-  Credit: Accounts Receivable / Flat A-101              ₹6,234
-(Payment allocation tracks which bill it settles)
-```
+### 4.4 Budget from expenses (automatic)
 
-### Every Ledger Account Balances:
-- **Asset** (Bank): What we have
-- **Liability** (Payables): What we owe vendors
-- **Income** (Maintenance Revenue): What residents owe us
-- **Expense** (Security, Housekeeping, etc.): What we spent
-- **Equity** (Opening balance, retained earnings): Society's net worth
-
-**= Financial Statement at any date is accurate.**
+On a charge head, switch on **Budget from expenses** and choose the months (1–36). Every preview and bill generation
+then uses the spend-based figure instead of the typed amount. If nothing was spent in the window, the typed amount is
+used and the preview says so. **Bills already generated are never recalculated.**
 
 ---
 
-## FAQ
+## 5. What goes on each flat's bill
 
-**Q: What if we didn't record expenses for 6 months, then recorded them all at once?**  
-A: "Budget from Expenses" uses the actual dates on the invoices. If all dated within that 6-month window, the calculation will be correct. If some are old, they're in the window; the calculation averages them. Best practice: record monthly.
+### 5.1 Charge-head lines
+One line per active charge head, worked out as in section 3.
 
-**Q: Can we use different bases for different flat sizes?**  
-A: No. One charge head = one basis. If you want per-sqft for large flats, per-flat for small: create two charge heads (Security-Large, Security-Small) and assign manually or split the ledger. Most societies use per-sqft for utilities, per-flat for services.
+### 5.2 Non-occupancy charges
+**Where:** Maintenance Billing → **Rules → Non-occupancy %** (0 by default, at most 10%).
 
-**Q: Can non-occupied flats be exempted from security charges entirely?**  
-A: Technically yes (set occupancy to 0%), but recommend 50% as minimum (24/7 entry gate still protects empty flat). Set 0% only if physically locked/inaccessible.
+A flat **let out to a tenant** pays this percentage of its **service-charge lines** as an extra line. Owner-occupied and
+vacant flats don't. It is an addition, never a discount.
 
-**Q: How often should we review "Budget from Expenses"?**  
-A: Quarterly minimum. Expenses fluctuate seasonally (electricity in summer, water in season). Review, adjust if needed, bill next cycle.
+### 5.3 Fines and additional charges on one flat
+**Where:** Maintenance Billing → **Fines & Charges**. A fine or extra charge on one flat, with a reason, from an
+effective date, once or every bill until an end date. Fines go on the bill as a penalty line (no GST, and no interest
+is charged on them); extra charges as their own line, with GST only if marked. Members are notified when one is added.
 
-**Q: What's the difference between vendor bills and journal entries?**  
-A: Vendor bills = invoices from outside vendors (tracked, payment terms). Journal entries = manual adjustments (write-offs, transfers, revaluations). Both post to expense ledgers; both count toward "Budget from Expenses."
+### 5.4 GST
+**Where:** Rules → GST registered / rate / threshold. Only if the society is registered (turnover above ₹20 lakh):
+when a flat's monthly GST-able contribution is **more than ₹7,500**, 18% is charged on **all** its GST-able lines (not
+just the excess). At or below ₹7,500, no GST.
+
+### 5.5 Interest on arrears
+**Where:** Rules → Interest % (12% p.a. simple by default) and grace days. Charged on the unpaid principal of earlier
+issued bills from their due date (plus grace), up to this bill's date. Fines and interest itself are not charged
+interest.
 
 ---
 
-## Conclusion
+## 6. A worked example
 
-**Maintenance billing is the core financial function of the society.** Every rupee collected funds operations. This system ensures:
+**Society:** 50 flats — 40 of 500 sq ft and 10 of 1,000 sq ft (total 30,000 sq ft). Construction cost ₹2,500/sq ft.
+Non-occupancy 10%. Not GST-registered.
 
-✅ **Accuracy**: Double-entry, ledger-backed, auditable  
-✅ **Fairness**: Occupancy adjustments, standardized bases  
-✅ **Transparency**: Expense-to-bill linkage visible to committee  
-✅ **Compliance**: GST-ready, bye-law standards, audit trail  
-✅ **Efficiency**: Expense-driven budgets reduce guesswork, "Budget from Expenses" auto-calculates  
+| Charge head | Basis | Entered | Flat A-101 (500 sq ft) per month |
+|---|---|---|---|
+| Service Charges | Same per flat | ₹600 | ₹600.00 |
+| Security Services | Budget, equal | ₹5,40,000 / yr | 5,40,000 ÷ 50 ÷ 12 = ₹900.00 |
+| Housekeeping | Budget, equal | ₹3,00,000 / yr | ₹500.00 |
+| Lift Maintenance | Budget, equal | ₹1,80,000 / yr | ₹300.00 |
+| Common Electricity | Budget, equal | ₹2,40,000 / yr | ₹400.00 |
+| Water Charges | Budget, by area | ₹3,60,000 / yr | 3,60,000 × 500 ÷ 30,000 ÷ 12 = ₹500.00 |
+| Property Tax | Per sq ft | ₹1.20 | 500 × 1.20 = ₹600.00 |
+| Repairs & Maintenance Fund | % of cost | 0.75% | 500 × 2,500 × 0.75% ÷ 12 = ₹781.25 |
+| Sinking Fund | % of cost | 0.25% | 500 × 2,500 × 0.25% ÷ 12 = ₹260.42 |
+| Building Insurance | Budget, by area | ₹60,000 / yr | 60,000 × 500 ÷ 30,000 ÷ 12 = ₹83.33 |
+| **Total (owner-occupied)** | | | **₹4,925.00** |
 
-**Use this guide as the foundation for all financial decisions in your society.**
+Service-charge lines: 600 + 900 + 500 + 300 + 400 = ₹2,700.
+If A-101 is **let to a tenant**: + 10% × 2,700 = **₹270.00** non-occupancy → **₹5,195.00**.
+
+A 1,000 sq ft flat pays the same equal-share lines, and double the area-based ones.
+
+**With budget from expenses:** if the Security Charges and CCTV ledgers show ₹3,60,000 spent over the last 8 months,
+annual = 3,60,000 × 12 ÷ 8 = ₹5,40,000, the same Security line as above, now kept in step with what is actually paid
+to the security agency.
+
+**GST check:** ₹4,925 is below ₹7,500, so even a registered society charges no GST on this flat.
+
+---
+
+## 7. The monthly routine
+
+| When | Who | Where | What |
+|---|---|---|---|
+| Once | Committee | Maintenance Elements, Charge Heads, Rules | Elements, heads and amounts as resolved by the general body; construction cost, interest, non-occupancy %, GST |
+| Once | Committee | Chart of Accounts | Check each expense ledger's **Counts towards** |
+| As work is given | Manager / committee | Vendors & Work | Quotations → sanction → work order → bills (see the Vendor Masters guide) |
+| As bills come | Manager | Vendor Bills, or a work order's **Record bill** | Enter every vendor bill with its expense head |
+| As payments go | Manager / Treasurer | Vendor Bills → pay | Record each payment (cheque/NEFT, reference) |
+| Any time | Committee | Fines & Charges | Fines and extra charges on flats |
+| Each cycle | Manager | Maintenance Billing → Cycles | New cycle → **Preview** (warnings!) → **Generate** → **Issue** |
+| As money comes | Manager | Payments | Record payments; they settle the oldest bills first; advances go to the next bill |
+| Monthly | Treasurer | Bank Reconciliation | Match the bank statement; bounced cheques reopen the bills |
+| Monthly | Committee | Defaulters | Dues aged from due date; 3 months overdue = defaulter; send reminders |
+| Quarterly | Committee | Charge Heads → Suggest from expenses | Compare spend with what is billed; adjust or switch on budget from expenses |
+
+---
+
+## 8. The books behind it (double entry)
+
+| Event | Debit | Credit |
+|---|---|---|
+| Bill issued to a flat | Member's account (receivable) | Each income head (maintenance, funds …), GST payable |
+| Member pays | Bank / cash | Member's account |
+| Vendor bill recorded | Expense ledger (e.g. Lift Maintenance) | Sundry creditors (vendor) |
+| Vendor paid | Sundry creditors (vendor) | Bank / cash |
+| Fine billed | Member's account | Fines & Penalties |
+
+Every posting can be traced back to the bill, receipt or vendor bill that made it.
+
+---
+
+## 9. Questions
+
+**Do empty flats pay less?** No. The bye-laws share expenses among all members; only tenant-let flats pay *more*
+(non-occupancy, up to 10% of service charges).
+
+**Why didn't a charge change after we spent more?** Either the head isn't on **budget from expenses**, the ledger isn't
+linked to its element, or the bill was already generated (bills are never recalculated). Use **Suggest from expenses**
+to see the figures.
+
+**A one-time repair costs ₹2 lakh — should it go into monthly maintenance?** Usually not. Pay it from the Repairs Fund
+(after the sanction the bye-laws require — see the Vendor Masters guide), or levy it separately as the general body
+decides.
