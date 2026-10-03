@@ -48,6 +48,8 @@ def test_task_status_assigned_to_acknowledged(client, db):
     staff_u = make_user(db, "stf@task.com", role="Security Staff")
     society = make_society(db, "Task Society 3")
     staff   = _make_staff(db, society.id, "Worker3")
+    from tests.conftest import link_staff_login
+    link_staff_login(db, staff.id, staff_u)
     # Create
     r = client.post(
         "/api/v1/staff/tasks",

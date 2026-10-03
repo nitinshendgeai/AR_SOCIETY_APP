@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
@@ -451,14 +452,23 @@ class _CreateTabState extends ConsumerState<_CreateTab> {
   final _formKey        = GlobalKey<FormState>();
   final _summaryCtrl    = TextEditingController();
   final _areaCtrl       = TextEditingController();
-  final _incomingIdCtrl = TextEditingController();
+  String? _incomingId;
   final List<_HandoverItemDraft> _items = [];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.societyId.isNotEmpty) {
+        ref.read(staffListProvider.notifier).load(widget.societyId);
+      }
+    });
+  }
 
   @override
   void dispose() {
     _summaryCtrl.dispose();
     _areaCtrl.dispose();
-    _incomingIdCtrl.dispose();
     super.dispose();
   }
 
@@ -487,21 +497,44 @@ class _CreateTabState extends ConsumerState<_CreateTab> {
                     label: 'Area / Location',
                     hint: 'e.g., Main Gate, Lobby, B-Block',
                     controller: _areaCtrl,
+                    maxLength: 255,
                   ),
                   const SizedBox(height: 14),
                   AppTextField(
                     label: 'Handover Summary *',
                     hint: 'Describe the shift situation and key notes',
                     controller: _summaryCtrl,
+                    maxLength: 2000,
                     validator: (v) =>
                         (v == null || v.trim().isEmpty) ? 'Summary is required' : null,
                   ),
                   const SizedBox(height: 14),
-                  AppTextField(
-                    label: 'Incoming Staff ID',
-                    hint: 'UUID of incoming staff member',
-                    controller: _incomingIdCtrl,
-                  ),
+                  // Who takes over: picked from the society's active staff.
+                  Builder(builder: (context) {
+                    final staffState = ref.watch(staffListProvider);
+                    final candidates = staffState is StaffListLoaded
+                        ? staffState.staff
+                            .where((s) => s.status == 'active' && s.id != widget.staffId)
+                            .toList()
+                        : <StaffEntity>[];
+                    return DropdownButtonFormField<String>(
+                      value: candidates.any((s) => s.id == _incomingId) ? _incomingId : null,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Incoming Staff *',
+                        hintText: staffState is StaffListLoading ? 'Loading staff…' : 'Who is taking over?',
+                      ),
+                      items: [
+                        for (final s in candidates)
+                          DropdownMenuItem(
+                            value: s.id,
+                            child: Text('${s.fullName} (${s.departmentLabel})', overflow: TextOverflow.ellipsis),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => _incomingId = v),
+                      validator: (v) => v == null ? 'Choose who is taking over' : null,
+                    );
+                  }),
                 ],
               ),
             ),
@@ -578,9 +611,7 @@ class _CreateTabState extends ConsumerState<_CreateTab> {
     await ref.read(handoverProvider.notifier).createAndSubmit(
       societyId: widget.societyId,
       outgoingStaffId: widget.staffId,
-      incomingStaffId: _incomingIdCtrl.text.trim().isEmpty
-          ? null
-          : _incomingIdCtrl.text.trim(),
+      incomingStaffId: _incomingId,
       area: _areaCtrl.text.trim().isEmpty ? null : _areaCtrl.text.trim(),
       summary: _summaryCtrl.text.trim(),
       items: _items.map((i) => i.toJson()).toList(),
@@ -589,7 +620,7 @@ class _CreateTabState extends ConsumerState<_CreateTab> {
     if (mounted && ref.read(handoverProvider) is HandoverCreated) {
       _summaryCtrl.clear();
       _areaCtrl.clear();
-      _incomingIdCtrl.clear();
+      _incomingId = null;
       setState(() => _items.clear());
     }
   }
@@ -735,6 +766,7 @@ class _AddItemSheetState extends State<_AddItemSheet> {
           TextFormField(
             controller: _titleCtrl,
             autofocus: true,
+            inputFormatters: [LengthLimitingTextInputFormatter(255)],
             decoration: const InputDecoration(labelText: 'Description *'),
           ),
           const SizedBox(height: 12),
@@ -744,6 +776,7 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                 child: TextFormField(
                   controller: _qtyCtrl,
                   keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(7)],
                   decoration: const InputDecoration(
                       labelText: 'Quantity (optional)'),
                 ),

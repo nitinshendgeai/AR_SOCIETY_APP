@@ -52,9 +52,11 @@ class VendorRemoteDataSource {
       'invoice_number': invoiceNumber,
       'invoice_date': invoiceDate.toIso8601String().split('T').first,
       if (dueDate != null) 'due_date': dueDate.toIso8601String().split('T').first,
-      'amount': amount.toString(),
-      'gst_amount': gstAmount.toString(),
-      'total_amount': totalAmount.toString(),
+      // Rupees to the paisa: a double's raw toString() can carry float noise
+      // (100.30000000000001) that the server refuses.
+      'amount': amount.toStringAsFixed(2),
+      'gst_amount': gstAmount.toStringAsFixed(2),
+      'total_amount': totalAmount.toStringAsFixed(2),
       if (description != null && description.isNotEmpty) 'description': description,
       if (expenseAccountId != null) 'expense_account_id': expenseAccountId,
     });
@@ -86,7 +88,7 @@ class VendorRemoteDataSource {
     String? bankName,
   }) async {
     final r = await _dio.post('/vendors/invoices/$invoiceId/payments', data: {
-      'amount': amount.toString(),
+      'amount': amount.toStringAsFixed(2),
       'paid_date': paidDate.toIso8601String().split('T').first,
       'payment_mode': paymentMode,
       if (paymentRef != null && paymentRef.isNotEmpty) 'payment_ref': paymentRef,

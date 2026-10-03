@@ -12,6 +12,17 @@ from app.modules.billing.models.billing import (
 from app.repositories.base import BaseRepository
 
 
+def _highest(db, number_col, society_col, society_id) -> int:
+    """The highest sequence number in use in the society (the digits after the
+    last dash), so the next one can't repeat after a gap."""
+    highest = 0
+    for (number,) in db.query(number_col).filter(society_col == society_id):
+        digits = number.rsplit("-", 1)[-1]
+        if digits.isdigit():
+            highest = max(highest, int(digits))
+    return highest
+
+
 class FinancialPeriodRepo(BaseRepository[FinancialPeriod]):
     def __init__(self, db): super().__init__(FinancialPeriod, db)
     def get_by_society(self, sid: UUID) -> List[FinancialPeriod]:
@@ -65,13 +76,9 @@ class MaintenanceBillRepo(BaseRepository[MaintenanceBill]):
         ).order_by(MaintenanceBill.due_date).all()
 
     def next_invoice_number(self, sid: UUID) -> str:
-        from sqlalchemy import func
-        count = self.db.query(func.count(MaintenanceBill.id)).filter(
-            MaintenanceBill.society_id==sid
-        ).scalar() or 0
         from datetime import date as dt
         y = dt.today().year
-        return f"INV-{y}-{str(count+1).zfill(5)}"
+        return f"INV-{y}-{str(_highest(self.db, MaintenanceBill.invoice_number, MaintenanceBill.society_id, sid)+1).zfill(5)}"
 
 
 class PaymentReceiptRepo(BaseRepository[PaymentReceipt]):
@@ -88,13 +95,9 @@ class PaymentReceiptRepo(BaseRepository[PaymentReceipt]):
         ).order_by(PaymentReceipt.payment_date.desc()).offset(skip).limit(limit).all()
 
     def next_receipt_number(self, sid: UUID) -> str:
-        from sqlalchemy import func
         from datetime import date as dt
-        count = self.db.query(func.count(PaymentReceipt.id)).filter(
-            PaymentReceipt.society_id==sid
-        ).scalar() or 0
         y = dt.today().year
-        return f"RCP-{y}-{str(count+1).zfill(5)}"
+        return f"RCP-{y}-{str(_highest(self.db, PaymentReceipt.receipt_number, PaymentReceipt.society_id, sid)+1).zfill(5)}"
 
 
 class DueTrackerRepo(BaseRepository[DueTracker]):
@@ -144,13 +147,9 @@ class OnlinePaymentSubmissionRepo(BaseRepository[OnlinePaymentSubmission]):
                            OnlinePaymentSubmission.created_at.desc()).offset(skip).limit(limit).all()
 
     def next_receipt_number(self, sid: UUID) -> str:
-        from sqlalchemy import func
         from datetime import date as dt
-        count = self.db.query(func.count(OnlinePaymentSubmission.id)).filter(
-            OnlinePaymentSubmission.society_id==sid
-        ).scalar() or 0
         y = dt.today().year
-        return f"OPS-{y}-{str(count+1).zfill(5)}"
+        return f"OPS-{y}-{str(_highest(self.db, OnlinePaymentSubmission.receipt_number, OnlinePaymentSubmission.society_id, sid)+1).zfill(5)}"
 
 
 class BankStatementEntryRepo(BaseRepository[BankStatementEntry]):

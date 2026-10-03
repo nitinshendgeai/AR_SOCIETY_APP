@@ -309,6 +309,8 @@ class TestDutyLifecycle:
             "Guard D1", "9814000001", "guardd1@stafftest.io", "security",
         )
         self.staff_user = make_user(db, "staffd@accept.io", role="Security Staff")
+        from tests.conftest import link_staff_login
+        link_staff_login(db, self.guard_staff["id"], self.staff_user)
 
     def test_D1_supervisor_assigns_duty(self):
         r = self.client.post(

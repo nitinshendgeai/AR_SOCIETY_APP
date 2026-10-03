@@ -13,7 +13,7 @@ Workflows:
 import enum
 from sqlalchemy import (
     Column, String, Text, Integer, Float, Boolean,
-    DateTime, Date, Enum, ForeignKey, Numeric
+    DateTime, Date, Enum, ForeignKey, Numeric, UniqueConstraint
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -116,7 +116,7 @@ class Vendor(Base, TimestampMixin):
     __tablename__ = "vendors"
 
     society_id       = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
-    vendor_code      = Column(String(20), nullable=False, unique=True, index=True)
+    vendor_code      = Column(String(20), nullable=False, index=True)
     company_name     = Column(String(255), nullable=False, index=True)
     contact_person   = Column(String(255), nullable=True)
     mobile           = Column(String(20), nullable=False, index=True)
@@ -148,6 +148,9 @@ class Vendor(Base, TimestampMixin):
     blacklist_reason  = Column(Text, nullable=True)
 
     registered_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    # Numbers run per society, so they are unique within one.
+    __table_args__ = (UniqueConstraint("society_id", "vendor_code", name="uq_vendor_society_code"),)
 
     society      = relationship("Society")
     registrar    = relationship("User", foreign_keys=[registered_by])
@@ -186,7 +189,7 @@ class AMCContract(Base, TimestampMixin):
     asset_id         = Column(UUID(as_uuid=True), ForeignKey("assets.id", ondelete="SET NULL"), nullable=True, index=True)   # optional asset linkage
     created_by       = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
-    contract_number  = Column(String(50), nullable=False, unique=True, index=True)
+    contract_number  = Column(String(50), nullable=False, index=True)
     contract_name    = Column(String(255), nullable=False)
     category         = Column(Enum(VendorCategory, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     status           = Column(Enum(ContractStatus, values_callable=lambda e: [x.value for x in e]), default=ContractStatus.DRAFT, nullable=False, index=True)
@@ -215,6 +218,9 @@ class AMCContract(Base, TimestampMixin):
 
     # Renewal linkage
     renewed_from_id   = Column(UUID(as_uuid=True), ForeignKey("amc_contracts.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    # Numbers run per society, so they are unique within one.
+    __table_args__ = (UniqueConstraint("society_id", "contract_number", name="uq_contract_society_number"),)
 
     society   = relationship("Society")
     vendor    = relationship("Vendor", back_populates="contracts")
@@ -259,7 +265,7 @@ class ServiceRequest(Base, TimestampMixin):
     complaint_id   = Column(UUID(as_uuid=True), ForeignKey("complaints.id", ondelete="SET NULL"), nullable=True, index=True)   # linked complaint
     asset_id       = Column(UUID(as_uuid=True), ForeignKey("assets.id", ondelete="SET NULL"), nullable=True, index=True)   # linked asset
 
-    request_number = Column(String(20), nullable=False, unique=True, index=True)
+    request_number = Column(String(20), nullable=False, index=True)
     title          = Column(String(255), nullable=False)
     description    = Column(Text, nullable=True)
     category       = Column(Enum(VendorCategory, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
@@ -282,6 +288,9 @@ class ServiceRequest(Base, TimestampMixin):
     rejection_reason = Column(Text, nullable=True)
     estimated_cost   = Column(Numeric(10, 2), nullable=True)
     actual_cost      = Column(Numeric(10, 2), nullable=True)
+
+    # Numbers run per society, so they are unique within one.
+    __table_args__ = (UniqueConstraint("society_id", "request_number", name="uq_service_request_society_number"),)
 
     society      = relationship("Society")
     vendor       = relationship("Vendor", back_populates="service_reqs", foreign_keys=[vendor_id])

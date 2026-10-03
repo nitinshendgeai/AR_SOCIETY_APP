@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
@@ -103,8 +104,12 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
       appBar: AppBar(title: const Text('Assign Duty')),
       body: Form(
         key: _formKey,
-        child: ListView(
+        // A plain scroll view, not a lazy ListView: fields scrolled out of
+        // view stay mounted, so validate() checks every one of them.
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
+          child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Staff selector
             const _Label('Assign To'),
@@ -162,8 +167,9 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
               const SizedBox(height: 8),
               TextFormField(
                 controller: _dutyNameCtrl,
+                inputFormatters: [LengthLimitingTextInputFormatter(255)],
                 decoration: const InputDecoration(hintText: 'Enter custom duty name'),
-                validator: (v) => (v == null || v.isEmpty) ? 'Duty name required' : null,
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Duty name required' : null,
               ),
             ],
             const SizedBox(height: 16),
@@ -173,6 +179,7 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _descCtrl,
+              inputFormatters: [LengthLimitingTextInputFormatter(2000)],
               maxLines: 2,
               decoration: const InputDecoration(hintText: 'Add details about this duty'),
             ),
@@ -183,6 +190,7 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _locationCtrl,
+              inputFormatters: [LengthLimitingTextInputFormatter(255)],
               decoration: const InputDecoration(hintText: 'e.g. Gate 1, Wing B'),
             ),
             const SizedBox(height: 16),
@@ -227,6 +235,8 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
                         controller: _startTimeCtrl,
                         decoration: const InputDecoration(hintText: '09:00'),
                         keyboardType: TextInputType.datetime,
+                        inputFormatters: [LengthLimitingTextInputFormatter(5)],
+                        validator: _timeValidator,
                       ),
                     ],
                   ),
@@ -242,6 +252,8 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
                         controller: _endTimeCtrl,
                         decoration: const InputDecoration(hintText: '17:00'),
                         keyboardType: TextInputType.datetime,
+                        inputFormatters: [LengthLimitingTextInputFormatter(5)],
+                        validator: _timeValidator,
                       ),
                     ],
                   ),
@@ -257,9 +269,18 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
               onPressed: _submit,
             ),
           ],
+          ),
         ),
       ),
     );
+  }
+
+
+  /// "HH:MM" (24-hour) or empty.
+  static String? _timeValidator(String? v) {
+    final t = (v ?? '').trim();
+    if (t.isEmpty) return null;
+    return RegExp(r'^([01]?\d|2[0-3]):[0-5]\d$').hasMatch(t) ? null : 'Use HH:MM, e.g. 09:00';
   }
 
   Future<void> _pickDate() async {

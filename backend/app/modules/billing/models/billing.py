@@ -275,7 +275,7 @@ class MaintenanceBill(Base, TimestampMixin):
     resident_id   = Column(UUID(as_uuid=True), ForeignKey("residents.id", ondelete="SET NULL"), nullable=True, index=True)
     generated_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
-    invoice_number  = Column(String(30), nullable=False, unique=True, index=True)
+    invoice_number  = Column(String(30), nullable=False, index=True)
     bill_status     = Column(Enum(BillStatus, values_callable=lambda e: [x.value for x in e]), default=BillStatus.DRAFT, nullable=False, index=True)
     bill_date       = Column(Date, nullable=False)
     due_date        = Column(Date, nullable=False, index=True)
@@ -302,6 +302,9 @@ class MaintenanceBill(Base, TimestampMixin):
     # Interest on this bill's unpaid balance has been billed (on later
     # bills) up to this date, so the next bill only charges the new days.
     arrears_interest_upto = Column(Date, nullable=True)
+
+    # Numbers run per society, so they are unique within one.
+    __table_args__ = (UniqueConstraint("society_id", "invoice_number", name="uq_bill_society_invoice_number"),)
 
     society    = relationship("Society")
     cycle      = relationship("BillingCycle", back_populates="bills")
@@ -346,7 +349,7 @@ class PaymentReceipt(Base, TimestampMixin):
     flat_id         = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="SET NULL"), nullable=True, index=True)
     received_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
-    receipt_number  = Column(String(30), nullable=False, unique=True, index=True)
+    receipt_number  = Column(String(30), nullable=False, index=True)
     payment_date    = Column(Date, nullable=False, index=True)
     amount          = Column(Numeric(12, 2), nullable=False)
     payment_mode    = Column(Enum(PaymentMode, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
@@ -357,6 +360,9 @@ class PaymentReceipt(Base, TimestampMixin):
     is_advance      = Column(Boolean, default=False, nullable=False)  # advance payment
     is_reversed     = Column(Boolean, default=False, nullable=False)  # bounced cheque etc.
     reversed_reason = Column(Text, nullable=True)
+
+    # Numbers run per society, so they are unique within one.
+    __table_args__ = (UniqueConstraint("society_id", "receipt_number", name="uq_receipt_society_number"),)
 
     society   = relationship("Society")
     bill      = relationship("MaintenanceBill", back_populates="receipts")
@@ -456,7 +462,7 @@ class OnlinePaymentSubmission(Base, TimestampMixin):
     recorded_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     reviewed_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
-    receipt_number  = Column(String(30), nullable=False, unique=True, index=True)
+    receipt_number  = Column(String(30), nullable=False, index=True)
     amount          = Column(Numeric(12, 2), nullable=False)
     payment_date    = Column(Date, nullable=False, index=True)
     payment_mode    = Column(Enum(PaymentMode, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
@@ -478,6 +484,9 @@ class OnlinePaymentSubmission(Base, TimestampMixin):
     screenshot_data      = Column(LargeBinary, nullable=True)
     screenshot_mime_type = Column(String(50), nullable=True)
     screenshot_file_name = Column(String(255), nullable=True)
+
+    # Numbers run per society, so they are unique within one.
+    __table_args__ = (UniqueConstraint("society_id", "receipt_number", name="uq_online_payment_society_receipt"),)
 
     society   = relationship("Society")
     wing      = relationship("Wing")

@@ -1,5 +1,6 @@
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -294,10 +295,16 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
   DateTime? _dueDate;
   bool _saving = false;
 
+  // Up to 10 digits and 2 decimals, matching what the server stores.
+  static final _moneyFormatters = <TextInputFormatter>[
+    FilteringTextInputFormatter.allow(RegExp(r'^\d{0,10}(\.\d{0,2})?')),
+  ];
+
+  /// Amount + GST, added in paise so it never carries float noise.
   double get _total {
     final amount = double.tryParse(_amountCtrl.text) ?? 0;
     final gst = double.tryParse(_gstCtrl.text) ?? 0;
-    return amount + gst;
+    return ((amount * 100).round() + (gst * 100).round()) / 100;
   }
 
   Future<void> _pickDate({required bool isDue}) async {
@@ -324,6 +331,10 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
     if (!_formKey.currentState!.validate()) return;
     if (_vendorId == null) {
       AppToast.error(context, 'Pick a vendor');
+      return;
+    }
+    if (_dueDate != null && _dueDate!.isBefore(DateTime(_invoiceDate.year, _invoiceDate.month, _invoiceDate.day))) {
+      AppToast.error(context, 'The due date can\'t be before the invoice date');
       return;
     }
     setState(() => _saving = true);
@@ -372,8 +383,12 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
         ),
         child: Form(
           key: _formKey,
-          child: ListView(
+          // A plain scroll view, not a lazy ListView: fields scrolled out of
+          // view stay mounted, so validate() checks every one of them.
+          child: SingleChildScrollView(
             controller: scrollController,
+            child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text('Add Vendor Bill', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               const SizedBox(height: 16),
@@ -405,6 +420,7 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _invoiceNumberCtrl,
+                inputFormatters: [LengthLimitingTextInputFormatter(50)],
                 decoration: const InputDecoration(labelText: 'Invoice Number', border: OutlineInputBorder()),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
               ),
@@ -432,6 +448,7 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
               TextFormField(
                 controller: _amountCtrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: _moneyFormatters,
                 decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹', border: OutlineInputBorder()),
                 onChanged: (_) => setState(() {}),
                 validator: (v) {
@@ -443,8 +460,10 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
               TextFormField(
                 controller: _gstCtrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: _moneyFormatters,
                 decoration: const InputDecoration(labelText: 'GST Amount', prefixText: '₹', border: OutlineInputBorder()),
                 onChanged: (_) => setState(() {}),
+                validator: (v) => (v == null || v.trim().isEmpty || double.tryParse(v) != null) ? null : 'Enter a valid amount',
               ),
               const SizedBox(height: 8),
               Text('Total: ₹${_total.toStringAsFixed(2)}',
@@ -473,6 +492,7 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
               TextFormField(
                 controller: _descCtrl,
                 maxLines: 2,
+                inputFormatters: [LengthLimitingTextInputFormatter(2000)],
                 decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
               ),
               const SizedBox(height: 20),
@@ -487,6 +507,7 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
                 ),
               ),
             ],
+            ),
           ),
         ),
       ),
@@ -537,14 +558,21 @@ class _AddVendorDialogState extends ConsumerState<_AddVendorDialog> {
           children: [
             TextFormField(
               controller: _nameCtrl,
+              inputFormatters: [LengthLimitingTextInputFormatter(255)],
               decoration: const InputDecoration(labelText: 'Company Name'),
               validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
             ),
             TextFormField(
               controller: _mobileCtrl,
               keyboardType: TextInputType.phone,
+              inputFormatters: [LengthLimitingTextInputFormatter(20)],
               decoration: const InputDecoration(labelText: 'Mobile'),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+              validator: (v) {
+                final t = (v ?? '').trim();
+                if (t.isEmpty) return 'Required';
+                final digits = t.replaceAll(RegExp(r'[\s\-()]'), '');
+                return RegExp(r'^\+?\d{7,15}$').hasMatch(digits) ? null : 'Enter a valid phone number';
+              },
             ),
             DropdownButtonFormField<String>(
               initialValue: _category,
@@ -661,7 +689,8 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
-      context: context, initialDate: _paidDate, firstDate: DateTime(2020), lastDate: DateTime(2100),
+      context: context, initialDate: _paidDate,
+      firstDate: widget.invoice.invoiceDate, lastDate: DateTime.now(),
     );
     if (picked != null) setState(() => _paidDate = picked);
   }
@@ -715,6 +744,7 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
             TextFormField(
               controller: _amountCtrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,10}(\.\d{0,2})?'))],
               decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹', border: OutlineInputBorder()),
               validator: (v) {
                 final n = double.tryParse(v ?? '');
@@ -741,11 +771,13 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _refCtrl,
+              inputFormatters: [LengthLimitingTextInputFormatter(100)],
               decoration: const InputDecoration(labelText: 'Reference (optional)', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _bankCtrl,
+              inputFormatters: [LengthLimitingTextInputFormatter(100)],
               decoration: const InputDecoration(labelText: 'Bank Name (optional)', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 20),

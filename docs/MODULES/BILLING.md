@@ -47,6 +47,9 @@ DRAFT → GENERATED → ISSUED → PARTIALLY_PAID → PAID
 - `advance_balance` on DueTracker
 - `PenaltyRule`: flat/percentage/compound_daily calculation types
 
+## Numbers per society
+Maintenance bill numbers (`INV-2026-00001`), receipts (`RCP-` / `OPS-`) and inventory item / asset codes (`INV-00001`, `AST-0001`) run within each society and are unique on `(society_id, number)` (migration `fb1c2d3e4f5a`). They were unique platform-wide, so a second society's first bill, receipt, item or asset failed. The next number is one more than the society's highest.
+
 ## Payments set off against open bills (`services/allocations.py`)
 - A payment recorded for a flat (Payments → Record Payment) **settles the flat's open bills oldest first** (by due date): each bill's paid amount, outstanding and status (partially paid / paid) and the flat's `DueTracker` update, and one `PaymentAllocation` per bill records the set-off. The form shows beforehand how the amount will be applied; **One bill** applies it to a single chosen bill instead.
 - What is left over is the member's **advance** (`DueTracker.advance_balance`): it is set off against the next bill when that bill is **issued**. Bills cancelled meanwhile put their set-off back into credit, which settles the flat's other open bills.
