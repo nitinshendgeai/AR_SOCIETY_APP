@@ -2,7 +2,7 @@ from typing import List, Optional
 from uuid import UUID
 from datetime import date
 from decimal import Decimal
-from fastapi import APIRouter, Depends, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, Query, Response
 from sqlalchemy.orm import Session
 import re
 from datetime import datetime
@@ -44,9 +44,47 @@ def _vendor_out(v) -> dict:
         "category": v.category.value,
         "status": v.status.value,
         "gst_number": v.gst_number,
+        "pan_number": v.pan_number,
         "bank_account": v.bank_account,
         "bank_name": v.bank_name,
         "bank_ifsc": v.bank_ifsc,
+        "address": v.address,
+        "city": v.city,
+        "pincode": v.pincode,
+        "notes": v.notes,
+        "blacklist_reason": v.blacklist_reason,
+    }
+
+
+def _contract_out(c) -> dict:
+    from sqlalchemy.orm import object_session
+    from app.modules.vendor.services.work_orders import money, procurement_limits, quotations_out, requirements, sanction_out
+    live = [q for q in c.quotations if q.is_active]
+    basis = (money(c.sanctioned_amount) if c.sanctioned_amount is not None
+             else money(min(q.total_amount for q in live)) if live
+             else money(c.annual_value) if c.annual_value is not None else None)
+    return {
+        "requirements": requirements(procurement_limits(object_session(c), c.society_id), basis),
+        "id": str(c.id),
+        "society_id": str(c.society_id),
+        "contract_number": c.contract_number,
+        "contract_name": c.contract_name,
+        "vendor_id": str(c.vendor_id),
+        "vendor_name": c.vendor.company_name if c.vendor else None,
+        "category": c.category.value,
+        "status": c.status.value,
+        "start_date": c.start_date.isoformat(),
+        "end_date": c.end_date.isoformat(),
+        "days_to_expiry": c.days_to_expiry(),
+        "service_frequency": c.service_frequency.value,
+        "sla_response_hours": c.sla_response_hours,
+        "scope_of_work": c.scope_of_work,
+        "annual_value": str(c.annual_value) if c.annual_value is not None else None,
+        "auto_renew": c.auto_renew,
+        "renewal_notice_days": c.renewal_notice_days,
+        "document_url": c.document_url,
+        **sanction_out(c),
+        "quotations": quotations_out(c.quotations),
     }
 
 def _invoice_out(i) -> dict:
@@ -70,6 +108,8 @@ def _invoice_out(i) -> dict:
         "bank_name": i.bank_name,
         "description": i.description,
         "expense_account_id": str(i.expense_account_id) if i.expense_account_id else None,
+        "work_order_id": str(i.work_order_id) if i.work_order_id else None,
+        "wo_number": i.work_order.wo_number if i.work_order else None,
         "created_at": i.created_at.isoformat() if i.created_at else None,
     }
 
@@ -102,6 +142,13 @@ def _account(v):
     return v
 
 
+def _pincode(v):
+    v = val.text(v)
+    if v is not None and not re.fullmatch(r"\d{6}", v):
+        raise ValueError("Enter a 6-digit pincode")
+    return v
+
+
 def _link(v):
     v = val.text(v)
     if v is None:
@@ -115,12 +162,13 @@ class VendorCreate(OrmBase):
     society_id: UUID; company_name: str = Field(max_length=255); mobile: str
     category: VendorCategory
     contact_person: Optional[str] = None; email: Optional[str] = None
-    address: Optional[str] = None; city: Optional[str] = None
+    address: Optional[str] = None; city: Optional[str] = None; pincode: Optional[str] = None
     gst_number: Optional[str] = None; pan_number: Optional[str] = None
     bank_account: Optional[str] = None; bank_name: Optional[str] = None
     bank_ifsc: Optional[str] = None; notes: Optional[str] = None
 
     _company = field_validator("company_name", mode="before")(val.line_max(255, required=True))
+    _pin = field_validator("pincode", mode="before")(_pincode)
     _mobile = field_validator("mobile", mode="before")(val.mobile_any)
     _person = field_validator("contact_person", mode="before")(val.line_max(255))
     _email = field_validator("email", mode="before")(val.email)
@@ -132,6 +180,45 @@ class VendorCreate(OrmBase):
     _bank = field_validator("bank_name", mode="before")(val.line_max(100))
     _ifsc = field_validator("bank_ifsc", mode="before")(_upper_match(_IFSC, "Enter a valid IFSC, e.g. HDFC0001234"))
     _notes = field_validator("notes", mode="before")(val.note_max(2000))
+
+class VendorUpdate(OrmBase):
+    company_name: Optional[str] = Field(default=None, max_length=255); mobile: Optional[str] = None
+    category: Optional[VendorCategory] = None
+    status: Optional[VendorStatus] = None
+    contact_person: Optional[str] = None; email: Optional[str] = None
+    address: Optional[str] = None; city: Optional[str] = None; pincode: Optional[str] = None
+    gst_number: Optional[str] = None; pan_number: Optional[str] = None
+    bank_account: Optional[str] = None; bank_name: Optional[str] = None
+    bank_ifsc: Optional[str] = None; notes: Optional[str] = None
+
+    _company = field_validator("company_name", mode="before")(val.line_max(255))
+    _mobile = field_validator("mobile", mode="before")(val.mobile_any)
+    _person = field_validator("contact_person", mode="before")(val.line_max(255))
+    _email = field_validator("email", mode="before")(val.email)
+    _address = field_validator("address", mode="before")(val.note_max(1000))
+    _city = field_validator("city", mode="before")(val.line_max(100))
+    _gst = field_validator("gst_number", mode="before")(_upper_match(_GST, "Enter a valid 15-character GSTIN"))
+    _pan = field_validator("pan_number", mode="before")(_upper_match(_PAN, "Enter a valid PAN, e.g. ABCDE1234F"))
+    _account_no = field_validator("bank_account", mode="before")(_account)
+    _bank = field_validator("bank_name", mode="before")(val.line_max(100))
+    _ifsc = field_validator("bank_ifsc", mode="before")(_upper_match(_IFSC, "Enter a valid IFSC, e.g. HDFC0001234"))
+    _notes = field_validator("notes", mode="before")(val.note_max(2000))
+
+    _pin = field_validator("pincode", mode="before")(_pincode)
+
+    @field_validator("status")
+    @classmethod
+    def _no_blacklist_here(cls, v):
+        if v == VendorStatus.BLACKLISTED:
+            raise ValueError("Use Blacklist, which records the reason")
+        return v
+
+    @model_validator(mode="after")
+    def _required_stay(self):
+        for k in ("company_name", "mobile", "category", "status"):
+            if k in self.model_fields_set and getattr(self, k) is None:
+                raise ValueError(f"{k.replace('_', ' ').capitalize()} can't be cleared")
+        return self
 
 class VendorServiceCreate(OrmBase):
     service_name: str = Field(max_length=150); category: VendorCategory
@@ -225,6 +312,7 @@ class VendorInvoiceCreate(OrmBase):
     total_amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
     description: Optional[str] = None; doc_url: Optional[str] = None
     expense_account_id: Optional[UUID] = None  # accounts ledger; default by vendor category
+    work_order_id: Optional[UUID] = None
 
     _number = field_validator("invoice_number", mode="before")(val.line_max(50, required=True))
     _description = field_validator("description", mode="before")(val.note_max(2000))
@@ -255,6 +343,151 @@ class RecordPaymentRequest(OrmBase):
         return val.sane_date(v)
 
 
+_MONEY = dict(max_digits=12, decimal_places=2)
+
+
+class QuotationCreate(OrmBase):
+    vendor_id: UUID
+    quotation_ref: Optional[str] = None
+    quotation_date: date
+    valid_until: Optional[date] = None
+    amount: Decimal = Field(gt=0, **_MONEY)
+    gst_amount: Decimal = Field(default=Decimal(0), ge=0, **_MONEY)
+    total_amount: Decimal = Field(gt=0, **_MONEY)
+    remarks: Optional[str] = None
+    doc_url: Optional[str] = None
+
+    _ref = field_validator("quotation_ref", mode="before")(val.line_max(50))
+    _remarks = field_validator("remarks", mode="before")(val.note_max(2000))
+    _doc = field_validator("doc_url", mode="before")(_link)
+    _dates = field_validator("quotation_date", "valid_until")(val.sane_date)
+
+    @model_validator(mode="after")
+    def _total(self):
+        if self.total_amount != self.amount + self.gst_amount:
+            raise ValueError("The total must equal the amount plus GST")
+        return self
+
+
+class SanctionIn(OrmBase):
+    quotation_id: UUID
+    committee_resolution_no: str
+    committee_meeting_date: date
+    gb_resolution_no: Optional[str] = None
+    gb_meeting_date: Optional[date] = None
+    tenders_opened_on: Optional[date] = None
+    selection_reason: Optional[str] = None
+    no_interest_declared: bool = False
+
+    _res = field_validator("committee_resolution_no", mode="before")(val.line_max(50, required=True))
+    _gb = field_validator("gb_resolution_no", mode="before")(val.line_max(50))
+    _reason = field_validator("selection_reason", mode="before")(val.note_max(1000))
+    _dates = field_validator("committee_meeting_date", "gb_meeting_date", "tenders_opened_on")(val.sane_date)
+
+
+class WorkOrderCreate(OrmBase):
+    society_id: UUID
+    title: str = Field(max_length=255)
+    category: VendorCategory
+    scope_of_work: Optional[str] = None
+    location: Optional[str] = None
+    estimated_cost: Optional[Decimal] = Field(default=None, ge=0, **_MONEY)
+    service_request_id: Optional[UUID] = None
+    complaint_id: Optional[UUID] = None
+    asset_id: Optional[UUID] = None
+    expense_account_id: Optional[UUID] = None
+    start_date: Optional[date] = None
+    due_date: Optional[date] = None
+    payment_terms: Optional[str] = None
+    advance_amount: Decimal = Field(default=Decimal(0), ge=0, **_MONEY)
+    retention_pct: Decimal = Field(default=Decimal(0), ge=0, le=50, max_digits=5, decimal_places=2)
+    defect_liability_months: int = Field(default=0, ge=0, le=120)
+
+    _title = field_validator("title", mode="before")(val.line_max(255, required=True))
+    _location = field_validator("location", mode="before")(val.line_max(255))
+    _scope = field_validator("scope_of_work", mode="before")(val.note_max(5000))
+    _terms = field_validator("payment_terms", mode="before")(val.note_max(2000))
+    _dates = field_validator("start_date", "due_date")(val.sane_date)
+
+
+class WorkOrderUpdate(OrmBase):
+    title: Optional[str] = Field(default=None, max_length=255)
+    category: Optional[VendorCategory] = None
+    scope_of_work: Optional[str] = None
+    location: Optional[str] = None
+    estimated_cost: Optional[Decimal] = Field(default=None, ge=0, **_MONEY)
+    expense_account_id: Optional[UUID] = None
+    start_date: Optional[date] = None
+    due_date: Optional[date] = None
+    payment_terms: Optional[str] = None
+    advance_amount: Optional[Decimal] = Field(default=None, ge=0, **_MONEY)
+    retention_pct: Optional[Decimal] = Field(default=None, ge=0, le=50, max_digits=5, decimal_places=2)
+    defect_liability_months: Optional[int] = Field(default=None, ge=0, le=120)
+
+    _title = field_validator("title", mode="before")(val.line_max(255))
+    _location = field_validator("location", mode="before")(val.line_max(255))
+    _scope = field_validator("scope_of_work", mode="before")(val.note_max(5000))
+    _terms = field_validator("payment_terms", mode="before")(val.note_max(2000))
+    _dates = field_validator("start_date", "due_date")(val.sane_date)
+
+    @model_validator(mode="after")
+    def _required_stay(self):
+        for k in ("title", "category", "advance_amount", "retention_pct", "defect_liability_months"):
+            if k in self.model_fields_set and getattr(self, k) is None:
+                raise ValueError(f"{k.replace('_', ' ').capitalize()} can't be cleared")
+        return self
+
+
+class ReviseSanctionIn(OrmBase):
+    amount: Decimal = Field(gt=0, **_MONEY)
+    reason: str
+    committee_resolution_no: str
+    committee_meeting_date: date
+    gb_resolution_no: Optional[str] = None
+    gb_meeting_date: Optional[date] = None
+
+    _reason = field_validator("reason", mode="before")(val.note_max(1000, required=True))
+    _res = field_validator("committee_resolution_no", mode="before")(val.line_max(50, required=True))
+    _gb = field_validator("gb_resolution_no", mode="before")(val.line_max(50))
+    _dates = field_validator("committee_meeting_date", "gb_meeting_date")(val.sane_date)
+
+
+class IssueIn(OrmBase):
+    issued_on: date = Field(default_factory=date.today)
+    _date = field_validator("issued_on")(val.sane_date)
+
+
+class CompleteIn(OrmBase):
+    completed_on: date
+    completion_notes: str
+    certificate_ref: Optional[str] = None
+
+    _notes = field_validator("completion_notes", mode="before")(val.note_max(2000, required=True))
+    _cert = field_validator("certificate_ref", mode="before")(val.line_max(100))
+    _date = field_validator("completed_on")(val.sane_date)
+
+
+class ReleaseIn(OrmBase):
+    released_on: date = Field(default_factory=date.today)
+    _date = field_validator("released_on")(val.sane_date)
+
+
+class CancelIn(OrmBase):
+    reason: str
+    _reason = field_validator("reason", mode="before")(val.note_max(1000, required=True))
+
+
+class ProcurementIn(OrmBase):
+    committee_limit: Optional[Decimal] = Field(default=None, gt=0, **_MONEY)
+    tender_limit: Optional[Decimal] = Field(default=None, gt=0, **_MONEY)
+    min_quotations: int = Field(default=3, ge=2, le=10)
+    gb_resolution_no: Optional[str] = None
+    gb_meeting_date: Optional[date] = None
+
+    _gb = field_validator("gb_resolution_no", mode="before")(val.line_max(50))
+    _date = field_validator("gb_meeting_date")(val.sane_date)
+
+
 # ── Vendors ───────────────────────────────────────────────────────────────────
 @router.post("/", status_code=201, dependencies=[Depends(admin_committee)])
 def create_vendor(data: VendorCreate, request: Request, db: Session = Depends(get_db),
@@ -262,8 +495,13 @@ def create_vendor(data: VendorCreate, request: Request, db: Session = Depends(ge
     return VendorService_(db).create_vendor(data.model_dump(), user, request)
 
 @router.get("/{vendor_id}")
-def get_vendor(vendor_id: UUID, db: Session = Depends(get_db), user: User = Depends(admin_committee)):
+def get_vendor(vendor_id: UUID, db: Session = Depends(get_db), user: User = Depends(manager_above)):
     return _vendor_out(VendorService_(db).get_vendor(vendor_id, user))
+
+@router.patch("/{vendor_id}")
+def update_vendor(vendor_id: UUID, data: VendorUpdate, request: Request, db: Session = Depends(get_db),
+                  user: User = Depends(admin_committee)):
+    return _vendor_out(VendorService_(db).update_vendor(vendor_id, data.model_dump(exclude_unset=True), user, request))
 
 @router.get("/society/{society_id}")
 def list_vendors(society_id: UUID, skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500),
@@ -280,7 +518,7 @@ def vendors_by_category(society_id: UUID, category: VendorCategory, db: Session 
 @router.post("/{vendor_id}/blacklist", dependencies=[Depends(admin_committee)])
 def blacklist_vendor(vendor_id: UUID, data: BlacklistRequest, db: Session = Depends(get_db),
                      user: User = Depends(get_current_user)):
-    return VendorService_(db).blacklist_vendor(vendor_id, data.reason, user)
+    return _vendor_out(VendorService_(db).blacklist_vendor(vendor_id, data.reason, user))
 
 @router.post("/{vendor_id}/services", status_code=201)
 def add_service(vendor_id: UUID, data: VendorServiceCreate, db: Session = Depends(get_db),
@@ -289,15 +527,41 @@ def add_service(vendor_id: UUID, data: VendorServiceCreate, db: Session = Depend
 
 
 # ── AMC Contracts ─────────────────────────────────────────────────────────────
-@router.post("/contracts", status_code=201, dependencies=[Depends(admin_committee)])
+@router.post("/contracts", status_code=201, dependencies=[Depends(manager_above)])
 def create_contract(data: ContractCreate, request: Request, db: Session = Depends(get_db),
                     user: User = Depends(get_current_user)):
-    return VendorService_(db).create_contract(data.model_dump(), user, request)
+    return _contract_out(VendorService_(db).create_contract(data.model_dump(), user, request))
+
+@router.get("/contracts/{contract_id}")
+def get_contract(contract_id: UUID, db: Session = Depends(get_db), user: User = Depends(manager_above)):
+    from app.modules.vendor.services.work_orders import ContractSanction
+    return _contract_out(ContractSanction(db).get(contract_id, user))
+
+@router.post("/contracts/{contract_id}/quotations", status_code=201)
+def add_contract_quotation(contract_id: UUID, data: QuotationCreate, db: Session = Depends(get_db),
+                           user: User = Depends(manager_above)):
+    from app.modules.vendor.services.work_orders import ContractSanction
+    q = ContractSanction(db).add_quotation(contract_id, data.model_dump(), user)
+    return _contract_out(q.contract)
+
+@router.delete("/contracts/{contract_id}/quotations/{quotation_id}")
+def remove_contract_quotation(contract_id: UUID, quotation_id: UUID, db: Session = Depends(get_db),
+                              user: User = Depends(manager_above)):
+    from app.modules.vendor.services.work_orders import ContractSanction
+    svc = ContractSanction(db)
+    svc.remove_quotation(contract_id, quotation_id, user)
+    return _contract_out(svc.get(contract_id, user))
+
+@router.post("/contracts/{contract_id}/sanction")
+def sanction_contract(contract_id: UUID, data: SanctionIn, request: Request, db: Session = Depends(get_db),
+                      user: User = Depends(admin_committee)):
+    from app.modules.vendor.services.work_orders import ContractSanction
+    return _contract_out(ContractSanction(db).sanction(contract_id, data.model_dump(), user, request))
 
 @router.post("/contracts/{contract_id}/activate", dependencies=[Depends(admin_committee)])
 def activate_contract(contract_id: UUID, db: Session = Depends(get_db),
                        user: User = Depends(get_current_user)):
-    return VendorService_(db).activate_contract(contract_id, user)
+    return _contract_out(VendorService_(db).activate_contract(contract_id, user))
 
 @router.post("/contracts/{contract_id}/generate-schedule", dependencies=[Depends(admin_committee)])
 def generate_schedule(contract_id: UUID, db: Session = Depends(get_db),
@@ -307,16 +571,16 @@ def generate_schedule(contract_id: UUID, db: Session = Depends(get_db),
 
 @router.get("/contracts/society/{society_id}")
 def list_contracts(society_id: UUID, skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500),
-                   db: Session = Depends(get_db), user: User = Depends(admin_committee)):
+                   db: Session = Depends(get_db), user: User = Depends(manager_above)):
     assert_society_access(user, society_id)
-    return VendorService_(db).list_contracts(society_id, skip, limit)
+    return [_contract_out(c) for c in VendorService_(db).list_contracts(society_id, skip, limit)]
 
 @router.get("/contracts/expiring/{society_id}")
 def expiring_contracts(society_id: UUID,
                         days: int = Query(60, ge=1, le=3650, description="Look-ahead days"),
-                        db: Session = Depends(get_db), user: User = Depends(admin_committee)):
+                        db: Session = Depends(get_db), user: User = Depends(manager_above)):
     assert_society_access(user, society_id)
-    return VendorService_(db).get_expiring_contracts(society_id, days)
+    return [_contract_out(c) for c in VendorService_(db).get_expiring_contracts(society_id, days)]
 
 
 # ── Service Requests ──────────────────────────────────────────────────────────
@@ -389,3 +653,116 @@ def list_society_invoices(
     assert_society_access(user, society_id)
     rows = VendorService_(db).list_invoices_by_society(society_id, is_paid=is_paid, skip=skip, limit=limit)
     return [_invoice_out(i) for i in rows]
+
+
+# ── Procurement limits (bye-law 157) ──────────────────────────────────────────
+@router.get("/procurement-settings/{society_id}")
+def get_procurement_settings(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(manager_above)):
+    from app.modules.vendor.services.work_orders import procurement_limits
+    assert_society_access(user, society_id)
+    return procurement_limits(db, society_id)
+
+@router.put("/procurement-settings/{society_id}")
+def save_procurement_settings(society_id: UUID, data: ProcurementIn, db: Session = Depends(get_db),
+                              user: User = Depends(admin_committee)):
+    from app.modules.vendor.services.work_orders import save_procurement_settings as save
+    assert_society_access(user, society_id)
+    return save(db, society_id, data.model_dump())
+
+
+# ── Work orders ───────────────────────────────────────────────────────────────
+def _wo(db, wo):
+    from app.modules.vendor.services.work_orders import work_order_out
+    return work_order_out(db, wo)
+
+
+def _wos(db):
+    from app.modules.vendor.services.work_orders import WorkOrderService
+    return WorkOrderService(db)
+
+
+@router.post("/work-orders", status_code=201)
+def create_work_order(data: WorkOrderCreate, request: Request, db: Session = Depends(get_db),
+                      user: User = Depends(manager_above)):
+    return _wo(db, _wos(db).create(data.model_dump(), user, request))
+
+@router.get("/work-orders/society/{society_id}")
+def list_work_orders(society_id: UUID, status: Optional[str] = None, vendor_id: Optional[UUID] = None,
+                     db: Session = Depends(get_db), user: User = Depends(manager_above)):
+    from app.modules.vendor.models.vendor import WorkOrderStatus
+    assert_society_access(user, society_id)
+    try:
+        st = WorkOrderStatus(status) if status else None
+    except ValueError:
+        raise HTTPException(422, "Unknown status")
+    return [_wo(db, wo) for wo in _wos(db).list(society_id, st, vendor_id)]
+
+@router.get("/work-orders/{wo_id}")
+def get_work_order(wo_id: UUID, db: Session = Depends(get_db), user: User = Depends(manager_above)):
+    return _wo(db, _wos(db).get(wo_id, user))
+
+@router.patch("/work-orders/{wo_id}")
+def update_work_order(wo_id: UUID, data: WorkOrderUpdate, db: Session = Depends(get_db),
+                      user: User = Depends(manager_above)):
+    return _wo(db, _wos(db).update(wo_id, data.model_dump(exclude_unset=True), user))
+
+@router.post("/work-orders/{wo_id}/quotations", status_code=201)
+def add_work_order_quotation(wo_id: UUID, data: QuotationCreate, db: Session = Depends(get_db),
+                             user: User = Depends(manager_above)):
+    svc = _wos(db)
+    svc.add_quotation(wo_id, data.model_dump(), user)
+    return _wo(db, svc.get(wo_id, user))
+
+@router.delete("/work-orders/{wo_id}/quotations/{quotation_id}")
+def remove_work_order_quotation(wo_id: UUID, quotation_id: UUID, db: Session = Depends(get_db),
+                                user: User = Depends(manager_above)):
+    svc = _wos(db)
+    svc.remove_quotation(wo_id, quotation_id, user)
+    return _wo(db, svc.get(wo_id, user))
+
+@router.post("/work-orders/{wo_id}/sanction")
+def sanction_work_order(wo_id: UUID, data: SanctionIn, request: Request, db: Session = Depends(get_db),
+                        user: User = Depends(admin_committee)):
+    return _wo(db, _wos(db).sanction(wo_id, data.model_dump(), user, request))
+
+@router.post("/work-orders/{wo_id}/revise-sanction")
+def revise_work_order_sanction(wo_id: UUID, data: ReviseSanctionIn, request: Request,
+                               db: Session = Depends(get_db), user: User = Depends(admin_committee)):
+    return _wo(db, _wos(db).revise_sanction(wo_id, data.model_dump(), user, request))
+
+@router.post("/work-orders/{wo_id}/issue")
+def issue_work_order(wo_id: UUID, data: IssueIn, request: Request, db: Session = Depends(get_db),
+                     user: User = Depends(admin_committee)):
+    return _wo(db, _wos(db).issue(wo_id, data.issued_on, user, request))
+
+@router.post("/work-orders/{wo_id}/complete")
+def complete_work_order(wo_id: UUID, data: CompleteIn, request: Request, db: Session = Depends(get_db),
+                        user: User = Depends(admin_committee)):
+    return _wo(db, _wos(db).complete(wo_id, data.model_dump(), user, request))
+
+@router.post("/work-orders/{wo_id}/release-retention")
+def release_work_order_retention(wo_id: UUID, data: ReleaseIn, request: Request, db: Session = Depends(get_db),
+                                 user: User = Depends(admin_committee)):
+    return _wo(db, _wos(db).release_retention(wo_id, data.released_on, user, request))
+
+@router.post("/work-orders/{wo_id}/close")
+def close_work_order(wo_id: UUID, request: Request, db: Session = Depends(get_db),
+                     user: User = Depends(admin_committee)):
+    return _wo(db, _wos(db).close(wo_id, user, request))
+
+@router.post("/work-orders/{wo_id}/cancel")
+def cancel_work_order(wo_id: UUID, data: CancelIn, request: Request, db: Session = Depends(get_db),
+                      user: User = Depends(admin_committee)):
+    return _wo(db, _wos(db).cancel(wo_id, data.reason, user, request))
+
+@router.get("/work-orders/{wo_id}/pdf")
+def work_order_pdf(wo_id: UUID, db: Session = Depends(get_db), user: User = Depends(manager_above)):
+    from app.models.society import Society
+    from app.modules.vendor.models.vendor import WorkOrderStatus
+    from app.modules.vendor.services.work_order_pdf import render_work_order_pdf
+    wo = _wos(db).get(wo_id, user)
+    if wo.status in (WorkOrderStatus.DRAFT, WorkOrderStatus.CANCELLED):
+        raise HTTPException(409, "A work order can be printed once it is sanctioned")
+    society = db.query(Society).filter(Society.id == wo.society_id).first()
+    return Response(content=render_work_order_pdf(wo, society), media_type="application/pdf",
+                    headers={"Content-Disposition": f"inline; filename={wo.wo_number}.pdf"})
