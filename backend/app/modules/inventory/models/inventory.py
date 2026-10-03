@@ -7,7 +7,7 @@ Asset workflow:  REGISTERED → ASSIGNED → MAINTENANCE → AMC_TRACKED → RET
 import enum
 from sqlalchemy import (
     Column, String, Text, Integer, Float, Boolean,
-    DateTime, Date, Enum, ForeignKey, Numeric
+    DateTime, Date, Enum, ForeignKey, Numeric, UniqueConstraint
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -114,7 +114,7 @@ class InventoryItem(Base, TimestampMixin):
 
     society_id     = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     category_id    = Column(UUID(as_uuid=True), ForeignKey("inventory_categories.id", ondelete="SET NULL"), nullable=True, index=True)
-    item_code      = Column(String(30), nullable=False, unique=True, index=True)
+    item_code      = Column(String(30), nullable=False, index=True)
     name           = Column(String(255), nullable=False)
     description    = Column(Text, nullable=True)
     category       = Column(Enum(ItemCategory, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
@@ -126,6 +126,9 @@ class InventoryItem(Base, TimestampMixin):
     vendor_name    = Column(String(255), nullable=True)
     vendor_contact = Column(String(100), nullable=True)
     remarks        = Column(Text, nullable=True)
+
+    # Numbers run per society, so they are unique within one.
+    __table_args__ = (UniqueConstraint("society_id", "item_code", name="uq_item_society_code"),)
 
     society      = relationship("Society")
     category_rel = relationship("InventoryCategory", back_populates="items")
@@ -229,7 +232,7 @@ class Asset(Base, TimestampMixin):
     __tablename__ = "assets"
 
     society_id       = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
-    asset_code       = Column(String(30), nullable=False, unique=True, index=True)
+    asset_code       = Column(String(30), nullable=False, index=True)
     name             = Column(String(255), nullable=False)
     asset_category   = Column(Enum(AssetCategory, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
     description      = Column(Text, nullable=True)
@@ -254,6 +257,9 @@ class Asset(Base, TimestampMixin):
     assigned_to_staff = Column(UUID(as_uuid=True), nullable=True)
     assigned_to_user  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     assigned_at       = Column(DateTime, nullable=True)
+
+    # Numbers run per society, so they are unique within one.
+    __table_args__ = (UniqueConstraint("society_id", "asset_code", name="uq_asset_society_code"),)
 
     society      = relationship("Society")
     assigned_user = relationship("User", foreign_keys=[assigned_to_user])

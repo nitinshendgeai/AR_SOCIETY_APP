@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
@@ -321,11 +322,13 @@ class _TemplateEditorScreenState extends ConsumerState<_TemplateEditorScreen> {
           const SizedBox(height: 14),
           TextField(
             controller: _nameCtrl,
+            inputFormatters: [LengthLimitingTextInputFormatter(255)],
             decoration: const InputDecoration(labelText: 'Template Name *', hintText: 'e.g. Security Gate Round'),
           ),
           const SizedBox(height: 14),
           TextField(
             controller: _descCtrl,
+            inputFormatters: [LengthLimitingTextInputFormatter(1000)],
             maxLines: 2,
             decoration: const InputDecoration(labelText: 'Description (optional)'),
           ),
@@ -339,6 +342,7 @@ class _TemplateEditorScreenState extends ConsumerState<_TemplateEditorScreen> {
                 Expanded(
                   child: TextField(
                     controller: _items[i].titleCtrl,
+                    inputFormatters: [LengthLimitingTextInputFormatter(255)],
                     decoration: InputDecoration(hintText: 'Item ${i + 1}', isDense: true),
                   ),
                 ),

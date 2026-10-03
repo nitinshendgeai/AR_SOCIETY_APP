@@ -4,7 +4,11 @@ from datetime import date
 from decimal import Decimal
 from fastapi import APIRouter, Depends, Request, Query
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+import re
+from datetime import datetime
+from pydantic import BaseModel, Field, field_validator, model_validator
+from app.schemas import validators as val
+from app.core.tenant_scope import assert_society_access
 
 from app.db.session import get_db
 from app.core.dependencies import (
@@ -71,8 +75,44 @@ def _invoice_out(i) -> dict:
 
 
 # ── Inline schemas ────────────────────────────────────────────────────────────
+_GST = re.compile(r"^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$")
+_PAN = re.compile(r"^[A-Z]{5}\d{4}[A-Z]$")
+_IFSC = re.compile(r"^[A-Z]{4}0[A-Z0-9]{6}$")
+
+
+def _upper_match(pattern, message):
+    def check(v):
+        v = val.text(v)
+        if v is None:
+            return None
+        v = v.replace(" ", "").upper()
+        if not pattern.match(v):
+            raise ValueError(message)
+        return v
+    return check
+
+
+def _account(v):
+    v = val.text(v)
+    if v is None:
+        return None
+    v = v.replace(" ", "").replace("-", "")
+    if not re.fullmatch(r"[0-9A-Za-z]{5,34}", v):
+        raise ValueError("Enter a valid bank account number")
+    return v
+
+
+def _link(v):
+    v = val.text(v)
+    if v is None:
+        return None
+    if len(v) > 500 or not re.match(r"^https?://\S+$", v):
+        raise ValueError("Enter a valid link starting with http:// or https://")
+    return v
+
+
 class VendorCreate(OrmBase):
-    society_id: UUID; company_name: str; mobile: str
+    society_id: UUID; company_name: str = Field(max_length=255); mobile: str
     category: VendorCategory
     contact_person: Optional[str] = None; email: Optional[str] = None
     address: Optional[str] = None; city: Optional[str] = None
@@ -80,62 +120,139 @@ class VendorCreate(OrmBase):
     bank_account: Optional[str] = None; bank_name: Optional[str] = None
     bank_ifsc: Optional[str] = None; notes: Optional[str] = None
 
+    _company = field_validator("company_name", mode="before")(val.line_max(255, required=True))
+    _mobile = field_validator("mobile", mode="before")(val.mobile_any)
+    _person = field_validator("contact_person", mode="before")(val.line_max(255))
+    _email = field_validator("email", mode="before")(val.email)
+    _address = field_validator("address", mode="before")(val.note_max(1000))
+    _city = field_validator("city", mode="before")(val.line_max(100))
+    _gst = field_validator("gst_number", mode="before")(_upper_match(_GST, "Enter a valid 15-character GSTIN"))
+    _pan = field_validator("pan_number", mode="before")(_upper_match(_PAN, "Enter a valid PAN, e.g. ABCDE1234F"))
+    _account_no = field_validator("bank_account", mode="before")(_account)
+    _bank = field_validator("bank_name", mode="before")(val.line_max(100))
+    _ifsc = field_validator("bank_ifsc", mode="before")(_upper_match(_IFSC, "Enter a valid IFSC, e.g. HDFC0001234"))
+    _notes = field_validator("notes", mode="before")(val.note_max(2000))
+
 class VendorServiceCreate(OrmBase):
-    service_name: str; category: VendorCategory
-    rate_per_visit: Optional[Decimal] = None; rate_per_hour: Optional[Decimal] = None
+    service_name: str = Field(max_length=150); category: VendorCategory
+    rate_per_visit: Optional[Decimal] = Field(default=None, ge=0, lt=100_000_000, decimal_places=2)
+    rate_per_hour: Optional[Decimal] = Field(default=None, ge=0, lt=1_000_000, decimal_places=2)
     description: Optional[str] = None
+
+    _name = field_validator("service_name", mode="before")(val.line_max(150, required=True))
+    _description = field_validator("description", mode="before")(val.note_max(1000))
 
 class BlacklistRequest(OrmBase):
     reason: str
 
+    _reason = field_validator("reason", mode="before")(val.note_max(1000, required=True))
+
 class ContractCreate(OrmBase):
     society_id: UUID; vendor_id: UUID
-    contract_name: str; category: VendorCategory
+    contract_name: str = Field(max_length=255); category: VendorCategory
     start_date: date; end_date: date
     service_frequency: ServiceFrequency
     asset_id: Optional[UUID] = None
-    sla_response_hours: Optional[int] = None
+    sla_response_hours: Optional[int] = Field(default=None, ge=0, le=8760)
     scope_of_work: Optional[str] = None
-    annual_value: Optional[Decimal] = None
-    auto_renew: bool = False; renewal_notice_days: int = 30
+    annual_value: Optional[Decimal] = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    auto_renew: bool = False; renewal_notice_days: int = Field(default=30, ge=0, le=365)
     document_url: Optional[str] = None
 
+    _name = field_validator("contract_name", mode="before")(val.line_max(255, required=True))
+    _scope = field_validator("scope_of_work", mode="before")(val.note_max(5000))
+    _url = field_validator("document_url", mode="before")(_link)
+    _dates = field_validator("start_date", "end_date")(val.sane_date)
+
+    @model_validator(mode="after")
+    def _period(self):
+        if self.end_date <= self.start_date:
+            raise ValueError("The contract must end after it starts")
+        return self
+
 class SRCreate(OrmBase):
-    society_id: UUID; title: str; category: VendorCategory
-    description: Optional[str] = None; location: Optional[str] = None
+    society_id: UUID; title: str = Field(max_length=255); category: VendorCategory
+    description: Optional[str] = None; location: Optional[str] = Field(default=None, max_length=255)
     priority: ServiceRequestPriority = ServiceRequestPriority.MEDIUM
     preferred_date: Optional[date] = None
     vendor_id: Optional[UUID] = None
     complaint_id: Optional[UUID] = None; asset_id: Optional[UUID] = None
 
+    _title = field_validator("title", mode="before")(val.line_max(255, required=True))
+    _location = field_validator("location", mode="before")(val.line_max(255))
+    _description = field_validator("description", mode="before")(val.note_max(3000))
+    _date = field_validator("preferred_date")(val.sane_date)
+
 class AssignVendorRequest(OrmBase):
     vendor_id: UUID; scheduled_date: Optional[date] = None
+
+    _date = field_validator("scheduled_date")(val.sane_date)
 
 class SRStatusUpdate(OrmBase):
     status: ServiceRequestStatus
     notes: Optional[str] = None
-    actual_cost: Optional[Decimal] = None
+    actual_cost: Optional[Decimal] = Field(default=None, ge=0, max_digits=10, decimal_places=2)
+
+    _notes = field_validator("notes", mode="before")(val.note_max(1000))
 
 class VisitLogCreate(OrmBase):
     request_id: Optional[UUID] = None; contract_id: Optional[UUID] = None
     society_id: UUID; vendor_id: Optional[UUID] = None
     visit_date: date; work_done: Optional[str] = None
     materials_used: Optional[str] = None
-    check_in_time: Optional[str] = None; check_out_time: Optional[str] = None
+    check_in_time: Optional[datetime] = None; check_out_time: Optional[datetime] = None
     next_visit_date: Optional[date] = None
     photo_url: Optional[str] = None; is_satisfactory: bool = True
+
+    _text = field_validator("work_done", "materials_used", mode="before")(val.note_max(3000))
+    _photo = field_validator("photo_url", mode="before")(_link)
+    _dates = field_validator("visit_date", "next_visit_date")(val.sane_date)
+
+    @model_validator(mode="after")
+    def _times(self):
+        if self.check_in_time and self.check_out_time and self.check_out_time <= self.check_in_time:
+            raise ValueError("Check-out must be after check-in")
+        if self.next_visit_date and self.next_visit_date < self.visit_date:
+            raise ValueError("The next visit can't be before this one")
+        return self
 
 class VendorInvoiceCreate(OrmBase):
     society_id: UUID; vendor_id: UUID
     contract_id: Optional[UUID] = None; request_id: Optional[UUID] = None
-    invoice_number: str; invoice_date: date; due_date: Optional[date] = None
-    amount: Decimal; gst_amount: Decimal = Decimal(0); total_amount: Decimal
+    invoice_number: str = Field(max_length=50); invoice_date: date; due_date: Optional[date] = None
+    amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    gst_amount: Decimal = Field(default=Decimal(0), ge=0, max_digits=10, decimal_places=2)
+    total_amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
     description: Optional[str] = None; doc_url: Optional[str] = None
     expense_account_id: Optional[UUID] = None  # accounts ledger; default by vendor category
 
+    _number = field_validator("invoice_number", mode="before")(val.line_max(50, required=True))
+    _description = field_validator("description", mode="before")(val.note_max(2000))
+    _doc = field_validator("doc_url", mode="before")(_link)
+    _dates = field_validator("invoice_date", "due_date")(val.sane_date)
+
+    @model_validator(mode="after")
+    def _totals(self):
+        if self.total_amount != self.amount + self.gst_amount:
+            raise ValueError("The total must equal the amount plus GST")
+        if self.due_date and self.due_date < self.invoice_date:
+            raise ValueError("The due date can't be before the invoice date")
+        return self
+
 class RecordPaymentRequest(OrmBase):
-    amount: Decimal; paid_date: date; payment_mode: VendorPaymentMode
+    amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    paid_date: date; payment_mode: VendorPaymentMode
     payment_ref: Optional[str] = None; bank_name: Optional[str] = None
+
+    _ref = field_validator("payment_ref", mode="before")(val.line_max(100))
+    _bank = field_validator("bank_name", mode="before")(val.line_max(100))
+
+    @field_validator("paid_date")
+    @classmethod
+    def _not_future(cls, v):
+        if v > date.today():
+            raise ValueError("The payment date can't be in the future")
+        return val.sane_date(v)
 
 
 # ── Vendors ───────────────────────────────────────────────────────────────────
@@ -144,16 +261,20 @@ def create_vendor(data: VendorCreate, request: Request, db: Session = Depends(ge
                   user: User = Depends(get_current_user)):
     return VendorService_(db).create_vendor(data.model_dump(), user, request)
 
-@router.get("/{vendor_id}", dependencies=[Depends(admin_committee)])
-def get_vendor(vendor_id: UUID, db: Session = Depends(get_db)):
-    return _vendor_out(VendorService_(db).get_vendor(vendor_id))
+@router.get("/{vendor_id}")
+def get_vendor(vendor_id: UUID, db: Session = Depends(get_db), user: User = Depends(admin_committee)):
+    return _vendor_out(VendorService_(db).get_vendor(vendor_id, user))
 
-@router.get("/society/{society_id}", dependencies=[Depends(manager_above)])
-def list_vendors(society_id: UUID, skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
+@router.get("/society/{society_id}")
+def list_vendors(society_id: UUID, skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500),
+                 db: Session = Depends(get_db), user: User = Depends(manager_above)):
+    assert_society_access(user, society_id)
     return [_vendor_out(v) for v in VendorService_(db).list_vendors(society_id, skip, limit)]
 
-@router.get("/society/{society_id}/category/{category}", dependencies=[Depends(admin_committee)])
-def vendors_by_category(society_id: UUID, category: VendorCategory, db: Session = Depends(get_db)):
+@router.get("/society/{society_id}/category/{category}")
+def vendors_by_category(society_id: UUID, category: VendorCategory, db: Session = Depends(get_db),
+                        user: User = Depends(admin_committee)):
+    assert_society_access(user, society_id)
     return VendorService_(db).list_by_category(society_id, category)
 
 @router.post("/{vendor_id}/blacklist", dependencies=[Depends(admin_committee)])
@@ -161,9 +282,10 @@ def blacklist_vendor(vendor_id: UUID, data: BlacklistRequest, db: Session = Depe
                      user: User = Depends(get_current_user)):
     return VendorService_(db).blacklist_vendor(vendor_id, data.reason, user)
 
-@router.post("/{vendor_id}/services", status_code=201, dependencies=[Depends(admin_committee)])
-def add_service(vendor_id: UUID, data: VendorServiceCreate, db: Session = Depends(get_db)):
-    return VendorService_(db).add_service(vendor_id, data.model_dump())
+@router.post("/{vendor_id}/services", status_code=201)
+def add_service(vendor_id: UUID, data: VendorServiceCreate, db: Session = Depends(get_db),
+                user: User = Depends(admin_committee)):
+    return VendorService_(db).add_service(vendor_id, data.model_dump(), user)
 
 
 # ── AMC Contracts ─────────────────────────────────────────────────────────────
@@ -183,14 +305,17 @@ def generate_schedule(contract_id: UUID, db: Session = Depends(get_db),
     schedules = VendorService_(db).generate_schedule(contract_id, user)
     return {"schedules_generated": len(schedules), "contract_id": str(contract_id)}
 
-@router.get("/contracts/society/{society_id}", dependencies=[Depends(admin_committee)])
-def list_contracts(society_id: UUID, skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
+@router.get("/contracts/society/{society_id}")
+def list_contracts(society_id: UUID, skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500),
+                   db: Session = Depends(get_db), user: User = Depends(admin_committee)):
+    assert_society_access(user, society_id)
     return VendorService_(db).list_contracts(society_id, skip, limit)
 
-@router.get("/contracts/expiring/{society_id}", dependencies=[Depends(admin_committee)])
+@router.get("/contracts/expiring/{society_id}")
 def expiring_contracts(society_id: UUID,
-                        days: int = Query(60, description="Look-ahead days"),
-                        db: Session = Depends(get_db)):
+                        days: int = Query(60, ge=1, le=3650, description="Look-ahead days"),
+                        db: Session = Depends(get_db), user: User = Depends(admin_committee)):
+    assert_society_access(user, society_id)
     return VendorService_(db).get_expiring_contracts(society_id, days)
 
 
@@ -200,9 +325,9 @@ def create_sr(data: SRCreate, request: Request, db: Session = Depends(get_db),
               user: User = Depends(staff_above)):
     return VendorService_(db).create_service_request(data.model_dump(), user, request)
 
-@router.get("/service-requests/{sr_id}", dependencies=[Depends(staff_above)])
-def get_sr(sr_id: UUID, db: Session = Depends(get_db)):
-    return VendorService_(db).get_sr(sr_id)
+@router.get("/service-requests/{sr_id}")
+def get_sr(sr_id: UUID, db: Session = Depends(get_db), user: User = Depends(staff_above)):
+    return VendorService_(db).get_sr(sr_id, user)
 
 @router.post("/service-requests/{sr_id}/assign-vendor")
 def assign_vendor(sr_id: UUID, data: AssignVendorRequest, request: Request,
@@ -214,12 +339,15 @@ def update_sr_status(sr_id: UUID, data: SRStatusUpdate, request: Request,
                      db: Session = Depends(get_db), user: User = Depends(staff_above)):
     return VendorService_(db).update_sr_status(sr_id, data.status, data.notes or "", user, request, data.actual_cost)
 
-@router.get("/service-requests/society/{society_id}", dependencies=[Depends(admin_committee)])
-def list_srs(society_id: UUID, skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
+@router.get("/service-requests/society/{society_id}")
+def list_srs(society_id: UUID, skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500),
+             db: Session = Depends(get_db), user: User = Depends(admin_committee)):
+    assert_society_access(user, society_id)
     return VendorService_(db).list_service_requests(society_id, skip, limit)
 
-@router.get("/service-requests/open/{society_id}", dependencies=[Depends(admin_committee)])
-def open_srs(society_id: UUID, db: Session = Depends(get_db)):
+@router.get("/service-requests/open/{society_id}")
+def open_srs(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(admin_committee)):
+    assert_society_access(user, society_id)
     return VendorService_(db).get_open_requests(society_id)
 
 
@@ -236,9 +364,9 @@ def create_invoice(data: VendorInvoiceCreate, db: Session = Depends(get_db),
                    user: User = Depends(get_current_user)):
     return _invoice_out(VendorService_(db).create_vendor_invoice(data.model_dump(), user))
 
-@router.get("/invoices/{inv_id}", dependencies=[Depends(manager_above)])
-def get_invoice(inv_id: UUID, db: Session = Depends(get_db)):
-    return _invoice_out(VendorService_(db).get_vendor_invoice(inv_id))
+@router.get("/invoices/{inv_id}")
+def get_invoice(inv_id: UUID, db: Session = Depends(get_db), user: User = Depends(manager_above)):
+    return _invoice_out(VendorService_(db).get_vendor_invoice(inv_id, user))
 
 @router.post("/invoices/{inv_id}/payments", dependencies=[Depends(manager_above)])
 def record_payment(inv_id: UUID, data: RecordPaymentRequest, db: Session = Depends(get_db),
@@ -248,14 +376,16 @@ def record_payment(inv_id: UUID, data: RecordPaymentRequest, db: Session = Depen
         data.payment_ref, data.bank_name, user)
     return _invoice_out(inv)
 
-@router.get("/invoices/vendor/{vendor_id}", dependencies=[Depends(manager_above)])
-def vendor_invoices(vendor_id: UUID, db: Session = Depends(get_db)):
-    return [_invoice_out(i) for i in VendorService_(db).get_vendor_invoices(vendor_id)]
+@router.get("/invoices/vendor/{vendor_id}")
+def vendor_invoices(vendor_id: UUID, db: Session = Depends(get_db), user: User = Depends(manager_above)):
+    return [_invoice_out(i) for i in VendorService_(db).get_vendor_invoices(vendor_id, user)]
 
-@router.get("/invoices/society/{society_id}", dependencies=[Depends(manager_above)])
+@router.get("/invoices/society/{society_id}")
 def list_society_invoices(
     society_id: UUID, is_paid: Optional[bool] = None,
-    skip: int = 0, limit: int = 50, db: Session = Depends(get_db),
+    skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500), db: Session = Depends(get_db),
+    user: User = Depends(manager_above),
 ):
+    assert_society_access(user, society_id)
     rows = VendorService_(db).list_invoices_by_society(society_id, is_paid=is_paid, skip=skip, limit=limit)
     return [_invoice_out(i) for i in rows]

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart' show rmPhoneValidator, rmEmailValidator;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
@@ -137,8 +139,12 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
       ),
       body: Form(
         key: _formKey,
-        child: ListView(
+        // A plain scroll view, not a lazy ListView: fields scrolled out of
+        // view stay mounted, so validate() checks every one of them.
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
+          child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Employee code badge (read-only)
             Container(
@@ -170,6 +176,7 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
                 controller: _nameCtrl,
                 decoration: const InputDecoration(hintText: 'Enter full name'),
                 textCapitalization: TextCapitalization.words,
+                inputFormatters: [LengthLimitingTextInputFormatter(255)],
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Name is required' : null,
               ),
             ),
@@ -180,11 +187,8 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
                 controller: _mobileCtrl,
                 decoration: const InputDecoration(hintText: '10-digit mobile number'),
                 keyboardType: TextInputType.phone,
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Mobile is required';
-                  if (v.trim().length < 10) return 'Enter a valid mobile number';
-                  return null;
-                },
+                inputFormatters: [LengthLimitingTextInputFormatter(20)],
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Mobile is required' : rmPhoneValidator(v),
               ),
             ),
 
@@ -194,6 +198,8 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
                 controller: _emailCtrl,
                 decoration: const InputDecoration(hintText: 'staff@example.com'),
                 keyboardType: TextInputType.emailAddress,
+                inputFormatters: [LengthLimitingTextInputFormatter(255)],
+                validator: rmEmailValidator,
               ),
             ),
 
@@ -295,6 +301,7 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
                 controller: _emergencyNameCtrl,
                 decoration: const InputDecoration(hintText: 'e.g. Father / Spouse'),
                 textCapitalization: TextCapitalization.words,
+                inputFormatters: [LengthLimitingTextInputFormatter(255)],
               ),
             ),
 
@@ -304,6 +311,8 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
                 controller: _emergencyPhoneCtrl,
                 decoration: const InputDecoration(hintText: '10-digit mobile number'),
                 keyboardType: TextInputType.phone,
+                inputFormatters: [LengthLimitingTextInputFormatter(20)],
+                validator: rmPhoneValidator,
               ),
             ),
 
@@ -317,6 +326,7 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
               child: TextFormField(
                 controller: _addressCtrl,
                 decoration: const InputDecoration(hintText: 'Full address'),
+                inputFormatters: [LengthLimitingTextInputFormatter(1000)],
                 maxLines: 2,
                 textCapitalization: TextCapitalization.sentences,
               ),
@@ -327,6 +337,7 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
               child: TextFormField(
                 controller: _notesCtrl,
                 decoration: const InputDecoration(hintText: 'Internal notes (not visible to staff)'),
+                inputFormatters: [LengthLimitingTextInputFormatter(2000)],
                 maxLines: 2,
                 textCapitalization: TextCapitalization.sentences,
               ),
@@ -363,6 +374,7 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
               onPressed: _submit,
             ),
           ],
+          ),
         ),
       ),
     );
@@ -374,16 +386,15 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
     final data = <String, dynamic>{
       if (_nameCtrl.text.trim().isNotEmpty)        'full_name':  _nameCtrl.text.trim(),
       if (_mobileCtrl.text.trim().isNotEmpty)      'mobile':     _mobileCtrl.text.trim(),
-      if (_emailCtrl.text.trim().isNotEmpty)       'email':      _emailCtrl.text.trim(),
+      // Optional fields are sent as null when emptied, which clears them.
+      'email': _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
       if (_selectedDept != null)                   'department': _selectedDept,
       if (_selectedDesignationId != null)          'designation_id': _selectedDesignationId,
       if (_selectedShiftId != null)                'shift_id':   _selectedShiftId,
       if (_selectedStatus != null)                 'status':     _selectedStatus,
       'reporting_manager_id': _selectedReportingManagerId,
-      if (_emergencyNameCtrl.text.trim().isNotEmpty)
-        'emergency_contact_name': _emergencyNameCtrl.text.trim(),
-      if (_emergencyPhoneCtrl.text.trim().isNotEmpty)
-        'emergency_contact_phone': _emergencyPhoneCtrl.text.trim(),
+      'emergency_contact_name': _emergencyNameCtrl.text.trim().isEmpty ? null : _emergencyNameCtrl.text.trim(),
+      'emergency_contact_phone': _emergencyPhoneCtrl.text.trim().isEmpty ? null : _emergencyPhoneCtrl.text.trim(),
       'address': _addressCtrl.text.trim().isEmpty ? null : _addressCtrl.text.trim(),
       'notes':   _notesCtrl.text.trim().isEmpty   ? null : _notesCtrl.text.trim(),
     };

@@ -34,8 +34,14 @@ class StaffRepository(BaseRepository[Staff]):
         return self.db.query(Staff).filter(Staff.society_id==sid, Staff.department==dept, Staff.is_active==True).all()
 
     def next_employee_code(self, sid: UUID) -> str:
-        count = self.db.query(Staff).count()
-        return f"EMP-{str(count+1).zfill(4)}"
+        """Codes are unique platform-wide: one more than the highest in use, so
+        they can't repeat after a gap."""
+        highest = 0
+        for (code,) in self.db.query(Staff.employee_code):
+            digits = code.rsplit("-", 1)[-1]
+            if digits.isdigit():
+                highest = max(highest, int(digits))
+        return f"EMP-{str(highest+1).zfill(4)}"
 
     def get_by_user(self, user_id: UUID) -> Optional[Staff]:
         return self.db.query(Staff).filter(Staff.user_id==user_id, Staff.is_active==True).first()

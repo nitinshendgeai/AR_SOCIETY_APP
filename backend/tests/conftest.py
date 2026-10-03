@@ -145,3 +145,13 @@ def make_flat(db: Session, wing_id, flat_number: str = "101"):
     f = Flat(wing_id=wing_id, flat_number=flat_number)
     db.add(f); db.commit(); db.refresh(f)
     return f
+
+
+def link_staff_login(db, staff_id, login):
+    """Make `login` the account of the staff record, as it is in real use."""
+    from uuid import UUID
+    from app.modules.staff.models.staff import Staff
+    staff = db.query(Staff).filter(Staff.id == UUID(str(staff_id))).one()
+    staff.user_id = login["user"].id
+    db.commit()
+

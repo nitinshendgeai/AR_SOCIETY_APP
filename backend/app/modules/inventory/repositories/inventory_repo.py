@@ -10,6 +10,17 @@ from app.modules.inventory.models.inventory import (
 from app.repositories.base import BaseRepository
 
 
+def _highest(db, number_col, society_col, society_id) -> int:
+    """The highest sequence number in use in the society (the digits after the
+    last dash), so the next one can't repeat after a gap."""
+    highest = 0
+    for (number,) in db.query(number_col).filter(society_col == society_id):
+        digits = number.rsplit("-", 1)[-1]
+        if digits.isdigit():
+            highest = max(highest, int(digits))
+    return highest
+
+
 class InventoryCategoryRepo(BaseRepository[InventoryCategory]):
     def __init__(self, db): super().__init__(InventoryCategory, db)
     def get_by_society(self, sid: UUID) -> List[InventoryCategory]:
@@ -24,8 +35,7 @@ class InventoryItemRepo(BaseRepository[InventoryItem]):
             .offset(skip).limit(limit).all()
 
     def next_item_code(self, sid: UUID) -> str:
-        count = self.db.query(InventoryItem).filter(InventoryItem.society_id==sid).count()
-        return f"INV-{str(count+1).zfill(5)}"
+        return f"INV-{str(_highest(self.db, InventoryItem.item_code, InventoryItem.society_id, sid)+1).zfill(5)}"
 
     def get_low_stock(self, sid: UUID) -> List[InventoryItem]:
         """Items where current stock <= minimum_stock."""
@@ -82,8 +92,7 @@ class AssetRepo(BaseRepository[Asset]):
             .offset(skip).limit(limit).all()
 
     def next_asset_code(self, sid: UUID) -> str:
-        count = self.db.query(Asset).filter(Asset.society_id==sid).count()
-        return f"AST-{str(count+1).zfill(4)}"
+        return f"AST-{str(_highest(self.db, Asset.asset_code, Asset.society_id, sid)+1).zfill(4)}"
 
     def get_expiring_warranty(self, sid: UUID) -> List[Asset]:
         from datetime import date, timedelta

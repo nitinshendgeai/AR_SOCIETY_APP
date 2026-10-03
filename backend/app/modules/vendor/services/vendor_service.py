@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
 from fastapi import HTTPException, Request
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.modules.vendor.models.vendor import (
@@ -14,6 +15,7 @@ from app.modules.vendor.models.vendor import (
 from app.modules.vendor.repositories.vendor_repo import (
     VendorRepo, AMCContractRepo, ServiceRequestRepo,
 )
+from app.core.tenant_scope import resolve_create_society_id
 from app.models.user import User
 from app.models.audit_log import AuditAction
 from app.services.audit_service import AuditService
@@ -29,6 +31,40 @@ class VendorService_:  # trailing underscore avoids clash with model name
         self.contract_repo = AMCContractRepo(db)
         self.sr_repo       = ServiceRequestRepo(db)
 
+    @staticmethod
+    def _scoped(user: Optional[User], obj, what: str):
+        """A record of the caller's own society; another society's reads as
+        not found. Platform admins (no society) see everything."""
+        if user is not None and user.society_id is not None and obj.society_id != user.society_id:
+            raise HTTPException(404, f"{what} not found")
+        return obj
+
+    def _vendor_in(self, vendor_id: Optional[UUID], society_id: UUID, active_only: bool = False) -> Optional[Vendor]:
+        if vendor_id is None:
+            return None
+        v = self.vendor_repo.get(vendor_id)
+        if v is None or v.society_id != society_id:
+            raise HTTPException(422, "Vendor not found in this society")
+        if active_only:
+            from app.modules.vendor.models.vendor import VendorStatus
+            if v.status != VendorStatus.ACTIVE:
+                raise HTTPException(422, f"{v.company_name} is {v.status.value} and can't be given work")
+        return v
+
+    def _contract_in(self, contract_id: Optional[UUID], society_id: UUID) -> None:
+        if contract_id is None:
+            return
+        c = self.contract_repo.get(contract_id)
+        if c is None or c.society_id != society_id:
+            raise HTTPException(422, "Contract not found in this society")
+
+    def _request_in(self, request_id: Optional[UUID], society_id: UUID) -> None:
+        if request_id is None:
+            return
+        r = self.sr_repo.get(request_id)
+        if r is None or r.society_id != society_id:
+            raise HTTPException(422, "Service request not found in this society")
+
     def _post(self, hook: str, *args) -> None:
         """Post to the society's books (see accounts/services/postings.py);
         never fails the vendor action."""
@@ -43,7 +79,19 @@ class VendorService_:  # trailing underscore avoids clash with model name
     # ── Vendor CRUD ───────────────────────────────────────────────────────────
 
     def create_vendor(self, data: dict, user: User, request=None) -> Vendor:
-        code   = self.vendor_repo.next_vendor_code(data["society_id"])
+        data["society_id"] = society_id = resolve_create_society_id(user, data["society_id"])
+        same_name = self.db.query(Vendor).filter(
+            Vendor.society_id == society_id, Vendor.is_active == True,  # noqa: E712
+            func.lower(Vendor.company_name) == data["company_name"].lower()).first()
+        if same_name:
+            raise HTTPException(409, f"A vendor named '{same_name.company_name}' ({same_name.vendor_code}) already exists")
+        if data.get("gst_number"):
+            same_gst = self.db.query(Vendor).filter(
+                Vendor.society_id == society_id, Vendor.is_active == True,  # noqa: E712
+                Vendor.gst_number == data["gst_number"]).first()
+            if same_gst:
+                raise HTTPException(409, f"GST number {data['gst_number']} already belongs to {same_gst.company_name}")
+        code   = self.vendor_repo.next_vendor_code(society_id)
         vendor = Vendor(**data, vendor_code=code, registered_by=user.id)
         self.vendor_repo.create(vendor)
         self._audit(AuditAction.CREATE, vendor, "Vendor", user, request,
@@ -57,8 +105,7 @@ class VendorService_:  # trailing underscore avoids clash with model name
         return self.vendor_repo.update(v, data)
 
     def blacklist_vendor(self, vendor_id: UUID, reason: str, user: User) -> Vendor:
-        v = self.vendor_repo.get(vendor_id)
-        if not v: raise HTTPException(404, "Vendor not found")
+        v = self.get_vendor(vendor_id, user)
         from app.modules.vendor.models.vendor import VendorStatus
         v.status = VendorStatus.BLACKLISTED
         v.blacklist_reason = reason
@@ -66,10 +113,10 @@ class VendorService_:  # trailing underscore avoids clash with model name
         self.db.refresh(v)
         return v
 
-    def get_vendor(self, vendor_id: UUID) -> Vendor:
+    def get_vendor(self, vendor_id: UUID, user: Optional[User] = None) -> Vendor:
         v = self.vendor_repo.get(vendor_id)
         if not v: raise HTTPException(404, "Vendor not found")
-        return v
+        return self._scoped(user, v, "Vendor")
 
     def list_vendors(self, society_id: UUID, skip=0, limit=50) -> List[Vendor]:
         return self.vendor_repo.get_by_society(society_id, skip, limit)
@@ -77,7 +124,8 @@ class VendorService_:  # trailing underscore avoids clash with model name
     def list_by_category(self, society_id: UUID, category) -> List[Vendor]:
         return self.vendor_repo.get_by_category(society_id, category)
 
-    def add_service(self, vendor_id: UUID, data: dict) -> VendorService:
+    def add_service(self, vendor_id: UUID, data: dict, user: Optional[User] = None) -> VendorService:
+        self.get_vendor(vendor_id, user)
         svc = VendorService(vendor_id=vendor_id, **data)
         self.db.add(svc)
         self.db.commit()
@@ -87,6 +135,13 @@ class VendorService_:  # trailing underscore avoids clash with model name
     # ── AMC Contracts ─────────────────────────────────────────────────────────
 
     def create_contract(self, data: dict, user: User, request=None) -> AMCContract:
+        data["society_id"] = society_id = resolve_create_society_id(user, data["society_id"])
+        self._vendor_in(data["vendor_id"], society_id)
+        if data.get("asset_id"):
+            from app.modules.inventory.models.inventory import Asset
+            asset = self.db.get(Asset, data["asset_id"])
+            if asset is None or asset.society_id != society_id:
+                raise HTTPException(422, "Asset not found in this society")
         # Check for overlapping active contract with same vendor+asset
         if data.get("asset_id"):
             overlap = self.db.query(AMCContract).filter(
@@ -101,7 +156,7 @@ class VendorService_:  # trailing underscore avoids clash with model name
             if overlap:
                 raise HTTPException(409, "An active AMC already covers this vendor+asset for the given dates")
 
-        number   = self.contract_repo.next_contract_number(data["society_id"])
+        number   = self.contract_repo.next_contract_number(society_id)
         contract = AMCContract(**data, contract_number=number, created_by=user.id)
         self.db.add(contract)
         self.db.flush()
@@ -114,6 +169,7 @@ class VendorService_:  # trailing underscore avoids clash with model name
     def activate_contract(self, contract_id: UUID, user: User) -> AMCContract:
         c = self.contract_repo.get(contract_id)
         if not c: raise HTTPException(404, "Contract not found")
+        self._scoped(user, c, "Contract")
         if c.status != ContractStatus.DRAFT:
             raise HTTPException(409, f"Contract is already {c.status.value}")
         c.status = ContractStatus.ACTIVE
@@ -127,6 +183,7 @@ class VendorService_:  # trailing underscore avoids clash with model name
         """Auto-generate service schedule dates for the contract period."""
         c = self.contract_repo.get(contract_id)
         if not c: raise HTTPException(404, "Contract not found")
+        self._scoped(user, c, "Contract")
         if c.status not in (ContractStatus.ACTIVE, ContractStatus.DRAFT):
             raise HTTPException(409, "Can only generate schedules for active/draft contracts")
 
@@ -170,7 +227,19 @@ class VendorService_:  # trailing underscore avoids clash with model name
     # ── Service Requests ──────────────────────────────────────────────────────
 
     def create_service_request(self, data: dict, user: User, request=None) -> ServiceRequest:
-        number = self.sr_repo.next_request_number(data["society_id"])
+        data["society_id"] = society_id = resolve_create_society_id(user, data["society_id"])
+        self._vendor_in(data.get("vendor_id"), society_id)
+        if data.get("complaint_id"):
+            from app.modules.complaint.models.complaint import Complaint
+            complaint = self.db.get(Complaint, data["complaint_id"])
+            if complaint is None or complaint.society_id != society_id:
+                raise HTTPException(422, "Complaint not found in this society")
+        if data.get("asset_id"):
+            from app.modules.inventory.models.inventory import Asset
+            asset = self.db.get(Asset, data["asset_id"])
+            if asset is None or asset.society_id != society_id:
+                raise HTTPException(422, "Asset not found in this society")
+        number = self.sr_repo.next_request_number(society_id)
         sr = ServiceRequest(**data, request_number=number, raised_by=user.id)
         self.db.add(sr)
         self.db.flush()
@@ -184,10 +253,12 @@ class VendorService_:  # trailing underscore avoids clash with model name
                        user: User, request=None) -> ServiceRequest:
         sr = self.sr_repo.get(sr_id)
         if not sr: raise HTTPException(404, "Service request not found")
+        self._scoped(user, sr, "Service request")
         allowed = SR_TRANSITIONS.get(sr.status, set())
         if ServiceRequestStatus.ASSIGNED not in allowed:
             raise HTTPException(409, f"Cannot assign vendor from status '{sr.status.value}'")
 
+        self._vendor_in(vendor_id, sr.society_id, active_only=True)
         sr.vendor_id      = vendor_id
         sr.assigned_by    = user.id
         sr.status         = ServiceRequestStatus.ASSIGNED
@@ -215,6 +286,7 @@ class VendorService_:  # trailing underscore avoids clash with model name
                           actual_cost: Optional[Decimal] = None) -> ServiceRequest:
         sr = self.sr_repo.get(sr_id)
         if not sr: raise HTTPException(404, "Service request not found")
+        self._scoped(user, sr, "Service request")
         allowed = SR_TRANSITIONS.get(sr.status, set())
         if new_status not in allowed:
             raise HTTPException(409,
@@ -242,6 +314,10 @@ class VendorService_:  # trailing underscore avoids clash with model name
         return sr
 
     def log_visit(self, data: dict, user: User) -> ServiceVisitLog:
+        data["society_id"] = society_id = resolve_create_society_id(user, data["society_id"])
+        self._vendor_in(data.get("vendor_id"), society_id)
+        self._contract_in(data.get("contract_id"), society_id)
+        self._request_in(data.get("request_id"), society_id)
         log = ServiceVisitLog(**data, logged_by=user.id)
         self.db.add(log)
         # Mark AMC schedule if contract_id provided
@@ -258,10 +334,10 @@ class VendorService_:  # trailing underscore avoids clash with model name
         self.db.refresh(log)
         return log
 
-    def get_sr(self, sr_id: UUID) -> ServiceRequest:
+    def get_sr(self, sr_id: UUID, user: Optional[User] = None) -> ServiceRequest:
         sr = self.sr_repo.get(sr_id)
         if not sr: raise HTTPException(404, "Service request not found")
-        return sr
+        return self._scoped(user, sr, "Service request")
 
     def list_service_requests(self, society_id: UUID, skip=0, limit=50) -> List[ServiceRequest]:
         return self.sr_repo.get_by_society(society_id, skip, limit)
@@ -272,6 +348,15 @@ class VendorService_:  # trailing underscore avoids clash with model name
     # ── Vendor Invoices ───────────────────────────────────────────────────────
 
     def create_vendor_invoice(self, data: dict, user: User) -> VendorInvoice:
+        data["society_id"] = society_id = resolve_create_society_id(user, data["society_id"])
+        vendor = self._vendor_in(data["vendor_id"], society_id)
+        self._contract_in(data.get("contract_id"), society_id)
+        self._request_in(data.get("request_id"), society_id)
+        same = self.db.query(VendorInvoice).filter(
+            VendorInvoice.vendor_id == vendor.id, VendorInvoice.is_active == True,  # noqa: E712
+            func.lower(VendorInvoice.invoice_number) == data["invoice_number"].lower()).first()
+        if same:
+            raise HTTPException(409, f"Invoice {same.invoice_number} is already recorded for {vendor.company_name}")
         if data.get("expense_account_id"):
             from app.modules.accounts.models.accounts import Account
             head = self.db.query(Account).filter(Account.id == data["expense_account_id"]).first()
@@ -295,6 +380,9 @@ class VendorService_:  # trailing underscore avoids clash with model name
         MaintenanceBill/PaymentReceipt track partial resident payments."""
         inv = self.db.query(VendorInvoice).filter(VendorInvoice.id == inv_id).first()
         if not inv: raise HTTPException(404, "Invoice not found")
+        self._scoped(user, inv, "Invoice")
+        if paid_date < inv.invoice_date:
+            raise HTTPException(422, "The payment can't be dated before the invoice")
         if inv.is_paid:
             raise HTTPException(409, "Invoice is already fully paid")
         if amount <= 0:
@@ -322,7 +410,8 @@ class VendorService_:  # trailing underscore avoids clash with model name
         self.db.refresh(inv)
         return inv
 
-    def get_vendor_invoices(self, vendor_id: UUID) -> List[VendorInvoice]:
+    def get_vendor_invoices(self, vendor_id: UUID, user: Optional[User] = None) -> List[VendorInvoice]:
+        self.get_vendor(vendor_id, user)
         return self.db.query(VendorInvoice).filter(
             VendorInvoice.vendor_id == vendor_id
         ).order_by(VendorInvoice.invoice_date.desc()).all()
@@ -334,7 +423,7 @@ class VendorService_:  # trailing underscore avoids clash with model name
             q = q.filter(VendorInvoice.is_paid == is_paid)
         return q.order_by(VendorInvoice.invoice_date.desc()).offset(skip).limit(limit).all()
 
-    def get_vendor_invoice(self, inv_id: UUID) -> VendorInvoice:
+    def get_vendor_invoice(self, inv_id: UUID, user: Optional[User] = None) -> VendorInvoice:
         inv = self.db.query(VendorInvoice).filter(VendorInvoice.id == inv_id).first()
         if not inv: raise HTTPException(404, "Invoice not found")
-        return inv
+        return self._scoped(user, inv, "Invoice")

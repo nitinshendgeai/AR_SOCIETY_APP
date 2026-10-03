@@ -9,7 +9,7 @@ marked complete until all required items are checked off.
 """
 import pytest
 from datetime import date
-from tests.conftest import make_user, make_society
+from tests.conftest import link_staff_login, make_user, make_society
 
 
 def _template_payload(society_id, department="security", name="Gate Round"):
@@ -203,6 +203,7 @@ def test_complete_duty_blocked_until_required_items_done(client, db, rig):
                        headers=rig["admin"]["headers"]).json()
 
     guard_user = make_user(db, "chk-guarduser@stf.com", role="Security Staff")
+    link_staff_login(db, rig["guard"]["id"], guard_user)
     blocked = client.post(f"/api/v1/staff/duties/{duty['id']}/complete",
                           headers=guard_user["headers"])
     assert blocked.status_code == 409
@@ -233,6 +234,7 @@ def test_optional_item_does_not_block_duty_completion(client, db, rig):
                        headers=rig["admin"]["headers"]).json()
 
     guard_user = make_user(db, "chk-guarduser2@stf.com", role="Security Staff")
+    link_staff_login(db, rig["guard"]["id"], guard_user)
     r = client.post(f"/api/v1/staff/duties/{duty['id']}/complete", headers=guard_user["headers"])
     assert r.status_code == 200, r.text
 
@@ -244,5 +246,6 @@ def test_duty_without_template_completes_as_before(client, db, rig):
                              "duty_name": "Free-text duty", "duty_date": str(date.today())},
                        headers=rig["admin"]["headers"]).json()
     guard_user = make_user(db, "chk-guarduser3@stf.com", role="Security Staff")
+    link_staff_login(db, rig["guard"]["id"], guard_user)
     r = client.post(f"/api/v1/staff/duties/{duty['id']}/complete", headers=guard_user["headers"])
     assert r.status_code == 200

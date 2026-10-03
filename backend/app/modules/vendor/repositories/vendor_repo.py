@@ -10,6 +10,17 @@ from app.modules.vendor.models.vendor import (
 from app.repositories.base import BaseRepository
 
 
+def _highest(db, number_col, society_col, society_id) -> int:
+    """The highest sequence number in use in the society (the digits after the
+    last dash), so the next one can't repeat after a gap."""
+    highest = 0
+    for (number,) in db.query(number_col).filter(society_col == society_id):
+        digits = number.rsplit("-", 1)[-1]
+        if digits.isdigit():
+            highest = max(highest, int(digits))
+    return highest
+
+
 class VendorRepo(BaseRepository[Vendor]):
     def __init__(self, db): super().__init__(Vendor, db)
 
@@ -25,9 +36,7 @@ class VendorRepo(BaseRepository[Vendor]):
         ).all()
 
     def next_vendor_code(self, sid: UUID) -> str:
-        from sqlalchemy import func
-        count = self.db.query(func.count(Vendor.id)).filter(Vendor.society_id==sid).scalar() or 0
-        return f"VND-{str(count+1).zfill(4)}"
+        return f"VND-{str(_highest(self.db, Vendor.vendor_code, Vendor.society_id, sid)+1).zfill(4)}"
 
     def get_by_gst(self, gst: str) -> Optional[Vendor]:
         return self.db.query(Vendor).filter(Vendor.gst_number==gst).first()
@@ -59,10 +68,8 @@ class AMCContractRepo(BaseRepository[AMCContract]):
         ).order_by(AMCContract.end_date).all()
 
     def next_contract_number(self, sid: UUID) -> str:
-        from sqlalchemy import func
         from datetime import date as dt
-        count = self.db.query(func.count(AMCContract.id)).filter(AMCContract.society_id==sid).scalar() or 0
-        return f"AMC-{dt.today().year}-{str(count+1).zfill(4)}"
+        return f"AMC-{dt.today().year}-{str(_highest(self.db, AMCContract.contract_number, AMCContract.society_id, sid)+1).zfill(4)}"
 
 
 class ServiceRequestRepo(BaseRepository[ServiceRequest]):
@@ -89,8 +96,4 @@ class ServiceRequestRepo(BaseRepository[ServiceRequest]):
         ).order_by(ServiceRequest.created_at.desc()).offset(skip).limit(limit).all()
 
     def next_request_number(self, sid: UUID) -> str:
-        from sqlalchemy import func
-        count = self.db.query(func.count(ServiceRequest.id)).filter(
-            ServiceRequest.society_id==sid
-        ).scalar() or 0
-        return f"SRQ-{str(count+1).zfill(5)}"
+        return f"SRQ-{str(_highest(self.db, ServiceRequest.request_number, ServiceRequest.society_id, sid)+1).zfill(5)}"

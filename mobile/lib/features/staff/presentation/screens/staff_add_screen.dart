@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart' show rmPhoneValidator, rmEmailValidator;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -129,8 +131,12 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
       appBar: AppBar(title: const Text('Add Staff')),
       body: ResponsiveBody(child: Form(
         key: _formKey,
-        child: ListView(
+        // A plain scroll view, not a lazy ListView: fields scrolled out of
+        // view stay mounted, so validate() checks every one of them.
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
+          child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ── Personal details ────────────────────────────────────────────
             const _SectionHeader('Personal Details'),
@@ -142,6 +148,7 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
                 controller: _nameCtrl,
                 decoration: const InputDecoration(hintText: 'Enter full name'),
                 textCapitalization: TextCapitalization.words,
+                inputFormatters: [LengthLimitingTextInputFormatter(255)],
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Name is required' : null,
               ),
             ),
@@ -152,11 +159,8 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
                 controller: _mobileCtrl,
                 decoration: const InputDecoration(hintText: '10-digit mobile number'),
                 keyboardType: TextInputType.phone,
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Mobile is required';
-                  if (v.trim().length < 10) return 'Enter a valid mobile number';
-                  return null;
-                },
+                inputFormatters: [LengthLimitingTextInputFormatter(20)],
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Mobile is required' : rmPhoneValidator(v),
               ),
             ),
 
@@ -170,6 +174,8 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
                   helperMaxLines: 2,
                 ),
                 keyboardType: TextInputType.emailAddress,
+                inputFormatters: [LengthLimitingTextInputFormatter(255)],
+                validator: rmEmailValidator,
               ),
             ),
 
@@ -294,6 +300,7 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
                 controller: _emergencyNameCtrl,
                 decoration: const InputDecoration(hintText: 'e.g. Father / Spouse'),
                 textCapitalization: TextCapitalization.words,
+                inputFormatters: [LengthLimitingTextInputFormatter(255)],
               ),
             ),
 
@@ -303,6 +310,8 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
                 controller: _emergencyPhoneCtrl,
                 decoration: const InputDecoration(hintText: '10-digit mobile number'),
                 keyboardType: TextInputType.phone,
+                inputFormatters: [LengthLimitingTextInputFormatter(20)],
+                validator: rmPhoneValidator,
               ),
             ),
 
@@ -316,6 +325,7 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
               child: TextFormField(
                 controller: _addressCtrl,
                 decoration: const InputDecoration(hintText: 'Full address'),
+                inputFormatters: [LengthLimitingTextInputFormatter(1000)],
                 maxLines: 2,
                 textCapitalization: TextCapitalization.sentences,
               ),
@@ -326,6 +336,7 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
               child: TextFormField(
                 controller: _notesCtrl,
                 decoration: const InputDecoration(hintText: 'Internal notes (not visible to staff)'),
+                inputFormatters: [LengthLimitingTextInputFormatter(2000)],
                 maxLines: 2,
                 textCapitalization: TextCapitalization.sentences,
               ),
@@ -340,6 +351,7 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
               onPressed: () => _submit(societyId),
             ),
           ],
+          ),
         ),
       )),
     );

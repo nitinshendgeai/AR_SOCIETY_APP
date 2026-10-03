@@ -2,6 +2,7 @@ from datetime import datetime, date
 from typing import List, Optional
 from uuid import UUID
 from fastapi import HTTPException, Request
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.modules.staff.models.staff import (
@@ -28,6 +29,7 @@ from app.models.user import User, UserRole, UserStatus
 from app.models.role import Role
 from app.models.audit_log import AuditAction
 from app.core.security import hash_password
+from app.core.tenant_scope import resolve_create_society_id
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
 from app.models.notification import NotificationType, NotificationChannel
@@ -73,6 +75,10 @@ _DEPT_TO_ROLE = {
 }
 
 
+# Required on a staff record: sending null for these leaves them as they are.
+_NOT_CLEARABLE = {"full_name", "mobile", "department", "status"}
+
+
 class StaffService:
 
     def __init__(self, db: Session):
@@ -88,15 +94,58 @@ class StaffService:
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
-    def _staff_or_404(self, staff_id: UUID) -> Staff:
+    @staticmethod
+    def _scoped(user: Optional[User], obj, what: str):
+        """A record of the caller's own society; another society's reads as
+        not found. Platform admins (no society) see everything."""
+        if user is not None and user.society_id is not None and obj.society_id != user.society_id:
+            raise HTTPException(status_code=404, detail=f"{what} not found")
+        return obj
+
+    def _staff_or_404(self, staff_id: UUID, user: Optional[User] = None) -> Staff:
         s = self.repo.get(staff_id)
         if not s: raise HTTPException(status_code=404, detail="Staff not found")
-        return s
+        return self._scoped(user, s, "Staff")
 
-    def _task_or_404(self, task_id: UUID) -> StaffTask:
+    def _task_or_404(self, task_id: UUID, user: Optional[User] = None) -> StaffTask:
         t = self.task_repo.get(task_id)
         if not t: raise HTTPException(status_code=404, detail="Task not found")
-        return t
+        return self._scoped(user, t, "Task")
+
+    def _duty_or_404(self, duty_id: UUID, user: Optional[User] = None) -> DutyAssignment:
+        d = self.duty_repo.get(duty_id)
+        if not d: raise HTTPException(status_code=404, detail="Duty not found")
+        return self._scoped(user, d, "Duty")
+
+    def _leave_or_404(self, leave_id: UUID, user: Optional[User] = None) -> StaffLeave:
+        l = self.leave_repo.get(leave_id)
+        if not l: raise HTTPException(status_code=404, detail="Leave not found")
+        return self._scoped(user, l, "Leave")
+
+    def _in_society(self, model, obj_id: Optional[UUID], society_id: UUID, what: str) -> None:
+        """A referenced designation/shift/template/user must belong to the same society."""
+        if obj_id is None:
+            return
+        obj = self.db.get(model, obj_id)
+        if obj is None or getattr(obj, "society_id", None) != society_id:
+            raise HTTPException(status_code=422, detail=f"{what} not found in this society")
+
+    def _assert_staff_links(self, society_id: UUID, designation_id=None, shift_id=None,
+                            reporting_manager_id=None, user_id=None) -> None:
+        self._in_society(StaffDesignation, designation_id, society_id, "Designation")
+        self._in_society(StaffShift, shift_id, society_id, "Shift")
+        self._in_society(User, reporting_manager_id, society_id, "Reporting manager")
+        self._in_society(User, user_id, society_id, "Linked user")
+
+    def _assert_mobile_free(self, society_id: UUID, mobile: str, exclude_id: Optional[UUID] = None) -> None:
+        q = self.db.query(Staff).filter(Staff.society_id == society_id, Staff.mobile == mobile,
+                                        Staff.is_active == True)  # noqa: E712
+        if exclude_id is not None:
+            q = q.filter(Staff.id != exclude_id)
+        other = q.first()
+        if other is not None:
+            raise HTTPException(status_code=409,
+                detail=f"{other.full_name} ({other.employee_code}) already has the mobile number {mobile}")
 
     def _audit(self, action, entity, entity_type, user, request=None, **kw):
         AuditService.log(db=self.db, action=action, module="staff",
@@ -142,15 +191,30 @@ class StaffService:
     # ── Designations & Shifts ─────────────────────────────────────────────────
 
     def create_designation(self, data: DesignationCreate, user: User) -> StaffDesignation:
-        d = StaffDesignation(**data.model_dump())
-        return self.desg_repo.create(d)
+        society_id = resolve_create_society_id(user, data.society_id)
+        taken = self.db.query(StaffDesignation).filter(
+            StaffDesignation.society_id == society_id, StaffDesignation.is_active == True,  # noqa: E712
+            StaffDesignation.department == data.department,
+            func.lower(StaffDesignation.name) == data.name.lower()).first()
+        if taken:
+            raise HTTPException(status_code=409, detail=f"'{taken.name}' already exists in this department")
+        payload = data.model_dump()
+        payload["society_id"] = society_id
+        return self.desg_repo.create(StaffDesignation(**payload))
 
     def list_designations(self, society_id: UUID) -> List[StaffDesignation]:
         return self.desg_repo.get_by_society(society_id)
 
     def create_shift(self, data: ShiftCreate, user: User) -> StaffShift:
-        s = StaffShift(**data.model_dump())
-        return self.shift_repo.create(s)
+        society_id = resolve_create_society_id(user, data.society_id)
+        taken = self.db.query(StaffShift).filter(
+            StaffShift.society_id == society_id, StaffShift.is_active == True,  # noqa: E712
+            func.lower(StaffShift.name) == data.name.lower()).first()
+        if taken:
+            raise HTTPException(status_code=409, detail=f"A shift named '{taken.name}' already exists")
+        payload = data.model_dump()
+        payload["society_id"] = society_id
+        return self.shift_repo.create(StaffShift(**payload))
 
     def list_shifts(self, society_id: UUID) -> List[StaffShift]:
         return self.shift_repo.get_by_society(society_id)
@@ -158,7 +222,16 @@ class StaffService:
     # ── Staff CRUD ────────────────────────────────────────────────────────────
 
     def create_staff(self, data: StaffCreate, user: User, request=None) -> Staff:
-        code  = self.repo.next_employee_code(data.society_id)
+        society_id = resolve_create_society_id(user, data.society_id)
+        data.society_id = society_id
+        self._assert_staff_links(society_id, data.designation_id, data.shift_id,
+                                 data.reporting_manager_id, data.user_id)
+        self._assert_mobile_free(society_id, data.mobile)
+        if data.email and not data.user_id and self.db.query(User).filter(
+                func.lower(User.email) == data.email.lower()).first():
+            raise HTTPException(status_code=409,
+                detail=f"A login with the email {data.email} already exists — use another email or link that user")
+        code  = self.repo.next_employee_code(society_id)
         staff = Staff(**data.model_dump(), employee_code=code)
         self.repo.create(staff)  # commits + refreshes
 
@@ -207,13 +280,20 @@ class StaffService:
         return _DEPT_TO_ROLE.get(staff.department.value)
 
     def update_staff(self, staff_id: UUID, data: StaffUpdate, user: User, request=None) -> Staff:
-        staff = self._staff_or_404(staff_id)
-        updated = self.repo.update(staff, data.model_dump(exclude_none=True))
+        staff = self._staff_or_404(staff_id, user)
+        # A field sent as null is cleared; the required ones can't be.
+        patch = {k: getattr(data, k) for k in data.model_fields_set
+                 if getattr(data, k) is not None or k not in _NOT_CLEARABLE}
+        self._assert_staff_links(staff.society_id, patch.get("designation_id"), patch.get("shift_id"),
+                                 patch.get("reporting_manager_id"))
+        if patch.get("mobile"):
+            self._assert_mobile_free(staff.society_id, patch["mobile"], exclude_id=staff.id)
+        updated = self.repo.update(staff, patch)
         self._audit(AuditAction.UPDATE, updated, "Staff", user, request)
         return updated
 
-    def get_staff(self, staff_id: UUID) -> Staff:
-        return self._staff_or_404(staff_id)
+    def get_staff(self, staff_id: UUID, user: Optional[User] = None) -> Staff:
+        return self._staff_or_404(staff_id, user)
 
     def get_staff_by_user(self, user_id: UUID) -> Staff:
         staff = self.repo.get_by_user(user_id)
@@ -238,10 +318,15 @@ class StaffService:
     # ── Duty Assignment ───────────────────────────────────────────────────────
 
     def assign_duty(self, data: DutyCreate, assigner: User, request=None) -> DutyAssignment:
-        staff = self._staff_or_404(data.staff_id)
+        society_id = resolve_create_society_id(assigner, data.society_id)
+        staff = self._staff_or_404(data.staff_id, assigner)
+        if staff.society_id != society_id:
+            raise HTTPException(status_code=422, detail="That staff member is not in this society")
+        self._in_society(StaffShift, data.shift_id, society_id, "Shift")
+        data.society_id = society_id
         if data.checklist_template_id:
             template = self.checklist_repo.get(data.checklist_template_id)
-            if not template:
+            if not template or template.society_id != society_id:
                 raise HTTPException(status_code=404, detail="Checklist template not found")
 
         duty = DutyAssignment(**data.model_dump(), assigned_by=assigner.id)
@@ -270,8 +355,8 @@ class StaffService:
         return duty
 
     def complete_duty(self, duty_id: UUID, user: User) -> DutyAssignment:
-        duty = self.duty_repo.get(duty_id)
-        if not duty: raise HTTPException(status_code=404, detail="Duty not found")
+        duty = self._duty_or_404(duty_id, user)
+        self._assert_self_or_supervisor(user, self._staff_or_404(duty.staff_id))
         if duty.is_completed: raise HTTPException(status_code=409, detail="Duty already completed")
         incomplete_required = [
             i.title for i in duty.checklist_items if i.is_required and not i.is_completed
@@ -289,16 +374,17 @@ class StaffService:
 
     # ── Duty Checklist ────────────────────────────────────────────────────────
 
-    def get_duty_checklist(self, duty_id: UUID) -> List[DutyChecklistItem]:
-        duty = self.duty_repo.get(duty_id)
-        if not duty: raise HTTPException(status_code=404, detail="Duty not found")
+    def get_duty_checklist(self, duty_id: UUID, user: Optional[User] = None) -> List[DutyChecklistItem]:
+        duty = self._duty_or_404(duty_id, user)
+        if user is not None:
+            self._assert_self_or_supervisor(user, self._staff_or_404(duty.staff_id))
         return duty.checklist_items
 
     def complete_checklist_item(
         self, duty_id: UUID, item_id: UUID, data: DutyChecklistItemCompleteRequest, user: User,
     ) -> DutyChecklistItem:
-        duty = self.duty_repo.get(duty_id)
-        if not duty: raise HTTPException(status_code=404, detail="Duty not found")
+        duty = self._duty_or_404(duty_id, user)
+        self._assert_self_or_supervisor(user, self._staff_or_404(duty.staff_id))
 
         item = next((i for i in duty.checklist_items if i.id == item_id), None)
         if not item:
@@ -315,8 +401,15 @@ class StaffService:
     # ── Checklist Templates ───────────────────────────────────────────────────
 
     def create_checklist_template(self, data: ChecklistTemplateCreate, user: User) -> ChecklistTemplate:
+        society_id = resolve_create_society_id(user, data.society_id)
+        taken = self.db.query(ChecklistTemplate).filter(
+            ChecklistTemplate.society_id == society_id, ChecklistTemplate.is_active == True,  # noqa: E712
+            ChecklistTemplate.department == data.department,
+            func.lower(ChecklistTemplate.name) == data.name.lower()).first()
+        if taken:
+            raise HTTPException(status_code=409, detail=f"A template named '{taken.name}' already exists for this department")
         template = ChecklistTemplate(
-            society_id=data.society_id, department=data.department,
+            society_id=society_id, department=data.department,
             name=data.name, description=data.description, created_by=user.id,
         )
         self.db.add(template)
@@ -339,17 +432,24 @@ class StaffService:
                 raise HTTPException(status_code=400, detail=f"Unknown department: {department}")
         return self.checklist_repo.get_by_society(society_id, dept_enum)
 
-    def get_checklist_template(self, template_id: UUID) -> ChecklistTemplate:
+    def get_checklist_template(self, template_id: UUID, user: Optional[User] = None) -> ChecklistTemplate:
         template = self.checklist_repo.get(template_id)
         if not template:
             raise HTTPException(status_code=404, detail="Checklist template not found")
-        return template
+        return self._scoped(user, template, "Checklist template")
 
     def update_checklist_template(
         self, template_id: UUID, data: ChecklistTemplateUpdate, user: User,
     ) -> ChecklistTemplate:
-        template = self.get_checklist_template(template_id)
+        template = self.get_checklist_template(template_id, user)
         if data.name is not None:
+            taken = self.db.query(ChecklistTemplate).filter(
+                ChecklistTemplate.society_id == template.society_id, ChecklistTemplate.is_active == True,  # noqa: E712
+                ChecklistTemplate.department == (data.department or template.department),
+                func.lower(ChecklistTemplate.name) == data.name.lower(),
+                ChecklistTemplate.id != template.id).first()
+            if taken:
+                raise HTTPException(status_code=409, detail=f"A template named '{taken.name}' already exists for this department")
             template.name = data.name
         if data.description is not None:
             template.description = data.description
@@ -368,13 +468,12 @@ class StaffService:
         self.db.refresh(template)
         return template
 
-    def delete_checklist_template(self, template_id: UUID) -> None:
-        template = self.get_checklist_template(template_id)
+    def delete_checklist_template(self, template_id: UUID, user: Optional[User] = None) -> None:
+        template = self.get_checklist_template(template_id, user)
         self.checklist_repo.soft_delete(template)
 
     def verify_duty(self, duty_id: UUID, data: DutyVerifyRequest, verifier: User) -> DutyAssignment:
-        duty = self.duty_repo.get(duty_id)
-        if not duty: raise HTTPException(status_code=404, detail="Duty not found")
+        duty = self._duty_or_404(duty_id, verifier)
         if not duty.is_completed: raise HTTPException(status_code=409, detail="Duty not yet completed")
         duty.verified_by = verifier.id
         duty.verified_at = datetime.utcnow()
@@ -387,14 +486,17 @@ class StaffService:
     def get_duties_by_date(self, society_id: UUID, duty_date: date) -> List[DutyAssignment]:
         return self.duty_repo.get_by_society_date(society_id, duty_date)
 
-    def get_my_duties(self, staff_id: UUID) -> List[DutyAssignment]:
+    def get_my_duties(self, staff_id: UUID, user: Optional[User] = None) -> List[DutyAssignment]:
+        staff = self._staff_or_404(staff_id, user)
+        if user is not None:
+            self._assert_self_or_supervisor(user, staff)
         return self.duty_repo.get_by_staff(staff_id)
 
     # ── Attendance ────────────────────────────────────────────────────────────
 
     def check_in(self, staff_id: UUID, data: AttendanceCheckIn,
                  user: User, request=None) -> StaffAttendance:
-        staff = self._staff_or_404(staff_id)
+        staff = self._staff_or_404(staff_id, user)
         self._assert_self_or_supervisor(user, staff)
         today = date.today()
         existing = self.att_repo.get_today(staff_id, today)
@@ -417,7 +519,7 @@ class StaffService:
 
     def check_out(self, staff_id: UUID, data: AttendanceCheckOut,
                   user: User, request=None) -> StaffAttendance:
-        staff = self._staff_or_404(staff_id)
+        staff = self._staff_or_404(staff_id, user)
         self._assert_self_or_supervisor(user, staff)
         today = date.today()
         att = self.att_repo.get_today(staff_id, today)
@@ -443,6 +545,9 @@ class StaffService:
         return att
 
     def manual_attendance(self, data: AttendanceManualEntry, user: User) -> StaffAttendance:
+        staff = self._staff_or_404(data.staff_id, user)
+        if data.society_id != staff.society_id:
+            raise HTTPException(status_code=422, detail="That staff member is not in this society")
         existing = self.att_repo.get_today(data.staff_id, data.attendance_date)
         if existing:
             # Update existing
@@ -459,7 +564,7 @@ class StaffService:
         return self.att_repo.create(att)
 
     def get_attendance(self, staff_id: UUID, user: User, skip=0, limit=50) -> List[StaffAttendance]:
-        staff = self._staff_or_404(staff_id)
+        staff = self._staff_or_404(staff_id, user)
         self._assert_self_or_supervisor(user, staff)
         return self.att_repo.get_by_staff(staff_id, skip, limit)
 
@@ -640,7 +745,11 @@ class StaffService:
     # ── Tasks ─────────────────────────────────────────────────────────────────
 
     def create_task(self, data: TaskCreate, assigner: User, request=None) -> StaffTask:
-        staff = self._staff_or_404(data.staff_id)
+        society_id = resolve_create_society_id(assigner, data.society_id)
+        staff = self._staff_or_404(data.staff_id, assigner)
+        if staff.society_id != society_id:
+            raise HTTPException(status_code=422, detail="That staff member is not in this society")
+        data.society_id = society_id
         task = StaffTask(**data.model_dump(), assigned_by=assigner.id)
         self.db.add(task)
         self.db.flush()
@@ -656,7 +765,8 @@ class StaffService:
 
     def update_task_status(self, task_id: UUID, data: TaskStatusUpdate,
                            user: User, request=None) -> StaffTask:
-        task = self._task_or_404(task_id)
+        task = self._task_or_404(task_id, user)
+        self._assert_self_or_supervisor(user, self._staff_or_404(task.staff_id))
         allowed = TASK_TRANSITIONS.get(task.status, set())
         if data.status not in allowed:
             raise HTTPException(status_code=409,
@@ -683,8 +793,8 @@ class StaffService:
 
     def add_work_log(self, task_id: UUID, data: WorkLogCreate,
                      user: User, staff_id: UUID) -> StaffWorkLog:
-        task  = self._task_or_404(task_id)
-        staff = self._staff_or_404(staff_id)
+        task  = self._task_or_404(task_id, user)
+        staff = self._staff_or_404(staff_id, user)
         log = StaffWorkLog(
             society_id=staff.society_id, staff_id=staff_id, task_id=task_id,
             notes=data.notes, photos_url=data.photos_url, logged_at=datetime.utcnow(),
@@ -694,10 +804,12 @@ class StaffService:
         self.db.refresh(log)
         return log
 
-    def get_my_tasks(self, staff_id: UUID, skip=0, limit=50) -> List[StaffTask]:
+    def get_my_tasks(self, staff_id: UUID, skip=0, limit=50, user: Optional[User] = None) -> List[StaffTask]:
+        self._staff_or_404(staff_id, user)
         return self.task_repo.get_by_staff(staff_id, skip, limit)
 
-    def get_active_tasks(self, staff_id: UUID) -> List[StaffTask]:
+    def get_active_tasks(self, staff_id: UUID, user: Optional[User] = None) -> List[StaffTask]:
+        self._staff_or_404(staff_id, user)
         return self.task_repo.get_active_by_staff(staff_id)
 
     def get_society_tasks(self, society_id: UUID, skip=0, limit=50) -> List[StaffTask]:
@@ -706,6 +818,7 @@ class StaffService:
     # ── Leave ─────────────────────────────────────────────────────────────────
 
     def apply_leave(self, data: LeaveCreate, staff_id: UUID, user: User) -> StaffLeave:
+        staff = self._staff_or_404(staff_id, user)
         role_names = {ur.role.name for ur in user.user_roles if ur.role}
         is_privileged = bool(role_names & _MANAGER_ROLES_SVC) or \
                         bool(role_names & set(_SUPERVISOR_DEPT_ACCESS.keys()))
@@ -718,13 +831,14 @@ class StaffService:
             raise HTTPException(status_code=409,
                 detail="A leave request already exists for this date range")
         total = (data.to_date - data.from_date).days + 1
-        leave = StaffLeave(**data.model_dump(), staff_id=staff_id, total_days=total)
+        payload = data.model_dump()
+        payload["society_id"] = staff.society_id
+        leave = StaffLeave(**payload, staff_id=staff_id, total_days=total)
         return self.leave_repo.create(leave)
 
     def approve_leave(self, leave_id: UUID, data: LeaveApproveRequest,
                       approver: User, request=None) -> StaffLeave:
-        leave = self.leave_repo.get(leave_id)
-        if not leave: raise HTTPException(status_code=404, detail="Leave not found")
+        leave = self._leave_or_404(leave_id, approver)
         if leave.status != LeaveStatus.PENDING:
             raise HTTPException(status_code=409, detail=f"Leave is already {leave.status.value}")
         leave.status      = LeaveStatus.APPROVED
@@ -742,8 +856,7 @@ class StaffService:
 
     def reject_leave(self, leave_id: UUID, data: LeaveRejectRequest,
                      rejector: User, request=None) -> StaffLeave:
-        leave = self.leave_repo.get(leave_id)
-        if not leave: raise HTTPException(status_code=404, detail="Leave not found")
+        leave = self._leave_or_404(leave_id, rejector)
         if leave.status != LeaveStatus.PENDING:
             raise HTTPException(status_code=409, detail=f"Leave is already {leave.status.value}")
         leave.status           = LeaveStatus.REJECTED
@@ -762,6 +875,7 @@ class StaffService:
 
     def get_staff_leaves_checked(self, staff_id: UUID, skip: int, limit: int,
                                   user: User) -> List[StaffLeave]:
+        self._staff_or_404(staff_id, user)
         role_names = {ur.role.name for ur in user.user_roles if ur.role}
         is_privileged = bool(role_names & _MANAGER_ROLES_SVC) or \
                         bool(role_names & set(_SUPERVISOR_DEPT_ACCESS.keys()))
@@ -800,7 +914,7 @@ class StaffService:
     ) -> dict:
         from app.modules.complaint.models.complaint import Complaint, ComplaintStatus
         complaint = self.db.query(Complaint).filter(Complaint.id == complaint_id).first()
-        if not complaint:
+        if not complaint or (user.society_id is not None and complaint.society_id != user.society_id):
             raise HTTPException(status_code=404, detail="Complaint not found")
         try:
             dept_enum = StaffDepartment(department)
