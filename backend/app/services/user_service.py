@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.models.role import Role
 from app.models.user import User, UserStatus
 from app.repositories.user_repo import UserRepository
 from app.schemas.user import UserUpdate, AdminUserCreate
@@ -14,6 +15,8 @@ from app.core.security import hash_password
 
 # Temporary passwords are often read out to the member (phone, office
 # counter), so leave out characters that look or sound alike: 0/O/o, 1/l/I.
+PLATFORM_ROLE = "Platform Admin"
+
 _TEMP_PASSWORD_ALPHABET = "".join(
     c for c in string.ascii_letters + string.digits if c not in "0Oo1lI")
 
@@ -45,10 +48,21 @@ class UserService:
         """Return all active users belonging to society_id."""
         return self.repo.get_all(society_id=society_id, skip=skip, limit=limit)
 
+    @staticmethod
+    def _assert_assignable(role_name: str, society_id) -> None:
+        """A society's admin hands out the society's roles, not the platform's."""
+        if role_name == PLATFORM_ROLE and society_id is not None:
+            raise HTTPException(status_code=403, detail="Only a platform admin can grant this role")
+
     def create(self, data: AdminUserCreate, society_id) -> tuple[User, str]:
         """Create a user in the caller's society. Returns (user, plain_temp_password)."""
         if self.repo.get_by_email(data.email):
             raise HTTPException(status_code=409, detail="Email already registered")
+        if data.role_name:
+            self._assert_assignable(data.role_name, society_id)
+            # A role the society knows, not a typo that would quietly make a new one
+            if not self.repo.db.query(Role).filter(Role.name == data.role_name).first():
+                raise HTTPException(status_code=422, detail=f"Unknown role '{data.role_name}'")
         temp_pwd = _generate_temp_password()
         user = User(
             society_id           = society_id,
@@ -74,6 +88,7 @@ class UserService:
         return self.repo.update(user, data.model_dump(exclude_none=True))
 
     def assign_role(self, user_id: UUID, role_name: str, society_id) -> User:
+        self._assert_assignable(role_name, society_id)
         user = self.get_or_404(user_id, society_id)
         self.repo.assign_role(user, role_name)
         return user

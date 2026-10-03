@@ -7,7 +7,8 @@ class StructureRepository {
       : _ds = ds ?? StructureRemoteDataSource();
 
   // Wings
-  Future<List<WingModel>> getWingsBySociety(String id) => _ds.getWingsBySociety(id);
+  Future<List<WingModel>> getWingsBySociety(String id, {bool includeInactive = false}) =>
+      _ds.getWingsBySociety(id, includeInactive: includeInactive);
   Future<WingModel> createWing({required String name, required String societyId,
       String? code, String? description, int? totalFloors}) =>
       _ds.createWing(name: name, societyId: societyId, code: code,

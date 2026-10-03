@@ -10,6 +10,7 @@ Architecture is finance-ERP-ready:
 - PaymentReceipt: immutable payment records
 - DueTracker: rolling balance sheet per flat
 - PenaltyRule: configurable late-fee engine
+- PaymentAllocation: how much of a recorded payment settled which bill
 """
 import enum
 from sqlalchemy import (
@@ -310,6 +311,7 @@ class MaintenanceBill(Base, TimestampMixin):
     line_items = relationship("InvoiceLineItem", back_populates="bill", cascade="all, delete-orphan")
     receipts   = relationship("PaymentReceipt",  back_populates="bill", cascade="all, delete-orphan")
     online_payments = relationship("OnlinePaymentSubmission", back_populates="bill")
+    allocations = relationship("PaymentAllocation", back_populates="bill")
 
     def __repr__(self):
         return f"<MaintenanceBill {self.invoice_number} [{self.bill_status}] ₹{self.total_amount}>"
@@ -381,7 +383,7 @@ class DueTracker(Base, TimestampMixin):
     total_penalty    = Column(Numeric(10, 2), default=0, nullable=False)
     total_discount   = Column(Numeric(10, 2), default=0, nullable=False)
     outstanding      = Column(Numeric(14, 2), default=0, nullable=False)  # computed: billed - paid - discount + penalty
-    advance_balance  = Column(Numeric(10, 2), default=0, nullable=False)
+    advance_balance  = Column(Numeric(14, 2), default=0, nullable=False)
     last_payment_date = Column(Date, nullable=True)
     last_bill_date   = Column(Date, nullable=True)
     overdue_months   = Column(Integer, default=0, nullable=False)   # for reporting
@@ -483,9 +485,47 @@ class OnlinePaymentSubmission(Base, TimestampMixin):
     bill      = relationship("MaintenanceBill", back_populates="online_payments")
     recorder  = relationship("User", foreign_keys=[recorded_by])
     reviewer  = relationship("User", foreign_keys=[reviewed_by])
+    allocations = relationship("PaymentAllocation", back_populates="payment",
+                               order_by="PaymentAllocation.created_at")
 
     def __repr__(self):
         return f"<OnlinePaymentSubmission {self.receipt_number} ₹{self.amount} [{self.status}]>"
+
+
+# ── PaymentAllocation ─────────────────────────────────────────────────────────
+
+class PaymentAllocation(Base, TimestampMixin):
+    """
+    How much of a recorded payment (OnlinePaymentSubmission) settled which
+    maintenance bill. A member's payment is set off against the flat's open
+    bills, oldest first; what is left over is an advance, set off against
+    the next bill when it is issued (see services/allocations.py).
+
+    A payment that is rejected, or a bill that is cancelled, releases its
+    allocations (`released_at`): the bill is unpaid again by that amount
+    and the money goes back to the member's credit. Rows are kept for the
+    record.
+    """
+    __tablename__ = "payment_allocations"
+
+    society_id = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    flat_id    = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="SET NULL"), nullable=True, index=True)
+    payment_id = Column(UUID(as_uuid=True), ForeignKey("online_payment_submissions.id", ondelete="CASCADE"), nullable=False, index=True)
+    bill_id    = Column(UUID(as_uuid=True), ForeignKey("maintenance_bills.id", ondelete="CASCADE"), nullable=False, index=True)
+    amount     = Column(Numeric(12, 2), nullable=False)
+    allocated_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    released_at     = Column(DateTime, nullable=True)
+    released_reason = Column(Text, nullable=True)
+
+    payment = relationship("OnlinePaymentSubmission", back_populates="allocations")
+    bill    = relationship("MaintenanceBill", back_populates="allocations")
+
+    @property
+    def is_live(self) -> bool:
+        return self.released_at is None
+
+    def __repr__(self):
+        return f"<PaymentAllocation ₹{self.amount} bill={self.bill_id}>"
 
 
 # ── BankStatementEntry ────────────────────────────────────────────────────────

@@ -11,7 +11,7 @@ class UserAdminRepository {
 
   Future<AdminUserModel> getUser(String id) => _ds.getUser(id);
 
-  Future<AdminUserModel> createUser({
+  Future<CreatedUser> createUser({
     required String email,
     required String fullName,
     String? phone,

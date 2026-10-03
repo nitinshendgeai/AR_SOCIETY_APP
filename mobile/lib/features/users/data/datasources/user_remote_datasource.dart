@@ -18,7 +18,7 @@ class UserRemoteDataSource {
     return AdminUserModel.fromJson(r.data as Map<String, dynamic>);
   }
 
-  Future<AdminUserModel> createUser({
+  Future<CreatedUser> createUser({
     required String email,
     required String fullName,
     String? phone,
@@ -32,7 +32,7 @@ class UserRemoteDataSource {
       if (roleName != null) 'role_name': roleName,
       'must_change_password': mustChangePassword,
     });
-    return AdminUserModel.fromJson(r.data as Map<String, dynamic>);
+    return CreatedUser.fromJson(r.data as Map<String, dynamic>);
   }
 
   Future<AdminUserModel> updateUser(

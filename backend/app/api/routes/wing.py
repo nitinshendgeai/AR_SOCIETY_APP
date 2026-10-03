@@ -25,9 +25,11 @@ def list_wings(skip: int = 0, limit: int = 50, db: Session = Depends(get_db),
 
 
 @router.get("/by-society/{society_id}", response_model=List[WingOut])
-def wings_by_society(society_id: UUID, db: Session = Depends(get_db),
+def wings_by_society(society_id: UUID, include_inactive: bool = False, db: Session = Depends(get_db),
                       current_user: User = Depends(get_current_user)):
-    return WingService(db).list_by_society(society_id, current_user)
+    """The society's wings in natural order; `include_inactive` adds the
+    deactivated ones (so they can be switched on again)."""
+    return WingService(db).list_by_society(society_id, current_user, include_inactive)
 
 
 @router.get("/{wing_id}", response_model=WingOut)

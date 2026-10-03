@@ -128,17 +128,13 @@ class MemberDues:
                          MaintenanceBill.flat_id.in_(list(flats)))
                  .order_by(MaintenanceBill.due_date, MaintenanceBill.bill_date, MaintenanceBill.created_at)
                  .all())
-        on_account = dict(self.db.query(OnlinePaymentSubmission.flat_id, func.sum(OnlinePaymentSubmission.amount))
-                          .filter(OnlinePaymentSubmission.society_id == society_id,
-                                  OnlinePaymentSubmission.bill_id.is_(None),
-                                  OnlinePaymentSubmission.is_active == True,  # noqa: E712
-                                  OnlinePaymentSubmission.status != ReconciliationStatus.REJECTED,
-                                  OnlinePaymentSubmission.flat_id.in_(list(flats)))
-                          .group_by(OnlinePaymentSubmission.flat_id).all())
-        for flat_id, amount in on_account.items():
-            flats[flat_id].on_account = Decimal(amount or 0)
+        # Money paid but not yet set off against a bill (an advance, or a
+        # payment recorded before set-off) goes against the oldest dues.
+        from app.modules.billing.services.allocations import PaymentAllocator
+        for flat_id, amount in PaymentAllocator(self.db).society_unapplied(society_id).items():
+            if flat_id in flats:
+                flats[flat_id].on_account = Decimal(amount)
 
-        # On-account money is applied to the oldest bills first.
         credit = {fid: fd.on_account for fid, fd in flats.items()}
         for b in bills:
             remaining = Decimal(b.outstanding)

@@ -4,7 +4,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from app.db.session import get_db
-from app.schemas.user import UserOut, UserUpdate, AdminUserCreate, PasswordResetResponse
+from app.schemas.user import UserOut, UserCreatedOut, UserUpdate, AdminUserCreate, PasswordResetResponse
 from app.services.user_service import UserService
 from app.services.password_reset_service import PasswordResetService
 from app.models.password_reset_request import PasswordResetStatus
@@ -48,15 +48,17 @@ def list_users(
     return [UserOut.from_orm_with_roles(u) for u in UserService(db).list(sid, skip, limit)]
 
 
-@router.post("/", response_model=UserOut, status_code=201)
+@router.post("/", response_model=UserCreatedOut, status_code=201)
 def create_user(
     data: AdminUserCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
+    """Create a user in the admin's society. The response carries the
+    temporary password, once, for the admin to hand over."""
     sid = _society_id(current_user)
-    user, _ = UserService(db).create(data, sid)
-    return UserOut.from_orm_with_roles(user)
+    user, temp_password = UserService(db).create(data, sid)
+    return UserCreatedOut(**UserOut.from_orm_with_roles(user).model_dump(), temporary_password=temp_password)
 
 
 # ── "Forgot password?" requests (declared before /{user_id}) ──────────────────

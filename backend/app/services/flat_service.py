@@ -26,9 +26,11 @@ class FlatService:
     def create(self, data: FlatCreate, current_user: User) -> FlatOut:
         # Flat has no society_id of its own — scoping is entirely a function
         # of whether the target wing belongs to the caller's own society.
-        wing = self.wing_repo.get(data.wing_id, society_id=current_user.society_id)
+        wing = self.wing_repo.get_kept(data.wing_id, society_id=current_user.society_id)
         if not wing:
             raise HTTPException(status_code=404, detail="Wing not found")
+        if not wing.is_active:
+            raise HTTPException(409, f"Wing '{wing.name}' is deactivated — activate it first")
         self.repo.assert_unique_flat_number(data.wing_id, data.flat_number)
         if data.virtual_account_number:
             self.repo.assert_unique_van(wing.society_id, data.virtual_account_number)
@@ -45,7 +47,7 @@ class FlatService:
         return [_enrich(f) for f in self.repo.get_all(skip, limit, society_id=current_user.society_id)]
 
     def list_by_wing(self, wing_id: UUID, current_user: User) -> List[FlatOut]:
-        wing = self.wing_repo.get(wing_id, society_id=current_user.society_id)
+        wing = self.wing_repo.get_kept(wing_id, society_id=current_user.society_id)
         if not wing:
             raise HTTPException(status_code=404, detail="Wing not found")
         return [_enrich(f) for f in self.repo.get_by_wing(wing_id)]
@@ -74,4 +76,28 @@ class FlatService:
         flat = self.repo.get(id, society_id=current_user.society_id)
         if not flat:
             raise HTTPException(status_code=404, detail="Flat not found")
+        self._assert_removable(flat)
         self.repo.soft_delete(flat)
+
+    def _assert_removable(self, flat: Flat) -> None:
+        """A flat with people living in it or dues against it stays: those
+        records (and the bills' history) point at it."""
+        from app.models.resident import Resident
+        from app.models.tenant import Tenant
+        from app.modules.billing.models.billing import BillStatus, MaintenanceBill
+        db = self.repo.db
+        residents = db.query(Resident).filter(Resident.flat_id == flat.id, Resident.is_active == True).count()
+        tenants = db.query(Tenant).filter(Tenant.flat_id == flat.id, Tenant.is_active == True).count()
+        if residents or tenants:
+            who = " and ".join(x for x in (
+                f"{residents} resident{'s' if residents != 1 else ''}" if residents else "",
+                f"{tenants} tenant{'s' if tenants != 1 else ''}" if tenants else "") if x)
+            raise HTTPException(409, f"Flat {flat.flat_number} has {who}. Move them out first.")
+        unpaid = db.query(MaintenanceBill).filter(
+            MaintenanceBill.flat_id == flat.id, MaintenanceBill.is_active == True,
+            MaintenanceBill.bill_status.in_([BillStatus.ISSUED, BillStatus.PARTIALLY_PAID, BillStatus.OVERDUE]),
+            MaintenanceBill.outstanding > 0).count()
+        if unpaid:
+            raise HTTPException(
+                409, f"Flat {flat.flat_number} has {unpaid} unpaid maintenance bill{'s' if unpaid != 1 else ''}. "
+                     f"Collect or cancel them first.")

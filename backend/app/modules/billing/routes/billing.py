@@ -22,6 +22,7 @@ from app.modules.billing.models.billing import (
 from app.modules.billing.services.maintenance_calculator import cycle_months, money
 from app.modules.billing.services.billing_service import BillingService, RESIDENT_VISIBLE_BILL_STATUSES
 from app.modules.billing.services.budget_suggestions import suggest_budgets
+from app.modules.billing.services.allocations import PaymentAllocator, allocated, payment_counts, unapplied
 from app.schemas.common import OrmBase, TimestampSchema
 from typing import Optional
 
@@ -112,6 +113,18 @@ def _online_payment_out(s) -> dict:
         "screenshot_mime_type": s.screenshot_mime_type,
         "screenshot_file_name": s.screenshot_file_name,
         "created_at": s.created_at.isoformat() if s.created_at else None,
+        # Set off against the flat's bills; what's left is the member's advance
+        "allocations": [{
+            "bill_id": str(a.bill_id),
+            "invoice_number": a.bill.invoice_number if a.bill else None,
+            "bill_date": a.bill.bill_date.isoformat() if a.bill else None,
+            "amount": str(a.amount),
+            "allocated_at": a.created_at.isoformat() if a.created_at else None,
+            "released_at": a.released_at.isoformat() if a.released_at else None,
+            "released_reason": a.released_reason,
+        } for a in s.allocations],
+        "applied_amount": str(allocated(s)),
+        "unapplied_amount": str(unapplied(s)),
     }
 
 
@@ -478,8 +491,9 @@ def _bill_detail_out(b) -> dict:
         "total": str(li.total),
     } for li in b.line_items]
     # Payments land in two tables depending on how they were recorded:
-    # PaymentReceipt (POST /payments) and on-bill OnlinePaymentSubmission
-    # (the Record Payment form). Both count towards paid_amount.
+    # PaymentReceipt (POST /payments) and OnlinePaymentSubmission (the
+    # Record Payment form), set off against this bill through
+    # PaymentAllocation — only the part set off here is listed.
     payments = [{
         "receipt_number": r.receipt_number,
         "payment_date": r.payment_date.isoformat(),
@@ -488,12 +502,12 @@ def _bill_detail_out(b) -> dict:
         "transaction_ref": r.transaction_ref,
     } for r in b.receipts if not r.is_reversed]
     payments += [{
-        "receipt_number": s.receipt_number,
-        "payment_date": s.payment_date.isoformat(),
-        "amount": str(s.amount),
-        "payment_mode": s.payment_mode.value,
-        "transaction_ref": s.transaction_ref,
-    } for s in b.online_payments if s.is_active and s.status != ReconciliationStatus.REJECTED]
+        "receipt_number": a.payment.receipt_number,
+        "payment_date": a.payment.payment_date.isoformat(),
+        "amount": str(a.amount),
+        "payment_mode": a.payment.payment_mode.value,
+        "transaction_ref": a.payment.transaction_ref,
+    } for a in b.allocations if a.is_live and payment_counts(a.payment)]
     out["payments"] = sorted(payments, key=lambda p: p["payment_date"])
     return out
 
@@ -685,6 +699,35 @@ def export_online_payments(
         BytesIO(csv_text.encode("utf-8")), media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=online_payments.csv"},
     )
+
+@router.get("/online-payments/society/{society_id}/unapplied", dependencies=[Depends(manager_above)])
+def unapplied_payments(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Money members have paid that isn't set off against a bill yet: an
+    advance, or (for payments recorded before set-off) one that could
+    settle a bill that is still open."""
+    from app.core.tenant_scope import assert_society_access
+    assert_society_access(user, society_id)
+    alloc = PaymentAllocator(db)
+    rows = alloc.society_unapplied(society_id)
+    settleable = {f: amt for f, amt in rows.items() if alloc.open_bills(f)}
+    return {
+        "flats": len(rows), "amount": str(sum(rows.values(), Decimal("0.00"))),
+        "flats_with_open_bills": len(settleable),
+        "amount_against_open_bills": str(sum(settleable.values(), Decimal("0.00"))),
+    }
+
+
+@router.post("/online-payments/society/{society_id}/apply", dependencies=[Depends(manager_above)])
+def apply_unapplied_payments(society_id: UUID, db: Session = Depends(get_db),
+                             user: User = Depends(get_current_user)):
+    """Set every flat's unapplied payments off against its open bills,
+    oldest first."""
+    from app.core.tenant_scope import assert_society_access
+    assert_society_access(user, society_id)
+    result = PaymentAllocator(db).apply_society(society_id, user)
+    db.commit()
+    return result
+
 
 @router.get("/online-payments/{submission_id}", dependencies=[Depends(manager_above)])
 def get_online_payment(submission_id: UUID, db: Session = Depends(get_db)):

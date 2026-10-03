@@ -1,9 +1,10 @@
 import re
 from typing import Optional
 from uuid import UUID
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from app.schemas.common import OrmBase, TimestampSchema
 from app.models.flat import FlatType, OccupancyStatus
+from app.schemas.floor import MAX_FLOOR, MIN_FLOOR
 
 _VAN = re.compile(r"^[A-Z0-9]{4,30}$")
 
@@ -21,17 +22,28 @@ def _clean_van(v: Optional[str]) -> Optional[str]:
     return v
 
 
+def _flat_number(v):
+    """A flat number as typed: trimmed, never blank."""
+    if v is None:
+        return None
+    v = str(v).strip()
+    if not v:
+        raise ValueError("Flat number cannot be blank")
+    return v
+
+
 class FlatCreate(OrmBase):
-    flat_number:      str
-    floor:            Optional[int] = None
+    flat_number:      str = Field(max_length=20)
+    floor:            Optional[int] = Field(default=None, ge=MIN_FLOOR, le=MAX_FLOOR)
     flat_type:        Optional[FlatType] = None
-    area_sqft:        Optional[float] = None
+    area_sqft:        Optional[float] = Field(default=None, gt=0, le=1_000_000)
     occupancy_status: Optional[OccupancyStatus] = None
     remarks:          Optional[str] = None
     virtual_account_number: Optional[str] = None
     wing_id:          UUID
 
     _van = field_validator("virtual_account_number")(_clean_van)
+    _number = field_validator("flat_number", mode="before")(_flat_number)
 
 
 class FlatUpdate(OrmBase):
@@ -48,15 +60,16 @@ class FlatUpdate(OrmBase):
     # for the one known caller this affects (the Flutter flat-edit form's
     # occupancy dropdown), which is an accepted, documented no-op until a
     # coordinated Flutter change repoints it at the Occupancy endpoints.
-    flat_number:      Optional[str] = None
-    floor:            Optional[int] = None
+    flat_number:      Optional[str] = Field(default=None, max_length=20)
+    floor:            Optional[int] = Field(default=None, ge=MIN_FLOOR, le=MAX_FLOOR)
     flat_type:        Optional[FlatType] = None
-    area_sqft:        Optional[float] = None
+    area_sqft:        Optional[float] = Field(default=None, gt=0, le=1_000_000)
     remarks:          Optional[str] = None
     # Sent as null or "" to clear it (see FlatService.update)
     virtual_account_number: Optional[str] = None
 
     _van = field_validator("virtual_account_number")(_clean_van)
+    _number = field_validator("flat_number", mode="before")(_flat_number)
 
 
 class FlatOut(TimestampSchema):

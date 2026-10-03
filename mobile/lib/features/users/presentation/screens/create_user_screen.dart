@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
+import 'package:ar_society_app/features/users/presentation/widgets/temp_password_dialog.dart';
 
 class CreateUserScreen extends ConsumerStatefulWidget {
   const CreateUserScreen({super.key});
@@ -34,12 +35,16 @@ class _CreateUserScreenState extends ConsumerState<CreateUserScreen> {
     setState(() { _loading = true; _error = null; });
 
     try {
-      await ref.read(userAdminRepoProvider).createUser(
+      final created = await ref.read(userAdminRepoProvider).createUser(
         email: _emailCtrl.text.trim().toLowerCase(),
         fullName: _nameCtrl.text.trim(),
         phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
         roleName: _selectedRole,
       );
+      if (mounted) {
+        // The new user has no way in without this: show it before leaving
+        await showTempPasswordDialog(context, created.temporaryPassword, who: created.user.fullName);
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User created successfully')),
@@ -89,7 +94,7 @@ class _CreateUserScreenState extends ConsumerState<CreateUserScreen> {
                 keyboardType: TextInputType.emailAddress,
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Required';
-                  if (!v.contains('@')) return 'Enter a valid email';
+                  if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim())) return 'Enter a valid email';
                   return null;
                 },
               ),
@@ -100,6 +105,11 @@ class _CreateUserScreenState extends ConsumerState<CreateUserScreen> {
                 controller: _phoneCtrl,
                 hint: '+91 9876543210',
                 keyboardType: TextInputType.phone,
+                validator: (v) {
+                  final t = (v ?? '').replaceAll(RegExp(r'[ \-()]'), '');
+                  if (t.isEmpty) return null;
+                  return RegExp(r'^\+?[0-9]{7,15}$').hasMatch(t) ? null : 'Enter a valid phone number';
+                },
               ),
               const SizedBox(height: 16),
 

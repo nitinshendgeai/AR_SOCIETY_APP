@@ -140,7 +140,7 @@ class _FloorCard extends ConsumerWidget {
                     const Icon(Icons.door_front_door_rounded,
                         size: 13, color: AppTheme.textSecondary),
                     const SizedBox(width: 4),
-                    Text('${floor.flatCount} flats',
+                    Text('${floor.flatCount} ${floor.flatCount == 1 ? 'flat' : 'flats'}',
                         style: const TextStyle(
                             fontSize: 12, color: AppTheme.textSecondary)),
                   ]),
@@ -187,7 +187,8 @@ class _FloorCard extends ConsumerWidget {
         builder: (ctx) => AlertDialog(
           title: const Text('Delete Floor?'),
           content: Text(
-              'Delete "${floor.displayName}"? All flats on this floor will also be removed.'),
+              'Delete "${floor.displayName}"? A floor that still has flats can\'t be deleted — '
+              'delete or move its flats first.'),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
@@ -219,8 +220,8 @@ class _FloorCard extends ConsumerWidget {
   /// Bulk-adds flats to an EXISTING floor — for floors that were already
   /// created without using the "Units on this Floor" field on Add Floor
   /// (which only bulk-generates at creation time, not afterwards).
-  /// Auto-numbered the same way (nextFlatNumbers), skipping any unit index
-  /// that would collide with a flat already on this floor.
+  /// Auto-numbered the same way (nextFlatNumbers), skipping any number the
+  /// wing already uses (flat numbers are unique per wing, not per floor).
   Future<void> _addFlats(BuildContext context, WidgetRef ref) async {
     final countCtrl = TextEditingController();
     final count = await showDialog<int>(
@@ -254,7 +255,7 @@ class _FloorCard extends ConsumerWidget {
 
     final allFlats = await ref.read(flatsBySocietyProvider.future);
     final existingNumbers = allFlats
-        .where((f) => f.wingId == wing.id && f.floor == floor.floorNumber)
+        .where((f) => f.wingId == wing.id)
         .map((f) => f.flatNumber)
         .toSet();
     final numbers = nextFlatNumbers(floor.floorNumber, count, existingNumbers);

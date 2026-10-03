@@ -147,6 +147,16 @@ class RoleFormMatrixRow {
       );
 }
 
+/// A user just created, with the temporary password to hand over.
+class CreatedUser {
+  final AdminUserModel user;
+  final String temporaryPassword;
+  const CreatedUser({required this.user, required this.temporaryPassword});
+
+  factory CreatedUser.fromJson(Map<String, dynamic> json) => CreatedUser(
+      user: AdminUserModel.fromJson(json), temporaryPassword: json['temporary_password'] as String);
+}
+
 class PasswordResetResult {
   final String temporaryPassword;
 

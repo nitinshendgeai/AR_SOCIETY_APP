@@ -14,6 +14,7 @@ Maintenance billing lifecycle: charge config → billing cycle → per-flat invo
 | PaymentReceipt | `payment_receipts` | Immutable payment record (RCP-2026-00001) |
 | DueTracker | `due_trackers` | Rolling balance per flat (single source of truth) |
 | PenaltyRule | `penalty_rules` | Configurable late-fee engine |
+| PaymentAllocation | `payment_allocations` | How much of a recorded payment settled which bill |
 
 ## Workflow
 ```
@@ -46,8 +47,15 @@ DRAFT → GENERATED → ISSUED → PARTIALLY_PAID → PAID
 - `advance_balance` on DueTracker
 - `PenaltyRule`: flat/percentage/compound_daily calculation types
 
+## Payments set off against open bills (`services/allocations.py`)
+- A payment recorded for a flat (Payments → Record Payment) **settles the flat's open bills oldest first** (by due date): each bill's paid amount, outstanding and status (partially paid / paid) and the flat's `DueTracker` update, and one `PaymentAllocation` per bill records the set-off. The form shows beforehand how the amount will be applied; **One bill** applies it to a single chosen bill instead.
+- What is left over is the member's **advance** (`DueTracker.advance_balance`): it is set off against the next bill when that bill is **issued**. Bills cancelled meanwhile put their set-off back into credit, which settles the flat's other open bills.
+- A payment **rejected** at reconciliation releases its set-offs — the bills are unpaid again — and is set off again if it is later cleared. Released allocations stay on record with the reason.
+- The bill's payment list, the receipt (each bill with the amount applied to it, and any advance) and the bill's receipts section on the next bill read the allocations.
+- Payments recorded "on account" before this existed stay held until **Set off now** on the Payments list (`POST /billing/online-payments/society/{id}/apply`; `GET …/unapplied` counts them).
+
 ## Members' dues & defaulters (`services/defaulters.py`)
-- Each flat's dues = outstanding on its issued bills, less money paid on account (set off against the oldest bills first), aged from each bill's **due date**: not yet due, up to 3 months, 3–6, 6–12, over 1 year.
+- Each flat's dues = outstanding on its issued bills, less any money paid but not yet set off (an advance, or an old on-account payment — set off against the oldest bills first), aged from each bill's **due date**: not yet due, up to 3 months, 3–6, 6–12, over 1 year.
 - **Defaulter**: some dues outstanding longer than the limit after the due date — 3 months by default (the model bye-laws' three-month rule); 1, 6 or 12 months can be chosen.
 - Per flat: member and phone, buckets, total, oldest due date, unpaid bills, last payment, last reminder.
 - `GET /billing/defaulters/{society_id}?min_months=3&include_all=false&format=json|pdf` — the list; `include_all` lists every flat with dues; the PDF is "List of Defaulters as on <date>" on the letterhead, signed by the Hon. Secretary.

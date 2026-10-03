@@ -12,6 +12,9 @@ class FlatType(str, enum.Enum):
     FOUR_BHK  = "4BHK"
     PENTHOUSE = "Penthouse"
     STUDIO    = "Studio"
+    DUPLEX    = "Duplex"
+    SHOP      = "Shop"
+    OFFICE    = "Office"
     OTHER     = "Other"
 
 

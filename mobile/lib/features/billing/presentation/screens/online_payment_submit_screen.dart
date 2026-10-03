@@ -5,20 +5,23 @@ import 'package:image_picker/image_picker.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:ar_society_app/features/billing/data/payment_setoff_api.dart';
 import 'package:ar_society_app/features/billing/domain/entities/billing_entities.dart';
 import 'package:ar_society_app/features/billing/presentation/providers/billing_providers.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart' show tableMoney;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// FMC Manager (or Admin/Committee) records a resident's payment: select
-/// Wing → Flat, choose On Bill (applied immediately to an existing
-/// outstanding bill) or On Account (no bill yet), capture the payment
+/// Wing → Flat; the payment settles the flat's open bills oldest first
+/// (shown as it will be applied), anything over is kept as an advance for
+/// the next bill — or it goes against one chosen bill. Capture the payment
 /// details, and optionally attach a screenshot — required only for the
 /// online payment modes (UPI/bank transfer/NEFT/RTGS/online gateway).
 /// A receipt is issued immediately either way; bank reconciliation for
 /// non-cash payments happens later from the payment's detail screen.
 class OnlinePaymentSubmitScreen extends ConsumerStatefulWidget {
-  /// Opens pre-filled "On Bill" for one bill (from a maintenance bill's
+  /// Opens pre-filled against one bill (from a maintenance bill's
   /// Record Payment button); all null opens the blank form.
   final String? presetWingId;
   final String? presetFlatId;
@@ -37,7 +40,9 @@ class OnlinePaymentSubmitScreen extends ConsumerStatefulWidget {
   ConsumerState<OnlinePaymentSubmitScreen> createState() => _OnlinePaymentSubmitScreenState();
 }
 
-enum _PaymentTarget { onAccount, onBill }
+enum _PaymentTarget { openBills, oneBill }
+
+const _openStatuses = {'issued', 'partially_paid', 'overdue'};
 
 class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitScreen> {
   final _amountCtrl = TextEditingController();
@@ -47,7 +52,7 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
 
   String? _wingId;
   String? _flatId;
-  _PaymentTarget _target = _PaymentTarget.onAccount;
+  _PaymentTarget _target = _PaymentTarget.openBills;
   String? _billId;
   String _paymentMode = kPaymentModes.first.$1;
   String _purpose = kOnlinePaymentPurposes.first.$1;
@@ -65,7 +70,7 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
     _wingId = widget.presetWingId;
     _flatId = widget.presetFlatId;
     if (widget.presetBillId != null) {
-      _target = _PaymentTarget.onBill;
+      _target = _PaymentTarget.oneBill;
       _billId = widget.presetBillId;
     }
     if (widget.presetAmount != null) _amountCtrl.text = widget.presetAmount!;
@@ -109,7 +114,7 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
       AppToast.error(context, 'Select a Wing, Flat, and a valid amount');
       return;
     }
-    if (_target == _PaymentTarget.onBill && _billId == null) {
+    if (_target == _PaymentTarget.oneBill && _billId == null) {
       AppToast.error(context, 'Select which bill this payment is against');
       return;
     }
@@ -125,7 +130,7 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
             amount: amount,
             paymentDate: _paymentDate,
             paymentMode: _paymentMode,
-            billId: _target == _PaymentTarget.onBill ? _billId : null,
+            billId: _target == _PaymentTarget.oneBill ? _billId : null,
             purpose: _purpose,
             transactionRef: _refCtrl.text.trim().isEmpty ? null : _refCtrl.text.trim(),
             bankName: _bankCtrl.text.trim().isEmpty ? null : _bankCtrl.text.trim(),
@@ -134,8 +139,15 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
             screenshotFileName: _pickedFile?.name,
             screenshotMimeType: _pickedFile?.mimeType ?? 'image/jpeg',
           );
+      ref.invalidate(flatOutstandingBillsProvider(_flatId!));
+      ref.invalidate(unappliedPaymentsProvider(societyId));
       if (mounted) {
-        AppToast.success(context, 'Recorded — receipt ${entity.receiptNumber}');
+        final bills = entity.liveSetOffs.length;
+        AppToast.success(
+            context,
+            'Recorded — receipt ${entity.receiptNumber}'
+            '${bills > 0 ? ', set off against $bills bill${bills == 1 ? '' : 's'}' : ''}'
+            '${entity.unappliedAmount > 0 ? ', ${tableMoney(entity.unappliedAmount)} kept as advance' : ''}');
         Navigator.pop(context, entity);
       }
     } catch (e) {
@@ -148,6 +160,14 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
   @override
   Widget build(BuildContext context) {
     final wingsAsync = ref.watch(wingsProvider);
+    final billsAsync = _flatId == null ? null : ref.watch(flatOutstandingBillsProvider(_flatId!));
+    final openBills = (billsAsync?.valueOrNull ?? const <BillEntity>[])
+        .where((b) => _openStatuses.contains(b.billStatus))
+        .toList()
+      ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+    final amount = double.tryParse(_amountCtrl.text.trim()) ?? 0;
+    final allAdvance = _target == _PaymentTarget.openBills && _flatId != null && billsAsync?.hasValue == true &&
+        openBills.isEmpty;
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
@@ -194,49 +214,47 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
           const SizedBox(height: 8),
           SegmentedButton<_PaymentTarget>(
             segments: const [
-              ButtonSegment(value: _PaymentTarget.onAccount, label: Text('On Account')),
-              ButtonSegment(value: _PaymentTarget.onBill, label: Text('On Bill')),
+              ButtonSegment(value: _PaymentTarget.openBills, label: Text('Open bills, oldest first')),
+              ButtonSegment(value: _PaymentTarget.oneBill, label: Text('One bill')),
             ],
             selected: {_target},
             onSelectionChanged: (s) => setState(() {
               _target = s.first;
-              if (_target == _PaymentTarget.onAccount) _billId = null;
+              if (_target == _PaymentTarget.openBills) _billId = null;
             }),
           ),
-          if (_target == _PaymentTarget.onBill) ...[
-            const SizedBox(height: 14),
-            if (_flatId == null)
-              const Text('Select a flat first to see its outstanding bills',
-                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 12))
-            else
-              Consumer(builder: (context, ref, _) {
-                final billsAsync = ref.watch(flatOutstandingBillsProvider(_flatId!));
-                return billsAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-                  data: (bills) => bills.isEmpty
-                      ? const Text('No outstanding bills for this flat',
-                          style: TextStyle(color: AppTheme.textSecondary, fontSize: 12))
-                      : DropdownButtonFormField<String>(
-                          value: _billId,
-                          decoration: const InputDecoration(labelText: 'Bill *'),
-                          items: [
-                            for (final b in bills)
-                              DropdownMenuItem(
-                                value: b.id,
-                                child: Text('${b.invoiceNumber} — ₹${b.outstanding} due'),
-                              ),
-                          ],
-                          onChanged: (v) => setState(() => _billId = v),
-                        ),
-                );
-              }),
-          ],
+          const SizedBox(height: 14),
+          if (_flatId == null)
+            const Text('Select a flat first to see its outstanding bills',
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 12))
+          else if (billsAsync == null || billsAsync.isLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (billsAsync.hasError)
+            Text(friendlyErrorMessage(billsAsync.error!), style: const TextStyle(color: AppTheme.error))
+          else if (_target == _PaymentTarget.openBills)
+            _SetOffPreview(bills: openBills, amount: amount)
+          else if (billsAsync.value!.isEmpty)
+            const Text('No outstanding bills for this flat',
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 12))
+          else
+            DropdownButtonFormField<String>(
+              value: _billId,
+              decoration: const InputDecoration(labelText: 'Bill *'),
+              items: [
+                for (final b in billsAsync.value!)
+                  DropdownMenuItem(
+                    value: b.id,
+                    child: Text('${b.invoiceNumber} — ₹${b.outstanding} due'),
+                  ),
+              ],
+              onChanged: (v) => setState(() => _billId = v),
+            ),
           const SizedBox(height: 20),
           const Text('Payment Details', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 8),
           TextField(
             controller: _amountCtrl,
+            onChanged: (_) => setState(() {}),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(labelText: 'Amount (₹) *'),
           ),
@@ -255,12 +273,12 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
             items: [for (final m in kPaymentModes) DropdownMenuItem(value: m.$1, child: Text(m.$2))],
             onChanged: (v) => setState(() => _paymentMode = v ?? _paymentMode),
           ),
-          if (_target == _PaymentTarget.onAccount) ...[
+          if (allAdvance) ...[
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
               value: _purpose,
               decoration: const InputDecoration(
-                  labelText: 'On Account Of *', hintText: 'What this payment is for'),
+                  labelText: 'Advance On Account Of *', hintText: 'What this payment is for'),
               items: [
                 for (final p in kOnlinePaymentPurposes) DropdownMenuItem(value: p.$1, child: Text(p.$2))
               ],
@@ -319,6 +337,68 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
           ),
         ],
       ),
+    );
+  }
+}
+
+/// How the amount will settle the flat's open bills, oldest first, and the
+/// advance left over.
+class _SetOffPreview extends StatelessWidget {
+  final List<BillEntity> bills;
+  final double amount;
+  const _SetOffPreview({required this.bills, required this.amount});
+
+  static String _rs(double v) => tableMoney(v);
+
+  @override
+  Widget build(BuildContext context) {
+    if (bills.isEmpty) {
+      return const Text(
+          'No open bills for this flat. The payment is kept as an advance and set off against the next bill '
+          'when it is issued.',
+          style: TextStyle(color: AppTheme.textSecondary, fontSize: 12.5));
+    }
+    var left = amount;
+    final rows = <Widget>[];
+    for (final b in bills) {
+      final due = double.tryParse(b.outstanding) ?? 0;
+      final take = left <= 0 ? 0.0 : (left < due ? left : due);
+      left -= take;
+      rows.add(Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(children: [
+          Icon(take >= due && due > 0 ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+              size: 16, color: take > 0 ? AppTheme.success : AppTheme.textTertiary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+                '${b.invoiceNumber} · due ${b.dueDate.day}/${b.dueDate.month}/${b.dueDate.year} · ${_rs(due)} due',
+                style: const TextStyle(fontSize: 12.5)),
+          ),
+          Text(take > 0 ? _rs(take) : '—',
+              style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w600, color: take > 0 ? AppTheme.textPrimary : AppTheme.textTertiary)),
+        ]),
+      ));
+    }
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const Text('Open bills — the payment settles them oldest first',
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        const SizedBox(height: 4),
+        ...rows,
+        if (left > 0) ...[
+          const Divider(height: 14),
+          Row(children: [
+            const Icon(Icons.savings_outlined, size: 16, color: AppTheme.primary),
+            const SizedBox(width: 8),
+            const Expanded(child: Text('Advance — for the next bill', style: TextStyle(fontSize: 12.5))),
+            Text(_rs(left), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          ]),
+        ],
+      ]),
     );
   }
 }
