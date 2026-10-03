@@ -12,8 +12,13 @@ from app.models.audit_log import AuditAction
 from app.repositories.tenant_repo import TenantRepository
 from app.repositories.flat_repo import FlatRepository
 from app.schemas.tenant import TenantCreate, TenantUpdate, TenantOut, TenantCreateOut
+from app.core.tenant_scope import assert_user_in_society
 from app.services.audit_service import AuditService
 from app.services.occupancy_service import OccupancyService
+
+# Required on the row: sending null for these leaves them as they are; every
+# other field in a PATCH, sent as null, is cleared.
+_NOT_CLEARABLE = {"full_name", "kyc_verified", "police_verification_status"}
 
 
 class TenantService:
@@ -40,6 +45,8 @@ class TenantService:
         flat = self.flat_repo.get(data.flat_id, society_id=current_user.society_id)
         if not flat:
             raise HTTPException(status_code=404, detail="Flat not found")
+
+        assert_user_in_society(self.db, data.user_id, current_user.society_id)
 
         warnings = self.repo.find_duplicate_warnings(
             society_id=current_user.society_id,
@@ -112,7 +119,10 @@ class TenantService:
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant not found")
 
-        patch = data.model_dump(exclude_none=True)
+        patch = {k: getattr(data, k) for k in data.model_fields_set
+                 if getattr(data, k) is not None or k not in _NOT_CLEARABLE}
+        if patch.get("user_id") is not None:
+            assert_user_in_society(self.db, patch["user_id"], current_user.society_id)
         old_values = {k: getattr(tenant, k) for k in patch}
         updated = self.repo.update(tenant, patch)
 

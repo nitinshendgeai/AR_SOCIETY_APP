@@ -137,8 +137,12 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
       appBar: AppBar(title: Text(_isEdit ? 'Edit Flat' : 'Add Flat')),
       body: ResponsiveBody(child: Form(
         key: _formKey,
-        child: ListView(
+        // A plain scroll view, not a lazy ListView: fields scrolled out of
+        // view stay mounted, so validate() checks every one of them.
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
+          child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Wing selector — a flat can't move to another wing, so when
             // editing it is shown, not chosen
@@ -315,6 +319,7 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
               ),
             ),
           ],
+          ),
         ),
       )),
     );

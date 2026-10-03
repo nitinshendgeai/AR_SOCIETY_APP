@@ -50,6 +50,11 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
 
   static const _idProofTypes = ['Aadhaar', 'PAN', 'Passport', 'Driving License', 'Voter ID'];
 
+  // Up to 10 digits and 2 decimals, matching what the server stores.
+  static final _moneyFormatters = <TextInputFormatter>[
+    FilteringTextInputFormatter.allow(RegExp(r'^\d{0,10}(\.\d{0,2})?')),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -98,6 +103,11 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
     if (!_isEdit && (_agreementStart == null) != (_agreementEnd == null)) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Provide both agreement start and end dates, or neither')));
+      return;
+    }
+    if (!_isEdit && _agreementStart != null && !_agreementEnd!.isAfter(_agreementStart!)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('The agreement end date must be after the start date')));
       return;
     }
 
@@ -172,8 +182,12 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
       appBar: AppBar(title: Text(_isEdit ? 'Edit Tenant' : 'Add Tenant')),
       body: ResponsiveBody(child: Form(
         key: _formKey,
-        child: ListView(
+        // A plain scroll view, not a lazy ListView: fields scrolled out of
+        // view stay mounted, so validate() checks every one of them.
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
+          child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const RmSectionHeader('Tenant Information'),
             const SizedBox(height: 10),
@@ -182,6 +196,7 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
               child: TextFormField(
                 controller: _nameCtrl,
                 textCapitalization: TextCapitalization.words,
+                inputFormatters: [LengthLimitingTextInputFormatter(255)],
                 decoration: const InputDecoration(hintText: 'Enter full name'),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Name is required' : null,
               ),
@@ -203,7 +218,13 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
             ),
             RmFormField(
               label: 'Email',
-              child: TextFormField(controller: _emailCtrl, keyboardType: TextInputType.emailAddress),
+              child: TextFormField(
+                controller: _emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                inputFormatters: [LengthLimitingTextInputFormatter(255)],
+                decoration: const InputDecoration(hintText: 'name@example.com'),
+                validator: rmEmailValidator,
+              ),
             ),
 
             if (!_isEdit) ...[
@@ -280,11 +301,21 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
               ]),
               RmFormField(
                 label: 'Monthly Rent',
-                child: TextFormField(controller: _rentCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+                child: TextFormField(
+                  controller: _rentCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: _moneyFormatters,
+                  decoration: const InputDecoration(prefixText: '₹ '),
+                ),
               ),
               RmFormField(
                 label: 'Security Deposit',
-                child: TextFormField(controller: _depositCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+                child: TextFormField(
+                  controller: _depositCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: _moneyFormatters,
+                  decoration: const InputDecoration(prefixText: '₹ '),
+                ),
               ),
             ],
 
@@ -315,18 +346,28 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
               child: DropdownButtonFormField<String>(
                 value: _idProofType,
                 hint: const Text('Select ID type'),
-                items: _idProofTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                onChanged: (v) => setState(() => _idProofType = v),
+                items: [
+                  if (_idProofType != null) const DropdownMenuItem(value: rmNoneOption, child: Text(rmNoneOption)),
+                  ..._idProofTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))),
+                ],
+                onChanged: (v) => setState(() => _idProofType = v == rmNoneOption ? null : v),
               ),
             ),
-            RmFormField(label: 'ID Proof Number', child: TextFormField(controller: _idProofNumberCtrl)),
+            RmFormField(
+              label: 'ID Proof Number',
+              child: TextFormField(controller: _idProofNumberCtrl, inputFormatters: [LengthLimitingTextInputFormatter(100)]),
+            ),
 
             const SizedBox(height: 8),
             const RmSectionHeader('Emergency Contact'),
             const SizedBox(height: 10),
             RmFormField(
               label: 'Contact Name',
-              child: TextFormField(controller: _emergencyNameCtrl, textCapitalization: TextCapitalization.words),
+              child: TextFormField(
+                controller: _emergencyNameCtrl,
+                textCapitalization: TextCapitalization.words,
+                inputFormatters: [LengthLimitingTextInputFormatter(255)],
+              ),
             ),
             RmFormField(
               label: 'Contact Phone',
@@ -339,11 +380,11 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
             ),
 
             const SizedBox(height: 8),
-            const RmSectionHeader('Financial Information'),
+            const RmSectionHeader('Remarks'),
             const SizedBox(height: 10),
             RmFormField(
-              label: 'Remarks',
-              child: TextFormField(controller: _remarksCtrl, maxLines: 2),
+              label: 'Notes',
+              child: TextFormField(controller: _remarksCtrl, maxLines: 2, maxLength: 1000),
             ),
 
             if (!_isEdit) ...[
@@ -369,7 +410,7 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
                     onTap: () async {
                       final picked = await showDatePicker(
                         context: context, initialDate: _moveInDate ?? DateTime.now(),
-                        firstDate: DateTime(2000), lastDate: DateTime.now().add(const Duration(days: 365)),
+                        firstDate: DateTime(2000), lastDate: DateTime.now(),
                       );
                       if (picked != null) setState(() => _moveInDate = picked);
                     },
@@ -386,6 +427,7 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
               onPressed: _submit,
             ),
           ],
+          ),
         ),
       )),
     );

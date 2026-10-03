@@ -336,6 +336,29 @@ String? rmPhoneValidator(String? v) {
   return null;
 }
 
+final RegExp _rmEmailRegExp = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$');
+
+/// Optional email: blank is fine, otherwise it has to look like an address.
+String? rmEmailValidator(String? v) {
+  final t = v?.trim() ?? '';
+  if (t.isEmpty) return null;
+  return _rmEmailRegExp.hasMatch(t) ? null : 'Enter a valid email address';
+}
+
+final RegExp _rmPlateRegExp = RegExp(r'^[A-Z0-9]{4,20}$');
+
+/// Registration number as the server reads it: spaces and dashes ignored,
+/// 4-20 letters or digits.
+String? rmVehicleNumberValidator(String? v) {
+  final t = (v ?? '').trim();
+  if (t.isEmpty) return 'Vehicle number is required';
+  final plate = t.toUpperCase().replaceAll(RegExp(r'[\s-]'), '');
+  return _rmPlateRegExp.hasMatch(plate) ? null : 'Enter a valid vehicle number, e.g. MH12AB1234';
+}
+
+/// "Not provided" entry for an optional dropdown, so a chosen value can be cleared.
+const rmNoneOption = '— None —';
+
 /// Days remaining until [dateStr]; negative if already past.
 int? rmDaysUntil(String? dateStr) {
   if (dateStr == null) return null;

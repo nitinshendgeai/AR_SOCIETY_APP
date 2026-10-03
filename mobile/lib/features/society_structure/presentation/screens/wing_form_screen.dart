@@ -88,8 +88,12 @@ class _WingFormScreenState extends ConsumerState<WingFormScreen> {
       appBar: AppBar(title: Text(_isEdit ? 'Edit Wing' : 'Add Wing')),
       body: ResponsiveBody(child: Form(
         key: _formKey,
-        child: ListView(
+        // A plain scroll view, not a lazy ListView: fields scrolled out of
+        // view stay mounted, so validate() checks every one of them.
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
+          child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             TextFormField(
               controller: _name,
@@ -151,6 +155,7 @@ class _WingFormScreenState extends ConsumerState<WingFormScreen> {
               ),
             ),
           ],
+          ),
         ),
       )),
     );

@@ -9,11 +9,15 @@ from app.models.audit_log import AuditAction
 from app.repositories.resident_repo import ResidentRepository
 from app.repositories.flat_repo import FlatRepository
 from app.schemas.resident import ResidentCreate, ResidentUpdate, ResidentOut, ResidentCreateOut
+from app.core.tenant_scope import assert_user_in_society
 from app.services.audit_service import AuditService
 from app.services.occupancy_service import OccupancyService
 from app.services.user_provisioning import provision_login_by_phone
 
 _PRIMARY_ALLOWED_TYPES = (ResidentType.OWNER, ResidentType.CO_OWNER)
+# Required on the row: sending null for these leaves them as they are; every
+# other field in a PATCH, sent as null, is cleared.
+_NOT_CLEARABLE = {"full_name", "resident_type", "is_primary", "kyc_verified", "comm_preference"}
 
 
 class ResidentService:
@@ -37,6 +41,8 @@ class ResidentService:
         flat = self.flat_repo.get(data.flat_id, society_id=current_user.society_id)
         if not flat:
             raise HTTPException(status_code=404, detail="Flat not found")
+
+        assert_user_in_society(self.db, data.user_id, current_user.society_id)
 
         # 5: primary/type is already validated at the schema level
         # (ResidentCreate.check_primary_type); this is the DB-aware half —
@@ -156,7 +162,10 @@ class ResidentService:
         if not resident:
             raise HTTPException(status_code=404, detail="Resident not found")
 
-        patch = data.model_dump(exclude_none=True)
+        patch = {k: getattr(data, k) for k in data.model_fields_set
+                 if getattr(data, k) is not None or k not in _NOT_CLEARABLE}
+        if patch.get("user_id") is not None:
+            assert_user_in_society(self.db, patch["user_id"], current_user.society_id)
 
         # Authoritative primary/type consistency check — merges the patch
         # against the resident's CURRENT row, since a PATCH may only touch

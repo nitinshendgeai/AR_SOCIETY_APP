@@ -49,7 +49,7 @@ Every event logs to `occupancy_logs` (immutable history).
 - Duplicate vehicle number per society → 409
 - Double tenancy (two active tenants in same flat) → 409
 - Agreement date overlap → 409
-- Vehicle number auto-normalized (uppercase, no spaces/hyphens)
+- Vehicle number auto-normalized (uppercase, no spaces/hyphens), 4–20 letters/digits, else 422
 
 ## Society structure rules (wings, floors, flats)
 - Names and numbers are trimmed; blank ones are refused (422). Wing names are unique per society, wing codes too (upper-cased, case-insensitive); a flat number is unique within its wing; a floor number within its wing.
@@ -63,6 +63,16 @@ Every event logs to `occupancy_logs` (immutable history).
 ### Society profile and users (the other setup-wizard steps)
 - Society profile: maintenance day 1–28, late fee 0–100 %, pincode 6 digits, PAN `ABCDE1234F`, GSTIN 15 characters (both upper-cased), email and phone checked; a society's name and code are unique (409 on rename).
 - Create User (`POST /users/`): name not blank, phone checked, role must exist (unknown → 422), the platform role can't be granted by a society admin (403). The response carries `temporary_password` **once**; the app shows it in a copyable dialog.
+
+## Residents, tenants and vehicles
+- Names are trimmed (inner spaces collapsed) and never blank; email must be an address (stored lower-case); mobile is a 10-digit Indian number, the emergency phone any 7–15-digit number; blank optional fields are stored as nothing. Text lengths match the columns (422, not a database error). A date of birth can't be in the future; agreement, move-in and verification dates must be within 1900–2100; rent and deposit are ≥ 0 with at most 10 digits and 2 decimals.
+- **PATCH clears**: a field sent as `null` is cleared (phone, email, ID proof, emergency contact, date of birth, remarks …); a field not sent is left alone. Name, type, primary, KYC and communication preference can't be cleared.
+- `user_id` (the linked login) must belong to the same society (404 otherwise), on create and update. Resident self-service edit requests are validated the same way, so an approved request can't store a bad value.
+- Move-out can't be dated before the move-in (422).
+- Vehicles: year `YYYY` (1900 – next year), insurance expiry `YYYY-MM-DD`, lengths match the columns; clearing a field with `null` works. An **RFID tag** is unique — a second vehicle with it → 409 "already assigned"; deregistering a vehicle frees its tag and its number can be registered again.
+- A plain resident or tenant sees and registers vehicles only for **their own flat** (403 / 404 otherwise); staff and committee see the whole society.
+- The audit log stores dates, amounts, ids and enums as JSON (editing a date used to drop the audit entry).
+- App: the resident, tenant, wing, floor and flat forms scroll in a plain scroll view, so **every field is validated** on Save (a lazy list skipped the ones scrolled out of view). Email, vehicle number, rent/deposit are checked as typed; a chosen date of birth or ID type can be cleared.
 
 ## Future Readiness
 - `society_code` → multi-tenant email namespacing

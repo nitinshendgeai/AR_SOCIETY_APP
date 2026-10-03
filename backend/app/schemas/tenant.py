@@ -2,23 +2,26 @@ from typing import Optional, List
 from uuid import UUID
 from datetime import date
 from decimal import Decimal
-from pydantic import model_validator, field_validator
+from pydantic import Field, model_validator, field_validator
+from app.schemas import validators as val
 from app.schemas.common import OrmBase, TimestampSchema
 from app.models.tenant import PoliceVerificationStatus
-from app.utils.phone import validate_mobile_number
+
+
+DATE_FIELDS = ("agreement_start_date", "agreement_end_date", "move_in_date")
 
 
 class TenantCreate(OrmBase):
     # No society_id — scope is always derived from flat_id -> wing -> society,
     # never trusted from the client (mirrors ResidentCreate, Phase M1.2).
     flat_id:          UUID
-    full_name:        str
+    full_name:        str = Field(max_length=255)
     phone:            Optional[str] = None
     email:            Optional[str] = None
     agreement_start_date: Optional[date] = None
     agreement_end_date:   Optional[date] = None
-    monthly_rent:     Optional[Decimal] = None
-    security_deposit: Optional[Decimal] = None
+    monthly_rent:     Optional[Decimal] = Field(default=None, max_digits=12, decimal_places=2)
+    security_deposit: Optional[Decimal] = Field(default=None, max_digits=12, decimal_places=2)
     agreement_doc_url: Optional[str] = None
     id_proof_type:    Optional[str] = None
     id_proof_number:  Optional[str] = None
@@ -42,10 +45,16 @@ class TenantCreate(OrmBase):
             raise ValueError("must not be negative")
         return v
 
-    @field_validator("phone")
-    @classmethod
-    def validate_phone(cls, v):
-        return validate_mobile_number(v)
+    _name = field_validator("full_name", mode="before")(val.name)
+    _phone = field_validator("phone", mode="before")(val.mobile)
+    _email = field_validator("email", mode="before")(val.email)
+    _emergency_phone = field_validator("emergency_contact_phone", mode="before")(val.contact_phone)
+    _emergency_name = field_validator("emergency_contact_name", mode="before")(val.limited(255))
+    _id_type = field_validator("id_proof_type", mode="before")(val.limited(50))
+    _id_number = field_validator("id_proof_number", mode="before")(val.limited(100))
+    _urls = field_validator("kyc_doc_url", "agreement_doc_url", mode="before")(val.limited(500))
+    _remarks = field_validator("remarks", mode="before")(val.note)
+    _dates = field_validator("police_verification_date", *DATE_FIELDS)(val.sane_date)
 
     @model_validator(mode="after")
     def check_agreement_dates(self):
@@ -68,7 +77,7 @@ class TenantUpdate(OrmBase):
     # AgreementTracker row; a generic PATCH editing them directly would
     # recreate the exact dual-source-of-truth bug this phase just fixed for
     # Flat.occupancy_status).
-    full_name:        Optional[str] = None
+    full_name:        Optional[str] = Field(default=None, max_length=255)
     phone:            Optional[str] = None
     email:            Optional[str] = None
     agreement_doc_url: Optional[str] = None
@@ -83,10 +92,16 @@ class TenantUpdate(OrmBase):
     remarks:          Optional[str] = None
     user_id:          Optional[UUID] = None
 
-    @field_validator("phone")
-    @classmethod
-    def validate_phone(cls, v):
-        return validate_mobile_number(v)
+    _name = field_validator("full_name", mode="before")(val.name)
+    _phone = field_validator("phone", mode="before")(val.mobile)
+    _email = field_validator("email", mode="before")(val.email)
+    _emergency_phone = field_validator("emergency_contact_phone", mode="before")(val.contact_phone)
+    _emergency_name = field_validator("emergency_contact_name", mode="before")(val.limited(255))
+    _id_type = field_validator("id_proof_type", mode="before")(val.limited(50))
+    _id_number = field_validator("id_proof_number", mode="before")(val.limited(100))
+    _urls = field_validator("kyc_doc_url", "agreement_doc_url", mode="before")(val.limited(500))
+    _remarks = field_validator("remarks", mode="before")(val.note)
+    _dates = field_validator("police_verification_date")(val.sane_date)
 
 
 class TenantOut(TimestampSchema):
@@ -125,9 +140,12 @@ class TenantCreateOut(TenantOut):
 class AgreementRenewalRequest(OrmBase):
     start_date: date
     end_date:   date
-    monthly_rent:     Optional[Decimal] = None
-    security_deposit: Optional[Decimal] = None
+    monthly_rent:     Optional[Decimal] = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    security_deposit: Optional[Decimal] = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     document_url:     Optional[str] = None
+
+    _url = field_validator("document_url", mode="before")(val.limited(500))
+    _dates = field_validator("start_date", "end_date")(val.sane_date)
 
     @model_validator(mode="after")
     def check_dates(self):
