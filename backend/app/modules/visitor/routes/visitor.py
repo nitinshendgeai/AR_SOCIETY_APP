@@ -1,6 +1,6 @@
 from typing import List, Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -9,6 +9,7 @@ from app.core.dependencies import (
     require_admin_committee, require_security, require_any_member,
 )
 from app.models.user import User
+from app.core.tenant_scope import assert_society_access
 from app.modules.visitor.schemas.visitor import (
     VisitorCreate, VisitorOut, VisitorApproveRequest,
     VisitorRejectRequest, VisitorCheckInRequest, VisitorCheckOutRequest,
@@ -32,9 +33,10 @@ def create_gate(data: GateCreate, db: Session = Depends(get_db),
     return VisitorService(db).create_gate(data, current_user)
 
 
-@router.get("/gates/{society_id}", response_model=List[GateOut],
-            dependencies=[Depends(get_current_user)])
-def list_gates(society_id: UUID, db: Session = Depends(get_db)):
+@router.get("/gates/{society_id}", response_model=List[GateOut])
+def list_gates(society_id: UUID, db: Session = Depends(get_db),
+               current_user: User = Depends(get_current_user)):
+    assert_society_access(current_user, society_id)
     return VisitorService(db).list_gates(society_id)
 
 
@@ -105,27 +107,29 @@ def check_out(
 
 # ── Query endpoints ───────────────────────────────────────────────────────────
 
-@router.get("/{visitor_id}", response_model=VisitorOut,
-            dependencies=[Depends(get_current_user)])
-def get_visitor(visitor_id: UUID, db: Session = Depends(get_db)):
-    return VisitorService(db).get_visitor(visitor_id)
+@router.get("/{visitor_id}", response_model=VisitorOut)
+def get_visitor(visitor_id: UUID, db: Session = Depends(get_db),
+                current_user: User = Depends(get_current_user)):
+    return VisitorService(db).get_visitor(visitor_id, current_user)
 
 
-@router.get("/society/{society_id}", response_model=List[VisitorOut],
-            dependencies=[Depends(require_security)])
+@router.get("/society/{society_id}", response_model=List[VisitorOut])
 def list_society_visitors(
     society_id: UUID,
-    skip: int = 0, limit: int = 50,
+    skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=1000),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_security),
 ):
     """Admin/Security: all visitors for a society."""
+    assert_society_access(current_user, society_id)
     return VisitorService(db).list_by_society(society_id, skip, limit)
 
 
-@router.get("/society/{society_id}/inside", response_model=List[VisitorOut],
-            dependencies=[Depends(require_security)])
-def currently_inside(society_id: UUID, db: Session = Depends(get_db)):
+@router.get("/society/{society_id}/inside", response_model=List[VisitorOut])
+def currently_inside(society_id: UUID, db: Session = Depends(get_db),
+                     current_user: User = Depends(require_security)):
     """Who is currently inside the society."""
+    assert_society_access(current_user, society_id)
     return VisitorService(db).get_currently_inside(society_id)
 
 
@@ -140,7 +144,7 @@ def pending_approvals(
 
 @router.get("/me/visitors", response_model=List[VisitorOut])
 def my_visitors(
-    skip: int = 0, limit: int = 50,
+    skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200),
     db:   Session = Depends(get_db),
     current_user: User = Depends(resident_or_above),
 ):

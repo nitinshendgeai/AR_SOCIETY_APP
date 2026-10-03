@@ -64,13 +64,18 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
       appBar: AppBar(title: const Text('Log Visitor')),
       body: ResponsiveBody(child: Form(
         key: _formKey,
-        child: ListView(
+        // A plain scroll view, not a lazy ListView: fields scrolled out of
+        // view stay mounted, so validate() checks every one of them.
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
+          child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             AppTextField(
               label: 'Visitor Name *',
               hint: 'Full name of the visitor',
               controller: _nameCtrl,
+              maxLength: 255,
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Name is required' : null,
             ),
@@ -80,8 +85,13 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
               hint: '+91 9876543210',
               controller: _mobileCtrl,
               keyboardType: TextInputType.phone,
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Mobile is required' : null,
+              maxLength: 20,
+              validator: (v) {
+                final t = (v ?? '').trim();
+                if (t.isEmpty) return 'Mobile is required';
+                final digits = t.replaceAll(RegExp(r'[\s\-()]'), '');
+                return RegExp(r'^\+?\d{7,15}$').hasMatch(digits) ? null : 'Enter a valid mobile number';
+              },
             ),
             const SizedBox(height: 14),
             // The flat being visited: its resident is asked to approve entry.
@@ -143,6 +153,7 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
               label: 'Purpose (optional)',
               hint: 'e.g., Meeting, delivery, repair work',
               controller: _purposeCtrl,
+              maxLength: 500,
             ),
             const SizedBox(height: 32),
             AppPrimaryButton(
@@ -152,6 +163,7 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
               onPressed: _submit,
             ),
           ],
+          ),
         ),
       )),
     );

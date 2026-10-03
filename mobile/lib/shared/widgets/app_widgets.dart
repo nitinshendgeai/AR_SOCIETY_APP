@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 
@@ -442,6 +443,9 @@ class AppTextField extends StatelessWidget {
   final VoidCallback? onFieldSubmitted;
   final Iterable<String>? autofillHints;
 
+  /// Longest text the field takes (the server's limit); null for no limit.
+  final int? maxLength;
+
   const AppTextField({
     super.key,
     required this.label,
@@ -456,12 +460,14 @@ class AppTextField extends StatelessWidget {
     this.textInputAction = TextInputAction.next,
     this.onFieldSubmitted,
     this.autofillHints,
+    this.maxLength,
   });
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
+      inputFormatters: maxLength == null ? null : [LengthLimitingTextInputFormatter(maxLength)],
       obscureText: obscureText,
       keyboardType: keyboardType,
       validator: validator,

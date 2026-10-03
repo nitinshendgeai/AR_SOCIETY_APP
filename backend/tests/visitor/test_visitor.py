@@ -16,6 +16,19 @@ def _visitor_payload(society_id, flat_id=None):
     return payload
 
 
+def _resident_of_flat(db, society, email, flat_number="A-1"):
+    """A Resident login living in a new flat of the society."""
+    from app.models.resident import Resident, ResidentType
+    resident = make_user(db, email, role="Resident")
+    resident["user"].society_id = society.id
+    wing = make_wing(db, society.id, "Wing " + flat_number)
+    flat = make_flat(db, wing.id, flat_number)
+    db.add(Resident(flat_id=flat.id, user_id=resident["user"].id, full_name="Res",
+                    resident_type=ResidentType.OWNER, is_primary=True))
+    db.commit()
+    return resident, flat
+
+
 def _make_gate(client, admin_headers, society_id):
     r = client.post("/api/v1/visitors/gates",
                     json={
@@ -89,12 +102,12 @@ def test_resident_cannot_create_visitor(client, db):
 
 def test_resident_approves_visitor(client, db):
     admin    = make_user(db, "adm4@vis.com", role="Society Admin")
-    resident = make_user(db, "res2@vis.com", role="Resident")
     security = make_user(db, "sec3@vis.com", role="Security Staff")
     society  = make_society(db, "Visitor Society 6")
+    resident, flat = _resident_of_flat(db, society, "res2@vis.com")
 
     r = client.post("/api/v1/visitors/",
-                    json=_visitor_payload(society.id),
+                    json=_visitor_payload(society.id, flat.id),
                     headers=security["headers"])
     vid = r.json()["id"]
 
@@ -108,11 +121,11 @@ def test_resident_approves_visitor(client, db):
 
 def test_resident_rejects_visitor(client, db):
     security = make_user(db, "sec4@vis.com", role="Security Staff")
-    resident = make_user(db, "res3@vis.com", role="Resident")
     society  = make_society(db, "Visitor Society 7")
+    resident, flat = _resident_of_flat(db, society, "res3@vis.com")
 
     r = client.post("/api/v1/visitors/",
-                    json=_visitor_payload(society.id),
+                    json=_visitor_payload(society.id, flat.id),
                     headers=security["headers"])
     vid = r.json()["id"]
 

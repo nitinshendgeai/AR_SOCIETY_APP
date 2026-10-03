@@ -174,6 +174,7 @@ class ComplaintCommentEntity {
   final String id;
   final String complaintId;
   final String authorId;
+  final String? authorName;
   final String body;
   final bool isInternal;
   final DateTime createdAt;
@@ -182,6 +183,7 @@ class ComplaintCommentEntity {
     required this.id,
     required this.complaintId,
     required this.authorId,
+    this.authorName,
     required this.body,
     required this.isInternal,
     required this.createdAt,
@@ -241,6 +243,7 @@ class ComplaintEntity {
   final String? flatNumber;
   final String? wingName;
   final String raisedBy;
+  final String? raisedByName;
   final String? assignedTo;
   final String? assignedToName;
   final DateTime? resolvedAt;
@@ -265,6 +268,7 @@ class ComplaintEntity {
     this.flatNumber,
     this.wingName,
     required this.raisedBy,
+    this.raisedByName,
     this.assignedTo,
     this.assignedToName,
     this.resolvedAt,

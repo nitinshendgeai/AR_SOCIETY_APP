@@ -1,6 +1,6 @@
 from typing import List
 from uuid import UUID
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -10,6 +10,7 @@ from app.core.dependencies import (
     require_any_staff, require_any_member,
 )
 from app.models.user import User
+from app.core.tenant_scope import assert_society_access
 from app.modules.complaint.schemas.complaint import (
     ComplaintCreate, ComplaintOut, ComplaintListOut,
     ComplaintAssignRequest, ComplaintStatusUpdateRequest,
@@ -26,6 +27,15 @@ manager_or_above   = require_manager_above
 any_member         = require_any_member
 
 
+def _out(service: ComplaintService, complaint, user: User) -> ComplaintOut:
+    """The complaint as the caller may see it: staff's internal notes are left
+    out for a resident or tenant."""
+    out = ComplaintOut.model_validate(complaint)
+    if not service.is_staff(user):
+        out.comments = [c for c in out.comments if not c.is_internal]
+    return out
+
+
 # ── CRUD ──────────────────────────────────────────────────────────────────────
 
 @router.post("/", response_model=ComplaintOut, status_code=201)
@@ -35,13 +45,15 @@ def create_complaint(
     db:      Session = Depends(get_db),
     user:    User    = Depends(any_member),
 ):
-    return ComplaintService(db).create_complaint(data, user, request)
+    service = ComplaintService(db)
+    return _out(service, service.create_complaint(data, user, request), user)
 
 
-@router.get("/{complaint_id}", response_model=ComplaintOut,
-            dependencies=[Depends(any_member)])
-def get_complaint(complaint_id: UUID, db: Session = Depends(get_db)):
-    return ComplaintService(db).get_complaint(complaint_id)
+@router.get("/{complaint_id}", response_model=ComplaintOut)
+def get_complaint(complaint_id: UUID, db: Session = Depends(get_db),
+                  user: User = Depends(any_member)):
+    service = ComplaintService(db)
+    return _out(service, service.get_complaint(complaint_id, user), user)
 
 
 # ── Workflow actions ──────────────────────────────────────────────────────────
@@ -76,7 +88,8 @@ def reopen_complaint(
     db:      Session = Depends(get_db),
     user:    User    = Depends(any_member),
 ):
-    return ComplaintService(db).reopen_complaint(complaint_id, data, user, request)
+    service = ComplaintService(db)
+    return _out(service, service.reopen_complaint(complaint_id, data, user, request), user)
 
 
 # ── Comments ──────────────────────────────────────────────────────────────────
@@ -109,10 +122,11 @@ def add_attachment(
 @router.get("/society/{society_id}", response_model=List[ComplaintListOut])
 def list_society_complaints(
     society_id: UUID,
-    skip: int = 0, limit: int = 50,
+    skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200),
     db:   Session = Depends(get_db),
     user: User    = Depends(manager_or_above),
 ):
+    assert_society_access(user, society_id)
     return ComplaintService(db).list_by_society(society_id, skip, limit)
 
 
@@ -122,12 +136,13 @@ def list_open_complaints(
     db:   Session = Depends(get_db),
     user: User    = Depends(manager_or_above),
 ):
+    assert_society_access(user, society_id)
     return ComplaintService(db).list_open(society_id)
 
 
 @router.get("/me/complaints", response_model=List[ComplaintListOut])
 def my_complaints(
-    skip: int = 0, limit: int = 50,
+    skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200),
     db:   Session = Depends(get_db),
     user: User    = Depends(any_member),
 ):
@@ -136,7 +151,7 @@ def my_complaints(
 
 @router.get("/me/assigned", response_model=List[ComplaintListOut])
 def assigned_to_me(
-    skip: int = 0, limit: int = 50,
+    skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200),
     db:   Session = Depends(get_db),
     user: User    = Depends(staff_or_above),
 ):

@@ -7,7 +7,7 @@ Status FSM:
   Any state → REJECTED (admin only)
 """
 import enum
-from sqlalchemy import Column, String, Text, DateTime, Integer, Enum, ForeignKey, Boolean
+from sqlalchemy import Column, String, Text, DateTime, Integer, Enum, ForeignKey, Boolean, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.db.base import Base, TimestampMixin
@@ -58,7 +58,7 @@ class Complaint(Base, TimestampMixin):
     __tablename__ = "complaints"
 
     # Identity
-    complaint_number = Column(String(20), nullable=False, unique=True, index=True)
+    complaint_number = Column(String(20), nullable=False, index=True)
     title            = Column(String(255), nullable=False)
     description      = Column(Text, nullable=False)
     category         = Column(Enum(ComplaintCategory, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
@@ -84,6 +84,9 @@ class Complaint(Base, TimestampMixin):
     rejection_reason = Column(Text, nullable=True)
     reopen_count     = Column(Integer, default=0, nullable=False)
 
+    # Numbers run per society (CMP-00001 ...), so they're unique within one.
+    __table_args__ = (UniqueConstraint("society_id", "complaint_number", name="uq_complaint_society_number"),)
+
     # Relationships
     society        = relationship("Society")
     flat           = relationship("Flat")
@@ -93,6 +96,10 @@ class Complaint(Base, TimestampMixin):
     comments       = relationship("ComplaintComment",    back_populates="complaint", cascade="all, delete-orphan", order_by="ComplaintComment.created_at")
     attachments    = relationship("ComplaintAttachment", back_populates="complaint", cascade="all, delete-orphan")
     status_history = relationship("ComplaintStatusHistory", back_populates="complaint", cascade="all, delete-orphan", order_by="ComplaintStatusHistory.created_at")
+
+    @property
+    def raised_by_name(self):
+        return self.reporter.full_name if self.reporter else None
 
     @property
     def assigned_to_name(self):
@@ -120,6 +127,10 @@ class ComplaintComment(Base, TimestampMixin):
 
     complaint = relationship("Complaint", back_populates="comments")
     author    = relationship("User", foreign_keys=[author_id])
+
+    @property
+    def author_name(self):
+        return self.author.full_name if self.author else None
 
 
 class ComplaintAttachment(Base, TimestampMixin):
