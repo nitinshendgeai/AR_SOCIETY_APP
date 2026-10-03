@@ -82,6 +82,7 @@ STANDARD_LEDGERS = [
     ("income_members", "amenities_income", "3010", "Amenities / Clubhouse Charges", {}),
     ("income_members", "other_charges_recovered", "3011", "Other Charges Recovered", {}),
     ("income_members", "transfer_premium", "3012", "Transfer Premium", {}),
+    ("income_members", "fines_penalties", "3013", "Fines & Penalties", {}),
     ("other_income", "interest_fd", "3101", "Interest on Fixed Deposits", {}),
     ("other_income", "interest_sb", "3102", "Interest on Savings Bank Account", {}),
     ("other_income", "hall_booking", "3103", "Hall / Amenity Booking Income", {}),
@@ -171,11 +172,49 @@ VENDOR_CATEGORY_LEDGER = {
 }
 
 
+# Standard expense ledgers and the maintenance element each one pays for —
+# linked when the ledger (or the element master) is first created; the
+# committee can change or clear any link afterwards.
+DEFAULT_ELEMENT_LINKS = {
+    "security_charges": "security",
+    "cctv_maintenance": "security",
+    "housekeeping": "housekeeping",
+    "garden": "housekeeping",
+    "pest_control": "housekeeping",
+    "lift_maintenance": "lift_maintenance",
+    "electricity": "common_electricity",
+    "generator_maintenance": "common_electricity",
+    "water_charges": "water_charges",
+    "property_tax": "property_tax",
+    "insurance": "insurance",
+    "lease_rent": "lease_rent_na_tax",
+}
+
+
+def link_default_elements(db: Session, society_id, ledgers: Optional[Dict[str, Account]] = None) -> None:
+    """Point the standard expense ledgers at the society's maintenance
+    elements (by element code). Only ledgers with no link yet, and only
+    those in `ledgers` when given (the ones just created). Caller commits."""
+    from app.modules.billing.models.billing import MaintenanceElement
+    elements = {e.code: e for e in db.query(MaintenanceElement).filter(
+        MaintenanceElement.society_id == society_id).all()}
+    if not elements:
+        return
+    if ledgers is None:
+        ledgers = {a.system_key: a for a in db.query(Account).filter(
+            Account.society_id == society_id, Account.system_key.isnot(None)).all()}
+    for key, code in DEFAULT_ELEMENT_LINKS.items():
+        account, element = ledgers.get(key), elements.get(code)
+        if account is not None and element is not None and account.maintenance_element_id is None:
+            account.maintenance_element_id = element.id
+
+
 def bill_line_ledger_key(line, element_code: Optional[str] = None) -> str:
     """System key of the ledger a maintenance bill line is credited to."""
     desc = (line.description or "").lower()
     if line.charge_type == ChargeType.PENALTY:
-        return "interest_on_arrears"
+        # Interest on arrears is billed as "Interest on arrears @ …"; any other penalty line is a fine.
+        return "interest_on_arrears" if desc.startswith("interest") else "fines_penalties"
     if "non-occupancy" in desc or "non occupancy" in desc:
         return "non_occupancy"
     if element_code in ELEMENT_LEDGER:
@@ -208,6 +247,7 @@ def seed_chart_of_accounts(db: Session, society_id, bank_settings=None) -> Dict[
     accounts = {a.system_key: a for a in db.query(Account).filter(
         Account.society_id == society_id).all() if a.system_key}
     taken_names = {a.name for a in db.query(Account.name).filter(Account.society_id == society_id)}
+    created = set()
     for order, (group_key, key, code, name, flags) in enumerate(STANDARD_LEDGERS):
         if key in accounts:
             continue
@@ -227,6 +267,13 @@ def seed_chart_of_accounts(db: Session, society_id, bank_settings=None) -> Dict[
                     opening_type="dr" if nature in ("asset", "expense") else "cr", **flags)
         db.add(a)
         accounts[key] = a
+        created.add(key)
         taken_names.add(name)
     db.flush()
+    # The elements the ledgers count towards are the standard ones; make sure they exist (this links every unlinked standard ledger).
+    from app.modules.billing.models.billing import MaintenanceElement
+    from app.modules.billing.services.standard_elements import seed_standard_elements
+    if not db.query(MaintenanceElement.id).filter(MaintenanceElement.society_id == society_id).first():
+        seed_standard_elements(db, society_id)
+    link_default_elements(db, society_id, {k: a for k, a in accounts.items() if k in created})
     return accounts

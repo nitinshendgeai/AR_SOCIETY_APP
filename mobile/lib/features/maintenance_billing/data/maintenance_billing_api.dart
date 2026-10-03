@@ -124,6 +124,11 @@ class ChargeHead {
   final String taxPercent;
   final String? elementId;
   final String? elementName;
+
+  /// Billed at what the expense ledgers linked to its element cost over the
+  /// last [expenseMonths] months, rather than the typed amount.
+  final bool autoFromExpenses;
+  final int expenseMonths;
   final bool isActive;
 
   const ChargeHead({
@@ -138,6 +143,8 @@ class ChargeHead {
     this.taxPercent = '0',
     this.elementId,
     this.elementName,
+    this.autoFromExpenses = false,
+    this.expenseMonths = 12,
     this.isActive = true,
   });
 
@@ -155,6 +162,8 @@ class ChargeHead {
         taxPercent: _str(j['tax_percent']),
         elementId: j['element_id'] as String?,
         elementName: j['element_name'] as String?,
+        autoFromExpenses: j['auto_from_expenses'] as bool? ?? false,
+        expenseMonths: j['expense_months'] as int? ?? 12,
         isActive: j['is_active'] as bool? ?? true,
       );
 }
@@ -503,6 +512,74 @@ String billStatusLabel(String v) => switch (v) {
       _ => v,
     };
 
+// ── Fines and additional charges on a flat ───────────────────────────────────
+
+/// A fine or additional charge on one flat; it goes on the flat's next
+/// maintenance bill (every bill, when recurring).
+class FlatCharge {
+  final String id;
+  final String flatId;
+  final String flatNumber;
+  final String? wingName;
+  final String kind; // fine | extra
+  final String title;
+  final String? reason;
+  final String amount;
+  final bool gstApplicable;
+  final DateTime effectiveDate;
+  final bool recurring;
+  final DateTime? endDate;
+  final String status; // active | billed | cancelled
+  final String? invoiceNumber;
+  final String? cancelReason;
+
+  const FlatCharge({
+    required this.id,
+    required this.flatId,
+    required this.flatNumber,
+    this.wingName,
+    required this.kind,
+    required this.title,
+    this.reason,
+    required this.amount,
+    this.gstApplicable = false,
+    required this.effectiveDate,
+    this.recurring = false,
+    this.endDate,
+    required this.status,
+    this.invoiceNumber,
+    this.cancelReason,
+  });
+
+  bool get isFine => kind == 'fine';
+  bool get canCancel => status == 'active';
+  String get flatLabel => wingName == null || wingName!.isEmpty ? flatNumber : '$wingName / $flatNumber';
+
+  String get statusLabel => switch (status) {
+        'billed' => invoiceNumber == null ? 'On a bill' : 'On bill $invoiceNumber',
+        'cancelled' => 'Cancelled',
+        _ => recurring ? 'Every bill' : 'Waiting for next bill',
+      };
+
+  factory FlatCharge.fromJson(Map<String, dynamic> j) => FlatCharge(
+        id: j['id'] as String,
+        flatId: j['flat_id'] as String,
+        flatNumber: j['flat_number'] as String? ?? '',
+        wingName: j['wing_name'] as String?,
+        kind: j['kind'] as String,
+        title: j['title'] as String,
+        reason: j['reason'] as String?,
+        amount: _str(j['amount']),
+        gstApplicable: j['gst_applicable'] as bool? ?? false,
+        effectiveDate: _date(j['effective_date']),
+        recurring: j['recurring'] as bool? ?? false,
+        endDate: j['end_date'] == null ? null : _date(j['end_date']),
+        status: j['status'] as String,
+        invoiceNumber: j['invoice_number'] as String?,
+        cancelReason: j['cancel_reason'] as String?,
+      );
+}
+
 // ── API ──────────────────────────────────────────────────────────────────────
 
 /// FastAPI /billing maintenance-bill endpoints. Errors propagate as
@@ -516,20 +593,22 @@ class BudgetSuggestion {
   final String chargeName;
   final String basis;
   final String? currentAmount;
-  final List<String> vendorCategories;
+  final List<String> expenseHeads;
   final String spent;
   final String annualEstimate;
   final String? suggestedAmount;
+  final bool autoFromExpenses;
 
   const BudgetSuggestion({
     required this.chargeId,
     required this.chargeName,
     required this.basis,
     this.currentAmount,
-    required this.vendorCategories,
+    required this.expenseHeads,
     required this.spent,
     required this.annualEstimate,
     this.suggestedAmount,
+    this.autoFromExpenses = false,
   });
 
   factory BudgetSuggestion.fromJson(Map<String, dynamic> j) => BudgetSuggestion(
@@ -537,10 +616,11 @@ class BudgetSuggestion {
         chargeName: j['charge_name'] as String,
         basis: j['basis'] as String,
         currentAmount: j['current_amount'] as String?,
-        vendorCategories: [for (final c in j['vendor_categories'] as List) c as String],
+        expenseHeads: [for (final c in j['expense_heads'] as List) c as String],
         spent: _str(j['spent']),
         annualEstimate: _str(j['annual_estimate']),
         suggestedAmount: j['suggested_amount'] as String?,
+        autoFromExpenses: j['auto_from_expenses'] as bool? ?? false,
       );
 }
 
@@ -550,7 +630,7 @@ class BudgetSuggestions {
   final int monthsCovered;
   final List<BudgetSuggestion> suggestions;
 
-  /// Vendor spend (category, amount) that no charge head recovers.
+  /// Expense ledgers (name, amount spent) that count towards no maintenance element.
   final List<(String, String)> unlinked;
 
   const BudgetSuggestions({
@@ -570,17 +650,10 @@ class BudgetSuggestions {
         ],
         unlinked: [
           for (final u in j['unlinked'] as List)
-            ((u as Map<String, dynamic>)['category'] as String, _str(u['spent']))
+            ((u as Map<String, dynamic>)['name'] as String, _str(u['spent']))
         ],
       );
 }
-
-/// Human label for a vendor category code ("pest_control" → "Pest control").
-String vendorCategoryLabel(String code) => switch (code) {
-      'cctv' => 'CCTV',
-      'it' => 'IT',
-      _ => code.isEmpty ? code : code[0].toUpperCase() + code.substring(1).replaceAll('_', ' '),
-    };
 
 class MaintenanceBillingApi {
   final Dio _dio;
@@ -602,6 +675,8 @@ class MaintenanceBillingApi {
     required bool isServiceCharge,
     required bool gstApplicable,
     String taxPercent = '0',
+    bool autoFromExpenses = false,
+    int expenseMonths = 12,
   }) async {
     final r = await _dio.post('/billing/charges', data: {
       'society_id': societyId,
@@ -613,11 +688,14 @@ class MaintenanceBillingApi {
       'is_service_charge': isServiceCharge,
       'gst_applicable': gstApplicable,
       'tax_percent': taxPercent,
+      'auto_from_expenses': autoFromExpenses,
+      'expense_months': expenseMonths,
     });
     return ChargeHead.fromJson(r.data as Map<String, dynamic>);
   }
 
-  /// Suggested charge-head amounts from the last [months] of vendor bills.
+  /// Suggested charge-head amounts from what the last [months] cost on the
+  /// expense ledgers linked to each element.
   Future<BudgetSuggestions> budgetSuggestions(String societyId, {int months = 12}) async {
     final r = await _dio.get('/billing/charges/$societyId/budget-suggestions',
         queryParameters: {'months': months});
@@ -752,5 +830,47 @@ class MaintenanceBillingApi {
   Future<MyBillsSummary> myBills() async {
     final r = await _dio.get('/billing/bills/me');
     return MyBillsSummary.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<List<FlatCharge>> listFlatCharges(String societyId, {String? status}) async => _list(
+        (await _dio.get('/billing/flat-charges/society/$societyId',
+                queryParameters: {if (status != null) 'status': status, 'limit': 500}))
+            .data,
+        FlatCharge.fromJson,
+      );
+
+  Future<List<FlatCharge>> flatChargesOfFlat(String flatId) async =>
+      _list((await _dio.get('/billing/flat-charges/flat/$flatId')).data, FlatCharge.fromJson);
+
+  Future<FlatCharge> createFlatCharge({
+    required String societyId,
+    required String flatId,
+    required String kind,
+    required String title,
+    String? reason,
+    required String amount,
+    bool gstApplicable = false,
+    required DateTime effectiveDate,
+    bool recurring = false,
+    DateTime? endDate,
+  }) async {
+    final r = await _dio.post('/billing/flat-charges', data: {
+      'society_id': societyId,
+      'flat_id': flatId,
+      'kind': kind,
+      'title': title,
+      if (reason != null && reason.isNotEmpty) 'reason': reason,
+      'amount': amount,
+      'gst_applicable': gstApplicable,
+      'effective_date': DateFormat('yyyy-MM-dd').format(effectiveDate),
+      'recurring': recurring,
+      if (recurring && endDate != null) 'end_date': DateFormat('yyyy-MM-dd').format(endDate),
+    });
+    return FlatCharge.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<FlatCharge> cancelFlatCharge(String id, String reason) async {
+    final r = await _dio.post('/billing/flat-charges/$id/cancel', data: {'reason': reason});
+    return FlatCharge.fromJson(r.data as Map<String, dynamic>);
   }
 }

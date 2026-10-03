@@ -47,6 +47,36 @@ DRAFT → GENERATED → ISSUED → PARTIALLY_PAID → PAID
 - `advance_balance` on DueTracker
 - `PenaltyRule`: flat/percentage/compound_daily calculation types
 
+## Expense-driven budgets (`services/budget_suggestions.py`)
+Each expense ledger in the accounts can be linked to the maintenance element it pays for
+(`accounts.maintenance_element_id`; Security Charges → Security, Lift Maintenance → Lift Maintenance …
+see `DEFAULT_ELEMENT_LINKS` in `accounts/services/chart_of_accounts.py`; standard ledgers are linked when
+created, existing ones by migration `fc2d3e4f5a6b`, and the committee can change or clear any link).
+Everything posted to a linked ledger — vendor bills, payment vouchers, journals — is that element's actual cost.
+- `GET /billing/charges/{society}/budget-suggestions?months=` — last N months of net spend per element,
+  annualised (a partial year is scaled up, not taken as a year) and converted to each charge head's basis
+  (annual budget / ₹ per flat per month / ₹ per sq ft per month). Read-only; also lists expense ledgers with spend
+  that no element covers.
+- A charge head can switch on **budget from expenses** (`auto_from_expenses`, `expense_months` 1–36; needs a head
+  made from an element and a fixed / per-sq-ft / budget basis). The maintenance calculator then bills it at the
+  spend-derived rate instead of the typed amount, in both the preview and bill generation. With nothing spent in
+  the window the typed amount is used and the preview warns.
+- Bills already generated are never recalculated.
+
+## Fines and additional charges on a flat (`services/flat_charges.py`)
+`flat_charges`: a **fine** or **extra** charge on one flat with a title, reason, amount, effective date, and
+optionally recurring with an end date. Manager and above add/cancel them (`/billing/flat-charges`); a member can
+read their own flat's (`GET /flat-charges/flat/{id}`) and is notified when one is added.
+- The calculator adds each applicable charge to the flat's bill: fines as a non-GST PENALTY line
+  (`Fine — {title}`, kept out of the principal that interest is charged on, posted to the *Fines & Penalties*
+  ledger), extras as an OTHER line that carries GST only when marked.
+- A one-off charge is marked `billed` (with its bill) when the bill is generated and goes back to `active` if that
+  bill is cancelled; a recurring one stays active and goes on every bill from its effective date until its end date
+  or cancellation. Only an `active` charge can be cancelled (reason required); a billed one is reversed by
+  cancelling the bill.
+- Not built yet: charges derived from resident-entered details (vehicles, family members) and automatic parking-fine
+  feeding.
+
 ## Numbers per society
 Maintenance bill numbers (`INV-2026-00001`), receipts (`RCP-` / `OPS-`) and inventory item / asset codes (`INV-00001`, `AST-0001`) run within each society and are unique on `(society_id, number)` (migration `fb1c2d3e4f5a`). They were unique platform-wide, so a second society's first bill, receipt, item or asset failed. The next number is one more than the society's highest.
 

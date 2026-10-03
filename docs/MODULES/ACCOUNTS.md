@@ -18,6 +18,13 @@ Financial statements for each financial year (1 April – 31 March), with previo
 ## Standard chart
 Created the first time a society's books are opened (`chart_of_accounts.py`). Codes: 1xxx liabilities and funds, 2xxx assets, 3xxx income, 4xxx expenses. Standard ledgers carry a `system_key` and can be renamed but not moved or deactivated. The default bank ledger is named from the bank details on the maintenance bill settings.
 
+## Expense ledgers and maintenance elements
+An expense ledger can "count towards" a maintenance element (`maintenance_element_id`, set from the ledger form,
+`PATCH /accounts/ledgers/{id}`; `null` clears it). It must be an expense-nature ledger and the element must belong to
+the same society (422 otherwise). What is posted to the ledger feeds that element's budget in the monthly maintenance
+calculation — see BILLING.md, *Expense-driven budgets*. Moving a ledger out of an expense group clears the link.
+Bill lines of type PENALTY post to **Fines & Penalties** (3013), except interest lines (Interest on Arrears).
+
 ## Voucher types
 | Type | Prefix | Entered by | Rule |
 |------|--------|------------|------|

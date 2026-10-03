@@ -34,7 +34,7 @@ from app.modules.accounts.models.accounts import (
     VoucherEntry, VoucherRevision,
 )
 from app.modules.accounts.services.chart_of_accounts import seed_chart_of_accounts
-from app.modules.billing.models.billing import MaintenanceSettings
+from app.modules.billing.models.billing import MaintenanceElement, MaintenanceSettings
 from app.services.audit_service import AuditService
 
 ZERO = Decimal("0.00")
@@ -219,6 +219,19 @@ class AccountsService:
         if changing and self.closed_years(society_id):
             raise HTTPException(409, "Opening balances can't change once a year's books are closed")
 
+    def _element_for(self, society_id: UUID, nature: str, element_id) -> Optional[UUID]:
+        """The maintenance element an expense ledger counts towards (its spend
+        feeds that element's budget); it must be this society's, and only an
+        expense ledger has one."""
+        if not element_id:
+            return None
+        if nature != "expense":
+            raise HTTPException(422, "Only an expense ledger can count towards a maintenance element")
+        element = self.db.get(MaintenanceElement, element_id)
+        if element is None or element.society_id != society_id:
+            raise HTTPException(422, "Maintenance element not found in this society")
+        return element.id
+
     def create_account(self, data: dict, user: User) -> Account:
         society_id = data["society_id"]
         self.ensure_chart(society_id)
@@ -240,6 +253,7 @@ class AccountsService:
             bank_name=data.get("bank_name"), bank_account_number=data.get("bank_account_number"),
             bank_ifsc=data.get("bank_ifsc"), bank_branch=data.get("bank_branch"),
             sort_order=9000,
+            maintenance_element_id=self._element_for(society_id, group.nature, data.get("maintenance_element_id")),
         )
         self.db.add(account)
         self.db.flush()
@@ -259,6 +273,12 @@ class AccountsService:
             if account.is_system:
                 raise HTTPException(409, "A standard ledger stays in its group")
             account.group_id = self._group_for(account.society_id, data["group_id"]).id
+            if self._group_for(account.society_id, account.group_id).nature != "expense":
+                account.maintenance_element_id = None
+        if "maintenance_element_id" in data:
+            nature_now = self._group_for(account.society_id, account.group_id).nature
+            account.maintenance_element_id = self._element_for(
+                account.society_id, nature_now, data["maintenance_element_id"])
         for field in ("code", "description", "bank_name", "bank_account_number", "bank_ifsc", "bank_branch"):
             if field in data:
                 setattr(account, field, data[field])

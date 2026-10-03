@@ -1,6 +1,7 @@
-"""Suggested charge-head amounts from vendor bills — grouping by vendor
-category, annualising a partial year, converting to each basis's unit, and
-reporting spend no charge head covers."""
+"""Suggested charge-head amounts from what the expense ledgers linked to each
+maintenance element cost — annualising a partial year, converting to each
+basis's unit, and reporting spend on ledgers no element covers. (Vendor bills
+post to the expense ledgers, which carry the links.)"""
 from datetime import date
 from tests.conftest import make_user, make_society, make_wing, make_flat
 from app.modules.billing.services.budget_suggestions import months_back
@@ -81,7 +82,7 @@ def test_suggests_amounts_per_basis_from_recent_vendor_bills(client, db):
     # Security + CCTV: 36,000 over 3 months → 1,44,000 a year, billed as the annual budget.
     s = by_id[security["id"]]
     assert (s["spent"], s["annual_estimate"], s["suggested_amount"]) == ("36000.00", "144000.00", "144000.00")
-    assert s["vendor_categories"] == ["security", "cctv"]
+    assert s["expense_heads"] == ["Security Charges", "CCTV & Security Systems Maintenance"]
 
     # Housekeeping: 9,000 over 3 months → 36,000 a year ÷ 3 flats ÷ 12 = ₹1,000 per flat per month.
     assert by_id[housekeeping["id"]]["suggested_amount"] == "1000.00"
@@ -89,8 +90,8 @@ def test_suggests_amounts_per_basis_from_recent_vendor_bills(client, db):
     # Lift: 12,000 over 3 months → 48,000 a year ÷ 4,000 sq ft ÷ 12 = ₹1 per sq ft per month.
     assert by_id[lift["id"]]["suggested_amount"] == "1.00"
 
-    # Plumbing isn't billed through any of these heads.
-    assert body["unlinked"] == [{"category": "plumbing", "spent": "5000.00"}]
+    # Plumbing repairs aren't linked to any element.
+    assert [(u["name"], u["spent"]) for u in body["unlinked"]] == [("Repairs & Maintenance — Plumbing", "5000.00")]
 
 
 def test_heads_without_bills_or_mapping_get_no_suggestion(client, db):
@@ -105,12 +106,12 @@ def test_heads_without_bills_or_mapping_get_no_suggestion(client, db):
     assert body["suggestions"][0]["current_amount"] == "240000.00"
 
 
-def test_spend_on_a_head_the_society_does_not_bill_is_reported_unlinked(client, db):
+def test_spend_on_a_ledger_no_element_covers_is_reported_unlinked(client, db):
     society, admin, manager, _ = _rig(db, "s3")
-    _bill(client, admin, society.id, "security", "12000.00", date.today())
+    _bill(client, admin, society.id, "other", "12000.00", date.today())
     body = _suggestions(client, manager, society.id)
     assert body["suggestions"] == []
-    assert body["unlinked"] == [{"category": "security", "spent": "12000.00"}]
+    assert [(u["name"], u["spent"]) for u in body["unlinked"]] == [("Repairs & Maintenance — General", "12000.00")]
 
 
 def test_residents_cannot_read_suggestions(client, db):

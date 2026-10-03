@@ -96,7 +96,18 @@ class Account(Base, TimestampMixin):
     bank_ifsc           = Column(String(20), nullable=True)
     bank_branch         = Column(String(100), nullable=True)
 
+    # An expense ledger can count towards a maintenance element (security,
+    # lift …): what is spent on it is that element's actual cost, which the
+    # monthly maintenance calculation can be budgeted from.
+    maintenance_element_id = Column(UUID(as_uuid=True), ForeignKey("maintenance_elements.id", ondelete="SET NULL"),
+                                    nullable=True, index=True)
+
     group = relationship("AccountGroup", back_populates="accounts")
+    maintenance_element = relationship("MaintenanceElement")
+
+    @property
+    def maintenance_element_name(self):
+        return self.maintenance_element.name if self.maintenance_element else None
 
     @property
     def is_cash_or_bank(self) -> bool:

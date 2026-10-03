@@ -190,6 +190,10 @@ class MaintenanceChargeConfig(Base, TimestampMixin):
     effective_to  = Column(Date, nullable=True)
     element_id    = Column(UUID(as_uuid=True), ForeignKey("maintenance_elements.id", ondelete="SET NULL"),
                            nullable=True, index=True)
+    # Budget this head from what was actually spent on the expense ledgers linked to its
+    # element (over the last `expense_months`), instead of the typed amount.
+    auto_from_expenses = Column(Boolean, default=False, nullable=False)
+    expense_months     = Column(Integer, default=12, nullable=False)
 
     society      = relationship("Society")
     element      = relationship("MaintenanceElement")
@@ -425,6 +429,70 @@ class PenaltyRule(Base, TimestampMixin):
 
     def __repr__(self):
         return f"<PenaltyRule {self.name} [{self.calc_type}] {self.rate}>"
+
+
+# ── FlatCharge (fines and additional charges on one flat) ─────────────────────
+
+class FlatChargeKind(str, enum.Enum):
+    FINE   = "fine"        # a penalty: not interest-bearing, not GST
+    EXTRA  = "extra"       # an additional charge for this flat only
+
+
+class FlatChargeStatus(str, enum.Enum):
+    ACTIVE    = "active"     # waiting to go on the next bill (one-off) / on every bill (recurring)
+    BILLED    = "billed"     # a one-off charge that is on a bill
+    CANCELLED = "cancelled"
+
+
+class FlatCharge(Base, TimestampMixin):
+    """
+    A fine or additional charge on one flat, added by the committee or manager
+    with a reason. The maintenance calculator puts every active one on the
+    flat's next bill (preview and generation alike); a one-off is then marked
+    billed against that bill — and released again if the bill is cancelled —
+    while a recurring one goes on every bill from its effective date until it
+    ends or is cancelled.
+    """
+    __tablename__ = "flat_charges"
+
+    society_id   = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    flat_id      = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="CASCADE"), nullable=False, index=True)
+    bill_id      = Column(UUID(as_uuid=True), ForeignKey("maintenance_bills.id", ondelete="SET NULL"), nullable=True, index=True)
+    created_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    cancelled_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    kind           = Column(Enum(FlatChargeKind, values_callable=lambda e: [x.value for x in e]),
+                            default=FlatChargeKind.FINE, nullable=False, index=True)
+    title          = Column(String(150), nullable=False)
+    reason         = Column(Text, nullable=True)
+    amount         = Column(Numeric(12, 2), nullable=False)
+    gst_applicable = Column(Boolean, default=False, nullable=False)
+    effective_date = Column(Date, nullable=False, index=True)
+    recurring      = Column(Boolean, default=False, nullable=False)
+    end_date       = Column(Date, nullable=True)
+    status         = Column(Enum(FlatChargeStatus, values_callable=lambda e: [x.value for x in e]),
+                            default=FlatChargeStatus.ACTIVE, nullable=False, index=True)
+    cancelled_at   = Column(DateTime, nullable=True)
+    cancel_reason  = Column(Text, nullable=True)
+
+    society = relationship("Society")
+    flat    = relationship("Flat")
+    bill    = relationship("MaintenanceBill", foreign_keys=[bill_id])
+
+    @property
+    def flat_number(self):
+        return self.flat.flat_number if self.flat else None
+
+    @property
+    def wing_name(self):
+        return self.flat.wing.name if self.flat and self.flat.wing else None
+
+    @property
+    def invoice_number(self):
+        return self.bill.invoice_number if self.bill else None
+
+    def __repr__(self):
+        return f"<FlatCharge {self.kind} {self.title} ₹{self.amount}>"
 
 
 # ── OnlinePaymentSubmission ──────────────────────────────────────────────────

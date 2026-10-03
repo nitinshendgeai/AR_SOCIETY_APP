@@ -76,4 +76,8 @@ def seed_standard_elements(db: Session, society_id) -> List[MaintenanceElement]:
         db.add(el)
         rows.append(el)
     db.flush()
+    # A society whose books already exist: its standard expense ledgers now have elements to count towards.
+    from app.modules.accounts.services.chart_of_accounts import link_default_elements
+    link_default_elements(db, society_id)
+    db.flush()
     return rows
