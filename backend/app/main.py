@@ -13,6 +13,7 @@ from app.utils.exceptions import (
     validation_exception_handler,
     integrity_error_handler,
     generic_exception_handler,
+    error_response,
 )
 
 # ── Register all models (must be before alembic/migrations) ──────────────────
@@ -47,6 +48,18 @@ app.add_exception_handler(IntegrityError, integrity_error_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
 
 # ── Middleware ────────────────────────────────────────────────────────────────
+# Errors no route handled are turned into JSON here, inside CORS, so the reply
+# carries the CORS headers. The Exception handler above runs outside every
+# middleware, and a browser drops a cross-origin reply without them — the app
+# then sees "could not reach the server" instead of the error.
+@app.middleware("http")
+async def unhandled_errors(request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as exc:  # noqa: BLE001
+        return error_response(exc)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -71,7 +84,28 @@ def health():
         "env":      settings.APP_ENV,
         "time":     int(time.time()),
         "database": db_status,
+        "migrations": migration_status(),
     })
+
+
+def migration_status() -> dict:
+    """The database's Alembic revision against the code's head — never raises."""
+    try:
+        import os
+        from alembic.config import Config
+        from alembic.script import ScriptDirectory
+        from sqlalchemy import text
+        from app.db.session import get_engine
+
+        backend = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        cfg = Config(os.path.join(backend, "alembic.ini"))
+        cfg.set_main_option("script_location", os.path.join(backend, "alembic"))
+        heads = set(ScriptDirectory.from_config(cfg).get_heads())
+        with get_engine().connect() as conn:
+            current = {r[0] for r in conn.execute(text("SELECT version_num FROM alembic_version"))}
+        return {"current": sorted(current), "head": sorted(heads), "up_to_date": current == heads}
+    except Exception as e:  # noqa: BLE001
+        return {"status": "unknown", "error": str(e)[:120]}
 
 
 @app.get("/", tags=["System"])

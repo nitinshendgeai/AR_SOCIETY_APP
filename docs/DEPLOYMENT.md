@@ -246,6 +246,22 @@ git push origin main
 **Never use `--autogenerate` with PostgreSQL enums in production.**
 **One head at all times: verify with `python -m alembic heads`.**
 
+### Checking a deploy
+`GET /health` shows `"migrations": {"current": [...], "head": [...], "up_to_date": true|false}`. After every
+deploy that adds a migration, it must read `up_to_date: true`. If it doesn't, the new code is running against the
+old schema: screens that read the new tables or columns get `503 SCHEMA_OUTDATED` ("The server's database hasn't
+been updated for this version of the app"). Fix by running the migration:
+
+```bash
+# Either: Railway → service → Variables → RUN_MIGRATIONS=true, then Redeploy (start.sh runs alembic upgrade head;
+# a failing migration stops the deploy — read the deploy log)
+# Or, from a machine with the Railway CLI / public DB URL:
+cd backend && DATABASE_URL="<public_proxy_url_from_railway>" python -m alembic upgrade head
+```
+
+Errors no route handles are returned as JSON from inside the CORS middleware, so the browser always receives
+them (previously a 500 had no CORS headers and the web app showed "Could not reach the server").
+
 ---
 
 ## Deployment Checklist
