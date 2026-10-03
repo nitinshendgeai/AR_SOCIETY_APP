@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
@@ -108,8 +109,12 @@ class _CreateComplaintScreenState
         isLoading: _isLoading,
         child: ResponsiveBody(child: Form(
           key: _formKey,
-          child: ListView(
+          // A plain scroll view, not a lazy ListView: fields scrolled out of
+          // view stay mounted, so validate() checks every one of them.
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
+            child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (_errorMessage != null) ...[
                 AppErrorBanner(
@@ -124,6 +129,7 @@ class _CreateComplaintScreenState
                 label: 'Title *',
                 hint: 'Brief description of the issue',
                 controller: _titleCtrl,
+                maxLength: 255,
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Title is required' : null,
               ),
@@ -133,6 +139,7 @@ class _CreateComplaintScreenState
               TextFormField(
                 controller: _descCtrl,
                 maxLines: 4,
+                inputFormatters: [LengthLimitingTextInputFormatter(5000)],
                 validator: (v) => (v == null || v.trim().isEmpty)
                     ? 'Description is required'
                     : null,
@@ -308,6 +315,7 @@ class _CreateComplaintScreenState
                 onPressed: _isLoading ? null : _submit,
               ),
             ],
+            ),
           ),
         )),
       ),

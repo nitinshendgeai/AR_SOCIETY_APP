@@ -6,6 +6,7 @@ class ComplaintCommentModel {
   final String id;
   final String complaintId;
   final String authorId;
+  final String? authorName;
   final String body;
   final bool isInternal;
   final String createdAt;
@@ -14,6 +15,7 @@ class ComplaintCommentModel {
     required this.id,
     required this.complaintId,
     required this.authorId,
+    this.authorName,
     required this.body,
     required this.isInternal,
     required this.createdAt,
@@ -24,6 +26,7 @@ class ComplaintCommentModel {
         id: j['id'] as String,
         complaintId: j['complaint_id'] as String,
         authorId: j['author_id'] as String,
+        authorName: j['author_name'] as String?,
         body: j['body'] as String,
         isInternal: j['is_internal'] as bool? ?? false,
         createdAt: j['created_at'] as String,
@@ -33,6 +36,7 @@ class ComplaintCommentModel {
         id: id,
         complaintId: complaintId,
         authorId: authorId,
+        authorName: authorName,
         body: body,
         isInternal: isInternal,
         createdAt: DateTime.parse(createdAt),
@@ -54,6 +58,7 @@ class ComplaintModel {
   final String? flatNumber;
   final String? wingName;
   final String raisedBy;
+  final String? raisedByName;
   final String? assignedTo;
   final String? assignedToName;
   final String? resolvedAt;
@@ -78,6 +83,7 @@ class ComplaintModel {
     this.flatNumber,
     this.wingName,
     required this.raisedBy,
+    this.raisedByName,
     this.assignedTo,
     this.assignedToName,
     this.resolvedAt,
@@ -103,6 +109,7 @@ class ComplaintModel {
         flatNumber: j['flat_number'] as String?,
         wingName: j['wing_name'] as String?,
         raisedBy: j['raised_by'] as String,
+        raisedByName: j['raised_by_name'] as String?,
         assignedTo: j['assigned_to'] as String?,
         assignedToName: j['assigned_to_name'] as String?,
         resolvedAt: j['resolved_at'] as String?,
@@ -131,6 +138,7 @@ class ComplaintModel {
         flatNumber: flatNumber,
         wingName: wingName,
         raisedBy: raisedBy,
+        raisedByName: raisedByName,
         assignedTo: assignedTo,
         assignedToName: assignedToName,
         resolvedAt: resolvedAt != null ? DateTime.tryParse(resolvedAt!) : null,

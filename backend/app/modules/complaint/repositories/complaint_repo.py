@@ -39,10 +39,14 @@ class ComplaintRepository(BaseRepository[Complaint]):
         ).all()
 
     def next_complaint_number(self, society_id: UUID) -> str:
-        count = self.db.query(Complaint).filter(
-            Complaint.society_id == society_id
-        ).count()
-        return f"CMP-{str(count + 1).zfill(5)}"
+        """The society's next number: one more than its highest, so it can't
+        repeat after a gap. Numbers run per society."""
+        highest = 0
+        for (number,) in self.db.query(Complaint.complaint_number).filter(Complaint.society_id == society_id):
+            digits = number.rsplit("-", 1)[-1]
+            if digits.isdigit():
+                highest = max(highest, int(digits))
+        return f"CMP-{str(highest + 1).zfill(5)}"
 
 
 class ComplaintCommentRepository(BaseRepository[ComplaintComment]):

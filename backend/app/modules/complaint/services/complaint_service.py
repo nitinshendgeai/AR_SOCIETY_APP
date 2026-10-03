@@ -25,6 +25,8 @@ from app.modules.complaint.repositories.complaint_repo import (
     ComplaintRepository, ComplaintCommentRepository,
     ComplaintAttachmentRepository, ComplaintStatusHistoryRepository,
 )
+from app.core.dependencies import _user_has_permission
+from app.core.tenant_scope import resolve_create_society_id
 from app.models.user import User, UserRole
 from app.models.role import Role
 from app.models.audit_log import AuditAction
@@ -58,10 +60,34 @@ class ComplaintService:
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
-    def _get_or_404(self, complaint_id: UUID) -> Complaint:
+    def _own_flat_ids(self, user: User) -> set:
+        from app.models.resident import Resident
+        from app.models.tenant import Tenant
+        flats = {r.flat_id for r in self.db.query(Resident).filter(
+            Resident.user_id == user.id, Resident.is_active == True)}  # noqa: E712
+        flats |= {t.flat_id for t in self.db.query(Tenant).filter(
+            Tenant.user_id == user.id, Tenant.is_active == True)}  # noqa: E712
+        return flats
+
+    def _is_own(self, complaint: Complaint, user: User) -> bool:
+        """Raised by the user, or for a flat the user lives in."""
+        return complaint.raised_by == user.id or (
+            complaint.flat_id is not None and complaint.flat_id in self._own_flat_ids(user))
+
+    def is_staff(self, user: User) -> bool:
+        return _user_has_permission(user, "any_staff")
+
+    def _get_or_404(self, complaint_id: UUID, user: Optional[User] = None) -> Complaint:
+        """The complaint, if the caller may see it: its own society's, and for
+        a plain resident or tenant only their own flat's."""
         c = self.repo.get(complaint_id)
         if not c:
             raise HTTPException(status_code=404, detail="Complaint not found")
+        if user is not None:
+            if user.society_id is not None and c.society_id != user.society_id:
+                raise HTTPException(status_code=404, detail="Complaint not found")
+            if not self.is_staff(user) and not self._is_own(c, user):
+                raise HTTPException(status_code=404, detail="Complaint not found")
         return c
 
     def _validate_transition(self, complaint: Complaint, new_status: ComplaintStatus):
@@ -183,6 +209,13 @@ class ComplaintService:
         own_flat = self._resolve_own_flat_and_society(reporter)
         if own_flat:
             data.flat_id, data.society_id = own_flat
+        else:
+            data.society_id = resolve_create_society_id(reporter, data.society_id)
+            if data.flat_id is not None:
+                from app.models.flat import Flat
+                flat = self.db.get(Flat, data.flat_id)
+                if not flat or not flat.is_active or not flat.wing or flat.wing.society_id != data.society_id:
+                    raise HTTPException(status_code=422, detail="Flat not found in this society")
 
         number = self.repo.next_complaint_number(data.society_id)
         complaint = Complaint(
@@ -249,7 +282,10 @@ class ComplaintService:
 
     def assign_complaint(self, complaint_id: UUID, data: ComplaintAssignRequest,
                          assigner: User, request: Optional[Request] = None) -> Complaint:
-        complaint = self._get_or_404(complaint_id)
+        complaint = self._get_or_404(complaint_id, assigner)
+        assignee = self.db.get(User, data.assigned_to)
+        if not assignee or not assignee.is_active or assignee.society_id != complaint.society_id:
+            raise HTTPException(status_code=422, detail="Assignee must be an active user of this society")
 
         # A complaint already ASSIGNED can be reassigned to a different staff member
         # (e.g. the FMC Manager routing it on) without going through the strict FSM,
@@ -288,7 +324,9 @@ class ComplaintService:
 
     def update_status(self, complaint_id: UUID, data: ComplaintStatusUpdateRequest,
                       user: User, request: Optional[Request] = None) -> Complaint:
-        complaint = self._get_or_404(complaint_id)
+        complaint = self._get_or_404(complaint_id, user)
+        if data.status == ComplaintStatus.REJECTED and not _user_has_permission(user, "manager_above"):
+            raise HTTPException(status_code=403, detail="Only a manager or the committee can reject a complaint")
         self._validate_transition(complaint, data.status)
 
         prev_status    = complaint.status
@@ -329,7 +367,9 @@ class ComplaintService:
 
     def reopen_complaint(self, complaint_id: UUID, data: ComplaintReopenRequest,
                          user: User, request: Optional[Request] = None) -> Complaint:
-        complaint = self._get_or_404(complaint_id)
+        complaint = self._get_or_404(complaint_id, user)
+        if not self._is_own(complaint, user) and not _user_has_permission(user, "manager_above"):
+            raise HTTPException(status_code=403, detail="Only the person who raised this complaint can reopen it")
         if complaint.status != ComplaintStatus.RESOLVED:
             raise HTTPException(status_code=409,
                 detail=f"Only resolved complaints can be reopened (current: {complaint.status.value})")
@@ -354,10 +394,13 @@ class ComplaintService:
 
     def add_comment(self, complaint_id: UUID, data: CommentCreate,
                     author: User, request: Optional[Request] = None) -> ComplaintComment:
-        complaint = self._get_or_404(complaint_id)
+        complaint = self._get_or_404(complaint_id, author)
         if complaint.status in (ComplaintStatus.CLOSED, ComplaintStatus.REJECTED):
             raise HTTPException(status_code=409,
                 detail="Cannot comment on a closed or rejected complaint")
+        # Private notes are for staff; a resident's comment is always visible to them
+        if not self.is_staff(author):
+            data.is_internal = False
 
         comment = ComplaintComment(
             complaint_id=complaint.id,
@@ -384,7 +427,7 @@ class ComplaintService:
 
     def add_attachment(self, complaint_id: UUID, data: AttachmentCreate,
                        user: User) -> ComplaintAttachment:
-        complaint = self._get_or_404(complaint_id)
+        complaint = self._get_or_404(complaint_id, user)
         att = ComplaintAttachment(
             complaint_id=complaint.id,
             uploaded_by=user.id,
@@ -397,8 +440,8 @@ class ComplaintService:
 
     # ── Queries ───────────────────────────────────────────────────────────────
 
-    def get_complaint(self, complaint_id: UUID) -> Complaint:
-        return self._get_or_404(complaint_id)
+    def get_complaint(self, complaint_id: UUID, user: Optional[User] = None) -> Complaint:
+        return self._get_or_404(complaint_id, user)
 
     def list_by_society(self, society_id: UUID, skip: int = 0, limit: int = 50) -> List[Complaint]:
         return self.repo.get_by_society(society_id, skip, limit)

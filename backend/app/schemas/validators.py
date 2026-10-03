@@ -107,3 +107,48 @@ def note(v):
         return None
     v = str(v).strip()
     return v or None
+
+
+def note_max(n, required=False):
+    """Free text (newlines kept) of at most `n` characters: trimmed; blank means
+    none, or an error when `required`."""
+    def check(v):
+        v = note(v)
+        if v is None:
+            if required:
+                raise ValueError("This can't be left blank")
+            return None
+        if len(v) > n:
+            raise ValueError(f"Keep this to {n} characters or fewer")
+        return v
+    return check
+
+
+def mobile_any(v):
+    """A visitor's phone number: digits only (leading + kept), 7-15 of them.
+    An Indian mobile typed with +91/91/0 is stored as its 10 digits, so the same
+    person typed two ways is the same number."""
+    digits = phone(v)
+    if digits is None:
+        return None
+    if re.fullmatch(r"[6-9]\d{9}", digits):
+        return digits
+    for prefix in ("+91", "91", "0"):
+        if digits.startswith(prefix) and re.fullmatch(r"[6-9]\d{9}", digits[len(prefix):]):
+            return digits[len(prefix):]
+    return digits
+
+
+def line_max(n, required=False):
+    """A single line of at most `n` characters, inner spaces collapsed; blank
+    means none, or an error when `required`."""
+    def check(v):
+        v = text(v)
+        if v is None:
+            if required:
+                raise ValueError("This can't be left blank")
+            return None
+        if len(v) > n:
+            raise ValueError(f"Keep this to {n} characters or fewer")
+        return v
+    return check

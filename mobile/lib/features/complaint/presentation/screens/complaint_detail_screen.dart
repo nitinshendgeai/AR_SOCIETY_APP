@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
@@ -95,7 +96,7 @@ class _CommentTile extends StatelessWidget {
                   size: 16, color: AppTheme.textSecondary),
               const SizedBox(width: 4),
               Text(
-                comment.authorId,
+                comment.authorName ?? comment.authorId,
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -371,7 +372,7 @@ class _ComplaintDetailScreenState
                       InfoRow(
                         icon: Icons.person_outline_rounded,
                         label: 'Raised by',
-                        value: complaint.raisedBy,
+                        value: complaint.raisedByName ?? complaint.raisedBy,
                       ),
                       if (complaint.assignedTo != null)
                         InfoRow(
@@ -461,6 +462,7 @@ class _ComplaintDetailScreenState
                 Expanded(
                   child: TextField(
                     controller: _commentCtrl,
+                    inputFormatters: [LengthLimitingTextInputFormatter(2000)],
                     decoration: const InputDecoration(
                       hintText: 'Add a comment...',
                       contentPadding:
@@ -523,7 +525,10 @@ class _ActionsBar extends ConsumerWidget {
     final canManageStatus = user.isAdminOrCommittee || user.isStaff || user.isSecurity;
     final canAssign = (user.isAdminOrCommittee || user.isManager) && complaint.status.canAssign;
     final isReassign = complaint.status == ComplaintStatus.assigned;
-    final canReopen = complaint.status.canReopen;
+    // Rejecting is for a manager or the committee; reopening for whoever raised
+    // the complaint (or a manager/committee) — the server enforces both.
+    final canDecide = user.isAdminOrCommittee || user.isManager;
+    final canReopen = complaint.status.canReopen && (complaint.raisedBy == user.id || canDecide);
 
     final buttons = <Widget>[
       if (canAssign)
@@ -535,6 +540,7 @@ class _ActionsBar extends ConsumerWidget {
         ),
       if (canManageStatus)
         for (final target in complaint.status.nextStatuses)
+          if (target != ComplaintStatus.rejected || canDecide)
           _ActionChip(
             label: _statusActionLabel(target),
             icon: _statusActionIcon(target),
@@ -641,6 +647,7 @@ Future<void> _openStatusDialog(
         child: TextFormField(
           controller: ctrl,
           maxLines: 3,
+          inputFormatters: [LengthLimitingTextInputFormatter(1000)],
           autofocus: requiresNotes,
           decoration: InputDecoration(labelText: requiresNotes ? '$label *' : label),
           validator: requiresNotes
@@ -689,6 +696,7 @@ Future<void> _openReopenDialog(
         child: TextFormField(
           controller: ctrl,
           maxLines: 3,
+          inputFormatters: [LengthLimitingTextInputFormatter(1000)],
           autofocus: true,
           decoration: const InputDecoration(labelText: 'Reason *'),
           validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,

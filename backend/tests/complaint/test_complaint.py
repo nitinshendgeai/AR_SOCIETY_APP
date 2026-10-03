@@ -90,6 +90,7 @@ def test_assign_complaint(client, db):
     admin   = make_user(db, "adm@cmp.com", role="Society Admin")
     staff   = make_user(db, "stf@cmp.com", role="Security Staff")
     society = make_society(db, "Complaint Society 3")
+    staff["user"].society_id = society.id; db.commit()
 
     r = client.post("/api/v1/complaints/",
                     json=_complaint_payload(society.id),
@@ -142,6 +143,7 @@ def test_full_lifecycle_open_to_closed(client, db):
     admin   = make_user(db, "adm3@cmp.com", role="Society Admin")
     staff   = make_user(db, "stf3@cmp.com", role="Security Staff")
     society = make_society(db, "Complaint Society 6")
+    staff["user"].society_id = society.id; db.commit()
 
     # Create
     r = client.post("/api/v1/complaints/",
@@ -178,6 +180,7 @@ def test_reopen_resolved_complaint(client, db):
     admin   = make_user(db, "adm4@cmp.com", role="Society Admin")
     staff   = make_user(db, "stf4@cmp.com", role="Security Staff")
     society = make_society(db, "Complaint Society 7")
+    staff["user"].society_id = society.id; db.commit()
 
     r = client.post("/api/v1/complaints/",
                     json=_complaint_payload(society.id),
@@ -221,6 +224,7 @@ def test_cannot_modify_closed_complaint(client, db):
     admin   = make_user(db, "adm6@cmp.com", role="Society Admin")
     staff   = make_user(db, "stf5@cmp.com", role="Security Staff")
     society = make_society(db, "Complaint Society 9")
+    staff["user"].society_id = society.id; db.commit()
 
     r = client.post("/api/v1/complaints/",
                     json=_complaint_payload(society.id),
@@ -267,6 +271,7 @@ def test_cannot_comment_on_closed_complaint(client, db):
     admin   = make_user(db, "adm7@cmp.com", role="Society Admin")
     staff   = make_user(db, "stf6@cmp.com", role="Security Staff")
     society = make_society(db, "Complaint Society 11")
+    staff["user"].society_id = society.id; db.commit()
 
     r = client.post("/api/v1/complaints/",
                     json=_complaint_payload(society.id),
@@ -349,6 +354,7 @@ def test_manager_can_reassign_to_staff(client, db):
     manager["user"].society_id = society.id
     db.commit()
     staff = make_user(db, "stf7@cmp.com", role="Security Staff")
+    staff["user"].society_id = society.id; db.commit()
 
     r = client.post("/api/v1/complaints/",
                     json=_complaint_payload(society.id),

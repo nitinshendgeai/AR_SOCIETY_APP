@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities.dart';
@@ -199,6 +200,7 @@ class _ApprovalCard extends ConsumerWidget {
         title: const Text('Deny Visitor?'),
         content: TextFormField(
           controller: reasonCtrl,
+          inputFormatters: [LengthLimitingTextInputFormatter(1000)],
           autofocus: true,
           decoration: const InputDecoration(
             labelText: 'Reason *',
