@@ -56,3 +56,11 @@ final budgetSuggestionsProvider =
     FutureProvider.autoDispose.family<BudgetSuggestions, ({String societyId, int months})>(
   (ref, key) => ref.watch(maintenanceBillingApiProvider).budgetSuggestions(key.societyId, months: key.months),
 );
+
+final flatChargesProvider = FutureProvider.autoDispose.family<List<FlatCharge>, String>(
+  (ref, societyId) => ref.watch(maintenanceBillingApiProvider).listFlatCharges(societyId),
+);
+
+final flatChargesOfFlatProvider = FutureProvider.autoDispose.family<List<FlatCharge>, String>(
+  (ref, flatId) => ref.watch(maintenanceBillingApiProvider).flatChargesOfFlat(flatId),
+);

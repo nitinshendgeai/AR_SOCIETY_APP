@@ -17,6 +17,12 @@ cover RWAs elsewhere):
 - GST (when the society is registered): 18% on every GST-applicable line,
   but only once the flat's monthly contribution exceeds ₹7,500 — and then
   on the whole amount, not just the excess.
+- Budget from expenses: a charge head can take its amount from what was
+  actually spent on the expense ledgers linked to its element (see
+  budget_suggestions.py) instead of its typed amount.
+- Fines and additional charges on one flat (FlatCharge): every active one
+  goes on the flat's bill — fines as non-interest-bearing penalty lines,
+  additional charges as their own lines.
 - Interest on arrears: simple interest at the society's rate on the
   unpaid principal of earlier issued bills, from their due date (+ grace)
   or from where it was last billed, up to this bill's date.
@@ -33,6 +39,7 @@ from sqlalchemy.orm import Session
 from app.models.flat import Flat, OccupancyStatus
 from app.modules.billing.models.billing import (
     BillingCycle, BillStatus, ChargeBasis, ChargeType, CycleFrequency,
+    FlatCharge, FlatChargeKind, FlatChargeStatus,
     MaintenanceBill, MaintenanceChargeConfig, MaintenanceSettings,
 )
 
@@ -79,6 +86,7 @@ class LineDraft:
     is_service: bool = False
     tax_percent: Decimal = ZERO
     tax_amount: Decimal = ZERO
+    flat_charge_id: Optional[UUID] = None   # set when the line is a fine / additional charge on this flat
 
     @property
     def total(self) -> Decimal:
@@ -122,6 +130,36 @@ class MaintenanceCalculator:
         self.total_area = sum((Decimal(str(f.area_sqft)) for f in self.flats if f.area_sqft), ZERO)
         self.parking = self._parking_by_flat()
         self.warnings: List[str] = []
+        self._auto_rate: Dict[UUID, Decimal] = {}
+        self.flat_charges = self._flat_charges_by_flat()
+
+    def _flat_charges_by_flat(self) -> Dict[UUID, List[FlatCharge]]:
+        rows = self.db.query(FlatCharge).filter(
+            FlatCharge.society_id == self.society_id,
+            FlatCharge.status == FlatChargeStatus.ACTIVE,
+            FlatCharge.is_active == True,  # noqa: E712
+        ).order_by(FlatCharge.effective_date, FlatCharge.created_at).all()
+        by_flat: Dict[UUID, List[FlatCharge]] = defaultdict(list)
+        for c in rows:
+            by_flat[c.flat_id].append(c)
+        return by_flat
+
+    def _apply_expense_budgets(self, bill_date: date) -> None:
+        """Charge heads set to budget from expenses: work out their rate from
+        the linked expense ledgers (heads with no expenses keep the typed amount)."""
+        from app.modules.billing.services.budget_suggestions import ExpenseBudgets
+        self._auto_rate = {}
+        auto = [c for c in self.charges if c.auto_from_expenses and c.element_id]
+        for months in sorted({c.expense_months or 12 for c in auto}):
+            budgets = ExpenseBudgets(self.db, self.society_id, months, bill_date)
+            for c in (c for c in auto if (c.expense_months or 12) == months):
+                rate = budgets.rate_for(c, len(self.flats), self.total_area)
+                if rate is None:
+                    self.warnings.append(
+                        f"{c.name}: no expenses are recorded on its linked expense ledgers in the last "
+                        f"{months} month(s) — billed at the typed amount.")
+                else:
+                    self._auto_rate[c.id] = rate
 
     def _parking_by_flat(self) -> Dict[UUID, List[Optional[int]]]:
         from app.modules.parking.models.parking import ParkingAllocation, AllocationStatus
@@ -152,7 +190,7 @@ class MaintenanceCalculator:
     # ── Charge heads ─────────────────────────────────────────────────────────
 
     def _charge_amount(self, charge: MaintenanceChargeConfig, flat: Flat, months: int) -> Decimal:
-        rate = charge.default_amount or ZERO
+        rate = self._auto_rate.get(charge.id, charge.default_amount or ZERO)
         area = Decimal(str(flat.area_sqft)) if flat.area_sqft else ZERO
         basis = charge.basis or ChargeBasis.FIXED
 
@@ -193,6 +231,7 @@ class MaintenanceCalculator:
     def calculate(self, cycle: BillingCycle, bill_date: date) -> List[FlatBillDraft]:
         s = self.settings
         months = cycle_months(cycle)
+        self._apply_expense_budgets(bill_date)
         open_bills = self._open_bills_by_flat(cycle.id)
         drafts: List[FlatBillDraft] = []
         skipped = 0
@@ -223,6 +262,16 @@ class MaintenanceCalculator:
                         amount=noc, gst_applicable=True,
                     ))
 
+            for fc in self.flat_charges.get(flat.id, []):
+                if self._applies(fc, cycle):
+                    is_fine = fc.kind == FlatChargeKind.FINE
+                    draft.lines.append(LineDraft(
+                        charge_type=ChargeType.PENALTY if is_fine else ChargeType.OTHER,
+                        description=f"Fine — {fc.title}" if is_fine else fc.title,
+                        amount=money(fc.amount), gst_applicable=bool(fc.gst_applicable) and not is_fine,
+                        flat_charge_id=fc.id,
+                    ))
+
             if s.gst_enabled:
                 taxable = sum((l.amount for l in draft.lines if l.gst_applicable), ZERO)
                 if taxable / months > s.gst_threshold_monthly:
@@ -240,6 +289,16 @@ class MaintenanceCalculator:
 
         self._collect_warnings(skipped)
         return drafts
+
+    @staticmethod
+    def _applies(fc: FlatCharge, cycle: BillingCycle) -> bool:
+        """A one-off goes on the first bill from its effective date; a recurring
+        one on every bill whose cycle falls between its effective and end dates."""
+        if fc.effective_date > cycle.cycle_end:
+            return False
+        if fc.recurring and fc.end_date and fc.end_date < cycle.cycle_start:
+            return False
+        return True
 
     def _add_arrears(self, draft: FlatBillDraft, earlier: List[MaintenanceBill], bill_date: date) -> None:
         s = self.settings

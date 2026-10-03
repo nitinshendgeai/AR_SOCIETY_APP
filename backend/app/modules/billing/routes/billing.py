@@ -4,7 +4,9 @@ from uuid import UUID
 from datetime import date
 from decimal import Decimal
 from fastapi import APIRouter, Depends, Request, UploadFile, File, Form, HTTPException, Query
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
+from app.schemas import validators as val
+from app.core.tenant_scope import assert_society_access
 from fastapi.responses import Response, StreamingResponse
 from io import BytesIO
 from sqlalchemy.orm import Session
@@ -15,13 +17,15 @@ from app.core.dependencies import (
     require_any_member, require_manager_above,
 )
 from app.models.user import User
+from app.models.flat import Flat
 from app.modules.billing.models.billing import (
     ChargeType, BillStatus, PaymentMode, PenaltyCalculationType, CycleFrequency,
-    ReconciliationStatus, ChargeBasis,
+    ReconciliationStatus, ChargeBasis, FlatChargeKind, FlatChargeStatus,
 )
 from app.modules.billing.services.maintenance_calculator import cycle_months, money
 from app.modules.billing.services.billing_service import BillingService, RESIDENT_VISIBLE_BILL_STATUSES
 from app.modules.billing.services.budget_suggestions import suggest_budgets
+from app.modules.billing.services.flat_charges import FlatChargeService
 from app.modules.billing.services.allocations import PaymentAllocator, allocated, payment_counts, unapplied
 from app.schemas.common import OrmBase, TimestampSchema
 from typing import Optional
@@ -49,6 +53,8 @@ class ChargeConfigCreate(OrmBase):
     is_service_charge: Optional[bool] = None; gst_applicable: Optional[bool] = None
     is_mandatory: bool = True; tax_percent: Decimal = Decimal(0)
     description: Optional[str] = None; effective_from: Optional[date] = None
+    auto_from_expenses: bool = False
+    expense_months: int = Field(default=12, ge=1, le=36)
 
 class CycleCreate(OrmBase):
     society_id: UUID; name: str; cycle_start: date; cycle_end: date
@@ -156,6 +162,8 @@ class ChargeConfigUpdate(OrmBase):
     tax_percent: Optional[Decimal] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
+    auto_from_expenses: Optional[bool] = None
+    expense_months: Optional[int] = Field(default=None, ge=1, le=36)
 
 
 def _charge_out(c) -> dict:
@@ -174,6 +182,8 @@ def _charge_out(c) -> dict:
         "tax_percent": str(c.tax_percent),
         "element_id": str(c.element_id) if c.element_id else None,
         "element_name": c.element.name if c.element else None,
+        "auto_from_expenses": bool(c.auto_from_expenses),
+        "expense_months": c.expense_months or 12,
         "is_active": c.is_active,
     }
 
@@ -188,15 +198,20 @@ def list_charges(society_id: UUID, db: Session = Depends(get_db)):
 
 @router.get("/charges/{society_id}/budget-suggestions", dependencies=[Depends(manager_above)])
 def budget_suggestions(society_id: UUID, months: int = Query(12, ge=1, le=36),
-                       db: Session = Depends(get_db)):
-    """Suggested charge-head amounts from the last `months` of vendor bills
-    (see services/budget_suggestions.py). Read-only."""
+                       db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Suggested charge-head amounts from what the last `months` cost on the
+    expense ledgers linked to each element (see services/budget_suggestions.py).
+    Read-only."""
+    assert_society_access(user, society_id)
     return suggest_budgets(db, society_id, months)
 
 @router.patch("/charges/{config_id}", dependencies=[Depends(manager_above)])
 def update_charge(config_id: UUID, data: ChargeConfigUpdate, db: Session = Depends(get_db),
                   user: User = Depends(get_current_user)):
     changes = data.model_dump(exclude_unset=True)
+    for key in ("auto_from_expenses", "expense_months"):
+        if key in changes and changes[key] is None:
+            del changes[key]
     return _charge_out(BillingService(db).update_charge_config(config_id, changes, user))
 
 
@@ -930,3 +945,80 @@ def remind_defaulters(society_id: UUID, data: DuesReminderRequest, db: Session =
     from app.modules.billing.services.defaulters import MemberDues
     assert_society_access(user, society_id)
     return MemberDues(db).remind(society_id, data.flat_ids, data.min_months, user)
+
+
+# ── Fines and additional charges on a flat ────────────────────────────────────
+
+class FlatChargeCreate(OrmBase):
+    society_id: UUID
+    flat_id: UUID
+    kind: FlatChargeKind = FlatChargeKind.FINE
+    title: str = Field(max_length=150)
+    reason: Optional[str] = None
+    amount: Decimal = Field(gt=0, lt=Decimal(100_000_000), max_digits=12, decimal_places=2)
+    gst_applicable: bool = False
+    effective_date: date
+    recurring: bool = False
+    end_date: Optional[date] = None
+
+    _title = field_validator("title", mode="before")(val.line_max(150, required=True))
+    _reason = field_validator("reason", mode="before")(val.note_max(1000))
+    _dates = field_validator("effective_date", "end_date")(val.sane_date)
+
+    @model_validator(mode="after")
+    def _period(self):
+        if self.end_date and self.end_date < self.effective_date:
+            raise ValueError("The end date can't be before the effective date")
+        return self
+
+
+class FlatChargeCancel(OrmBase):
+    reason: str
+
+    _reason = field_validator("reason", mode="before")(val.note_max(1000, required=True))
+
+
+def _flat_charge_out(c) -> dict:
+    return {
+        "id": str(c.id), "society_id": str(c.society_id), "flat_id": str(c.flat_id),
+        "flat_number": c.flat_number, "wing_name": c.wing_name,
+        "kind": c.kind.value, "title": c.title, "reason": c.reason, "amount": str(c.amount),
+        "gst_applicable": c.gst_applicable, "effective_date": c.effective_date.isoformat(),
+        "recurring": c.recurring, "end_date": c.end_date.isoformat() if c.end_date else None,
+        "status": c.status.value, "bill_id": str(c.bill_id) if c.bill_id else None,
+        "invoice_number": c.invoice_number, "cancel_reason": c.cancel_reason,
+        "created_at": c.created_at.isoformat() if c.created_at else None,
+    }
+
+
+@router.post("/flat-charges", status_code=201)
+def create_flat_charge(data: FlatChargeCreate, request: Request, db: Session = Depends(get_db),
+                       user: User = Depends(manager_above)):
+    """A fine or additional charge on one flat; goes on its next bill."""
+    assert_society_access(user, data.society_id)
+    return _flat_charge_out(FlatChargeService(db).create(data.model_dump(), user, request))
+
+
+@router.get("/flat-charges/society/{society_id}")
+def list_flat_charges(society_id: UUID, status: Optional[FlatChargeStatus] = None, flat_id: Optional[UUID] = None,
+                      skip: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=500),
+                      db: Session = Depends(get_db), user: User = Depends(manager_above)):
+    assert_society_access(user, society_id)
+    return [_flat_charge_out(c) for c in FlatChargeService(db).list_for_society(society_id, status, flat_id, skip, limit)]
+
+
+@router.get("/flat-charges/flat/{flat_id}")
+def flat_flat_charges(flat_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """A flat's fines and additional charges (not the cancelled ones): managers
+    see any flat's, a member only their own."""
+    flat = db.get(Flat, flat_id)
+    if flat is None or (user.society_id is not None and flat.wing.society_id != user.society_id):
+        raise HTTPException(404, "Flat not found")
+    _ensure_can_view_flat(db, user, flat_id)
+    return [_flat_charge_out(c) for c in FlatChargeService(db).list_for_flat(flat_id)]
+
+
+@router.post("/flat-charges/{charge_id}/cancel")
+def cancel_flat_charge(charge_id: UUID, data: FlatChargeCancel, request: Request, db: Session = Depends(get_db),
+                       user: User = Depends(manager_above)):
+    return _flat_charge_out(FlatChargeService(db).cancel(charge_id, data.reason, user, request))

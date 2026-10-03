@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -9,6 +10,7 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/billing_cycle_screen.dart';
+import 'package:ar_society_app/features/maintenance_billing/presentation/screens/flat_charges_tab.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
@@ -26,7 +28,7 @@ class MaintenanceBillingScreen extends ConsumerStatefulWidget {
 
 class _MaintenanceBillingScreenState extends ConsumerState<MaintenanceBillingScreen>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 3, vsync: this)
+  late final TabController _tabs = TabController(length: 4, vsync: this)
     ..addListener(() => setState(() {}));
 
   @override
@@ -48,10 +50,12 @@ class _MaintenanceBillingScreenState extends ConsumerState<MaintenanceBillingScr
     }
     final onCycles = _tabs.index == 0;
     final onRules = _tabs.index == 2;
+    final onFines = _tabs.index == 3;
     final desktop = isDesktopLayout(context);
-    void add() => _openSheet(onCycles
-        ? _NewCycleSheet(societyId: societyId)
-        : _ChargeHeadSheet(societyId: societyId));
+    void add() => onFines
+        ? showFlatChargeSheet(context, societyId)
+        : _openSheet(onCycles ? _NewCycleSheet(societyId: societyId) : _ChargeHeadSheet(societyId: societyId));
+    final addLabel = onCycles ? 'New Cycle' : (onFines ? 'Add Fine / Charge' : 'Add Charge Head');
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
@@ -61,26 +65,28 @@ class _MaintenanceBillingScreenState extends ConsumerState<MaintenanceBillingScr
           if (desktop && !onRules)
             HeaderActionButton(
               icon: Icons.add_rounded,
-              label: onCycles ? 'New Cycle' : 'Add Charge Head',
+              label: addLabel,
               onPressed: add,
             ),
         ],
-        bottom: TabBar(controller: _tabs, tabs: const [
+        bottom: TabBar(controller: _tabs, isScrollable: !desktop, tabAlignment: desktop ? null : TabAlignment.start, tabs: const [
           Tab(text: 'Cycles'),
           Tab(text: 'Charge Heads'),
           Tab(text: 'Rules'),
+          Tab(text: 'Fines & Charges'),
         ]),
       ),
       floatingActionButton: onRules || desktop ? null : FloatingActionButton.extended(
         onPressed: add,
         icon: const Icon(Icons.add_rounded),
-        label: Text(onCycles ? 'New Cycle' : 'Add Charge Head'),
+        label: Text(addLabel),
       ),
       body: TabBarView(controller: _tabs, children: [
         _CyclesTab(societyId: societyId, onAddChargeHeads: () => _tabs.animateTo(1)),
         _ChargeHeadsTab(societyId: societyId, onEdit: (c) => _openSheet(
             _ChargeHeadSheet(societyId: societyId, existing: c))),
         _RulesTab(societyId: societyId),
+        FlatChargesTab(societyId: societyId),
       ]),
     );
   }
@@ -539,6 +545,7 @@ class _ChargeHeadsTab extends ConsumerWidget {
                       subtitle: Text([
                         c.rateLabel,
                         if (c.isServiceCharge) 'Service charge',
+                        if (c.autoFromExpenses) 'Budget from expenses',
                         if (!c.gstApplicable) 'No GST',
                       ].join(' · ')),
                       trailing: const Icon(Icons.chevron_right_rounded),
@@ -572,9 +579,15 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
   late bool _service = widget.existing?.isServiceCharge ?? true;
   late bool _gst = widget.existing?.gstApplicable ?? true;
   late String? _elementId = widget.existing?.elementId;
+  late bool _auto = widget.existing?.autoFromExpenses ?? false;
+  late final _monthsCtrl = TextEditingController(text: '${widget.existing?.expenseMonths ?? 12}');
   bool _saving = false;
 
   bool get _editing => widget.existing != null;
+
+  /// "Budget from expenses" works for a head made from an element whose
+  /// amount follows from spend (not a % of construction cost or parking).
+  bool get _canAuto => _elementId != null && const {'fixed', 'per_sqft', 'budget_equal', 'budget_area'}.contains(_basis);
 
   void _applyElement(MaintenanceElement el) {
     _elementId = el.id;
@@ -591,6 +604,7 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
     _nameCtrl.dispose();
     _amountCtrl.dispose();
     _taxCtrl.dispose();
+    _monthsCtrl.dispose();
     super.dispose();
   }
 
@@ -644,16 +658,20 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
     final name = _nameCtrl.text.trim();
     final amount = _amountCtrl.text.trim();
     final tax = _taxCtrl.text.trim().isEmpty ? '0' : _taxCtrl.text.trim();
+    final auto = _auto && _canAuto;
+    final months = int.tryParse(_monthsCtrl.text.trim()) ?? 12;
     await _run(
       () => _editing
           ? api.updateChargeHead(widget.existing!.id, {
               'name': name, 'charge_type': _type, 'default_amount': amount, 'basis': _basis,
               'is_service_charge': _service, 'gst_applicable': _gst, 'tax_percent': tax,
+              'auto_from_expenses': auto, 'expense_months': months,
             })
           : api.createChargeHead(
               societyId: widget.societyId, elementId: _elementId,
               chargeType: _type, name: name, amount: amount,
               basis: _basis, isServiceCharge: _service, gstApplicable: _gst, taxPercent: tax,
+              autoFromExpenses: auto, expenseMonths: months,
             ),
       _editing ? 'Charge head updated' : 'Charge head added',
     );
@@ -751,6 +769,31 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
             decoration: InputDecoration(labelText: '${chargeAmountFieldLabel(_basis)} *'),
             validator: _number,
           ),
+          if (_canAuto) ...[
+            const SizedBox(height: 4),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Budget from expenses'),
+              subtitle: const Text('Bill what this element cost recently on its linked expense ledgers. '
+                  'The amount above is used when nothing has been spent.'),
+              value: _auto,
+              onChanged: (v) => setState(() => _auto = v),
+            ),
+            if (_auto)
+              TextFormField(
+                controller: _monthsCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(2)],
+                decoration: const InputDecoration(
+                  labelText: 'Months of expenses to look back *',
+                  helperText: '1 to 36 — spend is scaled up to a year',
+                ),
+                validator: (v) {
+                  final n = int.tryParse((v ?? '').trim());
+                  return n == null || n < 1 || n > 36 ? 'Enter 1 to 36' : null;
+                },
+              ),
+          ],
           const SizedBox(height: 4),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -1018,9 +1061,9 @@ class _BudgetSuggestionSheetState extends ConsumerState<_BudgetSuggestionSheet> 
       title: 'Suggest Budget from Expenses',
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         const Text(
-          'Works out each charge head from what you actually spent — Vendor Bills grouped by '
-          'category, scaled to a full year. Add the increase you expect for the coming year, '
-          'review, and apply the ones you want.',
+          'Works out each charge head from what you actually spent on the expense ledgers linked to '
+          'its element (vendor bills, payment vouchers), scaled to a full year. Add the increase you '
+          'expect for the coming year, review, and apply the ones you want.',
           style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
         ),
         const SizedBox(height: 14),
@@ -1069,9 +1112,9 @@ class _BudgetSuggestionSheetState extends ConsumerState<_BudgetSuggestionSheet> 
     if (data.suggestions.isEmpty) {
       return const _SuggestionNote(
         icon: Icons.info_outline_rounded,
-        text: 'None of your charge heads is paid for by vendor bills. Suggestions cover Security, '
-            'Housekeeping, Lift Maintenance, Common Electricity and Water Charges heads that are '
-            'billed as an annual budget, per flat or per sq ft.',
+        text: 'None of your charge heads is made from an element with expenses linked to it. '
+            'Suggestions cover heads such as Security, Housekeeping, Lift Maintenance, Common Electricity '
+            'and Water Charges that are billed as an annual budget, per flat or per sq ft.',
       );
     }
     final applicable = data.suggestions.where((s) => s.suggestedAmount != null).length;
@@ -1079,12 +1122,13 @@ class _BudgetSuggestionSheetState extends ConsumerState<_BudgetSuggestionSheet> 
       if (data.monthsCovered == 0)
         const _SuggestionNote(
           icon: Icons.receipt_long_rounded,
-          text: 'No vendor bills in this period. Record bills under Finance → Vendor Bills, then come back.',
+          text: 'Nothing is recorded on the linked expense ledgers in this period. Record vendor bills or '
+              'payment vouchers under Finance, then come back.',
         )
       else
         Text(
-          'Bills from ${formatBillDate(data.periodStart)} to ${formatBillDate(data.periodEnd)} · '
-          '${data.monthsCovered} month${data.monthsCovered == 1 ? '' : 's'} with bills, scaled to 12.',
+          'Expenses from ${formatBillDate(data.periodStart)} to ${formatBillDate(data.periodEnd)} · '
+          '${data.monthsCovered} month${data.monthsCovered == 1 ? '' : 's'} with spending, scaled to 12.',
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
         ),
       const SizedBox(height: 4),
@@ -1093,10 +1137,10 @@ class _BudgetSuggestionSheetState extends ConsumerState<_BudgetSuggestionSheet> 
         const SizedBox(height: 8),
         _SuggestionNote(
           icon: Icons.link_off_rounded,
-          text: 'Not recovered through any charge head: '
-              '${data.unlinked.map((u) => '${vendorCategoryLabel(u.$1)} ${formatRupees(u.$2)}').join(', ')}. '
-              'Add a charge head for any you want residents to pay for (e.g. Housekeeping); '
-              'repair work is normally met from the repairs fund.',
+          text: 'Expense ledgers not linked to any maintenance element: '
+              '${data.unlinked.map((u) => '${u.$1} ${formatRupees(u.$2)}').join(', ')}. '
+              'Link a ledger in Finance → Chart of Accounts if residents should pay for it '
+              'through a charge head; repair work is normally met from the repairs fund.',
         ),
       ],
       const SizedBox(height: 16),
@@ -1110,7 +1154,7 @@ class _BudgetSuggestionSheetState extends ConsumerState<_BudgetSuggestionSheet> 
   }
 
   Widget _suggestionRow(BudgetSuggestion s, int monthsCovered) {
-    final sources = s.vendorCategories.map(vendorCategoryLabel).join(', ');
+    final sources = s.expenseHeads.isEmpty ? 'its linked ledgers' : s.expenseHeads.join(', ');
     final proposed = _proposed(s);
     final canApply = proposed != null;
     return CheckboxListTile(
@@ -1127,7 +1171,7 @@ class _BudgetSuggestionSheetState extends ConsumerState<_BudgetSuggestionSheet> 
           canApply
               ? 'Spent ${formatRupees(s.spent)} on $sources in $monthsCovered '
                   'month${monthsCovered == 1 ? '' : 's'} → ${formatRupees(s.annualEstimate)} a year'
-              : 'No $sources bills in this period',
+              : 'Nothing spent on $sources in this period',
           style: const TextStyle(fontSize: 12),
         ),
         const SizedBox(height: 2),

@@ -55,6 +55,8 @@ def _account_out(a: Account, balance: Optional[Decimal] = None) -> dict:
         "is_cash": a.is_cash, "is_bank": a.is_bank, "is_default_bank": a.is_default_bank,
         "bank_name": a.bank_name, "bank_account_number": a.bank_account_number,
         "bank_ifsc": a.bank_ifsc, "bank_branch": a.bank_branch,
+        "maintenance_element_id": str(a.maintenance_element_id) if a.maintenance_element_id else None,
+        "maintenance_element_name": a.maintenance_element_name,
     }
     if balance is not None:
         out["balance"] = _amount(balance)
@@ -115,6 +117,7 @@ class AccountCreate(BaseModel):
     bank_account_number: Optional[str] = None
     bank_ifsc: Optional[str] = None
     bank_branch: Optional[str] = None
+    maintenance_element_id: Optional[UUID] = None
 
 
 class AccountUpdate(BaseModel):
@@ -130,6 +133,7 @@ class AccountUpdate(BaseModel):
     bank_account_number: Optional[str] = None
     bank_ifsc: Optional[str] = None
     bank_branch: Optional[str] = None
+    maintenance_element_id: Optional[UUID] = None   # null clears the link
 
 
 class VoucherLineIn(BaseModel):

@@ -94,6 +94,11 @@ class LedgerAccount {
   final String? bankAccountNumber;
   final String? bankIfsc;
   final String? bankBranch;
+
+  /// The maintenance element this expense ledger counts towards (its spend
+  /// feeds that element's budget in the monthly maintenance calculation).
+  final String? maintenanceElementId;
+  final String? maintenanceElementName;
   final DrCr? balance;
 
   const LedgerAccount({
@@ -116,6 +121,8 @@ class LedgerAccount {
     this.bankAccountNumber,
     this.bankIfsc,
     this.bankBranch,
+    this.maintenanceElementId,
+    this.maintenanceElementName,
     this.balance,
   });
 
@@ -139,6 +146,8 @@ class LedgerAccount {
         bankAccountNumber: j['bank_account_number'] as String?,
         bankIfsc: j['bank_ifsc'] as String?,
         bankBranch: j['bank_branch'] as String?,
+        maintenanceElementId: j['maintenance_element_id'] as String?,
+        maintenanceElementName: j['maintenance_element_name'] as String?,
         balance: j['balance_dr_cr'] == null ? null : DrCr.fromJson(j['balance_dr_cr'] as Map<String, dynamic>),
       );
 

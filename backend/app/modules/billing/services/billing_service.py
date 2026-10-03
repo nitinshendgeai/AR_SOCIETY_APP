@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.billing.models.billing import (
     FinancialPeriod, MaintenanceChargeConfig, BillingCycle,
-    MaintenanceBill, InvoiceLineItem, PaymentReceipt, DueTracker, PenaltyRule,
+    MaintenanceBill, InvoiceLineItem, PaymentReceipt, DueTracker, PenaltyRule, FlatCharge, FlatChargeStatus,
     OnlinePaymentSubmission, ReconciliationStatus,
     BankStatementEntry, BankStatementMatchStatus,
     BillStatus, ChargeType, PaymentMode, ChargeBasis, MaintenanceSettings,
@@ -127,12 +127,25 @@ class BillingService:
         if not data.get("charge_type") or not data.get("name"):
             raise HTTPException(422, "Pick an element, or give the charge head a type and name")
         data = self._sync_basis(data)
+        self._check_auto_budget(data.get("auto_from_expenses"), data.get("element_id"), data.get("basis"))
         config = MaintenanceChargeConfig(**data)
         self.charge_repo.create(config)
         self._audit(AuditAction.CREATE, config, "ChargeConfig", user,
                     new_values={"name": data.get("name"), "amount": str(data.get("default_amount"))})
         self.db.refresh(config)
         return config
+
+    @staticmethod
+    def _check_auto_budget(auto, element_id, basis):
+        """"Budget from expenses" needs an element whose linked ledgers supply
+        the spend, and a basis that can be worked out from spend."""
+        if not auto:
+            return
+        from app.modules.billing.services.budget_suggestions import SUGGESTIBLE_BASES
+        if not element_id:
+            raise HTTPException(422, "Budget from expenses needs a charge head made from a maintenance element")
+        if (basis or ChargeBasis.FIXED) not in SUGGESTIBLE_BASES:
+            raise HTTPException(422, "Budget from expenses works for fixed, per sq ft and budget-based charge heads")
 
     def list_charge_configs(self, society_id: UUID) -> List[MaintenanceChargeConfig]:
         return self.charge_repo.get_by_society(society_id)
@@ -145,6 +158,8 @@ class BillingService:
         if not config: raise HTTPException(404, "Charge head not found")
         old = {"name": config.name, "amount": str(config.default_amount), "active": config.is_active}
         data = self._sync_basis(dict(data))
+        self._check_auto_budget(data.get("auto_from_expenses", config.auto_from_expenses),
+                                config.element_id, data.get("basis", config.basis))
         for field, value in data.items():
             setattr(config, field, value)
         self._audit(AuditAction.UPDATE, config, "ChargeConfig", user, old_values=old,
@@ -306,6 +321,12 @@ class BillingService:
             self.db.add(bill)
             self.db.flush()
             for l in draft.lines:
+                if l.flat_charge_id:
+                    # A one-off fine / additional charge is now on a bill; a recurring one stays active.
+                    fc = self.db.get(FlatCharge, l.flat_charge_id)
+                    if fc is not None and not fc.recurring:
+                        fc.status = FlatChargeStatus.BILLED
+                        fc.bill_id = bill.id
                 self.db.add(InvoiceLineItem(
                     bill_id=bill.id, charge_type=l.charge_type, description=l.description,
                     quantity=1.0, unit_rate=l.amount, amount=l.amount,
@@ -431,6 +452,12 @@ class BillingService:
         if tracker:
             tracker.total_billed -= bill.total_amount
             tracker.outstanding  -= bill.outstanding
+
+        # One-off fines / charges that were on this bill go back to waiting for the next one
+        for fc in self.db.query(FlatCharge).filter(FlatCharge.bill_id == bill.id,
+                                                   FlatCharge.status == FlatChargeStatus.BILLED):
+            fc.status = FlatChargeStatus.ACTIVE
+            fc.bill_id = None
 
         bill.bill_status        = BillStatus.CANCELLED
         bill.cancelled_at       = datetime.utcnow()

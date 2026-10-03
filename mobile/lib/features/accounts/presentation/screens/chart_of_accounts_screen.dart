@@ -11,6 +11,7 @@ import 'package:ar_society_app/features/accounts/presentation/providers/accounts
 import 'package:ar_society_app/features/accounts/presentation/screens/accounts_screen.dart' show ledgerRoute;
 import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
@@ -147,19 +148,25 @@ class _GroupCard extends StatelessWidget {
                             fontFeatures: [FontFeature.tabularFigures()])),
                   ),
                   Expanded(
-                    child: Row(children: [
-                      Flexible(
-                        child: Text(a.name,
-                            overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5)),
-                      ),
-                      if (a.isDefaultBank) ...[
-                        const SizedBox(width: 6),
-                        const StatusPill('Default', AppTheme.primary),
-                      ],
-                      if (!a.isSystem) ...[
-                        const SizedBox(width: 6),
-                        const StatusPill('Custom', AppTheme.secondary),
-                      ],
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Flexible(
+                          child: Text(a.name,
+                              overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5)),
+                        ),
+                        if (a.isDefaultBank) ...[
+                          const SizedBox(width: 6),
+                          const StatusPill('Default', AppTheme.primary),
+                        ],
+                        if (!a.isSystem) ...[
+                          const SizedBox(width: 6),
+                          const StatusPill('Custom', AppTheme.secondary),
+                        ],
+                      ]),
+                      if (a.maintenanceElementName != null)
+                        Text('Counts towards ${a.maintenanceElementName}',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
                     ]),
                   ),
                   if (a.balance != null) DrCrText(a.balance!, weight: FontWeight.w500),
@@ -204,6 +211,7 @@ class _LedgerSheetState extends ConsumerState<_LedgerSheet> {
       : (widget.existing!.isBank ? 'bank' : (widget.existing!.isCash ? 'cash' : 'ledger'));
   late bool _defaultBank = widget.existing?.isDefaultBank ?? false;
   late bool _active = widget.existing?.isActive ?? true;
+  late String? _elementId = widget.existing?.maintenanceElementId;
   bool _saving = false;
 
   bool get _editing => widget.existing != null;
@@ -227,6 +235,8 @@ class _LedgerSheetState extends ConsumerState<_LedgerSheet> {
       'code': _code.text.trim().isEmpty ? null : _code.text.trim(),
       'opening_balance': (double.tryParse(_opening.text.trim()) ?? 0).toStringAsFixed(2),
       'opening_type': _openingType,
+      // Only an expense ledger counts towards an element; null clears the link.
+      if (_group?.nature == 'expense') 'maintenance_element_id': _elementId,
       if (bank) ...{
         'bank_name': _bankName.text.trim(),
         'bank_account_number': _bankAcc.text.trim(),
@@ -264,6 +274,31 @@ class _LedgerSheetState extends ConsumerState<_LedgerSheet> {
       if (mounted) setState(() => _saving = false);
     }
   }
+
+  /// What this expense ledger pays for — what is spent on it counts towards
+  /// that maintenance element when the monthly maintenance is worked out.
+  List<Widget> _elementPicker() => [
+        const SizedBox(height: 14),
+        ref.watch(maintenanceElementsProvider((societyId: widget.societyId, includeInactive: false))).when(
+              loading: () => const LinearProgressIndicator(),
+              error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+              data: (elements) => DropdownButtonFormField<String?>(
+                initialValue: elements.any((e) => e.id == _elementId) ? _elementId : null,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Counts towards maintenance element',
+                  helperText: 'Spend on this ledger feeds that element\'s budget in the monthly maintenance',
+                  helperMaxLines: 2,
+                ),
+                items: [
+                  const DropdownMenuItem<String?>(value: null, child: Text('None — not recovered from members')),
+                  for (final el in elements)
+                    DropdownMenuItem<String?>(value: el.id, child: Text(el.name, overflow: TextOverflow.ellipsis)),
+                ],
+                onChanged: (v) => setState(() => _elementId = v),
+              ),
+            ),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -313,6 +348,7 @@ class _LedgerSheetState extends ConsumerState<_LedgerSheet> {
               child: TextFormField(controller: _code, decoration: const InputDecoration(labelText: 'Code')),
             ),
           ]),
+          if (_group?.nature == 'expense') ..._elementPicker(),
           if (isAsset && !_editing) ...[
             const SizedBox(height: 14),
             SegmentedButton<String>(
