@@ -419,3 +419,12 @@ def test_vendor_details_can_be_edited(client, rig):
     r = client.patch(f"{V}/{b['id']}", json={"status": "active"}, headers=rig["sec"])
     assert r.status_code == 200 and r.json()["status"] == "active" and r.json()["blacklist_reason"] is None
     assert client.patch(f"{V}/{a['id']}", json={"city": "X"}, headers=rig["oadmin"]).status_code == 404
+
+
+def test_months_are_added_without_overrunning_short_months():
+    from app.modules.vendor.services.work_orders import add_months
+    assert add_months(date(2026, 1, 31), 1) == date(2026, 2, 28)
+    assert add_months(date(2028, 1, 31), 1) == date(2028, 2, 29)
+    assert add_months(date(2026, 10, 3), 12) == date(2027, 10, 3)
+    assert add_months(date(2026, 11, 15), 3) == date(2027, 2, 15)
+    assert add_months(date(2026, 5, 20), 0) == date(2026, 5, 20)
