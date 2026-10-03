@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
@@ -82,6 +83,8 @@ class _VehicleFormSheetBodyState extends ConsumerState<_VehicleFormSheetBody> {
     super.dispose();
   }
 
+  String? _blankToNull(TextEditingController c) => c.text.trim().isEmpty ? null : c.text.trim();
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final societyId = ref.read(currentUserProvider)?.societyId;
@@ -95,10 +98,10 @@ class _VehicleFormSheetBodyState extends ConsumerState<_VehicleFormSheetBody> {
       if (_isEdit) {
         await notifier.edit(widget.vehicle!.id, {
           'vehicle_type': _type.value,
-          if (_makeCtrl.text.trim().isNotEmpty) 'make': _makeCtrl.text.trim(),
-          if (_modelCtrl.text.trim().isNotEmpty) 'model': _modelCtrl.text.trim(),
-          if (_colorCtrl.text.trim().isNotEmpty) 'color': _colorCtrl.text.trim(),
-          'parking_slot': _slotCtrl.text.trim().isEmpty ? null : _slotCtrl.text.trim(),
+          'make': _blankToNull(_makeCtrl),
+          'model': _blankToNull(_modelCtrl),
+          'color': _blankToNull(_colorCtrl),
+          'parking_slot': _blankToNull(_slotCtrl),
         });
       } else {
         await notifier.add({
@@ -213,8 +216,9 @@ class _VehicleFormSheetBodyState extends ConsumerState<_VehicleFormSheetBody> {
                   controller: _numberCtrl,
                   enabled: !_isEdit,
                   textCapitalization: TextCapitalization.characters,
+                  inputFormatters: [LengthLimitingTextInputFormatter(30)],
                   decoration: const InputDecoration(labelText: 'Vehicle Number *', hintText: 'e.g. MH12AB1234'),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Vehicle number is required' : null,
+                  validator: rmVehicleNumberValidator,
                 ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<VehicleType>(
@@ -230,6 +234,7 @@ class _VehicleFormSheetBodyState extends ConsumerState<_VehicleFormSheetBody> {
                   Expanded(
                     child: TextFormField(
                       controller: _makeCtrl,
+                      inputFormatters: [LengthLimitingTextInputFormatter(100)],
                       decoration: const InputDecoration(labelText: 'Make', hintText: 'Honda'),
                     ),
                   ),
@@ -237,6 +242,7 @@ class _VehicleFormSheetBodyState extends ConsumerState<_VehicleFormSheetBody> {
                   Expanded(
                     child: TextFormField(
                       controller: _modelCtrl,
+                      inputFormatters: [LengthLimitingTextInputFormatter(100)],
                       decoration: const InputDecoration(labelText: 'Model', hintText: 'City'),
                     ),
                   ),
@@ -246,6 +252,7 @@ class _VehicleFormSheetBodyState extends ConsumerState<_VehicleFormSheetBody> {
                   Expanded(
                     child: TextFormField(
                       controller: _colorCtrl,
+                      inputFormatters: [LengthLimitingTextInputFormatter(50)],
                       decoration: const InputDecoration(labelText: 'Color'),
                     ),
                   ),
@@ -253,6 +260,7 @@ class _VehicleFormSheetBodyState extends ConsumerState<_VehicleFormSheetBody> {
                   Expanded(
                     child: TextFormField(
                       controller: _slotCtrl,
+                      inputFormatters: [LengthLimitingTextInputFormatter(20)],
                       decoration: const InputDecoration(labelText: 'Parking Slot'),
                     ),
                   ),

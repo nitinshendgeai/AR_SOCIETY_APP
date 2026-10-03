@@ -54,3 +54,17 @@ def resolve_create_society_id(current_user: User, requested_society_id: Optional
             detail="society_id is required",
         )
     return requested_society_id
+
+
+def assert_user_in_society(db, user_id: Optional[UUID], society_id: Optional[UUID]) -> None:
+    """A person record may only be linked to a login of its own society
+    (404, so another society's accounts can't be probed). Platform admins
+    (society_id None) may link any account."""
+    if user_id is None:
+        return
+    from app.models.user import User as _User
+    q = db.query(_User.id).filter(_User.id == user_id)
+    if society_id is not None:
+        q = q.filter(_User.society_id == society_id)
+    if q.first() is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
@@ -140,6 +141,7 @@ class _RenewalSheetBodyState extends ConsumerState<_RenewalSheetBody> {
               TextField(
                 controller: _rentCtrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,10}(\.\d{0,2})?'))],
                 decoration: InputDecoration(
                   labelText: 'Monthly Rent',
                   hintText: widget.tenant.monthlyRent != null ? 'Carry over: ${widget.tenant.monthlyRent}' : 'Optional',
@@ -149,6 +151,7 @@ class _RenewalSheetBodyState extends ConsumerState<_RenewalSheetBody> {
               TextField(
                 controller: _depositCtrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,10}(\.\d{0,2})?'))],
                 decoration: InputDecoration(
                   labelText: 'Security Deposit',
                   hintText: widget.tenant.securityDeposit != null ? 'Carry over: ${widget.tenant.securityDeposit}' : 'Optional',

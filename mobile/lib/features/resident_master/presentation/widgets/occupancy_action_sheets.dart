@@ -147,7 +147,7 @@ class _MoveSheetBodyState extends ConsumerState<_MoveSheetBody> {
       context: context,
       initialDate: _date,
       firstDate: DateTime(2000),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      lastDate: DateTime.now(),
     );
     if (picked != null) setState(() => _date = picked);
   }

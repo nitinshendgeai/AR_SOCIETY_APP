@@ -13,8 +13,12 @@ Usage:
         request=request,
     )
 """
+import enum
 import logging
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Optional, Any
+from uuid import UUID
 from sqlalchemy.orm import Session
 from fastapi import Request
 
@@ -22,6 +26,22 @@ from app.models.audit_log import AuditLog, AuditAction
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
+
+
+def _jsonable(value: Any) -> Any:
+    """Audit values hold whatever the caller had to hand — dates, amounts,
+    ids, enums — and are stored as JSON."""
+    if isinstance(value, dict):
+        return {str(k): _jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_jsonable(v) for v in value]
+    if isinstance(value, enum.Enum):
+        return _jsonable(value.value)
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    if isinstance(value, (Decimal, UUID)):
+        return str(value)
+    return value
 
 
 class AuditService:
@@ -48,8 +68,8 @@ class AuditService:
                 module      = module,
                 entity_id   = str(entity_id) if entity_id else None,
                 entity_type = entity_type,
-                old_values  = old_values,
-                new_values  = new_values,
+                old_values  = _jsonable(old_values),
+                new_values  = _jsonable(new_values),
                 notes       = notes,
                 ip_address  = AuditService._get_ip(request),
                 user_agent  = AuditService._get_ua(request),

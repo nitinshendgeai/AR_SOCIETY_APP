@@ -133,6 +133,8 @@ class OccupancyService:
         ).first()
         if not resident: raise HTTPException(status_code=404, detail="Resident not found")
 
+        if resident.move_in_date and move_out_date < resident.move_in_date:
+            raise HTTPException(status_code=422, detail="Move-out date cannot be before the move-in date")
         resident.move_out_date = move_out_date
         resident.is_active     = False
         self._unassign_vehicles(resident_id=resident_id, user=user)
@@ -232,6 +234,8 @@ class OccupancyService:
         ).first()
         if not tenant: raise HTTPException(status_code=404, detail="Tenant not found")
 
+        if tenant.move_in_date and move_out_date < tenant.move_in_date:
+            raise HTTPException(status_code=422, detail="Move-out date cannot be before the move-in date")
         tenant.move_out_date = move_out_date
         tenant.is_active     = False
         flat.occupancy_status = OccupancyStatus.VACANT

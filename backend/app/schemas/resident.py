@@ -1,10 +1,10 @@
 from typing import Optional, List
 from uuid import UUID
 from datetime import date
-from pydantic import model_validator, field_validator
+from pydantic import Field, model_validator, field_validator
+from app.schemas import validators as val
 from app.schemas.common import OrmBase, TimestampSchema
 from app.models.resident import ResidentType, CommunicationPreference
-from app.utils.phone import validate_mobile_number
 
 _PRIMARY_ALLOWED_TYPES = (ResidentType.OWNER, ResidentType.CO_OWNER)
 
@@ -14,7 +14,7 @@ class ResidentCreate(OrmBase):
     # never trusted from the client (see app/core/tenant_scope.py and
     # ResidentService.create()).
     flat_id:          UUID
-    full_name:        str
+    full_name:        str = Field(max_length=255)
     resident_type:    ResidentType = ResidentType.OWNER
     is_primary:       bool = False
     phone:            Optional[str] = None
@@ -35,10 +35,16 @@ class ResidentCreate(OrmBase):
     # Flat.occupancy_status update all already exist there).
     move_in_date:     Optional[date] = None
 
-    @field_validator("phone")
-    @classmethod
-    def validate_phone(cls, v):
-        return validate_mobile_number(v)
+    _name = field_validator("full_name", mode="before")(val.name)
+    _phone = field_validator("phone", mode="before")(val.mobile)
+    _email = field_validator("email", mode="before")(val.email)
+    _emergency_phone = field_validator("emergency_contact_phone", mode="before")(val.contact_phone)
+    _emergency_name = field_validator("emergency_contact_name", mode="before")(val.limited(255))
+    _id_type = field_validator("id_proof_type", mode="before")(val.limited(50))
+    _id_number = field_validator("id_proof_number", mode="before")(val.limited(100))
+    _urls = field_validator("kyc_doc_url", "photo_url", mode="before")(val.limited(500))
+    _dob = field_validator("date_of_birth")(val.birth_date)
+    _move_in = field_validator("move_in_date")(val.sane_date)
 
     @model_validator(mode="after")
     def check_primary_type(self):
@@ -57,7 +63,7 @@ class ResidentUpdate(OrmBase):
     # (computed on read, never client-settable — see ResidentOut), and
     # move_in_date/move_out_date (owned by the Occupancy move-in/move-out
     # endpoints, not a generic edit).
-    full_name:        Optional[str] = None
+    full_name:        Optional[str] = Field(default=None, max_length=255)
     resident_type:    Optional[ResidentType] = None
     is_primary:       Optional[bool] = None
     phone:            Optional[str] = None
@@ -73,10 +79,15 @@ class ResidentUpdate(OrmBase):
     photo_url:        Optional[str] = None
     user_id:          Optional[UUID] = None
 
-    @field_validator("phone")
-    @classmethod
-    def validate_phone(cls, v):
-        return validate_mobile_number(v)
+    _name = field_validator("full_name", mode="before")(val.name)
+    _phone = field_validator("phone", mode="before")(val.mobile)
+    _email = field_validator("email", mode="before")(val.email)
+    _emergency_phone = field_validator("emergency_contact_phone", mode="before")(val.contact_phone)
+    _emergency_name = field_validator("emergency_contact_name", mode="before")(val.limited(255))
+    _id_type = field_validator("id_proof_type", mode="before")(val.limited(50))
+    _id_number = field_validator("id_proof_number", mode="before")(val.limited(100))
+    _urls = field_validator("kyc_doc_url", "photo_url", mode="before")(val.limited(500))
+    _dob = field_validator("date_of_birth")(val.birth_date)
 
     @model_validator(mode="after")
     def check_primary_type_if_both_given(self):

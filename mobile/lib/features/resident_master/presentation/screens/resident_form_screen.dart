@@ -107,7 +107,7 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
         'is_primary': _isPrimary,
         'phone': _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
         'email': _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
-        if (_dateOfBirth != null) 'date_of_birth': _dateStr(_dateOfBirth!),
+        'date_of_birth': _dateOfBirth != null ? _dateStr(_dateOfBirth!) : null,
         'id_proof_type': _idProofType,
         'id_proof_number': _idProofNumberCtrl.text.trim().isEmpty ? null : _idProofNumberCtrl.text.trim(),
         'kyc_verified': _kycVerified,
@@ -174,8 +174,12 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
       appBar: AppBar(title: Text(_isEdit ? 'Edit Resident' : 'Add Resident')),
       body: ResponsiveBody(child: Form(
         key: _formKey,
-        child: ListView(
+        // A plain scroll view, not a lazy ListView: fields scrolled out of
+        // view stay mounted, so validate() checks every one of them.
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
+          child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const RmSectionHeader('Personal Information'),
             const SizedBox(height: 10),
@@ -184,6 +188,7 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
               child: TextFormField(
                 controller: _nameCtrl,
                 textCapitalization: TextCapitalization.words,
+                inputFormatters: [LengthLimitingTextInputFormatter(255)],
                 decoration: const InputDecoration(hintText: 'Enter full name'),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Name is required' : null,
               ),
@@ -223,10 +228,17 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
                   child: Row(children: [
                     const Icon(Icons.cake_outlined, size: 18, color: AppTheme.primary),
                     const SizedBox(width: 10),
-                    Text(
-                      _dateOfBirth != null ? _dateStr(_dateOfBirth!) : 'Select date of birth (optional)',
-                      style: TextStyle(fontSize: 14, color: _dateOfBirth != null ? AppTheme.textPrimary : AppTheme.textSecondary),
+                    Expanded(
+                      child: Text(
+                        _dateOfBirth != null ? _dateStr(_dateOfBirth!) : 'Select date of birth (optional)',
+                        style: TextStyle(fontSize: 14, color: _dateOfBirth != null ? AppTheme.textPrimary : AppTheme.textSecondary),
+                      ),
                     ),
+                    if (_dateOfBirth != null)
+                      InkWell(
+                        onTap: () => setState(() => _dateOfBirth = null),
+                        child: const Icon(Icons.close_rounded, size: 18, color: AppTheme.textSecondary),
+                      ),
                   ]),
                 ),
               ),
@@ -251,7 +263,9 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
               child: TextFormField(
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
+                inputFormatters: [LengthLimitingTextInputFormatter(255)],
                 decoration: const InputDecoration(hintText: 'name@example.com'),
+                validator: rmEmailValidator,
               ),
             ),
 
@@ -339,13 +353,16 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
               child: DropdownButtonFormField<String>(
                 value: _idProofType,
                 hint: const Text('Select ID type'),
-                items: _idProofTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                onChanged: (v) => setState(() => _idProofType = v),
+                items: [
+                  if (_idProofType != null) const DropdownMenuItem(value: rmNoneOption, child: Text(rmNoneOption)),
+                  ..._idProofTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))),
+                ],
+                onChanged: (v) => setState(() => _idProofType = v == rmNoneOption ? null : v),
               ),
             ),
             RmFormField(
               label: 'ID Proof Number',
-              child: TextFormField(controller: _idProofNumberCtrl),
+              child: TextFormField(controller: _idProofNumberCtrl, inputFormatters: [LengthLimitingTextInputFormatter(100)]),
             ),
 
             const SizedBox(height: 8),
@@ -353,7 +370,11 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
             const SizedBox(height: 10),
             RmFormField(
               label: 'Contact Name',
-              child: TextFormField(controller: _emergencyNameCtrl, textCapitalization: TextCapitalization.words),
+              child: TextFormField(
+                controller: _emergencyNameCtrl,
+                textCapitalization: TextCapitalization.words,
+                inputFormatters: [LengthLimitingTextInputFormatter(255)],
+              ),
             ),
             RmFormField(
               label: 'Contact Phone',
@@ -390,7 +411,7 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
                         context: context,
                         initialDate: _moveInDate ?? DateTime.now(),
                         firstDate: DateTime(2000),
-                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                        lastDate: DateTime.now(),
                       );
                       if (picked != null) setState(() => _moveInDate = picked);
                     },
@@ -419,6 +440,7 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
               onPressed: _submit,
             ),
           ],
+          ),
         ),
       )),
     );
