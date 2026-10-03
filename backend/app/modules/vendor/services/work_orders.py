@@ -20,12 +20,12 @@ paid). Bills against it can't exceed the sanctioned amount; before completion
 only the agreed advance can be paid, and the retention is held until the
 defect liability period ends. Annual contracts take the same sanction.
 """
+import calendar
 from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, List, Optional
 from uuid import UUID
 
-from dateutil.relativedelta import relativedelta
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -68,6 +68,14 @@ def inr(v) -> str:
     if head:
         groups.insert(0, head)
     return f"₹{sign}{','.join(groups + [tail]) if groups else tail}" + ("" if paise == "00" else f".{paise}")
+
+
+def add_months(d: date, months: int) -> date:
+    """The same day `months` later, or the month's last day when it is shorter
+    (31 January + 1 month = 28/29 February)."""
+    index = d.year * 12 + d.month - 1 + months
+    year, month = divmod(index, 12)
+    return date(year, month + 1, min(d.day, calendar.monthrange(year, month + 1)[1]))
 
 
 def bye_law_slab(members: int) -> Decimal:
@@ -339,7 +347,7 @@ class WorkOrderService:
     def retention_due_on(self, wo: WorkOrder) -> Optional[date]:
         if not wo.completed_on:
             return None
-        return wo.completed_on + relativedelta(months=wo.defect_liability_months or 0)
+        return add_months(wo.completed_on, wo.defect_liability_months or 0)
 
     # ── draft ─────────────────────────────────────────────────────────────────
 
