@@ -212,6 +212,13 @@ class DutyAssignment(Base, TimestampMixin):
 
     checklist_template_id = Column(UUID(as_uuid=True), ForeignKey("checklist_templates.id", ondelete="SET NULL"), nullable=True, index=True)
 
+    # Duties made together by one plan (several days / several staff) share a series.
+    series_id    = Column(UUID(as_uuid=True), nullable=True, index=True)
+    completed_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    # Where the completion came from: "app" (the staff member) or "paper" (a
+    # supervisor entered it from the printed sheet).
+    completion_source = Column(String(10), nullable=True)
+
     society  = relationship("Society")
     staff    = relationship("Staff", back_populates="duties")
     shift    = relationship("StaffShift", back_populates="duties")
@@ -276,6 +283,8 @@ class DutyChecklistItem(Base, TimestampMixin):
     is_required       = Column(Boolean, default=True, nullable=False)
     is_completed      = Column(Boolean, default=False, nullable=False)
     completed_at      = Column(DateTime, nullable=True)
+    completed_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    entered_from_paper = Column(Boolean, default=False, nullable=False, server_default="false")
     notes             = Column(Text, nullable=True)
 
     duty = relationship("DutyAssignment", back_populates="checklist_items")

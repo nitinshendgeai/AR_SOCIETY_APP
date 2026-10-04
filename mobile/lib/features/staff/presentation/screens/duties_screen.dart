@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
+import 'package:ar_society_app/features/staff/presentation/widgets/duty_sheet_actions.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 
 class DutiesScreen extends ConsumerStatefulWidget {
@@ -20,6 +21,19 @@ class _DutiesScreenState extends ConsumerState<DutiesScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(dutyProvider.notifier).loadDuties(widget.staffId);
     });
+  }
+
+  /// [days] is 0 for today, 1 for tomorrow, 7 for a week starting today.
+  Future<void> _printSheet(int days) {
+    final from = DateTime.now().add(Duration(days: days == 1 ? 1 : 0));
+    final last = days == 7 ? from.add(const Duration(days: 6)) : from;
+    final first = isoDay(from);
+    return deliverSheet(
+      context,
+      ref.read(staffRepositoryProvider).staffSheetPdf(widget.staffId, first,
+          toDate: days == 7 ? isoDay(last) : null),
+      days == 7 ? 'duty-sheets-$first-to-${isoDay(last)}.pdf' : 'duty-sheet-$first.pdf',
+    );
   }
 
   @override
@@ -41,6 +55,16 @@ class _DutiesScreenState extends ConsumerState<DutiesScreen> {
       appBar: AppBar(
         title: const Text('My Duties'),
         actions: [
+          PopupMenuButton<int>(
+            icon: const Icon(Icons.print_rounded),
+            tooltip: 'Print duty sheet',
+            onSelected: _printSheet,
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 0, child: Text("Print today's sheet")),
+              PopupMenuItem(value: 1, child: Text("Print tomorrow's sheet")),
+              PopupMenuItem(value: 7, child: Text('Print the next 7 days')),
+            ],
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () => ref.read(dutyProvider.notifier).loadDuties(widget.staffId),
@@ -328,6 +352,9 @@ class _ChecklistSection extends ConsumerWidget {
                   color: item.isCompleted ? AppTheme.textSecondary : AppTheme.textPrimary,
                 ),
               ),
+              subtitle: item.enteredFromPaper
+                  ? const Text('Entered from the printed sheet', style: TextStyle(fontSize: 11))
+                  : null,
             ),
         ],
       ),

@@ -148,6 +148,19 @@ String parseApiError(DioException e) {
     }
     final message = data['message'];
     if (message is String && message.isNotEmpty) {
+      // A validation failure carries what was wrong; say the first problem
+      // rather than only "Validation failed".
+      final errors = data['errors'];
+      if (errors is List && errors.isNotEmpty && errors.first is Map) {
+        final first = errors.first as Map;
+        final text = ((first['message'] as String?) ?? '').replaceFirst('Value error, ', '').trim();
+        if (text.isNotEmpty) {
+          final field = ((first['field'] as String?) ?? '').trim();
+          if (field.isEmpty) return text;
+          final label = field.replaceAll('_', ' ').replaceAll('.', ' · ');
+          return '${label[0].toUpperCase()}${label.substring(1)}: $text';
+        }
+      }
       return message;
     }
   }

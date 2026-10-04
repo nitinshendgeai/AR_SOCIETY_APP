@@ -275,6 +275,10 @@ class DutyEntity {
   final DateTime? verifiedAt;
   final String? notes;
   final String? checklistTemplateId;
+  final String? seriesId;
+  /// "app" when the staff member completed it, "paper" when a supervisor
+  /// entered it from the printed sheet.
+  final String? completionSource;
   final List<DutyChecklistItemEntity> checklistItems;
 
   const DutyEntity({
@@ -294,8 +298,12 @@ class DutyEntity {
     this.verifiedAt,
     this.notes,
     this.checklistTemplateId,
+    this.seriesId,
+    this.completionSource,
     this.checklistItems = const [],
   });
+
+  bool get completedFromPaper => completionSource == 'paper';
 
   /// Completed but not yet verified by a supervisor — see
   /// StaffService.verify_duty() on the backend.
@@ -324,6 +332,7 @@ class DutyChecklistItemEntity {
   final bool isCompleted;
   final DateTime? completedAt;
   final String? notes;
+  final bool enteredFromPaper;
 
   const DutyChecklistItemEntity({
     required this.id,
@@ -336,6 +345,29 @@ class DutyChecklistItemEntity {
     this.isCompleted = false,
     this.completedAt,
     this.notes,
+    this.enteredFromPaper = false,
+  });
+}
+
+// ── Duty plan (one duty for several staff over several days) ─────────────────
+
+class DutyPlanSkipEntity {
+  final String staffId;
+  final String staffName;
+  final String dutyDate;
+  final String reason;
+  const DutyPlanSkipEntity({
+    required this.staffId, required this.staffName, required this.dutyDate, required this.reason,
+  });
+}
+
+class DutyPlanResultEntity {
+  final int created;
+  final String? firstDate;
+  final String? lastDate;
+  final List<DutyPlanSkipEntity> skipped;
+  const DutyPlanResultEntity({
+    required this.created, this.firstDate, this.lastDate, this.skipped = const [],
   });
 }
 

@@ -1,4 +1,5 @@
-from datetime import datetime, date
+import uuid
+from datetime import datetime, date, time, timedelta
 from typing import List, Optional
 from uuid import UUID
 from fastapi import HTTPException, Request
@@ -8,12 +9,13 @@ from sqlalchemy.orm import Session
 from app.modules.staff.models.staff import (
     Staff, StaffDesignation, StaffShift, DutyAssignment,
     StaffAttendance, StaffTask, StaffLeave, StaffWorkLog,
-    AttendanceStatus, TaskStatus, LeaveStatus, TASK_TRANSITIONS, StaffDepartment,
+    AttendanceStatus, TaskStatus, LeaveStatus, TASK_TRANSITIONS, StaffDepartment, StaffStatus,
     ChecklistTemplate, ChecklistTemplateItem, DutyChecklistItem,
 )
 from app.modules.staff.schemas.staff import (
     StaffCreate, StaffUpdate, DesignationCreate, ShiftCreate,
-    DutyCreate, DutyVerifyRequest, AttendanceCheckIn, AttendanceCheckOut,
+    DutyCreate, DutyPlanCreate, DutyPlanOut, DutyPlanSkip, DutyCancelOut, PaperSheetEntry,
+    DutyVerifyRequest, AttendanceCheckIn, AttendanceCheckOut,
     AttendanceManualEntry, AttendanceApprovalRequest, AttendanceCheckoutApprovalRequest,
     TaskCreate, TaskStatusUpdate, WorkLogCreate,
     LeaveCreate, LeaveApproveRequest, LeaveRejectRequest,
@@ -26,6 +28,8 @@ from app.modules.staff.repositories.staff_repo import (
     ChecklistTemplateRepo,
 )
 from app.models.user import User, UserRole, UserStatus
+from app.models.society import Society
+from app.utils.local_time import zone, local_today, local_to_utc_naive, to_local, utc_naive
 from app.models.role import Role
 from app.models.audit_log import AuditAction
 from app.core.security import hash_password
@@ -35,6 +39,13 @@ from app.services.notification_service import NotificationService
 from app.models.notification import NotificationType, NotificationChannel
 
 DEFAULT_STAFF_PASSWORD = "Staff@1234"
+
+# A punch-in this recent can still be checked out: a night shift runs past midnight.
+OPEN_PUNCH_WINDOW = timedelta(hours=18)
+# A sheet whose in/out times make a shift longer than this has a typo.
+LONGEST_SHIFT_HOURS = 20
+STANDARD_SHIFT_HOURS = 8.0
+MAX_PLAN_DUTIES = 600
 
 # Roles that bypass department restrictions
 _MANAGER_ROLES_SVC = {
@@ -180,6 +191,24 @@ class StaffService:
                 return
         raise HTTPException(status_code=403, detail="Insufficient permissions to approve attendance")
 
+    def _tz(self, society_id):
+        society = self.db.query(Society).filter(Society.id == society_id).first()
+        return zone(society.timezone if society else None)
+
+    def _assert_manages(self, user: User, department: str, what: str) -> None:
+        """A department supervisor works only with their own department's staff;
+        managers, the committee and admins (anyone above a supervisor) work with all."""
+        role_names = {ur.role.name for ur in user.user_roles if ur.role}
+        if role_names & _MANAGER_ROLES_SVC or "Committee Member" in role_names:
+            return
+        supervisor_roles = [r for r in _SUPERVISOR_DEPT_ACCESS if r in role_names]
+        if not supervisor_roles:
+            return
+        if any(department in _SUPERVISOR_DEPT_ACCESS[r] for r in supervisor_roles):
+            return
+        raise HTTPException(status_code=403,
+                            detail=f"You can only {what} staff in your own department ({department} is not yours)")
+
     def _notify(self, user_id, title, body, type=NotificationType.INFO, module="staff", entity_id=None):
         if user_id:
             NotificationService.send(
@@ -322,6 +351,7 @@ class StaffService:
         staff = self._staff_or_404(data.staff_id, assigner)
         if staff.society_id != society_id:
             raise HTTPException(status_code=422, detail="That staff member is not in this society")
+        self._assert_manages(assigner, staff.department.value, "assign duties to")
         self._in_society(StaffShift, data.shift_id, society_id, "Shift")
         data.society_id = society_id
         if data.checklist_template_id:
@@ -354,6 +384,266 @@ class StaffService:
         self.db.refresh(duty)
         return duty
 
+    def assign_duty_plan(self, data: DutyPlanCreate, assigner: User, request=None) -> DutyPlanOut:
+        """One duty for several staff over a range of days (every day, or the chosen
+        weekdays): one duty per staff per day, each with its own checklist copy.
+        Days a staff member is on approved leave, or already has the same duty, are
+        skipped and reported. Done when planned, not by a scheduler, so a week's or a
+        month's rounds can be printed and handed out ahead."""
+        society_id = resolve_create_society_id(assigner, data.society_id)
+        self._in_society(StaffShift, data.shift_id, society_id, "Shift")
+        template = None
+        if data.checklist_template_id:
+            template = self.checklist_repo.get(data.checklist_template_id)
+            if not template or template.society_id != society_id:
+                raise HTTPException(status_code=404, detail="Checklist template not found")
+
+        staff_rows = []
+        for staff_id in data.staff_ids:
+            staff = self._staff_or_404(staff_id, assigner)
+            if staff.society_id != society_id:
+                raise HTTPException(status_code=422, detail=f"{staff.full_name} is not in this society")
+            self._assert_manages(assigner, staff.department.value, "assign duties to")
+            staff_rows.append(staff)
+
+        last = data.to_date or data.from_date
+        days = [data.from_date + timedelta(days=n) for n in range((last - data.from_date).days + 1)]
+        if data.weekdays:
+            days = [d for d in days if d.weekday() in data.weekdays]
+        if not days:
+            raise HTTPException(status_code=422, detail="None of the days in that range fall on the chosen weekdays")
+        if len(days) * len(staff_rows) > MAX_PLAN_DUTIES:
+            raise HTTPException(
+                status_code=422,
+                detail=f"That makes {len(days) * len(staff_rows)} duties; at most {MAX_PLAN_DUTIES} at a time. "
+                       "Choose fewer staff or days.")
+
+        series_id = uuid.uuid4()
+        skipped: List[DutyPlanSkip] = []
+        created: List[DutyAssignment] = []
+        per_staff: dict = {}
+        for staff in staff_rows:
+            on_leave = self.leave_repo.approved_on(staff.id, days[0], days[-1])
+            for day in days:
+                reason = None
+                if staff.status in (StaffStatus.TERMINATED, StaffStatus.INACTIVE):
+                    reason = f"Staff member is {staff.status.value}"
+                elif any(lv.from_date <= day <= lv.to_date for lv in on_leave):
+                    reason = "On approved leave"
+                elif self.duty_repo.exists(staff.id, day, data.duty_name):
+                    reason = "Already has this duty on that day"
+                if reason:
+                    skipped.append(DutyPlanSkip(staff_id=staff.id, staff_name=staff.full_name,
+                                                duty_date=day, reason=reason))
+                    continue
+                duty = DutyAssignment(
+                    society_id=society_id, staff_id=staff.id, shift_id=data.shift_id, assigned_by=assigner.id,
+                    duty_name=data.duty_name, description=data.description, location=data.location,
+                    duty_date=day, start_time=data.start_time, end_time=data.end_time,
+                    is_recurring=len(days) > 1, notes=data.notes,
+                    checklist_template_id=data.checklist_template_id, series_id=series_id)
+                self.db.add(duty)
+                self.db.flush()
+                if template:
+                    for item in template.items:
+                        self.db.add(DutyChecklistItem(
+                            duty_id=duty.id, template_item_id=item.id, sequence=item.sequence,
+                            title=item.title, description=item.description, is_required=item.is_required))
+                created.append(duty)
+                per_staff.setdefault(staff.id, []).append(day)
+
+        if created:
+            self._audit(AuditAction.CREATE, created[0], "DutyAssignment", assigner, request,
+                        new_values={"plan": data.duty_name, "series": str(series_id), "duties": len(created),
+                                    "staff": len(per_staff), "from": str(created[0].duty_date),
+                                    "to": str(created[-1].duty_date)})
+            for staff in staff_rows:
+                got = per_staff.get(staff.id)
+                if got and staff.user_id:
+                    when = f"on {got[0]:%d %b}" if len(got) == 1 else \
+                        f"on {len(got)} days from {min(got):%d %b} to {max(got):%d %b}"
+                    self._notify(staff.user_id, "Duty Assigned", f"You have been assigned: {data.duty_name} {when}",
+                                 type=NotificationType.ALERT, entity_id=series_id)
+        self.db.commit()
+        return DutyPlanOut(
+            series_id=series_id if created else None, created=len(created), skipped=skipped,
+            first_date=min(d.duty_date for d in created) if created else None,
+            last_date=max(d.duty_date for d in created) if created else None)
+
+    @staticmethod
+    def _has_work_recorded(duty: DutyAssignment) -> bool:
+        return duty.is_completed or any(i.is_completed for i in duty.checklist_items)
+
+    def _cancel(self, duty: DutyAssignment, user: User, request, notify: bool = True) -> None:
+        duty.is_active = False
+        self._audit(AuditAction.DELETE, duty, "DutyAssignment", user, request,
+                    old_values={"duty": duty.duty_name, "date": str(duty.duty_date), "staff": str(duty.staff_id)})
+        staff = duty.staff
+        if notify and staff and staff.user_id:
+            self._notify(staff.user_id, "Duty Cancelled",
+                         f"Your duty '{duty.duty_name}' on {duty.duty_date:%d %b} has been cancelled",
+                         type=NotificationType.INFO, entity_id=duty.id)
+
+    def cancel_duty(self, duty_id: UUID, user: User, request=None) -> DutyCancelOut:
+        """Remove a duty that nobody has started. One with work already recorded stays: it is the record."""
+        duty = self._duty_or_404(duty_id, user)
+        self._assert_manages(user, self._staff_or_404(duty.staff_id).department.value, "cancel duties of")
+        if self._has_work_recorded(duty):
+            raise HTTPException(status_code=409,
+                                detail=f"'{duty.duty_name}' already has work recorded on it, so it can't be cancelled")
+        self._cancel(duty, user, request)
+        self.db.commit()
+        return DutyCancelOut(cancelled=1)
+
+    def cancel_duty_series(self, series_id: UUID, from_date: Optional[date], user: User, request=None,
+                           staff_id: Optional[UUID] = None) -> DutyCancelOut:
+        """Cancel the rest of a plan: its duties from [from_date] (today by default) that nobody has
+        started, for everyone in the plan or just [staff_id]. Earlier days, started ones and, for a
+        supervisor, other departments' stay."""
+        query = self.db.query(DutyAssignment).filter(
+            DutyAssignment.series_id == series_id, DutyAssignment.is_active == True)  # noqa: E712
+        if staff_id:
+            query = query.filter(DutyAssignment.staff_id == staff_id)
+        rows = query.all()
+        if not rows:
+            raise HTTPException(status_code=404, detail="Duty plan not found")
+        for r in rows:
+            self._scoped(user, r, "Duty plan")
+        start = from_date or local_today(self._tz(rows[0].society_id))
+        cancelled = kept = 0
+        notified = set()
+        for duty in sorted(rows, key=lambda d: d.duty_date):
+            if duty.duty_date < start:
+                continue
+            try:
+                self._assert_manages(user, duty.staff.department.value, "cancel duties of")
+            except HTTPException:
+                kept += 1
+                continue
+            if self._has_work_recorded(duty):
+                kept += 1
+                continue
+            self._cancel(duty, user, request, notify=duty.staff_id not in notified)
+            notified.add(duty.staff_id)
+            cancelled += 1
+        self.db.commit()
+        return DutyCancelOut(cancelled=cancelled, kept=kept)
+
+    def record_paper_sheet(self, data: PaperSheetEntry, user: User, request=None) -> dict:
+        """A supervisor enters what the staff member ticked and wrote on the printed sheet:
+        the checklist items, whether the duty was completed, and the in/out times. Every item
+        keeps who entered it and that it came from paper."""
+        staff = self._staff_or_404(data.staff_id, user)
+        self._assert_manages(user, staff.department.value, "enter sheets for")
+        tz = self._tz(staff.society_id)
+
+        # Check everything before writing anything.
+        plan = []
+        for entry in data.duties:
+            duty = self._duty_or_404(entry.duty_id, user)
+            if duty.staff_id != staff.id:
+                raise HTTPException(status_code=422, detail="That duty belongs to another staff member")
+            if duty.duty_date != data.sheet_date:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"'{duty.duty_name}' is for {duty.duty_date:%d %b %Y}, not {data.sheet_date:%d %b %Y}")
+            if duty.verified_at:
+                raise HTTPException(status_code=409, detail=f"'{duty.duty_name}' is already verified and can't be changed")
+            items = {i.id: i for i in duty.checklist_items}
+            states = {i.id: i.is_completed for i in duty.checklist_items}
+            for it in entry.items:
+                if it.item_id not in items:
+                    raise HTTPException(status_code=404, detail=f"A checklist item isn't on '{duty.duty_name}'")
+                states[it.item_id] = it.is_completed
+            if entry.mark_complete and not duty.is_completed:
+                open_required = [i.title for i in duty.checklist_items if i.is_required and not states[i.id]]
+                if open_required:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Tick all required items before completing '{duty.duty_name}': {', '.join(open_required)}")
+            plan.append((duty, entry, items))
+
+        attendance = None
+        if data.check_in or data.check_out or data.attendance_status is not None:
+            attendance = self._record_paper_attendance(staff, data, tz, user, request)
+
+        now = datetime.utcnow()
+        duties = []
+        for duty, entry, items in plan:
+            for it in entry.items:
+                row = items[it.item_id]
+                row.is_completed = it.is_completed
+                row.completed_at = now if it.is_completed else None
+                row.completed_by = user.id if it.is_completed else None
+                row.entered_from_paper = True
+                if it.notes is not None:
+                    row.notes = it.notes
+            if entry.mark_complete and not duty.is_completed:
+                duty.is_completed = True
+                duty.completed_at = now
+                duty.completed_by = user.id
+                duty.completion_source = "paper"
+            if entry.items or entry.mark_complete:
+                self._audit(AuditAction.UPDATE, duty, "DutyAssignment", user, request,
+                            new_values={"from_paper": True, "items": len(entry.items),
+                                        "completed": bool(entry.mark_complete)})
+            duties.append(duty)
+        self.db.commit()
+        for d in duties:
+            self.db.refresh(d)
+        if attendance is not None:
+            self.db.refresh(attendance)
+        return {"attendance": attendance, "duties": duties}
+
+    def _record_paper_attendance(self, staff: Staff, data: PaperSheetEntry, tz, user: User, request) -> StaffAttendance:
+        status = data.attendance_status or AttendanceStatus.PRESENT
+        has_times = status in (AttendanceStatus.PRESENT, AttendanceStatus.HALF_DAY, AttendanceStatus.OVERTIME)
+        in_utc = out_utc = None
+        if has_times and data.check_in:
+            in_utc = local_to_utc_naive(data.sheet_date, data.check_in, tz)
+            if data.check_out:
+                # An out time at or before the in time is the next morning (a night shift).
+                out_day = data.sheet_date + timedelta(days=1 if data.check_out <= data.check_in else 0)
+                out_utc = local_to_utc_naive(out_day, data.check_out, tz)
+                hours = (out_utc - in_utc).total_seconds() / 3600
+                if hours > LONGEST_SHIFT_HOURS:
+                    raise HTTPException(status_code=422, detail=(
+                        f"Those times make a shift of {hours:.0f} hours. "
+                        "Check the in and out times (an out time before the in time means the next morning)."))
+
+        now = datetime.utcnow()
+        rec = self.att_repo.get_today(staff.id, data.sheet_date)
+        creating = rec is None
+        if creating:
+            rec = StaffAttendance(society_id=staff.society_id, staff_id=staff.id, attendance_date=data.sheet_date)
+            self.db.add(rec)
+        rec.status = status
+        rec.check_in_time = in_utc
+        rec.check_out_time = out_utc
+        if in_utc and out_utc:
+            rec.working_hours = round((out_utc - in_utc).total_seconds() / 3600, 2)
+            rec.overtime_hours = round(rec.working_hours - STANDARD_SHIFT_HOURS, 2) \
+                if rec.working_hours > STANDARD_SHIFT_HOURS else None
+        else:
+            rec.working_hours = None
+            rec.overtime_hours = None
+        rec.is_manual_entry = True
+        rec.marked_by = user.id
+        rec.is_approved = True
+        rec.approved_by = user.id
+        rec.approved_at = now
+        rec.approval_notes = "Entered from the printed sheet"
+        rec.is_checkout_approved = bool(out_utc)
+        rec.checkout_approved_by = user.id if out_utc else None
+        rec.checkout_approved_at = now if out_utc else None
+        if data.notes:
+            rec.notes = data.notes
+        self.db.flush()
+        self._audit(AuditAction.CREATE if creating else AuditAction.UPDATE, rec, "StaffAttendance", user, request,
+                    new_values={"from_paper": True, "staff_id": str(staff.id), "date": str(data.sheet_date),
+                                "status": status.value})
+        return rec
+
     def complete_duty(self, duty_id: UUID, user: User) -> DutyAssignment:
         duty = self._duty_or_404(duty_id, user)
         self._assert_self_or_supervisor(user, self._staff_or_404(duty.staff_id))
@@ -368,9 +658,49 @@ class StaffService:
             )
         duty.is_completed = True
         duty.completed_at = datetime.utcnow()
+        duty.completed_by = user.id
+        duty.completion_source = "app"
         self.db.commit()
         self.db.refresh(duty)
         return duty
+
+    # ── Printable duty sheets ─────────────────────────────────────────────────
+
+    def duty_sheet_pages(self, society_id: UUID, from_date: date, to_date: date,
+                         staff_id: Optional[UUID] = None, department: Optional[str] = None) -> List[dict]:
+        """One sheet per staff member per day that has duties, in date then name order."""
+        if to_date < from_date:
+            raise HTTPException(status_code=422, detail="The last day can't be before the first day")
+        if (to_date - from_date).days > 6:
+            raise HTTPException(status_code=422, detail="Print at most 7 days of sheets at a time")
+        dept = None
+        if department:
+            try:
+                dept = StaffDepartment(department)
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Unknown department: {department}")
+        duties = self.duty_repo.for_sheet(society_id, from_date, to_date, staff_id, dept)
+        pages: dict = {}
+        for duty in duties:
+            page = pages.setdefault((duty.duty_date, duty.staff_id),
+                                    {"staff": duty.staff, "date": duty.duty_date, "duties": []})
+            page["duties"].append(duty)
+        if not pages:
+            raise HTTPException(status_code=404, detail="No duties are assigned for that day, so there is nothing to print")
+        return list(pages.values())
+
+    def duty_sheet_pages_for_staff(self, staff_id: UUID, from_date: date, to_date: date, user: User) -> List[dict]:
+        staff = self._staff_or_404(staff_id, user)
+        self._assert_self_or_supervisor(user, staff)
+        if staff.user_id != user.id:
+            self._assert_manages(user, staff.department.value, "print sheets for")
+        return self.duty_sheet_pages(staff.society_id, from_date, to_date, staff_id=staff.id)
+
+    def society_for_print(self, society_id: UUID):
+        return self.db.query(Society).filter(Society.id == society_id).first()
+
+    def zone_for(self, society_id: UUID):
+        return self._tz(society_id)
 
     # ── Duty Checklist ────────────────────────────────────────────────────────
 
@@ -392,6 +722,8 @@ class StaffService:
 
         item.is_completed = data.is_completed
         item.completed_at = datetime.utcnow() if data.is_completed else None
+        item.completed_by = user.id if data.is_completed else None
+        item.entered_from_paper = False
         if data.notes is not None:
             item.notes = data.notes
         self.db.commit()
@@ -474,6 +806,7 @@ class StaffService:
 
     def verify_duty(self, duty_id: UUID, data: DutyVerifyRequest, verifier: User) -> DutyAssignment:
         duty = self._duty_or_404(duty_id, verifier)
+        self._assert_manages(verifier, self._staff_or_404(duty.staff_id).department.value, "verify duties of")
         if not duty.is_completed: raise HTTPException(status_code=409, detail="Duty not yet completed")
         duty.verified_by = verifier.id
         duty.verified_at = datetime.utcnow()
@@ -486,11 +819,12 @@ class StaffService:
     def get_duties_by_date(self, society_id: UUID, duty_date: date) -> List[DutyAssignment]:
         return self.duty_repo.get_by_society_date(society_id, duty_date)
 
-    def get_my_duties(self, staff_id: UUID, user: Optional[User] = None) -> List[DutyAssignment]:
+    def get_my_duties(self, staff_id: UUID, user: Optional[User] = None,
+                      from_date: Optional[date] = None, to_date: Optional[date] = None) -> List[DutyAssignment]:
         staff = self._staff_or_404(staff_id, user)
         if user is not None:
             self._assert_self_or_supervisor(user, staff)
-        return self.duty_repo.get_by_staff(staff_id)
+        return self.duty_repo.get_by_staff(staff_id, from_date=from_date, to_date=to_date)
 
     # ── Attendance ────────────────────────────────────────────────────────────
 
@@ -498,11 +832,17 @@ class StaffService:
                  user: User, request=None) -> StaffAttendance:
         staff = self._staff_or_404(staff_id, user)
         self._assert_self_or_supervisor(user, staff)
-        today = date.today()
+        tz = self._tz(staff.society_id)
+        today = local_today(tz)
         existing = self.att_repo.get_today(staff_id, today)
         if existing:
             raise HTTPException(status_code=409,
                 detail=f"Attendance already marked for today (status: {existing.status.value})")
+        still_in = self.att_repo.get_open(staff_id, datetime.utcnow() - OPEN_PUNCH_WINDOW)
+        if still_in:
+            raise HTTPException(status_code=409, detail=(
+                f"Still checked in since {to_local(still_in.check_in_time, tz):%d %b, %H:%M}. "
+                "Check out first."))
         att = StaffAttendance(
             society_id=staff.society_id,
             staff_id=staff_id,
@@ -521,21 +861,21 @@ class StaffService:
                   user: User, request=None) -> StaffAttendance:
         staff = self._staff_or_404(staff_id, user)
         self._assert_self_or_supervisor(user, staff)
-        today = date.today()
-        att = self.att_repo.get_today(staff_id, today)
+        # The punch-in still open, which for a night shift began yesterday.
+        att = self.att_repo.get_open(staff_id, datetime.utcnow() - OPEN_PUNCH_WINDOW)
         if not att:
+            today_rec = self.att_repo.get_today(staff_id, local_today(self._tz(staff.society_id)))
+            if today_rec and today_rec.check_out_time:
+                raise HTTPException(status_code=409, detail="Already checked out today")
             raise HTTPException(status_code=404, detail="No check-in found for today")
-        if att.check_out_time:
-            raise HTTPException(status_code=409, detail="Already checked out today")
 
         att.check_out_time = datetime.utcnow()
         # Compute working hours
         delta = att.check_out_time - att.check_in_time
         att.working_hours = round(delta.total_seconds() / 3600, 2)
         # Overtime: anything beyond 8h standard shift (payroll-ready)
-        standard_hours = 8.0
-        if att.working_hours > standard_hours:
-            att.overtime_hours = round(att.working_hours - standard_hours, 2)
+        if att.working_hours > STANDARD_SHIFT_HOURS:
+            att.overtime_hours = round(att.working_hours - STANDARD_SHIFT_HOURS, 2)
         if data.notes: att.notes = (att.notes or "") + f" | Checkout: {data.notes}"
 
         self.db.commit()
@@ -548,19 +888,30 @@ class StaffService:
         staff = self._staff_or_404(data.staff_id, user)
         if data.society_id != staff.society_id:
             raise HTTPException(status_code=422, detail="That staff member is not in this society")
+        # A time typed without a zone is the society's own clock; the database holds UTC.
+        tz = self._tz(staff.society_id)
+
+        def stored(dt):
+            if dt is None:
+                return None
+            return utc_naive(dt if dt.tzinfo else dt.replace(tzinfo=tz))
+
+        check_in, check_out = stored(data.check_in_time), stored(data.check_out_time)
         existing = self.att_repo.get_today(data.staff_id, data.attendance_date)
         if existing:
             # Update existing
             existing.status = data.status
-            if data.check_in_time:  existing.check_in_time  = data.check_in_time
-            if data.check_out_time: existing.check_out_time = data.check_out_time
+            if check_in:  existing.check_in_time  = check_in
+            if check_out: existing.check_out_time = check_out
             existing.is_manual_entry = True
             existing.marked_by = user.id
             existing.notes = data.notes
             self.db.commit()
             self.db.refresh(existing)
             return existing
-        att = StaffAttendance(**data.model_dump(), marked_by=user.id, is_manual_entry=True)
+        fields = data.model_dump()
+        fields["check_in_time"], fields["check_out_time"] = check_in, check_out
+        att = StaffAttendance(**fields, marked_by=user.id, is_manual_entry=True)
         return self.att_repo.create(att)
 
     def get_attendance(self, staff_id: UUID, user: User, skip=0, limit=50) -> List[StaffAttendance]:
@@ -584,11 +935,25 @@ class StaffService:
     ) -> List[StaffAttendance]:
         return self.att_repo.get_pending_checkout(society_id, department)
 
-    def get_attendance_summary(self, society_id: UUID, att_date: date) -> dict:
-        from datetime import timedelta
+    @staticmethod
+    def supervised_departments(user: User) -> Optional[set]:
+        """The departments a user is limited to, or None for no limit: a department supervisor
+        sees their role's departments (a Housekeeping Supervisor also covers gym, gardening and
+        amenities); managers, the committee and admins see all."""
+        role_names = {ur.role.name for ur in user.user_roles if ur.role}
+        if role_names & _MANAGER_ROLES_SVC or "Committee Member" in role_names:
+            return None
+        mine = [d for r, d in _SUPERVISOR_DEPT_ACCESS.items() if r in role_names]
+        return set().union(*mine) if mine else None
+
+    def get_attendance_summary(self, society_id: UUID, att_date: date, departments: Optional[set] = None) -> dict:
         records    = self.att_repo.get_by_society_date(society_id, att_date)
         staff_list = self.repo.get_by_society(society_id, skip=0, limit=500)
+        if departments is not None:
+            staff_list = [s for s in staff_list if s.department.value in departments]
         staff_map  = {s.id: s for s in staff_list}
+        if departments is not None:
+            records = [r for r in records if r.staff_id in staff_map]
         total_staff = len(staff_list)
 
         present  = 0
@@ -598,19 +963,17 @@ class StaffService:
         dept_map: dict = {}
 
         LATE_THRESHOLD_MINUTES = 30
+        tz = self._tz(society_id)
 
         for r in records:
             if r.check_in_time is not None:
                 present += 1
-                # Late detection: compare check_in_time against assigned shift start
+                # Late detection: the punch-in on the society's clock against the shift's start
                 st = staff_map.get(r.staff_id)
                 if st and st.shift_id and st.shift:
-                    shift_start = st.shift.start_time
-                    # Build a datetime for today's shift start
-                    from datetime import datetime as dt
-                    shift_dt = dt.combine(att_date, shift_start)
+                    shift_dt = datetime.combine(att_date, st.shift.start_time, tzinfo=tz)
                     # For overnight shifts the start on att_date is correct
-                    if r.check_in_time > shift_dt + timedelta(minutes=LATE_THRESHOLD_MINUTES):
+                    if to_local(r.check_in_time, tz) > shift_dt + timedelta(minutes=LATE_THRESHOLD_MINUTES):
                         late += 1
 
             if not r.is_approved:

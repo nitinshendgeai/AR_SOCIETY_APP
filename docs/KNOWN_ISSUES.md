@@ -45,7 +45,22 @@ See `docs/STAFF_MODULE_CERTIFICATION.md` for full audit report.
 
 ### [KNOWN GAP] Edit Duty — not implemented
 
-There is no `PATCH /staff/duties/{id}` endpoint and no Edit Duty UI. Once assigned, a duty's name/description/location cannot be changed. The only lifecycle actions available are Mark Complete (staff) and Verify (supervisor). No broken button exists.
+There is no `PATCH /staff/duties/{id}` endpoint and no Edit Duty UI. A duty's name/description/location cannot be changed
+once assigned. (Since the duty plans change, a duty nobody has started **can be cancelled**, singly or for the rest of a
+plan, and re-assigned.) Lifecycle actions: Mark Complete (staff, or entered from the printed sheet by a supervisor),
+Verify (supervisor), Cancel (not started).
+
+### [KNOWN GAP] Printed sheets are Latin-script only
+
+The duty sheet and blank checklist PDFs use the standard PDF fonts, which have no Devanagari glyphs: a checklist item
+written in Marathi or Hindi will not print correctly. Write checklist items in English / Latin letters, or bundle a
+Devanagari font (for example Noto Sans Devanagari) in `duty_sheet_pdf.py`.
+
+### [KNOWN GAP] Timestamps elsewhere still show UTC digits
+
+Staff attendance now sends UTC with a `Z` and the app converts to local time. Other modules (visitors, complaints,
+parking, notices …) still return naive UTC timestamps, which the app shows as clock digits without conversion, so they
+read about 5½ hours behind in India. Fix them the same way (serialize with a `Z`, `toLocal()` when displaying).
 
 ### [KNOWN GAP] Close Handover — not implemented
 

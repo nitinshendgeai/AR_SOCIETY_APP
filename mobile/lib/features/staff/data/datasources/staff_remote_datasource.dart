@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -272,31 +274,114 @@ class StaffRemoteDataSource {
 
   // ── Duties ─────────────────────────────────────────────────────────────────
 
-  /// POST /staff/duties — assign a duty to staff
-  Future<DutyModel> assignDuty({
-    required String staffId,
+  /// POST /staff/duties/plan — one duty for several staff over a range of
+  /// days (every day, or only the chosen weekdays: 0 = Monday … 6 = Sunday).
+  Future<DutyPlanResultModel> assignDutyPlan({
     required String societyId,
+    required List<String> staffIds,
     required String dutyName,
-    required String dutyDate,
+    required String fromDate,
+    String? toDate,
+    List<int>? weekdays,
     String? description,
     String? location,
     String? startTime,
     String? endTime,
     String? checklistTemplateId,
   }) async {
-    final r = await _dio.post('/staff/duties', data: {
-      'staff_id': staffId,
+    final r = await _dio.post('/staff/duties/plan', data: {
       'society_id': societyId,
+      'staff_ids': staffIds,
       'duty_name': dutyName,
-      'duty_date': dutyDate,
+      'from_date': fromDate,
+      if (toDate != null) 'to_date': toDate,
+      if (weekdays != null && weekdays.isNotEmpty) 'weekdays': weekdays,
       if (description != null) 'description': description,
       if (location != null) 'location': location,
       if (startTime != null) 'start_time': startTime,
       if (endTime != null) 'end_time': endTime,
       if (checklistTemplateId != null) 'checklist_template_id': checklistTemplateId,
     });
-    return DutyModel.fromJson(r.data as Map<String, dynamic>);
+    return DutyPlanResultModel.fromJson(r.data as Map<String, dynamic>);
   }
+
+  /// POST /staff/duties/{id}/cancel — a duty nobody has started.
+  Future<({int cancelled, int kept})> cancelDuty(String dutyId) async {
+    final r = await _dio.post('/staff/duties/$dutyId/cancel');
+    final j = r.data as Map<String, dynamic>;
+    return (cancelled: j['cancelled'] as int? ?? 0, kept: j['kept'] as int? ?? 0);
+  }
+
+  /// POST /staff/duties/series/{id}/cancel — the rest of a plan, from [fromDate], for [staffId] or everyone in it.
+  Future<({int cancelled, int kept})> cancelDutySeries(String seriesId, {String? fromDate, String? staffId}) async {
+    final r = await _dio.post('/staff/duties/series/$seriesId/cancel', queryParameters: {
+      if (fromDate != null) 'from_date': fromDate,
+      if (staffId != null) 'staff_id': staffId,
+    });
+    final j = r.data as Map<String, dynamic>;
+    return (cancelled: j['cancelled'] as int? ?? 0, kept: j['kept'] as int? ?? 0);
+  }
+
+  /// POST /staff/sheets/entry — a supervisor records a filled-in printed sheet.
+  /// [duties] are `{duty_id, mark_complete, items: [{item_id, is_completed, notes}]}`.
+  Future<void> enterPaperSheet({
+    required String staffId,
+    required String sheetDate,
+    String? attendanceStatus,
+    String? checkIn,
+    String? checkOut,
+    required List<Map<String, dynamic>> duties,
+    String? notes,
+  }) async {
+    await _dio.post('/staff/sheets/entry', data: {
+      'staff_id': staffId,
+      'sheet_date': sheetDate,
+      if (attendanceStatus != null) 'attendance_status': attendanceStatus,
+      if (checkIn != null) 'check_in': checkIn,
+      if (checkOut != null) 'check_out': checkOut,
+      'duties': duties,
+      if (notes != null) 'notes': notes,
+    });
+  }
+
+  Future<Uint8List> _pdf(String path, Map<String, dynamic> query) async {
+    try {
+      final r = await _dio.get<List<int>>(path,
+          queryParameters: query, options: Options(responseType: ResponseType.bytes));
+      return Uint8List.fromList(r.data!);
+    } on DioException catch (e) {
+      // An error body arrives as bytes here; decode it so the server's reason is shown.
+      final raw = e.response?.data;
+      if (raw is List<int>) {
+        try {
+          final decoded = jsonDecode(utf8.decode(raw));
+          throw DioException(
+            requestOptions: e.requestOptions, type: e.type, error: e.error, message: e.message,
+            response: Response(
+                requestOptions: e.requestOptions, statusCode: e.response?.statusCode, data: decoded),
+          );
+        } on FormatException {
+          // not JSON — fall through to the original error
+        }
+      }
+      rethrow;
+    }
+  }
+
+  /// The printable duty sheets (one page per staff member per day) for a society.
+  Future<Uint8List> dutySheetsPdf(String societyId, String date, {String? toDate, String? department}) =>
+      _pdf('/staff/duties/sheet/society/$societyId', {
+        'duty_date': date,
+        if (toDate != null) 'to_date': toDate,
+        if (department != null) 'department': department,
+      });
+
+  /// One staff member's printable sheet.
+  Future<Uint8List> staffSheetPdf(String staffId, String date, {String? toDate}) =>
+      _pdf('/staff/duties/sheet/staff/$staffId', {'duty_date': date, if (toDate != null) 'to_date': toDate});
+
+  /// A checklist template as a blank sheet.
+  Future<Uint8List> templateSheetPdf(String templateId) => _pdf('/staff/checklist-templates/$templateId/sheet', {});
 
   /// GET /staff/duties/society/{society_id}?duty_date=
   Future<List<DutyModel>> getDailyDuties(String societyId, String date) async {
@@ -328,8 +413,11 @@ class StaffRemoteDataSource {
   // ── Duties ─────────────────────────────────────────────────────────────────
 
   /// GET /staff/duties/me/{staff_id}
-  Future<List<DutyModel>> getMyDuties(String staffId) async {
-    final r = await _dio.get('/staff/duties/me/$staffId');
+  Future<List<DutyModel>> getMyDuties(String staffId, {String? fromDate, String? toDate}) async {
+    final r = await _dio.get('/staff/duties/me/$staffId', queryParameters: {
+      if (fromDate != null) 'from_date': fromDate,
+      if (toDate != null) 'to_date': toDate,
+    });
     return (r.data as List)
         .map((e) => DutyModel.fromJson(e as Map<String, dynamic>))
         .toList();

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/features/staff/data/repositories/staff_repository.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
+import 'package:ar_society_app/features/staff/presentation/widgets/duty_sheet_actions.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
@@ -46,6 +50,18 @@ class _DutyOverviewScreenState extends ConsumerState<DutyOverviewScreen> {
     _load();
   }
 
+  /// One sheet per staff member per day, for [days] days from the chosen date.
+  /// A supervisor gets their own department's.
+  Future<void> _printSheets(int days) {
+    final last = _selectedDate.add(Duration(days: days - 1));
+    return deliverSheet(
+      context,
+      ref.read(staffRepositoryProvider).dutySheetsPdf(
+            widget.societyId, _dateStr, toDate: days > 1 ? isoDay(last) : null),
+      days > 1 ? 'duty-sheets-$_dateStr-to-${isoDay(last)}.pdf' : 'duty-sheets-$_dateStr.pdf',
+    );
+  }
+
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -83,6 +99,15 @@ class _DutyOverviewScreenState extends ConsumerState<DutyOverviewScreen> {
       appBar: AppBar(
         title: const Text('Duties'),
         actions: [
+          PopupMenuButton<int>(
+            icon: const Icon(Icons.print_rounded),
+            tooltip: 'Print duty sheets',
+            onSelected: _printSheets,
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 1, child: Text('Print sheets for this day')),
+              PopupMenuItem(value: 7, child: Text('Print sheets for 7 days')),
+            ],
+          ),
           IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
         ],
       ),
@@ -286,6 +311,11 @@ class _DutyOverviewCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // A sheet can be entered once its day has come.
+    final day = DateTime.tryParse(dateStr);
+    final now = DateTime.now();
+    final dayHasCome = day == null || !day.isAfter(DateTime(now.year, now.month, now.day));
+
     final IconData icon;
     final Color color;
     if (duty.isVerified) {
@@ -321,6 +351,9 @@ class _DutyOverviewCard extends ConsumerWidget {
                       style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   if (duty.location != null)
                     Text(duty.location!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  if (duty.completedFromPaper)
+                    const Text('Entered from the printed sheet',
+                        style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
                 ],
               ),
             ),
@@ -334,24 +367,106 @@ class _DutyOverviewCard extends ConsumerWidget {
                   style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ]),
           ],
-          if (duty.needsVerification) ...[
+          if (!duty.isVerified && (dayHasCome || duty.needsVerification || !duty.isCompleted)) ...[
             const SizedBox(height: 10),
             Align(
               alignment: Alignment.centerRight,
-              child: ElevatedButton.icon(
-                onPressed: () => _showVerifyDialog(context, ref),
-                icon: const Icon(Icons.check_rounded, size: 16),
-                label: const Text('Verify'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.success,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                ),
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  if (!duty.isCompleted)
+                    TextButton.icon(
+                      onPressed: () => _confirmCancel(context, ref),
+                      icon: const Icon(Icons.event_busy_rounded, size: 18),
+                      label: const Text('Cancel'),
+                      style: TextButton.styleFrom(foregroundColor: AppTheme.error),
+                    ),
+                  if (dayHasCome)
+                    OutlinedButton.icon(
+                      onPressed: staffName == null ? null : () => _enterSheet(context, ref),
+                      icon: const Icon(Icons.edit_note_rounded, size: 18),
+                      label: const Text('Enter from sheet'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                    ),
+                  if (duty.needsVerification)
+                    ElevatedButton.icon(
+                      onPressed: () => _showVerifyDialog(context, ref),
+                      icon: const Icon(Icons.check_rounded, size: 16),
+                      label: const Text('Verify'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.success,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      ),
+                    ),
+                ],
               ),
             ),
           ],
         ],
       ),
     );
+  }
+
+  /// Cancels this duty, or (for a plan) this day and the days after it. A duty
+  /// someone has already started stays; the server says how many were kept.
+  Future<void> _confirmCancel(BuildContext context, WidgetRef ref) async {
+    final inPlan = duty.seriesId != null && duty.isRecurring;
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Cancel "${duty.dutyName}"?'),
+        content: Text(
+          '${staffName ?? 'This staff member'} will no longer have this duty on ${duty.dutyDate}'
+          '${inPlan ? ', or on any day after it if you choose "This and later days". Other staff in the plan are not affected.' : '.'}',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Keep')),
+          if (inPlan)
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'later'),
+              child: const Text('This and later days', style: TextStyle(color: AppTheme.error)),
+            ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
+            onPressed: () => Navigator.pop(ctx, 'one'),
+            child: Text(inPlan ? 'Only this day' : 'Cancel duty'),
+          ),
+        ],
+      ),
+    );
+    if (choice == null || !context.mounted) return;
+    final repo = ref.read(staffRepositoryProvider);
+    final result = choice == 'later'
+        ? await repo.cancelDutySeries(duty.seriesId!, fromDate: duty.dutyDate, staffId: duty.staffId)
+        : await repo.cancelDuty(duty.id);
+    if (!context.mounted) return;
+    switch (result) {
+      case StaffSuccess(:final data):
+        AppToast.success(
+          context,
+          data.cancelled == 1 ? 'Duty cancelled' : '${data.cancelled} duties cancelled'
+              '${data.kept > 0 ? ' (${data.kept} kept: work already recorded)' : ''}',
+        );
+        ref.invalidate(societyDutiesProvider(societyId));
+        await ref.read(dutyOverviewProvider.notifier).load(societyId, dateStr);
+      case StaffFailure(:final message):
+        AppToast.error(context, message);
+    }
+  }
+
+  /// Opens the staff member's whole day (all their duties) to enter the sheet.
+  Future<void> _enterSheet(BuildContext context, WidgetRef ref) async {
+    final saved = await context.push<bool>(AppRoutes.staffPaperSheet, extra: {
+      'societyId': societyId,
+      'staffId': duty.staffId,
+      'staffName': staffName,
+      'date': dateStr,
+    });
+    if (saved == true) {
+      await ref.read(dutyOverviewProvider.notifier).load(societyId, dateStr);
+    }
   }
 
   Future<void> _showVerifyDialog(BuildContext context, WidgetRef ref) async {

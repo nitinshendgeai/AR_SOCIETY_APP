@@ -207,10 +207,13 @@ class AppCard extends StatelessWidget {
 
 // ── Time display ──────────────────────────────────────────────────────────────
 
+/// Clock time as the person looking at it keeps it. The server sends UTC
+/// (with a Z), so convert to this device's zone before reading the hour.
 String formatTime(DateTime? dt) {
   if (dt == null) return '--:--';
-  final h = dt.hour.toString().padLeft(2, '0');
-  final m = dt.minute.toString().padLeft(2, '0');
+  final local = dt.toLocal();
+  final h = local.hour.toString().padLeft(2, '0');
+  final m = local.minute.toString().padLeft(2, '0');
   return '$h:$m';
 }
 

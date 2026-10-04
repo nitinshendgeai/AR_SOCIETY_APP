@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/features/staff/data/datasources/staff_remote_datasource.dart';
@@ -240,9 +242,9 @@ class StaffRepository {
 
   // ── Duties ─────────────────────────────────────────────────────────────────
 
-  Future<StaffResult<List<DutyEntity>>> getMyDuties(String staffId) async {
+  Future<StaffResult<List<DutyEntity>>> getMyDuties(String staffId, {String? fromDate, String? toDate}) async {
     try {
-      final list = await _ds.getMyDuties(staffId);
+      final list = await _ds.getMyDuties(staffId, fromDate: fromDate, toDate: toDate);
       return StaffSuccess(list.map((m) => m.toEntity()).toList());
     } catch (e) { return _handle(e); }
   }
@@ -261,11 +263,13 @@ class StaffRepository {
     } catch (e) { return _handle(e); }
   }
 
-  Future<StaffResult<DutyEntity>> assignDuty({
-    required String staffId,
+  Future<StaffResult<DutyPlanResultEntity>> assignDutyPlan({
     required String societyId,
+    required List<String> staffIds,
     required String dutyName,
-    required String dutyDate,
+    required String fromDate,
+    String? toDate,
+    List<int>? weekdays,
     String? description,
     String? location,
     String? startTime,
@@ -273,13 +277,61 @@ class StaffRepository {
     String? checklistTemplateId,
   }) async {
     try {
-      final m = await _ds.assignDuty(
-        staffId: staffId, societyId: societyId, dutyName: dutyName,
-        dutyDate: dutyDate, description: description, location: location,
-        startTime: startTime, endTime: endTime,
-        checklistTemplateId: checklistTemplateId,
+      final m = await _ds.assignDutyPlan(
+        societyId: societyId, staffIds: staffIds, dutyName: dutyName, fromDate: fromDate,
+        toDate: toDate, weekdays: weekdays, description: description, location: location,
+        startTime: startTime, endTime: endTime, checklistTemplateId: checklistTemplateId,
       );
       return StaffSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<({int cancelled, int kept})>> cancelDuty(String dutyId) async {
+    try {
+      return StaffSuccess(await _ds.cancelDuty(dutyId));
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<({int cancelled, int kept})>> cancelDutySeries(String seriesId,
+      {String? fromDate, String? staffId}) async {
+    try {
+      return StaffSuccess(await _ds.cancelDutySeries(seriesId, fromDate: fromDate, staffId: staffId));
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<bool>> enterPaperSheet({
+    required String staffId,
+    required String sheetDate,
+    String? attendanceStatus,
+    String? checkIn,
+    String? checkOut,
+    required List<Map<String, dynamic>> duties,
+  }) async {
+    try {
+      await _ds.enterPaperSheet(
+        staffId: staffId, sheetDate: sheetDate, attendanceStatus: attendanceStatus,
+        checkIn: checkIn, checkOut: checkOut, duties: duties,
+      );
+      return StaffSuccess(true);
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<Uint8List>> dutySheetsPdf(String societyId, String date,
+      {String? toDate, String? department}) async {
+    try {
+      return StaffSuccess(await _ds.dutySheetsPdf(societyId, date, toDate: toDate, department: department));
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<Uint8List>> staffSheetPdf(String staffId, String date, {String? toDate}) async {
+    try {
+      return StaffSuccess(await _ds.staffSheetPdf(staffId, date, toDate: toDate));
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<Uint8List>> templateSheetPdf(String templateId) async {
+    try {
+      return StaffSuccess(await _ds.templateSheetPdf(templateId));
     } catch (e) { return _handle(e); }
   }
 

@@ -127,9 +127,17 @@ class DutyNotifier extends StateNotifier<DutyState> {
   final StaffRepository _repo;
   DutyNotifier(this._repo) : super(DutyInitial());
 
+  static String _day(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  /// A fortnight either side of today: a plan can fill the list with weeks of
+  /// future duties and the screen only needs what is near.
   Future<void> loadDuties(String staffId) async {
     state = DutyLoading();
-    final result = await _repo.getMyDuties(staffId);
+    final today = DateTime.now();
+    final result = await _repo.getMyDuties(staffId,
+        fromDate: _day(today.subtract(const Duration(days: 14))),
+        toDate: _day(today.add(const Duration(days: 14))));
     switch (result) {
       case StaffSuccess(:final data): state = DutyLoaded(data);
       case StaffFailure(:final message): state = DutyError(message);
@@ -553,7 +561,7 @@ final attendanceSummaryProvider = FutureProvider.family<Map<String, dynamic>, St
 sealed class DutyAssignState {}
 class DutyAssignInitial extends DutyAssignState {}
 class DutyAssignLoading extends DutyAssignState {}
-class DutyAssignSuccess extends DutyAssignState { final DutyEntity duty; DutyAssignSuccess(this.duty); }
+class DutyAssignSuccess extends DutyAssignState { final DutyPlanResultEntity result; DutyAssignSuccess(this.result); }
 class DutyAssignError   extends DutyAssignState { final String message; DutyAssignError(this.message); }
 
 class DutyAssignNotifier extends StateNotifier<DutyAssignState> {
@@ -561,11 +569,15 @@ class DutyAssignNotifier extends StateNotifier<DutyAssignState> {
   final Ref _ref;
   DutyAssignNotifier(this._repo, this._ref) : super(DutyAssignInitial());
 
-  Future<void> assign({
-    required String staffId,
+  /// One duty for the chosen staff over [fromDate]..[toDate] (every day, or
+  /// only [weekdays]: 0 = Monday … 6 = Sunday). A single day is a one-day plan.
+  Future<void> assignPlan({
     required String societyId,
+    required List<String> staffIds,
     required String dutyName,
-    required String dutyDate,
+    required String fromDate,
+    String? toDate,
+    List<int>? weekdays,
     String? description,
     String? location,
     String? startTime,
@@ -573,11 +585,10 @@ class DutyAssignNotifier extends StateNotifier<DutyAssignState> {
     String? checklistTemplateId,
   }) async {
     state = DutyAssignLoading();
-    final result = await _repo.assignDuty(
-      staffId: staffId, societyId: societyId, dutyName: dutyName,
-      dutyDate: dutyDate, description: description, location: location,
-      startTime: startTime, endTime: endTime,
-      checklistTemplateId: checklistTemplateId,
+    final result = await _repo.assignDutyPlan(
+      societyId: societyId, staffIds: staffIds, dutyName: dutyName, fromDate: fromDate,
+      toDate: toDate, weekdays: weekdays, description: description, location: location,
+      startTime: startTime, endTime: endTime, checklistTemplateId: checklistTemplateId,
     );
     switch (result) {
       case StaffSuccess(:final data):

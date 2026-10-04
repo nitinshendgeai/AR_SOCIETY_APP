@@ -326,6 +326,8 @@ class DutyModel {
   final String? verifiedAt;
   final String? notes;
   final String? checklistTemplateId;
+  final String? seriesId;
+  final String? completionSource;
   final List<DutyChecklistItemModel> checklistItems;
 
   const DutyModel({
@@ -345,6 +347,8 @@ class DutyModel {
     this.verifiedAt,
     this.notes,
     this.checklistTemplateId,
+    this.seriesId,
+    this.completionSource,
     this.checklistItems = const [],
   });
 
@@ -365,6 +369,8 @@ class DutyModel {
         verifiedAt: j['verified_at'] as String?,
         notes: j['notes'] as String?,
         checklistTemplateId: j['checklist_template_id'] as String?,
+        seriesId: j['series_id'] as String?,
+        completionSource: j['completion_source'] as String?,
         checklistItems: (j['checklist_items'] as List<dynamic>?)
                 ?.map((e) => DutyChecklistItemModel.fromJson(e as Map<String, dynamic>))
                 .toList() ??
@@ -382,6 +388,7 @@ class DutyModel {
         verifiedAt: verifiedAt != null ? DateTime.tryParse(verifiedAt!) : null,
         notes: notes,
         checklistTemplateId: checklistTemplateId,
+        seriesId: seriesId, completionSource: completionSource,
         checklistItems: checklistItems.map((m) => m.toEntity()).toList(),
       );
 }
@@ -399,6 +406,7 @@ class DutyChecklistItemModel {
   final bool isCompleted;
   final String? completedAt;
   final String? notes;
+  final bool enteredFromPaper;
 
   const DutyChecklistItemModel({
     required this.id,
@@ -411,6 +419,7 @@ class DutyChecklistItemModel {
     this.isCompleted = false,
     this.completedAt,
     this.notes,
+    this.enteredFromPaper = false,
   });
 
   factory DutyChecklistItemModel.fromJson(Map<String, dynamic> j) => DutyChecklistItemModel(
@@ -424,6 +433,7 @@ class DutyChecklistItemModel {
         isCompleted: j['is_completed'] as bool? ?? false,
         completedAt: j['completed_at'] as String?,
         notes: j['notes'] as String?,
+        enteredFromPaper: j['entered_from_paper'] as bool? ?? false,
       );
 
   DutyChecklistItemEntity toEntity() => DutyChecklistItemEntity(
@@ -432,7 +442,37 @@ class DutyChecklistItemModel {
         isRequired: isRequired, isCompleted: isCompleted,
         completedAt: completedAt != null ? DateTime.tryParse(completedAt!) : null,
         notes: notes,
+        enteredFromPaper: enteredFromPaper,
       );
+}
+
+// ── Duty plan result ───────────────────────────────────────────────────────────
+
+class DutyPlanResultModel {
+  final int created;
+  final String? firstDate;
+  final String? lastDate;
+  final List<DutyPlanSkipEntity> skipped;
+
+  const DutyPlanResultModel({required this.created, this.firstDate, this.lastDate, this.skipped = const []});
+
+  factory DutyPlanResultModel.fromJson(Map<String, dynamic> j) => DutyPlanResultModel(
+        created: j['created'] as int? ?? 0,
+        firstDate: j['first_date'] as String?,
+        lastDate: j['last_date'] as String?,
+        skipped: (j['skipped'] as List<dynamic>? ?? const [])
+            .map((e) => e as Map<String, dynamic>)
+            .map((e) => DutyPlanSkipEntity(
+                  staffId: e['staff_id'] as String,
+                  staffName: e['staff_name'] as String? ?? '',
+                  dutyDate: e['duty_date'] as String,
+                  reason: e['reason'] as String? ?? '',
+                ))
+            .toList(),
+      );
+
+  DutyPlanResultEntity toEntity() =>
+      DutyPlanResultEntity(created: created, firstDate: firstDate, lastDate: lastDate, skipped: skipped);
 }
 
 // ── Checklist templates ─────────────────────────────────────────────────────
