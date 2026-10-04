@@ -6,6 +6,12 @@ Format: `[YYYY-MM-DD] type: description`
 
 ## 2026-10-05
 
+### fix: first deploy on an empty database no longer fails its healthcheck
+
+- `railway.json` `healthcheckTimeout` 30 → 300 seconds. The first start on a blank database runs every migration before
+  the app answers, which can take longer than 30s on Railway; the deploy was then marked failed although the schema had
+  been built. (Redeploying also fixes a deploy already in that state.)
+
 ### fix: Add Zone in Parking Management blanked the screen
 
 - The zone dialogs ("No zones yet" → "Add Zone", and "Add Parking Zone" itself) closed with the *page's* context. The page
