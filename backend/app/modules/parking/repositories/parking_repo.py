@@ -7,7 +7,8 @@ from app.modules.parking.models.parking import (
     SlotStatus, AllocationStatus, VisitorParkingStatus,
 )
 from app.repositories.base import BaseRepository
-from datetime import datetime
+from datetime import date, datetime
+from sqlalchemy import or_
 
 
 class ParkingZoneRepo(BaseRepository[ParkingZone]):
@@ -67,12 +68,18 @@ class ParkingAllocationRepo(BaseRepository[ParkingAllocation]):
             ParkingAllocation.is_active==True,
         ).all()
 
-    def get_active_by_vehicle(self, vehicle_id: UUID) -> Optional[ParkingAllocation]:
-        return self.db.query(ParkingAllocation).filter(
+    def get_active_by_vehicle(self, vehicle_id: UUID, on: Optional[date] = None) -> Optional[ParkingAllocation]:
+        """The vehicle's active allocation; with `on`, only one that is in force that day
+        (started, and not past its end date)."""
+        q = self.db.query(ParkingAllocation).filter(
             ParkingAllocation.vehicle_id==vehicle_id,
             ParkingAllocation.status==AllocationStatus.ACTIVE,
             ParkingAllocation.is_active==True,
-        ).first()
+        )
+        if on is not None:
+            q = q.filter(ParkingAllocation.start_date <= on,
+                         or_(ParkingAllocation.end_date == None, ParkingAllocation.end_date >= on))
+        return q.first()
 
     def get_by_society(self, sid: UUID, skip=0, limit=50) -> List[ParkingAllocation]:
         return self.db.query(ParkingAllocation).filter(
@@ -102,8 +109,9 @@ class VisitorParkingRepo(BaseRepository[VisitorParking]):
 class ParkingAccessLogRepo(BaseRepository[ParkingAccessLog]):
     def __init__(self, db): super().__init__(ParkingAccessLog, db)
 
-    def get_by_vehicle(self, vehicle_number: str, skip=0, limit=50) -> List[ParkingAccessLog]:
+    def get_by_vehicle(self, vehicle_number: str, society_id: UUID, skip=0, limit=50) -> List[ParkingAccessLog]:
         return self.db.query(ParkingAccessLog).filter(
+            ParkingAccessLog.society_id==society_id,
             ParkingAccessLog.vehicle_number==vehicle_number,
         ).order_by(ParkingAccessLog.access_time.desc()).offset(skip).limit(limit).all()
 

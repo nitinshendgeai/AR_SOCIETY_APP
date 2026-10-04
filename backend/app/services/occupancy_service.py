@@ -53,11 +53,17 @@ class OccupancyService:
         set the FK to NULL — without touching Vehicle.is_active; the vehicle
         itself hasn't gone anywhere, it's just no longer linked to anyone.
         Audits only when a vehicle was actually affected (avoids empty
-        audit noise on every move-out, most of which have no vehicle)."""
+        audit noise on every move-out, most of which have no vehicle).
+
+        Their parking ends with the person: allocations are released (the slots
+        freed) and the vehicle's own slot field cleared, so the car is no longer
+        allowed through the gate on the strength of a slot it no longer holds."""
+        from app.modules.parking.services.parking_service import ParkingService
         if resident_id is not None:
             vehicle_ids = [v.id for v in self.db.query(Vehicle.id).filter(
                 Vehicle.resident_id == resident_id).all()]
             if vehicle_ids:
+                ParkingService.release_for_vehicles(self.db, vehicle_ids, user)
                 self.db.query(Vehicle).filter(Vehicle.resident_id == resident_id).update(
                     {"resident_id": None}, synchronize_session=False
                 )
@@ -70,6 +76,7 @@ class OccupancyService:
             vehicle_ids = [v.id for v in self.db.query(Vehicle.id).filter(
                 Vehicle.tenant_id == tenant_id).all()]
             if vehicle_ids:
+                ParkingService.release_for_vehicles(self.db, vehicle_ids, user)
                 self.db.query(Vehicle).filter(Vehicle.tenant_id == tenant_id).update(
                     {"tenant_id": None}, synchronize_session=False
                 )

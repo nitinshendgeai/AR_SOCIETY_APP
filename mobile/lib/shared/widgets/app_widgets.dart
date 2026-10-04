@@ -442,6 +442,8 @@ class AppTextField extends StatelessWidget {
   final TextInputAction textInputAction;
   final VoidCallback? onFieldSubmitted;
   final Iterable<String>? autofillHints;
+  final FocusNode? focusNode;
+  final TextCapitalization textCapitalization;
 
   /// Longest text the field takes (the server's limit); null for no limit.
   final int? maxLength;
@@ -460,6 +462,8 @@ class AppTextField extends StatelessWidget {
     this.textInputAction = TextInputAction.next,
     this.onFieldSubmitted,
     this.autofillHints,
+    this.focusNode,
+    this.textCapitalization = TextCapitalization.none,
     this.maxLength,
   });
 
@@ -467,6 +471,8 @@ class AppTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
+      focusNode: focusNode,
+      textCapitalization: textCapitalization,
       inputFormatters: maxLength == null ? null : [LengthLimitingTextInputFormatter(maxLength)],
       obscureText: obscureText,
       keyboardType: keyboardType,

@@ -143,6 +143,8 @@ class GateVehicleLookupOut(OrmBase):
     POST /parking/access-log for that."""
     vehicle_number: str
     authorized:     bool
+    # allowed: let it in · no_parking: registered here but has no parking · unregistered: not known
+    status:         str = "unregistered"
     category:       str   # "resident" | "tenant" | "visitor" | "unregistered"
     vehicle_type:   Optional[str] = None
     flat_number:    Optional[str] = None
@@ -152,3 +154,19 @@ class GateVehicleLookupOut(OrmBase):
     visitor_purpose: Optional[str] = None
     visitor_check_in_time: Optional[datetime] = None
     message:        str
+
+
+class VehicleParkingOut(OrmBase):
+    """A registered vehicle and whether it has parking — what the committee works
+    from to allot parking to the vehicles residents and tenants have added."""
+    id: UUID; vehicle_number: str; vehicle_type: str
+    make: Optional[str] = None; model: Optional[str] = None; color: Optional[str] = None
+    flat_id: Optional[UUID] = None; flat_number: Optional[str] = None; wing_name: Optional[str] = None
+    owner_name: Optional[str] = None
+    category: str                       # "resident" | "tenant"
+    has_parking: bool
+    parking_slot: Optional[str] = None
+    allocation_id: Optional[UUID] = None
+    allocation_type: Optional[str] = None
+    end_date: Optional[date] = None
+    monthly_charge: Optional[int] = None

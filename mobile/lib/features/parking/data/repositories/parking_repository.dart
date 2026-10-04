@@ -127,6 +127,17 @@ class ParkingRepository {
     }
   }
 
+  // ── Registered vehicles ────────────────────────────────────────────────────
+
+  Future<ParkingResult<List<VehicleParkingEntity>>> listVehiclesWithParking(String societyId) async {
+    try {
+      final list = await _ds.listVehiclesWithParking(societyId);
+      return ParkingSuccess(list.map((m) => m.toEntity()).toList());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
   // ── Allocations ────────────────────────────────────────────────────────────
 
   Future<ParkingResult<List<ParkingAllocationEntity>>> listAllocations(String societyId) async {

@@ -5,6 +5,7 @@ import 'package:ar_society_app/features/parking/domain/entities/parking_entities
 class GateVehicleLookupModel {
   final String vehicleNumber;
   final bool authorized;
+  final String? status;
   final String category;
   final String? vehicleType;
   final String? flatNumber;
@@ -18,6 +19,7 @@ class GateVehicleLookupModel {
   const GateVehicleLookupModel({
     required this.vehicleNumber,
     required this.authorized,
+    this.status,
     required this.category,
     this.vehicleType,
     this.flatNumber,
@@ -33,6 +35,7 @@ class GateVehicleLookupModel {
       GateVehicleLookupModel(
         vehicleNumber: j['vehicle_number'] as String,
         authorized: j['authorized'] as bool,
+        status: j['status'] as String?,
         category: j['category'] as String,
         vehicleType: j['vehicle_type'] as String?,
         flatNumber: j['flat_number'] as String?,
@@ -47,6 +50,7 @@ class GateVehicleLookupModel {
   GateVehicleLookupEntity toEntity() => GateVehicleLookupEntity(
         vehicleNumber: vehicleNumber,
         authorized: authorized,
+        status: GateStatus.fromString(status, authorized: authorized),
         category: GateVehicleCategory.fromString(category),
         vehicleType: vehicleType,
         flatNumber: flatNumber,
@@ -234,5 +238,34 @@ class ParkingAllocationModel {
         vehicleNumber: vehicleNumber,
         flatNumber: flatNumber,
         wingName: wingName,
+      );
+}
+
+
+// ── Registered vehicle with parking status — matches VehicleParkingOut ──────
+
+class VehicleParkingModel {
+  final Map<String, dynamic> j;
+  const VehicleParkingModel(this.j);
+
+  factory VehicleParkingModel.fromJson(Map<String, dynamic> j) => VehicleParkingModel(j);
+
+  VehicleParkingEntity toEntity() => VehicleParkingEntity(
+        id: j['id'] as String,
+        vehicleNumber: j['vehicle_number'] as String,
+        vehicleType: (j['vehicle_type'] as String?) ?? 'car',
+        make: j['make'] as String?,
+        model: j['model'] as String?,
+        color: j['color'] as String?,
+        flatId: j['flat_id'] as String?,
+        flatNumber: j['flat_number'] as String?,
+        wingName: j['wing_name'] as String?,
+        ownerName: j['owner_name'] as String?,
+        category: (j['category'] as String?) ?? 'resident',
+        hasParking: j['has_parking'] as bool? ?? false,
+        parkingSlot: j['parking_slot'] as String?,
+        allocationId: j['allocation_id'] as String?,
+        endDate: j['end_date'] != null ? DateTime.tryParse(j['end_date'] as String) : null,
+        monthlyCharge: j['monthly_charge'] as int?,
       );
 }

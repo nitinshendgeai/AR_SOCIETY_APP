@@ -27,9 +27,26 @@ enum GateVehicleCategory {
   }
 }
 
+/// What the gate should do with the vehicle, mirrors GateVehicleLookupOut.status.
+enum GateStatus {
+  allowed,
+  noParking,
+  unregistered;
+
+  static GateStatus fromString(String? s, {required bool authorized}) {
+    switch (s) {
+      case 'allowed':      return GateStatus.allowed;
+      case 'no_parking':   return GateStatus.noParking;
+      case 'unregistered': return GateStatus.unregistered;
+    }
+    return authorized ? GateStatus.allowed : GateStatus.unregistered;
+  }
+}
+
 class GateVehicleLookupEntity {
   final String vehicleNumber;
   final bool authorized;
+  final GateStatus status;
   final GateVehicleCategory category;
   final String? vehicleType;
   final String? flatNumber;
@@ -43,6 +60,7 @@ class GateVehicleLookupEntity {
   const GateVehicleLookupEntity({
     required this.vehicleNumber,
     required this.authorized,
+    this.status = GateStatus.unregistered,
     required this.category,
     this.vehicleType,
     this.flatNumber,
@@ -184,4 +202,50 @@ class ParkingAllocationEntity {
 
   bool get isActive => status == 'active';
   bool get isRented => monthlyCharge != null && monthlyCharge! > 0;
+}
+
+
+// ── Registered vehicles and their parking ───────────────────────────────────
+
+/// A vehicle a resident or tenant has registered, and whether it has parking.
+class VehicleParkingEntity {
+  final String id;
+  final String vehicleNumber;
+  final String vehicleType;
+  final String? make;
+  final String? model;
+  final String? color;
+  final String? flatId;
+  final String? flatNumber;
+  final String? wingName;
+  final String? ownerName;
+  final String category; // resident | tenant
+  final bool hasParking;
+  final String? parkingSlot;
+  final String? allocationId;
+  final DateTime? endDate;
+  final int? monthlyCharge;
+
+  const VehicleParkingEntity({
+    required this.id,
+    required this.vehicleNumber,
+    required this.vehicleType,
+    this.make,
+    this.model,
+    this.color,
+    this.flatId,
+    this.flatNumber,
+    this.wingName,
+    this.ownerName,
+    required this.category,
+    required this.hasParking,
+    this.parkingSlot,
+    this.allocationId,
+    this.endDate,
+    this.monthlyCharge,
+  });
+
+  bool get isTenant => category == 'tenant';
+  String get flatLabel =>
+      [if (wingName != null) wingName, if (flatNumber != null) flatNumber].where((s) => s != null).join(' — ');
 }
