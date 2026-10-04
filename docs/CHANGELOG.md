@@ -4,8 +4,6 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
----
-
 ## 2026-10-05
 
 ### feat: floor-wise housekeeping sheets
