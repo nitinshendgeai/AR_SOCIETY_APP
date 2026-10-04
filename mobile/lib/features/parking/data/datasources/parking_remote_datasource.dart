@@ -97,6 +97,17 @@ class ParkingRemoteDataSource {
     return ParkingSlotModel.fromJson(r.data as Map<String, dynamic>);
   }
 
+  // ── Registered vehicles ────────────────────────────────────────────────────
+
+  /// GET /parking/vehicles/society/{society_id} — every registered vehicle and
+  /// whether it has parking.
+  Future<List<VehicleParkingModel>> listVehiclesWithParking(String societyId) async {
+    final r = await _dio.get('/parking/vehicles/society/$societyId');
+    return (r.data as List)
+        .map((e) => VehicleParkingModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   // ── Allocations ────────────────────────────────────────────────────────────
 
   /// GET /parking/allocations/society/{society_id}

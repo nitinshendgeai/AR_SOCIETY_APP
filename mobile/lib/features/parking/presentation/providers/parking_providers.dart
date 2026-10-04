@@ -121,6 +121,16 @@ final parkingAllocationsProvider =
   };
 });
 
+final parkingVehiclesProvider =
+    FutureProvider.family<List<VehicleParkingEntity>, String>((ref, societyId) async {
+  final repo = ref.read(parkingRepositoryProvider);
+  final result = await repo.listVehiclesWithParking(societyId);
+  return switch (result) {
+    ParkingSuccess(:final data) => data,
+    ParkingFailure(:final message) => throw Exception(message),
+  };
+});
+
 // ── Parking management actions (create zone/slot/allocation, release) ───────
 
 sealed class ParkingActionState {}
@@ -198,6 +208,7 @@ class ParkingManagementNotifier extends StateNotifier<ParkingActionState> {
     switch (result) {
       case ParkingSuccess():
         state = ParkingActionSuccess('Parking allocated');
+        _ref.invalidate(parkingVehiclesProvider(societyId));
         _ref.invalidate(parkingAllocationsProvider(societyId));
         _ref.invalidate(parkingSlotsProvider(societyId));
         _ref.invalidate(parkingAvailableSlotsProvider(societyId));
@@ -212,6 +223,7 @@ class ParkingManagementNotifier extends StateNotifier<ParkingActionState> {
     switch (result) {
       case ParkingSuccess():
         state = ParkingActionSuccess('Allocation released');
+        _ref.invalidate(parkingVehiclesProvider(societyId));
         _ref.invalidate(parkingAllocationsProvider(societyId));
         _ref.invalidate(parkingSlotsProvider(societyId));
         _ref.invalidate(parkingAvailableSlotsProvider(societyId));

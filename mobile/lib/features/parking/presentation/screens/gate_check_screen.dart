@@ -22,12 +22,14 @@ class GateCheckScreen extends ConsumerStatefulWidget {
 
 class _GateCheckScreenState extends ConsumerState<GateCheckScreen> {
   final _vehicleCtrl = TextEditingController();
+  final _focus = FocusNode();
 
   String get _societyId => ref.read(currentUserProvider)?.societyId ?? '';
 
   @override
   void dispose() {
     _vehicleCtrl.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
@@ -42,6 +44,7 @@ class _GateCheckScreenState extends ConsumerState<GateCheckScreen> {
   void _reset() {
     _vehicleCtrl.clear();
     ref.read(gateCheckProvider.notifier).reset();
+    _focus.requestFocus();   // ready for the next plate (typed, or from a hardware scanner)
   }
 
   @override
@@ -61,6 +64,9 @@ class _GateCheckScreenState extends ConsumerState<GateCheckScreen> {
                 label: 'Vehicle Number',
                 hint: 'e.g. MH12AB1234',
                 controller: _vehicleCtrl,
+                focusNode: _focus,
+                autofocus: true,
+                textCapitalization: TextCapitalization.characters,
                 keyboardType: TextInputType.text,
                 textInputAction: TextInputAction.done,
                 onFieldSubmitted: _check,
@@ -152,8 +158,17 @@ class _LookupResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = lookup.authorized ? AppTheme.success : AppTheme.error;
-    final icon = lookup.authorized ? Icons.check_circle_rounded : Icons.gpp_bad_rounded;
+    // Three answers for the guard: let it in; registered here but no parking (send it
+    // elsewhere); not known at all.
+    final (color, icon, title) = switch (lookup.status) {
+      GateStatus.allowed => (
+          AppTheme.success,
+          Icons.check_circle_rounded,
+          lookup.category == GateVehicleCategory.visitor ? 'Allowed — approved visitor' : 'Allowed — has parking',
+        ),
+      GateStatus.noParking => (AppTheme.warning, Icons.warning_amber_rounded, 'Registered — no parking allotted'),
+      GateStatus.unregistered => (AppTheme.error, Icons.gpp_bad_rounded, 'Not registered'),
+    };
 
     return AppCard(
       padding: const EdgeInsets.all(16),
@@ -165,7 +180,7 @@ class _LookupResultCard extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                lookup.authorized ? 'Access Granted' : 'Not Registered',
+                title,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color),
               ),
             ),
@@ -185,7 +200,11 @@ class _LookupResultCard extends StatelessWidget {
                   fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary,
                   letterSpacing: 0.5)),
           const SizedBox(height: 8),
-          if (lookup.ownerName != null) _DetailRow(label: 'Owner', value: lookup.ownerName!),
+          if (lookup.ownerName != null)
+            _DetailRow(
+              label: lookup.category == GateVehicleCategory.visitor ? 'Visitor' : 'Owner',
+              value: lookup.ownerName!,
+            ),
           if (lookup.flatNumber != null)
             _DetailRow(
               label: lookup.category == GateVehicleCategory.visitor ? 'Visiting Flat' : 'Flat',

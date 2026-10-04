@@ -6,6 +6,22 @@ Format: `[YYYY-MM-DD] type: description`
 
 ## 2026-10-05
 
+### fix + feat: parking and the gate check
+
+- **Security:** every parking route now checks the society. Before, an admin or guard of one society could read and
+  change another society's zones, slots, allocations, violations and gate logs by using its id; ids of other societies'
+  records now answer "not found", society ids answer 403, and a plate's gate history is limited to the caller's society.
+- **Gate check:** a vehicle is allowed only while its parking is in force *today*. Fixed: a car stayed allowed after its
+  owner **moved out** (parking now released with the move-out, also on deregister); an allocation past its **end date**
+  still let the car in (now ignored at once and the slot freed); one vehicle could be allotted **several slots**; plates
+  saved with spaces or dashes weren't found; vehicles of **approved visitors** logged in the Visitors module showed as
+  unregistered; and the app said "Not Registered" for a registered car with no parking (now amber *Registered — no
+  parking allotted*). The response has a `status` (`allowed` / `no_parking` / `unregistered`).
+- **Parking Management → Vehicles tab:** every registered vehicle with its parking status, search, a *No parking* filter
+  and *Allot parking* / *Release*. `GET /parking/vehicles/society/{id}?parking=none|allotted`.
+- Allotting sets the slot on the vehicle record (and releasing clears it), so the resident sees it.
+- Guide: `docs/GUIDES/PARKING_AND_GATE_GUIDE.md`.
+
 ### feat: floor-wise housekeeping sheets
 
 - A printable sheet with **every floor a row** and the duty's checklist items as tick columns (plus Time and Initials),

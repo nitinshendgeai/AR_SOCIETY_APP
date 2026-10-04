@@ -36,6 +36,13 @@ class VehicleIn(OrmBase):
     vehicle_model:  Optional[str] = None
     vehicle_color:  Optional[str] = None
 
+    @field_validator("vehicle_number", mode="before")
+    @classmethod
+    def _normalise_plate(cls, v):
+        """Kept the way the gate looks plates up: spaces and dashes dropped, upper-case."""
+        v = val.text(v) if isinstance(v, str) else v
+        return normalize_vehicle_number(v) if v else None
+
     _type = field_validator("vehicle_type", mode="before")(val.limited(50))
     _model = field_validator("vehicle_model", mode="before")(val.limited(100))
     _color = field_validator("vehicle_color", mode="before")(val.limited(50))

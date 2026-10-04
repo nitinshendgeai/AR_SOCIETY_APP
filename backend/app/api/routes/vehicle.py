@@ -291,4 +291,7 @@ def deregister_vehicle(vehicle_id: UUID, db: Session = Depends(get_db),
     if not v: raise HTTPException(status_code=404, detail="Vehicle not found")
     v.is_active = False
     v.rfid_tag = None   # a deregistered vehicle no longer holds its tag
+    # ...nor its parking: free the slot instead of leaving it allotted to a car that's gone
+    from app.modules.parking.services.parking_service import ParkingService
+    ParkingService.release_for_vehicles(db, [v.id], user)
     db.commit()

@@ -16,7 +16,7 @@ from app.modules.parking.schemas.parking import (
     AllocationCreate, AllocationOut,
     VisitorParkingCreate, VisitorParkingOut,
     ViolationCreate, ViolationOut,
-    AccessLogCreate, AccessLogOut, GateVehicleLookupOut,
+    AccessLogCreate, AccessLogOut, GateVehicleLookupOut, VehicleParkingOut,
 )
 from app.modules.parking.models.parking import SlotType
 from app.modules.parking.services.parking_service import ParkingService
@@ -34,8 +34,8 @@ def create_zone(data: ZoneCreate, db: Session = Depends(get_db), user: User = De
     return ParkingService(db).create_zone(data, user)
 
 @router.get("/zones/{society_id}", response_model=List[ZoneOut], dependencies=[Depends(any_member)])
-def list_zones(society_id: UUID, db: Session = Depends(get_db)):
-    return ParkingService(db).list_zones(society_id)
+def list_zones(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return ParkingService(db).list_zones(society_id, user)
 
 
 # ── Floors ────────────────────────────────────────────────────────────────────
@@ -54,23 +54,34 @@ def update_slot(slot_id: UUID, data: SlotUpdate, db: Session = Depends(get_db), 
     return ParkingService(db).update_slot(slot_id, data, user)
 
 @router.get("/slots/{slot_id}", response_model=SlotOut, dependencies=[Depends(any_member)])
-def get_slot(slot_id: UUID, db: Session = Depends(get_db)):
-    return ParkingService(db).get_slot(slot_id)
+def get_slot(slot_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return ParkingService(db).get_slot(slot_id, user)
 
 @router.get("/slots/zone/{zone_id}", response_model=List[SlotOut], dependencies=[Depends(any_member)])
-def slots_by_zone(zone_id: UUID, db: Session = Depends(get_db)):
-    return ParkingService(db).list_slots_by_zone(zone_id)
+def slots_by_zone(zone_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return ParkingService(db).list_slots_by_zone(zone_id, user)
 
 @router.get("/slots/available/{society_id}", response_model=List[SlotOut], dependencies=[Depends(any_member)])
-def available_slots(society_id: UUID, slot_type: Optional[SlotType] = None, db: Session = Depends(get_db)):
-    return ParkingService(db).get_available_slots(society_id, slot_type)
+def available_slots(society_id: UUID, slot_type: Optional[SlotType] = None, db: Session = Depends(get_db),
+                    user: User = Depends(get_current_user)):
+    return ParkingService(db).get_available_slots(society_id, user, slot_type)
 
 @router.get("/slots/society/{society_id}", response_model=List[SlotOut], dependencies=[Depends(admin_committee)])
-def slots_by_society(society_id: UUID, db: Session = Depends(get_db)):
+def slots_by_society(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """All slots for the society regardless of status — for the parking
     management screen, where an admin needs to see occupied/blocked slots
     too, not just what's currently available for a new allocation."""
-    return ParkingService(db).list_slots_by_society(society_id)
+    return ParkingService(db).list_slots_by_society(society_id, user)
+
+
+# ── Registered vehicles and their parking ─────────────────────────────────────
+@router.get("/vehicles/society/{society_id}", response_model=List[VehicleParkingOut],
+            dependencies=[Depends(admin_committee)])
+def vehicles_with_parking(society_id: UUID, parking: Optional[str] = Query(None, pattern="^(none|allotted)$",
+                              description="'none' = still without parking, 'allotted' = has parking"),
+                          db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Every vehicle residents and tenants have registered, and whether it has parking."""
+    return ParkingService(db).vehicles_overview(society_id, user, parking)
 
 
 # ── Allocations ───────────────────────────────────────────────────────────────
@@ -86,13 +97,14 @@ def release_slot(allocation_id: UUID, request: Request, db: Session = Depends(ge
 
 @router.get("/allocations/society/{society_id}", response_model=List[AllocationOut],
             dependencies=[Depends(admin_committee)])
-def list_allocations(society_id: UUID, skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
-    return ParkingService(db).get_allocations(society_id, skip, limit)
+def list_allocations(society_id: UUID, skip: int = 0, limit: int = 50, db: Session = Depends(get_db),
+                     user: User = Depends(get_current_user)):
+    return ParkingService(db).get_allocations(society_id, user, skip, limit)
 
 @router.get("/allocations/flat/{flat_id}", response_model=List[AllocationOut],
             dependencies=[Depends(any_member)])
-def flat_allocations(flat_id: UUID, db: Session = Depends(get_db)):
-    return ParkingService(db).get_flat_allocations(flat_id)
+def flat_allocations(flat_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return ParkingService(db).get_flat_allocations(flat_id, user)
 
 
 # ── Visitor parking ───────────────────────────────────────────────────────────
@@ -108,8 +120,8 @@ def checkout_visitor(vp_id: UUID, request: Request, db: Session = Depends(get_db
 
 @router.get("/visitor/active/{society_id}", response_model=List[VisitorParkingOut],
             dependencies=[Depends(security_above)])
-def active_visitor_parking(society_id: UUID, db: Session = Depends(get_db)):
-    return ParkingService(db).get_active_visitor_parking(society_id)
+def active_visitor_parking(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return ParkingService(db).get_active_visitor_parking(society_id, user)
 
 
 # ── Violations ────────────────────────────────────────────────────────────────
@@ -125,8 +137,9 @@ def resolve_violation(violation_id: UUID, db: Session = Depends(get_db),
 
 @router.get("/violations/society/{society_id}", response_model=List[ViolationOut],
             dependencies=[Depends(security_above)])
-def list_violations(society_id: UUID, unresolved_only: bool = False, db: Session = Depends(get_db)):
-    return ParkingService(db).get_violations(society_id, unresolved_only)
+def list_violations(society_id: UUID, unresolved_only: bool = False, db: Session = Depends(get_db),
+                    user: User = Depends(get_current_user)):
+    return ParkingService(db).get_violations(society_id, user, unresolved_only)
 
 
 # ── Gate validation ───────────────────────────────────────────────────────────
@@ -150,10 +163,12 @@ def log_access(data: AccessLogCreate, db: Session = Depends(get_db),
 @router.get("/access-log/society/{society_id}", response_model=List[AccessLogOut],
             dependencies=[Depends(security_above)])
 def society_access_logs(society_id: UUID, skip: int = 0, limit: int = 100,
-                         db: Session = Depends(get_db)):
-    return ParkingService(db).get_access_logs(society_id, skip, limit)
+                         db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return ParkingService(db).get_access_logs(society_id, user, skip, limit)
 
 @router.get("/access-log/vehicle/{vehicle_number}", response_model=List[AccessLogOut],
             dependencies=[Depends(security_above)])
-def vehicle_access_history(vehicle_number: str, db: Session = Depends(get_db)):
-    return ParkingService(db).get_vehicle_access_history(vehicle_number)
+def vehicle_access_history(vehicle_number: str, society_id: Optional[UUID] = Query(None, description="Platform admins only"),
+                           db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """A plate's gate history in the caller's own society."""
+    return ParkingService(db).get_vehicle_access_history(vehicle_number, user, society_id)
