@@ -125,12 +125,14 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
     if (zones.isEmpty) {
       final addZone = await showDialog<bool>(
         context: context,
-        builder: (_) => AlertDialog(
+        // Close with the dialog's own context: the page's context belongs to the shell's
+        // navigator, so popping with it would remove this whole screen instead of the dialog.
+        builder: (dialogContext) => AlertDialog(
           title: const Text('No zones yet'),
           content: const Text('Create a parking zone (e.g. "Basement", "Open Yard") before adding slots.'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-            ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Add Zone')),
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+            ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Add Zone')),
           ],
         ),
       );
@@ -145,20 +147,25 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
     final codeCtrl = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Add Parking Zone'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Zone name (e.g. Basement)')),
+          TextField(controller: nameCtrl, autofocus: true,
+              decoration: const InputDecoration(labelText: 'Zone name (e.g. Basement)')),
           const SizedBox(height: 10),
           TextField(controller: codeCtrl, decoration: const InputDecoration(labelText: 'Short code (optional)')),
         ]),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Create')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Create')),
         ],
       ),
     );
-    if (ok == true && nameCtrl.text.trim().isNotEmpty) {
+    if (ok == true && nameCtrl.text.trim().isEmpty) {
+      if (context.mounted) AppToast.error(context, 'Enter a zone name');
+      return;
+    }
+    if (ok == true) {
       ref.read(parkingManagementProvider.notifier).createZone(
             societyId: societyId, name: nameCtrl.text.trim(),
             code: codeCtrl.text.trim().isEmpty ? null : codeCtrl.text.trim(),
@@ -173,7 +180,7 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
     String slotType = 'resident';
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => StatefulBuilder(builder: (context, setState) {
+      builder: (_) => StatefulBuilder(builder: (dialogContext, setState) {
         return AlertDialog(
           title: const Text('Add Parking Slot'),
           content: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -200,13 +207,17 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
             ),
           ]),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-            ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Create')),
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+            ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Create')),
           ],
         );
       }),
     );
-    if (ok == true && slotCtrl.text.trim().isNotEmpty) {
+    if (ok == true && slotCtrl.text.trim().isEmpty) {
+      if (context.mounted) AppToast.error(context, 'Enter a slot number');
+      return;
+    }
+    if (ok == true) {
       ref.read(parkingManagementProvider.notifier).createSlot(
             societyId: societyId, zoneId: zoneId,
             slotNumber: slotCtrl.text.trim(), slotType: slotType,

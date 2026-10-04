@@ -6,6 +6,13 @@ Format: `[YYYY-MM-DD] type: description`
 
 ## 2026-10-05
 
+### fix: Add Zone in Parking Management blanked the screen
+
+- The zone dialogs ("No zones yet" → "Add Zone", and "Add Parking Zone" itself) closed with the *page's* context. The page
+  sits in the app shell's navigator while the dialog opens on the root one, so the Add Zone / Create / Cancel buttons popped
+  the whole Parking Management page instead of the dialog, leaving a black screen. They now close with the dialog's own
+  context. Also: leaving the zone name or slot number empty now says so instead of silently doing nothing.
+
 ### fix + feat: parking and the gate check
 
 - **Security:** every parking route now checks the society. Before, an admin or guard of one society could read and
