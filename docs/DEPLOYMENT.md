@@ -264,6 +264,68 @@ them (previously a 500 had no CORS headers and the web app showed "Could not rea
 
 ---
 
+## Starting with a blank database
+
+Same schema, no data, one Platform Admin, and societies register themselves. Checked end to end on a copy of a
+populated database: after the steps below the database has the same 107 tables as the models, at the latest migration,
+and holds only the reference rows the migrations insert (`forms`, `permissions`). Everything else — roles, role
+grants, societies, users, and the files people uploaded (stored in the database) — is gone or recreated by the app.
+
+### What a blank database needs
+1. **The schema** — `alembic upgrade head` (done on deploy when `RUN_MIGRATIONS=true`). Run on an empty database it builds
+   exactly the schema the models describe.
+2. **The first Platform Admin** — nothing can log in until one exists (§C below).
+3. **Societies** — each registers itself in the app (**Register Your Society**), which creates the 16 roles and their
+   permission and form grants, the society (30-day trial), its default logins, designations and shifts.
+
+### A. A new empty database (recommended: nothing is deleted, and it is easy to undo)
+1. Railway project → **+ New → Database → PostgreSQL** (call it e.g. `Postgres-live`).
+2. Backend service → **Variables**: point `DATABASE_URL` at the new database (its internal URL, or the reference
+   `${{Postgres-live.DATABASE_URL}}`) and keep `RUN_MIGRATIONS=true`. Change `SECRET_KEY` too if you want every old
+   login session to stop working at once.
+3. **Redeploy**. The deploy log lists each `Running upgrade …` ending at the latest revision. Open `/health`: the database
+   is `connected` and `migrations` says `"up_to_date": true`.
+4. Create the first Platform Admin (§C).
+5. Open the app and register your society.
+
+The old database is untouched. To go back, set `DATABASE_URL` back and redeploy; delete the old database once you are sure.
+
+### B. Empty the existing database (same database, data removed)
+1. **Back up first** (this cannot be undone), using the Postgres service's *public* URL from Railway → Connect:
+   `pg_dump "<public url>" -Fc -f backup-$(date +%F).dump`
+2. Pause the backend service so nobody registers or logs in while it runs.
+3. From a machine with the repo and `pip install -r backend/requirements.txt`:
+   ```bash
+   cd backend
+   DATABASE_URL="<public url>" python -m app.utils.reset_data                       # dry run: shows what it would clear
+   DATABASE_URL="<public url>" python -m app.utils.reset_data --confirm-db railway --yes   # the database name shown, and yes
+   ```
+   It clears every table except `alembic_version`, `forms` and `permissions` in one transaction, and refuses unless the
+   database name you give matches. If a migration ever starts seeding another table, add it to `KEEP_TABLES`
+   in `backend/app/utils/reset_data.py`.
+4. Resume the backend. Create the first Platform Admin (§C).
+
+### C. Create the first Platform Admin
+```bash
+cd backend
+DATABASE_URL="<public url>" PLATFORM_ADMIN_PASSWORD='a-strong-password-1' \
+  python -m app.utils.create_platform_admin you@yourdomain.com "Your Name"
+```
+The password is read from `PLATFORM_ADMIN_PASSWORD` (or asked for), never put on the command line; at least 10
+characters with letters and digits. It creates the `Platform Admin` role and the user (no society, no first-login
+wizards) and is safe to run again (an existing user is promoted and keeps their password; `--reset-password` sets a
+new one). Log in with it to see every society's trial status.
+
+### D. After going live
+- Register the real society in the app. The default logins it creates (`admin@<code>.com` and the other roles) share
+  the standard onboarding password and **must change it at first login** — do that straight away.
+- Registration is public: anyone with the link can register a society (that is the SaaS sign-up).
+- Everyone logs in again; old sessions refer to users that no longer exist.
+- Nothing lives outside the database (uploaded payment screenshots and bank statements are stored in it), so there are
+  no files to clear.
+
+---
+
 ## Deployment Checklist
 
 ### Backend

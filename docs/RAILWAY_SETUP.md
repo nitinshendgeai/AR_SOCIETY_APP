@@ -26,8 +26,11 @@ Find the real values in Railway → Postgres service → Connect tab.
 
 ## First Admin User
 
-1. POST `/api/v1/auth/register` — create your user
-2. POST `/api/v1/users/{id}/roles` body: `{"role_name": "Admin"}`
+On a new or emptied database nothing can log in yet:
+
+1. Create the first Platform Admin: `python -m app.utils.create_platform_admin you@yourdomain.com "Your Name"`
+   (details in `DEPLOYMENT.md` → *Starting with a blank database*).
+2. Register a society from the app (**Register Your Society**); it creates the roles, the society and its default logins.
 
 ## Local Alembic (using public URL)
 

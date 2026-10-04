@@ -4,6 +4,19 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-05
+
+### feat: start from a blank database
+
+- `python -m app.utils.reset_data` empties every table except `alembic_version`, `forms` and `permissions` (dry run by
+  default; needs the database name and `--yes`). `python -m app.utils.create_platform_admin` creates the first Platform
+  Admin on an empty database (there was no way to; the old docs described a step that doesn't exist).
+- Runbook in `DEPLOYMENT.md` → *Starting with a blank database*: a new empty database (recommended) or emptying the
+  existing one. Verified: migrations on an empty database build exactly the model schema, and society registration then
+  creates the roles and grants.
+
+---
+
 ## 2026-10-04
 
 ### feat: duty plans, printable duty sheets, paper entry; fix daily in/out
