@@ -369,19 +369,27 @@ class StaffRemoteDataSource {
   }
 
   /// The printable duty sheets (one page per staff member per day) for a society.
-  Future<Uint8List> dutySheetsPdf(String societyId, String date, {String? toDate, String? department}) =>
+  /// [floors] prints the floor-wise housekeeping layout (every floor a row, one page per wing).
+  Future<Uint8List> dutySheetsPdf(String societyId, String date,
+          {String? toDate, String? department, bool floors = false}) =>
       _pdf('/staff/duties/sheet/society/$societyId', {
         'duty_date': date,
         if (toDate != null) 'to_date': toDate,
         if (department != null) 'department': department,
+        if (floors) 'layout': 'floors',
       });
 
   /// One staff member's printable sheet.
-  Future<Uint8List> staffSheetPdf(String staffId, String date, {String? toDate}) =>
-      _pdf('/staff/duties/sheet/staff/$staffId', {'duty_date': date, if (toDate != null) 'to_date': toDate});
+  Future<Uint8List> staffSheetPdf(String staffId, String date, {String? toDate, bool floors = false}) =>
+      _pdf('/staff/duties/sheet/staff/$staffId', {
+        'duty_date': date,
+        if (toDate != null) 'to_date': toDate,
+        if (floors) 'layout': 'floors',
+      });
 
   /// A checklist template as a blank sheet.
-  Future<Uint8List> templateSheetPdf(String templateId) => _pdf('/staff/checklist-templates/$templateId/sheet', {});
+  Future<Uint8List> templateSheetPdf(String templateId, {bool floors = false}) =>
+      _pdf('/staff/checklist-templates/$templateId/sheet', {if (floors) 'layout': 'floors'});
 
   /// GET /staff/duties/society/{society_id}?duty_date=
   Future<List<DutyModel>> getDailyDuties(String societyId, String date) async {

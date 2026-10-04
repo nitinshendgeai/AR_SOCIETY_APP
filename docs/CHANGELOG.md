@@ -6,6 +6,18 @@ Format: `[YYYY-MM-DD] type: description`
 
 ## 2026-10-05
 
+### feat: floor-wise housekeeping sheets
+
+- A printable sheet with **every floor a row** and the duty's checklist items as tick columns (plus Time and Initials),
+  so one housekeeping staff member covers all the floors of a wing on **one A4 page**. Three staff = three pages a day;
+  a society with several wings gets one page per wing per staff member.
+- `layout=floors` (and optional `wing_id`) on `GET /staff/duties/sheet/society/{id}`, `/duties/sheet/staff/{id}` and
+  `/checklist-templates/{id}/sheet`. Floors come from Structure; a wing with none entered falls back to 1..its total
+  floors; a society with no wings/floors is told to add them. A very tall wing (over ~30 floors) runs on to a second
+  page with the headings repeated.
+- App: Duties → print menu → *Housekeeping floor-wise sheets*; My Duties → print menu → *Floor-wise sheet*; Checklist
+  Templates → print icon → *Blank floor-wise sheet*.
+
 ### feat: start from a blank database
 
 - `python -m app.utils.reset_data` empties every table except `alembic_version`, `forms` and `permissions` (dry run by

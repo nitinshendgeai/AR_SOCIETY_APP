@@ -317,21 +317,23 @@ class StaffRepository {
   }
 
   Future<StaffResult<Uint8List>> dutySheetsPdf(String societyId, String date,
-      {String? toDate, String? department}) async {
+      {String? toDate, String? department, bool floors = false}) async {
     try {
-      return StaffSuccess(await _ds.dutySheetsPdf(societyId, date, toDate: toDate, department: department));
+      return StaffSuccess(
+          await _ds.dutySheetsPdf(societyId, date, toDate: toDate, department: department, floors: floors));
     } catch (e) { return _handle(e); }
   }
 
-  Future<StaffResult<Uint8List>> staffSheetPdf(String staffId, String date, {String? toDate}) async {
+  Future<StaffResult<Uint8List>> staffSheetPdf(String staffId, String date,
+      {String? toDate, bool floors = false}) async {
     try {
-      return StaffSuccess(await _ds.staffSheetPdf(staffId, date, toDate: toDate));
+      return StaffSuccess(await _ds.staffSheetPdf(staffId, date, toDate: toDate, floors: floors));
     } catch (e) { return _handle(e); }
   }
 
-  Future<StaffResult<Uint8List>> templateSheetPdf(String templateId) async {
+  Future<StaffResult<Uint8List>> templateSheetPdf(String templateId, {bool floors = false}) async {
     try {
-      return StaffSuccess(await _ds.templateSheetPdf(templateId));
+      return StaffSuccess(await _ds.templateSheetPdf(templateId, floors: floors));
     } catch (e) { return _handle(e); }
   }
 

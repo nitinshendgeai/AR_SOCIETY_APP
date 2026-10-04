@@ -78,6 +78,26 @@ One **A4 page per staff member per day** on the society letterhead:
 
 If nothing is assigned for the chosen day the app says so instead of printing a blank page.
 
+### Housekeeping: the floor-wise sheet (one page for all floors)
+
+Housekeeping works floor by floor, so there is a second layout: **every floor is a row** and the duty's checklist
+items are the tick columns, with **Time** and **Initials** at the end — one A4 page covers a whole wing (23 floors fit
+on one page). Each staff member gets their own page, so three housekeeping staff means three pages a day.
+
+1. Make a checklist template for housekeeping whose items are what is checked on each floor (*Corridor swept*,
+   *Corridor mopped*, *Dustbins emptied*, *Lift cleaned*, *Staircase cleaned*). `*` = must be done on every floor.
+2. Assign it to the housekeeping staff (Assign Duty, repeat daily).
+3. **Duties → print icon → Housekeeping floor-wise sheets** (this day or 7 days). Staff can print their own from
+   **My Duties → print icon → Floor-wise sheet**; **Checklist Templates → print icon → Blank floor-wise sheet** prints
+   one with name and date left blank.
+
+The floors come from **Structure → Wings / Floors**. A society with several wings gets one page per wing per staff
+member (to print one wing only, the API takes `wing_id`). A wing with no floors entered falls back to 1…its total floors;
+with no wings at all the app asks you to add them first.
+
+The sheet is for paper: the per-floor ticks are not stored in the app. When you enter the filled sheet
+(*Enter from sheet*), tick each item that was done and mark the duty completed as usual.
+
 ---
 
 ## 5. Entering a filled-in sheet

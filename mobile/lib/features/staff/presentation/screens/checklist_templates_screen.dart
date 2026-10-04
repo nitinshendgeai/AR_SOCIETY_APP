@@ -121,10 +121,11 @@ class _ChecklistTemplatesScreenState extends ConsumerState<ChecklistTemplatesScr
                     template: filtered[i],
                     onEdit: () => _openEditor(context, societyId: societyId, existing: filtered[i]),
                     onDelete: () => _confirmDelete(context, societyId: societyId, template: filtered[i]),
-                    onPrint: () => deliverSheet(
+                    onPrint: (floors) => deliverSheet(
                       context,
-                      ref.read(staffRepositoryProvider).templateSheetPdf(filtered[i].id),
-                      'checklist-${filtered[i].name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-')}.pdf',
+                      ref.read(staffRepositoryProvider).templateSheetPdf(filtered[i].id, floors: floors),
+                      'checklist-${filtered[i].name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-')}'
+                      '${floors ? '-floors' : ''}.pdf',
                     ),
                   ),
                 );
@@ -195,7 +196,7 @@ class _TemplateCard extends StatelessWidget {
   final ChecklistTemplateEntity template;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  final VoidCallback onPrint;
+  final void Function(bool floors) onPrint;
   const _TemplateCard({
     required this.template, required this.onEdit, required this.onDelete, required this.onPrint,
   });
@@ -208,7 +209,15 @@ class _TemplateCard extends StatelessWidget {
         title: Text(template.name, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text('${departmentLabel(template.department)} · ${template.items.length} item(s)'),
         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-          IconButton(icon: const Icon(Icons.print_outlined), tooltip: 'Print blank sheet', onPressed: onPrint),
+          PopupMenuButton<bool>(
+            icon: const Icon(Icons.print_outlined),
+            tooltip: 'Print blank sheet',
+            onSelected: onPrint,
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: false, child: Text('Blank checklist sheet')),
+              PopupMenuItem(value: true, child: Text('Blank floor-wise sheet (every floor a row)')),
+            ],
+          ),
           IconButton(icon: const Icon(Icons.edit_outlined), onPressed: onEdit),
           IconButton(icon: const Icon(Icons.delete_outline, color: AppTheme.error), onPressed: onDelete),
         ]),
