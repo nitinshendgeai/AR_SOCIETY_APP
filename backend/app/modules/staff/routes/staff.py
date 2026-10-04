@@ -201,34 +201,42 @@ def _pdf(content: bytes, filename: str) -> Response:
 def _sheet_name(first: date, last: date) -> str:
     return f"duty-sheet-{first}.pdf" if first == last else f"duty-sheets-{first}-to-{last}.pdf"
 
+LAYOUT = Query("standard", pattern="^(standard|floors)$",
+               description="'floors' prints a floor-wise grid (every floor a row, one page per wing)")
+
+def _render_sheets(svc: StaffService, society_id: UUID, pages: list, layout: str, wing_id: Optional[UUID]) -> bytes:
+    from app.modules.staff.services import duty_sheet_pdf as pdf
+    society, zone = svc.society_for_print(society_id), svc.zone_for(society_id)
+    if layout == "floors":
+        return pdf.render_floor_sheets(society, zone, pages, svc.floor_wings(society_id, wing_id))
+    return pdf.render_duty_sheets(society, zone, pages)
+
 @router.get("/duties/sheet/society/{society_id}")
 def duty_sheets(society_id: UUID,
                 duty_date: date = Query(..., description="YYYY-MM-DD"),
                 to_date: Optional[date] = Query(None, description="Last day, up to 7 days in all"),
                 department: Optional[str] = Query(None),
+                layout: str = LAYOUT, wing_id: Optional[UUID] = Query(None),
                 db: Session = Depends(get_db), user: User = Depends(supervisor_above)):
     """The printable duty sheets (one page per staff member per day). A supervisor gets
     their own department's."""
-    from app.modules.staff.services.duty_sheet_pdf import render_duty_sheets
     assert_society_access(user, society_id)
     svc = StaffService(db)
     pages = svc.duty_sheet_pages(society_id, duty_date, to_date or duty_date,
                                  department=_resolve_dept(user, department, db))
-    return _pdf(render_duty_sheets(svc.society_for_print(society_id), svc.zone_for(society_id), pages),
-                _sheet_name(duty_date, to_date or duty_date))
+    return _pdf(_render_sheets(svc, society_id, pages, layout, wing_id), _sheet_name(duty_date, to_date or duty_date))
 
 @router.get("/duties/sheet/staff/{staff_id}")
 def duty_sheet_for_staff(staff_id: UUID,
                          duty_date: date = Query(..., description="YYYY-MM-DD"),
                          to_date: Optional[date] = Query(None),
+                         layout: str = LAYOUT, wing_id: Optional[UUID] = Query(None),
                          db: Session = Depends(get_db), user: User = Depends(any_staff)):
     """One staff member's printable sheet(s); they can print their own."""
-    from app.modules.staff.services.duty_sheet_pdf import render_duty_sheets
     svc = StaffService(db)
     pages = svc.duty_sheet_pages_for_staff(staff_id, duty_date, to_date or duty_date, user)
     society_id = pages[0]["staff"].society_id
-    return _pdf(render_duty_sheets(svc.society_for_print(society_id), svc.zone_for(society_id), pages),
-                _sheet_name(duty_date, to_date or duty_date))
+    return _pdf(_render_sheets(svc, society_id, pages, layout, wing_id), _sheet_name(duty_date, to_date or duty_date))
 
 @router.post("/sheets/entry", response_model=PaperSheetOut)
 def enter_paper_sheet(data: PaperSheetEntry, request: Request, db: Session = Depends(get_db),
@@ -251,15 +259,18 @@ def complete_checklist_item(duty_id: UUID, item_id: UUID, data: DutyChecklistIte
 
 # ── Checklist Templates ───────────────────────────────────────────────────────
 @router.get("/checklist-templates/{template_id}/sheet")
-def checklist_template_sheet(template_id: UUID, db: Session = Depends(get_db),
-                             user: User = Depends(supervisor_above)):
+def checklist_template_sheet(template_id: UUID, layout: str = LAYOUT, wing_id: Optional[UUID] = Query(None),
+                             db: Session = Depends(get_db), user: User = Depends(supervisor_above)):
     """The checklist as a blank printable sheet (name, date and times left to fill in)."""
-    from app.modules.staff.services.duty_sheet_pdf import render_blank_template_sheet
+    from app.modules.staff.services import duty_sheet_pdf as pdf
     svc = StaffService(db)
     template = svc.get_checklist_template(template_id, user)
-    return _pdf(render_blank_template_sheet(svc.society_for_print(template.society_id),
-                                            svc.zone_for(template.society_id), template),
-                f"checklist-{template.name.lower().replace(' ', '-')[:40]}.pdf")
+    society, zone = svc.society_for_print(template.society_id), svc.zone_for(template.society_id)
+    if layout == "floors":
+        content = pdf.render_blank_floor_sheet(society, zone, template, svc.floor_wings(template.society_id, wing_id))
+    else:
+        content = pdf.render_blank_template_sheet(society, zone, template)
+    return _pdf(content, f"checklist-{template.name.lower().replace(' ', '-')[:40]}.pdf")
 
 @router.post("/checklist-templates", response_model=ChecklistTemplateOut, status_code=201,
              dependencies=[Depends(manager_or_above)])

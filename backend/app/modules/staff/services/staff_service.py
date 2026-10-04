@@ -696,6 +696,35 @@ class StaffService:
             self._assert_manages(user, staff.department.value, "print sheets for")
         return self.duty_sheet_pages(staff.society_id, from_date, to_date, staff_id=staff.id)
 
+    def floor_wings(self, society_id: UUID, wing_id: Optional[UUID] = None) -> List[dict]:
+        """The floors of each wing, ready for a floor-wise sheet: [{"label": "Wing A", "floors": [...]}].
+        Uses the floors entered under Structure; a wing with none falls back to 1..total floors."""
+        from app.models.floor import Floor
+        from app.models.wing import Wing
+        q = self.db.query(Wing).filter(Wing.society_id == society_id, Wing.is_active == True, Wing.deleted_at.is_(None))
+        if wing_id:
+            q = q.filter(Wing.id == wing_id)
+        wings = q.order_by(Wing.name).all()
+        if wing_id and not wings:
+            raise HTTPException(status_code=404, detail="Wing not found")
+
+        def label(floor) -> str:
+            if floor.floor_name:
+                return floor.floor_name
+            return "Ground" if floor.floor_number == 0 else f"Floor {floor.floor_number}"
+
+        out = []
+        for wing in wings:
+            floors = self.db.query(Floor).filter(Floor.wing_id == wing.id, Floor.is_active == True) \
+                .order_by(Floor.floor_number).all()
+            names = [label(f) for f in floors] or [f"Floor {n}" for n in range(1, (wing.total_floors or 0) + 1)]
+            if names:
+                out.append({"label": wing.name, "floors": names})
+        if not out:
+            raise HTTPException(status_code=422, detail="This society has no floors yet. Add the wings and floors "
+                                                        "under Structure first, then print the floor-wise sheet.")
+        return out
+
     def society_for_print(self, society_id: UUID):
         return self.db.query(Society).filter(Society.id == society_id).first()
 

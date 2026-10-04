@@ -23,15 +23,18 @@ class _DutiesScreenState extends ConsumerState<DutiesScreen> {
     });
   }
 
-  /// [days] is 0 for today, 1 for tomorrow, 7 for a week starting today.
-  Future<void> _printSheet(int days) {
+  /// [code] is 0 for today, 1 for tomorrow, 7 for a week starting today; add 10 for the
+  /// floor-wise housekeeping layout (every floor a row, one page per wing).
+  Future<void> _printSheet(int code) {
+    final floors = code >= 10;
+    final days = code % 10;
     final from = DateTime.now().add(Duration(days: days == 1 ? 1 : 0));
     final last = days == 7 ? from.add(const Duration(days: 6)) : from;
     final first = isoDay(from);
     return deliverSheet(
       context,
       ref.read(staffRepositoryProvider).staffSheetPdf(widget.staffId, first,
-          toDate: days == 7 ? isoDay(last) : null),
+          toDate: days == 7 ? isoDay(last) : null, floors: floors),
       days == 7 ? 'duty-sheets-$first-to-${isoDay(last)}.pdf' : 'duty-sheet-$first.pdf',
     );
   }
@@ -63,6 +66,10 @@ class _DutiesScreenState extends ConsumerState<DutiesScreen> {
               PopupMenuItem(value: 0, child: Text("Print today's sheet")),
               PopupMenuItem(value: 1, child: Text("Print tomorrow's sheet")),
               PopupMenuItem(value: 7, child: Text('Print the next 7 days')),
+              PopupMenuDivider(),
+              PopupMenuItem(value: 10, child: Text("Floor-wise sheet for today")),
+              PopupMenuItem(value: 11, child: Text("Floor-wise sheet for tomorrow")),
+              PopupMenuItem(value: 17, child: Text('Floor-wise sheets, next 7 days')),
             ],
           ),
           IconButton(

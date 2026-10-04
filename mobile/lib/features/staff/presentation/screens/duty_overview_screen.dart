@@ -50,15 +50,22 @@ class _DutyOverviewScreenState extends ConsumerState<DutyOverviewScreen> {
     _load();
   }
 
-  /// One sheet per staff member per day, for [days] days from the chosen date.
-  /// A supervisor gets their own department's.
-  Future<void> _printSheets(int days) {
+  /// One sheet per staff member per day, for the chosen day or 7 days from it. A supervisor
+  /// gets their own department's. The `floors-` choices print the housekeeping floor-wise
+  /// layout (every floor a row, one page per wing) for the housekeeping staff.
+  Future<void> _printSheets(String choice) {
+    final floors = choice.startsWith('floors-');
+    final days = choice.endsWith('week') ? 7 : 1;
     final last = _selectedDate.add(Duration(days: days - 1));
+    final prefix = floors ? 'floor-sheets' : 'duty-sheets';
     return deliverSheet(
       context,
       ref.read(staffRepositoryProvider).dutySheetsPdf(
-            widget.societyId, _dateStr, toDate: days > 1 ? isoDay(last) : null),
-      days > 1 ? 'duty-sheets-$_dateStr-to-${isoDay(last)}.pdf' : 'duty-sheets-$_dateStr.pdf',
+            widget.societyId, _dateStr,
+            toDate: days > 1 ? isoDay(last) : null,
+            department: floors ? 'housekeeping' : null,
+            floors: floors),
+      days > 1 ? '$prefix-$_dateStr-to-${isoDay(last)}.pdf' : '$prefix-$_dateStr.pdf',
     );
   }
 
@@ -99,13 +106,16 @@ class _DutyOverviewScreenState extends ConsumerState<DutyOverviewScreen> {
       appBar: AppBar(
         title: const Text('Duties'),
         actions: [
-          PopupMenuButton<int>(
+          PopupMenuButton<String>(
             icon: const Icon(Icons.print_rounded),
             tooltip: 'Print duty sheets',
             onSelected: _printSheets,
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 1, child: Text('Print sheets for this day')),
-              PopupMenuItem(value: 7, child: Text('Print sheets for 7 days')),
+              PopupMenuItem(value: 'day', child: Text('Print sheets for this day')),
+              PopupMenuItem(value: 'week', child: Text('Print sheets for 7 days')),
+              PopupMenuDivider(),
+              PopupMenuItem(value: 'floors-day', child: Text('Housekeeping floor-wise sheets, this day')),
+              PopupMenuItem(value: 'floors-week', child: Text('Housekeeping floor-wise sheets, 7 days')),
             ],
           ),
           IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),

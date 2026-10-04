@@ -9,6 +9,10 @@ member and the supervisor. A supervisor later enters the filled sheet in the app
 `render_blank_template_sheet` prints a template's checklist with the date and name
 left blank, for a department that fills it in by hand every day.
 
+`render_floor_sheets` / `render_blank_floor_sheet` print the floor-wise layout for housekeeping:
+one page per wing with every floor as a row and the duty's checklist items as tick columns, so
+one staff member covers all the floors of a wing on a single page.
+
 The standard PDF fonts have no Devanagari glyphs, so checklist text prints in
 English / Latin letters.
 """
@@ -211,5 +215,103 @@ def render_blank_template_sheet(society, tz: ZoneInfo, template, *, compress: bo
         story += [Spacer(1, 1 * mm), _p(template.description, "dim")]
     story += [Spacer(1, 4 * mm), KeepTogether([_sign_off(width), Spacer(1, 1.5 * mm),
                                                _p(f"Printed {printed} IST", "small")])]
+    doc.build(story)
+    return buf.getvalue()
+
+
+# ── Floor-wise sheets (housekeeping) ──────────────────────────────────────────
+
+FLOOR_COL, TIME_COL, INIT_COL = 28 * mm, 15 * mm, 17 * mm
+MAX_ROW_H, MIN_ROW_H = 8.2 * mm, 5 * mm
+# Space the letterhead, title, name block, in/out strip, column titles and sign-off use on a page.
+CHROME_H = 152 * mm
+
+
+def _floor_grid(columns, floors, width) -> Table:
+    """Floors down the side, one tick column per checklist item, then time and initials."""
+    n_items = len(columns)
+    item_w = max((width - FLOOR_COL - TIME_COL - INIT_COL) / n_items, 9 * mm)
+    head_style = ParagraphStyle("fg_head", parent=P["head"], fontSize=7.4 if n_items <= 8 else 6.4,
+                                leading=8.6 if n_items <= 8 else 7.4)
+    head = [Paragraph("<b>Floor</b>", P["head"])] + [
+        Paragraph(escape(title) + ("&nbsp;*" if required else ""), head_style) for title, required in columns
+    ] + [Paragraph("<b>Time</b>", P["head"]), Paragraph("<b>Initials</b>", P["head"])]
+    row_h = max(MIN_ROW_H, min(MAX_ROW_H, (A4[1] - CHROME_H) / max(len(floors), 1)))
+    rows = [head] + [[_p(label, "bold")] + [""] * n_items + ["", ""] for label in floors]
+    t = Table(rows, colWidths=[FLOOR_COL] + [item_w] * n_items + [TIME_COL, INIT_COL],
+              rowHeights=[None] + [row_h] * len(floors), repeatRows=1)
+    t.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, RULE), ("BOX", (0, 0), (-1, -1), 0.8, INK),
+        ("BACKGROUND", (0, 0), (-1, 0), BAND), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("BACKGROUND", (0, 1), (0, -1), colors.HexColor("#F6F6F6")),
+        ("TOPPADDING", (0, 0), (-1, 0), 3), ("BOTTOMPADDING", (0, 0), (-1, 0), 3),
+        ("TOPPADDING", (0, 1), (-1, -1), 0), ("BOTTOMPADDING", (0, 1), (-1, -1), 0),
+    ]))
+    return t
+
+
+def _floor_page(society, width, printed, *, title, who_rows, columns, wing, footer):
+    story = society_header(society, width)
+    story += [Spacer(1, 3 * mm), Paragraph(escape(title.upper()), P["title"]),
+              Paragraph("Tick each column when it is done on that floor, then write the time and your initials. "
+                        "* means the item must be done on every floor.", P["hint"]),
+              Spacer(1, 2.5 * mm), _info_table(who_rows, width), Spacer(1, 2 * mm), _attendance_strip(width),
+              Spacer(1, 3 * mm), _floor_grid(columns, wing["floors"], width), Spacer(1, 3 * mm),
+              KeepTogether([_sign_off(width), Spacer(1, 1.5 * mm), _p(f"Printed {printed} IST · {footer}", "small")])]
+    return story
+
+
+def _columns(items):
+    """(title, required) for each checklist item in order; one 'Done' column when there are none."""
+    return [(i.title, i.is_required) for i in sorted(items, key=lambda i: i.sequence)] or [("Done", False)]
+
+
+def render_floor_sheets(society, tz: ZoneInfo, pages: List[dict], wings: List[dict], *, compress: bool = True) -> bytes:
+    """One page per duty per wing. `wings` is [{"label": "Wing A", "floors": ["Ground", "Floor 1", ...]}]."""
+    buf = BytesIO()
+    doc = _document(buf, society, "Floor-wise housekeeping sheet", compress)
+    width = doc.width
+    printed = datetime.now(tz).strftime("%d %b %Y %H:%M")
+    story: list = []
+    for page in pages:
+        staff, day = page["staff"], page["date"]
+        shift = staff.shift
+        shift_text = f"{shift.name} {_clock(shift.start_time)}–{_clock(shift.end_time)}" if shift else "—"
+        for duty in page["duties"]:
+            window = " – ".join(x for x in (_clock(duty.start_time), _clock(duty.end_time)) if x)
+            for wing in wings:
+                if story:
+                    story.append(PageBreak())
+                story += _floor_page(
+                    society, width, printed, title=duty.duty_name,
+                    who_rows=[
+                        [_p("Name", "label"), _p(f"{staff.full_name} ({staff.employee_code})", "bold"),
+                         _p("Date", "label"), _p(f"{day:%a, %d %b %Y}", "bold")],
+                        [_p("Wing", "label"), _p(wing["label"], "bold"),
+                         _p("Shift", "label"), _p(" · ".join(x for x in (shift_text, window) if x), "body")],
+                    ],
+                    columns=_columns(duty.checklist_items), wing=wing,
+                    footer=f"Sheet {staff.employee_code}-{day:%Y%m%d}-{wing['label']}")
+    doc.build(story)
+    return buf.getvalue()
+
+
+def render_blank_floor_sheet(society, tz: ZoneInfo, template, wings: List[dict], *, compress: bool = True) -> bytes:
+    """A template as a floor-wise sheet with the name, date and times left blank; one page per wing."""
+    buf = BytesIO()
+    doc = _document(buf, society, template.name, compress)
+    width = doc.width
+    printed = datetime.now(tz).strftime("%d %b %Y %H:%M")
+    story: list = []
+    for wing in wings:
+        if story:
+            story.append(PageBreak())
+        story += _floor_page(
+            society, width, printed, title=template.name,
+            who_rows=[
+                [_p("Name", "label"), "", _p("Date", "label"), ""],
+                [_p("Wing", "label"), _p(wing["label"], "bold"), _p("Shift", "label"), ""],
+            ],
+            columns=_columns(template.items), wing=wing, footer=wing["label"])
     doc.build(story)
     return buf.getvalue()
