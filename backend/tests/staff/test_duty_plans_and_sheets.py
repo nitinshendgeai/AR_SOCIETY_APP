@@ -427,3 +427,69 @@ def test_my_duties_can_be_limited_to_a_window_of_days(client, rig):
         headers=rig["admin"]).json()]
     assert sorted(days) == [str(MON + timedelta(days=n)) for n in (2, 3, 4)]
     assert len(_duties(client, rig["admin"], rig["g1"]["id"])) == 7
+
+
+# ── Cancelling ────────────────────────────────────────────────────────────────
+
+def test_a_duty_nobody_has_started_can_be_cancelled_and_leaves_every_list(client, rig):
+    duty = _one_duty(client, rig)
+    r = client.post(f"{S}/duties/{duty['id']}/cancel", headers=rig["admin"])
+    assert r.status_code == 200 and r.json() == {"cancelled": 1, "kept": 0}
+    assert _duties(client, rig["admin"], rig["g1"]["id"]) == []
+    assert client.get(f"{S}/duties/society/{rig['sid']}?duty_date={MON}", headers=rig["admin"]).json() == []
+    assert client.get(f"{S}/duties/sheet/society/{rig['sid']}?duty_date={MON}", headers=rig["admin"]).status_code == 404
+    assert client.post(f"{S}/duties/{duty['id']}/cancel", headers=rig["admin"]).status_code == 404
+
+
+def test_a_duty_with_work_recorded_cannot_be_cancelled(client, rig):
+    done = _one_duty(client, rig)
+    client.post(f"{S}/sheets/entry", headers=rig["sup"], json=_entry(rig, done, [True, True, True], complete=True))
+    assert client.post(f"{S}/duties/{done['id']}/cancel", headers=rig["admin"]).status_code == 409
+    other = _one_duty(client, rig, "g2")
+    client.post(f"{S}/sheets/entry", headers=rig["sup"], json=_entry(rig, other, [True], staff="g2"))
+    r = client.post(f"{S}/duties/{other['id']}/cancel", headers=rig["admin"])
+    assert r.status_code == 409 and "work recorded" in _why(r)
+
+
+def test_a_supervisor_cancels_only_their_own_departments_duties(client, rig):
+    duty = _one_duty(client, rig, "hk")
+    assert client.post(f"{S}/duties/{duty['id']}/cancel", headers=rig["sup"]).status_code == 403
+    assert client.post(f"{S}/duties/{duty['id']}/cancel", headers=rig["admin"]).status_code == 200
+
+
+def test_the_rest_of_a_plan_can_be_cancelled_from_a_day(client, rig):
+    out = client.post(f"{S}/duties/plan", headers=rig["admin"], json=_plan(
+        rig["sid"], [rig["g1"]["id"], rig["g2"]["id"]], checklist_template_id=rig["tpl"]["id"])).json()
+    # Wednesday's round for Guard One is done
+    wed = [d for d in _duties(client, rig["admin"], rig["g1"]["id"]) if d["duty_date"] == str(MON + timedelta(days=2))][0]
+    client.post(f"{S}/sheets/entry", headers=rig["sup"], json={
+        "staff_id": rig["g1"]["id"], "sheet_date": str(MON + timedelta(days=2)),
+        "duties": [{"duty_id": wed["id"], "mark_complete": False,
+                    "items": [{"item_id": wed["checklist_items"][0]["id"], "is_completed": True}]}]})
+    r = client.post(f"{S}/duties/series/{out['series_id']}/cancel?from_date={MON + timedelta(days=2)}",
+                    headers=rig["admin"])
+    # Wed-Sun for two guards = 10 duties; Guard One's Wednesday has work on it
+    assert r.status_code == 200 and r.json() == {"cancelled": 9, "kept": 1}
+    left = sorted(d["duty_date"] for d in _duties(client, rig["admin"], rig["g1"]["id"]))
+    assert left == [str(MON), str(MON + timedelta(days=1)), str(MON + timedelta(days=2))]
+    assert len(_duties(client, rig["admin"], rig["g2"]["id"])) == 2
+
+
+def test_cancelling_a_plan_is_held_to_the_supervisors_department_and_society(client, db, rig):
+    out = client.post(f"{S}/duties/plan", headers=rig["committee"], json=_plan(
+        rig["sid"], [rig["g1"]["id"], rig["hk"]["id"]], to_date=str(MON))).json()
+    r = client.post(f"{S}/duties/series/{out['series_id']}/cancel?from_date={MON}", headers=rig["sup"])
+    assert r.status_code == 200 and r.json() == {"cancelled": 1, "kept": 1}      # the cleaner's duty is not theirs
+    assert len(_duties(client, rig["admin"], rig["hk"]["id"])) == 1
+    assert client.post(f"{S}/duties/series/00000000-0000-0000-0000-000000000000/cancel",
+                       headers=rig["admin"]).status_code == 404
+
+
+def test_a_plan_can_be_cancelled_for_one_staff_member_only(client, rig):
+    out = client.post(f"{S}/duties/plan", headers=rig["admin"], json=_plan(
+        rig["sid"], [rig["g1"]["id"], rig["g2"]["id"]])).json()
+    r = client.post(f"{S}/duties/series/{out['series_id']}/cancel?from_date={MON + timedelta(days=3)}"
+                    f"&staff_id={rig['g2']['id']}", headers=rig["admin"])
+    assert r.status_code == 200 and r.json() == {"cancelled": 4, "kept": 0}       # Thu-Sun for Guard Two
+    assert len(_duties(client, rig["admin"], rig["g1"]["id"])) == 7
+    assert len(_duties(client, rig["admin"], rig["g2"]["id"])) == 3

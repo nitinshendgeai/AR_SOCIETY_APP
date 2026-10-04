@@ -4,6 +4,27 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-04
+
+### feat: duty plans, printable duty sheets, paper entry; fix daily in/out
+
+- A duty can be given to **several staff over a range of days or weekdays** (one duty per staff per day, each with its
+  own checklist copy); days on approved leave or already planned are skipped and reported. A duty nobody has started can
+  be cancelled, singly or for the rest of a plan.
+- **Printable duty sheets** (A4, one page per staff per day: tick boxes, remarks, IN / OUT strip, signatures) for a day or
+  up to 7 days, per staff member, and a **blank sheet per checklist template**. A supervisor **enters the filled sheet**
+  in the app (items, completed duties, IN / OUT); entries are marked as from paper with who entered them.
+- Department supervisors work only with their own department's staff for assigning, verifying, cancelling, printing and
+  entering sheets.
+- **Daily in/out fixes**: the date of a punch is the society's date (was UTC); a night shift can check out next morning;
+  "late" is judged on the society's clock; attendance times are sent as UTC with a `Z` and shown in local time (a 9:00 AM
+  punch showed as ~03:30); rejected punches no longer count as present; manual times without a zone are the society's.
+- New staff (on probation) can be given duties — the assign screen listed only `active` staff.
+- Validation errors in the app now say what was wrong instead of "Validation failed".
+- Migration `fe4f5a6b7c8d`.
+
+---
+
 ## 2026-06-24
 
 ### fix: staff module phase 4 audit — critical provider/backend fixes and deep defect sweep

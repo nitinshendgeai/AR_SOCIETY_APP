@@ -144,18 +144,20 @@ def test_a_rejected_punch_in_does_not_count_as_present(client, db, rig):
     assert _in(client, rig).status_code == 200
 
 
-def test_a_supervisors_summary_covers_only_their_department(client, db, rig):
-    sup = make_user(db, "att-sup2@loc.io", role="Security Supervisor")
-    record = _staff(client, rig["admin"], rig["sid"], "Sup Two", "9822100003")
-    link_staff_login(db, record["id"], sup)
+def test_a_supervisors_summary_covers_only_their_departments(client, db, rig):
+    sup = make_user(db, "att-sup2@loc.io", role="Security Supervisor")      # needs no staff record of their own
+    hk_sup = make_user(db, "att-hk@loc.io", role="Housekeeping Supervisor")
     cleaner = _staff(client, rig["admin"], rig["sid"], "Cleaner", "9822100004", "housekeeping")
+    trainer = _staff(client, rig["admin"], rig["sid"], "Trainer", "9822100005", "gym")
     day = local_today(IST)
-    _seed(db, rig, datetime.utcnow(), day=day)
-    _seed(db, rig, datetime.utcnow(), day=day, staff_id=UUID(cleaner["id"]))
-    everyone = client.get(f"{S}/society/{rig['sid']}/summary?att_date={day}", headers=rig["admin"]).json()
-    own = client.get(f"{S}/society/{rig['sid']}/summary?att_date={day}", headers=sup["headers"]).json()
-    assert everyone["total_staff"] == 3 and everyone["present"] == 2
-    assert own["total_staff"] == 2 and own["present"] == 1 and set(own["department_breakdown"]) == {"security"}
+    for who in (rig["gid"], UUID(cleaner["id"]), UUID(trainer["id"])):
+        _seed(db, rig, datetime.utcnow(), day=day, staff_id=who)
+    summary = lambda headers: client.get(f"{S}/society/{rig['sid']}/summary?att_date={day}", headers=headers).json()
+    everyone, security, housekeeping = summary(rig["admin"]), summary(sup["headers"]), summary(hk_sup["headers"])
+    assert everyone["total_staff"] == 3 and everyone["present"] == 3
+    assert security["total_staff"] == 1 and set(security["department_breakdown"]) == {"security"}
+    # a Housekeeping Supervisor also covers gym, gardening and amenities
+    assert housekeeping["total_staff"] == 2 and set(housekeeping["department_breakdown"]) == {"housekeeping", "gym"}
 
 
 # ── Manual entry ──────────────────────────────────────────────────────────────

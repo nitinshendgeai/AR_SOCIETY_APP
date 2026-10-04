@@ -8,6 +8,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
+import 'package:ar_society_app/features/staff/presentation/widgets/duty_sheet_actions.dart';
 
 const kStaffDepartments = [
   ('security',     'Security'),
@@ -120,6 +121,11 @@ class _ChecklistTemplatesScreenState extends ConsumerState<ChecklistTemplatesScr
                     template: filtered[i],
                     onEdit: () => _openEditor(context, societyId: societyId, existing: filtered[i]),
                     onDelete: () => _confirmDelete(context, societyId: societyId, template: filtered[i]),
+                    onPrint: () => deliverSheet(
+                      context,
+                      ref.read(staffRepositoryProvider).templateSheetPdf(filtered[i].id),
+                      'checklist-${filtered[i].name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-')}.pdf',
+                    ),
                   ),
                 );
               },
@@ -189,7 +195,10 @@ class _TemplateCard extends StatelessWidget {
   final ChecklistTemplateEntity template;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  const _TemplateCard({required this.template, required this.onEdit, required this.onDelete});
+  final VoidCallback onPrint;
+  const _TemplateCard({
+    required this.template, required this.onEdit, required this.onDelete, required this.onPrint,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -199,6 +208,7 @@ class _TemplateCard extends StatelessWidget {
         title: Text(template.name, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text('${departmentLabel(template.department)} · ${template.items.length} item(s)'),
         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+          IconButton(icon: const Icon(Icons.print_outlined), tooltip: 'Print blank sheet', onPressed: onPrint),
           IconButton(icon: const Icon(Icons.edit_outlined), onPressed: onEdit),
           IconButton(icon: const Icon(Icons.delete_outline, color: AppTheme.error), onPressed: onDelete),
         ]),

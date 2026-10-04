@@ -46,8 +46,45 @@ void main() {
       expect(message.contains('validateStatus'), isFalse);
     });
 
-    test('non-Dio errors get a generic friendly message, not their raw toString()', () {
-      final message = friendlyErrorMessage(Exception('some internal detail'));
+    DioException validation(List<Map<String, dynamic>> errors) => DioException(
+          requestOptions: RequestOptions(path: '/staff/sheets/entry'),
+          response: Response(
+            requestOptions: RequestOptions(path: '/staff/sheets/entry'),
+            statusCode: 422,
+            data: {'success': false, 'message': 'Validation failed', 'errors': errors, 'code': 'VALIDATION_ERROR'},
+          ),
+          type: DioExceptionType.badResponse,
+        );
+
+    test('a validation failure says what was wrong, not just "Validation failed"', () {
+      expect(
+        friendlyErrorMessage(validation([
+          {'field': null, 'message': "Value error, A sheet can't be entered for a future date"},
+        ])),
+        "A sheet can't be entered for a future date",
+      );
+    });
+
+    test('a validation failure names the field it was about', () {
+      expect(
+        friendlyErrorMessage(validation([
+          {'field': 'end_time', 'message': 'Input should be in a valid time format'},
+          {'field': 'duty_name', 'message': 'ignored: only the first is shown'},
+        ])),
+        'End time: Input should be in a valid time format',
+      );
+    });
+
+    test('a validation failure with no listed errors still says it failed', () {
+      expect(friendlyErrorMessage(validation([])), 'Validation failed');
+    });
+
+    test('an Exception carrying a message (a repository re-throw) shows that message', () {
+      expect(friendlyErrorMessage(Exception('Already assigned')), 'Already assigned');
+    });
+
+    test('other errors get a generic friendly message, not their raw toString()', () {
+      final message = friendlyErrorMessage(StateError('some internal detail'));
       expect(message, 'Something went wrong. Please try again.');
     });
   });

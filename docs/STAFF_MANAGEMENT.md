@@ -115,6 +115,16 @@ Pending Approval
 is_approved: true, approved_by: user.id, approved_at: timestamp
 ```
 
+### Punch date, night shifts and times (society clock)
+
+- The date of a punch is **the society's date** (`societies.timezone`, Asia/Kolkata by default), not the server's UTC date.
+- Timestamps are stored as UTC and **sent with a `Z`**, so the app shows each viewer's own clock (9:00 AM punch reads 9:00).
+- A night shift can **check out the next morning**: check-out closes the open punch-in from the last 18 hours; a
+  punch-in still open blocks a new punch-in ("Check out first"); an older one (a forgotten punch-out) does not.
+- "Late" is judged on the society's clock against the shift start (30-minute grace). A rejected punch (deactivated) is
+  not attendance and does not count as present.
+- Manual attendance times sent without a zone are the society's clock.
+
 ### Punch-Out Flow
 
 ```
@@ -155,16 +165,45 @@ is_checkout_approved: true
 | GET | /staff/attendance/pending-checkout/{society_id} | supervisor_above |
 | POST | /staff/attendance/{id}/approve | supervisor_above |
 | POST | /staff/attendance/{id}/approve-checkout | supervisor_above |
-| GET | /staff/society/{society_id}/summary | supervisor_above |
+| GET | /staff/society/{society_id}/summary | supervisor_above (a supervisor sees their role's departments only) |
 
 ### Duties
 | Method | Path | Permission |
 |--------|------|------------|
-| POST | /staff/duties | Admin, Committee |
-| POST | /staff/duties/{id}/complete | Staff+ |
-| POST | /staff/duties/{id}/verify | Admin, Committee |
-| GET | /staff/duties/society/{society_id} | Admin, Committee |
-| GET | /staff/duties/me/{staff_id} | Staff+ |
+| POST | /staff/duties | supervisor_above (a supervisor: own department's staff) |
+| POST | /staff/duties/plan | supervisor_above — one duty for several staff over a range of days / weekdays |
+| POST | /staff/duties/{id}/complete | Staff+ (self), supervisor_above |
+| POST | /staff/duties/{id}/verify | supervisor_above (own department for a supervisor) |
+| POST | /staff/duties/{id}/cancel | supervisor_above — only if nobody has started it |
+| POST | /staff/duties/series/{series_id}/cancel?from_date=&staff_id= | supervisor_above — rest of a plan |
+| GET | /staff/duties/society/{society_id}?duty_date= | supervisor_above |
+| GET | /staff/duties/me/{staff_id}?from_date=&to_date= | Staff+ (own), supervisor_above |
+| GET | /staff/duties/sheet/society/{society_id}?duty_date=&to_date=&department= | supervisor_above — printable sheets (PDF) |
+| GET | /staff/duties/sheet/staff/{staff_id}?duty_date=&to_date= | Staff+ (own), supervisor_above |
+| GET | /staff/checklist-templates/{id}/sheet | supervisor_above — blank printable checklist |
+| POST | /staff/sheets/entry | supervisor_above — a filled-in printed sheet |
+
+### Duty plans, printable sheets and paper entry
+
+- **Plan** (`DutyPlanCreate`): `staff_ids` (up to 50), `from_date`, `to_date` (≤ 62 days), `weekdays` (0 = Mon … 6 = Sun,
+  blank = every day), optional checklist template. It makes **one duty per staff per day**, each with its own copy of the
+  checklist, all sharing a `series_id`. At most 600 duties at once. Days on **approved leave**, days that **already
+  have the same duty**, and staff who are inactive/terminated are skipped and listed in the reply. There is no
+  scheduler: a plan is made ahead, so a week's or month's sheets can be printed and handed out.
+- **Department scope**: a Security / Housekeeping / Technical Supervisor can assign, verify, cancel, print and enter
+  sheets only for staff in their own department (`_SUPERVISOR_DEPT_ACCESS`); Manager, committee and admin work with all.
+- **Sheet PDF** (`duty_sheet_pdf.py`): one A4 page per staff member per day on the society's letterhead — name, date,
+  shift, an IN / OUT / signature strip, each duty with its checklist as tick boxes and a remarks column (items already
+  done in the app print as "Done"), supervisor remarks and signature lines. Up to 7 days per print. Text prints in
+  Latin letters (the standard PDF fonts have no Devanagari).
+- **Paper entry** (`POST /staff/sheets/entry`): the supervisor sends, for one staff member and day, the items ticked,
+  duties completed and the IN / OUT times (society clock; an OUT before the IN is the next morning; > 20 hours is
+  refused). Everything is checked before anything is saved. Items entered this way carry `entered_from_paper`,
+  `completed_by` and the duty `completion_source = "paper"`; the attendance is recorded as manual and approved. A
+  verified duty can't be changed. A day in the future can't be entered.
+- **Cancel**: a duty with no work recorded (not completed, no item ticked) can be cancelled, singly or for the rest of
+  a plan (optionally for one staff member). Cancelled duties disappear from lists and sheets (soft delete, audited).
+
 
 ### Complaint Assignment (Manager → Department)
 | Method | Path | Permission |
@@ -233,7 +272,10 @@ Statuses (complaint module): `open → assigned → in_progress → resolved →
 | DutiesScreen | /staff/duties/:id | Staff |
 | HandoverScreen | /staff/handover/:id | Staff |
 | AttendanceApprovalScreen | /staff/approvals | Supervisor, Manager |
-| DutyAssignScreen | /staff/assign-duty | Supervisor, Manager |
+| DutyAssignScreen | /staff/assign-duty | Supervisor, Manager (one or several staff, one day or a range of weekdays) |
+| DutyOverviewScreen | /staff/duties/overview | Supervisor, Manager (date bar, Print sheets, Enter from sheet, Verify, Cancel) |
+| PaperSheetEntryScreen | /staff/paper-sheet | Supervisor, Manager |
+| ChecklistTemplatesScreen | /staff/checklist-templates | Manager+ (print a blank sheet per template) |
 | StaffListScreen | /staff/list | Admin, Committee, Manager, Supervisor |
 | StaffDetailScreen | /staff/:staffId/detail | Admin, Committee, Manager |
 | StaffAddScreen | /staff/add | Admin, Committee |
@@ -274,6 +316,10 @@ Supervisor-scoped endpoints accept an optional `department` query param. When no
 ---
 
 ## Database Migration
+
+`fe4f5a6b7c8d_duty_plans_and_paper_sheets` — `duty_assignments.series_id`, `completed_by`, `completion_source`;
+`duty_checklist_items.completed_by`, `entered_from_paper`.
+
 
 Migration: `d1e2f3a4b5c6_staff_hierarchy_checkout_approval.py`
 

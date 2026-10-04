@@ -14,7 +14,7 @@ from app.modules.staff.models.staff import (
 )
 from app.modules.staff.schemas.staff import (
     StaffCreate, StaffUpdate, DesignationCreate, ShiftCreate,
-    DutyCreate, DutyPlanCreate, DutyPlanOut, DutyPlanSkip, PaperSheetEntry,
+    DutyCreate, DutyPlanCreate, DutyPlanOut, DutyPlanSkip, DutyCancelOut, PaperSheetEntry,
     DutyVerifyRequest, AttendanceCheckIn, AttendanceCheckOut,
     AttendanceManualEntry, AttendanceApprovalRequest, AttendanceCheckoutApprovalRequest,
     TaskCreate, TaskStatusUpdate, WorkLogCreate,
@@ -470,6 +470,65 @@ class StaffService:
             first_date=min(d.duty_date for d in created) if created else None,
             last_date=max(d.duty_date for d in created) if created else None)
 
+    @staticmethod
+    def _has_work_recorded(duty: DutyAssignment) -> bool:
+        return duty.is_completed or any(i.is_completed for i in duty.checklist_items)
+
+    def _cancel(self, duty: DutyAssignment, user: User, request, notify: bool = True) -> None:
+        duty.is_active = False
+        self._audit(AuditAction.DELETE, duty, "DutyAssignment", user, request,
+                    old_values={"duty": duty.duty_name, "date": str(duty.duty_date), "staff": str(duty.staff_id)})
+        staff = duty.staff
+        if notify and staff and staff.user_id:
+            self._notify(staff.user_id, "Duty Cancelled",
+                         f"Your duty '{duty.duty_name}' on {duty.duty_date:%d %b} has been cancelled",
+                         type=NotificationType.INFO, entity_id=duty.id)
+
+    def cancel_duty(self, duty_id: UUID, user: User, request=None) -> DutyCancelOut:
+        """Remove a duty that nobody has started. One with work already recorded stays: it is the record."""
+        duty = self._duty_or_404(duty_id, user)
+        self._assert_manages(user, self._staff_or_404(duty.staff_id).department.value, "cancel duties of")
+        if self._has_work_recorded(duty):
+            raise HTTPException(status_code=409,
+                                detail=f"'{duty.duty_name}' already has work recorded on it, so it can't be cancelled")
+        self._cancel(duty, user, request)
+        self.db.commit()
+        return DutyCancelOut(cancelled=1)
+
+    def cancel_duty_series(self, series_id: UUID, from_date: Optional[date], user: User, request=None,
+                           staff_id: Optional[UUID] = None) -> DutyCancelOut:
+        """Cancel the rest of a plan: its duties from [from_date] (today by default) that nobody has
+        started, for everyone in the plan or just [staff_id]. Earlier days, started ones and, for a
+        supervisor, other departments' stay."""
+        query = self.db.query(DutyAssignment).filter(
+            DutyAssignment.series_id == series_id, DutyAssignment.is_active == True)  # noqa: E712
+        if staff_id:
+            query = query.filter(DutyAssignment.staff_id == staff_id)
+        rows = query.all()
+        if not rows:
+            raise HTTPException(status_code=404, detail="Duty plan not found")
+        for r in rows:
+            self._scoped(user, r, "Duty plan")
+        start = from_date or local_today(self._tz(rows[0].society_id))
+        cancelled = kept = 0
+        notified = set()
+        for duty in sorted(rows, key=lambda d: d.duty_date):
+            if duty.duty_date < start:
+                continue
+            try:
+                self._assert_manages(user, duty.staff.department.value, "cancel duties of")
+            except HTTPException:
+                kept += 1
+                continue
+            if self._has_work_recorded(duty):
+                kept += 1
+                continue
+            self._cancel(duty, user, request, notify=duty.staff_id not in notified)
+            notified.add(duty.staff_id)
+            cancelled += 1
+        self.db.commit()
+        return DutyCancelOut(cancelled=cancelled, kept=kept)
+
     def record_paper_sheet(self, data: PaperSheetEntry, user: User, request=None) -> dict:
         """A supervisor enters what the staff member ticked and wrote on the printed sheet:
         the checklist items, whether the duty was completed, and the in/out times. Every item
@@ -876,13 +935,24 @@ class StaffService:
     ) -> List[StaffAttendance]:
         return self.att_repo.get_pending_checkout(society_id, department)
 
-    def get_attendance_summary(self, society_id: UUID, att_date: date, department: Optional[str] = None) -> dict:
+    @staticmethod
+    def supervised_departments(user: User) -> Optional[set]:
+        """The departments a user is limited to, or None for no limit: a department supervisor
+        sees their role's departments (a Housekeeping Supervisor also covers gym, gardening and
+        amenities); managers, the committee and admins see all."""
+        role_names = {ur.role.name for ur in user.user_roles if ur.role}
+        if role_names & _MANAGER_ROLES_SVC or "Committee Member" in role_names:
+            return None
+        mine = [d for r, d in _SUPERVISOR_DEPT_ACCESS.items() if r in role_names]
+        return set().union(*mine) if mine else None
+
+    def get_attendance_summary(self, society_id: UUID, att_date: date, departments: Optional[set] = None) -> dict:
         records    = self.att_repo.get_by_society_date(society_id, att_date)
         staff_list = self.repo.get_by_society(society_id, skip=0, limit=500)
-        if department:
-            staff_list = [s for s in staff_list if s.department.value == department]
+        if departments is not None:
+            staff_list = [s for s in staff_list if s.department.value in departments]
         staff_map  = {s.id: s for s in staff_list}
-        if department:
+        if departments is not None:
             records = [r for r in records if r.staff_id in staff_map]
         total_staff = len(staff_list)
 

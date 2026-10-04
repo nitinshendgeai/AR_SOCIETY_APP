@@ -259,6 +259,12 @@ class DutyPlanOut(OrmBase):
     skipped: List[DutyPlanSkip] = []
 
 
+class DutyCancelOut(OrmBase):
+    cancelled: int
+    # Duties left alone: work already recorded, or another department's.
+    kept: int = 0
+
+
 class PaperItemEntry(OrmBase):
     item_id: UUID
     is_completed: bool = True

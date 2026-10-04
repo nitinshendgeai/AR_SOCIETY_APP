@@ -15,7 +15,7 @@ from app.core.tenant_scope import assert_society_access, resolve_create_society_
 from app.modules.staff.schemas.staff import (
     StaffCreate, StaffUpdate, StaffOut, DesignationCreate, DesignationOut,
     ShiftCreate, ShiftOut, DutyCreate, DutyOut, DutyVerifyRequest,
-    DutyPlanCreate, DutyPlanOut, PaperSheetEntry, PaperSheetOut,
+    DutyPlanCreate, DutyPlanOut, DutyCancelOut, PaperSheetEntry, PaperSheetOut,
     AttendanceCheckIn, AttendanceCheckOut, AttendanceManualEntry,
     AttendanceApprovalRequest, AttendanceCheckoutApprovalRequest,
     AttendanceRejectRequest, AttendanceOut,
@@ -152,6 +152,21 @@ def assign_duty_plan(data: DutyPlanCreate, request: Request, db: Session = Depen
                      user: User = Depends(supervisor_above)):
     """One duty for several staff over a range of days (every day or chosen weekdays)."""
     return StaffService(db).assign_duty_plan(data, user, request)
+
+@router.post("/duties/series/{series_id}/cancel", response_model=DutyCancelOut)
+def cancel_duty_series(series_id: UUID,
+                       from_date: Optional[date] = Query(None, description="First day to cancel; today by default"),
+                       staff_id: Optional[UUID] = Query(None, description="Only this staff member's; everyone in the plan if blank"),
+                       request: Request = None, db: Session = Depends(get_db),
+                       user: User = Depends(supervisor_above)):
+    """Cancel the rest of a duty plan (duties nobody has started)."""
+    return StaffService(db).cancel_duty_series(series_id, from_date, user, request, staff_id)
+
+@router.post("/duties/{duty_id}/cancel", response_model=DutyCancelOut)
+def cancel_duty(duty_id: UUID, request: Request, db: Session = Depends(get_db),
+                user: User = Depends(supervisor_above)):
+    """Cancel one duty that nobody has started."""
+    return StaffService(db).cancel_duty(duty_id, user, request)
 
 @router.post("/duties/{duty_id}/complete", response_model=DutyOut)
 def complete_duty(duty_id: UUID, db: Session = Depends(get_db),
@@ -379,7 +394,7 @@ def attendance_summary(
     Supervisors see their own department only; managers see all.
     """
     assert_society_access(user, society_id)
-    return StaffService(db).get_attendance_summary(society_id, att_date, _resolve_dept(user, None, db))
+    return StaffService(db).get_attendance_summary(society_id, att_date, StaffService.supervised_departments(user))
 
 
 # ── Tasks ─────────────────────────────────────────────────────────────────────

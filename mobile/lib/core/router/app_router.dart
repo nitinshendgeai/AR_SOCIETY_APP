@@ -16,6 +16,7 @@ import 'package:ar_society_app/features/staff/presentation/screens/handover_scre
 import 'package:ar_society_app/features/staff/presentation/screens/approval_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/duty_assign_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/duty_overview_screen.dart';
+import 'package:ar_society_app/features/staff/presentation/screens/paper_sheet_entry_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/attendance_correction_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_list_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_add_screen.dart';
@@ -105,6 +106,7 @@ class AppRoutes {
   static const staffApprovals     = '/staff/approvals';
   static const staffAssignDuty    = '/staff/assign-duty';
   static const staffDutyOverview  = '/staff/duties/overview';
+  static const staffPaperSheet    = '/staff/paper-sheet';
   static const staffAttendanceCorrections = '/staff/attendance-corrections';
   static const staffList          = '/staff/list';
   static const staffAdd           = '/staff/add';
@@ -410,6 +412,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               return DutyAssignScreen(
                 societyId: extra['societyId'] as String? ?? '',
                 preSelectedStaffId: extra['staffId'] as String?,
+              );
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.staffPaperSheet,
+            builder: (_, state) {
+              final extra = state.extra as Map<String, dynamic>? ?? {};
+              return PaperSheetEntryScreen(
+                societyId: extra['societyId'] as String? ?? sessionSocietyId(),
+                staffId: extra['staffId'] as String? ?? '',
+                staffName: extra['staffName'] as String? ?? 'Staff',
+                date: DateTime.tryParse(extra['date'] as String? ?? '') ?? DateTime.now(),
               );
             },
           ),
