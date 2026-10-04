@@ -1,7 +1,7 @@
 from typing import List, Optional
 from uuid import UUID
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, Path, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Request, Query, Response
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -15,6 +15,7 @@ from app.core.tenant_scope import assert_society_access, resolve_create_society_
 from app.modules.staff.schemas.staff import (
     StaffCreate, StaffUpdate, StaffOut, DesignationCreate, DesignationOut,
     ShiftCreate, ShiftOut, DutyCreate, DutyOut, DutyVerifyRequest,
+    DutyPlanCreate, DutyPlanOut, PaperSheetEntry, PaperSheetOut,
     AttendanceCheckIn, AttendanceCheckOut, AttendanceManualEntry,
     AttendanceApprovalRequest, AttendanceCheckoutApprovalRequest,
     AttendanceRejectRequest, AttendanceOut,
@@ -146,6 +147,12 @@ def assign_duty(data: DutyCreate, request: Request, db: Session = Depends(get_db
                 user: User = Depends(supervisor_above)):
     return StaffService(db).assign_duty(data, user, request)
 
+@router.post("/duties/plan", response_model=DutyPlanOut, status_code=201)
+def assign_duty_plan(data: DutyPlanCreate, request: Request, db: Session = Depends(get_db),
+                     user: User = Depends(supervisor_above)):
+    """One duty for several staff over a range of days (every day or chosen weekdays)."""
+    return StaffService(db).assign_duty_plan(data, user, request)
+
 @router.post("/duties/{duty_id}/complete", response_model=DutyOut)
 def complete_duty(duty_id: UUID, db: Session = Depends(get_db),
                   user: User = Depends(any_staff)):
@@ -164,8 +171,56 @@ def duties_by_date(society_id: UUID,
     return StaffService(db).get_duties_by_date(society_id, duty_date)
 
 @router.get("/duties/me/{staff_id}", response_model=List[DutyOut])
-def my_duties(staff_id: UUID, db: Session = Depends(get_db), user: User = Depends(any_staff)):
-    return StaffService(db).get_my_duties(staff_id, user)
+def my_duties(staff_id: UUID,
+              from_date: Optional[date] = Query(None, description="First day to include"),
+              to_date: Optional[date] = Query(None, description="Last day to include"),
+              db: Session = Depends(get_db), user: User = Depends(any_staff)):
+    return StaffService(db).get_my_duties(staff_id, user, from_date, to_date)
+
+
+# ── Printable duty sheets and paper entry ─────────────────────────────────────
+def _pdf(content: bytes, filename: str) -> Response:
+    return Response(content=content, media_type="application/pdf",
+                    headers={"Content-Disposition": f"inline; filename={filename}"})
+
+def _sheet_name(first: date, last: date) -> str:
+    return f"duty-sheet-{first}.pdf" if first == last else f"duty-sheets-{first}-to-{last}.pdf"
+
+@router.get("/duties/sheet/society/{society_id}")
+def duty_sheets(society_id: UUID,
+                duty_date: date = Query(..., description="YYYY-MM-DD"),
+                to_date: Optional[date] = Query(None, description="Last day, up to 7 days in all"),
+                department: Optional[str] = Query(None),
+                db: Session = Depends(get_db), user: User = Depends(supervisor_above)):
+    """The printable duty sheets (one page per staff member per day). A supervisor gets
+    their own department's."""
+    from app.modules.staff.services.duty_sheet_pdf import render_duty_sheets
+    assert_society_access(user, society_id)
+    svc = StaffService(db)
+    pages = svc.duty_sheet_pages(society_id, duty_date, to_date or duty_date,
+                                 department=_resolve_dept(user, department, db))
+    return _pdf(render_duty_sheets(svc.society_for_print(society_id), svc.zone_for(society_id), pages),
+                _sheet_name(duty_date, to_date or duty_date))
+
+@router.get("/duties/sheet/staff/{staff_id}")
+def duty_sheet_for_staff(staff_id: UUID,
+                         duty_date: date = Query(..., description="YYYY-MM-DD"),
+                         to_date: Optional[date] = Query(None),
+                         db: Session = Depends(get_db), user: User = Depends(any_staff)):
+    """One staff member's printable sheet(s); they can print their own."""
+    from app.modules.staff.services.duty_sheet_pdf import render_duty_sheets
+    svc = StaffService(db)
+    pages = svc.duty_sheet_pages_for_staff(staff_id, duty_date, to_date or duty_date, user)
+    society_id = pages[0]["staff"].society_id
+    return _pdf(render_duty_sheets(svc.society_for_print(society_id), svc.zone_for(society_id), pages),
+                _sheet_name(duty_date, to_date or duty_date))
+
+@router.post("/sheets/entry", response_model=PaperSheetOut)
+def enter_paper_sheet(data: PaperSheetEntry, request: Request, db: Session = Depends(get_db),
+                      user: User = Depends(supervisor_above)):
+    """A supervisor records a filled-in printed sheet: checklist ticks, completed duties
+    and the in/out times."""
+    return StaffService(db).record_paper_sheet(data, user, request)
 
 
 # ── Duty Checklist ────────────────────────────────────────────────────────────
@@ -180,6 +235,17 @@ def complete_checklist_item(duty_id: UUID, item_id: UUID, data: DutyChecklistIte
 
 
 # ── Checklist Templates ───────────────────────────────────────────────────────
+@router.get("/checklist-templates/{template_id}/sheet")
+def checklist_template_sheet(template_id: UUID, db: Session = Depends(get_db),
+                             user: User = Depends(supervisor_above)):
+    """The checklist as a blank printable sheet (name, date and times left to fill in)."""
+    from app.modules.staff.services.duty_sheet_pdf import render_blank_template_sheet
+    svc = StaffService(db)
+    template = svc.get_checklist_template(template_id, user)
+    return _pdf(render_blank_template_sheet(svc.society_for_print(template.society_id),
+                                            svc.zone_for(template.society_id), template),
+                f"checklist-{template.name.lower().replace(' ', '-')[:40]}.pdf")
+
 @router.post("/checklist-templates", response_model=ChecklistTemplateOut, status_code=201,
              dependencies=[Depends(manager_or_above)])
 def create_checklist_template(data: ChecklistTemplateCreate, db: Session = Depends(get_db),
@@ -313,7 +379,7 @@ def attendance_summary(
     Supervisors see their own department only; managers see all.
     """
     assert_society_access(user, society_id)
-    return StaffService(db).get_attendance_summary(society_id, att_date)
+    return StaffService(db).get_attendance_summary(society_id, att_date, _resolve_dept(user, None, db))
 
 
 # ── Tasks ─────────────────────────────────────────────────────────────────────
