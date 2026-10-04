@@ -34,26 +34,21 @@ def require_platform_admin():
 | Activate society | `POST /api/v1/platform-admin/societies/{id}/activate` |
 | List all trials | `GET /api/v1/platform-admin/trials` |
 | View usage stats | `GET /api/v1/platform-admin/stats` |
-| Create platform admin | `POST /api/v1/platform-admin/admins` |
 
 ## Creating a Platform Admin User
 
-Platform admin users are created via a seeded CLI command or the API itself
-(first platform admin must be created by database seed or Django-style `createsuperuser`).
+There is no API for the first one. Run, once per database (it is safe to run again):
 
-```python
-# Seed script (run once on production):
-user = User(
-    email="ops@arsocietyapp.com",
-    full_name="Platform Operations",
-    hashed_password=hash_password("SecurePass@123"),
-    status=UserStatus.ACTIVE,
-    is_superadmin=True,
-    must_change_password=False,
-)
-db.add(user)
-db.commit()
+```bash
+cd backend
+DATABASE_URL="..." PLATFORM_ADMIN_PASSWORD='a-strong-password-1' \
+  python -m app.utils.create_platform_admin ops@yourdomain.com "Platform Operations"
 ```
+
+It creates the `Platform Admin` role and a user with `is_superadmin = true`, no society, and the first-login wizards
+switched off. The password (10+ characters, letters and digits) comes from `PLATFORM_ADMIN_PASSWORD` or a prompt.
+An existing user is promoted and keeps their password unless you pass `--reset-password`. See
+`DEPLOYMENT.md` → *Starting with a blank database*.
 
 ## Security Isolation
 
