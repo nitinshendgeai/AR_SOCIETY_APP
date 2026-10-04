@@ -85,10 +85,19 @@ class _AuthInterceptor extends QueuedInterceptor {
       final refreshToken = await TokenStorage.getRefreshToken();
       if (refreshToken == null) return false;
 
-      final response = await ApiClient.instance.post(
+      // A separate, interceptor-free client. This interceptor is a QueuedInterceptor: it handles
+      // one error at a time, so sending the refresh through ApiClient.instance made a failing
+      // refresh (expired or invalidated login) wait in the same queue for the very error handler
+      // that was waiting on it. The request then never finished and the app sat on its logo.
+      final plain = Dio(BaseOptions(
+        baseUrl: Env.apiBaseUrl,
+        connectTimeout: const Duration(milliseconds: AppConstants.connectTimeoutMs),
+        receiveTimeout: const Duration(milliseconds: AppConstants.receiveTimeoutMs),
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      ));
+      final response = await plain.post(
         '/auth/refresh',
         data: {'refresh_token': refreshToken},
-        options: Options(extra: {'skipAuth': true}),
       );
 
       final data = response.data as Map<String, dynamic>;

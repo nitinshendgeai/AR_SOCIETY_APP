@@ -6,6 +6,15 @@ Format: `[YYYY-MM-DD] type: description`
 
 ## 2026-10-05
 
+### fix: app stuck on the logo when the saved login is no longer valid
+
+- If a browser still held a login the server now rejects (database replaced, `SECRET_KEY` changed, or a refresh token
+  that has expired), the app never got past the DUX OS splash screen until site data was cleared. The 401 handler is a
+  queued interceptor and sent its token-refresh request through the same client, so a failing refresh waited in the
+  queue for the handler that was waiting on it. The refresh now goes through its own plain client; the app clears the
+  stale login and shows the sign-in screen. Reproduced in headless Chromium by changing the server's secret under a
+  logged-in browser, before and after.
+
 ### fix: first deploy on an empty database no longer fails its healthcheck
 
 - `railway.json` `healthcheckTimeout` 30 → 300 seconds. The first start on a blank database runs every migration before
