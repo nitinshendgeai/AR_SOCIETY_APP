@@ -23,15 +23,20 @@ def verify_password(plain: str, hashed: str) -> bool:
 # JWT utilities
 # ─────────────────────────────────────────────
 
-def create_access_token(subject: Union[str, int], extra: dict = {}) -> str:
+def create_access_token(subject: Union[str, int], extra: dict = {}, session_id: Optional[str] = None) -> str:
+    """`session_id` ties the token to a signed-in device (see UserSession) so it can be revoked."""
     expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {"sub": str(subject), "exp": expire, "type": "access", **extra}
+    if session_id:
+        payload["sid"] = str(session_id)
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-def create_refresh_token(subject: Union[str, int]) -> str:
+def create_refresh_token(subject: Union[str, int], session_id: Optional[str] = None) -> str:
     expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     payload = {"sub": str(subject), "exp": expire, "type": "refresh"}
+    if session_id:
+        payload["sid"] = str(session_id)
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 

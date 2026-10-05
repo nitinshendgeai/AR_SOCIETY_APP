@@ -1,11 +1,17 @@
-from fastapi import APIRouter, Depends
+import uuid
+from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, RefreshRequest, ChangePasswordRequest
+from app.schemas.auth import (
+    RegisterRequest, LoginRequest, TokenResponse, RefreshRequest, ChangePasswordRequest, SessionOut,
+)
 from app.schemas.user import UserOut
 from app.services.auth_service import AuthService
+from app.services.session_service import SessionService
 from app.services.password_reset_service import PasswordResetService
 from app.core.dependencies import get_current_user
 from app.models.user import User
@@ -22,17 +28,17 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(data: LoginRequest, db: Session = Depends(get_db)):
-    """Authenticate and receive JWT tokens."""
+def login(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
+    """Authenticate and receive JWT tokens. Each sign-in is a device session the user can see and end."""
     service = AuthService(db)
-    return service.login(data)
+    return service.login(data, request)
 
 
 @router.post("/refresh", response_model=TokenResponse)
-def refresh(data: RefreshRequest, db: Session = Depends(get_db)):
-    """Rotate tokens using a valid refresh token."""
+def refresh(data: RefreshRequest, request: Request, db: Session = Depends(get_db)):
+    """Rotate tokens using a valid refresh token. Fails once the device has been signed out."""
     service = AuthService(db)
-    return service.refresh(data.refresh_token)
+    return service.refresh(data.refresh_token, request)
 
 
 @router.get("/me", response_model=UserOut)
@@ -49,6 +55,50 @@ def change_password(
 ):
     """Change password for the currently authenticated user."""
     AuthService(db).change_password(current_user, data)
+
+
+# ── Signed-in devices ─────────────────────────────────────────────────────────
+
+def _session_out(row, current_id) -> SessionOut:
+    return SessionOut(id=str(row.id), device=row.device, ip_address=row.ip_address, signed_in_at=row.created_at,
+                      last_seen_at=row.last_seen_at, current=str(row.id) == str(current_id))
+
+
+@router.post("/logout", status_code=204)
+def logout(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Sign this device out: its tokens stop working immediately."""
+    sessions = SessionService(db)
+    session = sessions.get(getattr(current_user, "current_session_id", None))
+    if session is not None:
+        sessions.revoke(session, "logout")
+        db.commit()
+
+
+@router.get("/sessions", response_model=List[SessionOut])
+def my_sessions(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """The devices currently signed in to this account, newest activity first."""
+    current = getattr(current_user, "current_session_id", None)
+    return [_session_out(r, current) for r in SessionService(db).live_for(current_user.id)]
+
+
+@router.post("/sessions/revoke-others", status_code=204)
+def sign_out_other_devices(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Sign out every device except this one."""
+    SessionService(db).revoke_all(current_user.id, "signed_out",
+                                  keep=getattr(current_user, "current_session_id", None))
+    db.commit()
+
+
+@router.delete("/sessions/{session_id}", status_code=204)
+def sign_out_device(session_id: uuid.UUID, current_user: User = Depends(get_current_user),
+                    db: Session = Depends(get_db)):
+    """Sign out one of your devices."""
+    sessions = SessionService(db)
+    session = sessions.get(session_id)
+    if session is None or str(session.user_id) != str(current_user.id) or session.revoked_at is not None:
+        raise HTTPException(status_code=404, detail="Device not found")
+    sessions.revoke(session, "signed_out")
+    db.commit()
 
 
 class ForgotPasswordRequest(BaseModel):

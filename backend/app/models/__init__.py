@@ -105,3 +105,6 @@ from app.modules.staff.models.handover import (
     StaffHandover, HandoverItem,
     HandoverStatus, HandoverItemType, HANDOVER_TRANSITIONS,
 )
+
+# Signed-in devices
+from app.models.user_session import UserSession  # noqa: F401

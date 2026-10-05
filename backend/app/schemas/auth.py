@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel, EmailStr, field_validator
 from typing import List, Optional
 
@@ -51,3 +52,13 @@ class TokenPayload(BaseModel):
     sub:   str
     type:  str
     roles: List[str] = []
+
+
+class SessionOut(BaseModel):
+    """A device signed in to this account."""
+    id:           str
+    device:       Optional[str] = None
+    ip_address:   Optional[str] = None
+    signed_in_at: datetime
+    last_seen_at: Optional[datetime] = None
+    current:      bool = False

@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
+import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/push/push_notifications.dart';
 import 'package:ar_society_app/core/auth/biometric_preference.dart';
 import 'package:ar_society_app/features/auth/data/repositories/auth_repository.dart';
+import 'package:ar_society_app/features/auth/domain/entities/device_session.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/biometric_provider.dart';
 
@@ -38,7 +40,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final AuthRepository _repo;
   final Ref _ref;
 
-  AuthNotifier(this._repo, this._ref) : super(AuthInitial());
+  AuthNotifier(this._repo, this._ref) : super(AuthInitial()) {
+    // The server signed this device out while the app was open: go back to the sign-in screen.
+    ApiClient.onSessionEnded = () {
+      if (state is AuthAuthenticated) {
+        state = AuthError('You were signed out. Please sign in again.');
+      }
+    };
+  }
 
   /// Called on app startup — validates existing session. Unlike login(),
   /// this is a *restored* session the user didn't just re-enter a password
@@ -145,4 +154,14 @@ final currentUserProvider = Provider<UserEntity?>((ref) {
 /// Convenience provider — true when authenticated.
 final isAuthenticatedProvider = Provider<bool>((ref) {
   return ref.watch(authProvider) is AuthAuthenticated;
+});
+
+
+/// The devices signed in to this account (Account menu → Signed-in devices).
+final deviceSessionsProvider = FutureProvider.autoDispose<List<DeviceSession>>((ref) async {
+  final result = await ref.read(authRepositoryProvider).listSessions();
+  return switch (result) {
+    AuthSuccess(:final data) => data,
+    AuthFailure(:final message) => throw Exception(message),
+  };
 });

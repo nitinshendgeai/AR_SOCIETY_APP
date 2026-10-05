@@ -15,6 +15,11 @@ class ApiClient {
 
   static Dio get instance => _dio;
 
+  /// Called when a request that carried a login was refused and the login could not be renewed:
+  /// the server signed this device out (password changed, "sign out other devices", account
+  /// suspended) or the login expired. The app returns to the sign-in screen.
+  static void Function()? onSessionEnded;
+
   static void initialize() {
     _dio = Dio(BaseOptions(
       baseUrl: Env.apiBaseUrl,
@@ -75,7 +80,9 @@ class _AuthInterceptor extends QueuedInterceptor {
         } catch (_) {}
       }
       // Refresh failed — clear tokens (session expired)
+      final hadLogin = err.requestOptions.headers['Authorization'] != null;
       await TokenStorage.clearTokens();
+      if (hadLogin) ApiClient.onSessionEnded?.call();
     }
     handler.next(err);
   }

@@ -21,6 +21,7 @@ import 'package:ar_society_app/features/staff/presentation/screens/attendance_co
 import 'package:ar_society_app/features/staff/presentation/screens/staff_list_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_add_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_import_screen.dart';
+import 'package:ar_society_app/features/auth/presentation/screens/active_devices_screen.dart';
 import 'package:ar_society_app/features/parking/presentation/screens/gate_check_screen.dart';
 import 'package:ar_society_app/features/parking/presentation/screens/parking_management_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_detail_screen.dart';
@@ -93,6 +94,7 @@ class AppRoutes {
   static const splash             = '/';
   static const login              = '/login';
   static const changePassword     = '/change-password';
+  static const activeDevices      = '/devices';
   static const biometricLock      = '/biometric-lock';
   static const home               = '/home';
   static const adminHome          = '/admin';
@@ -389,6 +391,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               }
               return AttendanceApprovalScreen(societyId: societyId, department: department);
             },
+          ),
+          GoRoute(
+            path: AppRoutes.activeDevices,
+            builder: (_, __) => const ActiveDevicesScreen(),
           ),
           GoRoute(
             path: AppRoutes.parkingGateCheck,

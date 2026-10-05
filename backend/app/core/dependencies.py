@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from app.core.security import decode_token
 from app.db.session import get_db
-from app.models.user import User
+from app.models.user import User, UserStatus
 
 bearer_scheme = HTTPBearer()
 
@@ -49,11 +49,26 @@ def get_current_user(
     user_id = payload.get("sub")
     user    = _find_user_by_id(db, user_id)
 
-    if not user:
+    if not user or user.status != UserStatus.ACTIVE:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
         )
+
+    # A token tied to a device stops working the moment that device is signed out.
+    sid = payload.get("sid")
+    if sid:
+        from app.services.session_service import SessionService
+        sessions = SessionService(db)
+        session = sessions.get(sid)
+        if not sessions.is_live(session, user.id):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="This device has been signed out",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        sessions.touch(session)
+        user.current_session_id = session.id      # not a column: which device is making this request
     return user
 
 

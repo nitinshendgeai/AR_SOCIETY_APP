@@ -75,6 +75,8 @@ def create_platform_admin(db: Session, email: str, full_name: str, password: str
             check_password(password)
             user.hashed_password = hash_password(password)
             user.must_change_password = force_change
+            from app.services.session_service import SessionService
+            SessionService(db).revoke_all(user.id, "password_reset")
             outcome = "updated"
     if not db.query(UserRole).filter(UserRole.user_id == user.id, UserRole.role_id == role.id).first():
         db.add(UserRole(user_id=user.id, role_id=role.id))
