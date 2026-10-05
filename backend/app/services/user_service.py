@@ -104,6 +104,9 @@ class UserService:
         temp_pwd = _generate_temp_password()
         user.hashed_password      = hash_password(temp_pwd)
         user.must_change_password = True
+        # The old password is gone, so is every device signed in with it.
+        from app.services.session_service import SessionService
+        SessionService(self.repo.db).revoke_all(user.id, "password_reset")
         self.repo.db.commit()
         return user, temp_pwd
 

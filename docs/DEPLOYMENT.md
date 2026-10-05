@@ -58,7 +58,9 @@ cmd = "bash /app/start.sh"
 
 ### Health Check
 - Path: `/health`
-- Timeout: 30s
+- Timeout: 300s (`railway.json`). The migrations run *before* the app answers, and on a brand-new empty database
+  that is ~60 of them over the network: well over the old 30s on a first start, which marked that first deploy
+  failed even though the migrations had finished.
 
 ---
 

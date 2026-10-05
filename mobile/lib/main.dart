@@ -1,3 +1,4 @@
+import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -40,6 +41,21 @@ Future<void> main() async {
   runApp(const ProviderScope(child: ArSocietyApp()));
 }
 
+/// Flutter's default scroll behaviour on desktop browsers ignores mouse dragging, so a horizontal
+/// row that overflows (filter chips, wide tables) could not be scrolled without a trackpad or
+/// Shift + wheel and the items past the edge were out of reach. Allow dragging with the mouse too.
+class AppScrollBehavior extends MaterialScrollBehavior {
+  const AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.stylus,
+        PointerDeviceKind.trackpad,
+      };
+}
+
 class ArSocietyApp extends ConsumerWidget {
   const ArSocietyApp({super.key});
 
@@ -63,6 +79,7 @@ class ArSocietyApp extends ConsumerWidget {
       title: Env.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      scrollBehavior: const AppScrollBehavior(),
       routerConfig: router,
       // Desktop-width web gets the denser ERP theme; phones keep the
       // touch-first one. Re-evaluated as the browser window is resized.

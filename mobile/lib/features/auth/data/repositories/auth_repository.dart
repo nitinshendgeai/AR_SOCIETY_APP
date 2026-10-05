@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/auth/token_storage.dart';
 import 'package:ar_society_app/features/auth/data/datasources/auth_remote_datasource.dart';
+import 'package:ar_society_app/features/auth/domain/entities/device_session.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 
 sealed class AuthResult<T> {}
@@ -99,8 +100,40 @@ class AuthRepository {
     }
   }
 
-  /// Logout: clear all stored tokens.
+  /// Logout: end this device's session on the server (best effort — an offline device still signs
+  /// out locally), then clear the stored tokens.
   Future<void> logout() async {
+    try {
+      await _remote.logout();
+    } catch (_) {}
     await TokenStorage.clearTokens();
+  }
+
+  Future<AuthResult<List<DeviceSession>>> listSessions() async {
+    try {
+      return AuthSuccess(await _remote.listSessions());
+    } on DioException catch (e) {
+      return AuthFailure(parseApiError(e));
+    } catch (e) {
+      return AuthFailure('Could not load your devices');
+    }
+  }
+
+  Future<AuthResult<void>> signOutDevice(String id) async {
+    try {
+      await _remote.signOutDevice(id);
+      return AuthSuccess(null);
+    } on DioException catch (e) {
+      return AuthFailure(parseApiError(e));
+    }
+  }
+
+  Future<AuthResult<void>> signOutOtherDevices() async {
+    try {
+      await _remote.signOutOtherDevices();
+      return AuthSuccess(null);
+    } on DioException catch (e) {
+      return AuthFailure(parseApiError(e));
+    }
   }
 }

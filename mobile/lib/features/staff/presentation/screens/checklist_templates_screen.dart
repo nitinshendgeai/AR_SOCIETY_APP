@@ -9,6 +9,7 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/duty_sheet_actions.dart';
+import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart' show EmptyState;
 
 const kStaffDepartments = [
   ('security',     'Security'),
@@ -105,13 +106,10 @@ class _ChecklistTemplatesScreenState extends ConsumerState<ChecklistTemplatesScr
                     ? templates
                     : templates.where((t) => t.department == _departmentFilter).toList();
                 if (filtered.isEmpty) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text('No checklist templates yet. Tap "New Template" to create one.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: AppTheme.textSecondary)),
-                    ),
+                  return const EmptyState(
+                    icon: Icons.checklist_rtl_rounded,
+                    title: 'No checklist templates yet',
+                    subtitle: 'Tap "New Template" to create one',
                   );
                 }
                 return ListView.builder(

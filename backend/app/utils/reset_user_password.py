@@ -36,6 +36,8 @@ def reset_password(email: str, new_password: str, force_change: bool = True) -> 
 
         user.hashed_password = hash_password(new_password)
         user.must_change_password = force_change
+        from app.services.session_service import SessionService
+        SessionService(db).revoke_all(user.id, "password_reset")
         db.commit()
         print(f"Password updated for {email} (id={user.id}). "
               f"must_change_password={force_change}.")

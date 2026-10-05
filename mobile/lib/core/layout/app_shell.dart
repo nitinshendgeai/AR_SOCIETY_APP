@@ -32,7 +32,7 @@ class AppShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!isDesktopLayout(context)) return child;
+    if (!isDesktopLayout(context)) return _PhoneFrame(location: location, child: child);
     final user = ref.watch(currentUserProvider);
     final granted = ref.watch(myFormCodesProvider).valueOrNull?.toSet() ?? const <String>{};
     final categories = visibleMenuCategories(granted, user: user);
@@ -115,6 +115,80 @@ class AppShell extends ConsumerWidget {
 
   static List<String> _breadcrumbs((AppMenuCategory, AppMenuItem)? active) =>
       active == null ? const ['Dashboard'] : [active.$1.label, active.$2.label];
+}
+
+/// On a phone every page brings its own app bar, and reaches the menu only through the dashboard's
+/// drawer. A page opened by a link, or after a refresh, has nothing behind it, so no back arrow and
+/// no way to the menu. For those pages (and only those) a slim bar above the page leads home.
+///
+/// Whether a page has something behind it is read after the frame is built: during the build the
+/// navigator still holds the previous page, so asking then would show the bar on pages that do
+/// have their own back arrow.
+class _PhoneFrame extends ConsumerStatefulWidget {
+  final String location;
+  final Widget child;
+  const _PhoneFrame({required this.location, required this.child});
+
+  @override
+  ConsumerState<_PhoneFrame> createState() => _PhoneFrameState();
+}
+
+class _PhoneFrameState extends ConsumerState<_PhoneFrame> {
+  bool _canGoBack = true; // until known, add nothing: pages opened from the menu already have a back arrow
+
+  void _check() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final can = GoRouter.of(context).canPop();
+      if (can != _canGoBack) setState(() => _canGoBack = can);
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _PhoneFrame old) {
+    super.didUpdateWidget(old);
+    _check();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _check();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = ref.watch(currentUserProvider);
+    final home = user == null ? AppRoutes.home : userRoleHome(user);
+    final onHome = widget.location == home || widget.location == AppRoutes.home;
+    if (user == null || onHome || _canGoBack) return widget.child;
+
+    return Column(children: [
+      Material(
+        color: AppTheme.surface,
+        child: SafeArea(
+          bottom: false,
+          child: InkWell(
+            onTap: () => context.go(home),
+            child: Container(
+              height: 40,
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.border))),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.arrow_back_rounded, size: 18, color: AppTheme.primary),
+                SizedBox(width: 6),
+                Text('Dashboard',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primary)),
+              ]),
+            ),
+          ),
+        ),
+      ),
+      // The page below sits under this bar, so it must not add the status-bar inset again.
+      Expanded(child: MediaQuery.removePadding(context: context, removeTop: true, child: widget.child)),
+    ]);
+  }
 }
 
 class _Sidebar extends ConsumerWidget {
@@ -379,6 +453,7 @@ class _UserMenu extends ConsumerWidget {
       offset: const Offset(0, 48),
       onSelected: (v) {
         if (v == 'logout') _signOut(context, ref);
+        if (v == 'devices') context.go(AppRoutes.activeDevices);
       },
       itemBuilder: (_) => [
         PopupMenuItem<String>(
@@ -390,6 +465,14 @@ class _UserMenu extends ConsumerWidget {
           ]),
         ),
         const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'devices',
+          child: Row(children: [
+            Icon(Icons.devices_rounded, size: 18, color: AppTheme.textSecondary),
+            SizedBox(width: 10),
+            Text('Signed-in devices'),
+          ]),
+        ),
         const PopupMenuItem<String>(
           value: 'logout',
           child: Row(children: [

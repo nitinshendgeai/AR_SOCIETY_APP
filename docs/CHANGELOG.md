@@ -6,6 +6,39 @@ Format: `[YYYY-MM-DD] type: description`
 
 ## 2026-10-05
 
+### feat: signed-in devices, real logout, sign-out on password change, login throttling; phone/desktop UX fixes
+
+- **Sessions.** Every sign-in is a device session (`user_sessions`, migration `ff5a6b7c8d9e`); both tokens carry its id and
+  every request checks it. New: `POST /auth/logout`, `GET /auth/sessions`, `DELETE /auth/sessions/{id}`,
+  `POST /auth/sessions/revoke-others`. Sign-out used to only delete the tokens on the device, so a copied token worked for
+  up to 7 days; it now ends the session on the server. A **password change** signs out the other devices, an **admin
+  reset** (and the console reset commands) signs out every device. Existing logins keep working and become sessions on
+  their next renewal.
+- **App:** Account menu → *Signed-in devices* (this device marked; sign out one or all others). A device signed out
+  elsewhere returns to the sign-in screen with a message instead of showing errors.
+- **Suspended accounts** are refused on every request, not only at sign-in/renewal.
+- **Guessing passwords:** 10 wrong passwords for an account in 15 minutes locks sign-in for that window (HTTP 429).
+- **Phone:** a page opened by a link or after a refresh had no back arrow and no way to the menu; it now shows a slim
+  "← Dashboard" bar (pages opened from the menu keep their own back arrow and show nothing extra).
+- **Desktop:** filter-chip rows and wide tables that overflow could not be scrolled with a mouse (items past the edge,
+  e.g. the last staff departments, were unreachable); mouse dragging now scrolls them.
+- Checklist Templates' empty state matches the other lists. Guide: `docs/GUIDES/LOGIN_AND_DEVICES_GUIDE.md`.
+
+### fix: app stuck on the logo when the saved login is no longer valid
+
+- If a browser still held a login the server now rejects (database replaced, `SECRET_KEY` changed, or a refresh token
+  that has expired), the app never got past the DUX OS splash screen until site data was cleared. The 401 handler is a
+  queued interceptor and sent its token-refresh request through the same client, so a failing refresh waited in the
+  queue for the handler that was waiting on it. The refresh now goes through its own plain client; the app clears the
+  stale login and shows the sign-in screen. Reproduced in headless Chromium by changing the server's secret under a
+  logged-in browser, before and after.
+
+### fix: first deploy on an empty database no longer fails its healthcheck
+
+- `railway.json` `healthcheckTimeout` 30 → 300 seconds. The first start on a blank database runs every migration before
+  the app answers, which can take longer than 30s on Railway; the deploy was then marked failed although the schema had
+  been built. (Redeploying also fixes a deploy already in that state.)
+
 ### fix: Add Zone in Parking Management blanked the screen
 
 - The zone dialogs ("No zones yet" → "Add Zone", and "Add Parking Zone" itself) closed with the *page's* context. The page

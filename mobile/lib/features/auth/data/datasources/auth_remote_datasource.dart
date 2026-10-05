@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/features/auth/data/models/auth_models.dart';
+import 'package:ar_society_app/features/auth/domain/entities/device_session.dart';
 
 /// Calls FastAPI auth endpoints.
 class AuthRemoteDataSource {
@@ -43,6 +44,22 @@ class AuthRemoteDataSource {
     });
     return TokenModel.fromJson(response.data as Map<String, dynamic>);
   }
+
+  /// POST /auth/logout — ends this device's session on the server.
+  Future<void> logout() => _dio.post('/auth/logout',
+      options: Options(sendTimeout: const Duration(seconds: 4), receiveTimeout: const Duration(seconds: 4)));
+
+  /// GET /auth/sessions — the devices signed in to this account.
+  Future<List<DeviceSession>> listSessions() async {
+    final r = await _dio.get('/auth/sessions');
+    return (r.data as List).map((e) => DeviceSession.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// DELETE /auth/sessions/{id}
+  Future<void> signOutDevice(String id) => _dio.delete('/auth/sessions/$id');
+
+  /// POST /auth/sessions/revoke-others
+  Future<void> signOutOtherDevices() => _dio.post('/auth/sessions/revoke-others');
 
   /// POST /auth/change-password
   Future<void> changePassword({
