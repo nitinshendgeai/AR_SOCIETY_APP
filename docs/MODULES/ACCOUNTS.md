@@ -25,6 +25,19 @@ the same society (422 otherwise). What is posted to the ledger feeds that elemen
 calculation — see BILLING.md, *Expense-driven budgets*. Moving a ledger out of an expense group clears the link.
 Bill lines of type PENALTY post to **Fines & Penalties** (3013), except interest lines (Interest on Arrears).
 
+### Recording expenses and spend by element
+**Accounts → Add Expense** (also *Maintenance Elements → Add expense*) is the one place to enter any expense — a daily
+petty-cash purchase or the month's security / electricity / lift bill. The form takes the element ("what is it for?"),
+the expense head (that element's heads; a single head is chosen automatically), amount and *Paid from* (cash or bank),
+and posts a **payment voucher** (debit the head, credit cash/bank). If the head isn't linked to an element yet, saving
+links it to the element chosen, so the spend counts from then on (and feeds budget suggestions). "Other — not billed
+through maintenance" skips the link. Sinking-fund and repair-fund elements are not offered: those are funds, not spending.
+
+`GET /accounts/expenses-by-element/{society_id}?date_from&date_to` (default: this month so far) backs **Accounts →
+Spend by Element**: per element the net spend (debits − credits, cancelled vouchers excluded) with its heads,
+elements with nothing recorded (shown so a missed month is visible), and `unlinked` — spend on heads no element covers,
+each with a *Link…* action. Monthly bills are entered by hand each month; there is no recurring-voucher generator.
+
 ## Voucher types
 | Type | Prefix | Entered by | Rule |
 |------|--------|------------|------|
@@ -91,6 +104,7 @@ The running year is shown "as on" today and marked provisional. Statements of a 
 | `GET /vouchers/society/{society_id}` · `POST /vouchers` · `GET /vouchers/{id}` · `POST /vouchers/{id}/cancel` | Day book and voucher entry |
 | `PUT /vouchers/{id}` `{voucher_date, narration, reference, entries, reason}` | Correct a voucher the society entered |
 | `GET /vouchers/{id}/pdf` · `GET /day-book/{society_id}/pdf?date_from&date_to&voucher_type` | Printed voucher and day book |
+| `GET /expenses-by-element/{society_id}?date_from&date_to` | Net spend per maintenance element, with ledger breakdown and unlinked spend |
 | `POST /sync/{society_id}` | Catch up automatic postings |
 | `GET /reports/{society_id}/{report}?fy=2025-26&format=json\|pdf` | `trial-balance`, `income-expenditure`, `balance-sheet`, `receipts-payments`, `funds` |
 | `GET /years/{society_id}` | Financial years with result, closed status, whether they can be closed/reopened |

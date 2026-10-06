@@ -93,16 +93,22 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(title: const Text('Accounts'), actions: [
-        if (desktop)
+        if (desktop) ...[
+          TextButton.icon(
+            onPressed: () => chooseNewVoucher(context),
+            icon: const Icon(Icons.edit_note_rounded, size: 18),
+            label: const Text('New Voucher'),
+          ),
           HeaderActionButton(
-              icon: Icons.add_rounded, label: 'New Voucher', onPressed: () => chooseNewVoucher(context)),
+              icon: Icons.add_rounded, label: 'Add Expense', onPressed: () => context.push(AppRoutes.accountsExpenseNew)),
+        ],
       ]),
       floatingActionButton: desktop
           ? null
           : FloatingActionButton.extended(
-              onPressed: () => chooseNewVoucher(context),
+              onPressed: () => context.push(AppRoutes.accountsExpenseNew),
               icon: const Icon(Icons.add_rounded),
-              label: const Text('New Voucher'),
+              label: const Text('Add Expense'),
             ),
       body: RefreshIndicator(
         onRefresh: () async => invalidateBooks(ref),
@@ -178,6 +184,9 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                 _BooksGrid(items: [
                   _BookItem(Icons.receipt_long_rounded, 'Day Book', 'Every voucher, date-wise',
                       () => context.push(AppRoutes.accountsDayBook)),
+                  _BookItem(Icons.pie_chart_outline_rounded, 'Spend by Element',
+                      'Monthly and yearly spend on each maintenance element',
+                      () => context.push(AppRoutes.accountsExpenses)),
                   _BookItem(Icons.account_tree_rounded, 'Chart of Accounts', 'Groups, ledgers and balances',
                       () => context.push(AppRoutes.accountsChart)),
                   _BookItem(Icons.groups_2_rounded, "Members' Ledger", 'Flat-wise dues and advances',
@@ -194,6 +203,11 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                 const SizedBox(height: 22),
                 const _SectionTitle('Enter a voucher'),
                 Wrap(spacing: 10, runSpacing: 10, children: [
+                  ActionChip(
+                    avatar: const Icon(Icons.shopping_bag_outlined, size: 18, color: AppTheme.primary),
+                    label: const Text('Expense'),
+                    onPressed: () => context.push(AppRoutes.accountsExpenseNew),
+                  ),
                   for (final t in kManualVoucherTypes)
                     ActionChip(
                       avatar: Icon(_voucherIcon(t), size: 18, color: voucherTypeColor(t)),
