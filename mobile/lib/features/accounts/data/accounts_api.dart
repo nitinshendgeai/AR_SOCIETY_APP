@@ -524,6 +524,72 @@ class VoucherLineInput {
       };
 }
 
+// ── Spend per maintenance element ────────────────────────────────────────────
+
+class LedgerSpend {
+  final String accountId;
+  final String name;
+  final double amount;
+  const LedgerSpend({required this.accountId, required this.name, required this.amount});
+
+  factory LedgerSpend.fromJson(Map<String, dynamic> j) =>
+      LedgerSpend(accountId: j['account_id'] as String, name: j['name'] as String, amount: _num(j['amount']));
+}
+
+class ElementSpend {
+  final String elementId;
+  final String code;
+  final String name;
+  final double total;
+  final List<LedgerSpend> ledgers;
+  const ElementSpend(
+      {required this.elementId, required this.code, required this.name, required this.total, required this.ledgers});
+
+  factory ElementSpend.fromJson(Map<String, dynamic> j) => ElementSpend(
+        elementId: j['element_id'] as String,
+        code: j['code'] as String,
+        name: j['name'] as String,
+        total: _num(j['total']),
+        ledgers: ((j['ledgers'] as List?) ?? const [])
+            .map((e) => LedgerSpend.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+/// What was spent on each maintenance element between two dates, and on expense ledgers no element covers.
+class ExpensesByElement {
+  final DateTime from;
+  final DateTime to;
+  final double total;
+  final double linkedTotal;
+  final double unlinkedTotal;
+  final List<ElementSpend> elements;
+  final List<LedgerSpend> unlinked;
+  const ExpensesByElement({
+    required this.from,
+    required this.to,
+    required this.total,
+    required this.linkedTotal,
+    required this.unlinkedTotal,
+    required this.elements,
+    required this.unlinked,
+  });
+
+  factory ExpensesByElement.fromJson(Map<String, dynamic> j) => ExpensesByElement(
+        from: DateTime.parse(j['date_from'] as String),
+        to: DateTime.parse(j['date_to'] as String),
+        total: _num(j['total']),
+        linkedTotal: _num(j['linked_total']),
+        unlinkedTotal: _num(j['unlinked_total']),
+        elements: ((j['elements'] as List?) ?? const [])
+            .map((e) => ElementSpend.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        unlinked: ((j['unlinked'] as List?) ?? const [])
+            .map((e) => LedgerSpend.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
 // ── Financial years & statements ─────────────────────────────────────────────
 
 class FinancialYear {
@@ -718,6 +784,11 @@ class AccountsApi {
 
   Future<AccountsSummary> summary(String societyId) async =>
       AccountsSummary.fromJson((await _dio.get('/accounts/summary/$societyId')).data as Map<String, dynamic>);
+
+  Future<ExpensesByElement> expensesByElement(String societyId, DateTime from, DateTime to) async =>
+      ExpensesByElement.fromJson((await _dio.get('/accounts/expenses-by-element/$societyId',
+              queryParameters: {'date_from': apiDate(from), 'date_to': apiDate(to)}))
+          .data as Map<String, dynamic>);
 
   Future<List<AccountGroupRow>> chart(String societyId) async =>
       ((await _dio.get('/accounts/chart/$societyId')).data as List)

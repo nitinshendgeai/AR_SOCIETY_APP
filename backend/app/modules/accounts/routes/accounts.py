@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload, selectinload
 
@@ -15,6 +15,7 @@ from app.models.society import Society
 from app.models.user import User
 from app.modules.accounts.models.accounts import VOUCHER_TYPES, Account, Voucher
 from app.modules.accounts.services.accounts_service import AccountsService, dr_cr, fiscal_year, money
+from app.modules.accounts.services.expense_by_element import expenses_by_element
 from app.modules.accounts.services.postings import AccountPostings
 from app.modules.accounts.services.reports import REPORTS, FinancialReports
 from app.modules.accounts.services.documents_pdf import (
@@ -379,6 +380,23 @@ def accounts_summary(society_id: UUID, db: Session = Depends(get_db), user: User
         "cash_bank_accounts": [_account_out(a, bal) for a, bal in s["cash_bank_accounts"]],
         "pending_postings": pending,
     }
+
+
+@router.get("/expenses-by-element/{society_id}")
+def expenses_by_element_report(society_id: UUID, date_from: Optional[date] = None, date_to: Optional[date] = None,
+                               db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """What was spent on each maintenance element between two dates (default: this month): per element and
+    ledger, plus spend on expense ledgers that no element covers. Reads the books, so every voucher, vendor bill and
+    journal counts."""
+    assert_society_access(user, society_id)
+    today = date.today()
+    start = date_from or today.replace(day=1)
+    end = date_to or today
+    if end < start:
+        raise HTTPException(status_code=422, detail="The end date can't be before the start date")
+    AccountsService(db).ensure_chart(society_id)        # the books are opened the first time anyone looks
+    db.commit()
+    return expenses_by_element(db, society_id, start, end)
 
 
 @router.post("/sync/{society_id}")

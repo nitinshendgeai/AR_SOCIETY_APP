@@ -4,6 +4,19 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-06
+
+### feat: Add Expense and Spend by Element — daily/monthly expenses that count towards maintenance elements
+
+- **Where to enter expenses:** Accounts → **Add Expense** (desktop header, phone button, "Enter a voucher" chip) and
+  Maintenance Elements → *Add expense*. Pick the element, the head, amount and cash/bank; it posts a payment voucher.
+  A head not yet linked to an element is linked to the one chosen, so the spend counts towards it automatically.
+  "Save and add another" is there for a batch of petty-cash entries.
+- **Accounts → Spend by Element:** month or year-so-far per element, its heads (tap to open the ledger), "Nothing
+  recorded" for elements with no spend, and spend on heads no element covers with a *Link…* action.
+- Backend: `GET /accounts/expenses-by-element/{society_id}`. Monthly recurring bills are still entered each month.
+- Docs: `docs/MODULES/ACCOUNTS.md`.
+
 ## 2026-10-05
 
 ### feat: signed-in devices, real logout, sign-out on password change, login throttling; phone/desktop UX fixes

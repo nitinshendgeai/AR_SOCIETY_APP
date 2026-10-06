@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
@@ -36,6 +38,16 @@ class MaintenanceElementsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(title: const Text('Maintenance Elements'), actions: [
+        TextButton.icon(
+          onPressed: () => context.push(AppRoutes.accountsExpenseNew),
+          icon: const Icon(Icons.shopping_bag_outlined, size: 18),
+          label: const Text('Add expense'),
+        ),
+        TextButton.icon(
+          onPressed: () => context.push(AppRoutes.accountsExpenses),
+          icon: const Icon(Icons.pie_chart_outline_rounded, size: 18),
+          label: const Text('Spend by element'),
+        ),
         if (desktop) HeaderActionButton(icon: Icons.add_rounded, label: 'Add Element', onPressed: openSheet),
       ]),
       floatingActionButton: desktop

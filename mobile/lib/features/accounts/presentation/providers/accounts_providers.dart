@@ -42,6 +42,12 @@ final financialYearsProvider = FutureProvider.autoDispose.family<List<FinancialY
   (ref, societyId) => ref.watch(accountsApiProvider).years(societyId),
 );
 
+typedef ExpensePeriodKey = ({String societyId, DateTime from, DateTime to});
+
+final expensesByElementProvider = FutureProvider.autoDispose.family<ExpensesByElement, ExpensePeriodKey>(
+  (ref, k) => ref.watch(accountsApiProvider).expensesByElement(k.societyId, k.from, k.to),
+);
+
 typedef ReportKey = ({String societyId, String report, String fy});
 
 final financialReportProvider = FutureProvider.autoDispose.family<FinancialReport, ReportKey>(
@@ -58,4 +64,6 @@ void invalidateBooks(WidgetRef ref) {
   ref.invalidate(voucherProvider);
   ref.invalidate(financialYearsProvider);
   ref.invalidate(financialReportProvider);
+  ref.invalidate(expensesByElementProvider);
+  ref.invalidate(ledgersProvider);
 }
