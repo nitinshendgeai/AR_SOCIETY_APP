@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<title>DUX OS Help Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* Layout: sticky contents rail on the left, task-based sections on the right; role chips filter the sections.
+   Palette follows the app itself (DUX OS blue) on cool-tinted neutrals. */
+:root{
+  --bg:#f4f6fa; --surface:#ffffff; --surface-2:#eaeff7; --line:#d9e0ec;
+  --fg:#16202f; --muted:#556278; --accent:#0a5cff; --accent-ink:#ffffff; --accent-soft:#e3ecff;
+  --good:#16794a; --good-soft:#e1f4ea; --warn:#9a5b00; --warn-soft:#fff1d6; --bad:#b3261e; --bad-soft:#fde6e4;
+  --font-display:"Schibsted Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1420; --surface:#161e2e; --surface-2:#1e2839; --line:#2a3650;
+    --fg:#e6ebf5; --muted:#9aa8c0; --accent:#6d9bff; --accent-ink:#0b1220; --accent-soft:#1c2c52;
+    --good:#58d49a; --good-soft:#12322a; --warn:#f2b45a; --warn-soft:#3a2b0e; --bad:#ff8a80; --bad-soft:#40201f;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1420; --surface:#161e2e; --surface-2:#1e2839; --line:#2a3650;
+  --fg:#e6ebf5; --muted:#9aa8c0; --accent:#6d9bff; --accent-ink:#0b1220; --accent-soft:#1c2c52;
+  --good:#58d49a; --good-soft:#12322a; --warn:#f2b45a; --warn-soft:#3a2b0e; --bad:#ff8a80; --bad-soft:#40201f;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:150px}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:16px;line-height:1.6;padding-inline:16px;margin:0}
+h1,h2,h3{font-family:var(--font-display);line-height:1.2;text-wrap:balance;margin:0}
+a{color:var(--accent)}
+code,.path{font-family:var(--font-mono)}
+.wrap{max-width:1180px;margin-inline:auto}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line);padding-block:12px;margin-inline:-16px;padding-inline:16px}
+.top-in{max-width:1180px;margin-inline:auto;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-weight:800;font-size:1.05rem;margin-right:auto}
+.logo{width:30px;height:30px;border-radius:8px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800}
+.search{flex:1 1 260px;max-width:420px;min-width:0}
+.search input{width:100%;font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg)}
+.search input:focus-visible,.chip:focus-visible,.toc a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;width:100%}
+.chip{font:inherit;font-size:.85rem;font-weight:500;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chips-label{font-size:.8rem;color:var(--muted);align-self:center;margin-right:2px}
+
+/* hero */
+.hero{padding-block:32px 8px;max-width:760px}
+.hero h1{font-size:clamp(1.9rem,4.6vw,2.7rem);font-weight:800;letter-spacing:-.01em}
+.hero p{color:var(--muted);font-size:1.05rem;margin:10px 0 0}
+.hero .meta{font-size:.85rem;margin-top:12px}
+
+/* two-column body */
+.cols{display:grid;grid-template-columns:230px minmax(0,1fr);gap:40px;align-items:start;padding-block:20px 80px}
+.toc{position:sticky;top:130px;font-size:.92rem;max-height:calc(100vh - 150px);overflow:auto}
+.toc h2{font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;font-family:var(--font-body);font-weight:600}
+.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.toc a{display:block;padding:5px 10px;border-radius:6px;color:var(--fg);text-decoration:none}
+.toc a:hover{background:var(--surface-2)}
+.toc a.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.toc-m{display:none}
+
+/* sections */
+main{min-width:0}
+section.sec{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:26px clamp(16px,3vw,32px) 30px;margin-bottom:22px}
+section.sec>header{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;margin-bottom:6px}
+section.sec h2{font-size:clamp(1.35rem,3vw,1.7rem);font-weight:700}
+.for{font-size:.78rem;color:var(--muted);font-family:var(--font-mono)}
+.lede{color:var(--muted);margin:4px 0 18px;max-width:68ch}
+h3{font-size:1.08rem;font-weight:700;margin:26px 0 8px}
+p{margin:0 0 12px;max-width:72ch}
+ul,ol{margin:0 0 14px;padding-left:1.3rem;max-width:72ch}
+li{margin-bottom:4px}
+.path{display:inline-block;background:var(--accent-soft);color:var(--accent);font-size:.8rem;padding:2px 8px;border-radius:6px;white-space:normal}
+.btn{display:inline-block;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:0 8px;font-weight:600;font-size:.92em;white-space:nowrap}
+
+/* numbered steps */
+ol.steps{list-style:none;padding:0;counter-reset:s;display:flex;flex-direction:column;gap:10px;max-width:none}
+ol.steps>li{counter-increment:s;display:grid;grid-template-columns:30px minmax(0,1fr);gap:12px;margin:0}
+ol.steps>li::before{content:counter(s);width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:700;font-size:.85rem;margin-top:1px}
+ol.steps>li>div{min-width:0}
+
+/* callouts */
+.note{border-radius:10px;padding:12px 14px;margin:14px 0;max-width:72ch;border:1px solid var(--line);background:var(--surface-2)}
+.note b:first-child{display:block;font-size:.76rem;letter-spacing:.07em;text-transform:uppercase;margin-bottom:2px}
+.note.tip{background:var(--good-soft);border-color:transparent}.note.tip b:first-child{color:var(--good)}
+.note.warn{background:var(--warn-soft);border-color:transparent}.note.warn b:first-child{color:var(--warn)}
+
+/* tables */
+.tbl{overflow-x:auto;margin:12px 0 16px;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:.93rem;min-width:520px}
+th,td{text-align:left;padding:9px 12px;vertical-align:top;border-bottom:1px solid var(--line)}
+th{background:var(--surface-2);font-size:.78rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}
+tr:last-child td{border-bottom:0}
+
+/* small visual helpers */
+.pill{display:inline-block;font-size:.8rem;font-weight:600;padding:2px 10px;border-radius:999px}
+.pill.g{background:var(--good-soft);color:var(--good)}.pill.a{background:var(--warn-soft);color:var(--warn)}.pill.r{background:var(--bad-soft);color:var(--bad)}.pill.b{background:var(--accent-soft);color:var(--accent)}
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0 16px}
+.flow span{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-weight:600;font-size:.9rem}
+.flow i{font-style:normal;color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin:12px 0 16px}
+.card{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--bg);min-width:0}
+.card h3{margin:0 0 4px;font-size:1rem}
+.card p{margin:0;font-size:.92rem;color:var(--muted)}
+details{border:1px solid var(--line);border-radius:10px;background:var(--bg);margin-bottom:8px}
+summary{cursor:pointer;padding:12px 14px;font-weight:600;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";float:right;color:var(--muted);font-weight:500}
+details[open] summary::after{content:"–"}
+details>div{padding:0 14px 12px;color:var(--fg)}
+details>div p{color:var(--fg)}
+
+.none{display:none;text-align:center;color:var(--muted);padding:60px 0}
+.foot{color:var(--muted);font-size:.85rem;padding-block:0 40px;text-align:center}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:minmax(0,1fr);gap:0}
+  .toc{display:none}
+  .toc-m{display:block;margin-bottom:16px}
+  .toc-m ol{margin:0;padding:0 14px 12px;list-style:none;columns:2;column-gap:12px;max-width:none}
+  .toc-m a{text-decoration:none;display:block;padding:5px 0}
+  html{scroll-padding-top:190px}
+}
+@media (max-width:900px){
+  .top{position:static}
+  .chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+  .chip,.chips-label{flex:0 0 auto;white-space:nowrap}
+  html{scroll-padding-top:16px}
+}
+@media (max-width:520px){ .toc-m ol{columns:1} }
+@media print{
+  :root{--bg:#fff;--surface:#fff}
+  .top,.toc,.toc-m,.none{display:none!important}
+  body{padding:0;font-size:11pt}
+  section.sec{break-inside:auto;border:0;padding:0 0 10px;margin-bottom:18px}
+  h2,h3{break-after:avoid}.tbl,.note,.card,details,ol.steps>li{break-inside:avoid}
+  .cols{display:block;padding-block:0}
+  details>div{display:block}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+
+<div class="top"><div class="top-in">
+  <div class="brand"><span class="logo">D</span> DUX OS Help</div>
+  <div class="search"><input id="q" type="search" placeholder="Search the guide, e.g. visitor, expense, bill" aria-label="Search the guide" autocomplete="off"></div>
+  <div class="chips" id="chips" role="group" aria-label="Show the guide for">
+    <span class="chips-label">Show me:</span>
+    <button class="chip" data-role="all" aria-pressed="true">Everyone</button>
+    <button class="chip" data-role="resident" aria-pressed="false">Resident / Tenant</button>
+    <button class="chip" data-role="guard" aria-pressed="false">Security guard</button>
+    <button class="chip" data-role="staff" aria-pressed="false">Staff</button>
+    <button class="chip" data-role="manager" aria-pressed="false">Supervisor / Manager</button>
+    <button class="chip" data-role="committee" aria-pressed="false">Committee / Admin</button>
+  </div>
+</div></div>
+
+<div class="wrap">
+<div class="hero">
+  <h1>How to use DUX OS</h1>
+  <p>A step-by-step guide for everyone in the society: residents, security guards, staff, managers, the committee and the admin. Pick your role above to see only what you need, or search for the task you have in mind.</p>
+  <p class="meta">App address: <code>society.duxos.in</code> &nbsp;·&nbsp; Works in any browser on a phone or a computer</p>
+</div>
+
+<div class="cols">
+<nav class="toc" aria-label="Contents"><h2>Contents</h2><ol id="toc"></ol></nav>
+
+<main id="main">
+<details class="toc-m card" id="tocm"><summary>Contents</summary><ol id="toc2"></ol></details>
+
+<!-- 1 -->
+<section class="sec" id="start" data-roles="all" data-title="Getting started">
+  <header><h2>Getting started</h2><span class="for">everyone</span></header>
+  <p class="lede">Sign in, find your way around and keep your account safe.</p>
+
+  <h3>Sign in</h3>
+  <ol class="steps">
+    <li><div>Open <b>society.duxos.in</b> in your browser.</div></li>
+    <li><div>Type your <b>email or mobile number</b> and your <b>password</b>, then press <span class="btn">Sign in</span>.</div></li>
+    <li><div>The first time, the app asks you to <b>choose a new password</b> and accept the terms. The society admin also sees a short <b>Setup Wizard</b> (see <a href="#setup">Setting up the society</a>).</div></li>
+  </ol>
+  <div class="note tip"><b>Tip</b>If you forgot your password, ask the society admin. They open <span class="path">Administration → Users &amp; Roles</span>, find you and reset it. Every device you were signed in on is signed out, and you sign in with the new password.</div>
+
+  <h3>Finding your way around</h3>
+  <ul>
+    <li><b>On a computer</b>, the menu is on the left, grouped under People, Community, Operations, Finance, Administration and My Account. Press <span class="btn">Collapse</span> to make it narrow.</li>
+    <li><b>On a phone</b>, open the menu with the button at the top left. A page opened from a link shows a slim <b>← Dashboard</b> bar so you can always get back.</li>
+    <li><b>You only see what your role needs.</b> A resident sees My Bills and Complaints, a guard sees the gate screens, the admin sees everything. If a screen you expect is missing, ask the admin (the admin can grant it under <span class="path">Administration → Forms Matrix</span>).</li>
+    <li>Your <b>name at the top right</b> opens the account menu: change password, <b>Signed-in devices</b> and sign out.</li>
+  </ul>
+
+  <h3>Your dashboard</h3>
+  <p>The first page after sign-in shows the numbers that matter for your role, and chips for the things you do most. For example, a resident sees <b>Open Complaints</b>, <b>Visitors Waiting</b>, <b>Bills Due</b> and <b>My Flat</b>. A guard sees <b>Log Visitor</b>, <b>Check In</b>, <b>Check Out</b> and <b>Vehicle Gate</b>.</p>
+</section>
+
+<!-- 2 -->
+<section class="sec" id="roles" data-roles="all" data-title="Who does what">
+  <header><h2>Who does what</h2><span class="for">everyone</span></header>
+  <p class="lede">The same app shows different screens to different people.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Role</th><th>Mainly uses</th></tr></thead>
+    <tbody>
+      <tr><td><b>Resident / Tenant</b></td><td>Approve visitors, raise complaints, see and pay bills, update own details, register vehicles.</td></tr>
+      <tr><td><b>Security guard</b></td><td>Log visitors, check them in and out, check a vehicle number at the gate, punch in and out.</td></tr>
+      <tr><td><b>Housekeeping, technical staff, gym trainer</b></td><td>Punch in and out, see the day's duties and tick them off, hand over to the next shift.</td></tr>
+      <tr><td><b>Supervisor</b></td><td>Approve the team's punches, give duties, print and enter the duty sheets, correct attendance.</td></tr>
+      <tr><td><b>Manager</b></td><td>Everything a supervisor does for all departments, plus complaints, vendor bills, billing cycles and payments.</td></tr>
+      <tr><td><b>Committee (Chairman, Secretary, Treasurer, Member)</b></td><td>Billing rules, work order sanctions, accounts, defaulters, approving resident changes.</td></tr>
+      <tr><td><b>Society admin</b></td><td>Everything in the society: structure, users and roles, settings, billing, accounts.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- 3 -->
+<section class="sec" id="resident" data-roles="resident" data-title="For residents and tenants">
+  <header><h2>For residents and tenants</h2><span class="for">resident · tenant</span></header>
+  <p class="lede">Visitors, complaints, bills, your details and your vehicle.</p>
+
+  <h3>Approve or reject a visitor</h3>
+  <p>When the guard logs someone who is coming to your flat, you are asked to approve them.</p>
+  <ol class="steps">
+    <li><div>On your dashboard, open <span class="btn">Approvals</span> (a number on the chip shows how many are waiting), or <span class="path">Community → Visitors</span>.</div></li>
+    <li><div>Check the name and purpose, then press <span class="btn">Approve</span> or <span class="btn">Reject</span>.</div></li>
+    <li><div>The guard sees your answer straight away and lets the visitor in, or not.</div></li>
+  </ol>
+
+  <h3>Raise a complaint</h3>
+  <ol class="steps">
+    <li><div>Open <span class="path">Community → Complaints</span> and press <span class="btn">New complaint</span>.</div></li>
+    <li><div>Pick a category, describe the problem and save.</div></li>
+    <li><div>Follow it on the same screen. A complaint goes <span class="pill b">Open</span> → <span class="pill b">Assigned</span> → <span class="pill b">In progress</span> → <span class="pill g">Resolved</span> → <span class="pill g">Closed</span>. If the work is not done properly, press <span class="btn">Reopen</span>.</div></li>
+  </ol>
+
+  <h3>See your bills</h3>
+  <p>Open <span class="path">My Account → My Bills</span>. Each bill lists every charge (maintenance, sinking fund, parking and so on), the due date and what is still unpaid. Open a bill to see the full break-up. The dashboard card <b>Bills Due</b> shows the amount outstanding.</p>
+
+  <h3>Pay a bill</h3>
+  <p>Open <span class="path">Finance → Payments</span> and press <span class="btn">Record Payment</span>. Pick your flat, choose <b>Open bills, oldest first</b> (or <b>One bill</b>), enter the amount, the date and how you paid with the cheque or reference number, and attach a photo of the cheque or receipt if you have one. Press <span class="btn">Save &amp; Generate Receipt</span>. Payments settle your <b>oldest bill first</b>, and anything extra is kept as an advance against the next bill.</p>
+
+  <h3>Update your details</h3>
+  <p>Open <span class="path">My Account → Edit My Info</span>, change what you need and save. Your change shows <b>“Change request pending approval”</b> until the admin or a committee member approves it, so the society's records stay correct.</p>
+
+  <h3>Register your vehicle</h3>
+  <p>Add your vehicle (number plate, type) from the <b>Vehicles</b> section of your profile. The number is saved in capital letters without spaces, so <code>mh 12 ab-1234</code> becomes <code>MH12AB1234</code>. It appears in Parking Management straight away. If your society gives you a slot, the slot number shows on the vehicle.</p>
+  <div class="note"><b>Note</b>You can register a number only once in the society. A second car with no slot is still shown to the guard as registered, with no parking.</div>
+</section>
+
+<!-- 4 -->
+<section class="sec" id="guard" data-roles="guard" data-title="For security guards">
+  <header><h2>For security guards</h2><span class="for">security</span></header>
+  <p class="lede">The gate: visitors and vehicles.</p>
+
+  <h3>Log a visitor</h3>
+  <ol class="steps">
+    <li><div>On your dashboard press <span class="btn">Log Visitor</span>.</div></li>
+    <li><div>Enter the visitor's name, phone, purpose, the flat they are visiting and the vehicle number if they have one.</div></li>
+    <li><div>Save. The resident of that flat is asked to approve.</div></li>
+    <li><div>When the resident approves, open <span class="btn">Check In</span> and check the visitor in. When they leave, open <span class="btn">Check Out</span>. The full list is under <span class="btn">Visitor Log</span>.</div></li>
+  </ol>
+  <div class="flow"><span>Logged</span><i>→</i><span>Waiting for resident</span><i>→</i><span>Approved</span><i>→</i><span>Checked in</span><i>→</i><span>Checked out</span></div>
+  <p>If the resident rejects, entry is denied. A visitor who is still waiting for approval, was rejected, or has already left is shown in red on the vehicle check.</p>
+
+  <h3>Check a vehicle at the gate</h3>
+  <ol class="steps">
+    <li><div>Press <span class="btn">Vehicle Gate</span> on your dashboard.</div></li>
+    <li><div>Type the number plate (capitals or small, with or without spaces and dashes) or scan it with a handheld or USB scanner, and press <b>Enter</b>.</div></li>
+    <li><div>Read the colour of the answer:</div></li>
+  </ol>
+  <div class="tbl"><table>
+    <thead><tr><th>Answer</th><th>Means</th><th>You do</th></tr></thead>
+    <tbody>
+      <tr><td><span class="pill g">Allowed</span></td><td>A resident or tenant vehicle that has parking today, or an approved visitor.</td><td>Let it in. Press <b>Log Entry</b>.</td></tr>
+      <tr><td><span class="pill a">Registered, no parking</span></td><td>The vehicle belongs to the society but has no slot (a second car, an expired rental).</td><td>Send it elsewhere, or call the owner.</td></tr>
+      <tr><td><span class="pill r">Not registered</span></td><td>The number is not known.</td><td>Verify by hand before allowing entry.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Press <span class="btn">Log Entry</span> or <span class="btn">Log Exit</span> to record the movement. Just looking a number up records nothing. After each check, press <span class="btn">Check Another Vehicle</span>.</p>
+
+  <h3>Your attendance</h3>
+  <p>Open <span class="path">Operations → Staff</span> (Staff Portal) and press <span class="btn">Attendance</span> to punch in at the start of the shift and out at the end. A night shift works too: punch in at 22:00 and out at 06:00 next day. Your supervisor approves each punch. If you are still punched in, you must check out before you can punch in again.</p>
+  <div class="note warn"><b>Use your own login</b>Do not share one “guard” login among the team. The attendance and gate records name the login, so a shared one cannot show who did what.</div>
+</section>
+
+<!-- 5 -->
+<section class="sec" id="staff" data-roles="staff" data-title="For staff">
+  <header><h2>For staff</h2><span class="for">housekeeping · technical · gym</span></header>
+  <p class="lede">Your day in the Staff Portal: <span class="path">Operations → Staff</span>.</p>
+  <div class="cards">
+    <div class="card"><h3>Attendance</h3><p>Punch in when you start and out when you finish. Time is the society's clock. More than 30 minutes after the shift start counts as late.</p></div>
+    <div class="card"><h3>My Duties</h3><p>The duties given to you today. Open one and tick each checklist item as you finish it.</p></div>
+    <div class="card"><h3>Handover</h3><p>Leave notes for the next shift: what is done, what is pending, anything to watch.</p></div>
+    <div class="card"><h3>Tasks</h3><p>Complaints and jobs assigned to you. Mark them in progress and then resolved.</p></div>
+  </div>
+  <h3>If you forgot to punch</h3>
+  <p>Ask your supervisor. You can request a <b>status</b> correction on a past day (for example, absent to present). The supervisor approves or rejects it. To fix the actual times, the supervisor enters the day from the printed sheet.</p>
+  <h3>Paper sheets</h3>
+  <p>Your supervisor may give you a printed duty sheet. Tick each item as you finish it and write your in and out times. The supervisor types the sheet into the app. See <a href="#supervisor">For supervisors and managers</a>.</p>
+</section>
+
+<!-- 6 -->
+<section class="sec" id="supervisor" data-roles="manager" data-title="For supervisors and managers">
+  <header><h2>For supervisors and managers</h2><span class="for">supervisor · manager</span></header>
+  <p class="lede">Approve the team's day, give duties, print the sheets.</p>
+
+  <h3>Approve punches</h3>
+  <p>Open <span class="btn">Approvals</span> on your dashboard. Every punch-in and punch-out of your team waits here. Approve or reject each. A rejected punch does not count as present, and the person can punch in again. Your dashboard also shows <b>Pending check-in</b>, <b>Pending punch-out</b>, <b>Absent</b> and <b>Late</b> counts.</p>
+
+  <h3>Set up checklist templates (once)</h3>
+  <p>Open <span class="path">Operations → Checklist Templates</span> and create a template for each routine, such as “Floor cleaning” with its items (sweep, mop, dustbins…). Duties copy the items from the template.</p>
+
+  <h3>Give duties</h3>
+  <ol class="steps">
+    <li><div>Press <span class="btn">Assign Duty</span>.</div></li>
+    <li><div>Under <b>Assign to</b>, pick one or several staff. Chips are grouped by department, with <b>Select all</b> for each.</div></li>
+    <li><div>Optionally pick a <b>Checklist template</b>. Fill the duty name, location and the <b>Duty date</b>.</div></li>
+    <li><div>For a daily round, switch on <b>Repeat on more days</b>, choose <b>Until</b> (up to 62 days) and tick the weekdays.</div></li>
+    <li><div>Set start and end times if you want, then save.</div></li>
+  </ol>
+
+  <h3>Print the duty sheets</h3>
+  <p>From the duties screens you can print a sheet for one staff member, for a whole department, or a blank sheet for a template. A supervisor sees and prints only their own department.</p>
+  <div class="note tip"><b>Housekeeping, floor by floor</b>The housekeeping sheet is one page per staff member for each wing: the floors are the rows (a 23-floor building fits one page) and the template items are tick columns. Three staff means three pages a day.</div>
+
+  <h3>Enter a filled-in sheet</h3>
+  <p>Open <b>Paper sheet entry</b>, pick the day and the staff, then enter the ticks and the in and out times from the paper. Entries made by a supervisor are approved already.</p>
+
+  <h3>Corrections and handover</h3>
+  <p><b>Attendance Corrections</b> lists the status changes your team asked for. Approve or reject them. <b>Handover</b> shows the notes left between shifts.</p>
+
+  <h3>Complaints</h3>
+  <p>The manager opens <span class="btn">Complaints</span>, assigns each one to a department or person, and follows it to <i>Resolved</i> and <i>Closed</i>.</p>
+</section>
+
+<!-- 7 -->
+<section class="sec" id="setup" data-roles="committee" data-title="Setting up the society">
+  <header><h2>Setting up the society</h2><span class="for">admin · committee</span></header>
+  <p class="lede">Do this once, in this order. <span class="path">Administration → Setup Wizard</span> walks you through it.</p>
+  <div class="flow"><span>1 Society profile</span><i>→</i><span>2 Wings</span><i>→</i><span>3 Floors</span><i>→</i><span>4 Flats</span><i>→</i><span>5 Users &amp; roles</span></div>
+
+  <h3>Society profile</h3>
+  <p><span class="path">Administration → Society Settings</span>: name, address, bank details for bills, the society's time zone (India by default). Staff punches use this clock.</p>
+
+  <h3>Wings, floors and flats</h3>
+  <p>Add each <b>wing</b>, then its <b>floors</b>, then the <b>flats</b> with their area in sq ft (area-based charges need it). The Setup Wizard has a button for each step.</p>
+
+  <h3>Residents and tenants</h3>
+  <p><span class="path">People → Residents</span> and <span class="path">People → Tenants</span>: add one by one, or import a list. Open a flat to see who lives there, their vehicles and their dues. When someone leaves, open their profile and press <span class="btn">Move Out</span>: their vehicles are unassigned and their parking is released.</p>
+
+  <h3>Approve resident changes</h3>
+  <p><span class="path">Community → Pending Resident Changes</span> lists details residents asked to change. Approve or reject each.</p>
+
+  <h3>Staff</h3>
+  <p><span class="path">Operations → Staff</span>: add staff one by one or import a list. A login is created for each staff member, so everyone has their own. You can view, reset, disable or enable a staff login from the staff page.</p>
+
+  <h3>Users and roles</h3>
+  <p><span class="path">Administration → Users &amp; Roles</span>: add users, give each a role, reset a forgotten password, suspend someone who left. The <b>Permission Matrix</b> and <b>Forms Matrix</b> show and change which role can use which screen.</p>
+</section>
+
+<!-- 8 -->
+<section class="sec" id="billing" data-roles="committee manager" data-title="Maintenance bills">
+  <header><h2>Maintenance bills</h2><span class="for">manager · treasurer · committee</span></header>
+  <p class="lede">How each flat's bill is worked out, and the monthly routine to issue it.</p>
+  <div class="flow"><span>Elements</span><i>→</i><span>Charge heads</span><i>→</i><span>Billing cycle</span><i>→</i><span>Preview</span><i>→</i><span>Generate</span><i>→</i><span>Issue</span><i>→</i><span>Payments</span></div>
+
+  <h3>Maintenance Elements</h3>
+  <p><span class="path">Finance → Maintenance Elements</span> is the list of things the society charges for: Service Charges, Security, Housekeeping, Lift, Common Electricity, Water, Property Tax, Sinking Fund, Repairs Fund, Insurance, Parking and more. The standard list is ready; edit it or add your own.</p>
+
+  <h3>Charge heads and rules</h3>
+  <p><span class="path">Finance → Maintenance Billing</span> has four tabs: <b>Cycles</b>, <b>Charge Heads</b>, <b>Rules</b> and <b>Fines &amp; Charges</b>. A charge head says how an element is shared among flats:</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Basis</th><th>You enter</th><th>Each flat pays</th></tr></thead>
+    <tbody>
+      <tr><td>Same for every flat</td><td>₹ per flat per month</td><td>That amount</td></tr>
+      <tr><td>Per sq ft</td><td>₹ per sq ft per month</td><td>Rate × flat area</td></tr>
+      <tr><td>% of construction cost</td><td>% per year</td><td>Area × cost per sq ft × % ÷ 12</td></tr>
+      <tr><td>Annual budget, split equally</td><td>₹ per year</td><td>Budget ÷ flats ÷ 12</td></tr>
+      <tr><td>Annual budget, split by area</td><td>₹ per year</td><td>Budget × flat area ÷ total area ÷ 12</td></tr>
+      <tr><td>Per parking slot</td><td>₹ per slot per month</td><td>Rate × the flat's slots</td></tr>
+    </tbody>
+  </table></div>
+  <p>Under <b>Rules</b> set the construction cost per sq ft (needed for the sinking and repair funds), the interest on late payment, grace days, the extra percentage for flats let to tenants (non-occupancy, 0 to 10%), and GST if the society is registered.</p>
+  <p><b>Budget from expenses:</b> switch it on for a charge head and the bill uses what the society actually spent on that element over the last months. <b>Suggest from expenses</b> shows the figures first. Nothing changes until you apply it, and bills already made are never recalculated.</p>
+
+  <h3>Make and issue a bill</h3>
+  <ol class="steps">
+    <li><div><span class="path">Maintenance Billing → Cycles</span> → <span class="btn">New cycle</span> for the period, for example “October 2026”.</div></li>
+    <li><div><span class="btn">Preview</span> shows every flat's bill with warnings (a flat with no area, no construction cost). Fix those first.</div></li>
+    <li><div><span class="btn">Generate</span> creates the bills, then <span class="btn">Issue</span> sends them to the members.</div></li>
+  </ol>
+
+  <h3>Fines and extra charges on one flat</h3>
+  <p><span class="path">Maintenance Billing → Fines &amp; Charges</span>: add a fine or an extra charge to one flat with a reason and a start date, once or on every bill until an end date. The member is notified.</p>
+
+  <h3>Record payments</h3>
+  <p>Open <span class="path">Finance → Payments</span> → <span class="btn">Record Payment</span>, or <span class="btn">Record Payment</span> inside a bill. Pick the flat, choose <b>Open bills, oldest first</b> or <b>One bill</b>, enter the payment details and attach a photo of the cheque or receipt, then <span class="btn">Save &amp; Generate Receipt</span>. A payment settles the <b>oldest bill first</b>. Extra money becomes an advance for the next bill. If a payment is rejected, it is taken back out of the books.</p>
+
+  <h3>Defaulters and bank matching</h3>
+  <ul>
+    <li><span class="path">Finance → Defaulters</span> ages the dues from the due date. Three months overdue makes a member a defaulter. Send reminders from here.</li>
+    <li><span class="path">Finance → Bank Reconciliation</span>: match your bank statement to the recorded payments. A bounced cheque reopens the bills it had paid.</li>
+  </ul>
+
+  <h3>The monthly routine</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>When</th><th>Who</th><th>What</th></tr></thead>
+    <tbody>
+      <tr><td>As bills come</td><td>Manager</td><td>Enter every vendor bill under <b>Vendor Bills</b>, with its expense head.</td></tr>
+      <tr><td>Daily</td><td>Manager / Treasurer</td><td>Enter small expenses with <b>Add Expense</b> (see <a href="#accounts">Daily expenses</a>).</td></tr>
+      <tr><td>Each cycle</td><td>Manager</td><td>New cycle → Preview → Generate → Issue.</td></tr>
+      <tr><td>As money comes</td><td>Manager / Treasurer</td><td>Record payments.</td></tr>
+      <tr><td>Monthly</td><td>Treasurer</td><td>Bank Reconciliation.</td></tr>
+      <tr><td>Monthly</td><td>Committee</td><td>Look at Defaulters and send reminders.</td></tr>
+      <tr><td>Quarterly</td><td>Committee</td><td>Compare spend with the billed amount (<b>Suggest from expenses</b>).</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- 9 -->
+<section class="sec" id="accounts" data-roles="committee manager" data-title="Daily expenses and accounts">
+  <header><h2>Daily expenses and accounts</h2><span class="for">manager · treasurer · committee</span></header>
+  <p class="lede">Where to put daily and monthly expenses, and how they count towards each maintenance element.</p>
+
+  <h3>Add an expense</h3>
+  <p>Use this for anything the society spends: a petty-cash purchase today, or this month's security, electricity or lift bill.</p>
+  <ol class="steps">
+    <li><div>Open <span class="path">Finance → Accounts</span> and press <span class="btn">Add Expense</span>. (It is also on <span class="path">Maintenance Elements</span> as <b>Add expense</b>.)</div></li>
+    <li><div>Choose the <b>date</b> and <b>what it is for</b> (the maintenance element: Security, Lift, Housekeeping…). Pick <i>Other</i> if it is not billed through maintenance.</div></li>
+    <li><div>Choose the <b>expense head</b>. If the element has one head, it is chosen for you.</div></li>
+    <li><div>Enter the <b>amount</b> and <b>Paid from</b> (cash in hand or a bank account). Add who was paid, the bill number and a note if you like.</div></li>
+    <li><div>Press <span class="btn">Save expense</span>, or <span class="btn">Save and add another</span> for a batch of small bills.</div></li>
+  </ol>
+  <div class="note tip"><b>It links itself</b>Saving adds a payment voucher to the books and links the expense head to the element you chose, so the spend counts towards that element from then on. You do not link anything by hand.</div>
+  <p>Monthly bills are entered each month: the app does not repeat them for you. If the expense head you need does not exist, add it first under <span class="path">Accounts → Chart of Accounts</span>.</p>
+
+  <h3>See spend by element</h3>
+  <p><span class="path">Accounts → Spend by Element</span> shows, for a month or the year so far, what was spent on each element and on which heads. An element with no entry says <b>Nothing recorded</b>, which makes a missed month easy to spot. Tap a head to open its ledger. At the bottom, <b>Not counted towards any element</b> lists spend on heads no element covers, with a <span class="btn">Link…</span> button to assign each.</p>
+
+  <h3>Your books</h3>
+  <p>The <b>Accounts</b> page opens with Bank Balance, Cash in Hand, Members' Dues, Payable to Vendors, and this year's Income and Expenditure. Below that:</p>
+  <div class="cards">
+    <div class="card"><h3>Day Book</h3><p>Every voucher, date-wise. Print it for any period.</p></div>
+    <div class="card"><h3>Vouchers</h3><p>Receipt, Payment, Contra and Journal. You can correct one while its year is open, with a reason.</p></div>
+    <div class="card"><h3>Chart of Accounts</h3><p>The list of ledgers. Edit an expense ledger to choose which element it counts towards.</p></div>
+    <div class="card"><h3>Reports</h3><p>Trial Balance, Income &amp; Expenditure, Balance Sheet, Receipts &amp; Payments, Schedule of Funds. Each can be a PDF.</p></div>
+  </div>
+  <p>Bills and payments post to the books on their own. If something recorded earlier is missing, press <span class="btn">Post now</span> on the Accounts page.</p>
+
+  <h3>Closing the year</h3>
+  <p>After 31 March, admin or committee closes the year in order, oldest first. A closed year is locked, so nothing can be entered in it. The latest closed year can be reopened with a reason.</p>
+</section>
+
+<!-- 10 -->
+<section class="sec" id="vendors" data-roles="committee manager" data-title="Vendors and work orders">
+  <header><h2>Vendors and work orders</h2><span class="for">manager · committee</span></header>
+  <p class="lede"><span class="path">Operations → Vendors &amp; Work</span> has four tabs: <b>Work Orders</b>, <b>Contracts</b>, <b>Vendors</b> and <b>Limits</b>.</p>
+  <h3>One-time work, step by step</h3>
+  <ol class="steps">
+    <li><div><b>Create</b> the work order (manager or committee) with a title, vendor and expected cost.</div></li>
+    <li><div>Add <b>quotations</b> from different vendors.</div></li>
+    <li><div>The committee <b>sanctions</b> it. The <b>Limits</b> tab holds the society's spending limits that decide what an order needs.</div></li>
+    <li><div><b>Issue</b> the work order to the vendor. A printed copy is available.</div></li>
+    <li><div>Record the vendor's <b>bills</b> against it, then record each <b>payment</b>.</div></li>
+    <li><div>The committee <b>certifies completion</b>, then <b>releases any retention</b> and closes the order.</div></li>
+  </ol>
+  <h3>Annual contracts (AMC)</h3>
+  <p>The <b>Contracts</b> tab keeps yearly contracts such as the lift or the security agency, with their dates and amounts. Bills against them go to the right expense head.</p>
+  <h3>Vendors</h3>
+  <p>The <b>Vendors</b> tab is the vendor master: company, category, contact, and a blacklist for vendors you no longer use. Enter any other vendor bill under <span class="path">Finance → Vendor Bills</span> and pick its expense head. It then counts towards the matching element.</p>
+</section>
+
+<!-- 11 -->
+<section class="sec" id="parking" data-roles="committee" data-title="Parking">
+  <header><h2>Parking</h2><span class="for">admin · committee</span></header>
+  <p class="lede"><span class="path">Operations → Parking Management</span> has three tabs.</p>
+  <div class="cards">
+    <div class="card"><h3>Slots</h3><p>Add a zone (Basement, Open…) and then its slots.</p></div>
+    <div class="card"><h3>Allocations</h3><p>Who holds which slot. Press <b>Release</b> to give it back.</p></div>
+    <div class="card"><h3>Vehicles</h3><p>Every registered vehicle. It opens on <b>No parking</b>, the vehicles still waiting. Search by plate, owner or flat.</p></div>
+  </div>
+  <h3>Give a vehicle a slot</h3>
+  <ol class="steps">
+    <li><div>Open the <b>Vehicles</b> tab. It shows the vehicles with no parking.</div></li>
+    <li><div>Press <span class="btn">Allot parking</span> beside the vehicle and pick a free slot.</div></li>
+    <li><div>For rented parking, add the monthly charge and an end date. When the end date passes, the parking stops counting at once and the slot is free again.</div></li>
+  </ol>
+  <p>One vehicle holds one slot, and one slot goes to one vehicle. The guard's <b>Vehicle Gate</b> screen reads this list.</p>
+</section>
+
+<!-- 12 -->
+<section class="sec" id="devices" data-roles="all" data-title="Devices and security">
+  <header><h2>Devices and security</h2><span class="for">everyone</span></header>
+  <p class="lede">You can use your login on several devices, and you stay in control of them.</p>
+  <h3>Signed-in devices</h3>
+  <p>Open your <b>account menu → Signed-in devices</b>. It lists every device signed in with your login, with the last time each was used and a mark on <b>This device</b>. Press <b>Sign out</b> beside one, or <b>Sign out other devices</b> to keep only this one. Do this at once if you lose a phone or left a computer signed in.</p>
+  <h3>Good to know</h3>
+  <ul>
+    <li><b>Sign out</b> ends your session on the server too, not only on your screen.</li>
+    <li>Changing your password signs out your other devices. An admin reset signs out all of them.</li>
+    <li>After <b>10 wrong passwords in 15 minutes</b>, sign-in is paused for that login for the rest of the 15 minutes. Wait, then try again.</li>
+    <li>Not opening the app for 7 days signs you out. Just sign in again.</li>
+    <li>If you see <i>“You were signed out. Please sign in again.”</i>, another device or the admin ended your session.</li>
+    <li>Keep your own login private. A login used by several people hides who did what.</li>
+  </ul>
+</section>
+
+<!-- 13 -->
+<section class="sec" id="faq" data-roles="all" data-title="Quick answers">
+  <header><h2>Quick answers</h2><span class="for">everyone</span></header>
+  <p class="lede">The questions people ask most.</p>
+  <details><summary>Where do I enter daily expenses?</summary><div><p><span class="path">Finance → Accounts → Add Expense</span>. Pick what it is for, the head, the amount, and cash or bank. It counts towards that maintenance element on its own.</p></div></details>
+  <details><summary>Where do I enter the monthly security, electricity or lift bill?</summary><div><p>In the same place: <b>Add Expense</b>, once a month, choosing the element. If the bill comes from a vendor you have a work order or contract with, enter it as a <b>Vendor Bill</b> instead.</p></div></details>
+  <details><summary>How do I see what we spent on each element?</summary><div><p><span class="path">Accounts → Spend by Element</span>, for a month or the year so far.</p></div></details>
+  <details><summary>A bill did not change after we spent more. Why?</summary><div><p>The charge head is not on <b>Budget from expenses</b>, the expense head is not linked to its element, or the bill was already generated. Bills already generated are never recalculated.</p></div></details>
+  <details><summary>I cannot see a screen my colleague sees.</summary><div><p>Screens depend on role. Ask the admin to check <span class="path">Administration → Forms Matrix</span>.</p></div></details>
+  <details><summary>The guard says my vehicle is “Registered, no parking”.</summary><div><p>Your vehicle is on the list but has no slot. Ask the committee to give it one under <span class="path">Parking Management → Vehicles</span>.</p></div></details>
+  <details><summary>Do empty flats pay less maintenance?</summary><div><p>No. Expenses are shared among all members. Only flats let to a tenant can pay <i>more</i>, through the non-occupancy percentage.</p></div></details>
+  <details><summary>I forgot my password.</summary><div><p>Ask the admin to reset it under <span class="path">Users &amp; Roles</span>. If you are the admin and are locked out, the platform team can reset it for you.</p></div></details>
+
+  <h3>Not in the app yet</h3>
+  <ul>
+    <li>Amenity booking, notices and inventory have no screens yet.</li>
+    <li>Reading a number plate from a camera photo. The gate check uses a typed or scanned number.</li>
+    <li>Monthly expenses that repeat by themselves. Enter them each month.</li>
+    <li>A parking charge that goes into the maintenance bill on its own. The monthly charge is recorded only.</li>
+    <li>A one-time password (OTP) at sign-in.</li>
+  </ul>
+</section>
+
+<div class="none" id="none">Nothing matches that. Try a shorter word, such as “bill” or “visitor”.</div>
+</main>
+</div>
+<p class="foot">DUX OS Society ERP · This guide describes the app as of October 2026.</p>
+</div>
+
+<script>
+(function () {
+  var secs = Array.prototype.slice.call(document.querySelectorAll('section.sec'));
+  var role = 'all', query = '';
+
+  // contents lists (desktop rail and phone dropdown)
+  ['toc', 'toc2'].forEach(function (id) {
+    var ol = document.getElementById(id);
+    secs.forEach(function (s) {
+      var li = document.createElement('li'), a = document.createElement('a');
+      a.href = '#' + s.id; a.textContent = s.getAttribute('data-title'); a.setAttribute('data-for', s.id);
+      li.appendChild(a); ol.appendChild(li);
+    });
+  });
+  document.getElementById('toc2').addEventListener('click', function () { document.getElementById('tocm').open = false; });
+
+  function apply() {
+    var shown = 0, q = query.trim().toLowerCase();
+    secs.forEach(function (s) {
+      var roles = s.getAttribute('data-roles').split(' ');
+      var roleOk = role === 'all' || roles.indexOf('all') > -1 || roles.indexOf(role) > -1;
+      // searching looks through every section, whatever role is chosen
+      var textOk = !q || s.textContent.toLowerCase().indexOf(q) > -1;
+      var ok = q ? textOk : roleOk;
+      s.hidden = !ok;
+      document.querySelectorAll('a[data-for="' + s.id + '"]').forEach(function (a) { a.parentNode.hidden = !ok; });
+      if (ok) shown++;
+    });
+    document.getElementById('none').style.display = shown ? 'none' : 'block';
+  }
+
+  document.getElementById('chips').addEventListener('click', function (e) {
+    var b = e.target.closest('.chip'); if (!b) return;
+    role = b.getAttribute('data-role');
+    document.querySelectorAll('.chip').forEach(function (c) { c.setAttribute('aria-pressed', c === b ? 'true' : 'false'); });
+    document.getElementById('q').value = ''; query = '';
+    apply();
+    try { localStorage.setItem('duxHelpRole', role); } catch (x) {}
+  });
+  document.getElementById('q').addEventListener('input', function (e) { query = e.target.value; apply(); });
+
+  // highlight the section being read
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) {
+          document.querySelectorAll('.toc a').forEach(function (a) { a.classList.toggle('on', a.getAttribute('data-for') === en.target.id); });
+        }
+      });
+    }, { rootMargin: '-30% 0px -60% 0px' });
+    secs.forEach(function (s) { io.observe(s); });
+  }
+
+  try {
+    var saved = localStorage.getItem('duxHelpRole');
+    var btn = saved && document.querySelector('.chip[data-role="' + saved + '"]');
+    if (btn) btn.click();
+  } catch (x) {}
+})();
+</script>
+
+</body>
+</html>
