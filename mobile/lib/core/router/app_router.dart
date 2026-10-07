@@ -66,6 +66,7 @@ import 'package:ar_society_app/features/accounts/presentation/screens/financial_
 import 'package:ar_society_app/features/accounts/presentation/screens/ledger_statement_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/members_ledger_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/expense_form_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/recurring_expenses_screen.dart';
 import 'package:ar_society_app/features/assets/presentation/screens/asset_detail_screen.dart';
 import 'package:ar_society_app/features/assets/presentation/screens/assets_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/expenses_by_element_screen.dart';
@@ -164,6 +165,7 @@ class AppRoutes {
   static const accountsDayBook    = '/accounts/day-book';
   static const accountsExpenseNew = '/accounts/expense/new';
   static const accountsExpenses   = '/accounts/expenses';
+  static const accountsRecurring  = '/accounts/recurring';
   static const accountsMembers    = '/accounts/members';
   static const accountsVoucherNew = '/accounts/vouchers/new';
   static const accountsVoucherEdit = '/accounts/vouchers/:voucherId/edit';
@@ -708,6 +710,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   initialAmount: (given['amount'] as num?)?.toDouble(), initialNote: given['note'] as String?);
             }),
             (AppRoutes.accountsExpenses, (_) => const ExpensesByElementScreen()),
+            (AppRoutes.accountsRecurring, (_) => const RecurringExpensesScreen()),
             (AppRoutes.accountsMembers, (_) => const MembersLedgerScreen()),
             (AppRoutes.accountsVoucherNew, (s) {
               final type = s.uri.queryParameters['type'] ?? 'receipt';

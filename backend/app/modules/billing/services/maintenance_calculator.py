@@ -34,6 +34,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, List, Optional
 from uuid import UUID
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.flat import Flat, OccupancyStatus
@@ -162,12 +163,18 @@ class MaintenanceCalculator:
                     self._auto_rate[c.id] = rate
 
     def _parking_by_flat(self) -> Dict[UUID, List[Optional[int]]]:
+        """The monthly charge of each slot a flat holds today (None: the charge head's rate applies). A slot
+        whose allotment hasn't begun or whose end date has passed isn't billed, even before the sweep that
+        marks it expired has run."""
         from app.modules.parking.models.parking import ParkingAllocation, AllocationStatus
+        today = date.today()
         rows = self.db.query(ParkingAllocation).filter(
             ParkingAllocation.society_id == self.society_id,
             ParkingAllocation.status == AllocationStatus.ACTIVE,
             ParkingAllocation.flat_id.isnot(None),
             ParkingAllocation.is_active == True,
+            ParkingAllocation.start_date <= today,
+            or_(ParkingAllocation.end_date.is_(None), ParkingAllocation.end_date >= today),
         ).all()
         by_flat: Dict[UUID, List[Optional[int]]] = defaultdict(list)
         for a in rows:

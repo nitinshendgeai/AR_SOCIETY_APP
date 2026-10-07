@@ -224,3 +224,44 @@ class FinancialYearClosing(Base, TimestampMixin):
     @property
     def is_closed(self) -> bool:
         return self.reopened_at is None
+
+
+class RecurringExpense(Base, TimestampMixin):
+    """A standing monthly expense — the security agency, the lift AMC, the office rent. It does not post
+    anything by itself: each month it comes up as *due* and a person confirms it (and the amount, which
+    may differ: an electricity bill) so the books only ever carry what was actually paid. `is_active`
+    False pauses it."""
+    __tablename__ = "recurring_expenses"
+
+    society_id         = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    name               = Column(String(150), nullable=False)
+    expense_account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False, index=True)
+    paid_from_id       = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+    amount             = Column(Numeric(14, 2), nullable=True)      # null: it changes every month, entered when recorded
+    day_of_month       = Column(Integer, default=1, nullable=False)  # the day it falls due; capped to the month's last day
+    start_month        = Column(Date, nullable=False)                # first of the month it begins
+    end_month          = Column(Date, nullable=True)                 # first of the last month, or open-ended
+    payee              = Column(String(255), nullable=True)
+    note               = Column(Text, nullable=True)
+    created_by         = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    expense_account = relationship("Account", foreign_keys=[expense_account_id])
+    paid_from       = relationship("Account", foreign_keys=[paid_from_id])
+    runs            = relationship("RecurringExpenseRun", back_populates="recurring", cascade="all, delete-orphan")
+
+
+class RecurringExpenseRun(Base, TimestampMixin):
+    """What became of one month of a recurring expense: recorded (a voucher) or skipped."""
+    __tablename__ = "recurring_expense_runs"
+    __table_args__ = (UniqueConstraint("recurring_id", "month", name="uq_recurring_run_month"),)
+
+    recurring_id = Column(UUID(as_uuid=True), ForeignKey("recurring_expenses.id", ondelete="CASCADE"), nullable=False, index=True)
+    society_id   = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    month        = Column(Date, nullable=False)                   # first of the month
+    voucher_id   = Column(UUID(as_uuid=True), ForeignKey("vouchers.id", ondelete="SET NULL"), nullable=True)
+    skipped      = Column(Boolean, default=False, nullable=False)
+    skip_reason  = Column(Text, nullable=True)
+    decided_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    recurring = relationship("RecurringExpense", back_populates="runs")
+    voucher   = relationship("Voucher", foreign_keys=[voucher_id])

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart';
+import 'package:ar_society_app/features/accounts/data/recurring_api.dart';
 
 final accountsApiProvider = Provider<AccountsApi>((_) => AccountsApi());
 
@@ -66,4 +67,18 @@ void invalidateBooks(WidgetRef ref) {
   ref.invalidate(financialReportProvider);
   ref.invalidate(expensesByElementProvider);
   ref.invalidate(ledgersProvider);
+  ref.invalidate(recurringListProvider);
+  ref.invalidate(recurringDueProvider);
 }
+
+final recurringApiProvider = Provider<RecurringApi>((_) => RecurringApi());
+
+/// The society's standing monthly expenses.
+final recurringListProvider = FutureProvider.autoDispose.family<List<RecurringExpense>, String>(
+  (ref, societyId) => ref.watch(recurringApiProvider).list(societyId),
+);
+
+/// The months of them that have come due and nobody has recorded or skipped.
+final recurringDueProvider = FutureProvider.autoDispose.family<List<DueExpense>, String>(
+  (ref, societyId) => ref.watch(recurringApiProvider).due(societyId),
+);

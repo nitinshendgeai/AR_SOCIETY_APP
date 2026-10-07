@@ -269,6 +269,14 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
           decoration: const InputDecoration(labelText: 'Amount (₹)', prefixText: '₹ '),
         ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => context.push(AppRoutes.accountsRecurring),
+            icon: const Icon(Icons.event_repeat_rounded, size: 16),
+            label: const Text('Comes every month? Set it up as a monthly expense'),
+          ),
+        ),
         const SizedBox(height: 14),
         DropdownButtonFormField<LedgerAccount>(
           value: _paidFrom,

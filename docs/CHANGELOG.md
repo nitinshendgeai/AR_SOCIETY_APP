@@ -22,6 +22,18 @@ Format: `[YYYY-MM-DD] type: description`
   on the shelf.
 - Docs: `docs/MODULES/ASSETS.md`.
 
+## 2026-10-07 (b)
+
+### feat: monthly expenses that come up due each month
+
+- **Accounts → Monthly Expenses**: set up what you pay every month (security agency, housekeeping, lift contract,
+  electricity) with its head, amount (blank if it changes), due day and who is paid. Each month it appears under
+  **Due now**; **Record** books it as a payment under its maintenance element (change the amount, date or account if that
+  month differed), **Skip** settles the month without posting. Missed months stay due, oldest first. Accounts shows a
+  banner when any are due. A cancelled payment makes its month due again.
+- Nothing is posted without a person confirming it, so the books only carry what was paid. Migration `1b8c9d0e1f2a`.
+- Docs: `docs/MODULES/ACCOUNTS.md`.
+
 ## 2026-10-06
 
 ### feat: Add Expense and Spend by Element — daily/monthly expenses that count towards maintenance elements

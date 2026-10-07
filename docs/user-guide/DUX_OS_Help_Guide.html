@@ -441,7 +441,16 @@ details>div p{color:var(--fg)}
     <li><div>Press <span class="btn">Save expense</span>, or <span class="btn">Save and add another</span> for a batch of small bills.</div></li>
   </ol>
   <div class="note tip"><b>It links itself</b>Saving adds a payment voucher to the books and links the expense head to the element you chose, so the spend counts towards that element from then on. You do not link anything by hand.</div>
-  <p>Monthly bills are entered each month: the app does not repeat them for you. If the expense head you need does not exist, add it first under <span class="path">Accounts → Chart of Accounts</span>.</p>
+  <p>If the expense head you need does not exist, add it first under <span class="path">Accounts → Chart of Accounts</span>.</p>
+
+  <h3>Monthly expenses</h3>
+  <p>For what you pay every month, set it up once under <span class="path">Accounts → Monthly Expenses</span> with <span class="btn">Add monthly expense</span>: the name, the expense head, the amount (leave it blank for a bill that changes, like electricity), the day it falls due and who is paid. Each month it appears under <b>Due now</b>, and the Accounts page shows a banner while any are waiting.</p>
+  <ol class="steps">
+    <li><div>Press <span class="btn">Record</span> beside the month. The amount is filled in; change it if this month's bill was different, and enter it for a bill that varies.</div></li>
+    <li><div>Check the date and where it was paid from, add the bill number if you have it, and press <span class="btn">Record payment</span>. It is booked as a payment under its maintenance element.</div></li>
+    <li><div>If the month does not apply, or was paid another way, press <span class="btn">Skip</span>. Nothing is booked.</div></li>
+  </ol>
+  <p>Nothing is booked until you record it, so the books only show what was paid. A month you missed stays due. To pause an expense, open it and turn off <b>Running</b>.</p>
 
   <h3>See spend by element</h3>
   <p><span class="path">Accounts → Spend by Element</span> shows, for a month or the year so far, what was spent on each element and on which heads. An element with no entry says <b>Nothing recorded</b>, which makes a missed month easy to spot. Tap a head to open its ledger. At the bottom, <b>Not counted towards any element</b> lists spend on heads no element covers, with a <span class="btn">Link…</span> button to assign each.</p>
@@ -495,6 +504,8 @@ details>div p{color:var(--fg)}
     <li><div>For rented parking, add the monthly charge and an end date. When the end date passes, the parking stops counting at once and the slot is free again.</div></li>
   </ol>
   <p>One vehicle holds one slot, and one slot goes to one vehicle. The guard's <b>Vehicle Gate</b> screen reads this list.</p>
+  <h3>Parking on the maintenance bill</h3>
+  <p>Make a charge head from the <b>Parking Charges</b> element with the basis <b>Per parking slot</b>. Each flat then pays that rate for every slot it holds on the day the bill is made. A slot allotted with its <b>own monthly charge</b> pays that figure instead. A slot that has not started, or whose end date has passed, is not billed.</p>
 </section>
 
 <!-- assets -->
@@ -549,7 +560,7 @@ details>div p{color:var(--fg)}
   <header><h2>Quick answers</h2><span class="for">everyone</span></header>
   <p class="lede">The questions people ask most.</p>
   <details><summary>Where do I enter daily expenses?</summary><div><p><span class="path">Finance → Accounts → Add Expense</span>. Pick what it is for, the head, the amount, and cash or bank. It counts towards that maintenance element on its own.</p></div></details>
-  <details><summary>Where do I enter the monthly security, electricity or lift bill?</summary><div><p>In the same place: <b>Add Expense</b>, once a month, choosing the element. If the bill comes from a vendor you have a work order or contract with, enter it as a <b>Vendor Bill</b> instead.</p></div></details>
+  <details><summary>Where do I enter the monthly security, electricity or lift bill?</summary><div><p>Set it up once under <span class="path">Accounts → Monthly Expenses</span>. Each month it comes up as due and you press <b>Record</b> with that month's amount. If the bill comes from a vendor you have a work order or contract with, enter it as a <b>Vendor Bill</b> instead.</p></div></details>
   <details><summary>How do I see what we spent on each element?</summary><div><p><span class="path">Accounts → Spend by Element</span>, for a month or the year so far.</p></div></details>
   <details><summary>A bill did not change after we spent more. Why?</summary><div><p>The charge head is not on <b>Budget from expenses</b>, the expense head is not linked to its element, or the bill was already generated. Bills already generated are never recalculated.</p></div></details>
   <details><summary>I cannot see a screen my colleague sees.</summary><div><p>Screens depend on role. Ask the admin to check <span class="path">Administration → Forms Matrix</span>.</p></div></details>
@@ -561,9 +572,7 @@ details>div p{color:var(--fg)}
   <ul>
     <li>Amenity booking, notices and the consumable stores (stock in, issue to staff) have no screens yet. The asset register is available.</li>
     <li>Reading a number plate from a camera photo. The gate check uses a typed or scanned number.</li>
-    <li>Monthly expenses that repeat by themselves. Enter them each month.</li>
-    <li>A parking charge that goes into the maintenance bill on its own. The monthly charge is recorded only.</li>
-    <li>A one-time password (OTP) at sign-in.</li>
+        <li>A one-time password (OTP) at sign-in.</li>
   </ul>
 </section>
 
