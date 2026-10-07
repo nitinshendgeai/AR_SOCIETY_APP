@@ -136,6 +136,7 @@ FORM_DEFINITIONS = [
     ("maintenance_elements",      "Maintenance Elements",       "Master list of maintenance elements charge heads are created from"),
     ("accounts",                  "Accounts",                   "Chart of accounts, vouchers, cash and bank books, and ledgers"),
     ("defaulters",                "Defaulters",                 "Members' dues aged by how long they are outstanding, defaulters and reminders"),
+    ("notices",                   "Notices",                    "Notice board: notices for the society, acknowledgements and emergency alerts"),
     ("assets",                    "Assets",                     "Society-owned assets (lifts, pumps, ACs, generators): warranty, service schedule and history"),
     ("inventory",                 "Stores",                     "Consumable stock, stock in, issue to staff and return"),
 ]
@@ -183,6 +184,7 @@ FORM_ROLE_GRANTS = {
     "maintenance_elements":     tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
     "accounts":                 tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
     "defaulters":               tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
+    "notices":                  _ALL_CANONICAL_ROLES,
     "assets":                   tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
     "inventory":                tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
 }

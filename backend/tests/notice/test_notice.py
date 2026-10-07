@@ -55,6 +55,9 @@ def test_acknowledge_notice(client, db):
     admin    = make_user(db, "adm3@notice.com", role="Society Admin")
     resident = make_user(db, "res2@notice.com", role="Resident")
     society  = make_society(db, "Notice Society 5")
+    for u in (admin, resident):      # people in a society act inside it
+        u["user"].society_id = society.id
+    db.commit()
     nr = _create_notice(client, admin["headers"], society.id, "Important Notice")
     notice_id = nr.json()["id"]
     # Publish first

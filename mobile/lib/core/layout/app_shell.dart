@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/navigation/app_menu.dart';
+import 'package:ar_society_app/features/notices/presentation/widgets/emergency_banner.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
@@ -51,6 +52,7 @@ class AppShell extends ConsumerWidget {
         Expanded(
           child: Column(children: [
             _TopBar(user: user, crumbs: _breadcrumbs(active)),
+            const EmergencyBanner(),
             Expanded(
               child: Align(
                 alignment: Alignment.topCenter,
@@ -161,9 +163,12 @@ class _PhoneFrameState extends ConsumerState<_PhoneFrame> {
     final user = ref.watch(currentUserProvider);
     final home = user == null ? AppRoutes.home : userRoleHome(user);
     final onHome = widget.location == home || widget.location == AppRoutes.home;
-    if (user == null || onHome || _canGoBack) return widget.child;
+    if (user == null) return widget.child;
+    // An emergency alert in force shows above every page.
+    if (onHome || _canGoBack) return Column(children: [const EmergencyBanner(), Expanded(child: widget.child)]);
 
     return Column(children: [
+      const EmergencyBanner(),
       Material(
         color: AppTheme.surface,
         child: SafeArea(
