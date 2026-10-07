@@ -414,13 +414,11 @@ def get_cycle(cycle_id: UUID, db: Session = Depends(get_db), user: User = Depend
     cycle = BillingService(db).get_cycle(cycle_id)
     assert_society_access(user, cycle.society_id)
     return _cycle_out(cycle)
-    return _cycle_out(BillingService(db).get_cycle(cycle_id))
 
 @router.get("/cycles/{cycle_id}/preview", dependencies=[Depends(manager_above)])
 def preview_cycle(cycle_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     cycle = BillingService(db).get_cycle(cycle_id)
     assert_society_access(user, cycle.society_id)
-    calc = BillingService(db).preview_cycle(cycle_id)
     calc = BillingService(db).preview_cycle(cycle_id)
     flats = []
     for d in sorted(calc.drafts, key=lambda d: (
