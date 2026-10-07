@@ -540,9 +540,13 @@ def _bill_detail_out(b) -> dict:
     return out
 
 def _ensure_can_view_flat(db: Session, user: User, flat_id) -> None:
-    """Managers and above see every flat; anyone else (residents, staff)
-    only the flats they're an active resident of. 404 rather than 403 so
-    bill/flat IDs can't be probed."""
+    """Managers and above see every flat in their own society; anyone else
+    (residents, staff) only the flats they're an active resident of.
+    404 rather than 403 so bill/flat IDs can't be probed."""
+    flat = db.get(Flat, flat_id)
+    if flat is None or flat.wing is None:
+        raise HTTPException(404, "Bill not found")
+    assert_society_access(user, flat.wing.society_id)
     if _user_has_permission(user, "manager_above"):
         return
     if flat_id not in BillingService(db).resident_flat_ids(user):
