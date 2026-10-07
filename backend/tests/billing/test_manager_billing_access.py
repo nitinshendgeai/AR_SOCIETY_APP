@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from uuid import UUID
 
 from app.modules.billing.models.billing import MaintenanceBill
-from tests.billing.test_maintenance_billing import _rig
+from tests.billing.test_maintenance_billing import _rig, _charge, _cycle
 
 
 def test_manager_runs_maintenance_billing_end_to_end(client, db):
