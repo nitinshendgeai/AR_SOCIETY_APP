@@ -70,3 +70,42 @@ def test_resident_cannot_run_billing(client, db):
         "society_id": sid, "name": "X", "cycle_start": "2026-10-01", "cycle_end": "2026-10-31",
         "due_date": "2026-10-10",
     }, headers=h).status_code == 403
+
+
+def test_manager_isolation_blocks_other_society_billing_and_receipts(client, db):
+    society_a, flat_a1, flat_a2, manager_a, resident_a, other_a = _rig(db, "iso-a")
+    society_b, flat_b1, flat_b2, manager_b, resident_b, other_b = _rig(db, "iso-b")
+
+    # Managers are society-scoped in production. The shared test helper
+    # creates them as platform-scoped users, so explicitly bind each manager
+    # to its own society for this tenant-boundary regression test.
+    manager_a["user"].society_id = society_a.id
+    manager_b["user"].society_id = society_b.id
+    db.commit()
+
+    # Build a real bill in Society B using B's manager.
+    from tests.billing.test_maintenance_billing import _generated_cycle
+    _, b_flat1, _, manager_b, _, _, cycle_b = _generated_cycle(client, db, "iso-b-bill")
+    manager_b["user"].society_id = society_b.id
+    db.commit()
+    bill_b = db.query(MaintenanceBill).filter_by(
+        cycle_id=UUID(cycle_b), flat_id=b_flat1.id
+    ).one()
+
+    # Society A's manager must not read or mutate Society B's financial data.
+    assert client.get(
+        f"/api/v1/billing/periods/{society_b.id}", headers=manager_a["headers"]
+    ).status_code == 403
+    assert client.get(
+        f"/api/v1/billing/bills/{bill_b.id}", headers=manager_a["headers"]
+    ).status_code == 403
+    assert client.get(
+        f"/api/v1/billing/receipts/flat/{b_flat1.id}", headers=manager_a["headers"]
+    ).status_code == 403
+    assert client.post(
+        f"/api/v1/billing/bills/{bill_b.id}/issue", headers=manager_a["headers"]
+    ).status_code == 403
+    assert client.post("/api/v1/billing/payments", json={
+        "bill_id": str(bill_b.id), "amount": "1.00",
+        "payment_date": str(date.today()), "payment_mode": "cash",
+    }, headers=manager_a["headers"]).status_code == 403
