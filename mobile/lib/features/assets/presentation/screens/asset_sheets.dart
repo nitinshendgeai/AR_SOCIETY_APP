@@ -44,7 +44,7 @@ class _AssetFormSheetState extends ConsumerState<AssetFormSheet> {
   late final _interval = TextEditingController(text: a?.serviceIntervalMonths?.toString());
   late final _life = TextEditingController(text: a?.expectedLifeYears?.toString());
   late final _notes = TextEditingController(text: a?.description);
-  late String _category = a?.category ?? 'air_conditioner';
+  late String? _category = a?.category;
   late DateTime? _purchased = a?.purchaseDate;
   late DateTime? _warranty = a?.warrantyExpiry;
   late DateTime? _lastServiced = a?.lastServicedOn;
@@ -69,7 +69,7 @@ class _AssetFormSheetState extends ConsumerState<AssetFormSheet> {
       final interval = int.tryParse(_interval.text.trim());
       final body = <String, dynamic>{
         'name': _name.text.trim(),
-        'asset_category': _category,
+        'asset_category': _category!,
         'location': _trimmed(_location),
         'model_number': _trimmed(_model),
         'serial_number': _trimmed(_serial),
@@ -117,6 +117,7 @@ class _AssetFormSheetState extends ConsumerState<AssetFormSheet> {
       title: editing ? 'Edit ${a!.name}' : 'Add an asset',
       child: Form(
         key: _form,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           TextFormField(
             controller: _name,
@@ -131,6 +132,7 @@ class _AssetFormSheetState extends ConsumerState<AssetFormSheet> {
             initialValue: _category,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'Kind of asset *'),
+            validator: (v) => v == null ? 'Choose what kind of asset it is' : null,
             items: [
               for (final c in kAssetCategories)
                 DropdownMenuItem(value: c.$1, child: Row(children: [
@@ -139,7 +141,7 @@ class _AssetFormSheetState extends ConsumerState<AssetFormSheet> {
                   Flexible(child: Text(c.$2, overflow: TextOverflow.ellipsis)),
                 ])),
             ],
-            onChanged: (v) => setState(() => _category = v!),
+            onChanged: (v) => setState(() => _category = v),
           ),
           const SizedBox(height: 12),
           TextFormField(
