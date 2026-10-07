@@ -69,6 +69,8 @@ import 'package:ar_society_app/features/accounts/presentation/screens/expense_fo
 import 'package:ar_society_app/features/accounts/presentation/screens/recurring_expenses_screen.dart';
 import 'package:ar_society_app/features/assets/presentation/screens/asset_detail_screen.dart';
 import 'package:ar_society_app/features/assets/presentation/screens/assets_screen.dart';
+import 'package:ar_society_app/features/notices/presentation/screens/notice_detail_screen.dart';
+import 'package:ar_society_app/features/notices/presentation/screens/notices_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/expenses_by_element_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/voucher_form_screen.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/maintenance_billing_screen.dart';
@@ -135,6 +137,8 @@ class AppRoutes {
   static const setupWizard        = '/setup-wizard';
   // Complaint routes
   static const complaints         = '/complaints';
+  static const notices            = '/notices';
+  static const noticeDetail       = '/notices/:id';
   static const complaintsCreate   = '/complaints/create';
   static const complaintsAssigned = '/complaints/assigned';
   static const complaintsDetail   = '/complaints/:complaintId';
@@ -548,6 +552,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               isMy: false,
               societyId: state.pathParameters['societyId']!,
             ),
+          ),
+          // Notice board (everyone) and one notice
+          GoRoute(path: AppRoutes.notices, builder: (_, __) => const NoticesScreen()),
+          GoRoute(
+            path: AppRoutes.noticeDetail,
+            builder: (_, state) => NoticeDetailScreen(key: ValueKey(state.pathParameters['id']), noticeId: state.pathParameters['id']!),
           ),
           // Complaint routes (literal 'create' and 'society' before :complaintId)
           GoRoute(

@@ -22,6 +22,23 @@ Format: `[YYYY-MM-DD] type: description`
   on the shelf.
 - Docs: `docs/MODULES/ASSETS.md`.
 
+## 2026-10-07 (c)
+
+### feat: notice board with audiences and acknowledgements; emergency alerts
+
+- **Community → Notices** for everyone: the notices meant for you, urgent first, with "Please confirm you have read
+  this" where asked. The committee writes a notice as a draft, chooses who it is for (everyone, residents, owners,
+  tenants, chosen wings or flats, staff, security team, committee), optionally an expiry date and whether people must
+  confirm, then publishes. After that it can't be changed; archive it and write another. A report shows who has read it
+  and who has not.
+- **Emergency alerts** (admin, committee, manager, security): pick the kind (fire, medical, gas leak…), say what is
+  happening and what to do, and choose who is told. A red bar shows on every page until someone ends the alert.
+- **Fixes:** publishing used to reach nobody and ignore the audience; there was no editing; and nothing was confined to
+  a society (another society's admin could read or change your notices and alerts). All fixed, with tests.
+- Migration `2c9d0e1f2a3b` registers the Notices screen **and the Assets and Stores screens** for existing roles. The
+  Assets menu entry added earlier was not showing for existing roles without it.
+- Docs: `docs/NOTICE_WORKFLOW.md`; a new screen now needs its own migration (`docs/AI_DEVELOPMENT_RULES.md`).
+
 ## 2026-10-07 (b)
 
 ### feat: monthly expenses that come up due each month

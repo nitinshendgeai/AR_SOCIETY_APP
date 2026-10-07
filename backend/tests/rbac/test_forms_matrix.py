@@ -48,11 +48,11 @@ def test_gaps_in_old_dashboard_logic_are_preserved_by_default():
     FORM_ROLE_GRANTS)."""
     codes_by_role = default_role_form_codes()
     for role_name in ("Platform Admin", "Gym Trainer", "Tenant"):
-        assert set(codes_by_role.get(role_name, [])) == {"visitors", "complaints"}, (
+        assert set(codes_by_role.get(role_name, [])) == {"visitors", "complaints", "notices"}, (
             f"{role_name} unexpectedly has default form grants: {codes_by_role.get(role_name)}"
         )
     assert set(codes_by_role.get("Manager", [])) == {
-        "visitors", "complaints", "online_payments", "bank_reconciliation", "vendor_bills",
+        "visitors", "complaints", "notices", "online_payments", "bank_reconciliation", "vendor_bills",
         "maintenance_billing", "maintenance_elements", "staff", "checklist_templates", "accounts", "defaulters",
         "vendors", "assets", "inventory",
     }
@@ -106,7 +106,7 @@ def test_my_forms_returns_default_grants_for_own_role(client, db):
     # screenshots, reconciles them against the bank statement, and pays
     # vendor bills.
     assert set(r.json()["form_codes"]) == {
-        "visitors", "complaints", "online_payments", "bank_reconciliation", "vendor_bills",
+        "visitors", "complaints", "notices", "online_payments", "bank_reconciliation", "vendor_bills",
         "maintenance_billing", "maintenance_elements", "staff", "checklist_templates", "accounts", "defaulters",
         "vendors", "assets", "inventory",
     }
@@ -114,7 +114,7 @@ def test_my_forms_returns_default_grants_for_own_role(client, db):
     resident = make_user(db, "formsres4@rbac.com", role="Resident")
     r2 = client.get("/api/v1/roles/forms/mine", headers=resident["headers"])
     assert r2.status_code == 200
-    assert set(r2.json()["form_codes"]) == {"visitors", "complaints", "edit_my_info", "my_bills"}
+    assert set(r2.json()["form_codes"]) == {"visitors", "complaints", "notices", "edit_my_info", "my_bills"}
 
 
 def test_admin_can_grant_form_and_it_takes_effect_immediately(client, db):

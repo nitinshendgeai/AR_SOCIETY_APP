@@ -53,3 +53,6 @@ logs/
 # Test databases
 *.db
 backend/*.db
+
+# SQLite journal left by a running test session
+backend/*.db-journal

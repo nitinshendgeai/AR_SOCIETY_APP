@@ -122,6 +122,7 @@ NotificationService.send(db=db, user_id=user_id, title="...", body="...",
 - **Chain**: always set `down_revision` to the previous migration's `revision`
 - **One revision per sprint** unless modules are truly independent
 - **Verify chain**: `alembic heads` must show exactly one head
+- **A new screen needs its own migration**: adding a form to `FORM_DEFINITIONS` / `FORM_ROLE_GRANTS` only reaches roles created afterwards. For roles that already exist, add a migration that registers the form and grants it (copy `2c9d0e1f2a3b_assets_stores_notices_forms.py`), or the screen won't show in the menu.
 
 ```bash
 alembic revision -m "description"   # generates file
