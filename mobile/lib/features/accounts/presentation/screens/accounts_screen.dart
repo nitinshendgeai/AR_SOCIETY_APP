@@ -133,6 +133,10 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                   ),
                   const SizedBox(height: 14),
                 ],
+                if (ref.watch(recurringDueProvider(societyId)).valueOrNull case final due? when due.isNotEmpty) ...[
+                  _RecurringDueBanner(count: due.length, onTap: () => context.push(AppRoutes.accountsRecurring)),
+                  const SizedBox(height: 14),
+                ],
                 KpiGrid(cards: [
                   KpiCard(
                     icon: Icons.account_balance_rounded,
@@ -184,6 +188,9 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                 _BooksGrid(items: [
                   _BookItem(Icons.receipt_long_rounded, 'Day Book', 'Every voucher, date-wise',
                       () => context.push(AppRoutes.accountsDayBook)),
+                  _BookItem(Icons.event_repeat_rounded, 'Monthly Expenses',
+                      'Security, lift, electricity: recorded each month as they fall due',
+                      () => context.push(AppRoutes.accountsRecurring)),
                   _BookItem(Icons.pie_chart_outline_rounded, 'Spend by Element',
                       'Monthly and yearly spend on each maintenance element',
                       () => context.push(AppRoutes.accountsExpenses)),
@@ -234,6 +241,37 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
 
   LedgerAccount? _cashLedger(AccountsSummary s) =>
       s.cashBankAccounts.where((a) => a.systemKey == 'cash').firstOrNull ?? s.cashBankAccounts.where((a) => a.isCash).firstOrNull;
+}
+
+class _RecurringDueBanner extends StatelessWidget {
+  final int count;
+  final VoidCallback onTap;
+  const _RecurringDueBanner({required this.count, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: AppTheme.warningSoft,
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppTheme.radiusM),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+            child: Row(children: [
+              const Icon(Icons.event_repeat_rounded, color: AppTheme.warning),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  count == 1 ? '1 monthly expense is due to be recorded' : '$count monthly expenses are due to be recorded',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                ),
+              ),
+              const Text('Record', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600)),
+              const Icon(Icons.chevron_right_rounded, color: AppTheme.primary),
+            ]),
+          ),
+        ),
+      );
 }
 
 class _PendingBanner extends StatelessWidget {

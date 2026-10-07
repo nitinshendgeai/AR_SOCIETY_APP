@@ -129,6 +129,28 @@ def test_parking_charged_per_allotted_slot(client, db):
     assert any("nothing to bill" in w for w in p["warnings"])
 
 
+def test_parking_not_billed_before_it_starts_or_after_it_ends(client, db):
+    from datetime import timedelta
+    society, flats, h = _rig(db, "pk2")
+    zone = ParkingZone(society_id=society.id, name="Basement")
+    db.add(zone); db.flush()
+    today = date.today()
+    # (start, end): in force, ended yesterday (not yet swept to expired), starts tomorrow, ends today
+    for i, (start, end) in enumerate([(today - timedelta(days=30), None),
+                                      (today - timedelta(days=90), today - timedelta(days=1)),
+                                      (today + timedelta(days=1), None),
+                                      (today - timedelta(days=5), today)]):
+        slot = ParkingSlot(society_id=society.id, zone_id=zone.id, slot_number=f"Q{i}", slot_type=SlotType.RESIDENT)
+        db.add(slot); db.flush()
+        db.add(ParkingAllocation(society_id=society.id, slot_id=slot.id, flat_id=flats[0].id,
+                                 allocation_type=SlotType.RESIDENT, status=AllocationStatus.ACTIVE,
+                                 start_date=start, end_date=end))
+    db.commit()
+    _charge(client, h, society.id, "Parking", "parking", "500", charge_type="parking")
+    p = _preview(client, h, _cycle(client, h, society.id))
+    assert p["flats"][0]["total"] == "1000.00"         # the open-ended slot and the one that ends today
+
+
 def test_non_occupancy_is_pct_of_service_charges_only(client, db):
     society, flats, h = _rig(db, "noc")
     flats[1].occupancy_status = OccupancyStatus.TENANT_OCCUPIED

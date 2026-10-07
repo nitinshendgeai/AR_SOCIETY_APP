@@ -97,7 +97,7 @@ from app.modules.vendor.models.vendor import (
 
 # Accounts module models
 from app.modules.accounts.models.accounts import (
-    Account, AccountGroup, FinancialYearClosing, Voucher, VoucherEntry,
+    Account, AccountGroup, FinancialYearClosing, Voucher, VoucherEntry, RecurringExpense, RecurringExpenseRun,
 )
 
 # Handover models

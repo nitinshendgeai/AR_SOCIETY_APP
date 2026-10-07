@@ -4,6 +4,36 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-07
+
+### feat: asset register — ACs, water pumps, lifts, generators with service schedule and history
+
+- **Operations → Assets** (admin, committee, manager). Register what the society owns with where it is, warranty and a
+  service interval; the app works out when each is next due and shows overdue / due soon / on schedule, with tiles for
+  assets in use, service due, warranty ending and value at cost.
+- An asset's page shows its schedule, details, planned services, service history with total spent, service contracts,
+  linked annual contracts and work orders, and an activity log. **Log a service** moves "last serviced" and "next due"
+  on by itself and, when it cost money, offers to record the cost as an expense.
+- New categories: air conditioner, water tank, STP/WTP/RO plant, solar, gym equipment, intercom, garden equipment.
+  Migration `0a7b8c9d0e1f` adds the schedule columns and the categories.
+- **Security fix:** every inventory and asset route is now confined to the caller's society. Before, an admin of one
+  society could read or change another's items, stock and assets, and create records in another society.
+- Stores: items show their stock, a stock adjustment can't go below zero, and damaged or lost returns no longer go back
+  on the shelf.
+- Docs: `docs/MODULES/ASSETS.md`.
+
+## 2026-10-07 (b)
+
+### feat: monthly expenses that come up due each month
+
+- **Accounts → Monthly Expenses**: set up what you pay every month (security agency, housekeeping, lift contract,
+  electricity) with its head, amount (blank if it changes), due day and who is paid. Each month it appears under
+  **Due now**; **Record** books it as a payment under its maintenance element (change the amount, date or account if that
+  month differed), **Skip** settles the month without posting. Missed months stay due, oldest first. Accounts shows a
+  banner when any are due. A cancelled payment makes its month due again.
+- Nothing is posted without a person confirming it, so the books only carry what was paid. Migration `1b8c9d0e1f2a`.
+- Docs: `docs/MODULES/ACCOUNTS.md`.
+
 ## 2026-10-06
 
 ### feat: Add Expense and Spend by Element — daily/monthly expenses that count towards maintenance elements

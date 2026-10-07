@@ -215,7 +215,7 @@ details>div p{color:var(--fg)}
       <tr><td><b>Security guard</b></td><td>Log visitors, check them in and out, check a vehicle number at the gate, punch in and out.</td></tr>
       <tr><td><b>Housekeeping, technical staff, gym trainer</b></td><td>Punch in and out, see the day's duties and tick them off, hand over to the next shift.</td></tr>
       <tr><td><b>Supervisor</b></td><td>Approve the team's punches, give duties, print and enter the duty sheets, correct attendance.</td></tr>
-      <tr><td><b>Manager</b></td><td>Everything a supervisor does for all departments, plus complaints, vendor bills, billing cycles and payments.</td></tr>
+      <tr><td><b>Manager</b></td><td>Everything a supervisor does for all departments, plus complaints, vendor bills, billing cycles, payments and the asset register.</td></tr>
       <tr><td><b>Committee (Chairman, Secretary, Treasurer, Member)</b></td><td>Billing rules, work order sanctions, accounts, defaulters, approving resident changes.</td></tr>
       <tr><td><b>Society admin</b></td><td>Everything in the society: structure, users and roles, settings, billing, accounts.</td></tr>
     </tbody>
@@ -441,7 +441,16 @@ details>div p{color:var(--fg)}
     <li><div>Press <span class="btn">Save expense</span>, or <span class="btn">Save and add another</span> for a batch of small bills.</div></li>
   </ol>
   <div class="note tip"><b>It links itself</b>Saving adds a payment voucher to the books and links the expense head to the element you chose, so the spend counts towards that element from then on. You do not link anything by hand.</div>
-  <p>Monthly bills are entered each month: the app does not repeat them for you. If the expense head you need does not exist, add it first under <span class="path">Accounts → Chart of Accounts</span>.</p>
+  <p>If the expense head you need does not exist, add it first under <span class="path">Accounts → Chart of Accounts</span>.</p>
+
+  <h3>Monthly expenses</h3>
+  <p>For what you pay every month, set it up once under <span class="path">Accounts → Monthly Expenses</span> with <span class="btn">Add monthly expense</span>: the name, the expense head, the amount (leave it blank for a bill that changes, like electricity), the day it falls due and who is paid. Each month it appears under <b>Due now</b>, and the Accounts page shows a banner while any are waiting.</p>
+  <ol class="steps">
+    <li><div>Press <span class="btn">Record</span> beside the month. The amount is filled in; change it if this month's bill was different, and enter it for a bill that varies.</div></li>
+    <li><div>Check the date and where it was paid from, add the bill number if you have it, and press <span class="btn">Record payment</span>. It is booked as a payment under its maintenance element.</div></li>
+    <li><div>If the month does not apply, or was paid another way, press <span class="btn">Skip</span>. Nothing is booked.</div></li>
+  </ol>
+  <p>Nothing is booked until you record it, so the books only show what was paid. A month you missed stays due. To pause an expense, open it and turn off <b>Running</b>.</p>
 
   <h3>See spend by element</h3>
   <p><span class="path">Accounts → Spend by Element</span> shows, for a month or the year so far, what was spent on each element and on which heads. An element with no entry says <b>Nothing recorded</b>, which makes a missed month easy to spot. Tap a head to open its ledger. At the bottom, <b>Not counted towards any element</b> lists spend on heads no element covers, with a <span class="btn">Link…</span> button to assign each.</p>
@@ -495,6 +504,38 @@ details>div p{color:var(--fg)}
     <li><div>For rented parking, add the monthly charge and an end date. When the end date passes, the parking stops counting at once and the slot is free again.</div></li>
   </ol>
   <p>One vehicle holds one slot, and one slot goes to one vehicle. The guard's <b>Vehicle Gate</b> screen reads this list.</p>
+  <h3>Parking on the maintenance bill</h3>
+  <p>Make a charge head from the <b>Parking Charges</b> element with the basis <b>Per parking slot</b>. Each flat then pays that rate for every slot it holds on the day the bill is made. A slot allotted with its <b>own monthly charge</b> pays that figure instead. A slot that has not started, or whose end date has passed, is not billed.</p>
+</section>
+
+<!-- assets -->
+<section class="sec" id="assets" data-roles="committee manager" data-title="Assets">
+  <header><h2>Assets</h2><span class="for">manager · committee · admin</span></header>
+  <p class="lede"><span class="path">Operations → Assets</span> keeps what the society owns: air conditioners, water pumps, the lift, the generator, CCTV. Each has its place, warranty, service schedule and history.</p>
+
+  <h3>Add an asset</h3>
+  <ol class="steps">
+    <li><div>Press <span class="btn">Add asset</span>. Give it a <b>name</b> (for example “Terrace water pump”) and choose the <b>kind of asset</b>.</div></li>
+    <li><div>Say <b>where it is</b>, and how often it is serviced in months (3 for an AC, 6 for a pump). Add the last service date if you know it.</div></li>
+    <li><div>Fill in the purchase date, cost, who you bought it from and the <b>warranty date</b> if you have them. Only the name and kind are required.</div></li>
+  </ol>
+  <p>The app works out the <b>next service due</b> from the interval. Each asset shows <span class="pill g">Service on schedule</span>, <span class="pill a">Service in 12 days</span> or <span class="pill r">Overdue by 7 days</span>, and the top of the page counts assets, services due, warranties ending and the value at cost. Use <b>Needs service</b> to see only what is due.</p>
+
+  <h3>Log a service</h3>
+  <ol class="steps">
+    <li><div>Open the asset and press <span class="btn">Log a service</span>.</div></li>
+    <li><div>Choose what was done (routine service, repair, AMC visit), the date, who did it, the cost and what was found.</div></li>
+    <li><div>Press <span class="btn">Save service</span>. “Last serviced” and “Next due” move on by themselves.</div></li>
+    <li><div>If it cost money, the app asks <b>Record as an expense?</b>. Say yes and the Add Expense form opens with the amount filled in. Choose the element (for example Lift or Common Electricity) and save.</div></li>
+  </ol>
+  <p>To book a visit for later, press <span class="btn">Plan a service</span>. It shows under <b>Planned services</b> on the asset, where you press <span class="btn">Done</span> after the visit or cancel it.</p>
+
+  <h3>Contracts and retiring an asset</h3>
+  <ul>
+    <li><b>Add service contract</b> records an agency's contract for that one asset, with dates, yearly cost and what is covered. Yearly contracts with the committee's sanction stay under <span class="path">Vendors &amp; Work</span>, and show on the asset's page when linked to it.</li>
+    <li>The menu at the top right of an asset marks it <b>under repair</b>, <b>retired</b>, <b>sold or scrapped</b> or <b>lost</b>. It stays on record, but leaves the counts and needs no service.</li>
+    <li>The pencil at the top right edits any detail. Clear a field to remove it.</li>
+  </ul>
 </section>
 
 <!-- 12 -->
@@ -519,7 +560,7 @@ details>div p{color:var(--fg)}
   <header><h2>Quick answers</h2><span class="for">everyone</span></header>
   <p class="lede">The questions people ask most.</p>
   <details><summary>Where do I enter daily expenses?</summary><div><p><span class="path">Finance → Accounts → Add Expense</span>. Pick what it is for, the head, the amount, and cash or bank. It counts towards that maintenance element on its own.</p></div></details>
-  <details><summary>Where do I enter the monthly security, electricity or lift bill?</summary><div><p>In the same place: <b>Add Expense</b>, once a month, choosing the element. If the bill comes from a vendor you have a work order or contract with, enter it as a <b>Vendor Bill</b> instead.</p></div></details>
+  <details><summary>Where do I enter the monthly security, electricity or lift bill?</summary><div><p>Set it up once under <span class="path">Accounts → Monthly Expenses</span>. Each month it comes up as due and you press <b>Record</b> with that month's amount. If the bill comes from a vendor you have a work order or contract with, enter it as a <b>Vendor Bill</b> instead.</p></div></details>
   <details><summary>How do I see what we spent on each element?</summary><div><p><span class="path">Accounts → Spend by Element</span>, for a month or the year so far.</p></div></details>
   <details><summary>A bill did not change after we spent more. Why?</summary><div><p>The charge head is not on <b>Budget from expenses</b>, the expense head is not linked to its element, or the bill was already generated. Bills already generated are never recalculated.</p></div></details>
   <details><summary>I cannot see a screen my colleague sees.</summary><div><p>Screens depend on role. Ask the admin to check <span class="path">Administration → Forms Matrix</span>.</p></div></details>
@@ -529,11 +570,9 @@ details>div p{color:var(--fg)}
 
   <h3>Not in the app yet</h3>
   <ul>
-    <li>Amenity booking, notices and inventory have no screens yet.</li>
+    <li>Amenity booking, notices and the consumable stores (stock in, issue to staff) have no screens yet. The asset register is available.</li>
     <li>Reading a number plate from a camera photo. The gate check uses a typed or scanned number.</li>
-    <li>Monthly expenses that repeat by themselves. Enter them each month.</li>
-    <li>A parking charge that goes into the maintenance bill on its own. The monthly charge is recorded only.</li>
-    <li>A one-time password (OTP) at sign-in.</li>
+        <li>A one-time password (OTP) at sign-in.</li>
   </ul>
 </section>
 

@@ -66,6 +66,9 @@ import 'package:ar_society_app/features/accounts/presentation/screens/financial_
 import 'package:ar_society_app/features/accounts/presentation/screens/ledger_statement_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/members_ledger_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/expense_form_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/recurring_expenses_screen.dart';
+import 'package:ar_society_app/features/assets/presentation/screens/asset_detail_screen.dart';
+import 'package:ar_society_app/features/assets/presentation/screens/assets_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/expenses_by_element_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/voucher_form_screen.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/maintenance_billing_screen.dart';
@@ -150,6 +153,8 @@ class AppRoutes {
   static const bankReconciliation = '/billing/bank-reconciliation';
   static const vendorBills        = '/vendors/bills';
   static const vendorsWork        = '/vendors/work';
+  static const assets             = '/assets';
+  static const assetDetail        = '/assets/:id';
   static const workOrderDetail    = '/vendors/work-orders/:id';
   static const contractDetail     = '/vendors/contracts/:id';
   static const maintenanceBilling = '/billing/maintenance';
@@ -160,6 +165,7 @@ class AppRoutes {
   static const accountsDayBook    = '/accounts/day-book';
   static const accountsExpenseNew = '/accounts/expense/new';
   static const accountsExpenses   = '/accounts/expenses';
+  static const accountsRecurring  = '/accounts/recurring';
   static const accountsMembers    = '/accounts/members';
   static const accountsVoucherNew = '/accounts/vouchers/new';
   static const accountsVoucherEdit = '/accounts/vouchers/:voucherId/edit';
@@ -675,6 +681,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const VendorBillsScreen(),
           ),
           for (final (path, builder) in <(String, Widget Function(GoRouterState))>[
+            (AppRoutes.assets, (_) => const AssetsScreen()),
+            (AppRoutes.assetDetail, (s) => AssetDetailScreen(key: ValueKey(s.pathParameters['id']), assetId: s.pathParameters['id']!)),
             (AppRoutes.vendorsWork, (_) => const VendorsWorkScreen()),
             (AppRoutes.workOrderDetail, (s) => WorkOrderDetailScreen(workOrderId: s.pathParameters['id']!)),
             (AppRoutes.contractDetail, (s) => ContractDetailScreen(contractId: s.pathParameters['id']!)),
@@ -695,8 +703,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             (AppRoutes.accounts, (_) => const AccountsScreen()),
             (AppRoutes.accountsChart, (_) => const ChartOfAccountsScreen()),
             (AppRoutes.accountsDayBook, (_) => const DayBookScreen()),
-            (AppRoutes.accountsExpenseNew, (_) => const ExpenseFormScreen()),
+            (AppRoutes.accountsExpenseNew, (s) {
+              // A caller (a logged service, say) can hand over an amount and note to start from.
+              final given = s.extra is Map ? s.extra as Map : const {};
+              return ExpenseFormScreen(
+                  initialAmount: (given['amount'] as num?)?.toDouble(), initialNote: given['note'] as String?);
+            }),
             (AppRoutes.accountsExpenses, (_) => const ExpensesByElementScreen()),
+            (AppRoutes.accountsRecurring, (_) => const RecurringExpensesScreen()),
             (AppRoutes.accountsMembers, (_) => const MembersLedgerScreen()),
             (AppRoutes.accountsVoucherNew, (s) {
               final type = s.uri.queryParameters['type'] ?? 'receipt';

@@ -38,6 +38,26 @@ Spend by Element**: per element the net spend (debits − credits, cancelled vou
 elements with nothing recorded (shown so a missed month is visible), and `unlinked` — spend on heads no element covers,
 each with a *Link…* action. Monthly bills are entered by hand each month; there is no recurring-voucher generator.
 
+## Recurring monthly expenses (`services/recurring_expenses.py`, migration `1b8c9d0e1f2a`)
+The expenses paid every month (the security agency, housekeeping, the lift contract, electricity). A **template**
+(`recurring_expenses`) holds the name, the expense head, an amount (blank when the bill changes every month), the day it
+falls due, the month it starts and optionally ends, who is paid, and where from (cash in hand unless set). It posts
+nothing by itself: a month **comes due** once its day has come (day 31 means the month's last day) and nobody has
+decided it, and a person then **records** it as a Payment voucher (amount, date and paid-from can differ from the
+template) or **skips** it. The decision is kept in `recurring_expense_runs` (one per template and month), written in
+the same transaction as the voucher so a month can't be paid twice. A month whose voucher is later cancelled comes due
+again. Pausing a template (`is_active` false) stops it coming due; months up to 12 back are offered.
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /recurring-expenses` · `PATCH /recurring-expenses/{id}` | Create / change (null clears an optional field) |
+| `GET /recurring-expenses/{society_id}` | Templates, each with how many months are due |
+| `GET /recurring-expenses/{society_id}/due` | Due months, oldest first, with days late and the element they count towards |
+| `POST /recurring-expenses/{id}/record` `{month, amount?, voucher_date?, paid_from_id?, reference?, note?}` | Records the month as a payment voucher |
+| `POST /recurring-expenses/{id}/skip` `{month, reason?}` | Settles the month without posting |
+
+App: **Accounts → Monthly Expenses**; Accounts shows a banner when any are due.
+
 ## Voucher types
 | Type | Prefix | Entered by | Rule |
 |------|--------|------------|------|

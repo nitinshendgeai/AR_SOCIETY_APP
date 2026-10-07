@@ -90,9 +90,16 @@ server, never taken from the app). The lookup itself writes nothing.
 Everyone works **inside their own society only**: another society's slots, allocations, violations or gate history can't be
 read or changed, and one society's records are reported as *not found* to another.
 
-## 6. Not covered yet
+## 6. Parking on the maintenance bill
+
+Parking is billed through a **charge head with the basis "Per parking slot"** (Maintenance Billing → Charge Heads, from the
+*Parking Charges* element). Each flat pays that rate for every slot it holds on the day the bill is made; a slot allotted
+with **its own monthly charge** (rented parking at another rate) pays that figure instead. A slot whose allotment has not
+begun, or whose end date has passed, is not billed, even before the app has marked it expired. Flats with no slot get no
+parking line. The bill preview shows each flat's parking line before anything is generated.
+
+## 7. Not covered yet
 
 - Camera / ANPR plate reading.
-- A parking charge added to the maintenance bill automatically (the monthly charge is recorded, not billed).
 - Vehicles of a person who moved out **before** this version keep any slot typed on their record until a committee member
   clears it or deregisters the vehicle.

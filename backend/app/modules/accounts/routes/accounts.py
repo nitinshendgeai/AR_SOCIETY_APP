@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.dependencies import get_current_user, require_admin_committee, require_manager_above
-from app.core.tenant_scope import assert_society_access
+from app.core.tenant_scope import assert_society_access, resolve_create_society_id
 from app.db.session import get_db
 from app.models.flat import Flat
 from app.models.society import Society
@@ -16,6 +16,7 @@ from app.models.user import User
 from app.modules.accounts.models.accounts import VOUCHER_TYPES, Account, Voucher
 from app.modules.accounts.services.accounts_service import AccountsService, dr_cr, fiscal_year, money
 from app.modules.accounts.services.expense_by_element import expenses_by_element
+from app.modules.accounts.services.recurring_expenses import RecurringExpenseService, first_of
 from app.modules.accounts.services.postings import AccountPostings
 from app.modules.accounts.services.reports import REPORTS, FinancialReports
 from app.modules.accounts.services.documents_pdf import (
@@ -161,6 +162,47 @@ class VoucherUpdate(BaseModel):
     reference: Optional[str] = Field(default=None, max_length=100)
     entries: List[VoucherLineIn] = Field(min_length=2)
     reason: str = Field(min_length=3)
+
+
+class RecurringExpenseCreate(BaseModel):
+    society_id: Optional[UUID] = None
+    name: str = Field(min_length=1, max_length=150)
+    expense_account_id: UUID
+    paid_from_id: Optional[UUID] = None
+    amount: Optional[Decimal] = Field(default=None, ge=0)     # blank: it changes every month
+    day_of_month: int = Field(default=1, ge=1, le=31)
+    start_month: Optional[date] = None
+    end_month: Optional[date] = None
+    payee: Optional[str] = Field(default=None, max_length=255)
+    note: Optional[str] = None
+
+
+class RecurringExpenseUpdate(BaseModel):
+    """Only fields sent change; send null to clear an optional one."""
+    name: Optional[str] = Field(default=None, max_length=150)
+    expense_account_id: Optional[UUID] = None
+    paid_from_id: Optional[UUID] = None
+    amount: Optional[Decimal] = Field(default=None, ge=0)
+    day_of_month: Optional[int] = Field(default=None, ge=1, le=31)
+    start_month: Optional[date] = None
+    end_month: Optional[date] = None
+    payee: Optional[str] = Field(default=None, max_length=255)
+    note: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class RecurringRecordIn(BaseModel):
+    month: date
+    amount: Optional[Decimal] = Field(default=None, ge=0)     # needed when the expense has no fixed amount
+    voucher_date: Optional[date] = None                         # default: today
+    paid_from_id: Optional[UUID] = None                         # default: the expense's, else cash in hand
+    reference: Optional[str] = Field(default=None, max_length=100)
+    note: Optional[str] = None
+
+
+class RecurringSkipIn(BaseModel):
+    month: date
+    reason: Optional[str] = None
 
 
 class CancelRequest(BaseModel):
@@ -464,3 +506,91 @@ def reopen_financial_year(society_id: UUID, fy: str, data: ReopenYearRequest, db
     assert_society_access(user, society_id)
     rec = FinancialReports(db).reopen_year(society_id, fy, data.reason, user)
     return {"fy": rec.fiscal_year, "reopened_at": rec.reopened_at.isoformat()}
+
+
+# ── Recurring monthly expenses ────────────────────────────────────────────────
+
+def _element_name(db: Session, account) -> Optional[str]:
+    if account is None or account.maintenance_element_id is None:
+        return None
+    from app.modules.billing.models.billing import MaintenanceElement
+    el = db.query(MaintenanceElement).filter(MaintenanceElement.id == account.maintenance_element_id).first()
+    return el.name if el else None
+
+
+def _recurring_out(db: Session, r, today_months: int = 0) -> dict:
+    return {
+        "id": str(r.id), "society_id": str(r.society_id), "name": r.name,
+        "expense_account_id": str(r.expense_account_id),
+        "expense_account_name": r.expense_account.name if r.expense_account else None,
+        "element_name": _element_name(db, r.expense_account),
+        "paid_from_id": str(r.paid_from_id) if r.paid_from_id else None,
+        "paid_from_name": r.paid_from.name if r.paid_from else None,
+        "amount": _amount(r.amount) if r.amount is not None else None,
+        "day_of_month": r.day_of_month,
+        "start_month": r.start_month.isoformat(),
+        "end_month": r.end_month.isoformat() if r.end_month else None,
+        "payee": r.payee, "note": r.note, "is_active": r.is_active,
+        "due_months": today_months,
+    }
+
+
+@router.post("/recurring-expenses", status_code=201)
+def create_recurring_expense(data: RecurringExpenseCreate, request: Request, db: Session = Depends(get_db),
+                             user: User = Depends(get_current_user)):
+    body = data.model_dump()
+    body["society_id"] = resolve_create_society_id(user, data.society_id)
+    svc = RecurringExpenseService(db)
+    r = svc.create(body, user, request)
+    return _recurring_out(db, r, len(svc.due_months(r, svc._today(r.society_id))))
+
+
+@router.get("/recurring-expenses/{society_id}")
+def list_recurring_expenses(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
+    svc = RecurringExpenseService(db)
+    today = svc._today(society_id)
+    return [_recurring_out(db, r, len(svc.due_months(r, today))) for r in svc.list(society_id)]
+
+
+@router.get("/recurring-expenses/{society_id}/due")
+def recurring_expenses_due(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """The months that have come due and nobody has recorded or skipped, oldest first."""
+    assert_society_access(user, society_id)
+    out = []
+    for row in RecurringExpenseService(db).due(society_id):
+        r = row["recurring"]
+        out.append({
+            "recurring_id": str(r.id), "name": r.name, "month": row["month"].isoformat(),
+            "due_date": row["due_date"].isoformat(), "days_late": row["days_late"],
+            "amount": _amount(r.amount) if r.amount is not None else None,
+            "expense_account_id": str(r.expense_account_id),
+            "expense_account_name": r.expense_account.name if r.expense_account else None,
+            "element_name": _element_name(db, r.expense_account),
+            "paid_from_id": str(r.paid_from_id) if r.paid_from_id else None,
+            "payee": r.payee,
+        })
+    return out
+
+
+@router.patch("/recurring-expenses/{recurring_id}")
+def update_recurring_expense(recurring_id: UUID, data: RecurringExpenseUpdate, request: Request,
+                             db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    svc = RecurringExpenseService(db)
+    r = svc.update(recurring_id, data.model_dump(exclude_unset=True), user, request)
+    return _recurring_out(db, r, len(svc.due_months(r, svc._today(r.society_id))))
+
+
+@router.post("/recurring-expenses/{recurring_id}/record", status_code=201)
+def record_recurring_expense(recurring_id: UUID, data: RecurringRecordIn, request: Request,
+                             db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Record a due month as a payment voucher."""
+    v = RecurringExpenseService(db).record(recurring_id, data.model_dump(), user, request)
+    return _voucher_out(v)
+
+
+@router.post("/recurring-expenses/{recurring_id}/skip")
+def skip_recurring_expense(recurring_id: UUID, data: RecurringSkipIn, request: Request,
+                           db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    RecurringExpenseService(db).skip(recurring_id, data.month, data.reason, user, request)
+    return {"skipped": first_of(data.month).isoformat()}

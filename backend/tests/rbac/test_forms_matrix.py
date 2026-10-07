@@ -54,7 +54,7 @@ def test_gaps_in_old_dashboard_logic_are_preserved_by_default():
     assert set(codes_by_role.get("Manager", [])) == {
         "visitors", "complaints", "online_payments", "bank_reconciliation", "vendor_bills",
         "maintenance_billing", "maintenance_elements", "staff", "checklist_templates", "accounts", "defaulters",
-        "vendors",
+        "vendors", "assets", "inventory",
     }
 
 
@@ -108,7 +108,7 @@ def test_my_forms_returns_default_grants_for_own_role(client, db):
     assert set(r.json()["form_codes"]) == {
         "visitors", "complaints", "online_payments", "bank_reconciliation", "vendor_bills",
         "maintenance_billing", "maintenance_elements", "staff", "checklist_templates", "accounts", "defaulters",
-        "vendors",
+        "vendors", "assets", "inventory",
     }
 
     resident = make_user(db, "formsres4@rbac.com", role="Resident")
