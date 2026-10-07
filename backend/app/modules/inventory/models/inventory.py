@@ -70,6 +70,13 @@ class AssetCategory(str, enum.Enum):
     FURNITURE   = "furniture"
     IT_EQUIPMENT = "it_equipment"
     OTHER       = "other"
+    AIR_CONDITIONER = "air_conditioner"
+    WATER_TANK      = "water_tank"
+    WATER_TREATMENT = "water_treatment"   # STP / WTP / RO plant
+    SOLAR           = "solar"
+    GYM_EQUIPMENT   = "gym_equipment"
+    INTERCOM        = "intercom"
+    GARDEN_EQUIPMENT = "garden_equipment"
 
 
 class AssetStatus(str, enum.Enum):
@@ -252,6 +259,12 @@ class Asset(Base, TimestampMixin):
     serial_number    = Column(String(100), nullable=True, index=True)
     model_number     = Column(String(100), nullable=True)
     image_url        = Column(String(500), nullable=True)
+
+    # Servicing: how often it is serviced, when last, when next due. The last two are kept up
+    # to date when a service is completed (and can be set when the asset is registered).
+    service_interval_months = Column(Integer, nullable=True)
+    last_serviced_on        = Column(Date, nullable=True)
+    next_service_due        = Column(Date, nullable=True, index=True)
 
     # Assignment
     assigned_to_staff = Column(UUID(as_uuid=True), nullable=True)

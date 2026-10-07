@@ -63,6 +63,9 @@ def test_issue_item_to_staff(client, db):
     admin    = make_user(db, "adm4@inv.com", role="Society Admin")
     staff_u  = make_user(db, "stf@inv.com", role="Security Staff")
     society  = make_society(db, "Inventory Society 5")
+    for u in (admin, staff_u):       # people in a society act inside it
+        u["user"].society_id = society.id
+    db.commit()
     ir       = _create_item(client, admin["headers"], society.id, "Cleaning Kit")
     item_id  = ir.json()["id"]
     # Stock in first

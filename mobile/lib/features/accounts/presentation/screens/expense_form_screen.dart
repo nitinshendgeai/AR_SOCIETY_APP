@@ -21,7 +21,10 @@ const _otherElement = '__other__';
 /// to it when the expense is saved, so the next one lands under the same element on its own and the
 /// element's spend feeds its budget in the monthly maintenance calculation.
 class ExpenseFormScreen extends ConsumerStatefulWidget {
-  const ExpenseFormScreen({super.key});
+  /// Start from an amount and a note (an asset's service that cost money, for instance).
+  final double? initialAmount;
+  final String? initialNote;
+  const ExpenseFormScreen({super.key, this.initialAmount, this.initialNote});
 
   @override
   ConsumerState<ExpenseFormScreen> createState() => _ExpenseFormScreenState();
@@ -32,10 +35,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   String? _elementKey; // an element id, or _otherElement
   LedgerAccount? _head;
   LedgerAccount? _paidFrom;
-  final _amount = TextEditingController();
+  late final _amount = TextEditingController(
+      text: widget.initialAmount == null ? '' : widget.initialAmount!.toStringAsFixed(widget.initialAmount! % 1 == 0 ? 0 : 2));
   final _paidTo = TextEditingController();
   final _reference = TextEditingController();
-  final _note = TextEditingController();
+  late final _note = TextEditingController(text: widget.initialNote);
   bool _saving = false;
   String? _lastSaved;
 
