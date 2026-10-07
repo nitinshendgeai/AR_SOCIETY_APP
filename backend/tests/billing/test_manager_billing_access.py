@@ -84,12 +84,17 @@ def test_manager_isolation_blocks_other_society_billing_and_receipts(client, db)
     db.commit()
 
     # Build a real bill in Society B using B's manager.
-    from tests.billing.test_maintenance_billing import _generated_cycle
-    _, b_flat1, _, manager_b, _, _, cycle_b = _generated_cycle(client, db, "iso-b-bill")
-    manager_b["user"].society_id = society_b.id
-    db.commit()
+    _charge(client, manager_b["headers"], society_b.id, amount="2500.00")
+    cycle_b = _cycle(client, manager_b["headers"], society_b.id, name="Isolation Cycle")
+    assert cycle_b.status_code == 200, cycle_b.text
+    cycle_b_id = cycle_b.json()["id"]
+    generated = client.post(
+        f"/api/v1/billing/cycles/{cycle_b_id}/generate-bills",
+        headers=manager_b["headers"],
+    )
+    assert generated.status_code == 200, generated.text
     bill_b = db.query(MaintenanceBill).filter_by(
-        cycle_id=UUID(cycle_b), flat_id=b_flat1.id
+        cycle_id=UUID(cycle_b_id), flat_id=flat_b1.id
     ).one()
 
     # Society A's manager must not read or mutate Society B's financial data.
