@@ -34,6 +34,7 @@ from app.modules.accounts.models.accounts import (
     VoucherEntry, VoucherRevision,
 )
 from app.modules.accounts.services.chart_of_accounts import seed_chart_of_accounts
+from app.modules.accounts.models.entities import EntityAccount
 from app.modules.accounts.services.entities import AccountingEntityService
 from app.modules.billing.models.billing import MaintenanceElement, MaintenanceSettings
 from app.services.audit_service import AuditService
@@ -348,14 +349,11 @@ class AccountsService:
 
     def _entity_account_id(self, society_id: UUID, line: Line) -> Optional[UUID]:
         if line.entity_account_id:
-            entity_account = self.db.query(__import__("app.modules.accounts.models.entities", fromlist=["EntityAccount"]).EntityAccount).filter(
-                __import__("app.modules.accounts.models.entities", fromlist=["EntityAccount"]).EntityAccount.id == line.entity_account_id,
-                __import__("app.modules.accounts.models.entities", fromlist=["EntityAccount"]).EntityAccount.society_id == society_id,
-                __import__("app.modules.accounts.models.entities", fromlist=["EntityAccount"]).EntityAccount.is_active.is_(True),
-            ).first()
-            if not entity_account:
-                raise HTTPException(422, "Entity subledger account not found in this society")
-            return entity_account.id
+            entity_account = self.db.query(EntityAccount).filter(
+                EntityAccount.id == line.entity_account_id,
+                EntityAccount.society_id == society_id,
+                EntityAccount.is_active.is_(True),
+            ).first()            return entity_account.id
         if not line.flat_id and not line.vendor_id:
             return None
         entities = AccountingEntityService(self.db)
