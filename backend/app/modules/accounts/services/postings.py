@@ -372,18 +372,27 @@ class AccountPostings:
                         self._cancel_source(source_type, p.id, "Payment reversed or rejected", user)
 
         posted_invoices = active_ids("vendor_invoice")
-        for inv in self.db.query(VendorInvoice).filter(VendorInvoice.society_id == society_id,
-                                                        VendorInvoice.is_active == True):
+        for inv in self.db.query(VendorInvoice).filter(
+                VendorInvoice.society_id == society_id, VendorInvoice.is_active == True):
             if inv.id not in posted_invoices:
                 counts["vendor_bills"] += 1
                 if not dry_run:
                     self.post_vendor_invoice(inv, user)
-            missing = money(inv.paid_amount) - self._posted_vendor_payments(inv.id)
-            if missing > 0:
+
+        posted_payments = active_ids("vendor_payment")
+        for payment in self.db.query(VendorPaymentTransaction).filter(
+                VendorPaymentTransaction.society_id == society_id,
+                VendorPaymentTransaction.is_legacy == False).order_by(
+                    VendorPaymentTransaction.payment_date,
+                    VendorPaymentTransaction.created_at):
+            if not payment.is_reversed and payment.id not in posted_payments:
                 counts["vendor_payments"] += 1
                 if not dry_run:
-                    mode = inv.payment_mode.value if inv.payment_mode else None
-                    self.post_vendor_payment(inv, missing, inv.paid_date or inv.invoice_date, mode == "cash",
-                                             inv.payment_ref, user)
+                    self.post_vendor_payment(payment, user)
+            elif payment.is_reversed and payment.id in posted_payments:
+                counts["vendor_payments"] += 1
+                if not dry_run:
+                    self.reverse_vendor_payment(payment, payment.reversal_reason or "Payment reversed", user)
+
         counts["total"] = sum(counts.values())
         return counts
