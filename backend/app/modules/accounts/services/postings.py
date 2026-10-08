@@ -211,7 +211,7 @@ class AccountPostings:
         ar = entities.ensure_flat_member(flat, dues)
         advance = entities.ensure_flat_advance(flat, advance_control)
         return self._post(
-            payment.society_id, "journal", payment.payment_date,
+            payment.society_id, "journal", bill.bill_date,
             [Line(advance_control, debit=money(allocation.amount), entity_account_id=advance.id),
              Line(dues, credit=money(allocation.amount), flat_id=flat.id, entity_account_id=ar.id)],
             narration=f"Advance applied to Bill {bill.invoice_number} — {flat.flat_number}",
