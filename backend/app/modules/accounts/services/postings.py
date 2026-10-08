@@ -278,13 +278,44 @@ class AccountPostings:
     def post_vendor_invoice(self, inv: VendorInvoice, user: Optional[User] = None) -> Optional[Voucher]:
         if self.active_voucher("vendor_invoice", inv.id) or money(inv.total_amount) <= 0:
             return None
-        sid, total = inv.society_id, money(inv.total_amount)
+        sid = inv.society_id
+        taxable = money(inv.amount)
+        cgst = money(inv.cgst_amount)
+        sgst = money(inv.sgst_amount)
+        igst = money(inv.igst_amount)
+        gst = money(inv.gst_amount)
+        tds = money(inv.tds_amount)
+        gross = money(inv.total_amount)
+
+        # Backward-compatible legacy invoices: gst_amount may exist without
+        # component columns. Their migration populates the split; this fallback
+        # keeps catch-up posting safe for any older row created before that.
+        if gst and not money(cgst + sgst + igst):
+            if inv.gst_component == "IGST":
+                igst = gst
+            else:
+                cgst = money(gst / 2)
+                sgst = gst - cgst
+        input_gst = money(cgst + sgst + igst)
+        if money(taxable + input_gst) != gross:
+            raise ValueError("Vendor invoice accounting total must equal taxable amount plus GST")
+        if tds < 0 or tds > gross:
+            raise ValueError("Invalid TDS amount on vendor invoice")
+
         creditors = self.accounts.system_account(sid, "sundry_creditors")
         vendor = inv.vendor.company_name if inv.vendor else "vendor"
+        lines = [Line(self._expense_account(inv), debit=taxable)]
+        if cgst > 0:
+            lines.append(Line(self.accounts.system_account(sid, "gst_input_cgst"), debit=cgst))
+        if sgst > 0:
+            lines.append(Line(self.accounts.system_account(sid, "gst_input_sgst"), debit=sgst))
+        if igst > 0:
+            lines.append(Line(self.accounts.system_account(sid, "gst_input_igst"), debit=igst))
+        if tds > 0:
+            lines.append(Line(self.accounts.system_account(sid, "tds_payable"), credit=tds))
+        lines.append(Line(creditors, credit=money(gross - tds), vendor_id=inv.vendor_id))
         return self._post(
-            sid, "purchase", inv.invoice_date,
-            [Line(self._expense_account(inv), debit=total),
-             Line(creditors, credit=total, vendor_id=inv.vendor_id)],
+            sid, "purchase", inv.invoice_date, lines,
             narration=f"Bill {inv.invoice_number} of {vendor}" + (f" — {inv.description}" if inv.description else ""),
             reference=inv.invoice_number, source_type="vendor_invoice", source_id=inv.id, user=user)
 
