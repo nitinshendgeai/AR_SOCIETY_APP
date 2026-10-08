@@ -426,6 +426,8 @@ class VendorService_:  # trailing underscore avoids clash with model name
         )
         if tax.tds_amount and not data.get("tds_applicable"):
             data["tds_applicable"] = True
+        # tds_base is a calculation input, not a persisted invoice column.
+        data.pop("tds_base", None)
 
         inv = VendorInvoice(**data)
         self.db.add(inv)
@@ -518,7 +520,7 @@ class VendorService_:  # trailing underscore avoids clash with model name
         payment.reversed_at = datetime.utcnow()
         payment.reversal_reason = reason
         inv.paid_amount = Decimal(inv.paid_amount) - Decimal(payment.amount)
-        inv.is_paid = inv.paid_amount >= inv.total_amount
+        inv.is_paid = (Decimal(inv.paid_amount) + Decimal(inv.tds_amount or 0)) >= Decimal(inv.total_amount)
         latest = self.db.query(VendorPaymentTransaction).filter(
             VendorPaymentTransaction.invoice_id == inv.id,
             VendorPaymentTransaction.is_reversed == False,
