@@ -297,20 +297,26 @@ class AccountPostings:
                 cgst = money(gst / 2)
                 sgst = gst - cgst
         input_gst = money(cgst + sgst + igst)
-        if money(taxable + input_gst) != gross:
+        if gst > 0 and input_gst != gst:
+            raise ValueError("Vendor invoice GST component total must equal GST amount")
+        if gst > 0 and inv.gst_component == "NONE":
+            raise ValueError("GST component is required for a new taxable vendor invoice")
+        if money(taxable + gst) != gross:
             raise ValueError("Vendor invoice accounting total must equal taxable amount plus GST")
         if tds < 0 or tds > gross:
             raise ValueError("Invalid TDS amount on vendor invoice")
 
         creditors = self.accounts.system_account(sid, "sundry_creditors")
         vendor = inv.vendor.company_name if inv.vendor else "vendor"
-        lines = [Line(self._expense_account(inv), debit=taxable)]
-        if cgst > 0:
-            lines.append(Line(self.accounts.system_account(sid, "gst_input_cgst"), debit=cgst))
-        if sgst > 0:
-            lines.append(Line(self.accounts.system_account(sid, "gst_input_sgst"), debit=sgst))
-        if igst > 0:
-            lines.append(Line(self.accounts.system_account(sid, "gst_input_igst"), debit=igst))
+        expense_amount = taxable if inv.gst_itc_eligible else gross
+        lines = [Line(self._expense_account(inv), debit=expense_amount)]
+        if inv.gst_itc_eligible:
+            if cgst > 0:
+                lines.append(Line(self.accounts.system_account(sid, "gst_input_cgst"), debit=cgst))
+            if sgst > 0:
+                lines.append(Line(self.accounts.system_account(sid, "gst_input_sgst"), debit=sgst))
+            if igst > 0:
+                lines.append(Line(self.accounts.system_account(sid, "gst_input_igst"), debit=igst))
         if tds > 0:
             lines.append(Line(self.accounts.system_account(sid, "tds_payable"), credit=tds))
         lines.append(Line(creditors, credit=money(gross - tds), vendor_id=inv.vendor_id))
