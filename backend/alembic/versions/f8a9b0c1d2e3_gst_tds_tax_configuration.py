@@ -1,6 +1,7 @@
 """Add configurable GST/TDS master and vendor invoice tax breakdown."""
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import UUID
 
 revision = "f8a9b0c1d2e3"
 down_revision = "e6f7a8b9c1d2"
@@ -11,8 +12,10 @@ depends_on = None
 def upgrade():
     op.create_table(
         "accounting_tax_configurations",
-        sa.Column("id", sa.UUID(), nullable=False),
-        sa.Column("society_id", sa.UUID(), nullable=False),
+        sa.Column("id", UUID(as_uuid=True), primary_key=True, nullable=False),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("society_id", UUID(as_uuid=True), nullable=False),
         sa.Column("code", sa.String(40), nullable=False),
         sa.Column("name", sa.String(150), nullable=False),
         sa.Column("tax_type", sa.String(10), nullable=False),
@@ -29,7 +32,6 @@ def upgrade():
         sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
         sa.ForeignKeyConstraint(["society_id"], ["societies.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("society_id", "code", name="uq_tax_config_society_code"),
     )
     op.create_index("ix_accounting_tax_configurations_society_id", "accounting_tax_configurations", ["society_id"])
