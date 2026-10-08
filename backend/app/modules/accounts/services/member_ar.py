@@ -212,6 +212,81 @@ class MemberARService:
     def society_reconciliation(self, society_id: UUID,
                                date_from: Optional[date] = None,
                                date_to: Optional[date] = None) -> dict:
+        """Reconcile all member AR accounts using bulk aggregates.
+
+        This intentionally does not call statement() per flat: a society with
+        hundreds of flats must remain a bounded-query report.
+        """
+        accounts = self._accounts(society_id)
+        ar_ids = [ar.id for _, ar, _ in accounts]
+        entity_ids = [entity.id for entity, _, _ in accounts]
+        flat_ids = [flat.id for _, _, flat in accounts if flat]
+
+        gl_rows = []
+        if ar_ids:
+            q = (
+                self.db.query(
+                    VoucherEntry.entity_account_id,
+                    func.coalesce(func.sum(VoucherEntry.debit), 0),
+                    func.coalesce(func.sum(VoucherEntry.credit), 0),
+                )
+                .join(Voucher, Voucher.id == VoucherEntry.voucher_id)
+                .filter(VoucherEntry.entity_account_id.in_(ar_ids), LIVE)
+            )
+            if date_from:
+                q = q.filter(Voucher.voucher_date >= date_from)
+            if date_to:
+                q = q.filter(Voucher.voucher_date <= date_to)
+            gl_rows = q.group_by(VoucherEntry.entity_account_id).all()
+        gl = {row[0]: (_money(row[1]), _money(row[2])) for row in gl_rows}
+
+        advance_rows = []
+        if entity_ids:
+            q = (
+                self.db.query(
+                    EntityAccount.entity_id,
+                    func.coalesce(func.sum(VoucherEntry.debit), 0),
+                    func.coalesce(func.sum(VoucherEntry.credit), 0),
+                )
+                .join(VoucherEntry, VoucherEntry.entity_account_id == EntityAccount.id)
+                .join(Voucher, Voucher.id == VoucherEntry.voucher_id)
+                .filter(
+                    EntityAccount.society_id == society_id,
+                    EntityAccount.entity_id.in_(entity_ids),
+                    EntityAccount.subledger_type == "ADVANCE",
+                    EntityAccount.is_active.is_(True),
+                    LIVE,
+                )
+            )
+            if date_to:
+                q = q.filter(Voucher.voucher_date <= date_to)
+            advance_rows = q.group_by(EntityAccount.entity_id).all()
+        advances = {row[0]: _money(row[2] - row[1]) for row in advance_rows}
+
+        operational = {}
+        if flat_ids:
+            q = (
+                self.db.query(
+                    MaintenanceBill.flat_id,
+                    func.coalesce(func.sum(MaintenanceBill.total_amount), 0),
+                    func.coalesce(func.sum(MaintenanceBill.paid_amount), 0),
+                    func.coalesce(func.sum(MaintenanceBill.outstanding), 0),
+                )
+                .filter(
+                    MaintenanceBill.society_id == society_id,
+                    MaintenanceBill.flat_id.in_(flat_ids),
+                    MaintenanceBill.bill_status != BillStatus.CANCELLED,
+                )
+            )
+            if date_from:
+                q = q.filter(MaintenanceBill.bill_date >= date_from)
+            if date_to:
+                q = q.filter(MaintenanceBill.bill_date <= date_to)
+            operational = {
+                row[0]: (_money(row[1]), _money(row[2]), _money(row[3]))
+                for row in q.group_by(MaintenanceBill.flat_id).all()
+            }
+
         members = []
         totals = {
             "gl_closing_ar": ZERO,
@@ -220,32 +295,33 @@ class MemberARService:
             "operational_outstanding": ZERO,
             "advance_balance": ZERO,
         }
-        for entity, ar, flat in self._accounts(society_id):
+        for entity, ar, flat in accounts:
             if not flat:
                 continue
-            statement = self.statement(society_id, flat.id, date_from, date_to)
+            debit, credit = gl.get(ar.id, (ZERO, ZERO))
+            closing = _money(debit - credit)
+            demand, collected, outstanding = operational.get(flat.id, (ZERO, ZERO, ZERO))
+            advance = advances.get(entity.id, ZERO)
+            difference = _money(closing - outstanding)
             members.append({
-                "flat_id": statement["flat_id"],
-                "flat_label": statement["flat_label"],
-                "member_entity_id": statement["member_entity_id"],
-                "member_account_number": statement["member_account_number"],
-                "closing_ar": statement["closing_ar"],
-                "closing_ar_dr_cr": statement["closing_ar_dr_cr"],
-                "operational_demand": statement["operational_demand"],
-                "operational_collected": statement["operational_collected"],
-                "operational_outstanding": statement["operational_outstanding"],
-                "reconciliation_difference": statement["reconciliation_difference"],
-                "reconciled": statement["reconciled"],
-                "advance_balance": statement["advance_balance"],
+                "flat_id": str(flat.id),
+                "flat_label": _flat_label(flat),
+                "member_entity_id": str(entity.id),
+                "member_account_number": ar.account_number,
+                "closing_ar": str(closing),
+                "closing_ar_dr_cr": "Dr" if closing >= 0 else "Cr",
+                "operational_demand": str(demand),
+                "operational_collected": str(collected),
+                "operational_outstanding": str(outstanding),
+                "reconciliation_difference": str(difference),
+                "reconciled": abs(difference) < Decimal("0.01"),
+                "advance_balance": str(_money(advance)),
             })
-            for key, target in totals.items():
-                target += _money(statement[key])
-            # keep assignment explicit because Decimal is immutable
-            totals["gl_closing_ar"] = _money(totals["gl_closing_ar"])
-            totals["operational_demand"] = _money(totals["operational_demand"])
-            totals["operational_collected"] = _money(totals["operational_collected"])
-            totals["operational_outstanding"] = _money(totals["operational_outstanding"])
-            totals["advance_balance"] = _money(totals["advance_balance"])
+            totals["gl_closing_ar"] += closing
+            totals["operational_demand"] += demand
+            totals["operational_collected"] += collected
+            totals["operational_outstanding"] += outstanding
+            totals["advance_balance"] += advance
 
         difference = _money(totals["gl_closing_ar"] - totals["operational_outstanding"])
         return {
@@ -253,7 +329,7 @@ class MemberARService:
             "date_to": date_to.isoformat() if date_to else None,
             "members": members,
             "totals": {
-                **{k: str(v) for k, v in totals.items()},
+                **{k: str(_money(v)) for k, v in totals.items()},
                 "reconciliation_difference": str(difference),
                 "reconciled": abs(difference) < Decimal("0.01"),
             },
