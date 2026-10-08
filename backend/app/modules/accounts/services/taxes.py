@@ -90,7 +90,15 @@ class TaxCalculationService:
         else:
             cgst, sgst, igst = money(cgst_amount), money(sgst_amount), money(igst_amount)
             supplied = money(gst_amount)
-            if supplied and money(cgst + sgst + igst) != supplied:
+            if supplied and not money(cgst + sgst + igst):
+                if gst_component == "IGST":
+                    igst = supplied
+                elif gst_component == "CGST_SGST":
+                    cgst = money(supplied / 2)
+                    sgst = supplied - cgst
+                else:
+                    raise ValueError("GST component must be CGST_SGST or IGST when GST amount is supplied")
+            elif supplied and money(cgst + sgst + igst) != supplied:
                 raise ValueError("GST amount must equal CGST + SGST + IGST")
             total_gst = money(cgst + sgst + igst)
 
