@@ -19,6 +19,7 @@ from app.modules.vendor.models.vendor import Vendor
 class AccountingEntityService:
     MEMBER_PREFIX = "10"
     VENDOR_PREFIX = "20"
+    ADVANCE_PREFIX = "30"
 
     def __init__(self, db: Session):
         self.db = db
@@ -62,6 +63,35 @@ class AccountingEntityService:
             control_account_id=control_account.id,
             subledger_type="AR",
             account_number=number,
+            is_primary=True,
+        )
+        self.db.add(account)
+        self.db.flush()
+        return account
+
+    def ensure_flat_advance(self, flat: Flat, control_account: Account) -> EntityAccount:
+        """Ensure the member has a formal advance-credit subledger."""
+        society_id = flat.wing.society_id
+        entity = self._entity(society_id, "member", flat.id)
+        if entity is None:
+            entity = Entity(
+                society_id=society_id, entity_type="member",
+                entity_code=f"FLAT-{flat.id}", display_name=flat.flat_number,
+                source_type="flat", source_id=flat.id, is_system=True,
+            )
+            self.db.add(entity)
+            self.db.flush()
+        existing = self.db.query(EntityAccount).filter(
+            EntityAccount.entity_id == entity.id,
+            EntityAccount.subledger_type == "ADVANCE",
+            EntityAccount.is_active.is_(True),
+        ).first()
+        if existing:
+            return existing
+        account = EntityAccount(
+            society_id=society_id, entity_id=entity.id,
+            control_account_id=control_account.id, subledger_type="ADVANCE",
+            account_number=self._next_number(society_id, self.ADVANCE_PREFIX),
             is_primary=True,
         )
         self.db.add(account)
