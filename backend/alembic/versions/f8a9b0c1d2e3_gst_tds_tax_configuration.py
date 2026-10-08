@@ -54,6 +54,7 @@ def upgrade():
     op.add_column("vendor_invoices", sa.Column("cgst_amount", sa.Numeric(12, 2), nullable=False, server_default="0"))
     op.add_column("vendor_invoices", sa.Column("sgst_amount", sa.Numeric(12, 2), nullable=False, server_default="0"))
     op.add_column("vendor_invoices", sa.Column("igst_amount", sa.Numeric(12, 2), nullable=False, server_default="0"))
+    op.add_column("vendor_invoices", sa.Column("gst_itc_eligible", sa.Boolean(), nullable=False, server_default="true"))
     op.add_column("vendor_invoices", sa.Column("tds_applicable", sa.Boolean(), nullable=False, server_default="false"))
     op.add_column("vendor_invoices", sa.Column("tds_section", sa.String(30), nullable=True))
     op.add_column("vendor_invoices", sa.Column("tds_rate", sa.Numeric(7, 4), nullable=False, server_default="0"))
@@ -64,8 +65,7 @@ def upgrade():
     op.add_column("vendor_invoices", sa.Column("tds_config_code", sa.String(40), nullable=True))
 
     op.execute(sa.text(
-        "UPDATE vendor_invoices SET cgst_amount = gst_amount / 2, sgst_amount = gst_amount - (gst_amount / 2), "
-        "gst_component = CASE WHEN gst_amount > 0 THEN 'CGST_SGST' ELSE 'NONE' END, "
+        "UPDATE vendor_invoices SET gst_component = 'NONE', "
         "net_payable_amount = total_amount WHERE net_payable_amount IS NULL"
     ))
 
@@ -73,7 +73,7 @@ def upgrade():
 def downgrade():
     for c in ("tds_config_code", "gst_config_code", "net_payable_amount", "tds_amount", "tds_base_amount",
               "tds_rate", "tds_section", "tds_applicable", "igst_amount", "sgst_amount", "cgst_amount",
-              "gst_component", "gst_rate"):
+              "gst_component", "gst_rate", "gst_itc_eligible"):
         op.drop_column("vendor_invoices", c)
     op.drop_index("ix_accounting_tax_configurations_is_active", table_name="accounting_tax_configurations")
     op.drop_index("ix_accounting_tax_configurations_tax_type", table_name="accounting_tax_configurations")
