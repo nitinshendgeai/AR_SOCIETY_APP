@@ -1,23 +1,29 @@
 """Member AR subledger ledger and billing reconciliation.
 
 The accounting AR balance is derived from live VoucherEntry rows linked to a
-member EntityAccount(subledger_type='AR').  Operational outstanding is derived
-from issued maintenance bills.  The two are deliberately reported separately
-and reconciled rather than silently making one source overwrite the other.
+member EntityAccount(subledger_type='AR'). Operational outstanding is derived
+from maintenance bills plus their dated collections. The two sources remain
+separate so reconciliation differences are visible rather than hidden.
 """
 from datetime import date
 from decimal import Decimal
-from typing import Optional
+from typing import Dict, Optional
 from uuid import UUID
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.flat import Flat
-from app.models.wing import Wing
-from app.modules.accounts.models.accounts import Account, Voucher, VoucherEntry
+from app.modules.accounts.models.accounts import Voucher, VoucherEntry
 from app.modules.accounts.models.entities import Entity, EntityAccount
-from app.modules.billing.models.billing import BillStatus, MaintenanceBill
+from app.modules.billing.models.billing import (
+    BillStatus,
+    MaintenanceBill,
+    OnlinePaymentSubmission,
+    PaymentAllocation,
+    PaymentReceipt,
+    ReconciliationStatus,
+)
 
 ZERO = Decimal("0.00")
 LIVE = (Voucher.is_cancelled == False) & Voucher.reversed_at.is_(None)  # noqa: E712
@@ -68,10 +74,7 @@ class MemberARService:
         q = (
             self.db.query(Voucher, VoucherEntry)
             .join(VoucherEntry, VoucherEntry.voucher_id == Voucher.id)
-            .filter(
-                VoucherEntry.entity_account_id == entity_account_id,
-                LIVE,
-            )
+            .filter(VoucherEntry.entity_account_id == entity_account_id, LIVE)
         )
         if date_from:
             q = q.filter(Voucher.voucher_date >= date_from)
@@ -82,7 +85,7 @@ class MemberARService:
     def _opening(self, entity_account_id: UUID, date_from: Optional[date]) -> Decimal:
         if not date_from:
             return ZERO
-        rows = (
+        row = (
             self.db.query(
                 func.coalesce(func.sum(VoucherEntry.debit), 0),
                 func.coalesce(func.sum(VoucherEntry.credit), 0),
@@ -95,25 +98,117 @@ class MemberARService:
             )
             .one()
         )
-        return _signed_entry(rows[0], rows[1])
+        return _signed_entry(row[0], row[1])
+
+    def _operational_bulk(self, society_id: UUID, flat_ids, as_of: Optional[date] = None):
+        """Return {flat_id: (demand, collected, outstanding)}.
+
+        With no as_of, use the current billing snapshot. With an as_of date,
+        reconstruct the billing position from bills and dated receipts/
+        allocations so a historical report is not compared with today's
+        mutable bill.paid_amount/outstanding fields.
+        """
+        if not flat_ids:
+            return {}
+
+        bill_q = self.db.query(MaintenanceBill).filter(
+            MaintenanceBill.society_id == society_id,
+            MaintenanceBill.flat_id.in_(flat_ids),
+            MaintenanceBill.bill_status != BillStatus.CANCELLED,
+        )
+        if as_of:
+            bill_q = bill_q.filter(MaintenanceBill.bill_date <= as_of)
+            # A bill cancelled after the requested date existed at that date.
+            bill_q = bill_q.filter(
+                (MaintenanceBill.cancelled_at.is_(None))
+                | (func.date(MaintenanceBill.cancelled_at) > as_of)
+            )
+        bills = bill_q.all()
+
+        if not as_of:
+            out: Dict[UUID, list] = {}
+            for bill in bills:
+                row = out.setdefault(bill.flat_id, [ZERO, ZERO, ZERO])
+                row[0] += _money(bill.total_amount)
+                row[1] += _money(bill.paid_amount)
+                row[2] += _money(bill.outstanding)
+            return {k: tuple(_money(v) for v in vals) for k, vals in out.items()}
+
+        bill_ids = [b.id for b in bills]
+        if not bill_ids:
+            return {}
+
+        demand_by_bill = {
+            b.id: _money(b.total_amount) + _money(b.penalty_amount)
+            for b in bills
+        }
+        collected_by_bill: Dict[UUID, Decimal] = {}
+
+        receipt_rows = (
+            self.db.query(
+                PaymentReceipt.bill_id,
+                func.coalesce(func.sum(PaymentReceipt.amount), 0),
+            )
+            .filter(
+                PaymentReceipt.society_id == society_id,
+                PaymentReceipt.bill_id.in_(bill_ids),
+                PaymentReceipt.payment_date <= as_of,
+                PaymentReceipt.is_reversed == False,  # noqa: E712
+            )
+            .group_by(PaymentReceipt.bill_id)
+            .all()
+        )
+        for bill_id, amount in receipt_rows:
+            collected_by_bill[bill_id] = _money(amount)
+
+        allocation_rows = (
+            self.db.query(
+                PaymentAllocation.bill_id,
+                func.coalesce(func.sum(PaymentAllocation.amount), 0),
+            )
+            .join(
+                OnlinePaymentSubmission,
+                OnlinePaymentSubmission.id == PaymentAllocation.payment_id,
+            )
+            .filter(
+                PaymentAllocation.society_id == society_id,
+                PaymentAllocation.bill_id.in_(bill_ids),
+                OnlinePaymentSubmission.payment_date <= as_of,
+                OnlinePaymentSubmission.is_active == True,  # noqa: E712
+                OnlinePaymentSubmission.status != ReconciliationStatus.REJECTED,
+                func.date(PaymentAllocation.created_at) <= as_of,
+                (
+                    PaymentAllocation.released_at.is_(None)
+                    | (func.date(PaymentAllocation.released_at) > as_of)
+                ),
+            )
+            .group_by(PaymentAllocation.bill_id)
+            .all()
+        )
+        for bill_id, amount in allocation_rows:
+            collected_by_bill[bill_id] = (
+                collected_by_bill.get(bill_id, ZERO) + _money(amount)
+            )
+
+        out: Dict[UUID, list] = {}
+        for bill in bills:
+            demand = demand_by_bill[bill.id]
+            collected = min(collected_by_bill.get(bill.id, ZERO), demand)
+            outstanding = max(demand - collected, ZERO)
+            row = out.setdefault(bill.flat_id, [ZERO, ZERO, ZERO])
+            row[0] += demand
+            row[1] += collected
+            row[2] += outstanding
+
+        return {k: tuple(_money(v) for v in vals) for k, vals in out.items()}
 
     def _operational(self, society_id: UUID, flat_id: UUID,
                      date_from: Optional[date], date_to: Optional[date]):
-        q = self.db.query(MaintenanceBill).filter(
-            MaintenanceBill.society_id == society_id,
-            MaintenanceBill.flat_id == flat_id,
-            MaintenanceBill.bill_status != BillStatus.CANCELLED,
-        )
-        if date_from:
-            q = q.filter(MaintenanceBill.bill_date >= date_from)
-        if date_to:
-            q = q.filter(MaintenanceBill.bill_date <= date_to)
-        bills = q.order_by(MaintenanceBill.bill_date, MaintenanceBill.created_at).all()
-
-        demand = sum((_money(b.total_amount) for b in bills), ZERO)
-        outstanding = sum((_money(b.outstanding) for b in bills), ZERO)
-        paid = sum((_money(b.paid_amount) for b in bills), ZERO)
-        return bills, demand, paid, outstanding
+        # A date_from-only statement still reports the current closing
+        # position; date_to gives an explicit historical as-of snapshot.
+        return self._operational_bulk(
+            society_id, [flat_id], as_of=date_to
+        ).get(flat_id, (ZERO, ZERO, ZERO))
 
     def statement(self, society_id: UUID, flat_id: UUID,
                   date_from: Optional[date] = None,
@@ -150,10 +245,10 @@ class MemberARService:
                 "balance_dr_cr": "Dr" if balance >= 0 else "Cr",
             })
 
-        bills, demand, paid, outstanding = self._operational(
+        demand, paid, outstanding = self._operational(
             society_id, flat.id, date_from, date_to
         )
-        advance = self._advance_balance(entity.id, society_id)
+        advance = self._advance_balance(entity.id, society_id, date_to)
 
         return {
             "flat_id": str(flat.id),
@@ -174,8 +269,27 @@ class MemberARService:
             "reconciled": abs(_money(balance - outstanding)) < Decimal("0.01"),
             "advance_balance": str(_money(advance)),
             "lines": lines,
-            "bill_count": len(bills),
-            "bills": [{
+            "bills": self._bills_for_statement(society_id, flat.id, date_to),
+        }
+
+    def _bills_for_statement(self, society_id: UUID, flat_id: UUID, as_of: Optional[date]):
+        q = self.db.query(MaintenanceBill).filter(
+            MaintenanceBill.society_id == society_id,
+            MaintenanceBill.flat_id == flat_id,
+            MaintenanceBill.bill_status != BillStatus.CANCELLED,
+        )
+        if as_of:
+            q = q.filter(
+                MaintenanceBill.bill_date <= as_of,
+                (MaintenanceBill.cancelled_at.is_(None))
+                | (func.date(MaintenanceBill.cancelled_at) > as_of),
+            )
+        bills = q.order_by(MaintenanceBill.bill_date, MaintenanceBill.created_at).all()
+        if not bills:
+            return []
+        bill_ids = [b.id for b in bills]
+        if not as_of:
+            return [{
                 "bill_id": str(b.id),
                 "invoice_number": b.invoice_number,
                 "bill_date": b.bill_date.isoformat(),
@@ -184,10 +298,51 @@ class MemberARService:
                 "demand": str(_money(b.total_amount)),
                 "collected": str(_money(b.paid_amount)),
                 "outstanding": str(_money(b.outstanding)),
-            } for b in bills],
-        }
+            } for b in bills]
+        receipt_rows = dict(self.db.query(
+            PaymentReceipt.bill_id, func.coalesce(func.sum(PaymentReceipt.amount), 0)
+        ).filter(
+            PaymentReceipt.society_id == society_id,
+            PaymentReceipt.bill_id.in_(bill_ids),
+            PaymentReceipt.payment_date <= as_of,
+            PaymentReceipt.is_reversed == False,  # noqa: E712
+        ).group_by(PaymentReceipt.bill_id).all())
+        allocation_rows = dict(self.db.query(
+            PaymentAllocation.bill_id, func.coalesce(func.sum(PaymentAllocation.amount), 0)
+        ).join(
+            OnlinePaymentSubmission,
+            OnlinePaymentSubmission.id == PaymentAllocation.payment_id,
+        ).filter(
+            PaymentAllocation.society_id == society_id,
+            PaymentAllocation.bill_id.in_(bill_ids),
+            OnlinePaymentSubmission.payment_date <= as_of,
+            OnlinePaymentSubmission.is_active == True,  # noqa: E712
+            OnlinePaymentSubmission.status != ReconciliationStatus.REJECTED,
+            func.date(PaymentAllocation.created_at) <= as_of,
+            (PaymentAllocation.released_at.is_(None))
+            | (func.date(PaymentAllocation.released_at) > as_of),
+        ).group_by(PaymentAllocation.bill_id).all())
+        out = []
+        for b in bills:
+            demand = _money(b.total_amount) + _money(b.penalty_amount)
+            collected = min(
+                _money(receipt_rows.get(b.id, 0)) + _money(allocation_rows.get(b.id, 0)),
+                demand,
+            )
+            out.append({
+                "bill_id": str(b.id),
+                "invoice_number": b.invoice_number,
+                "bill_date": b.bill_date.isoformat(),
+                "due_date": b.due_date.isoformat(),
+                "status": b.bill_status.value if hasattr(b.bill_status, "value") else str(b.bill_status),
+                "demand": str(demand),
+                "collected": str(collected),
+                "outstanding": str(max(demand - collected, ZERO)),
+            })
+        return out
 
-    def _advance_balance(self, entity_id: UUID, society_id: UUID) -> Decimal:
+    def _advance_balance(self, entity_id: UUID, society_id: UUID,
+                         as_of: Optional[date] = None) -> Decimal:
         ea = self.db.query(EntityAccount).filter(
             EntityAccount.entity_id == entity_id,
             EntityAccount.society_id == society_id,
@@ -196,15 +351,17 @@ class MemberARService:
         ).first()
         if not ea:
             return ZERO
-        row = (
+        q = (
             self.db.query(
                 func.coalesce(func.sum(VoucherEntry.debit), 0),
                 func.coalesce(func.sum(VoucherEntry.credit), 0),
             )
             .join(Voucher, Voucher.id == VoucherEntry.voucher_id)
             .filter(VoucherEntry.entity_account_id == ea.id, LIVE)
-            .one()
         )
+        if as_of:
+            q = q.filter(Voucher.voucher_date <= as_of)
+        row = q.one()
         # Advance is a credit-balance liability subledger: receipts credit it,
         # later allocations debit it.
         return _money(row[1] - row[0])
@@ -212,11 +369,7 @@ class MemberARService:
     def society_reconciliation(self, society_id: UUID,
                                date_from: Optional[date] = None,
                                date_to: Optional[date] = None) -> dict:
-        """Reconcile all member AR accounts using bulk aggregates.
-
-        This intentionally does not call statement() per flat: a society with
-        hundreds of flats must remain a bounded-query report.
-        """
+        """Reconcile all member AR accounts using bulk aggregates."""
         accounts = self._accounts(society_id)
         ar_ids = [ar.id for _, ar, _ in accounts]
         entity_ids = [entity.id for entity, _, _ in accounts]
@@ -239,6 +392,32 @@ class MemberARService:
                 q = q.filter(Voucher.voucher_date <= date_to)
             gl_rows = q.group_by(VoucherEntry.entity_account_id).all()
         gl = {row[0]: (_money(row[1]), _money(row[2])) for row in gl_rows}
+
+        # The AR closing balance must include the opening balance before
+        # date_from. Bulk reports therefore aggregate through date_to, not only
+        # the selected period, when an as-of snapshot is requested.
+        if date_from:
+            opening_rows = (
+                self.db.query(
+                    VoucherEntry.entity_account_id,
+                    func.coalesce(func.sum(VoucherEntry.debit), 0),
+                    func.coalesce(func.sum(VoucherEntry.credit), 0),
+                )
+                .join(Voucher, Voucher.id == VoucherEntry.voucher_id)
+                .filter(
+                    VoucherEntry.entity_account_id.in_(ar_ids),
+                    LIVE,
+                    Voucher.voucher_date < date_from,
+                )
+                .group_by(VoucherEntry.entity_account_id)
+                .all()
+            )
+            for entity_account_id, debit, credit in opening_rows:
+                prior = gl.get(entity_account_id, (ZERO, ZERO))
+                gl[entity_account_id] = (
+                    _money(prior[0] + debit),
+                    _money(prior[1] + credit),
+                )
 
         advance_rows = []
         if entity_ids:
@@ -263,29 +442,7 @@ class MemberARService:
             advance_rows = q.group_by(EntityAccount.entity_id).all()
         advances = {row[0]: _money(row[2] - row[1]) for row in advance_rows}
 
-        operational = {}
-        if flat_ids:
-            q = (
-                self.db.query(
-                    MaintenanceBill.flat_id,
-                    func.coalesce(func.sum(MaintenanceBill.total_amount), 0),
-                    func.coalesce(func.sum(MaintenanceBill.paid_amount), 0),
-                    func.coalesce(func.sum(MaintenanceBill.outstanding), 0),
-                )
-                .filter(
-                    MaintenanceBill.society_id == society_id,
-                    MaintenanceBill.flat_id.in_(flat_ids),
-                    MaintenanceBill.bill_status != BillStatus.CANCELLED,
-                )
-            )
-            if date_from:
-                q = q.filter(MaintenanceBill.bill_date >= date_from)
-            if date_to:
-                q = q.filter(MaintenanceBill.bill_date <= date_to)
-            operational = {
-                row[0]: (_money(row[1]), _money(row[2]), _money(row[3]))
-                for row in q.group_by(MaintenanceBill.flat_id).all()
-            }
+        operational = self._operational_bulk(society_id, flat_ids, as_of=date_to)
 
         members = []
         totals = {

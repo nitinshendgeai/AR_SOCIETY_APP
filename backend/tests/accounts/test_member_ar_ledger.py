@@ -1,7 +1,7 @@
 """Member AR ledger and billing reconciliation regression tests."""
 from datetime import date
 
-from app.modules.billing.models.billing import BillStatus, BillingCycle, MaintenanceBill
+from app.modules.billing.models.billing import BillStatus, BillingCycle, MaintenanceBill, PaymentMode, PaymentReceipt
 from tests.billing.test_maintenance_billing import _rig
 from tests.conftest import make_user
 
@@ -121,3 +121,73 @@ def test_member_ar_statement_exposes_bill_wise_and_voucher_lines(client, db):
     assert len(data["lines"]) == 1
     assert data["lines"][0]["debit"] == "1500.00"
     assert data["bills"][0]["invoice_number"] == "AR-TEST-0002"
+
+
+def test_member_ar_historical_snapshot_uses_dated_receipts(client, db):
+    society, flat, _flat2, manager, _resident, _other = _rig(db, "memberar3")
+    sid = str(society.id)
+    h = manager["headers"]
+    ledgers = _ledgers(client, h, sid)
+
+    cycle = BillingCycle(
+        society_id=society.id,
+        name="June 2026 Maintenance",
+        cycle_start=date(2026, 6, 1),
+        cycle_end=date(2026, 6, 30),
+        due_date=date(2026, 7, 10),
+        total_flats_billed=1,
+        total_amount_generated=1000,
+    )
+    db.add(cycle)
+    db.flush()
+    bill = MaintenanceBill(
+        society_id=society.id,
+        cycle_id=cycle.id,
+        flat_id=flat.id,
+        invoice_number="AR-TEST-0003",
+        bill_status=BillStatus.PARTIALLY_PAID,
+        bill_date=date(2026, 6, 1),
+        due_date="2026-07-10",
+        subtotal=1000,
+        total_amount=1000,
+        paid_amount=400,
+        outstanding=600,
+    )
+    db.add(bill)
+    db.flush()
+
+    _voucher(client, h, sid, [
+        {"account_id": ledgers["members_dues"]["id"], "debit": "1000", "flat_id": str(flat.id)},
+        {"account_id": ledgers["service_charges"]["id"], "credit": "1000"},
+    ])
+    _voucher(client, h, sid, [
+        {"account_id": ledgers["bank"]["id"], "debit": "400"},
+        {"account_id": ledgers["members_dues"]["id"], "credit": "400", "flat_id": str(flat.id)},
+    ])
+    db.add(PaymentReceipt(
+        society_id=society.id,
+        bill_id=bill.id,
+        flat_id=flat.id,
+        receipt_number="AR-RECEIPT-0003",
+        payment_date=date(2026, 6, 20),
+        amount=400,
+        payment_mode=PaymentMode.CASH,
+    ))
+    db.commit()
+
+    before_payment = client.get(
+        f"{API}/members/{sid}/{flat.id}/ar-statement?date_to=2026-06-10",
+        headers=h,
+    )
+    assert before_payment.status_code == 200, before_payment.text
+    assert before_payment.json()["closing_ar"] == "1000.00"
+    assert before_payment.json()["operational_outstanding"] == "1000.00"
+
+    after_payment = client.get(
+        f"{API}/members/{sid}/{flat.id}/ar-statement?date_to=2026-06-30",
+        headers=h,
+    )
+    assert after_payment.status_code == 200, after_payment.text
+    assert after_payment.json()["closing_ar"] == "600.00"
+    assert after_payment.json()["operational_outstanding"] == "600.00"
+    assert after_payment.json()["reconciled"] is True
