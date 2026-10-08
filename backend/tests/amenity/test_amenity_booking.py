@@ -120,7 +120,8 @@ def test_a_time_already_begun_is_refused(client, soc):
     a = _amenity(client, soc, open_time=None, close_time=None)
     r = _book(client, soc["res"], a["id"], day=0, start="00:00:00", end="00:30:00")
     assert r.status_code == 422
-    assert "already begun" in str(r.json())
+    # Depending on the hour in the society's time zone, today is either begun or already a past date.
+    assert "already begun" in str(r.json()) or "past date" in str(r.json())
     assert _book(client, soc["res"], a["id"], day=-2).status_code == 422
 
 
