@@ -358,7 +358,8 @@ class AccountsService:
                 EntityAccount.id == line.entity_account_id,
                 EntityAccount.society_id == society_id,
                 EntityAccount.is_active.is_(True),
-            ).first()            return entity_account.id
+            ).first()
+            return entity_account.id
         if not line.flat_id and not line.vendor_id:
             return None
         entities = AccountingEntityService(self.db)
