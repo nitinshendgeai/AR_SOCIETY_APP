@@ -49,7 +49,7 @@ def _member_of(flat, resident=None) -> str:
     m = member(flat, resident) if flat else None
     return f"{flat_label(flat)} ({m.full_name})" if m else flat_label(flat)
 from app.modules.billing.services.receipt_pdf import payment_detail
-from app.modules.vendor.models.vendor import VendorInvoice
+from app.modules.vendor.models.vendor import VendorInvoice, VendorPaymentTransaction
 
 logger = logging.getLogger(__name__)
 
@@ -259,26 +259,37 @@ class AccountPostings:
             narration=f"Bill {inv.invoice_number} of {vendor}" + (f" — {inv.description}" if inv.description else ""),
             reference=inv.invoice_number, source_type="vendor_invoice", source_id=inv.id, user=user)
 
-    def post_vendor_payment(self, inv: VendorInvoice, amount, paid_date: date, is_cash: bool,
-                            detail: Optional[str] = None, user: Optional[User] = None) -> Optional[Voucher]:
-        amount = money(amount)
-        if amount <= 0:
+    def post_vendor_payment(self, payment: VendorPaymentTransaction,
+                            user: Optional[User] = None) -> Optional[Voucher]:
+        if payment.is_reversed or self.active_voucher("vendor_payment", payment.id):
             return None
-        self.post_vendor_invoice(inv, user)  # the bill is booked before it's paid
-        sid = inv.society_id
+        inv = payment.invoice
+        if not inv or money(payment.amount) <= 0:
+            return None
+        sid = payment.society_id
         creditors = self.accounts.system_account(sid, "sundry_creditors")
-        vendor = inv.vendor.company_name if inv.vendor else "vendor"
+        vendor = payment.vendor.company_name if payment.vendor else "vendor"
+        from app.modules.accounts.services.entities import AccountingEntityService
+        ap = AccountingEntityService(self.db).ensure_vendor(payment.vendor, creditors)
+        is_cash = payment.payment_mode.value == "cash"
+        detail = payment.payment_mode.value.replace("_", " ").upper()
+        if payment.transaction_ref:
+            detail += f" {payment.transaction_ref}"
         return self._post(
-            sid, "payment", paid_date,
-            [Line(creditors, debit=amount, vendor_id=inv.vendor_id),
-             Line(self._cash_or_bank(sid, is_cash), credit=amount)],
-            narration=f"Paid {vendor} against bill {inv.invoice_number}" + (f" vide {detail}" if detail else ""),
-            reference=inv.payment_ref or inv.invoice_number, source_type="vendor_payment", source_id=inv.id,
-            user=user)
+            sid, "payment", payment.payment_date,
+            [Line(creditors, debit=money(payment.amount),
+                  vendor_id=payment.vendor_id, entity_account_id=ap.id),
+             Line(self._cash_or_bank(sid, is_cash), credit=money(payment.amount))],
+            narration=f"Paid {vendor} against bill {inv.invoice_number} — {detail}",
+            reference=payment.payment_number,
+            source_type="vendor_payment", source_id=payment.id, user=user)
 
     def _posted_vendor_payments(self, inv_id: UUID) -> Decimal:
-        return money(self.db.query(func.coalesce(func.sum(Voucher.amount), 0)).filter(
-            Voucher.source_type == "vendor_payment", Voucher.source_id == inv_id, live_posting()).scalar())
+        return money(self.db.query(func.coalesce(func.sum(Voucher.amount), 0))
+                     .join(VendorPaymentTransaction, VendorPaymentTransaction.id == Voucher.source_id)
+                     .filter(Voucher.source_type == "vendor_payment",
+                             VendorPaymentTransaction.invoice_id == inv_id,
+                             live_posting()).scalar())
 
     # ── Catch-up ──────────────────────────────────────────────────────────────
 
