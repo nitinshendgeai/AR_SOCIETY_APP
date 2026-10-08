@@ -367,3 +367,18 @@ def test_member_and_vendor_have_formal_subledger_accounts(client, db):
     assert member_account.control_account_id == member.id
     assert db.query(Entity).filter_by(society_id=society.id, entity_type="member", source_id=flat.id).count() == 1
     assert db.query(EntityAccount).filter_by(entity_id=member_account.entity_id, subledger_type="AR").count() == 1
+
+
+def test_member_ar_statement_and_reconciliation(client, db):
+    society, flat1, _flat2, manager, _resident, bill1 = _issued_bills(client, db, "acc_ar")
+    h, sid = manager["headers"], str(society.id)
+    bill_voucher = db.query(Voucher).filter_by(source_type="maintenance_bill", source_id=bill1.id).one()
+    ar_entries = [e for e in bill_voucher.entries if e.flat_id == flat1.id]
+    assert len(ar_entries) == 1 and ar_entries[0].entity_account_id is not None
+    for amount, mode in (("2000.00", "cash"), ("1354.00", "bank_transfer")):
+        resp = client.post("/api/v1/billing/payments", json={"bill_id": str(bill1.id), "amount": amount, "payment_date": str(date.today()), "payment_mode": mode}, headers=h)
+        assert resp.status_code == 201, resp.text
+    data = client.get(f"{API}/members/{sid}/{flat1.id}/ar-statement", headers=h).json()
+    assert data["closing_ar"] == "0.00" and data["operational_outstanding"] == "0.00" and data["reconciled"] is True
+    recon = client.get(f"{API}/members/{sid}/ar-reconciliation", headers=h).json()
+    assert recon["totals"]["gl_closing_ar"] == "0.00" and recon["totals"]["operational_outstanding"] == "0.00" and recon["totals"]["reconciled"] is True
