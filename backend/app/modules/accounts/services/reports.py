@@ -97,7 +97,7 @@ class FinancialReports:
         q = (self.db.query(*by, func.coalesce(func.sum(VoucherEntry.debit), 0),
                            func.coalesce(func.sum(VoucherEntry.credit), 0))
              .join(Voucher, Voucher.id == VoucherEntry.voucher_id)
-             .filter(Voucher.society_id == sid, Voucher.is_cancelled == False))  # noqa: E712
+             .filter(Voucher.society_id == sid, Voucher.is_cancelled == False, Voucher.approval_status == "approved"))  # noqa: E712
         if date_from:
             q = q.filter(Voucher.voucher_date >= date_from)
         if date_to:
