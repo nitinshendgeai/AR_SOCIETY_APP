@@ -1,5 +1,5 @@
 """Member AR ledger and billing reconciliation regression tests."""
-from decimal import Decimal
+from datetime import date
 
 from app.modules.billing.models.billing import BillStatus, BillingCycle, MaintenanceBill
 from tests.billing.test_maintenance_billing import _rig
@@ -33,9 +33,9 @@ def test_member_ar_reconciles_to_billing_outstanding(client, db):
     cycle = BillingCycle(
         society_id=society.id,
         name="April 2026 Maintenance",
-        cycle_start="2026-04-01",
-        cycle_end="2026-04-30",
-        due_date="2026-05-10",
+        cycle_start=date(2026, 4, 1),
+        cycle_end=date(2026, 4, 30),
+        due_date=date(2026, 5, 10),
         total_flats_billed=1,
         total_amount_generated=1000,
     )
@@ -47,7 +47,7 @@ def test_member_ar_reconciles_to_billing_outstanding(client, db):
         flat_id=flat.id,
         invoice_number="AR-TEST-0001",
         bill_status=BillStatus.PARTIALLY_PAID,
-        bill_date="2026-04-01",
+        bill_date=date(2026, 4, 1),
         due_date="2026-05-10",
         subtotal=1000,
         total_amount=1000,
@@ -84,9 +84,9 @@ def test_member_ar_statement_exposes_bill_wise_and_voucher_lines(client, db):
     cycle = BillingCycle(
         society_id=society.id,
         name="May 2026 Maintenance",
-        cycle_start="2026-05-01",
-        cycle_end="2026-05-31",
-        due_date="2026-06-10",
+        cycle_start=date(2026, 5, 1),
+        cycle_end=date(2026, 5, 31),
+        due_date=date(2026, 6, 10),
         total_flats_billed=1,
         total_amount_generated=1500,
     )
@@ -98,7 +98,7 @@ def test_member_ar_statement_exposes_bill_wise_and_voucher_lines(client, db):
         flat_id=flat.id,
         invoice_number="AR-TEST-0002",
         bill_status=BillStatus.ISSUED,
-        bill_date="2026-05-01",
+        bill_date=date(2026, 5, 1),
         due_date="2026-06-10",
         subtotal=1500,
         total_amount=1500,
