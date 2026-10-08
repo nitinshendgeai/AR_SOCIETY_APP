@@ -483,7 +483,19 @@ class VendorService_:  # trailing underscore avoids clash with model name
         payment.reversal_reason = reason
         inv.paid_amount = Decimal(inv.paid_amount) - Decimal(payment.amount)
         inv.is_paid = inv.paid_amount >= inv.total_amount
-        if inv.paid_amount == 0:
+        latest = self.db.query(VendorPaymentTransaction).filter(
+            VendorPaymentTransaction.invoice_id == inv.id,
+            VendorPaymentTransaction.is_reversed == False,
+        ).order_by(
+            VendorPaymentTransaction.payment_date.desc(),
+            VendorPaymentTransaction.created_at.desc(),
+        ).first()
+        if latest:
+            inv.paid_date = latest.payment_date
+            inv.payment_mode = latest.payment_mode
+            inv.payment_ref = latest.transaction_ref
+            inv.bank_name = latest.bank_name
+        else:
             inv.paid_date = None
             inv.payment_mode = None
             inv.payment_ref = None
