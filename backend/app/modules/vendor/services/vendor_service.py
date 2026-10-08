@@ -394,6 +394,39 @@ class VendorService_:  # trailing underscore avoids clash with model name
             head = self.db.query(Account).filter(Account.id == data["expense_account_id"]).first()
             if not head or head.society_id != data["society_id"] or not head.is_active:
                 raise HTTPException(422, "Expense head not found in this society")
+        # Tax is calculated before the invoice is posted. The calculation is
+        # additive: zero-tax invoices retain the existing two-leg AP posting.
+        from app.modules.accounts.services.taxes import TaxCalculationService
+        tax = TaxCalculationService(self.db).calculate_vendor_invoice(
+            society_id,
+            amount=data["amount"],
+            gst_amount=data.get("gst_amount", 0),
+            cgst_amount=data.get("cgst_amount", 0),
+            sgst_amount=data.get("sgst_amount", 0),
+            igst_amount=data.get("igst_amount", 0),
+            gst_rate=data.get("gst_rate", 0),
+            gst_component=data.get("gst_component", "NONE"),
+            tds_applicable=data.get("tds_applicable", False),
+            tds_rate=data.get("tds_rate", 0),
+            tds_base=data.get("tds_base", "taxable_amount"),
+            tds_amount=data.get("tds_amount", 0),
+            gst_config_code=data.get("gst_config_code"),
+            tds_config_code=data.get("tds_config_code"),
+            gross_amount=data.get("total_amount"),
+        )
+        data.update(
+            gst_amount=tax.gst_amount,
+            cgst_amount=tax.cgst_amount,
+            sgst_amount=tax.sgst_amount,
+            igst_amount=tax.igst_amount,
+            gst_rate=data.get("gst_rate", 0),
+            tds_base_amount=tax.tds_base_amount,
+            tds_amount=tax.tds_amount,
+            net_payable_amount=tax.net_payable_amount,
+        )
+        if tax.tds_amount and not data.get("tds_applicable"):
+            data["tds_applicable"] = True
+
         inv = VendorInvoice(**data)
         self.db.add(inv)
         self.db.flush()
@@ -417,7 +450,10 @@ class VendorService_:  # trailing underscore avoids clash with model name
         amount = Decimal(amount)
         if amount <= 0:
             raise HTTPException(422, "Payment amount must be positive")
-        outstanding = Decimal(inv.total_amount) - Decimal(inv.paid_amount)
+        tds_deducted = Decimal(inv.tds_amount or 0)
+        outstanding = Decimal(inv.total_amount) - Decimal(inv.paid_amount) - tds_deducted
+        if outstanding < 0:
+            outstanding = Decimal("0")
         if amount > outstanding:
             raise HTTPException(422, f"Payment of {amount} exceeds outstanding balance of {outstanding}")
         if inv.work_order_id:
@@ -446,7 +482,7 @@ class VendorService_:  # trailing underscore avoids clash with model name
         inv.bank_name = bank_name
         inv.paid_date = paid_date
         inv.approved_by = user.id
-        inv.is_paid = inv.paid_amount >= inv.total_amount
+        inv.is_paid = (Decimal(inv.paid_amount) + Decimal(inv.tds_amount or 0)) >= Decimal(inv.total_amount)
 
         self._post("post_vendor_payment", payment, user)
 
