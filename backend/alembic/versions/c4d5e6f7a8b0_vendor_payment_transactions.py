@@ -32,7 +32,7 @@ def upgrade():
         sa.Column("payment_number", sa.String(40), nullable=False),
         sa.Column("payment_date", sa.Date(), nullable=False),
         sa.Column("amount", sa.Numeric(12, 2), nullable=False),
-        sa.Column("payment_mode", sa.String(30), nullable=False),
+        sa.Column("payment_mode", sa.String(30), nullable=True),
         sa.Column("transaction_ref", sa.String(100), nullable=True),
         sa.Column("bank_name", sa.String(100), nullable=True),
         sa.Column("remarks", sa.Text(), nullable=True),
@@ -59,6 +59,27 @@ def upgrade():
                     "vendor_payment_transactions", ["transaction_ref"])
     op.create_index("ix_vendor_payment_transactions_is_reversed",
                     "vendor_payment_transactions", ["is_reversed"])
+
+    # Preserve the existing invoice-level paid aggregate as one legacy
+    # transaction. Existing accounting vouchers remain the authoritative
+    # historical posting; this row prevents the new AP UI from losing history.
+    op.execute("""
+        INSERT INTO vendor_payment_transactions
+            (id, created_at, updated_at, society_id, vendor_id, invoice_id,
+             payment_number, payment_date, amount, payment_mode,
+             transaction_ref, bank_name, remarks, is_reversed, created_by)
+        SELECT gen_random_uuid(), NOW(), NOW(), society_id, vendor_id, id,
+               'LP-' || id::text, COALESCE(paid_date, invoice_date),
+               paid_amount, payment_mode::text, payment_ref, bank_name,
+               'Legacy transaction migrated from invoice-level payment fields',
+               FALSE, approved_by
+        FROM vendor_invoices
+        WHERE paid_amount > 0
+          AND NOT EXISTS (
+              SELECT 1 FROM vendor_payment_transactions p
+              WHERE p.invoice_id = vendor_invoices.id
+          )
+    """)
 
 
 def downgrade():
