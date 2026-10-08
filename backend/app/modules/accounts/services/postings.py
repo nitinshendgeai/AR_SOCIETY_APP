@@ -49,6 +49,7 @@ def _member_of(flat, resident=None) -> str:
     m = member(flat, resident) if flat else None
     return f"{flat_label(flat)} ({m.full_name})" if m else flat_label(flat)
 from app.modules.billing.services.receipt_pdf import payment_detail
+from app.modules.accounts.services.posting_errors import AccountingPostingErrorService
 from app.modules.vendor.models.vendor import VendorInvoice, VendorPaymentTransaction
 
 logger = logging.getLogger(__name__)
@@ -105,9 +106,23 @@ class AccountPostings:
         try:
             with self.db.begin_nested():
                 getattr(self, hook)(*args)
-        except Exception:  # noqa: BLE001 — logged; Sync postings catches it up
+        except Exception as exc:  # noqa: BLE001 — operational action must not fail
             self.accounts._charts.clear()
             self._element_codes.clear()
+            obj = args[0] if args else None
+            if obj is not None and getattr(obj, "id", None) and getattr(obj, "society_id", None):
+                source_type = {
+                    "post_bill": "maintenance_bill",
+                    "post_receipt": "payment_receipt",
+                    "post_online_payment": "online_payment",
+                    "post_vendor_invoice": "vendor_invoice",
+                    "post_vendor_payment": "vendor_payment",
+                    "post_advance_allocation": "advance_allocation",
+                }.get(hook, hook)
+                try:
+                    AccountingPostingErrorService(self.db).record(obj.society_id, source_type, obj.id, hook, exc)
+                except Exception:
+                    logger.exception("[accounts] could not persist posting exception for %s", hook)
             logger.exception("[accounts] automatic posting %s failed", hook)
 
     # ── Maintenance bills ─────────────────────────────────────────────────────
@@ -330,6 +345,27 @@ class AccountPostings:
               .scalar())
         return n
 
+    def _safe_sync_post(self, hook: str, obj, user: Optional[User]) -> bool:
+        try:
+            getattr(self, hook)(obj, user)
+            AccountingPostingErrorService(self.db).resolve(
+                obj.society_id,
+                {"post_bill": "maintenance_bill", "post_receipt": "payment_receipt",
+                 "post_online_payment": "online_payment", "post_vendor_invoice": "vendor_invoice",
+                 "post_vendor_payment": "vendor_payment"}.get(hook, hook),
+                obj.id, hook, user.id if user else None
+            )
+            return True
+        except Exception as exc:
+            source_type = {
+                "post_bill": "maintenance_bill", "post_receipt": "payment_receipt",
+                "post_online_payment": "online_payment", "post_vendor_invoice": "vendor_invoice",
+                "post_vendor_payment": "vendor_payment",
+            }.get(hook, hook)
+            AccountingPostingErrorService(self.db).record(obj.society_id, source_type, obj.id, hook, exc)
+            logger.exception("[accounts] sync posting %s failed for %s", hook, obj.id)
+            return False
+
     def sync_society(self, society_id: UUID, user: Optional[User] = None, dry_run: bool = False) -> dict:
         """Post every automatic voucher that's missing and cancel the ones
         whose bill or payment was cancelled. Idempotent. With dry_run, only
@@ -349,7 +385,7 @@ class AccountPostings:
             if live and bill.id not in posted_bills:
                 counts["bills"] += 1
                 if not dry_run:
-                    self.post_bill(bill, user)
+                    self._safe_sync_post("post_bill", bill, user)
             elif not live and bill.id in posted_bills:
                 counts["bills_cancelled"] += 1
                 if not dry_run:
@@ -365,7 +401,7 @@ class AccountPostings:
                 if is_live(p) and p.id not in posted:
                     counts["receipts"] += 1
                     if not dry_run:
-                        self._post_member_receipt(source_type, p, user)
+                        self._safe_sync_post("post_receipt" if source_type == "payment_receipt" else "post_online_payment", p, user)
                 elif not is_live(p) and p.id in posted:
                     counts["receipts_cancelled"] += 1
                     if not dry_run:
@@ -377,7 +413,7 @@ class AccountPostings:
             if inv.id not in posted_invoices:
                 counts["vendor_bills"] += 1
                 if not dry_run:
-                    self.post_vendor_invoice(inv, user)
+                    self._safe_sync_post("post_vendor_invoice", inv, user)
 
         posted_payments = active_ids("vendor_payment")
         for payment in self.db.query(VendorPaymentTransaction).filter(
@@ -388,7 +424,7 @@ class AccountPostings:
             if not payment.is_reversed and payment.id not in posted_payments:
                 counts["vendor_payments"] += 1
                 if not dry_run:
-                    self.post_vendor_payment(payment, user)
+                    self._safe_sync_post("post_vendor_payment", payment, user)
             elif payment.is_reversed and payment.id in posted_payments:
                 counts["vendor_payments"] += 1
                 if not dry_run:
