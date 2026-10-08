@@ -37,6 +37,7 @@ def upgrade():
         sa.Column("bank_name", sa.String(100), nullable=True),
         sa.Column("remarks", sa.Text(), nullable=True),
         sa.Column("is_reversed", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column("is_legacy", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("reversed_at", sa.DateTime(), nullable=True),
         sa.Column("reversal_reason", sa.Text(), nullable=True),
         sa.Column("created_by", UUID(as_uuid=True),
@@ -72,7 +73,7 @@ def upgrade():
                'LP-' || id::text, COALESCE(paid_date, invoice_date),
                paid_amount, payment_mode::text, payment_ref, bank_name,
                'Legacy transaction migrated from invoice-level payment fields',
-               FALSE, approved_by
+               FALSE, TRUE, approved_by
         FROM vendor_invoices
         WHERE paid_amount > 0
           AND NOT EXISTS (
