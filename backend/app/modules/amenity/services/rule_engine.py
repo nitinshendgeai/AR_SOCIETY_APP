@@ -37,12 +37,14 @@ class AmenityRuleEngine:
         is_blackout:       bool,
         booking_count_week: int,
         booking_count_month: int,
+        now: datetime = None,
     ) -> dict:
         """
         Run all applicable rules. Returns booking metadata (charge, deposit, needs_approval).
         Raises HTTPException on any violation.
         """
         errors = []
+        now = now or datetime.now()          # the society's own clock (naive), supplied by the service
 
         # 1. Blackout date
         if is_blackout:
@@ -64,14 +66,16 @@ class AmenityRuleEngine:
                 detail=f"Time slot conflict: {len(conflicts)} overlapping booking(s) exist.")
 
         # 4. Advance booking limits
-        today = date.today()
+        today = now.date()
         days_ahead = (data.booking_date - today).days
+        booking_dt = datetime.combine(data.booking_date, data.start_time)
         if days_ahead < 0:
             errors.append("Cannot book for a past date.")
+        elif booking_dt <= now:
+            errors.append("That time has already begun. Choose a later time.")
         if self._has(RuleType.MIN_ADVANCE_HOURS):
             min_hours = self._val(RuleType.MIN_ADVANCE_HOURS)
-            booking_dt = datetime.combine(data.booking_date, data.start_time)
-            hours_ahead = (booking_dt - datetime.now()).total_seconds() / 3600
+            hours_ahead = (booking_dt - now).total_seconds() / 3600
             if hours_ahead < min_hours:
                 errors.append(f"Booking must be made at least {min_hours} hours in advance.")
         if self._has(RuleType.MAX_ADVANCE_DAYS):
@@ -106,8 +110,7 @@ class AmenityRuleEngine:
                 errors.append(f"Maximum {max_g} guests allowed. Requested: {data.guest_count}.")
 
         if errors:
-            raise HTTPException(status_code=422,
-                detail={"message": "Booking rule violations", "violations": errors})
+            raise HTTPException(status_code=422, detail=" ".join(errors))
 
         # Calculate charges
         charge  = self._calculate_charge(data)

@@ -1,6 +1,12 @@
 """Amenity management tests — CRUD, booking workflow, RBAC."""
 import pytest
+from datetime import date, timedelta
 from tests.conftest import make_user, make_society
+
+
+def _ahead(days):
+    """A date safely in the future, so the tests never go stale."""
+    return str(date.today() + timedelta(days=days))
 
 
 def _create_amenity(client, headers, society_id, name="Pool"):
@@ -57,7 +63,7 @@ def test_book_amenity_no_approval_required(client, db):
         json={
             "society_id":   str(society.id),
             "amenity_id":   amenity_id,
-            "booking_date": "2026-07-15",
+            "booking_date": _ahead(5),
             "start_time":   "09:00:00",
             "end_time":     "10:00:00",
         },
@@ -91,7 +97,7 @@ def test_approve_booking_with_approval_required(client, db):
         json={
             "society_id":   str(society.id),
             "amenity_id":   amenity_id,
-            "booking_date": "2026-07-20",
+            "booking_date": _ahead(6),
             "start_time":   "14:00:00",
             "end_time":     "16:00:00",
         },
@@ -129,7 +135,7 @@ def test_cancel_booking(client, db):
         json={
             "society_id":   str(society.id),
             "amenity_id":   amenity_id,
-            "booking_date": "2026-07-22",
+            "booking_date": _ahead(7),
             "start_time":   "10:00:00",
             "end_time":     "11:00:00",
         },

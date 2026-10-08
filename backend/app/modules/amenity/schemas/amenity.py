@@ -9,7 +9,7 @@ from app.modules.amenity.models.amenity import AmenityType, BookingStatus, RuleT
 # ── Amenity ───────────────────────────────────────────────────────────────────
 
 class AmenityCreate(OrmBase):
-    society_id:        UUID
+    society_id:        Optional[UUID] = None    # a society user's own society is used
     name:              str
     amenity_type:      AmenityType
     description:       Optional[str]  = None
@@ -24,7 +24,10 @@ class AmenityCreate(OrmBase):
 
 
 class AmenityUpdate(OrmBase):
+    """Only fields sent are changed; send null to clear an optional one."""
     name:              Optional[str]  = None
+    amenity_type:      Optional[AmenityType] = None
+    is_active:         Optional[bool] = None       # false: closed, no longer offered or bookable
     description:       Optional[str]  = None
     location:          Optional[str]  = None
     capacity:          Optional[int]  = None
@@ -121,7 +124,7 @@ class SlotOut(TimestampSchema):
 
 class BookingCreate(OrmBase):
     amenity_id:    UUID
-    society_id:    UUID
+    society_id:    Optional[UUID] = None       # ignored: a booking belongs to its amenity's society
     flat_id:       Optional[UUID] = None
     booking_date:  date
     start_time:    time
@@ -129,6 +132,12 @@ class BookingCreate(OrmBase):
     guest_count:   int            = 1
     purpose:       Optional[str]  = None
     special_notes: Optional[str]  = None
+
+    @field_validator("guest_count")
+    @classmethod
+    def guests_positive(cls, v):
+        if v < 1: raise ValueError("At least one person")
+        return v
 
     @field_validator("end_time")
     @classmethod

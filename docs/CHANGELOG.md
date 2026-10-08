@@ -4,6 +4,29 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-07 (d)
+
+### feat: amenity booking — screens, a day schedule, and a hardened booking check
+
+- **Community → Amenities** for everyone: what the society offers, an amenity's page with the opening hours, rules, rates
+  and a **day schedule** showing the times already taken, and a Book sheet that shows the charge and deposit. *My
+  bookings* for residents; *Requests* and *All bookings* for the committee and manager, to approve, reject (with a
+  reason), cancel or mark as used. The committee sets an amenity up on its own page: details, rules, rates, closed dates,
+  close/reopen.
+- **Security fix:** every amenity route is confined to the caller's society. Before, anyone could read another society's
+  amenities and bookings, and an admin could change them or create into another society.
+- Bookings are now refused outside the amenity's opening hours, above its capacity, for a time that has begun (the
+  society's own clock), for a closed amenity, or for a flat that isn't the booker's. The booking is tied to the booker's
+  flat. Approving re-checks the time, closed dates and overlaps; rejecting needs a reason; only the booker or the
+  committee can cancel; "mark as used" waits until it has started.
+- Setting a rule again replaces it; rule values are validated. Rates can be listed and removed, closing a date can't be
+  in the past or repeated. Charge and deposit now come from the default rate when there is no rate rule.
+- Approve, reject and mark-as-used moved from Admin/Committee to Admin, Committee and Manager. Rule-violation errors
+  are one readable sentence.
+- Migration `3d0e1f2a3b4c` registers the `amenities` form for existing roles.
+- Fixed the three failing amenity tests (they used hard-coded dates that had passed) and added 29 tests.
+- Not billed: charges and deposits are recorded on the booking, not added to maintenance bills or accounts.
+
 ## 2026-10-07
 
 ### feat: asset register — ACs, water pumps, lifts, generators with service schedule and history

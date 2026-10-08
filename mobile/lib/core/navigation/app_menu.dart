@@ -37,6 +37,7 @@ const appMenuCategories = [
   AppMenuCategory('Community', Icons.diversity_3_rounded, [
     AppMenuItem('visitors', 'Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
     AppMenuItem('notices', 'Notices', Icons.campaign_rounded, AppRoutes.notices),
+    AppMenuItem('amenities', 'Amenities', Icons.pool_rounded, AppRoutes.amenities),
     AppMenuItem('complaints', 'Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
     AppMenuItem('pending_resident_changes', 'Pending Resident Changes', Icons.fact_check_outlined, AppRoutes.pendingResidentChanges),
   ]),
