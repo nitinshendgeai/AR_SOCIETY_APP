@@ -96,6 +96,7 @@ from app.modules.vendor.models.vendor import (
 )
 
 # Accounts module models
+from app.modules.accounts.models.entities import Entity, EntityAccount
 from app.modules.accounts.models.accounts import (
     Account, AccountGroup, FinancialYearClosing, Voucher, VoucherEntry, RecurringExpense, RecurringExpenseRun,
 )
