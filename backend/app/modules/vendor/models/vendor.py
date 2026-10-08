@@ -400,6 +400,7 @@ class VendorInvoice(Base, TimestampMixin):
     cgst_amount    = Column(Numeric(12, 2), default=0, nullable=False)
     sgst_amount    = Column(Numeric(12, 2), default=0, nullable=False)
     igst_amount    = Column(Numeric(12, 2), default=0, nullable=False)
+    gst_itc_eligible = Column(Boolean, default=True, nullable=False)
     tds_applicable = Column(Boolean, default=False, nullable=False)
     tds_section    = Column(String(30), nullable=True)
     tds_rate       = Column(Numeric(7, 4), default=0, nullable=False)
