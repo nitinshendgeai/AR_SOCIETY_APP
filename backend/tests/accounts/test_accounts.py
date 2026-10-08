@@ -107,6 +107,7 @@ def test_add_ledger_with_opening_balance_and_default_bank(client, db):
 
 def test_payment_voucher_posts_and_numbers_by_financial_year(client, db):
     society, *_, manager, _res, _other = _rig(db, "acc4")
+    approver = make_user(db, "admin@acc4.com", role="Society Admin")
     h, sid = manager["headers"], str(society.id)
     L = _ledgers(client, h, sid)
     r = client.post(f"{API}/vouchers", json={
@@ -120,7 +121,7 @@ def test_payment_voucher_posts_and_numbers_by_financial_year(client, db):
     assert v["voucher_number"] == "PV/2026-27/0001" and v["fiscal_year"] == "2026-27"
     assert v["amount"] == "8450.00" and not v["is_auto"] and v["approval_status"] == "pending"
     assert _balance(client, h, sid, "electricity") == 0
-    assert client.post(f"{API}/vouchers/{v['id']}/approve", json={"note": "Approved for payment"}, headers=h).status_code == 200
+    assert client.post(f"{API}/vouchers/{v['id']}/approve", json={"note": "Approved for payment"}, headers=approver["headers"]).status_code == 200
     r = client.post(f"{API}/vouchers", json={
         "society_id": sid, "voucher_type": "payment", "voucher_date": "2026-10-01",
         "entries": [{"account_id": L["audit_fees"]["id"], "debit": "5000"},
@@ -178,6 +179,7 @@ def test_voucher_rules(client, db):
 
 def test_cancelled_voucher_drops_out_of_the_books(client, db):
     society, *_, manager, _res, _other = _rig(db, "acc6")
+    approver = make_user(db, "admin@acc6.com", role="Society Admin")
     h, sid = manager["headers"], str(society.id)
     L = _ledgers(client, h, sid)
     v = client.post(f"{API}/vouchers", json={
@@ -187,7 +189,7 @@ def test_cancelled_voucher_drops_out_of_the_books(client, db):
     }, headers=h).json()
     assert _balance(client, h, sid, "depreciation") == 700
     assert v["approval_status"] == "pending"
-    assert client.post(f"{API}/vouchers/{v['id']}/approve", json={"note": "Approved"}, headers=h).status_code == 200
+    assert client.post(f"{API}/vouchers/{v['id']}/approve", json={"note": "Approved"}, headers=approver["headers"]).status_code == 200
     assert _balance(client, h, sid, "depreciation") == 700
     r = client.post(f"{API}/vouchers/{v['id']}/cancel", json={"reason": "Wrong amount"}, headers=h)
     assert r.status_code == 200 and r.json()["is_cancelled"]
