@@ -106,6 +106,19 @@ class AccountPostings:
         try:
             with self.db.begin_nested():
                 getattr(self, hook)(*args)
+            obj = args[0] if args else None
+            if obj is not None and getattr(obj, "id", None) and getattr(obj, "society_id", None):
+                source_type = {
+                    "post_bill": "maintenance_bill", "cancel_bill": "maintenance_bill",
+                    "post_receipt": "payment_receipt", "online_payment_status_changed": "online_payment",
+                    "post_online_payment": "online_payment", "post_vendor_invoice": "vendor_invoice",
+                    "post_vendor_payment": "vendor_payment", "reverse_vendor_payment": "vendor_payment",
+                    "post_advance_allocation": "advance_allocation",
+                }.get(hook, hook)
+                AccountingPostingErrorService(self.db).resolve(
+                    obj.society_id, source_type, obj.id, hook,
+                    getattr(args[-1], "id", None) if args and isinstance(args[-1], User) else None
+                )
         except Exception as exc:  # noqa: BLE001 — operational action must not fail
             self.accounts._charts.clear()
             self._element_codes.clear()
@@ -117,6 +130,7 @@ class AccountPostings:
                     "post_online_payment": "online_payment",
                     "post_vendor_invoice": "vendor_invoice",
                     "post_vendor_payment": "vendor_payment",
+                    "reverse_vendor_payment": "vendor_payment",
                     "post_advance_allocation": "advance_allocation",
                 }.get(hook, hook)
                 try:
