@@ -643,7 +643,7 @@ class AccountsService:
         q = (self.db.query(group_by, func.coalesce(func.sum(VoucherEntry.debit), 0),
                            func.coalesce(func.sum(VoucherEntry.credit), 0))
              .join(Voucher, Voucher.id == VoucherEntry.voucher_id)
-             .filter(Voucher.society_id == society_id, Voucher.is_cancelled == False))
+             .filter(Voucher.society_id == society_id, Voucher.is_cancelled == False, Voucher.approval_status == "approved"))
         if before:
             q = q.filter(Voucher.voucher_date < before)
         if upto:
