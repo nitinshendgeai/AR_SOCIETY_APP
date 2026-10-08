@@ -26,7 +26,7 @@ from app.modules.billing.models.billing import (
 )
 
 ZERO = Decimal("0.00")
-LIVE = (Voucher.is_cancelled == False) & Voucher.reversed_at.is_(None)  # noqa: E712
+LIVE = (Voucher.is_cancelled == False) & Voucher.reversed_at.is_(None) & (Voucher.approval_status == "approved")  # noqa: E712
 
 
 def _money(v) -> Decimal:
@@ -129,7 +129,7 @@ class MemberARService:
             out: Dict[UUID, list] = {}
             for bill in bills:
                 row = out.setdefault(bill.flat_id, [ZERO, ZERO, ZERO])
-                row[0] += _money(bill.total_amount)
+                row[0] += _money(bill.total_amount) + _money(bill.penalty_amount)
                 row[1] += _money(bill.paid_amount)
                 row[2] += _money(bill.outstanding)
             return {k: tuple(_money(v) for v in vals) for k, vals in out.items()}
