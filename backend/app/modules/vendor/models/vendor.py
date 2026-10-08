@@ -440,6 +440,7 @@ class VendorPaymentTransaction(Base, TimestampMixin):
     bank_name = Column(String(100), nullable=True)
     remarks = Column(Text, nullable=True)
     is_reversed = Column(Boolean, default=False, nullable=False, index=True)
+    is_legacy = Column(Boolean, default=False, nullable=False, index=True)
     reversed_at = Column(DateTime, nullable=True)
     reversal_reason = Column(Text, nullable=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
