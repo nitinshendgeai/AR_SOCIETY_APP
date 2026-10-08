@@ -3,3 +3,5 @@ from app.modules.accounts.models.accounts import (
     RecurringExpense, RecurringExpenseRun,
 )
 from app.modules.accounts.models.entities import Entity, EntityAccount
+
+from app.modules.accounts.models.posting_errors import AccountingPostingError
