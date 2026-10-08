@@ -400,6 +400,7 @@ class VendorService_:  # trailing underscore avoids clash with model name
         tax = TaxCalculationService(self.db).calculate_vendor_invoice(
             society_id,
             amount=data["amount"],
+            invoice_date=data.get("invoice_date"),
             gst_amount=data.get("gst_amount", 0),
             cgst_amount=data.get("cgst_amount", 0),
             sgst_amount=data.get("sgst_amount", 0),
