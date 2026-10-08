@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.vendor.models.vendor import (
     Vendor, VendorService, AMCContract, AMCServiceSchedule,
-    ServiceRequest, ServiceVisitLog, VendorInvoice, VendorPaymentMode,
+    ServiceRequest, ServiceVisitLog, VendorInvoice, VendorPaymentTransaction, VendorPaymentMode,
     ContractStatus, ServiceRequestStatus, ScheduleStatus,
     ServiceFrequency, SR_TRANSITIONS,
 )
@@ -405,42 +405,94 @@ class VendorService_:  # trailing underscore avoids clash with model name
     def record_vendor_payment(self, inv_id: UUID, amount: Decimal, paid_date: date,
                                payment_mode: VendorPaymentMode, transaction_ref: Optional[str],
                                bank_name: Optional[str], user: User) -> VendorInvoice:
-        """Records a payment against an invoice — possibly partial. Unlike
-        the old mark_invoice_paid (which always force-set paid_amount to
-        the full total), this accumulates across calls and only flips
-        is_paid once paid_amount reaches total_amount, mirroring how
-        MaintenanceBill/PaymentReceipt track partial resident payments."""
+        """Record one immutable AP payment transaction against an invoice."""
         inv = self.db.query(VendorInvoice).filter(VendorInvoice.id == inv_id).first()
-        if not inv: raise HTTPException(404, "Invoice not found")
+        if not inv:
+            raise HTTPException(404, "Invoice not found")
         self._scoped(user, inv, "Invoice")
         if paid_date < inv.invoice_date:
             raise HTTPException(422, "The payment can't be dated before the invoice")
         if inv.is_paid:
             raise HTTPException(409, "Invoice is already fully paid")
+        amount = Decimal(amount)
         if amount <= 0:
             raise HTTPException(422, "Payment amount must be positive")
-        outstanding = inv.total_amount - inv.paid_amount
+        outstanding = Decimal(inv.total_amount) - Decimal(inv.paid_amount)
         if amount > outstanding:
             raise HTTPException(422, f"Payment of {amount} exceeds outstanding balance of {outstanding}")
         if inv.work_order_id:
             from app.modules.vendor.services.work_orders import WorkOrderService
             WorkOrderService(self.db).check_payment(inv, amount)
 
-        inv.paid_amount = inv.paid_amount + amount
-        inv.payment_mode = payment_mode
-        inv.payment_ref  = transaction_ref
-        inv.bank_name    = bank_name
-        inv.paid_date    = paid_date
-        inv.approved_by  = user.id
-        if inv.paid_amount >= inv.total_amount:
-            inv.is_paid = True
-        detail = payment_mode.value.replace("_", " ").upper() + (f" {transaction_ref}" if transaction_ref else "")
-        self._post("post_vendor_payment", inv, amount, paid_date, payment_mode == VendorPaymentMode.CASH,
-                   detail, user)
+        payment = VendorPaymentTransaction(
+            society_id=inv.society_id,
+            vendor_id=inv.vendor_id,
+            invoice_id=inv.id,
+            payment_number="PENDING",
+            payment_date=paid_date,
+            amount=amount,
+            payment_mode=payment_mode,
+            transaction_ref=transaction_ref,
+            bank_name=bank_name,
+            created_by=user.id,
+        )
+        self.db.add(payment)
+        self.db.flush()
+        payment.payment_number = f"VP-{payment.id.hex[:12].upper()}"
 
-        self._audit(AuditAction.UPDATE, inv, "VendorInvoice", user,
-                    new_values={"amount": str(amount), "paid_amount": str(inv.paid_amount),
-                                "is_paid": inv.is_paid, "invoice": inv.invoice_number})
+        inv.paid_amount = Decimal(inv.paid_amount) + amount
+        inv.payment_mode = payment_mode
+        inv.payment_ref = transaction_ref
+        inv.bank_name = bank_name
+        inv.paid_date = paid_date
+        inv.approved_by = user.id
+        inv.is_paid = inv.paid_amount >= inv.total_amount
+
+        self._post("post_vendor_payment", payment, user)
+
+        self._audit(
+            AuditAction.UPDATE, payment, "VendorPaymentTransaction", user,
+            new_values={
+                "amount": str(amount),
+                "invoice": inv.invoice_number,
+                "payment_number": payment.payment_number,
+            },
+        )
+        self.db.commit()
+        self.db.refresh(inv)
+        return inv
+
+    def reverse_vendor_payment(self, payment_id: UUID, reason: str, user: User) -> VendorInvoice:
+        payment = self.db.query(VendorPaymentTransaction).filter(
+            VendorPaymentTransaction.id == payment_id
+        ).first()
+        if not payment:
+            raise HTTPException(404, "Payment transaction not found")
+        self._scoped(user, payment, "Payment transaction")
+        if payment.is_reversed:
+            raise HTTPException(409, "Payment transaction is already reversed")
+
+        inv = self.db.query(VendorInvoice).filter(VendorInvoice.id == payment.invoice_id).first()
+        if not inv:
+            raise HTTPException(404, "Invoice not found")
+        if Decimal(inv.paid_amount) < Decimal(payment.amount):
+            raise HTTPException(409, "Invoice payment balance is inconsistent")
+
+        payment.is_reversed = True
+        payment.reversed_at = datetime.utcnow()
+        payment.reversal_reason = reason
+        inv.paid_amount = Decimal(inv.paid_amount) - Decimal(payment.amount)
+        inv.is_paid = inv.paid_amount >= inv.total_amount
+        if inv.paid_amount == 0:
+            inv.paid_date = None
+            inv.payment_mode = None
+            inv.payment_ref = None
+            inv.bank_name = None
+        self._post("reverse_vendor_payment", payment, reason, user)
+        self._audit(
+            AuditAction.UPDATE, payment, "VendorPaymentTransaction", user,
+            new_values={"reversed": True, "reason": reason},
+        )
         self.db.commit()
         self.db.refresh(inv)
         return inv
