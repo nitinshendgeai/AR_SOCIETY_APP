@@ -111,6 +111,19 @@ def _invoice_out(i) -> dict:
         "work_order_id": str(i.work_order_id) if i.work_order_id else None,
         "wo_number": i.work_order.wo_number if i.work_order else None,
         "created_at": i.created_at.isoformat() if i.created_at else None,
+        "payments": [{
+            "id": str(p.id),
+            "payment_number": p.payment_number,
+            "payment_date": p.payment_date.isoformat(),
+            "amount": str(p.amount),
+            "payment_mode": p.payment_mode.value,
+            "transaction_ref": p.transaction_ref,
+            "bank_name": p.bank_name,
+            "remarks": p.remarks,
+            "is_reversed": p.is_reversed,
+            "reversed_at": p.reversed_at.isoformat() if p.reversed_at else None,
+            "reversal_reason": p.reversal_reason,
+        } for p in i.payments],
     }
 
 
@@ -326,6 +339,9 @@ class VendorInvoiceCreate(OrmBase):
         if self.due_date and self.due_date < self.invoice_date:
             raise ValueError("The due date can't be before the invoice date")
         return self
+
+class ReversePaymentRequest(OrmBase):
+    reason: str = Field(min_length=3, max_length=1000)
 
 class RecordPaymentRequest(OrmBase):
     amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
@@ -639,6 +655,20 @@ def record_payment(inv_id: UUID, data: RecordPaymentRequest, db: Session = Depen
         inv_id, data.amount, data.paid_date, data.payment_mode,
         data.payment_ref, data.bank_name, user)
     return _invoice_out(inv)
+
+@router.get("/invoices/{inv_id}/payments")
+def invoice_payments(inv_id: UUID, db: Session = Depends(get_db),
+                     user: User = Depends(manager_above)):
+    inv = VendorService_(db).get_vendor_invoice(inv_id, user)
+    return _invoice_out(inv)["payments"]
+
+
+@router.post("/payments/{payment_id}/reverse")
+def reverse_payment(payment_id: UUID, data: ReversePaymentRequest,
+                    db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    inv = VendorService_(db).reverse_vendor_payment(payment_id, data.reason, user)
+    return _invoice_out(inv)
+
 
 @router.get("/invoices/vendor/{vendor_id}")
 def vendor_invoices(vendor_id: UUID, db: Session = Depends(get_db), user: User = Depends(manager_above)):

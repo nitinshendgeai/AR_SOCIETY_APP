@@ -49,7 +49,8 @@ def _member_of(flat, resident=None) -> str:
     m = member(flat, resident) if flat else None
     return f"{flat_label(flat)} ({m.full_name})" if m else flat_label(flat)
 from app.modules.billing.services.receipt_pdf import payment_detail
-from app.modules.vendor.models.vendor import VendorInvoice
+from app.modules.accounts.services.posting_errors import AccountingPostingErrorService
+from app.modules.vendor.models.vendor import VendorInvoice, VendorPaymentTransaction
 
 logger = logging.getLogger(__name__)
 
@@ -105,9 +106,37 @@ class AccountPostings:
         try:
             with self.db.begin_nested():
                 getattr(self, hook)(*args)
-        except Exception:  # noqa: BLE001 — logged; Sync postings catches it up
+            obj = args[0] if args else None
+            if obj is not None and getattr(obj, "id", None) and getattr(obj, "society_id", None):
+                source_type = {
+                    "post_bill": "maintenance_bill", "cancel_bill": "maintenance_bill",
+                    "post_receipt": "payment_receipt", "online_payment_status_changed": "online_payment",
+                    "post_online_payment": "online_payment", "post_vendor_invoice": "vendor_invoice",
+                    "post_vendor_payment": "vendor_payment", "reverse_vendor_payment": "vendor_payment",
+                    "post_advance_allocation": "advance_allocation",
+                }.get(hook, hook)
+                AccountingPostingErrorService(self.db).resolve(
+                    obj.society_id, source_type, obj.id, hook,
+                    getattr(args[-1], "id", None) if args and isinstance(args[-1], User) else None
+                )
+        except Exception as exc:  # noqa: BLE001 — operational action must not fail
             self.accounts._charts.clear()
             self._element_codes.clear()
+            obj = args[0] if args else None
+            if obj is not None and getattr(obj, "id", None) and getattr(obj, "society_id", None):
+                source_type = {
+                    "post_bill": "maintenance_bill",
+                    "post_receipt": "payment_receipt",
+                    "post_online_payment": "online_payment",
+                    "post_vendor_invoice": "vendor_invoice",
+                    "post_vendor_payment": "vendor_payment",
+                    "reverse_vendor_payment": "vendor_payment",
+                    "post_advance_allocation": "advance_allocation",
+                }.get(hook, hook)
+                try:
+                    AccountingPostingErrorService(self.db).record(obj.society_id, source_type, obj.id, hook, exc)
+                except Exception:
+                    logger.exception("[accounts] could not persist posting exception for %s", hook)
             logger.exception("[accounts] automatic posting %s failed", hook)
 
     # ── Maintenance bills ─────────────────────────────────────────────────────
@@ -158,13 +187,65 @@ class AccountPostings:
         flat_id = p.flat_id or (p.bill.flat_id if p.bill else None)
         cash_bank = self._cash_or_bank(sid, p.payment_mode == PaymentMode.CASH)
         dues = self.accounts.system_account(sid, "members_dues")
+        advance_control = self.accounts.system_account(sid, "member_deposits")
         against = f" against Bill {p.bill.invoice_number}" if p.bill else " on account"
+
+        # PaymentReceipt is always on-bill. OnlinePaymentSubmission can leave
+        # an unapplied balance, which is a member credit/advance rather than
+        # a negative AR balance. Keep both amounts in the receipt voucher so
+        # the GL and the member subledgers reconcile.
+        applied = money(p.amount)
+        unapplied_amount = ZERO
+        if source_type == "online_payment":
+            from app.modules.billing.services.allocations import allocated
+            applied = min(money(p.amount), allocated(p))
+            unapplied_amount = money(p.amount) - applied
+
+        lines = [Line(cash_bank, debit=money(p.amount))]
+        if applied > 0:
+            from app.modules.accounts.services.entities import AccountingEntityService
+            ar = AccountingEntityService(self.db).ensure_flat_member(flat, dues)
+            lines.append(Line(dues, credit=applied, flat_id=flat_id, entity_account_id=ar.id))
+        if unapplied_amount > 0:
+            from app.modules.accounts.services.entities import AccountingEntityService
+            advance = AccountingEntityService(self.db).ensure_flat_advance(flat, advance_control)
+            lines.append(Line(advance_control, credit=unapplied_amount,
+                              entity_account_id=advance.id))
+
         narration = (f"Received from {_member_of(flat, p.bill.resident if p.bill else None)} "
                      f"vide {payment_detail(p)}{against}")
         return self._post(
-            sid, "receipt", p.payment_date,
-            [Line(cash_bank, debit=money(p.amount)), Line(dues, credit=money(p.amount), flat_id=flat_id)],
-            narration=narration, reference=p.receipt_number, source_type=source_type, source_id=p.id, user=user)
+            sid, "receipt", p.payment_date, lines,
+            narration=narration, reference=p.receipt_number,
+            source_type=source_type, source_id=p.id, user=user)
+
+    def post_advance_allocation(self, allocation, user: Optional[User] = None) -> Optional[Voucher]:
+        """Move an already-recorded member advance onto a maintenance demand.
+
+        This is only used when a previously unapplied payment is later set
+        off. The original receipt remains the cash receipt; this voucher is
+        the appropriation from the member advance liability to member AR.
+        """
+        if self.active_voucher("advance_allocation", allocation.id) or money(allocation.amount) <= 0:
+            return None
+        payment = allocation.payment
+        bill = allocation.bill
+        if not payment or not bill:
+            return None
+        flat = payment.flat or bill.flat
+        dues = self.accounts.system_account(payment.society_id, "members_dues")
+        advance_control = self.accounts.system_account(payment.society_id, "member_deposits")
+        from app.modules.accounts.services.entities import AccountingEntityService
+        entities = AccountingEntityService(self.db)
+        ar = entities.ensure_flat_member(flat, dues)
+        advance = entities.ensure_flat_advance(flat, advance_control)
+        return self._post(
+            payment.society_id, "journal", bill.bill_date,
+            [Line(advance_control, debit=money(allocation.amount), entity_account_id=advance.id),
+             Line(dues, credit=money(allocation.amount), flat_id=flat.id, entity_account_id=ar.id)],
+            narration=f"Advance applied to Bill {bill.invoice_number} — {flat.flat_number}",
+            reference=payment.receipt_number,
+            source_type="advance_allocation", source_id=allocation.id, user=user)
 
     def post_receipt(self, receipt: PaymentReceipt, user: Optional[User] = None) -> Optional[Voucher]:
         if receipt.is_reversed:
@@ -197,36 +278,89 @@ class AccountPostings:
     def post_vendor_invoice(self, inv: VendorInvoice, user: Optional[User] = None) -> Optional[Voucher]:
         if self.active_voucher("vendor_invoice", inv.id) or money(inv.total_amount) <= 0:
             return None
-        sid, total = inv.society_id, money(inv.total_amount)
+        sid = inv.society_id
+        taxable = money(inv.amount)
+        cgst = money(inv.cgst_amount)
+        sgst = money(inv.sgst_amount)
+        igst = money(inv.igst_amount)
+        gst = money(inv.gst_amount)
+        tds = money(inv.tds_amount)
+        gross = money(inv.total_amount)
+
+        # Backward-compatible legacy invoices: gst_amount may exist without
+        # component columns. Their migration populates the split; this fallback
+        # keeps catch-up posting safe for any older row created before that.
+        if gst and not money(cgst + sgst + igst):
+            if inv.gst_component == "IGST":
+                igst = gst
+            else:
+                cgst = money(gst / 2)
+                sgst = gst - cgst
+        input_gst = money(cgst + sgst + igst)
+        if gst > 0 and input_gst != gst:
+            raise ValueError("Vendor invoice GST component total must equal GST amount")
+        if gst > 0 and inv.gst_component == "NONE":
+            raise ValueError("GST component is required for a new taxable vendor invoice")
+        if money(taxable + gst) != gross:
+            raise ValueError("Vendor invoice accounting total must equal taxable amount plus GST")
+        if tds < 0 or tds > gross:
+            raise ValueError("Invalid TDS amount on vendor invoice")
+
         creditors = self.accounts.system_account(sid, "sundry_creditors")
         vendor = inv.vendor.company_name if inv.vendor else "vendor"
+        expense_amount = taxable if inv.gst_itc_eligible else gross
+        lines = [Line(self._expense_account(inv), debit=expense_amount)]
+        if inv.gst_itc_eligible:
+            if cgst > 0:
+                lines.append(Line(self.accounts.system_account(sid, "gst_input_cgst"), debit=cgst))
+            if sgst > 0:
+                lines.append(Line(self.accounts.system_account(sid, "gst_input_sgst"), debit=sgst))
+            if igst > 0:
+                lines.append(Line(self.accounts.system_account(sid, "gst_input_igst"), debit=igst))
+        if tds > 0:
+            lines.append(Line(self.accounts.system_account(sid, "tds_payable"), credit=tds))
+        lines.append(Line(creditors, credit=money(gross - tds), vendor_id=inv.vendor_id))
         return self._post(
-            sid, "purchase", inv.invoice_date,
-            [Line(self._expense_account(inv), debit=total),
-             Line(creditors, credit=total, vendor_id=inv.vendor_id)],
+            sid, "purchase", inv.invoice_date, lines,
             narration=f"Bill {inv.invoice_number} of {vendor}" + (f" — {inv.description}" if inv.description else ""),
             reference=inv.invoice_number, source_type="vendor_invoice", source_id=inv.id, user=user)
 
-    def post_vendor_payment(self, inv: VendorInvoice, amount, paid_date: date, is_cash: bool,
-                            detail: Optional[str] = None, user: Optional[User] = None) -> Optional[Voucher]:
-        amount = money(amount)
-        if amount <= 0:
+    def post_vendor_payment(self, payment: VendorPaymentTransaction,
+                            user: Optional[User] = None) -> Optional[Voucher]:
+        if payment.is_reversed or self.active_voucher("vendor_payment", payment.id):
             return None
-        self.post_vendor_invoice(inv, user)  # the bill is booked before it's paid
-        sid = inv.society_id
+        inv = payment.invoice
+        if not inv or money(payment.amount) <= 0:
+            return None
+        sid = payment.society_id
         creditors = self.accounts.system_account(sid, "sundry_creditors")
-        vendor = inv.vendor.company_name if inv.vendor else "vendor"
+        vendor = payment.vendor.company_name if payment.vendor else "vendor"
+        from app.modules.accounts.services.entities import AccountingEntityService
+        ap = AccountingEntityService(self.db).ensure_vendor(payment.vendor, creditors)
+        is_cash = payment.payment_mode.value == "cash"
+        detail = payment.payment_mode.value.replace("_", " ").upper()
+        if payment.transaction_ref:
+            detail += f" {payment.transaction_ref}"
         return self._post(
-            sid, "payment", paid_date,
-            [Line(creditors, debit=amount, vendor_id=inv.vendor_id),
-             Line(self._cash_or_bank(sid, is_cash), credit=amount)],
-            narration=f"Paid {vendor} against bill {inv.invoice_number}" + (f" vide {detail}" if detail else ""),
-            reference=inv.payment_ref or inv.invoice_number, source_type="vendor_payment", source_id=inv.id,
-            user=user)
+            sid, "payment", payment.payment_date,
+            [Line(creditors, debit=money(payment.amount),
+                  vendor_id=payment.vendor_id, entity_account_id=ap.id),
+             Line(self._cash_or_bank(sid, is_cash), credit=money(payment.amount))],
+            narration=f"Paid {vendor} against bill {inv.invoice_number} — {detail}",
+            reference=payment.payment_number,
+            source_type="vendor_payment", source_id=payment.id, user=user)
+
+    def reverse_vendor_payment(self, payment: VendorPaymentTransaction, reason: str,
+                               user: Optional[User] = None) -> None:
+        self._cancel_source("vendor_payment", payment.id,
+                            f"Vendor payment {payment.payment_number} reversed: {reason}", user)
 
     def _posted_vendor_payments(self, inv_id: UUID) -> Decimal:
-        return money(self.db.query(func.coalesce(func.sum(Voucher.amount), 0)).filter(
-            Voucher.source_type == "vendor_payment", Voucher.source_id == inv_id, live_posting()).scalar())
+        return money(self.db.query(func.coalesce(func.sum(Voucher.amount), 0))
+                     .join(VendorPaymentTransaction, VendorPaymentTransaction.id == Voucher.source_id)
+                     .filter(Voucher.source_type == "vendor_payment",
+                             VendorPaymentTransaction.invoice_id == inv_id,
+                             live_posting()).scalar())
 
     # ── Catch-up ──────────────────────────────────────────────────────────────
 
@@ -262,6 +396,27 @@ class AccountPostings:
               .scalar())
         return n
 
+    def _safe_sync_post(self, hook: str, obj, user: Optional[User]) -> bool:
+        try:
+            getattr(self, hook)(obj, user)
+            AccountingPostingErrorService(self.db).resolve(
+                obj.society_id,
+                {"post_bill": "maintenance_bill", "post_receipt": "payment_receipt",
+                 "post_online_payment": "online_payment", "post_vendor_invoice": "vendor_invoice",
+                 "post_vendor_payment": "vendor_payment"}.get(hook, hook),
+                obj.id, hook, user.id if user else None
+            )
+            return True
+        except Exception as exc:
+            source_type = {
+                "post_bill": "maintenance_bill", "post_receipt": "payment_receipt",
+                "post_online_payment": "online_payment", "post_vendor_invoice": "vendor_invoice",
+                "post_vendor_payment": "vendor_payment",
+            }.get(hook, hook)
+            AccountingPostingErrorService(self.db).record(obj.society_id, source_type, obj.id, hook, exc)
+            logger.exception("[accounts] sync posting %s failed for %s", hook, obj.id)
+            return False
+
     def sync_society(self, society_id: UUID, user: Optional[User] = None, dry_run: bool = False) -> dict:
         """Post every automatic voucher that's missing and cancel the ones
         whose bill or payment was cancelled. Idempotent. With dry_run, only
@@ -281,7 +436,7 @@ class AccountPostings:
             if live and bill.id not in posted_bills:
                 counts["bills"] += 1
                 if not dry_run:
-                    self.post_bill(bill, user)
+                    self._safe_sync_post("post_bill", bill, user)
             elif not live and bill.id in posted_bills:
                 counts["bills_cancelled"] += 1
                 if not dry_run:
@@ -297,25 +452,34 @@ class AccountPostings:
                 if is_live(p) and p.id not in posted:
                     counts["receipts"] += 1
                     if not dry_run:
-                        self._post_member_receipt(source_type, p, user)
+                        self._safe_sync_post("post_receipt" if source_type == "payment_receipt" else "post_online_payment", p, user)
                 elif not is_live(p) and p.id in posted:
                     counts["receipts_cancelled"] += 1
                     if not dry_run:
                         self._cancel_source(source_type, p.id, "Payment reversed or rejected", user)
 
         posted_invoices = active_ids("vendor_invoice")
-        for inv in self.db.query(VendorInvoice).filter(VendorInvoice.society_id == society_id,
-                                                        VendorInvoice.is_active == True):
+        for inv in self.db.query(VendorInvoice).filter(
+                VendorInvoice.society_id == society_id, VendorInvoice.is_active == True):
             if inv.id not in posted_invoices:
                 counts["vendor_bills"] += 1
                 if not dry_run:
-                    self.post_vendor_invoice(inv, user)
-            missing = money(inv.paid_amount) - self._posted_vendor_payments(inv.id)
-            if missing > 0:
+                    self._safe_sync_post("post_vendor_invoice", inv, user)
+
+        posted_payments = active_ids("vendor_payment")
+        for payment in self.db.query(VendorPaymentTransaction).filter(
+                VendorPaymentTransaction.society_id == society_id,
+                VendorPaymentTransaction.is_legacy == False).order_by(
+                    VendorPaymentTransaction.payment_date,
+                    VendorPaymentTransaction.created_at):
+            if not payment.is_reversed and payment.id not in posted_payments:
                 counts["vendor_payments"] += 1
                 if not dry_run:
-                    mode = inv.payment_mode.value if inv.payment_mode else None
-                    self.post_vendor_payment(inv, missing, inv.paid_date or inv.invoice_date, mode == "cash",
-                                             inv.payment_ref, user)
+                    self._safe_sync_post("post_vendor_payment", payment, user)
+            elif payment.is_reversed and payment.id in posted_payments:
+                counts["vendor_payments"] += 1
+                if not dry_run:
+                    self.reverse_vendor_payment(payment, payment.reversal_reason or "Payment reversed", user)
+
         counts["total"] = sum(counts.values())
         return counts

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.vendor.models.vendor import (
     Vendor, VendorService, AMCContract, AMCServiceSchedule,
-    ServiceRequest, ServiceVisitLog, VendorInvoice, VendorPaymentMode,
+    ServiceRequest, ServiceVisitLog, VendorInvoice, VendorPaymentTransaction, VendorPaymentMode,
     ContractStatus, ServiceRequestStatus, ScheduleStatus,
     ServiceFrequency, SR_TRANSITIONS,
 )
@@ -394,6 +394,42 @@ class VendorService_:  # trailing underscore avoids clash with model name
             head = self.db.query(Account).filter(Account.id == data["expense_account_id"]).first()
             if not head or head.society_id != data["society_id"] or not head.is_active:
                 raise HTTPException(422, "Expense head not found in this society")
+        # Tax is calculated before the invoice is posted. The calculation is
+        # additive: zero-tax invoices retain the existing two-leg AP posting.
+        from app.modules.accounts.services.taxes import TaxCalculationService
+        tax = TaxCalculationService(self.db).calculate_vendor_invoice(
+            society_id,
+            amount=data["amount"],
+            invoice_date=data.get("invoice_date"),
+            gst_amount=data.get("gst_amount", 0),
+            cgst_amount=data.get("cgst_amount", 0),
+            sgst_amount=data.get("sgst_amount", 0),
+            igst_amount=data.get("igst_amount", 0),
+            gst_rate=data.get("gst_rate", 0),
+            gst_component=data.get("gst_component", "NONE"),
+            tds_applicable=data.get("tds_applicable", False),
+            tds_rate=data.get("tds_rate", 0),
+            tds_base=data.get("tds_base", "taxable_amount"),
+            tds_amount=data.get("tds_amount", 0),
+            gst_config_code=data.get("gst_config_code"),
+            tds_config_code=data.get("tds_config_code"),
+            gross_amount=data.get("total_amount"),
+        )
+        data.update(
+            gst_amount=tax.gst_amount,
+            cgst_amount=tax.cgst_amount,
+            sgst_amount=tax.sgst_amount,
+            igst_amount=tax.igst_amount,
+            gst_rate=data.get("gst_rate", 0),
+            tds_base_amount=tax.tds_base_amount,
+            tds_amount=tax.tds_amount,
+            net_payable_amount=tax.net_payable_amount,
+        )
+        if tax.tds_amount and not data.get("tds_applicable"):
+            data["tds_applicable"] = True
+        # tds_base is a calculation input, not a persisted invoice column.
+        data.pop("tds_base", None)
+
         inv = VendorInvoice(**data)
         self.db.add(inv)
         self.db.flush()
@@ -405,42 +441,109 @@ class VendorService_:  # trailing underscore avoids clash with model name
     def record_vendor_payment(self, inv_id: UUID, amount: Decimal, paid_date: date,
                                payment_mode: VendorPaymentMode, transaction_ref: Optional[str],
                                bank_name: Optional[str], user: User) -> VendorInvoice:
-        """Records a payment against an invoice — possibly partial. Unlike
-        the old mark_invoice_paid (which always force-set paid_amount to
-        the full total), this accumulates across calls and only flips
-        is_paid once paid_amount reaches total_amount, mirroring how
-        MaintenanceBill/PaymentReceipt track partial resident payments."""
+        """Record one immutable AP payment transaction against an invoice."""
         inv = self.db.query(VendorInvoice).filter(VendorInvoice.id == inv_id).first()
-        if not inv: raise HTTPException(404, "Invoice not found")
+        if not inv:
+            raise HTTPException(404, "Invoice not found")
         self._scoped(user, inv, "Invoice")
         if paid_date < inv.invoice_date:
             raise HTTPException(422, "The payment can't be dated before the invoice")
         if inv.is_paid:
             raise HTTPException(409, "Invoice is already fully paid")
+        amount = Decimal(amount)
         if amount <= 0:
             raise HTTPException(422, "Payment amount must be positive")
-        outstanding = inv.total_amount - inv.paid_amount
+        tds_deducted = Decimal(inv.tds_amount or 0)
+        outstanding = Decimal(inv.total_amount) - Decimal(inv.paid_amount) - tds_deducted
+        if outstanding < 0:
+            outstanding = Decimal("0")
         if amount > outstanding:
             raise HTTPException(422, f"Payment of {amount} exceeds outstanding balance of {outstanding}")
         if inv.work_order_id:
             from app.modules.vendor.services.work_orders import WorkOrderService
             WorkOrderService(self.db).check_payment(inv, amount)
 
-        inv.paid_amount = inv.paid_amount + amount
-        inv.payment_mode = payment_mode
-        inv.payment_ref  = transaction_ref
-        inv.bank_name    = bank_name
-        inv.paid_date    = paid_date
-        inv.approved_by  = user.id
-        if inv.paid_amount >= inv.total_amount:
-            inv.is_paid = True
-        detail = payment_mode.value.replace("_", " ").upper() + (f" {transaction_ref}" if transaction_ref else "")
-        self._post("post_vendor_payment", inv, amount, paid_date, payment_mode == VendorPaymentMode.CASH,
-                   detail, user)
+        payment = VendorPaymentTransaction(
+            society_id=inv.society_id,
+            vendor_id=inv.vendor_id,
+            invoice_id=inv.id,
+            payment_number="PENDING",
+            payment_date=paid_date,
+            amount=amount,
+            payment_mode=payment_mode,
+            transaction_ref=transaction_ref,
+            bank_name=bank_name,
+            created_by=user.id,
+        )
+        self.db.add(payment)
+        self.db.flush()
+        payment.payment_number = f"VP-{payment.id.hex[:12].upper()}"
 
-        self._audit(AuditAction.UPDATE, inv, "VendorInvoice", user,
-                    new_values={"amount": str(amount), "paid_amount": str(inv.paid_amount),
-                                "is_paid": inv.is_paid, "invoice": inv.invoice_number})
+        inv.paid_amount = Decimal(inv.paid_amount) + amount
+        inv.payment_mode = payment_mode
+        inv.payment_ref = transaction_ref
+        inv.bank_name = bank_name
+        inv.paid_date = paid_date
+        inv.approved_by = user.id
+        inv.is_paid = (Decimal(inv.paid_amount) + Decimal(inv.tds_amount or 0)) >= Decimal(inv.total_amount)
+
+        self._post("post_vendor_payment", payment, user)
+
+        self._audit(
+            AuditAction.UPDATE, payment, "VendorPaymentTransaction", user,
+            new_values={
+                "amount": str(amount),
+                "invoice": inv.invoice_number,
+                "payment_number": payment.payment_number,
+            },
+        )
+        self.db.commit()
+        self.db.refresh(inv)
+        return inv
+
+    def reverse_vendor_payment(self, payment_id: UUID, reason: str, user: User) -> VendorInvoice:
+        payment = self.db.query(VendorPaymentTransaction).filter(
+            VendorPaymentTransaction.id == payment_id
+        ).first()
+        if not payment:
+            raise HTTPException(404, "Payment transaction not found")
+        self._scoped(user, payment, "Payment transaction")
+        if payment.is_reversed:
+            raise HTTPException(409, "Payment transaction is already reversed")
+
+        inv = self.db.query(VendorInvoice).filter(VendorInvoice.id == payment.invoice_id).first()
+        if not inv:
+            raise HTTPException(404, "Invoice not found")
+        if Decimal(inv.paid_amount) < Decimal(payment.amount):
+            raise HTTPException(409, "Invoice payment balance is inconsistent")
+
+        payment.is_reversed = True
+        payment.reversed_at = datetime.utcnow()
+        payment.reversal_reason = reason
+        inv.paid_amount = Decimal(inv.paid_amount) - Decimal(payment.amount)
+        inv.is_paid = (Decimal(inv.paid_amount) + Decimal(inv.tds_amount or 0)) >= Decimal(inv.total_amount)
+        latest = self.db.query(VendorPaymentTransaction).filter(
+            VendorPaymentTransaction.invoice_id == inv.id,
+            VendorPaymentTransaction.is_reversed == False,
+        ).order_by(
+            VendorPaymentTransaction.payment_date.desc(),
+            VendorPaymentTransaction.created_at.desc(),
+        ).first()
+        if latest:
+            inv.paid_date = latest.payment_date
+            inv.payment_mode = latest.payment_mode
+            inv.payment_ref = latest.transaction_ref
+            inv.bank_name = latest.bank_name
+        else:
+            inv.paid_date = None
+            inv.payment_mode = None
+            inv.payment_ref = None
+            inv.bank_name = None
+        self._post("reverse_vendor_payment", payment, reason, user)
+        self._audit(
+            AuditAction.UPDATE, payment, "VendorPaymentTransaction", user,
+            new_values={"reversed": True, "reason": reason},
+        )
         self.db.commit()
         self.db.refresh(inv)
         return inv

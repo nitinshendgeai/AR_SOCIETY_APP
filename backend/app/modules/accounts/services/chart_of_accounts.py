@@ -53,6 +53,11 @@ STANDARD_LEDGERS = [
     ("current_liabilities", "member_deposits", "1403", "Deposits from Members", {}),
     ("current_liabilities", "tds_payable", "1404", "TDS Payable", {}),
     ("current_liabilities", "gst_payable", "1405", "GST Payable", {}),
+    # Input GST is recoverable tax on eligible vendor purchases. Keep these
+    # as separate assets so CGST/SGST/IGST registers can reconcile independently.
+    ("current_assets", "gst_input_cgst", "2307", "Input GST - CGST", {}),
+    ("current_assets", "gst_input_sgst", "2308", "Input GST - SGST", {}),
+    ("current_assets", "gst_input_igst", "2309", "Input GST - IGST", {}),
     # Assets
     ("fixed_assets", "land_building", "2001", "Land & Building", {}),
     ("fixed_assets", "plant_machinery", "2002", "Plant & Machinery (Lift, Pumps, DG)", {}),

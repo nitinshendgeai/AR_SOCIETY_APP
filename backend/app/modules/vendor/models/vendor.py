@@ -395,6 +395,20 @@ class VendorInvoice(Base, TimestampMixin):
     due_date       = Column(Date, nullable=True)
     amount         = Column(Numeric(12, 2), nullable=False)
     gst_amount     = Column(Numeric(10, 2), default=0, nullable=False)
+    gst_rate       = Column(Numeric(7, 4), default=0, nullable=False)
+    gst_component  = Column(String(20), default="NONE", nullable=False)  # CGST_SGST | IGST | NONE
+    cgst_amount    = Column(Numeric(12, 2), default=0, nullable=False)
+    sgst_amount    = Column(Numeric(12, 2), default=0, nullable=False)
+    igst_amount    = Column(Numeric(12, 2), default=0, nullable=False)
+    gst_itc_eligible = Column(Boolean, default=True, nullable=False)
+    tds_applicable = Column(Boolean, default=False, nullable=False)
+    tds_section    = Column(String(30), nullable=True)
+    tds_rate       = Column(Numeric(7, 4), default=0, nullable=False)
+    tds_base_amount = Column(Numeric(12, 2), default=0, nullable=False)
+    tds_amount     = Column(Numeric(12, 2), default=0, nullable=False)
+    net_payable_amount = Column(Numeric(12, 2), nullable=True)
+    gst_config_code = Column(String(40), nullable=True)
+    tds_config_code = Column(String(40), nullable=True)
     total_amount   = Column(Numeric(12, 2), nullable=False)
     paid_amount    = Column(Numeric(12, 2), default=0, nullable=False)
     is_paid        = Column(Boolean, default=False, nullable=False, index=True)
@@ -414,6 +428,45 @@ class VendorInvoice(Base, TimestampMixin):
     request  = relationship("ServiceRequest")
     work_order = relationship("WorkOrder", back_populates="invoices")
     approver = relationship("User", foreign_keys=[approved_by])
+    payments = relationship("VendorPaymentTransaction", back_populates="invoice",
+                            cascade="all, delete-orphan", order_by="VendorPaymentTransaction.payment_date")
+
+
+# ── Vendor payment transactions ───────────────────────────────────────────────
+
+class VendorPaymentTransaction(Base, TimestampMixin):
+    """Immutable identity for each vendor payment.
+
+    One invoice can have many partial payments. The invoice's paid_amount is
+    only the aggregate; this table is the transaction-level audit trail used
+    by AP and the accounting posting source.
+    """
+    __tablename__ = "vendor_payment_transactions"
+
+    society_id = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    vendor_id = Column(UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="CASCADE"), nullable=False, index=True)
+    invoice_id = Column(UUID(as_uuid=True), ForeignKey("vendor_invoices.id", ondelete="CASCADE"), nullable=False, index=True)
+    payment_number = Column(String(40), nullable=False, index=True)
+    payment_date = Column(Date, nullable=False, index=True)
+    amount = Column(Numeric(12, 2), nullable=False)
+    payment_mode = Column(Enum(VendorPaymentMode, values_callable=lambda e: [x.value for x in e]), nullable=True, index=True)
+    transaction_ref = Column(String(100), nullable=True, index=True)
+    bank_name = Column(String(100), nullable=True)
+    remarks = Column(Text, nullable=True)
+    is_reversed = Column(Boolean, default=False, nullable=False, index=True)
+    is_legacy = Column(Boolean, default=False, nullable=False, index=True)
+    reversed_at = Column(DateTime, nullable=True)
+    reversal_reason = Column(Text, nullable=True)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    society = relationship("Society")
+    vendor = relationship("Vendor")
+    invoice = relationship("VendorInvoice", back_populates="payments")
+    creator = relationship("User", foreign_keys=[created_by])
+
+    __table_args__ = (
+        UniqueConstraint("society_id", "payment_number", name="uq_vendor_payment_society_number"),
+    )
 
 
 # ── Procurement rules (fixed by the general body) ─────────────────────────────

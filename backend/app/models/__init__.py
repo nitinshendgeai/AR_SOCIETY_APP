@@ -96,6 +96,7 @@ from app.modules.vendor.models.vendor import (
 )
 
 # Accounts module models
+from app.modules.accounts.models.entities import Entity, EntityAccount
 from app.modules.accounts.models.accounts import (
     Account, AccountGroup, FinancialYearClosing, Voucher, VoucherEntry, RecurringExpense, RecurringExpenseRun,
 )
@@ -108,3 +109,5 @@ from app.modules.staff.models.handover import (
 
 # Signed-in devices
 from app.models.user_session import UserSession  # noqa: F401
+
+from app.modules.accounts.models.posting_errors import AccountingPostingError

@@ -107,6 +107,7 @@ def test_add_ledger_with_opening_balance_and_default_bank(client, db):
 
 def test_payment_voucher_posts_and_numbers_by_financial_year(client, db):
     society, *_, manager, _res, _other = _rig(db, "acc4")
+    approver = make_user(db, "admin@acc4.com", role="Society Admin")
     h, sid = manager["headers"], str(society.id)
     L = _ledgers(client, h, sid)
     r = client.post(f"{API}/vouchers", json={
@@ -118,7 +119,9 @@ def test_payment_voucher_posts_and_numbers_by_financial_year(client, db):
     assert r.status_code == 201, r.text
     v = r.json()
     assert v["voucher_number"] == "PV/2026-27/0001" and v["fiscal_year"] == "2026-27"
-    assert v["amount"] == "8450.00" and not v["is_auto"]
+    assert v["amount"] == "8450.00" and not v["is_auto"] and v["approval_status"] == "pending"
+    assert _balance(client, h, sid, "electricity") == 0
+    assert client.post(f"{API}/vouchers/{v['id']}/approve", json={"note": "Approved for payment"}, headers=approver["headers"]).status_code == 200
     r = client.post(f"{API}/vouchers", json={
         "society_id": sid, "voucher_type": "payment", "voucher_date": "2026-10-01",
         "entries": [{"account_id": L["audit_fees"]["id"], "debit": "5000"},
@@ -176,6 +179,7 @@ def test_voucher_rules(client, db):
 
 def test_cancelled_voucher_drops_out_of_the_books(client, db):
     society, *_, manager, _res, _other = _rig(db, "acc6")
+    approver = make_user(db, "admin@acc6.com", role="Society Admin")
     h, sid = manager["headers"], str(society.id)
     L = _ledgers(client, h, sid)
     v = client.post(f"{API}/vouchers", json={
@@ -183,6 +187,9 @@ def test_cancelled_voucher_drops_out_of_the_books(client, db):
         "entries": [{"account_id": L["depreciation"]["id"], "debit": "700"},
                     {"account_id": L["plant_machinery"]["id"], "credit": "700"}],
     }, headers=h).json()
+    assert _balance(client, h, sid, "depreciation") == 700
+    assert v["approval_status"] == "pending"
+    assert client.post(f"{API}/vouchers/{v['id']}/approve", json={"note": "Approved"}, headers=approver["headers"]).status_code == 200
     assert _balance(client, h, sid, "depreciation") == 700
     r = client.post(f"{API}/vouchers/{v['id']}/cancel", json={"reason": "Wrong amount"}, headers=h)
     assert r.status_code == 200 and r.json()["is_cancelled"]
@@ -341,3 +348,37 @@ def test_residents_cannot_see_the_books(client, db):
     assert client.post(f"{API}/vouchers", json={
         "society_id": sid, "voucher_type": "journal", "voucher_date": "2026-09-01", "entries": [],
     }, headers=resident["headers"]).status_code == 403
+
+    
+def test_member_and_vendor_have_formal_subledger_accounts(client, db):
+    from app.modules.accounts.models.entities import Entity, EntityAccount
+    from app.modules.accounts.services.accounts_service import AccountsService
+
+    society, flat, _flat2, manager, _resident, _other = _rig(db, "acc_entity")
+    h = manager["headers"]
+    sid = str(society.id)
+    ledgers = _ledgers(client, h, sid)
+    accounts = AccountsService(db)
+    member = accounts.system_account(society.id, "members_dues")
+    ea = __import__("app.modules.accounts.services.entities", fromlist=["AccountingEntityService"]).AccountingEntityService(db)
+    member_account = ea.ensure_flat_member(flat, member)
+    assert member_account.subledger_type == "AR"
+    assert member_account.account_number.startswith("10")
+    assert member_account.control_account_id == member.id
+    assert db.query(Entity).filter_by(society_id=society.id, entity_type="member", source_id=flat.id).count() == 1
+    assert db.query(EntityAccount).filter_by(entity_id=member_account.entity_id, subledger_type="AR").count() == 1
+
+
+def test_member_ar_statement_and_reconciliation(client, db):
+    society, flat1, _flat2, manager, _resident, bill1 = _issued_bills(client, db, "acc_ar")
+    h, sid = manager["headers"], str(society.id)
+    bill_voucher = db.query(Voucher).filter_by(source_type="maintenance_bill", source_id=bill1.id).one()
+    ar_entries = [e for e in bill_voucher.entries if e.flat_id == flat1.id]
+    assert len(ar_entries) == 1 and ar_entries[0].entity_account_id is not None
+    for amount, mode in (("2000.00", "cash"), ("1354.00", "bank_transfer")):
+        resp = client.post("/api/v1/billing/payments", json={"bill_id": str(bill1.id), "amount": amount, "payment_date": str(date.today()), "payment_mode": mode}, headers=h)
+        assert resp.status_code == 201, resp.text
+    data = client.get(f"{API}/members/{sid}/{flat1.id}/ar-statement", headers=h).json()
+    assert data["closing_ar"] == "0.00" and data["operational_outstanding"] == "0.00" and data["reconciled"] is True
+    recon = client.get(f"{API}/members/{sid}/ar-reconciliation", headers=h).json()
+    assert recon["totals"]["gl_closing_ar"] == "0.00" and recon["totals"]["operational_outstanding"] == "0.00" and recon["totals"]["reconciled"] is True

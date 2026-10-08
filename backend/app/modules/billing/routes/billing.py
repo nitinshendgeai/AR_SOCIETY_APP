@@ -146,7 +146,8 @@ def close_period(period_id: UUID, db: Session = Depends(get_db),
     return BillingService(db).close_period(period_id, user)
 
 @router.get("/periods/{society_id}", dependencies=[Depends(manager_above)])
-def list_periods(society_id: UUID, db: Session = Depends(get_db)):
+def list_periods(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
     return BillingService(db).list_periods(society_id)
 
 
@@ -193,7 +194,8 @@ def create_charge(data: ChargeConfigCreate, db: Session = Depends(get_db),
     return _charge_out(BillingService(db).create_charge_config(data.model_dump(), user))
 
 @router.get("/charges/{society_id}", dependencies=[Depends(manager_above)])
-def list_charges(society_id: UUID, db: Session = Depends(get_db)):
+def list_charges(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
     return [_charge_out(c) for c in BillingService(db).list_charge_configs(society_id)]
 
 @router.get("/charges/{society_id}/budget-suggestions", dependencies=[Depends(manager_above)])
@@ -270,7 +272,8 @@ def _element_out(e) -> dict:
     }
 
 @router.get("/elements/{society_id}", dependencies=[Depends(manager_above)])
-def list_elements(society_id: UUID, include_inactive: bool = False, db: Session = Depends(get_db)):
+def list_elements(society_id: UUID, include_inactive: bool = False, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
     return [_element_out(e) for e in BillingService(db).list_elements(society_id, include_inactive)]
 
 @router.post("/elements", status_code=201, dependencies=[Depends(manager_above)])
@@ -360,7 +363,8 @@ def _settings_out(st) -> dict:
     }
 
 @router.get("/maintenance-settings/{society_id}", dependencies=[Depends(manager_above)])
-def get_maintenance_settings(society_id: UUID, db: Session = Depends(get_db)):
+def get_maintenance_settings(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
     return _settings_out(BillingService(db).get_maintenance_settings(society_id))
 
 @router.put("/maintenance-settings/{society_id}", dependencies=[Depends(manager_above)])
@@ -401,15 +405,20 @@ def create_cycle(data: CycleCreate, request: Request, db: Session = Depends(get_
     return _cycle_out(BillingService(db).create_cycle(data.model_dump(), user, request))
 
 @router.get("/cycles/{society_id}", dependencies=[Depends(manager_above)])
-def list_cycles(society_id: UUID, db: Session = Depends(get_db)):
+def list_cycles(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
     return [_cycle_out(c) for c in BillingService(db).list_cycles(society_id)]
 
 @router.get("/cycles/detail/{cycle_id}", dependencies=[Depends(manager_above)])
-def get_cycle(cycle_id: UUID, db: Session = Depends(get_db)):
-    return _cycle_out(BillingService(db).get_cycle(cycle_id))
+def get_cycle(cycle_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    cycle = BillingService(db).get_cycle(cycle_id)
+    assert_society_access(user, cycle.society_id)
+    return _cycle_out(cycle)
 
 @router.get("/cycles/{cycle_id}/preview", dependencies=[Depends(manager_above)])
-def preview_cycle(cycle_id: UUID, db: Session = Depends(get_db)):
+def preview_cycle(cycle_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    cycle = BillingService(db).get_cycle(cycle_id)
+    assert_society_access(user, cycle.society_id)
     calc = BillingService(db).preview_cycle(cycle_id)
     flats = []
     for d in sorted(calc.drafts, key=lambda d: (
@@ -454,7 +463,9 @@ def issue_all_bills(cycle_id: UUID, request: Request, db: Session = Depends(get_
     return {"bills_issued": issued, "cycle_id": str(cycle_id)}
 
 @router.get("/cycles/{cycle_id}/bills", dependencies=[Depends(manager_above)])
-def cycle_bills(cycle_id: UUID, db: Session = Depends(get_db)):
+def cycle_bills(cycle_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    cycle = BillingService(db).get_cycle(cycle_id)
+    assert_society_access(user, cycle.society_id)
     bills = BillingService(db).list_cycle_bills(cycle_id)
     bills.sort(key=lambda b: (
         b.flat.wing.name if b.flat and b.flat.wing else "",
@@ -527,9 +538,13 @@ def _bill_detail_out(b) -> dict:
     return out
 
 def _ensure_can_view_flat(db: Session, user: User, flat_id) -> None:
-    """Managers and above see every flat; anyone else (residents, staff)
-    only the flats they're an active resident of. 404 rather than 403 so
-    bill/flat IDs can't be probed."""
+    """Managers and above see every flat in their own society; anyone else
+    (residents, staff) only the flats they're an active resident of.
+    404 rather than 403 so bill/flat IDs can't be probed."""
+    flat = db.get(Flat, flat_id)
+    if flat is None or flat.wing is None:
+        raise HTTPException(404, "Bill not found")
+    assert_society_access(user, flat.wing.society_id)
     if _user_has_permission(user, "manager_above"):
         return
     if flat_id not in BillingService(db).resident_flat_ids(user):
@@ -590,11 +605,13 @@ def flat_bills(flat_id: UUID, outstanding_only: bool = False, skip: int = 0, lim
     return [_bill_out(b) for b in bills]
 
 @router.get("/bills/overdue/{society_id}", dependencies=[Depends(manager_above)])
-def overdue_bills(society_id: UUID, db: Session = Depends(get_db)):
+def overdue_bills(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
     return [_bill_out(b) for b in BillingService(db).get_overdue_bills(society_id)]
 
 @router.get("/bills/outstanding/{society_id}", dependencies=[Depends(manager_above)])
-def outstanding_bills(society_id: UUID, db: Session = Depends(get_db)):
+def outstanding_bills(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
     return [_bill_out(b) for b in BillingService(db).get_outstanding_bills(society_id)]
 
 
@@ -605,7 +622,8 @@ def record_payment(data: PaymentCreate, request: Request, db: Session = Depends(
     return BillingService(db).record_payment(data.model_dump(), user, request)
 
 @router.get("/receipts/flat/{flat_id}", dependencies=[Depends(any_member)])
-def flat_receipts(flat_id: UUID, skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
+def flat_receipts(flat_id: UUID, skip: int = 0, limit: int = 50, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _ensure_can_view_flat(db, user, flat_id)
     return BillingService(db).get_flat_receipts(flat_id, skip, limit)
 
 @router.get("/receipts/{receipt_number}/pdf", dependencies=[Depends(any_member)])
@@ -628,11 +646,17 @@ def get_receipt_pdf(receipt_number: str, db: Session = Depends(get_db),
 
 # ── Dues ──────────────────────────────────────────────────────────────────────
 @router.get("/dues/flat/{flat_id}/{society_id}", dependencies=[Depends(any_member)])
-def flat_dues(flat_id: UUID, society_id: UUID, db: Session = Depends(get_db)):
+def flat_dues(flat_id: UUID, society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
+    flat = db.get(Flat, flat_id)
+    if flat is None or flat.wing is None or flat.wing.society_id != society_id:
+        raise HTTPException(404, "Flat not found")
+    _ensure_can_view_flat(db, user, flat_id)
     return BillingService(db).get_flat_due(flat_id, society_id)
 
 @router.get("/dues/outstanding/{society_id}", dependencies=[Depends(manager_above)])
-def all_outstanding_dues(society_id: UUID, db: Session = Depends(get_db)):
+def all_outstanding_dues(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
     return BillingService(db).get_all_outstanding_dues(society_id)
 
 
@@ -643,7 +667,8 @@ def create_penalty_rule(data: PenaltyRuleCreate, db: Session = Depends(get_db),
     return BillingService(db).create_penalty_rule(data.model_dump(), user)
 
 @router.get("/penalty-rules/{society_id}", dependencies=[Depends(manager_above)])
-def list_penalty_rules(society_id: UUID, db: Session = Depends(get_db)):
+def list_penalty_rules(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
     return BillingService(db).list_penalty_rules(society_id)
 
 
@@ -694,8 +719,9 @@ def list_online_payments(
     wing_id: Optional[UUID] = None,
     flat_id: Optional[UUID] = None,
     skip: int = 0, limit: int = 50,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db), user: User = Depends(get_current_user),
 ):
+    assert_society_access(user, society_id)
     rows = BillingService(db).list_online_payment_submissions(
         society_id, status=status, wing_id=wing_id, flat_id=flat_id, skip=skip, limit=limit)
     return [_online_payment_out(r) for r in rows]
@@ -706,8 +732,9 @@ def export_online_payments(
     status: Optional[ReconciliationStatus] = None,
     wing_id: Optional[UUID] = None,
     flat_id: Optional[UUID] = None,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db), user: User = Depends(get_current_user),
 ):
+    assert_society_access(user, society_id)
     csv_text = BillingService(db).export_online_payments_csv(
         society_id, status=status, wing_id=wing_id, flat_id=flat_id)
     return StreamingResponse(
@@ -745,18 +772,20 @@ def apply_unapplied_payments(society_id: UUID, db: Session = Depends(get_db),
 
 
 @router.get("/online-payments/{submission_id}", dependencies=[Depends(manager_above)])
-def get_online_payment(submission_id: UUID, db: Session = Depends(get_db)):
+def get_online_payment(submission_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    assert_society_access(user, BillingService(db).get_online_payment_submission(submission_id).society_id)
     return _online_payment_out(BillingService(db).get_online_payment_submission(submission_id))
 
 @router.get("/online-payments/{submission_id}/screenshot", dependencies=[Depends(manager_above)])
-def get_online_payment_screenshot(submission_id: UUID, db: Session = Depends(get_db)):
-    s = BillingService(db).get_online_payment_submission(submission_id)
+def get_online_payment_screenshot(submission_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    s = BillingService(db).get_online_payment_submission(submission_id, user)
     if not s.screenshot_data:
         raise HTTPException(404, "This payment has no screenshot attached")
     return Response(content=s.screenshot_data, media_type=s.screenshot_mime_type)
 
 @router.get("/online-payments/{submission_id}/receipt", dependencies=[Depends(manager_above)])
-def get_online_payment_receipt(submission_id: UUID, db: Session = Depends(get_db)):
+def get_online_payment_receipt(submission_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    assert_society_access(user, BillingService(db).get_online_payment_submission(submission_id).society_id)
     pdf_bytes = BillingService(db).generate_online_payment_receipt_pdf(submission_id)
     return Response(
         content=pdf_bytes, media_type="application/pdf",
@@ -812,8 +841,9 @@ def list_bank_statement_entries(
     society_id: UUID,
     match_status: Optional[str] = None,
     skip: int = 0, limit: int = 100,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db), user: User = Depends(get_current_user),
 ):
+    assert_society_access(user, society_id)
     from app.modules.billing.models.billing import BankStatementMatchStatus
     status_enum = BankStatementMatchStatus(match_status) if match_status else None
     rows = BillingService(db).list_bank_statement_entries(
@@ -821,8 +851,10 @@ def list_bank_statement_entries(
     return [_bank_entry_out(e) for e in rows]
 
 @router.get("/bank-reconciliation/{entry_id}/candidates", dependencies=[Depends(manager_above)])
-def get_bank_match_candidates(entry_id: UUID, db: Session = Depends(get_db)):
-    candidates = BillingService(db).suggest_matches(entry_id)
+def get_bank_match_candidates(entry_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    entry = BillingService(db).get_bank_statement_entry(entry_id)
+    assert_society_access(user, entry.society_id)
+    candidates = BillingService(db).suggest_matches(entry_id, user)
     return [_online_payment_out(c) for c in candidates]
 
 @router.post("/bank-reconciliation/{entry_id}/confirm", dependencies=[Depends(manager_above)])

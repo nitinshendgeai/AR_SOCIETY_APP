@@ -128,7 +128,14 @@ class PaymentAllocator:
                     if due <= 0:
                         continue
                     take = min(left, due)
-                    made.append(self.allocate(sub, bill, take, user))
+                    alloc = self.allocate(sub, bill, take, user)
+                    made.append(alloc)
+                    # If the receipt was already posted as an advance, record
+                    # the appropriation from ADVANCE into member AR.
+                    from app.modules.accounts.services.postings import AccountPostings
+                    postings = AccountPostings(self.db)
+                    if postings.active_voucher("online_payment", sub.id):
+                        postings.post_advance_allocation(alloc, user)
                     left -= take
                 bills = [b for b in bills if _money(b.outstanding) > 0]
                 if not bills:
@@ -156,6 +163,10 @@ class PaymentAllocator:
             a.released_at = datetime.utcnow()
             a.released_reason = reason
             bill, amount = a.bill, _money(a.amount)
+            from app.modules.accounts.services.postings import AccountPostings
+            AccountPostings(self.db)._cancel_source(
+                "advance_allocation", a.id,
+                f"Released allocation for {bill.invoice_number}: {reason}", user)
             bill.paid_amount = _money(bill.paid_amount) - amount
             bill.outstanding = _money(bill.total_amount) + _money(bill.penalty_amount) - _money(bill.paid_amount)
             if bill.bill_status in (BillStatus.PAID, BillStatus.PARTIALLY_PAID):

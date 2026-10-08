@@ -34,6 +34,7 @@ from app.modules.billing.services.receipt_pdf import generate_payment_receipt_pd
 from app.modules.billing.services.maintenance_calculator import MaintenanceCalculator, default_settings
 from app.modules.billing.services.standard_elements import seed_standard_elements
 from app.models.user import User
+from app.core.tenant_scope import assert_society_access
 from app.models.audit_log import AuditAction
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
@@ -90,12 +91,14 @@ class BillingService:
     # ── Financial Periods ─────────────────────────────────────────────────────
 
     def create_period(self, data: dict, user: User) -> FinancialPeriod:
+        assert_society_access(user, data.get("society_id"))
         period = FinancialPeriod(**data)
         return self.period_repo.create(period)
 
     def close_period(self, period_id: UUID, user: User) -> FinancialPeriod:
         p = self.period_repo.get(period_id)
         if not p: raise HTTPException(404, "Period not found")
+        assert_society_access(user, p.society_id)
         if p.is_closed: raise HTTPException(409, "Period already closed")
         p.is_closed = True; p.closed_by = user.id
         self.db.commit(); self.db.refresh(p)
@@ -117,6 +120,7 @@ class BillingService:
         return data
 
     def create_charge_config(self, data: dict, user: User) -> MaintenanceChargeConfig:
+        assert_society_access(user, data.get("society_id"))
         data = {k: v for k, v in data.items() if v is not None}
         if data.get("element_id"):
             element = self.get_element(data["element_id"])
@@ -156,6 +160,7 @@ class BillingService:
         config = self.db.query(MaintenanceChargeConfig).filter(
             MaintenanceChargeConfig.id == config_id).first()
         if not config: raise HTTPException(404, "Charge head not found")
+        assert_society_access(user, config.society_id)
         old = {"name": config.name, "amount": str(config.default_amount), "active": config.is_active}
         data = self._sync_basis(dict(data))
         self._check_auto_budget(data.get("auto_from_expenses", config.auto_from_expenses),
@@ -196,6 +201,7 @@ class BillingService:
 
     def create_element(self, data: dict, user: User) -> MaintenanceElement:
         society_id = data["society_id"]
+        assert_society_access(user, society_id)
         self.list_elements(society_id)  # make sure the standard set exists first
         existing = self.db.query(MaintenanceElement).filter(MaintenanceElement.society_id == society_id).all()
         base = re.sub(r"[^a-z0-9]+", "_", data["name"].lower()).strip("_")[:40] or "element"
@@ -214,6 +220,7 @@ class BillingService:
 
     def update_element(self, element_id: UUID, data: dict, user: User) -> MaintenanceElement:
         el = self.get_element(element_id)
+        assert_society_access(user, el.society_id)
         for field, value in data.items():
             setattr(el, field, value)
         self._audit(AuditAction.UPDATE, el, "MaintenanceElement", user,
@@ -223,6 +230,7 @@ class BillingService:
 
     def create_charges_from_elements(self, society_id: UUID, items: List[dict],
                                       user: User) -> List[MaintenanceChargeConfig]:
+        assert_society_access(user, society_id)
         """Bulk "load standard charge heads": one charge head per chosen
         element, using the element's defaults unless an amount is given.
         Elements that already have an active charge head are skipped."""
@@ -261,6 +269,7 @@ class BillingService:
     # ── Billing Cycle ─────────────────────────────────────────────────────────
 
     def create_cycle(self, data: dict, user: User, request=None) -> BillingCycle:
+        assert_society_access(user, data.get("society_id"))
         cycle = BillingCycle(**data, created_by=user.id)
         self.cycle_repo.create(cycle)
         self._audit(AuditAction.CREATE, cycle, "BillingCycle", user, request,
@@ -282,6 +291,7 @@ class BillingService:
         """
         cycle = self.cycle_repo.get(cycle_id)
         if not cycle: raise HTTPException(404, "Billing cycle not found")
+        assert_society_access(user, cycle.society_id)
         if cycle.is_finalized:
             raise HTTPException(409, "Billing cycle already finalized")
 
@@ -381,6 +391,7 @@ class BillingService:
     def issue_bill(self, bill_id: UUID, user: User, request=None) -> MaintenanceBill:
         bill = self.bill_repo.get(bill_id)
         if not bill: raise HTTPException(404, "Bill not found")
+        assert_society_access(user, bill.society_id)
         if bill.bill_status != BillStatus.GENERATED:
             raise HTTPException(409, f"Bill cannot be issued (status: {bill.bill_status.value})")
         self._issue(bill, user, request)
@@ -391,6 +402,7 @@ class BillingService:
     def issue_all_bills(self, cycle_id: UUID, user: User, request=None) -> int:
         cycle = self.cycle_repo.get(cycle_id)
         if not cycle: raise HTTPException(404, "Billing cycle not found")
+        assert_society_access(user, cycle.society_id)
         pending = [b for b in self.bill_repo.get_by_cycle(cycle_id)
                    if b.bill_status == BillStatus.GENERATED]
         if not pending:
@@ -425,6 +437,7 @@ class BillingService:
             MaintenanceSettings.society_id == society_id).first() or default_settings(society_id)
 
     def update_maintenance_settings(self, society_id: UUID, data: dict, user: User) -> MaintenanceSettings:
+        assert_society_access(user, society_id)
         settings = self.db.query(MaintenanceSettings).filter(
             MaintenanceSettings.society_id == society_id).first()
         if not settings:
@@ -441,6 +454,7 @@ class BillingService:
     def cancel_bill(self, bill_id: UUID, reason: str, user: User) -> MaintenanceBill:
         bill = self.bill_repo.get(bill_id)
         if not bill: raise HTTPException(404, "Bill not found")
+        assert_society_access(user, bill.society_id)
         if bill.bill_status == BillStatus.PAID:
             raise HTTPException(409, "Cannot cancel a paid bill")
 
@@ -506,6 +520,7 @@ class BillingService:
     def record_payment(self, data: dict, user: User, request=None) -> PaymentReceipt:
         bill = self.bill_repo.get(data["bill_id"])
         if not bill: raise HTTPException(404, "Bill not found")
+        assert_society_access(user, bill.society_id)
         amount = Decimal(str(data["amount"]))
         self._validate_bill_for_payment(bill, amount)
 
@@ -644,6 +659,7 @@ class BillingService:
         wing = self.db.query(Wing).filter(Wing.id == flat.wing_id).first()
         if not wing:
             raise HTTPException(404, "Wing not found for this flat")
+        assert_society_access(user, wing.society_id)
 
         if amount <= 0:
             raise HTTPException(422, "Amount must be greater than zero")
@@ -706,9 +722,11 @@ class BillingService:
         self.db.refresh(submission)
         return submission
 
-    def get_online_payment_submission(self, submission_id: UUID) -> OnlinePaymentSubmission:
+    def get_online_payment_submission(self, submission_id: UUID, user: Optional[User] = None) -> OnlinePaymentSubmission:
         s = self.online_payment_repo.get(submission_id)
         if not s: raise HTTPException(404, "Payment submission not found")
+        if user is not None:
+            assert_society_access(user, s.society_id)
         return s
 
     def list_online_payment_submissions(self, society_id: UUID, status=None,
@@ -719,7 +737,7 @@ class BillingService:
 
     def update_online_payment_status(self, submission_id: UUID, status: ReconciliationStatus,
                                       review_notes: Optional[str], user: User) -> OnlinePaymentSubmission:
-        submission = self.get_online_payment_submission(submission_id)
+        submission = self.get_online_payment_submission(submission_id, user)
         was_rejected = submission.status == ReconciliationStatus.REJECTED
         submission.status = status
         if status == ReconciliationStatus.REJECTED and not was_rejected:
@@ -779,6 +797,7 @@ class BillingService:
     MATCH_DATE_WINDOW_DAYS = 5
 
     def import_bank_statement_csv(self, society_id: UUID, csv_text: str, user: User) -> List[BankStatementEntry]:
+        assert_society_access(user, society_id)
         """Expects a header row with columns Date, Description, Amount, and
         optionally Reference (case-insensitive, any order) — a generic
         format the admin prepares from whatever their bank's own export
@@ -835,6 +854,7 @@ class BillingService:
         return self.import_bank_statement(society_id, rows, user)
 
     def import_bank_statement(self, society_id: UUID, rows: List[dict], user: User) -> List[BankStatementEntry]:
+        assert_society_access(user, society_id)
         entries = []
         for row in rows:
             entry = BankStatementEntry(
@@ -862,13 +882,15 @@ class BillingService:
         if not e: raise HTTPException(404, "Bank statement entry not found")
         return e
 
-    def suggest_matches(self, entry_id: UUID) -> List[OnlinePaymentSubmission]:
+    def suggest_matches(self, entry_id: UUID, user: Optional[User] = None) -> List[OnlinePaymentSubmission]:
         """Candidate PENDING submissions for this entry: same society, exact
         amount match, payment_date within MATCH_DATE_WINDOW_DAYS of the
         statement date. Amount must match exactly — reconciliation is not
         the place to guess at partial/rounded amounts."""
         from datetime import timedelta
         entry = self.get_bank_statement_entry(entry_id)
+        if user is not None:
+            assert_society_access(user, entry.society_id)
         window_start = entry.txn_date - timedelta(days=self.MATCH_DATE_WINDOW_DAYS)
         window_end   = entry.txn_date + timedelta(days=self.MATCH_DATE_WINDOW_DAYS)
         return self.db.query(OnlinePaymentSubmission).filter(
@@ -882,9 +904,10 @@ class BillingService:
 
     def confirm_bank_match(self, entry_id: UUID, submission_id: UUID, user: User) -> BankStatementEntry:
         entry = self.get_bank_statement_entry(entry_id)
+        assert_society_access(user, entry.society_id)
         if entry.match_status != BankStatementMatchStatus.UNMATCHED:
             raise HTTPException(409, f"Entry is already {entry.match_status.value}")
-        submission = self.get_online_payment_submission(submission_id)
+        submission = self.get_online_payment_submission(submission_id, user)
         if submission.society_id != entry.society_id:
             raise HTTPException(400, "Payment submission belongs to a different society")
         if submission.status != ReconciliationStatus.PENDING:
@@ -910,6 +933,7 @@ class BillingService:
 
     def ignore_bank_entry(self, entry_id: UUID, reason: Optional[str], user: User) -> BankStatementEntry:
         entry = self.get_bank_statement_entry(entry_id)
+        assert_society_access(user, entry.society_id)
         if entry.match_status != BankStatementMatchStatus.UNMATCHED:
             raise HTTPException(409, f"Entry is already {entry.match_status.value}")
         entry.match_status = BankStatementMatchStatus.IGNORED

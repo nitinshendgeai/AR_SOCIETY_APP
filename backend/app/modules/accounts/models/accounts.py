@@ -147,6 +147,13 @@ class Voucher(Base, TimestampMixin):
     reversed_at    = Column(DateTime, nullable=True)
 
     # Last correction; the earlier versions are in VoucherRevision.
+    approval_status = Column(String(20), default="approved", nullable=False, index=True)
+    submitted_at = Column(DateTime, nullable=True)
+    submitted_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    approved_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    approval_note = Column(Text, nullable=True)
+
     edited_at = Column(DateTime, nullable=True)
     edited_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
@@ -154,6 +161,8 @@ class Voucher(Base, TimestampMixin):
                            order_by="VoucherEntry.line_no")
     creator = relationship("User", foreign_keys=[created_by])
     editor  = relationship("User", foreign_keys=[edited_by])
+    submitter = relationship("User", foreign_keys=[submitted_by])
+    approver = relationship("User", foreign_keys=[approved_by])
     revisions = relationship("VoucherRevision", back_populates="voucher", cascade="all, delete-orphan",
                              order_by="VoucherRevision.revision_no")
 
@@ -171,12 +180,14 @@ class VoucherEntry(Base, TimestampMixin):
     credit     = Column(Numeric(14, 2), default=0, nullable=False)
     flat_id    = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="SET NULL"), nullable=True, index=True)
     vendor_id  = Column(UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True, index=True)
+    entity_account_id = Column(UUID(as_uuid=True), ForeignKey("entity_accounts.id", ondelete="SET NULL"), nullable=True, index=True)
     narration  = Column(Text, nullable=True)
 
     voucher = relationship("Voucher", back_populates="entries")
     account = relationship("Account")
     flat    = relationship("Flat")
     vendor  = relationship("Vendor")
+    entity_account = relationship("EntityAccount")
 
 
 class VoucherRevision(Base, TimestampMixin):
