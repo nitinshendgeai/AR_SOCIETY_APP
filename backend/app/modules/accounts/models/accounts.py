@@ -171,12 +171,14 @@ class VoucherEntry(Base, TimestampMixin):
     credit     = Column(Numeric(14, 2), default=0, nullable=False)
     flat_id    = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="SET NULL"), nullable=True, index=True)
     vendor_id  = Column(UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True, index=True)
+    entity_account_id = Column(UUID(as_uuid=True), ForeignKey("entity_accounts.id", ondelete="SET NULL"), nullable=True, index=True)
     narration  = Column(Text, nullable=True)
 
     voucher = relationship("Voucher", back_populates="entries")
     account = relationship("Account")
     flat    = relationship("Flat")
     vendor  = relationship("Vendor")
+    entity_account = relationship("EntityAccount")
 
 
 class VoucherRevision(Base, TimestampMixin):
