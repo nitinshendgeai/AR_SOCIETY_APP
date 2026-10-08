@@ -109,3 +109,5 @@ from app.modules.staff.models.handover import (
 
 # Signed-in devices
 from app.models.user_session import UserSession  # noqa: F401
+
+from app.modules.accounts.models.posting_errors import AccountingPostingError
