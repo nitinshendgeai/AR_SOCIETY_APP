@@ -284,6 +284,11 @@ class AccountPostings:
             reference=payment.payment_number,
             source_type="vendor_payment", source_id=payment.id, user=user)
 
+    def reverse_vendor_payment(self, payment: VendorPaymentTransaction, reason: str,
+                               user: Optional[User] = None) -> None:
+        self._cancel_source("vendor_payment", payment.id,
+                            f"Vendor payment {payment.payment_number} reversed: {reason}", user)
+
     def _posted_vendor_payments(self, inv_id: UUID) -> Decimal:
         return money(self.db.query(func.coalesce(func.sum(Voucher.amount), 0))
                      .join(VendorPaymentTransaction, VendorPaymentTransaction.id == Voucher.source_id)
