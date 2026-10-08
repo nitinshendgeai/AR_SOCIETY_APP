@@ -61,6 +61,7 @@ class TaxCalculationService:
         tds_applicable=False,
         tds_rate=0,
         tds_base="taxable_amount",
+        tds_section=None,
         tds_amount=0,
         gst_config_code=None,
         tds_config_code=None,
