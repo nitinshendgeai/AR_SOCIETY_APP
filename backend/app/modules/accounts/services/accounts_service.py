@@ -34,6 +34,7 @@ from app.modules.accounts.models.accounts import (
     VoucherEntry, VoucherRevision,
 )
 from app.modules.accounts.services.chart_of_accounts import seed_chart_of_accounts
+from app.modules.accounts.services.entities import AccountingEntityService
 from app.modules.billing.models.billing import MaintenanceElement, MaintenanceSettings
 from app.services.audit_service import AuditService
 
@@ -344,12 +345,30 @@ class AccountsService:
         self.db.flush()
         return voucher
 
-    @staticmethod
-    def _set_entries(voucher: Voucher, lines: List[Line]) -> None:
+    def _entity_account_id(self, society_id: UUID, line: Line) -> Optional[UUID]:
+        if not line.flat_id and not line.vendor_id:
+            return None
+        entities = AccountingEntityService(self.db)
+        if line.flat_id:
+            flat = self._flat_in_society(line.flat_id, society_id)
+            control = self.system_account(society_id, "members_dues")
+            return entities.ensure_flat_member(flat, control).id
+        from app.modules.vendor.models.vendor import Vendor
+        vendor = self.db.query(Vendor).filter(
+            Vendor.id == line.vendor_id, Vendor.society_id == society_id, Vendor.is_active.is_(True)
+        ).first()
+        if not vendor:
+            raise HTTPException(422, "Vendor not found in this society")
+        control = self.system_account(society_id, "sundry_creditors")
+        return entities.ensure_vendor(vendor, control).id
+
+    def _set_entries(self, voucher: Voucher, lines: List[Line]) -> None:
         for i, l in enumerate(lines):
             voucher.entries.append(VoucherEntry(
                 account_id=l.account.id, line_no=i + 1, debit=l.debit, credit=l.credit,
-                flat_id=l.flat_id, vendor_id=l.vendor_id, narration=l.narration,
+                flat_id=l.flat_id, vendor_id=l.vendor_id,
+                entity_account_id=self._entity_account_id(voucher.society_id, l),
+                narration=l.narration,
             ))
 
     @staticmethod
