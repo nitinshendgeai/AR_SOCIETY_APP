@@ -561,6 +561,13 @@ class AccountsService:
         self._set_entries(voucher, lines)
         voucher.edited_at = datetime.utcnow()
         voucher.edited_by = user.id if user else None
+        if voucher.voucher_type in ("payment", "journal"):
+            voucher.approval_status = "pending"
+            voucher.submitted_at = datetime.utcnow()
+            voucher.submitted_by = user.id if user else None
+            voucher.approved_at = None
+            voucher.approved_by = None
+            voucher.approval_note = "Edited voucher resubmitted for committee/admin approval"
         self._audit(AuditAction.UPDATE, voucher, user, request,
                     old_values={"number": before["voucher_number"], "date": before["voucher_date"],
                                 "amount": before["amount"]},
