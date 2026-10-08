@@ -14,10 +14,12 @@ from app.models.flat import Flat
 from app.models.society import Society
 from app.models.user import User
 from app.modules.accounts.models.accounts import VOUCHER_TYPES, Account, Voucher
+from app.modules.accounts.models.posting_errors import AccountingPostingError
 from app.modules.accounts.services.accounts_service import AccountsService, dr_cr, fiscal_year, money
 from app.modules.accounts.services.expense_by_element import expenses_by_element
 from app.modules.accounts.services.recurring_expenses import RecurringExpenseService, first_of
 from app.modules.accounts.services.postings import AccountPostings
+from app.modules.accounts.services.posting_errors import AccountingPostingErrorService
 from app.modules.accounts.services.member_ar import MemberARService
 from app.modules.accounts.services.reports import REPORTS, FinancialReports
 from app.modules.accounts.services.documents_pdf import (
@@ -76,6 +78,12 @@ def _voucher_out(v: Voucher, closed_years: frozenset = frozenset()) -> dict:
         "amount": _amount(v.amount), "narration": v.narration, "reference": v.reference,
         "source_type": v.source_type, "source_id": str(v.source_id) if v.source_id else None,
         "is_auto": v.source_type is not None or v.voucher_type == "closing" or v.reversal_of_id is not None,
+        "approval_status": v.approval_status,
+        "submitted_at": v.submitted_at.isoformat() if v.submitted_at else None,
+        "submitted_by_name": v.submitter.full_name if v.submitter else None,
+        "approved_at": v.approved_at.isoformat() if v.approved_at else None,
+        "approved_by_name": v.approver.full_name if v.approver else None,
+        "approval_note": v.approval_note,
         "is_locked": locked, "is_reversed": v.reversed_at is not None,
         "reversal_of_id": str(v.reversal_of_id) if v.reversal_of_id else None,
         "is_cancelled": v.is_cancelled, "cancel_reason": v.cancel_reason,
@@ -208,6 +216,18 @@ class RecurringSkipIn(BaseModel):
 
 class CancelRequest(BaseModel):
     reason: str = Field(min_length=3)
+
+
+class ApprovalNote(BaseModel):
+    note: Optional[str] = Field(default=None, max_length=2000)
+
+
+class RejectVoucherRequest(BaseModel):
+    reason: str = Field(min_length=3, max_length=2000)
+
+
+class ResolvePostingErrorRequest(BaseModel):
+    note: str = Field(min_length=3, max_length=2000)
 
 
 # ── Chart of accounts ─────────────────────────────────────────────────────────
@@ -392,6 +412,33 @@ def create_voucher(data: VoucherCreate, request: Request, db: Session = Depends(
     return _voucher_out(v)
 
 
+@router.get("/vouchers/{society_id}/pending-approvals")
+def pending_voucher_approvals(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
+    rows = db.query(Voucher).filter(
+        Voucher.society_id == society_id,
+        Voucher.approval_status == "pending",
+        Voucher.is_cancelled == False,
+    ).order_by(Voucher.voucher_date, Voucher.created_at).all()
+    return [_voucher_out(v) for v in rows]
+
+
+@router.post("/vouchers/{voucher_id}/approve", dependencies=[Depends(require_admin_committee)])
+def approve_voucher(voucher_id: UUID, data: ApprovalNote, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    svc = AccountsService(db)
+    v = svc.get_voucher(voucher_id)
+    assert_society_access(user, v.society_id)
+    return _voucher_out(svc.approve_manual_voucher(voucher_id, user, data.note))
+
+
+@router.post("/vouchers/{voucher_id}/reject", dependencies=[Depends(require_admin_committee)])
+def reject_voucher(voucher_id: UUID, data: RejectVoucherRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    svc = AccountsService(db)
+    v = svc.get_voucher(voucher_id)
+    assert_society_access(user, v.society_id)
+    return _voucher_out(svc.reject_manual_voucher(voucher_id, user, data.reason))
+
+
 @router.get("/vouchers/{voucher_id}")
 def get_voucher(voucher_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     svc = AccountsService(db)
@@ -427,6 +474,41 @@ def cancel_voucher(voucher_id: UUID, data: CancelRequest, request: Request, db: 
     svc = AccountsService(db)
     assert_society_access(user, svc.get_voucher(voucher_id).society_id)
     return _voucher_out(svc.cancel_manual_voucher(voucher_id, data.reason, user, request))
+
+
+@router.get("/posting-errors/{society_id}")
+def posting_errors(society_id: UUID, status: Optional[str] = None, limit: int = Query(100, le=500),
+                   db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
+    try:
+        rows = AccountingPostingErrorService(db).list(society_id, status, limit)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    return [{
+        "id": str(r.id), "society_id": str(r.society_id), "source_type": r.source_type,
+        "source_id": str(r.source_id), "operation": r.operation, "error_code": r.error_code,
+        "error_message": r.error_message, "first_failed_at": r.first_failed_at.isoformat(),
+        "last_failed_at": r.last_failed_at.isoformat(), "retry_count": r.retry_count,
+        "status": r.status, "resolved_at": r.resolved_at.isoformat() if r.resolved_at else None,
+        "resolution_note": r.resolution_note, "last_voucher_id": str(r.last_voucher_id) if r.last_voucher_id else None,
+    } for r in rows]
+
+
+@router.post("/posting-errors/{error_id}/resolve", dependencies=[Depends(require_admin_committee)])
+def resolve_posting_error(error_id: UUID, data: ResolvePostingErrorRequest,
+                          db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    row = db.query(AccountingPostingError).filter(AccountingPostingError.id == error_id).first()
+    if not row:
+        raise HTTPException(404, "Posting exception not found")
+    assert_society_access(user, row.society_id)
+    if row.status == "RESOLVED":
+        raise HTTPException(409, "Posting exception is already resolved")
+    row.status = "RESOLVED"
+    row.resolved_at = datetime.utcnow()
+    row.resolved_by = user.id
+    row.resolution_note = data.note
+    db.commit()
+    return {"id": str(row.id), "status": row.status, "resolution_note": row.resolution_note}
 
 
 # ── Summary & automatic postings ──────────────────────────────────────────────
