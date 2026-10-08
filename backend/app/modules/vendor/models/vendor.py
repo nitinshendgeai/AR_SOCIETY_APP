@@ -435,7 +435,7 @@ class VendorPaymentTransaction(Base, TimestampMixin):
     payment_number = Column(String(40), nullable=False, index=True)
     payment_date = Column(Date, nullable=False, index=True)
     amount = Column(Numeric(12, 2), nullable=False)
-    payment_mode = Column(Enum(VendorPaymentMode, values_callable=lambda e: [x.value for x in e]), nullable=False, index=True)
+    payment_mode = Column(Enum(VendorPaymentMode, values_callable=lambda e: [x.value for x in e]), nullable=True, index=True)
     transaction_ref = Column(String(100), nullable=True, index=True)
     bank_name = Column(String(100), nullable=True)
     remarks = Column(Text, nullable=True)
