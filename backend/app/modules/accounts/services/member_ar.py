@@ -269,7 +269,77 @@ class MemberARService:
             "reconciled": abs(_money(balance - outstanding)) < Decimal("0.01"),
             "advance_balance": str(_money(advance)),
             "lines": lines,
+            "bills": self._bills_for_statement(society_id, flat.id, date_to),
         }
+
+    def _bills_for_statement(self, society_id: UUID, flat_id: UUID, as_of: Optional[date]):
+        q = self.db.query(MaintenanceBill).filter(
+            MaintenanceBill.society_id == society_id,
+            MaintenanceBill.flat_id == flat_id,
+            MaintenanceBill.bill_status != BillStatus.CANCELLED,
+        )
+        if as_of:
+            q = q.filter(
+                MaintenanceBill.bill_date <= as_of,
+                (MaintenanceBill.cancelled_at.is_(None))
+                | (func.date(MaintenanceBill.cancelled_at) > as_of),
+            )
+        bills = q.order_by(MaintenanceBill.bill_date, MaintenanceBill.created_at).all()
+        if not bills:
+            return []
+        bill_ids = [b.id for b in bills]
+        if not as_of:
+            return [{
+                "bill_id": str(b.id),
+                "invoice_number": b.invoice_number,
+                "bill_date": b.bill_date.isoformat(),
+                "due_date": b.due_date.isoformat(),
+                "status": b.bill_status.value if hasattr(b.bill_status, "value") else str(b.bill_status),
+                "demand": str(_money(b.total_amount)),
+                "collected": str(_money(b.paid_amount)),
+                "outstanding": str(_money(b.outstanding)),
+            } for b in bills]
+        receipt_rows = dict(self.db.query(
+            PaymentReceipt.bill_id, func.coalesce(func.sum(PaymentReceipt.amount), 0)
+        ).filter(
+            PaymentReceipt.society_id == society_id,
+            PaymentReceipt.bill_id.in_(bill_ids),
+            PaymentReceipt.payment_date <= as_of,
+            PaymentReceipt.is_reversed == False,  # noqa: E712
+        ).group_by(PaymentReceipt.bill_id).all())
+        allocation_rows = dict(self.db.query(
+            PaymentAllocation.bill_id, func.coalesce(func.sum(PaymentAllocation.amount), 0)
+        ).join(
+            OnlinePaymentSubmission,
+            OnlinePaymentSubmission.id == PaymentAllocation.payment_id,
+        ).filter(
+            PaymentAllocation.society_id == society_id,
+            PaymentAllocation.bill_id.in_(bill_ids),
+            OnlinePaymentSubmission.payment_date <= as_of,
+            OnlinePaymentSubmission.is_active == True,  # noqa: E712
+            OnlinePaymentSubmission.status != ReconciliationStatus.REJECTED,
+            func.date(PaymentAllocation.created_at) <= as_of,
+            (PaymentAllocation.released_at.is_(None))
+            | (func.date(PaymentAllocation.released_at) > as_of),
+        ).group_by(PaymentAllocation.bill_id).all())
+        out = []
+        for b in bills:
+            demand = _money(b.total_amount) + _money(b.penalty_amount)
+            collected = min(
+                _money(receipt_rows.get(b.id, 0)) + _money(allocation_rows.get(b.id, 0)),
+                demand,
+            )
+            out.append({
+                "bill_id": str(b.id),
+                "invoice_number": b.invoice_number,
+                "bill_date": b.bill_date.isoformat(),
+                "due_date": b.due_date.isoformat(),
+                "status": b.bill_status.value if hasattr(b.bill_status, "value") else str(b.bill_status),
+                "demand": str(demand),
+                "collected": str(collected),
+                "outstanding": str(max(demand - collected, ZERO)),
+            })
+        return out
 
     def _advance_balance(self, entity_id: UUID, society_id: UUID,
                          as_of: Optional[date] = None) -> Decimal:
