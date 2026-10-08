@@ -115,6 +115,8 @@ class TaxCalculationService:
             tds_base = tds_cfg.base_type or "taxable_amount"
 
         if tds_applicable:
+            if money(tds_rate) <= 0:
+                raise ValueError("TDS rate must be positive when TDS is applicable")
             base = gross if tds_base == "gross_amount" else taxable
             calculated_tds = money(base * money(tds_rate) / Decimal("100"))
             supplied_tds = money(tds_amount)
@@ -135,3 +137,36 @@ class TaxCalculationService:
             tds_amount=tds_value,
             net_payable_amount=money(gross - tds_value),
         )
+
+
+class TaxReportService:
+    """Invoice-level GST input and TDS registers for reconciliation/audit."""
+
+    def __init__(self, db: Session):
+        self.db = db
+
+    def gst_input_register(self, society_id, date_from=None, date_to=None):
+        from app.modules.vendor.models.vendor import VendorInvoice
+        q = self.db.query(VendorInvoice).filter(
+            VendorInvoice.society_id == society_id,
+            VendorInvoice.gst_amount > 0,
+            VendorInvoice.is_active == True,
+        )
+        if date_from:
+            q = q.filter(VendorInvoice.invoice_date >= date_from)
+        if date_to:
+            q = q.filter(VendorInvoice.invoice_date <= date_to)
+        return q.order_by(VendorInvoice.invoice_date, VendorInvoice.invoice_number).all()
+
+    def tds_register(self, society_id, date_from=None, date_to=None):
+        from app.modules.vendor.models.vendor import VendorInvoice
+        q = self.db.query(VendorInvoice).filter(
+            VendorInvoice.society_id == society_id,
+            VendorInvoice.tds_amount > 0,
+            VendorInvoice.is_active == True,
+        )
+        if date_from:
+            q = q.filter(VendorInvoice.invoice_date >= date_from)
+        if date_to:
+            q = q.filter(VendorInvoice.invoice_date <= date_to)
+        return q.order_by(VendorInvoice.invoice_date, VendorInvoice.invoice_number).all()
