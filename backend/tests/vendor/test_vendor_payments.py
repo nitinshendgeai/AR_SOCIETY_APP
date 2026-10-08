@@ -169,3 +169,42 @@ def test_resident_cannot_record_vendor_payment(client, db):
         "amount": "100.00", "paid_date": str(date.today()), "payment_mode": "cash",
     }, headers=resident["headers"])
     assert r.status_code == 403
+
+
+def test_partial_payments_have_distinct_transaction_identity_and_can_be_reversed(client, db):
+    society, manager, admin, resident = _rig(db)
+    vendor_id = _create_vendor(client, admin["headers"], society.id, "AP-Test")
+    inv_id = _create_invoice(client, manager["headers"], society.id, vendor_id,
+                             total_amount="10000.00").json()["id"]
+
+    r1 = client.post(f"/api/v1/vendors/invoices/{inv_id}/payments", json={
+        "amount": "4000.00", "paid_date": str(date.today()),
+        "payment_mode": "neft", "payment_ref": "UTR-001",
+    }, headers=manager["headers"])
+    assert r1.status_code == 200, r1.text
+    p1 = r1.json()["payments"]
+    assert len(p1) == 1
+    assert p1[0]["amount"] == "4000.00"
+    assert p1[0]["payment_number"].startswith("VP-")
+
+    r2 = client.post(f"/api/v1/vendors/invoices/{inv_id}/payments", json={
+        "amount": "2500.00", "paid_date": str(date.today()),
+        "payment_mode": "bank_transfer", "payment_ref": "UTR-002",
+    }, headers=manager["headers"])
+    assert r2.status_code == 200, r2.text
+    p2 = r2.json()["payments"]
+    assert len(p2) == 2
+    assert p2[0]["id"] != p2[1]["id"]
+    assert {p["transaction_ref"] for p in p2} == {"UTR-001", "UTR-002"}
+
+    payment_id = next(p["id"] for p in p2 if p["transaction_ref"] == "UTR-001")
+    rr = client.post(f"/api/v1/vendors/payments/{payment_id}/reverse", json={
+        "reason": "Bank payment returned",
+    }, headers=manager["headers"])
+    assert rr.status_code == 200, rr.text
+    body = rr.json()
+    assert body["paid_amount"] == "2500.00"
+    assert body["outstanding"] == "7500.00"
+    reversed_payment = next(p for p in body["payments"] if p["id"] == payment_id)
+    assert reversed_payment["is_reversed"] is True
+    assert reversed_payment["reversal_reason"] == "Bank payment returned"
