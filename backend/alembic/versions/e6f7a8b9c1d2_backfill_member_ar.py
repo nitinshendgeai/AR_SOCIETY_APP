@@ -17,40 +17,40 @@ def upgrade():
     # Every existing flat gets a formal AR account. Existing EntityAccounts
     # created by runtime posting are preserved.
     op.execute("""
+        WITH existing AS (
+            SELECT society_id, COALESCE(MAX(account_number::bigint), 1000000) AS max_no
+            FROM entity_accounts
+            WHERE subledger_type = 'AR'
+              AND account_number ~ '^10[0-9]+$'
+            GROUP BY society_id
+        ),
+        numbered AS (
+            SELECT e.id AS entity_id, e.society_id, a.id AS control_account_id,
+                   (COALESCE(x.max_no, 1000000)
+                    + ROW_NUMBER() OVER (
+                        PARTITION BY e.society_id
+                        ORDER BY e.source_id
+                      ))::text AS account_number
+            FROM accounting_entities e
+            JOIN accounts a
+              ON a.society_id = e.society_id
+             AND a.system_key = 'members_dues'
+             AND a.is_system = TRUE
+            LEFT JOIN existing x ON x.society_id = e.society_id
+            WHERE e.entity_type = 'member'
+              AND e.source_type = 'flat'
+              AND NOT EXISTS (
+                  SELECT 1 FROM entity_accounts ea
+                  WHERE ea.entity_id = e.id
+                    AND ea.subledger_type = 'AR'
+              )
+        )
         INSERT INTO entity_accounts
             (id, created_at, updated_at, is_active, society_id, entity_id,
              control_account_id, subledger_type, account_number, is_primary)
-        SELECT gen_random_uuid(), NOW(), NOW(), TRUE,
-               e.society_id, e.id, a.id, 'AR',
-               '10' || LPAD((
-                   ROW_NUMBER() OVER (
-                       PARTITION BY e.society_id
-                       ORDER BY e.source_id
-                   ) + 0
-               )::text, 5, '0'),
-               TRUE
-        FROM accounting_entities e
-        JOIN accounts a
-          ON a.society_id = e.society_id
-         AND a.system_key = 'members_dues'
-         AND a.is_system = TRUE
-        WHERE e.entity_type = 'member'
-          AND e.source_type = 'flat'
-          AND NOT EXISTS (
-              SELECT 1 FROM entity_accounts ea
-              WHERE ea.entity_id = e.id
-                AND ea.subledger_type = 'AR'
-          )
-          AND NOT EXISTS (
-              SELECT 1 FROM entity_accounts ea2
-              WHERE ea2.society_id = e.society_id
-                AND ea2.account_number = '10' || LPAD((
-                    ROW_NUMBER() OVER (
-                        PARTITION BY e.society_id
-                        ORDER BY e.source_id
-                    ) + 0
-                )::text, 5, '0')
-          )
+        SELECT gen_random_uuid(), NOW(), NOW(), TRUE, society_id, entity_id,
+               control_account_id, 'AR', account_number, TRUE
+        FROM numbered
     """)
 
     # Link historical member-dues voucher lines to the formal AR subledger.
