@@ -18,6 +18,7 @@ from app.modules.accounts.services.accounts_service import AccountsService, dr_c
 from app.modules.accounts.services.expense_by_element import expenses_by_element
 from app.modules.accounts.services.recurring_expenses import RecurringExpenseService, first_of
 from app.modules.accounts.services.postings import AccountPostings
+from app.modules.accounts.services.member_ar import MemberARService
 from app.modules.accounts.services.reports import REPORTS, FinancialReports
 from app.modules.accounts.services.documents_pdf import (
     render_day_book_pdf, render_ledger_pdf, render_members_ledger_pdf, render_voucher_pdf,
@@ -323,6 +324,31 @@ def member_balances(society_id: UUID, as_of: Optional[date] = None,
             "balance": _amount(r["balance"]), "balance_dr_cr": dr_cr(r["balance"]),
         } for r in rows],
     }
+
+
+
+
+# ── Member AR subledger & reconciliation ─────────────────────────────────────
+
+@router.get("/members/{society_id}/ar-reconciliation")
+def member_ar_reconciliation(society_id: UUID, date_from: Optional[date] = None,
+                            date_to: Optional[date] = None,
+                            db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Society-wide reconciliation of formal member AR against billing outstanding."""
+    assert_society_access(user, society_id)
+    return MemberARService(db).society_reconciliation(society_id, date_from, date_to)
+
+
+@router.get("/members/{society_id}/{flat_id}/ar-statement")
+def member_ar_statement(society_id: UUID, flat_id: UUID,
+                        date_from: Optional[date] = None, date_to: Optional[date] = None,
+                        db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Formal member AR ledger with bill-wise operational reconciliation."""
+    assert_society_access(user, society_id)
+    try:
+        return MemberARService(db).statement(society_id, flat_id, date_from, date_to)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
 
 
 # ── Vouchers ──────────────────────────────────────────────────────────────────
