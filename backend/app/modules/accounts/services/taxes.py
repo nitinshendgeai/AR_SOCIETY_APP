@@ -37,7 +37,7 @@ class TaxCalculationService:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_config(self, society_id, code: str, tax_type: Optional[str] = None):
+    def get_config(self, society_id, code: str, tax_type: Optional[str] = None, as_of=None):
         q = self.db.query(TaxConfiguration).filter(
             TaxConfiguration.society_id == society_id,
             TaxConfiguration.code == code,
@@ -45,13 +45,19 @@ class TaxCalculationService:
         )
         if tax_type:
             q = q.filter(TaxConfiguration.tax_type == tax_type)
-        return q.first()
+        if as_of is not None:
+            q = q.filter(
+                TaxConfiguration.effective_from <= as_of,
+                (TaxConfiguration.effective_to.is_(None) | (TaxConfiguration.effective_to >= as_of)),
+            )
+        return q.order_by(TaxConfiguration.effective_from.desc()).first()
 
     def calculate_vendor_invoice(
         self,
         society_id,
         *,
         amount,
+        invoice_date=None,
         gst_amount=0,
         cgst_amount=0,
         sgst_amount=0,
@@ -70,7 +76,7 @@ class TaxCalculationService:
         taxable = money(amount)
 
         if gst_config_code:
-            cfg = self.get_config(society_id, gst_config_code, "GST")
+            cfg = self.get_config(society_id, gst_config_code, "GST", invoice_date)
             if not cfg:
                 raise ValueError(f"GST configuration '{gst_config_code}' is not active")
             gst_rate = cfg.rate
@@ -109,7 +115,7 @@ class TaxCalculationService:
 
         tds_cfg = None
         if tds_config_code:
-            tds_cfg = self.get_config(society_id, tds_config_code, "TDS")
+            tds_cfg = self.get_config(society_id, tds_config_code, "TDS", invoice_date)
             if not tds_cfg:
                 raise ValueError(f"TDS configuration '{tds_config_code}' is not active")
             tds_rate = tds_cfg.rate
