@@ -118,7 +118,9 @@ def test_payment_voucher_posts_and_numbers_by_financial_year(client, db):
     assert r.status_code == 201, r.text
     v = r.json()
     assert v["voucher_number"] == "PV/2026-27/0001" and v["fiscal_year"] == "2026-27"
-    assert v["amount"] == "8450.00" and not v["is_auto"]
+    assert v["amount"] == "8450.00" and not v["is_auto"] and v["approval_status"] == "pending"
+    assert _balance(client, h, sid, "electricity") == 0
+    assert client.post(f"{API}/vouchers/{v['id']}/approve", json={"note": "Approved for payment"}, headers=h).status_code == 200
     r = client.post(f"{API}/vouchers", json={
         "society_id": sid, "voucher_type": "payment", "voucher_date": "2026-10-01",
         "entries": [{"account_id": L["audit_fees"]["id"], "debit": "5000"},
@@ -183,6 +185,9 @@ def test_cancelled_voucher_drops_out_of_the_books(client, db):
         "entries": [{"account_id": L["depreciation"]["id"], "debit": "700"},
                     {"account_id": L["plant_machinery"]["id"], "credit": "700"}],
     }, headers=h).json()
+    assert _balance(client, h, sid, "depreciation") == 700
+    assert v["approval_status"] == "pending"
+    assert client.post(f"{API}/vouchers/{v['id']}/approve", json={"note": "Approved"}, headers=h).status_code == 200
     assert _balance(client, h, sid, "depreciation") == 700
     r = client.post(f"{API}/vouchers/{v['id']}/cancel", json={"reason": "Wrong amount"}, headers=h)
     assert r.status_code == 200 and r.json()["is_cancelled"]
