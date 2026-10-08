@@ -77,7 +77,7 @@ def previous_fiscal_year(fy: str) -> str:
 def live_posting():
     """A voucher still in effect for its source: neither cancelled nor
     reversed in a later year."""
-    return (Voucher.is_cancelled == False) & Voucher.reversed_at.is_(None)  # noqa: E712
+    return (Voucher.is_cancelled == False) & Voucher.reversed_at.is_(None) & (Voucher.approval_status == "approved")  # noqa: E712
 
 
 def signed_opening(account: Account) -> Decimal:
@@ -328,7 +328,8 @@ class AccountsService:
     def build_voucher(self, society_id: UUID, voucher_type: str, voucher_date: date, lines: List[Line], *,
                       narration: Optional[str] = None, reference: Optional[str] = None,
                       source_type: Optional[str] = None, source_id: Optional[UUID] = None,
-                      reversal_of_id: Optional[UUID] = None, user: Optional[User] = None) -> Voucher:
+                      reversal_of_id: Optional[UUID] = None, user: Optional[User] = None,
+                      approval_status: str = "approved", approval_note: Optional[str] = None) -> Voucher:
         """Validate that `lines` balance and record the voucher (flushed, not
         committed)."""
         lines, total = self._balanced(society_id, lines)
@@ -341,6 +342,10 @@ class AccountsService:
             voucher_date=voucher_date, fiscal_year=fiscal_year(voucher_date), amount=total,
             narration=narration, reference=reference, source_type=source_type, source_id=source_id,
             reversal_of_id=reversal_of_id, created_by=user.id if user else None,
+            approval_status=approval_status,
+            submitted_at=datetime.utcnow() if approval_status == "pending" else None,
+            submitted_by=user.id if approval_status == "pending" and user else None,
+            approval_note=approval_note,
         )
         self._set_entries(voucher, lines)
         self.db.add(voucher)
@@ -353,7 +358,8 @@ class AccountsService:
                 EntityAccount.id == line.entity_account_id,
                 EntityAccount.society_id == society_id,
                 EntityAccount.is_active.is_(True),
-            ).first()            return entity_account.id
+            ).first()
+            return entity_account.id
         if not line.flat_id and not line.vendor_id:
             return None
         entities = AccountingEntityService(self.db)
@@ -416,11 +422,41 @@ class AccountsService:
         if vtype not in MANUAL_VOUCHER_TYPES:
             raise HTTPException(422, f"Voucher type must be one of: {', '.join(MANUAL_VOUCHER_TYPES)}")
         lines = self._manual_lines(society_id, vtype, data["entries"])
-        voucher = self.build_voucher(society_id, vtype, data["voucher_date"], lines,
-                                     narration=data.get("narration"), reference=data.get("reference"),
-                                     user=user)
+        requires_approval = vtype in ("payment", "journal")
+        voucher = self.build_voucher(
+            society_id, vtype, data["voucher_date"], lines,
+            narration=data.get("narration"), reference=data.get("reference"), user=user,
+            approval_status="pending" if requires_approval else "approved",
+            approval_note="Manual voucher submitted for committee/admin approval" if requires_approval else None,
+        )
         self._audit(AuditAction.CREATE, voucher, user, request,
                     new_values={"number": voucher.voucher_number, "amount": str(voucher.amount)})
+        self.db.commit()
+        self.db.refresh(voucher)
+        return voucher
+
+    def approve_manual_voucher(self, voucher_id: UUID, user: User, note: Optional[str] = None) -> Voucher:
+        voucher = self.get_voucher(voucher_id)
+        self._assert_manual(voucher, "approve")
+        if voucher.approval_status != "pending":
+            raise HTTPException(409, "Voucher is not pending approval")
+        voucher.approval_status = "approved"
+        voucher.approved_at = datetime.utcnow()
+        voucher.approved_by = user.id
+        voucher.approval_note = note or voucher.approval_note
+        self._audit(AuditAction.UPDATE, voucher, user, new_values={"approval_status": "approved", "approval_note": voucher.approval_note})
+        self.db.commit()
+        self.db.refresh(voucher)
+        return voucher
+
+    def reject_manual_voucher(self, voucher_id: UUID, user: User, reason: str) -> Voucher:
+        voucher = self.get_voucher(voucher_id)
+        self._assert_manual(voucher, "reject")
+        if voucher.approval_status != "pending":
+            raise HTTPException(409, "Voucher is not pending approval")
+        voucher.approval_status = "rejected"
+        voucher.approval_note = reason
+        self._audit(AuditAction.UPDATE, voucher, user, new_values={"approval_status": "rejected", "approval_note": reason})
         self.db.commit()
         self.db.refresh(voucher)
         return voucher
@@ -525,6 +561,13 @@ class AccountsService:
         self._set_entries(voucher, lines)
         voucher.edited_at = datetime.utcnow()
         voucher.edited_by = user.id if user else None
+        if voucher.voucher_type in ("payment", "journal"):
+            voucher.approval_status = "pending"
+            voucher.submitted_at = datetime.utcnow()
+            voucher.submitted_by = user.id if user else None
+            voucher.approved_at = None
+            voucher.approved_by = None
+            voucher.approval_note = "Edited voucher resubmitted for committee/admin approval"
         self._audit(AuditAction.UPDATE, voucher, user, request,
                     old_values={"number": before["voucher_number"], "date": before["voucher_date"],
                                 "amount": before["amount"]},
@@ -607,7 +650,7 @@ class AccountsService:
         q = (self.db.query(group_by, func.coalesce(func.sum(VoucherEntry.debit), 0),
                            func.coalesce(func.sum(VoucherEntry.credit), 0))
              .join(Voucher, Voucher.id == VoucherEntry.voucher_id)
-             .filter(Voucher.society_id == society_id, Voucher.is_cancelled == False))
+             .filter(Voucher.society_id == society_id, Voucher.is_cancelled == False, Voucher.approval_status == "approved"))
         if before:
             q = q.filter(Voucher.voucher_date < before)
         if upto:
