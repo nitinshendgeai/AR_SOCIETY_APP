@@ -341,3 +341,22 @@ def test_residents_cannot_see_the_books(client, db):
     assert client.post(f"{API}/vouchers", json={
         "society_id": sid, "voucher_type": "journal", "voucher_date": "2026-09-01", "entries": [],
     }, headers=resident["headers"]).status_code == 403
+
+    
+def test_member_and_vendor_have_formal_subledger_accounts(client, db):
+    from app.modules.accounts.models.entities import Entity, EntityAccount
+    from app.modules.accounts.services.accounts_service import AccountsService
+
+    society, flat, _flat2, manager, _resident, _other = _rig(db, "acc_entity")
+    h = manager["headers"]
+    sid = str(society.id)
+    ledgers = _ledgers(client, h, sid)
+    accounts = AccountsService(db)
+    member = accounts.system_account(society.id, "members_dues")
+    ea = __import__("app.modules.accounts.services.entities", fromlist=["AccountingEntityService"]).AccountingEntityService(db)
+    member_account = ea.ensure_flat_member(flat, member)
+    assert member_account.subledger_type == "AR"
+    assert member_account.account_number.startswith("10")
+    assert member_account.control_account_id == member.id
+    assert db.query(Entity).filter_by(society_id=society.id, entity_type="member", source_id=flat.id).count() == 1
+    assert db.query(EntityAccount).filter_by(entity_id=member_account.entity_id, subledger_type="AR").count() == 1
