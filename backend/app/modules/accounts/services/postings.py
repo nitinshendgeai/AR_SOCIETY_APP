@@ -158,13 +158,65 @@ class AccountPostings:
         flat_id = p.flat_id or (p.bill.flat_id if p.bill else None)
         cash_bank = self._cash_or_bank(sid, p.payment_mode == PaymentMode.CASH)
         dues = self.accounts.system_account(sid, "members_dues")
+        advance_control = self.accounts.system_account(sid, "member_deposits")
         against = f" against Bill {p.bill.invoice_number}" if p.bill else " on account"
+
+        # PaymentReceipt is always on-bill. OnlinePaymentSubmission can leave
+        # an unapplied balance, which is a member credit/advance rather than
+        # a negative AR balance. Keep both amounts in the receipt voucher so
+        # the GL and the member subledgers reconcile.
+        applied = money(p.amount)
+        unapplied_amount = ZERO
+        if source_type == "online_payment":
+            from app.modules.billing.services.allocations import allocated
+            applied = min(money(p.amount), allocated(p))
+            unapplied_amount = money(p.amount) - applied
+
+        lines = [Line(cash_bank, debit=money(p.amount))]
+        if applied > 0:
+            from app.modules.accounts.services.entities import AccountingEntityService
+            ar = AccountingEntityService(self.db).ensure_flat_member(flat, dues)
+            lines.append(Line(dues, credit=applied, flat_id=flat_id, entity_account_id=ar.id))
+        if unapplied_amount > 0:
+            from app.modules.accounts.services.entities import AccountingEntityService
+            advance = AccountingEntityService(self.db).ensure_flat_advance(flat, advance_control)
+            lines.append(Line(advance_control, credit=unapplied_amount,
+                              entity_account_id=advance.id))
+
         narration = (f"Received from {_member_of(flat, p.bill.resident if p.bill else None)} "
                      f"vide {payment_detail(p)}{against}")
         return self._post(
-            sid, "receipt", p.payment_date,
-            [Line(cash_bank, debit=money(p.amount)), Line(dues, credit=money(p.amount), flat_id=flat_id)],
-            narration=narration, reference=p.receipt_number, source_type=source_type, source_id=p.id, user=user)
+            sid, "receipt", p.payment_date, lines,
+            narration=narration, reference=p.receipt_number,
+            source_type=source_type, source_id=p.id, user=user)
+
+    def post_advance_allocation(self, allocation, user: Optional[User] = None) -> Optional[Voucher]:
+        """Move an already-recorded member advance onto a maintenance demand.
+
+        This is only used when a previously unapplied payment is later set
+        off. The original receipt remains the cash receipt; this voucher is
+        the appropriation from the member advance liability to member AR.
+        """
+        if self.active_voucher("advance_allocation", allocation.id) or money(allocation.amount) <= 0:
+            return None
+        payment = allocation.payment
+        bill = allocation.bill
+        if not payment or not bill:
+            return None
+        flat = payment.flat or bill.flat
+        dues = self.accounts.system_account(payment.society_id, "members_dues")
+        advance_control = self.accounts.system_account(payment.society_id, "member_deposits")
+        from app.modules.accounts.services.entities import AccountingEntityService
+        entities = AccountingEntityService(self.db)
+        ar = entities.ensure_flat_member(flat, dues)
+        advance = entities.ensure_flat_advance(flat, advance_control)
+        return self._post(
+            payment.society_id, "journal", payment.payment_date,
+            [Line(advance_control, debit=money(allocation.amount), entity_account_id=advance.id),
+             Line(dues, credit=money(allocation.amount), flat_id=flat.id, entity_account_id=ar.id)],
+            narration=f"Advance applied to Bill {bill.invoice_number} — {flat.flat_number}",
+            reference=payment.receipt_number,
+            source_type="advance_allocation", source_id=allocation.id, user=user)
 
     def post_receipt(self, receipt: PaymentReceipt, user: Optional[User] = None) -> Optional[Voucher]:
         if receipt.is_reversed:
