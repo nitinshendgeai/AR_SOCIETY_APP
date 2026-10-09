@@ -42,8 +42,8 @@ def upgrade():
         ("gst_input_igst", "2309", "Input GST - IGST"),
     ):
         op.execute(sa.text(
-            "INSERT INTO accounts (id, society_id, group_id, code, name, system_key, is_system, opening_type, sort_order) "
-            "SELECT gen_random_uuid(), g.society_id, g.id, :code, :name, :key, true, 'dr', 999 "
+            "INSERT INTO accounts (id, created_at, updated_at, society_id, group_id, code, name, system_key, is_system, opening_type, sort_order) "
+            "SELECT gen_random_uuid(), NOW(), NOW(), g.society_id, g.id, :code, :name, :key, true, 'dr', 999 "
             "FROM account_groups g "
             "WHERE g.system_key='current_assets' "
             "AND NOT EXISTS (SELECT 1 FROM accounts a WHERE a.society_id=g.society_id AND a.system_key=:key)"
