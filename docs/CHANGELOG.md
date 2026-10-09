@@ -4,6 +4,22 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-09 (g)
+
+### fix: rental / tenant audit
+
+- **Renewals can no longer be back-dated.** A renewal that started before the current agreement began, or ended before
+  it ends, was accepted: it replaced the tenant's current dates and rent with past ones and marked the real agreement
+  "renewed". It is now refused (422) and nothing changes.
+- **A refused move-in leaves nothing behind.** Adding a tenant (or a resident) with a move-in date to a flat that is
+  already taken returned an error but still saved the tenant/resident. The move-in checks now run before anything is
+  saved (`check_tenant_move_in`, `check_resident_move_in`).
+- **Tenant screens:** an agreement past its end date shows **EXPIRED** and "Expired N days ago" (it showed ACTIVE); rent
+  and deposit use the same Indian digit grouping as the list; the Tenants table no longer cuts off the Flat and Rent
+  columns.
+- Known gaps (not built): shops have no tenants or agreements, there is no rent collection, and nothing sends the
+  30 / 7-day agreement-expiry alerts yet.
+
 ## 2026-10-09 (f)
 
 ### feat: possession date and electric meter on flats, a Shops master, and a richer residents import

@@ -61,6 +61,11 @@ class ResidentService:
             id_proof_type=data.id_proof_type, id_proof_number=data.id_proof_number,
         )
 
+        # Refuse a move-in that cannot happen before the resident row exists,
+        # so a failed request leaves nothing behind.
+        if data.move_in_date is not None:
+            OccupancyService(self.db).check_resident_move_in(flat)
+
         payload = data.model_dump(exclude={"move_in_date"})
         resident = Resident(**payload)
         created = self.repo.create(resident)

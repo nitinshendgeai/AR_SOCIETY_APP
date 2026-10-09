@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart' show tableMoney;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
@@ -135,20 +136,28 @@ class _TenantDetailBody extends ConsumerWidget {
                   Row(children: [
                     Expanded(
                       child: AgreementStatusBadge(
-                        status: hasActiveAgreement
-                            ? AgreementStatus.active
-                            : (daysLeft != null && daysLeft < 0 ? AgreementStatus.expired : AgreementStatus.terminated),
+                        // The server keeps an agreement "active" until it is
+                        // renewed or the tenant moves out, so one whose end
+                        // date has passed is shown as expired here.
+                        status: daysLeft != null && daysLeft < 0
+                            ? AgreementStatus.expired
+                            : hasActiveAgreement
+                                ? AgreementStatus.active
+                                : AgreementStatus.terminated,
                       ),
                     ),
                     if (daysLeft != null && daysLeft >= 0 && daysLeft <= 30 && hasActiveAgreement)
                       Text('Expires in $daysLeft day${daysLeft == 1 ? '' : 's'}',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.warning)),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.warning))
+                    else if (daysLeft != null && daysLeft < 0 && hasActiveAgreement)
+                      Text('Expired ${-daysLeft} day${daysLeft == -1 ? '' : 's'} ago',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.error)),
                   ]),
                 const SizedBox(height: 8),
                 RmRow(label: 'Start Date', value: rmFormatDate(tenant.agreementStartDate)),
                 RmRow(label: 'End Date', value: rmFormatDate(tenant.agreementEndDate)),
-                RmRow(label: 'Monthly Rent', value: tenant.monthlyRent != null ? '₹${tenant.monthlyRent}' : '—'),
-                RmRow(label: 'Security Deposit', value: tenant.securityDeposit != null ? '₹${tenant.securityDeposit}' : '—'),
+                RmRow(label: 'Monthly Rent', value: tableMoney(tenant.monthlyRent)),
+                RmRow(label: 'Security Deposit', value: tableMoney(tenant.securityDeposit)),
               ],
             ],
           ),
@@ -348,7 +357,11 @@ class _AgreementHistoryTile extends StatelessWidget {
           Text(label,
               style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.primary, letterSpacing: 0.6)),
           const SizedBox(width: 8),
-          AgreementStatusBadge(status: agreement.status),
+          AgreementStatusBadge(
+            status: agreement.status == AgreementStatus.active && (rmDaysUntil(agreement.endDate) ?? 0) < 0
+                ? AgreementStatus.expired
+                : agreement.status,
+          ),
         ]),
         const SizedBox(height: 6),
         Text('${rmFormatDate(agreement.startDate)} → ${rmFormatDate(agreement.endDate)}',
@@ -356,8 +369,8 @@ class _AgreementHistoryTile extends StatelessWidget {
         if (agreement.monthlyRent != null || agreement.securityDeposit != null) ...[
           const SizedBox(height: 2),
           Text([
-            if (agreement.monthlyRent != null) 'Rent ₹${agreement.monthlyRent}',
-            if (agreement.securityDeposit != null) 'Deposit ₹${agreement.securityDeposit}',
+            if (agreement.monthlyRent != null) 'Rent ${tableMoney(agreement.monthlyRent)}',
+            if (agreement.securityDeposit != null) 'Deposit ${tableMoney(agreement.securityDeposit)}',
           ].join(' · '), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ],
         if (agreement.terminationReason != null) ...[
