@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:ar_society_app/core/utils/server_time.dart';
 
 import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
@@ -311,7 +312,7 @@ class Voucher {
         reversalOfId: j['reversal_of_id'] as String?,
         cancelReason: j['cancel_reason'] as String?,
         createdByName: j['created_by_name'] as String?,
-        editedAt: j['edited_at'] == null ? null : DateTime.parse(j['edited_at'] as String),
+        editedAt: parseStampOrNull(j['edited_at']),
         editedByName: j['edited_by_name'] as String?,
         revisions: (j['revisions'] as List? ?? const [])
             .map((e) => VoucherRevision.fromJson(e as Map<String, dynamic>))
@@ -369,7 +370,7 @@ class VoucherRevision {
     return VoucherRevision(
       revisionNo: (j['revision_no'] as num?)?.toInt() ?? 0,
       reason: j['reason'] as String? ?? '',
-      editedAt: j['edited_at'] == null ? null : DateTime.parse(j['edited_at'] as String),
+      editedAt: parseStampOrNull(j['edited_at']),
       editedByName: j['edited_by_name'] as String?,
       voucherNumber: b['voucher_number'] as String? ?? '',
       voucherDate: _date(b['voucher_date']),

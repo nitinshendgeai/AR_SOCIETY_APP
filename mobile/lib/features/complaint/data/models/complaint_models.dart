@@ -1,4 +1,5 @@
 import 'package:ar_society_app/features/complaint/domain/entities/complaint_entities.dart';
+import 'package:ar_society_app/core/utils/server_time.dart';
 
 // ── Complaint comment model ───────────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ class ComplaintCommentModel {
         authorName: authorName,
         body: body,
         isInternal: isInternal,
-        createdAt: DateTime.parse(createdAt),
+        createdAt: parseStamp(createdAt),
       );
 }
 
@@ -141,14 +142,14 @@ class ComplaintModel {
         raisedByName: raisedByName,
         assignedTo: assignedTo,
         assignedToName: assignedToName,
-        resolvedAt: resolvedAt != null ? DateTime.tryParse(resolvedAt!) : null,
-        closedAt: closedAt != null ? DateTime.tryParse(closedAt!) : null,
+        resolvedAt: parseStampOrNull(resolvedAt),
+        closedAt: parseStampOrNull(closedAt),
         dueDate: dueDate != null ? DateTime.tryParse(dueDate!) : null,
         resolutionNotes: resolutionNotes,
         rejectionReason: rejectionReason,
         reopenCount: reopenCount,
         comments: comments.map((c) => c.toEntity()).toList(),
-        createdAt: DateTime.parse(createdAt),
+        createdAt: parseStamp(createdAt),
       );
 }
 
@@ -221,8 +222,8 @@ class ComplaintListModel {
         raisedBy: raisedBy,
         assignedTo: assignedTo,
         assignedToName: assignedToName,
-        resolvedAt: resolvedAt != null ? DateTime.tryParse(resolvedAt!) : null,
-        closedAt: closedAt != null ? DateTime.tryParse(closedAt!) : null,
-        createdAt: DateTime.parse(createdAt),
+        resolvedAt: parseStampOrNull(resolvedAt),
+        closedAt: parseStampOrNull(closedAt),
+        createdAt: parseStamp(createdAt),
       );
 }

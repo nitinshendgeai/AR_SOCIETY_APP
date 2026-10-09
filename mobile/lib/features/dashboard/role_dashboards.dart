@@ -620,7 +620,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                 : null,
           ),
           const SizedBox(width: 8),
-          const _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: AppRoutes.complaints),
+          _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: societyComplaints),
           const SizedBox(width: 8),
           const _QuickActionChip(icon: Icons.person_add_alt_1_rounded, label: 'Add Staff', route: AppRoutes.staffAdd),
           const SizedBox(width: 8),
@@ -700,14 +700,23 @@ class CommitteeDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 18),
         const _SectionLabel('Quick Actions'),
         const SizedBox(height: 10),
-        Row(children: const [
-          _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: AppRoutes.complaints),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.settings_outlined, label: 'Society Info', route: AppRoutes.societySettings),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.people_rounded, label: 'Staff', route: AppRoutes.staffHome),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.meeting_room_rounded, label: 'Visitors', route: AppRoutes.visitorsMy),
+        // The committee runs the society, so these open the society-wide lists, as the menu does.
+        Row(children: [
+          _QuickActionChip(
+            icon: Icons.report_problem_rounded,
+            label: 'Complaints',
+            route: societyId == null ? AppRoutes.complaints : AppRoutes.complaintsSociety.replaceFirst(':societyId', societyId),
+          ),
+          const SizedBox(width: 8),
+          const _QuickActionChip(icon: Icons.settings_outlined, label: 'Society Info', route: AppRoutes.societySettings),
+          const SizedBox(width: 8),
+          const _QuickActionChip(icon: Icons.people_rounded, label: 'Staff', route: AppRoutes.staffList),
+          const SizedBox(width: 8),
+          _QuickActionChip(
+            icon: Icons.meeting_room_rounded,
+            label: 'Visitors',
+            route: societyId == null ? AppRoutes.visitorsMy : AppRoutes.visitorsSociety.replaceFirst(':societyId', societyId),
+          ),
         ]),
         const SizedBox(height: 18),
         _OperationalPanel(title: 'Open actions', children: const [
@@ -808,6 +817,28 @@ class ResidentDashboardScreen extends ConsumerWidget {
       title: 'Resident Dashboard',
       children: [
         _GreetingCard(user: user, subtitle: 'Resident · Day-to-day services'),
+        if (residentLoaded && myFlatId == null) ...[
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.warning.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.warning.withOpacity(0.35)),
+            ),
+            child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(Icons.link_off_rounded, color: AppTheme.warning, size: 20),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Your login is not linked to a flat yet. Ask the society office to link it; '
+                  'until then your bills and visitor approvals will not appear here.',
+                  style: TextStyle(fontSize: 13, height: 1.4, color: AppTheme.textPrimary),
+                ),
+              ),
+            ]),
+          ),
+        ],
         const PendingVisitorsBanner(padding: EdgeInsets.only(top: 14)),
         const SizedBox(height: 18),
         const _SectionLabel('Summary'),

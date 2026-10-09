@@ -1,4 +1,5 @@
 import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities.dart';
+import 'package:ar_society_app/core/utils/server_time.dart';
 
 // ── Visitor log model ─────────────────────────────────────────────────────────
 
@@ -34,7 +35,7 @@ class VisitorLogModel {
         action: action,
         notes: notes,
         gateId: gateId,
-        createdAt: DateTime.parse(createdAt),
+        createdAt: parseStamp(createdAt),
       );
 }
 
@@ -165,14 +166,14 @@ class VisitorModel {
         status: VisitorStatus.fromString(status),
         expectedArrival:
             expectedArrival != null ? DateTime.tryParse(expectedArrival!) : null,
-        checkedInAt: checkedInAt != null ? DateTime.tryParse(checkedInAt!) : null,
+        checkedInAt: parseStampOrNull(checkedInAt),
         checkedOutAt:
-            checkedOutAt != null ? DateTime.tryParse(checkedOutAt!) : null,
-        approvedAt: approvedAt != null ? DateTime.tryParse(approvedAt!) : null,
+            parseStampOrNull(checkedOutAt),
+        approvedAt: parseStampOrNull(approvedAt),
         rejectionReason: rejectionReason,
         qrToken: qrToken,
         vehicle: vehicle?.toEntity(),
         logs: logs.map((l) => l.toEntity()).toList(),
-        createdAt: DateTime.parse(createdAt),
+        createdAt: parseStamp(createdAt),
       );
 }

@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
 from app.api import api_router
+from app.utils.utc_response import UtcJSONResponse
 from app.utils.exceptions import (
     validation_exception_handler,
     integrity_error_handler,
@@ -40,6 +41,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    default_response_class=UtcJSONResponse,
 )
 
 # ── Exception handlers ────────────────────────────────────────────────────────

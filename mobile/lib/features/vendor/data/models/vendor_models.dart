@@ -1,4 +1,5 @@
 import 'package:ar_society_app/features/vendor/domain/entities/vendor_entities.dart';
+import 'package:ar_society_app/core/utils/server_time.dart';
 
 class VendorModel {
   final String id;
@@ -126,7 +127,7 @@ class VendorInvoiceModel {
         paymentRef: json['payment_ref'] as String?,
         bankName: json['bank_name'] as String?,
         description: json['description'] as String?,
-        createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null,
+        createdAt: parseStampOrNull(json['created_at']),
       );
 
   VendorInvoiceEntity toEntity() => VendorInvoiceEntity(

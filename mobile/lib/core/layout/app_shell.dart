@@ -108,6 +108,8 @@ class AppShell extends ConsumerWidget {
     return null;
   }
 
+  // Only reached by someone who can open a wings/flats page without the menu
+  // entry for it (no longer the normal case: Wings and Flats have their own).
   static const _sectionAliases = {
     'wings': AppRoutes.structureWizard,
     'flats': AppRoutes.structureWizard,

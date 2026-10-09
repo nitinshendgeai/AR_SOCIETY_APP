@@ -1,4 +1,5 @@
 import 'package:ar_society_app/features/parking/domain/entities/parking_entities.dart';
+import 'package:ar_society_app/core/utils/server_time.dart';
 
 // ── Gate vehicle lookup model — matches GateVehicleLookupOut ───────────────
 
@@ -58,9 +59,7 @@ class GateVehicleLookupModel {
         ownerName: ownerName,
         parkingSlot: parkingSlot,
         visitorPurpose: visitorPurpose,
-        visitorCheckInTime: visitorCheckInTime != null
-            ? DateTime.tryParse(visitorCheckInTime!)
-            : null,
+        visitorCheckInTime: parseStampOrNull(visitorCheckInTime),
         message: message,
       );
 }
@@ -96,7 +95,7 @@ class ParkingAccessLogModel {
         vehicleNumber: vehicleNumber,
         accessType: accessType == 'exit' ? GateAccessType.exit : GateAccessType.entry,
         isAuthorized: isAuthorized,
-        accessTime: DateTime.parse(accessTime),
+        accessTime: parseStamp(accessTime),
       );
 }
 

@@ -1,4 +1,5 @@
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
+import 'package:ar_society_app/core/utils/server_time.dart';
 
 // ── Designation model ─────────────────────────────────────────────────────────
 
@@ -303,7 +304,7 @@ class AttendanceCorrectionModel {
         reason: reason,
         status: CorrectionStatus.fromString(status),
         rejectionReason: rejectionReason,
-        createdAt: DateTime.parse(createdAt),
+        createdAt: parseStamp(createdAt),
       );
 }
 
@@ -383,9 +384,9 @@ class DutyModel {
         location: location, dutyDate: dutyDate,
         startTime: startTime, endTime: endTime,
         isCompleted: isCompleted, isRecurring: isRecurring,
-        completedAt: completedAt != null ? DateTime.tryParse(completedAt!) : null,
+        completedAt: parseStampOrNull(completedAt),
         verifiedBy: verifiedBy,
-        verifiedAt: verifiedAt != null ? DateTime.tryParse(verifiedAt!) : null,
+        verifiedAt: parseStampOrNull(verifiedAt),
         notes: notes,
         checklistTemplateId: checklistTemplateId,
         seriesId: seriesId, completionSource: completionSource,
@@ -440,7 +441,7 @@ class DutyChecklistItemModel {
         id: id, dutyId: dutyId, templateItemId: templateItemId,
         sequence: sequence, title: title, description: description,
         isRequired: isRequired, isCompleted: isCompleted,
-        completedAt: completedAt != null ? DateTime.tryParse(completedAt!) : null,
+        completedAt: parseStampOrNull(completedAt),
         notes: notes,
         enteredFromPaper: enteredFromPaper,
       );
@@ -642,7 +643,7 @@ class HandoverModel {
         items: items.map((i) => i.toEntity()).toList(),
         acceptanceNotes: acceptanceNotes,
         disputeReason: disputeReason,
-        acceptedAt: acceptedAt != null ? DateTime.tryParse(acceptedAt!) : null,
-        createdAt: DateTime.parse(createdAt),
+        acceptedAt: parseStampOrNull(acceptedAt),
+        createdAt: parseStamp(createdAt),
       );
 }
