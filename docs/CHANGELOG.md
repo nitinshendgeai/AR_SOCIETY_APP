@@ -4,6 +4,32 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-09 (i)
+
+### feat: admin dashboard that shows how the society is doing
+
+The Admin dashboard was eight counts and four shortcuts. It now shows, from one call (`GET /api/v1/dashboard/society/{id}`,
+admin and committee only, own society only):
+
+- **Maintenance collection:** the latest cycle (collected of billed, percent, outstanding, bills paid, overdue) and a
+  billed-against-collected chart of the last six cycles.
+- **Needs attention:** what is waiting on the office, most urgent first, each opening its screen: flats with overdue
+  maintenance, overdue vendor bills, monthly expenses to record, expired and expiring tenant agreements, resident
+  profile changes and password resets to review, complaints (open, and open over a week), amenity requests, staff
+  punch and leave approvals, low stock.
+- **Money:** cash and bank, what members owe, income and spending for the financial year.
+- **Society today:** occupied and vacant flats, residents, visitors today and inside now, active staff.
+
+Each block is worked out on its own, so one that fails shows nothing instead of blanking the page.
+
+### fix: recording a payment answered 500 on a database built from the migrations
+
+`accounting_posting_errors` and `vendor_payment_transactions` were created by their migrations without the `is_active`
+column every model carries. After each automatic accounting posting the "resolve any open error" lookup failed, the
+posting was logged as failed, and recording a payment returned 500. Migration `9d6e7f8091a2` adds the column where it is
+missing (it leaves a database that already has it alone). A check of every model against the migrated local database
+found no other missing column.
+
 ## 2026-10-09 (h)
 
 ### fix: times show on the viewer's clock; Wings and Flats in the menu; dashboard shortcuts

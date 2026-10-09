@@ -12,6 +12,7 @@ from app.modules.visitor.routes.visitor     import router as visitor_router
 from app.modules.complaint.routes.complaint import router as complaint_router
 from app.modules.amenity.routes.amenity     import router as amenity_router
 from app.modules.shops.routes.shop          import router as shops_router
+from app.modules.dashboard.routes.dashboard import router as dashboard_router
 from app.modules.staff.routes.staff         import router as staff_router
 from app.modules.staff.routes.handover      import router as handover_router
 from app.modules.inventory.routes.inventory import router as inventory_router
@@ -42,6 +43,7 @@ api_router.include_router(visitor_router)
 api_router.include_router(complaint_router)
 api_router.include_router(amenity_router)
 api_router.include_router(shops_router)
+api_router.include_router(dashboard_router)
 api_router.include_router(staff_router)
 api_router.include_router(handover_router)
 api_router.include_router(inventory_router)
