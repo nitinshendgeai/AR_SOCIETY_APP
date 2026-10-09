@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/features/vendor/data/repositories/vendor_repository.dart';
 import 'package:ar_society_app/features/vendor/domain/entities/vendor_entities.dart';
+import 'package:ar_society_app/features/vendor/presentation/providers/vendors_work_providers.dart';
 
 final vendorRepositoryProvider = Provider<VendorRepository>((_) => VendorRepository());
 
@@ -40,6 +41,7 @@ class VendorsNotifier extends FamilyAsyncNotifier<List<VendorEntity>, String> {
     switch (result) {
       case VendorSuccess(:final data):
         state = AsyncData([data, ...(state.valueOrNull ?? [])]);
+        ref.invalidate(vendorRecordsProvider(arg));     // the Vendor Master list shows it too
         return data;
       case VendorFailure(:final message):
         throw Exception(message);

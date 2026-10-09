@@ -345,7 +345,7 @@ class _LedgerSheetState extends ConsumerState<_LedgerSheet> {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: TextFormField(controller: _code, decoration: const InputDecoration(labelText: 'Code')),
+              child: TextFormField(controller: _code, decoration: const InputDecoration(labelText: 'Code', hintText: 'Auto')),
             ),
           ]),
           if (_group?.nature == 'expense') ..._elementPicker(),

@@ -42,6 +42,7 @@ class _DayBookScreenState extends ConsumerState<DayBookScreen> {
         v.voucherNumber.toLowerCase().contains(q) ||
         (v.narration ?? '').toLowerCase().contains(q) ||
         (v.reference ?? '').toLowerCase().contains(q) ||
+        (v.vendorName ?? '').toLowerCase().contains(q) ||
         v.entries.any((e) => e.title.toLowerCase().contains(q));
 
     return Scaffold(

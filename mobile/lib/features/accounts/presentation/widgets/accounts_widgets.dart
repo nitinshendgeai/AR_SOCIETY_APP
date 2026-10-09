@@ -408,6 +408,7 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
           ],
           const SizedBox(height: 12),
           Wrap(spacing: 16, runSpacing: 4, children: [
+            if ((v.vendorName ?? '').isNotEmpty) _meta('Paid to', v.vendorName!),
             if ((v.reference ?? '').isNotEmpty) _meta('Reference', v.reference!),
             _meta('Financial year', v.fiscalYear),
             if (v.createdByName != null) _meta('Entered by', v.createdByName!),
@@ -585,6 +586,33 @@ class _EntriesTable extends StatelessWidget {
           ]),
         ),
       ]),
+    );
+  }
+}
+
+
+/// "Voucher no. PV/2026-27/0004 — given automatically when you save": the app numbers every voucher
+/// itself, in order and without gaps, so nobody types one.
+class NextVoucherNumber extends ConsumerWidget {
+  final String societyId;
+  final String type;
+  final DateTime date;
+  const NextVoucherNumber({super.key, required this.societyId, required this.type, required this.date});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final day = DateTime(date.year, date.month, date.day);
+    final number = ref.watch(nextVoucherNumberProvider((societyId, type, day)));
+    return InputDecorator(
+      decoration: const InputDecoration(
+        labelText: 'Voucher no.',
+        helperText: 'Given automatically when you save',
+        prefixIcon: Icon(Icons.tag_rounded, size: 18),
+      ),
+      child: Text(
+        number.when(data: (n) => n, loading: () => '…', error: (_, __) => 'Assigned on save'),
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
     );
   }
 }

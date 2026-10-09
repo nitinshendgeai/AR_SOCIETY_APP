@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/features/vendor/presentation/widgets/vendor_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -44,6 +45,7 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
   late String _type = kManualVoucherTypes.contains(widget.type) ? widget.type : 'receipt';
   DateTime _date = DateTime.now();
   final _reference = TextEditingController();
+  String? _vendorId; // who was paid (a payment), from the Vendor Master
   final _narration = TextEditingController();
   LedgerAccount? _cashBank; // receipt: into, payment: from, contra: from
   LedgerAccount? _contraTo;
@@ -89,6 +91,7 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
         _type = v.voucherType;
         _date = v.voucherDate;
         _reference.text = v.reference ?? '';
+        _vendorId = v.vendorId;
         _narration.text = v.narration ?? '';
         for (final l in _lines) {
           l.amount.dispose();
@@ -205,6 +208,7 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
               lines: _build(),
               narration: _narration.text.trim(),
               reference: _reference.text.trim(),
+              vendorId: _type == 'payment' ? _vendorId : null,
               reason: _reason.text.trim(),
             )
           : await api.createVoucher(
@@ -214,6 +218,7 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
               lines: _build(),
               narration: _narration.text.trim(),
               reference: _reference.text.trim(),
+              vendorId: _type == 'payment' ? _vendorId : null,
             );
       invalidateBooks(ref);
       if (mounted) {
@@ -323,7 +328,7 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
                                 child: TextField(
                                   controller: _reference,
                                   decoration: const InputDecoration(
-                                      labelText: 'Reference', hintText: 'Cheque / UTR / bill no.'),
+                                      labelText: 'Cheque / UTR no.', hintText: 'Cheque, UTR or supplier\'s bill no.'),
                                 ),
                               ),
                             ]),
@@ -341,6 +346,19 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
                                   if (l != null) setState(() => _cashBank = l);
                                 },
                               ),
+                            ],
+                            if (_type == 'payment') ...[
+                              const SizedBox(height: 12),
+                              VendorPicker(
+                                societyId: societyId,
+                                value: _vendorId,
+                                label: 'Paid to (vendor, optional)',
+                                onChanged: (v) => setState(() => _vendorId = v?.id),
+                              ),
+                            ],
+                            if (!_isEdit) ...[
+                              const SizedBox(height: 12),
+                              NextVoucherNumber(societyId: societyId, type: _type, date: _date),
                             ],
                             if (_type == 'contra') ...[
                               const SizedBox(height: 12),

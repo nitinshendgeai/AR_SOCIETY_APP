@@ -194,7 +194,7 @@ class _StockInSheetState extends ConsumerState<StockInSheet> {
             decoration: InputDecoration(labelText: 'Cost of one (₹, optional)', helperText: item.unitCost == null ? null : 'Usual: ₹${qty(item.unitCost!)}'),
           ),
           const SizedBox(height: 12),
-          TextFormField(controller: _ref, decoration: const InputDecoration(labelText: 'Bill or challan number (optional)')),
+          TextFormField(controller: _ref, decoration: const InputDecoration(labelText: "Supplier's bill / challan no. (optional)")),
           const SizedBox(height: 12),
           TextFormField(controller: _notes, decoration: const InputDecoration(labelText: 'Note (optional)')),
           const SizedBox(height: 14),

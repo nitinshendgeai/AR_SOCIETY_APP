@@ -35,6 +35,9 @@ from app.models.notification import NotificationType, NotificationChannel
 from app.utils.vehicle_number import normalize_vehicle_number
 
 
+from app.utils.auto_code import short_code
+
+
 class ParkingService:
 
     def __init__(self, db: Session):
@@ -100,7 +103,11 @@ class ParkingService:
 
     def create_zone(self, data: ZoneCreate, user: User) -> ParkingZone:
         society_id = resolve_create_society_id(user, data.society_id)
-        zone_row = ParkingZone(**{**data.model_dump(), "society_id": society_id})
+        payload = {**data.model_dump(), "society_id": society_id}
+        if not (payload.get("code") or "").strip():
+            # No code given: the app makes one from the name ("Basement" -> "BAS").
+            payload["code"] = short_code(data.name, [z.code for z in self.zone_repo.get_by_society(society_id)])
+        zone_row = ParkingZone(**payload)
         return self.zone_repo.create(zone_row)
 
     def list_zones(self, society_id: UUID, user: User) -> List[ParkingZone]:

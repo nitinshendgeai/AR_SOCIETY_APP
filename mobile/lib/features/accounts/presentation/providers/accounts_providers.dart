@@ -69,7 +69,14 @@ void invalidateBooks(WidgetRef ref) {
   ref.invalidate(ledgersProvider);
   ref.invalidate(recurringListProvider);
   ref.invalidate(recurringDueProvider);
+  ref.invalidate(nextVoucherNumberProvider);
 }
+
+/// The number the next voucher of a type will carry, for forms to show before saving: (society, type, date).
+final nextVoucherNumberProvider =
+    FutureProvider.autoDispose.family<String, (String, String, DateTime)>(
+  (ref, k) => ref.watch(accountsApiProvider).nextVoucherNumber(k.$1, k.$2, k.$3),
+);
 
 final recurringApiProvider = Provider<RecurringApi>((_) => RecurringApi());
 
@@ -81,4 +88,13 @@ final recurringListProvider = FutureProvider.autoDispose.family<List<RecurringEx
 /// The months of them that have come due and nobody has recorded or skipped.
 final recurringDueProvider = FutureProvider.autoDispose.family<List<DueExpense>, String>(
   (ref, societyId) => ref.watch(recurringApiProvider).due(societyId),
+);
+
+
+/// What was paid to a vendor straight from an expense or payment voucher: (society, vendor).
+final vendorPaymentsProvider = FutureProvider.autoDispose.family<List<Voucher>, (String, String)>(
+  (ref, k) async {
+    final all = await ref.watch(accountsApiProvider).vouchers(k.$1, type: 'payment', vendorId: k.$2);
+    return all.where((v) => !v.isCancelled && v.approvalStatus == 'approved').toList();
+  },
 );

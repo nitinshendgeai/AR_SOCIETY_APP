@@ -237,6 +237,13 @@ class Voucher {
   final double amount;
   final String? narration;
   final String? reference;
+
+  /// Who was paid, from the Vendor Master (a payment made to a vendor).
+  final String? vendorId;
+  final String? vendorName;
+
+  /// `approved`, or `pending` / `rejected` for a manual payment waiting on the committee.
+  final String approvalStatus;
   final String? sourceType;
   final bool isAuto;
   final bool isCancelled;
@@ -266,6 +273,9 @@ class Voucher {
     required this.amount,
     this.narration,
     this.reference,
+    this.vendorId,
+    this.vendorName,
+    this.approvalStatus = 'approved',
     this.sourceType,
     required this.isAuto,
     required this.isCancelled,
@@ -290,6 +300,9 @@ class Voucher {
         amount: _num(j['amount']),
         narration: j['narration'] as String?,
         reference: j['reference'] as String?,
+        vendorId: j['vendor_id'] as String?,
+        vendorName: j['vendor_name'] as String?,
+        approvalStatus: j['approval_status'] as String? ?? 'approved',
         sourceType: j['source_type'] as String?,
         isAuto: j['is_auto'] as bool? ?? false,
         isCancelled: j['is_cancelled'] as bool? ?? false,
@@ -820,14 +833,23 @@ class AccountsApi {
   Future<MembersLedger> members(String societyId) async =>
       MembersLedger.fromJson((await _dio.get('/accounts/members/$societyId')).data as Map<String, dynamic>);
 
-  Future<List<Voucher>> vouchers(String societyId, {String? type, DateTime? from, DateTime? to}) async {
+  Future<List<Voucher>> vouchers(String societyId,
+      {String? type, DateTime? from, DateTime? to, String? vendorId}) async {
     final r = await _dio.get('/accounts/vouchers/society/$societyId', queryParameters: {
       if (type != null) 'voucher_type': type,
+      if (vendorId != null) 'vendor_id': vendorId,
       if (from != null) 'date_from': apiDate(from),
       if (to != null) 'date_to': apiDate(to),
       'limit': 500,
     });
     return (r.data as List).map((e) => Voucher.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// The number the next voucher of this type will carry, shown on a form before it is saved.
+  Future<String> nextVoucherNumber(String societyId, String type, DateTime on) async {
+    final r = await _dio.get('/accounts/vouchers/next-number/$societyId',
+        queryParameters: {'voucher_type': type, 'on': apiDate(on)});
+    return (r.data as Map<String, dynamic>)['voucher_number'] as String;
   }
 
   Future<Voucher> voucher(String id) async =>
@@ -840,6 +862,7 @@ class AccountsApi {
     required List<VoucherLineInput> lines,
     String? narration,
     String? reference,
+    String? vendorId,
   }) async {
     final r = await _dio.post('/accounts/vouchers', data: {
       'society_id': societyId,
@@ -847,6 +870,7 @@ class AccountsApi {
       'voucher_date': apiDate(date),
       if (narration != null && narration.isNotEmpty) 'narration': narration,
       if (reference != null && reference.isNotEmpty) 'reference': reference,
+      if (vendorId != null) 'vendor_id': vendorId,
       'entries': lines.map((l) => l.toJson()).toList(),
     });
     return Voucher.fromJson(r.data as Map<String, dynamic>);
@@ -860,11 +884,13 @@ class AccountsApi {
     required String reason,
     String? narration,
     String? reference,
+    String? vendorId,
   }) async {
     final r = await _dio.put('/accounts/vouchers/$id', data: {
       'voucher_date': apiDate(date),
       'narration': (narration?.isEmpty ?? true) ? null : narration,
       'reference': (reference?.isEmpty ?? true) ? null : reference,
+      'vendor_id': vendorId,
       'entries': lines.map((l) => l.toJson()).toList(),
       'reason': reason,
     });

@@ -4,6 +4,21 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-09 (d)
+
+### feat: expenses use the Vendor Master; the app numbers its own documents
+
+- **Vendor sync:** the Add Expense, monthly-expense and payment-voucher forms pick who was paid from the Vendor Master
+  instead of typing a name, with a **+** to add a vendor on the spot (it lands in Vendors & Work and the vendor-bill
+  list at once). The voucher and the monthly expense carry the vendor; the vendor's page shows what was paid from
+  expenses; the Day Book can be filtered and searched by vendor. Migration `6a3b4c5d6e7f` (adds `vendor_id`, and links
+  existing monthly expenses whose payee matches a vendor by name).
+- **Auto references:** forms show the voucher number that will be given ("PV/2026-27/0004"), and blank ledger, wing and
+  parking-zone codes are made for you. Numbers from outside (supplier's bill / invoice no., cheque no.) stay optional
+  and are relabelled so it is clear whose number they are.
+- Fix: a voucher line's narration was being passed as the line's sub-ledger id when a manual voucher was built.
+- Docs: `docs/VENDOR_WORKFLOW.md`.
+
 ## 2026-10-09 (c)
 
 ### fix: UI/UX audit of every module — phone and desktop, admin / resident / guard

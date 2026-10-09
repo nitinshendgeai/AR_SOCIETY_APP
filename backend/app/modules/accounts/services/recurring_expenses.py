@@ -93,12 +93,14 @@ class RecurringExpenseService:
         end = first_of(data["end_month"]) if data.get("end_month") else None
         if end is not None and end < start:
             raise HTTPException(422, "The last month can't be before the first")
+        vendor = self.accounts.vendor_in_society(data.get("vendor_id"), society_id)
         r = RecurringExpense(
             society_id=society_id, name=name, expense_account_id=data["expense_account_id"],
             paid_from_id=data.get("paid_from_id"), amount=data.get("amount"),
             day_of_month=data.get("day_of_month") or 1, start_month=start, end_month=end,
-            payee=(data.get("payee") or "").strip() or None, note=(data.get("note") or "").strip() or None,
-            created_by=user.id)
+            vendor_id=vendor.id if vendor else None,
+            payee=vendor.company_name if vendor else ((data.get("payee") or "").strip() or None),
+            note=(data.get("note") or "").strip() or None, created_by=user.id)
         self.db.add(r)
         self.db.flush()
         self._audit(AuditAction.CREATE, r, user, request, new_values={"name": name, "amount": str(r.amount)})
@@ -127,6 +129,14 @@ class RecurringExpenseService:
         for key in ("expense_account_id", "name", "day_of_month", "start_month", "is_active"):
             if key in data and data[key] is None:
                 data.pop(key)            # these can't be cleared
+        if "vendor_id" in data:
+            vendor = self.accounts.vendor_in_society(data["vendor_id"], r.society_id)
+            if vendor:
+                data["payee"] = vendor.company_name      # the vendor's name is the payee
+            elif "payee" not in data:
+                data["payee"] = None                     # unlinked: no payee left behind
+        elif "payee" in data and data["payee"] is not None:
+            data["vendor_id"] = None                     # a typed payee replaces the link
         for key, value in data.items():
             setattr(r, key, value)
         if r.end_month is not None and r.end_month < r.start_month:
@@ -214,7 +224,8 @@ class RecurringExpenseService:
             {"account_id": r.expense_account_id, "debit": amount},
             {"account_id": paid_from, "credit": amount}])
         voucher = self.accounts.build_voucher(r.society_id, "payment", vdate, lines, narration=narration,
-                                              reference=(data.get("reference") or None), user=user)
+                                              reference=(data.get("reference") or None), vendor_id=r.vendor_id,
+                                              user=user)
         self._clear_stale_run(r, month)
         run = RecurringExpenseRun(recurring_id=r.id, society_id=r.society_id, month=month,
                                   voucher_id=voucher.id, decided_by=user.id)

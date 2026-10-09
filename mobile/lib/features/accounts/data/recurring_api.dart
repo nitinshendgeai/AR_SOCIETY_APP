@@ -18,6 +18,7 @@ class RecurringExpense {
   final DateTime startMonth;
   final DateTime? endMonth;
   final String? payee;
+  final String? vendorId;
   final String? note;
   final bool isActive;
   final int dueMonths;
@@ -35,6 +36,7 @@ class RecurringExpense {
     required this.startMonth,
     this.endMonth,
     this.payee,
+    this.vendorId,
     this.note,
     this.isActive = true,
     this.dueMonths = 0,
@@ -53,6 +55,7 @@ class RecurringExpense {
         startMonth: DateTime.parse(j['start_month'] as String),
         endMonth: j['end_month'] == null ? null : DateTime.parse(j['end_month'] as String),
         payee: j['payee'] as String?,
+        vendorId: j['vendor_id'] as String?,
         note: j['note'] as String?,
         isActive: j['is_active'] as bool? ?? true,
         dueMonths: j['due_months'] as int? ?? 0,
@@ -71,6 +74,7 @@ class DueExpense {
   final String? elementName;
   final String? paidFromId;
   final String? payee;
+  final String? vendorId;
 
   const DueExpense({
     required this.recurringId,
@@ -83,6 +87,7 @@ class DueExpense {
     this.elementName,
     this.paidFromId,
     this.payee,
+    this.vendorId,
   });
 
   factory DueExpense.fromJson(Map<String, dynamic> j) => DueExpense(
@@ -96,6 +101,7 @@ class DueExpense {
         elementName: j['element_name'] as String?,
         paidFromId: j['paid_from_id'] as String?,
         payee: j['payee'] as String?,
+        vendorId: j['vendor_id'] as String?,
       );
 }
 

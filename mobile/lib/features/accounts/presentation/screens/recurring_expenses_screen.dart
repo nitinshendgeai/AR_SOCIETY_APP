@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/features/vendor/presentation/widgets/vendor_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
@@ -233,7 +234,7 @@ class _RecurringFormSheetState extends ConsumerState<RecurringFormSheet> {
   final _form = GlobalKey<FormState>();
   late final _name = TextEditingController(text: e?.name);
   late final _amount = TextEditingController(text: e?.amount == null ? '' : e!.amount!.toStringAsFixed(e!.amount! % 1 == 0 ? 0 : 2));
-  late final _payee = TextEditingController(text: e?.payee);
+  late String? _vendorId = e?.vendorId;
   late final _note = TextEditingController(text: e?.note);
   late int _dayOfMonth = e?.dayOfMonth ?? 1;
   late String? _head = e?.expenseAccountId;
@@ -247,7 +248,7 @@ class _RecurringFormSheetState extends ConsumerState<RecurringFormSheet> {
 
   @override
   void dispose() {
-    for (final c in [_name, _amount, _payee, _note]) {
+    for (final c in [_name, _amount, _note]) {
       c.dispose();
     }
     super.dispose();
@@ -266,9 +267,10 @@ class _RecurringFormSheetState extends ConsumerState<RecurringFormSheet> {
         'day_of_month': _dayOfMonth,
         'start_month': _iso(_start),
         'end_month': _end == null ? null : _iso(_end!),
-        'payee': _trimmed(_payee),
         'note': _trimmed(_note),
       };
+      // The payee is a vendor from the master; only a change of vendor is sent.
+      if (e == null ? _vendorId != null : _vendorId != e!.vendorId) body['vendor_id'] = _vendorId;
       if (e == null) {
         body.removeWhere((_, v) => v == null);
         await api.create(body);
@@ -389,10 +391,12 @@ class _RecurringFormSheetState extends ConsumerState<RecurringFormSheet> {
             ),
           ]),
           const SizedBox(height: 12),
-          TextFormField(
-            controller: _payee,
-            maxLength: 255,
-            decoration: const InputDecoration(labelText: 'Paid to', hintText: 'e.g. Shield Security Services', counterText: ''),
+          VendorPicker(
+            societyId: societyId,
+            value: _vendorId,
+            label: 'Paid to',
+            legacyName: e?.payee,
+            onChanged: (v) => setState(() => _vendorId = v?.id),
           ),
           const SizedBox(height: 12),
           TextFormField(controller: _note, minLines: 1, maxLines: 3, decoration: const InputDecoration(labelText: 'Note')),
@@ -518,7 +522,7 @@ class _RecordDueSheetState extends ConsumerState<RecordDueSheet> {
             },
           ),
           const SizedBox(height: 12),
-          TextFormField(controller: _reference, maxLength: 100, decoration: const InputDecoration(labelText: 'Bill / cheque no.', counterText: '')),
+          TextFormField(controller: _reference, maxLength: 100, decoration: const InputDecoration(labelText: "Supplier's bill / cheque no. (optional)", counterText: '')),
           const SizedBox(height: 12),
           TextFormField(controller: _note, minLines: 1, maxLines: 3, decoration: const InputDecoration(labelText: 'Note')),
           const SizedBox(height: 20),

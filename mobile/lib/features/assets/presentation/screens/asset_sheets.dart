@@ -220,7 +220,7 @@ class _AssetFormSheetState extends ConsumerState<AssetFormSheet> {
             Expanded(
               child: TextFormField(
                   controller: _invoice, maxLength: 100,
-                  decoration: const InputDecoration(labelText: 'Invoice no.', counterText: '')),
+                  decoration: const InputDecoration(labelText: "Supplier's invoice no.", counterText: '')),
             ),
           ]),
           const SizedBox(height: 16),

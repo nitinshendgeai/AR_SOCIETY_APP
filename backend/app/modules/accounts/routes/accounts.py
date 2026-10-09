@@ -76,6 +76,8 @@ def _voucher_out(v: Voucher, closed_years: frozenset = frozenset()) -> dict:
         "voucher_type_label": VOUCHER_TYPES[v.voucher_type][1], "voucher_number": v.voucher_number,
         "voucher_date": v.voucher_date.isoformat(), "fiscal_year": v.fiscal_year,
         "amount": _amount(v.amount), "narration": v.narration, "reference": v.reference,
+        "vendor_id": str(v.vendor_id) if v.vendor_id else None,
+        "vendor_name": v.vendor.company_name if v.vendor else None,
         "source_type": v.source_type, "source_id": str(v.source_id) if v.source_id else None,
         "is_auto": v.source_type is not None or v.voucher_type == "closing" or v.reversal_of_id is not None,
         "approval_status": v.approval_status,
@@ -162,6 +164,7 @@ class VoucherCreate(BaseModel):
     voucher_date: date
     narration: Optional[str] = None
     reference: Optional[str] = Field(default=None, max_length=100)
+    vendor_id: Optional[UUID] = None          # who was paid (a payment), from the Vendor Master
     entries: List[VoucherLineIn] = Field(min_length=2)
 
 
@@ -169,6 +172,7 @@ class VoucherUpdate(BaseModel):
     voucher_date: date
     narration: Optional[str] = None
     reference: Optional[str] = Field(default=None, max_length=100)
+    vendor_id: Optional[UUID] = None
     entries: List[VoucherLineIn] = Field(min_length=2)
     reason: str = Field(min_length=3)
 
@@ -183,6 +187,7 @@ class RecurringExpenseCreate(BaseModel):
     start_month: Optional[date] = None
     end_month: Optional[date] = None
     payee: Optional[str] = Field(default=None, max_length=255)
+    vendor_id: Optional[UUID] = None          # from the Vendor Master; its name becomes the payee
     note: Optional[str] = None
 
 
@@ -196,6 +201,7 @@ class RecurringExpenseUpdate(BaseModel):
     start_month: Optional[date] = None
     end_month: Optional[date] = None
     payee: Optional[str] = Field(default=None, max_length=255)
+    vendor_id: Optional[UUID] = None
     note: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -377,13 +383,25 @@ def member_ar_statement(society_id: UUID, flat_id: UUID,
 def list_vouchers(society_id: UUID, voucher_type: Optional[str] = None,
                   date_from: Optional[date] = None, date_to: Optional[date] = None,
                   include_cancelled: bool = True, skip: int = 0, limit: int = Query(100, le=500),
+                  vendor_id: Optional[UUID] = None,
                   db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    """The day book."""
+    """The day book (`vendor_id`: only what was paid to that vendor)."""
     assert_society_access(user, society_id)
     svc = AccountsService(db)
-    rows = svc.list_vouchers(society_id, voucher_type, date_from, date_to, include_cancelled, skip, limit)
+    rows = svc.list_vouchers(society_id, voucher_type, date_from, date_to, include_cancelled, skip, limit, vendor_id)
     closed = frozenset(svc.closed_years(society_id))
     return [_voucher_out(v, closed) for v in rows]
+
+
+@router.get("/vouchers/next-number/{society_id}")
+def next_voucher_number(society_id: UUID, voucher_type: str, on: Optional[date] = None,
+                        db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """The number the next voucher of this type will carry, so a form can show it before it is saved. The number
+    itself is fixed when the voucher is saved."""
+    assert_society_access(user, society_id)
+    if voucher_type not in VOUCHER_TYPES:
+        raise HTTPException(422, f"Voucher type must be one of: {', '.join(VOUCHER_TYPES)}")
+    return {"voucher_number": AccountsService(db)._next_number(society_id, voucher_type, on or date.today())}
 
 
 @router.get("/day-book/{society_id}/pdf")
@@ -638,7 +656,8 @@ def _recurring_out(db: Session, r, today_months: int = 0) -> dict:
         "day_of_month": r.day_of_month,
         "start_month": r.start_month.isoformat(),
         "end_month": r.end_month.isoformat() if r.end_month else None,
-        "payee": r.payee, "note": r.note, "is_active": r.is_active,
+        "payee": r.payee, "vendor_id": str(r.vendor_id) if r.vendor_id else None,
+        "note": r.note, "is_active": r.is_active,
         "due_months": today_months,
     }
 
@@ -676,7 +695,7 @@ def recurring_expenses_due(society_id: UUID, db: Session = Depends(get_db), user
             "expense_account_name": r.expense_account.name if r.expense_account else None,
             "element_name": _element_name(db, r.expense_account),
             "paid_from_id": str(r.paid_from_id) if r.paid_from_id else None,
-            "payee": r.payee,
+            "payee": r.payee, "vendor_id": str(r.vendor_id) if r.vendor_id else None,
         })
     return out
 

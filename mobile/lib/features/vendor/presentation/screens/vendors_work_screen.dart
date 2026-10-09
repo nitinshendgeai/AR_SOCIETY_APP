@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show formatInr, formatAccountsDate;
+import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart' show vendorPaymentsProvider;
+import 'package:ar_society_app/features/vendor/presentation/providers/vendor_providers.dart' show vendorsProvider;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -667,6 +670,7 @@ class _VendorSheetState extends ConsumerState<VendorSheet> {
         await api.updateVendor(e!.id, {...body, if (_status != e!.status) 'status': _status});
       }
       ref.invalidate(vendorRecordsProvider(widget.societyId));
+      ref.invalidate(vendorsProvider(widget.societyId));     // the bill form's vendor list too
       if (mounted) {
         AppToast.success(context, e == null ? 'Vendor added' : 'Saved');
         Navigator.pop(context);
@@ -750,6 +754,7 @@ class _VendorSheetState extends ConsumerState<VendorSheet> {
             Expanded(child: _field(_ifsc, 'IFSC', max: 11, caps: upper)),
           ]),
           _field(_notes, 'Notes', max: 2000),
+          if (e != null) _PaidToVendor(societyId: widget.societyId, vendorId: e!.id),
           ElevatedButton(
             onPressed: _saving ? null : _save,
             child: _saving
@@ -943,4 +948,52 @@ class _LimitsSheetState extends ConsumerState<_LimitsSheet> {
           ]),
         ),
       );
+}
+
+
+/// What the society has paid this vendor straight from expenses and payments, newest first — so what the
+/// Vendor Master holds and what the books show are the same story.
+class _PaidToVendor extends ConsumerWidget {
+  final String societyId;
+  final String vendorId;
+  const _PaidToVendor({required this.societyId, required this.vendorId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final paid = ref.watch(vendorPaymentsProvider((societyId, vendorId)));
+    return paid.maybeWhen(
+      data: (rows) {
+        if (rows.isEmpty) return const SizedBox.shrink();
+        final total = rows.fold<double>(0, (a, v) => a + v.amount);
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+              color: AppTheme.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.border)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              const Expanded(child: Text('Paid from expenses', style: TextStyle(fontWeight: FontWeight.w700))),
+              Text(formatInr(total), style: const TextStyle(fontWeight: FontWeight.w700)),
+            ]),
+            const SizedBox(height: 6),
+            for (final v in rows.take(5))
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(children: [
+                  Expanded(
+                    child: Text('${v.voucherNumber} · ${formatAccountsDate(v.voucherDate)}',
+                        style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                  ),
+                  Text(formatInr(v.amount), style: const TextStyle(fontSize: 12.5)),
+                ]),
+              ),
+            if (rows.length > 5)
+              Text('and ${rows.length - 5} more in the Day Book',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          ]),
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
+    );
+  }
 }
