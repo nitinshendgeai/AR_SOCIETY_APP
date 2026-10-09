@@ -730,6 +730,11 @@ class SecurityDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
     final societyId = user?.societyId;
+    // The gate works from the society's visitor log (check in / out), not the
+    // resident screens that only show visitors for one's own flat.
+    final visitorLog = societyId == null
+        ? AppRoutes.visitorsMy
+        : AppRoutes.visitorsSociety.replaceFirst(':societyId', societyId);
     return _DashboardShell(
       title: 'Security Supervisor',
       children: [
@@ -764,13 +769,13 @@ class SecurityDashboardScreen extends ConsumerWidget {
                 : null,
           ),
           const SizedBox(width: 8),
-          const _QuickActionChip(icon: Icons.login_rounded, label: 'Check In', route: AppRoutes.visitorsPending),
+          _QuickActionChip(icon: Icons.login_rounded, label: 'Check In', route: visitorLog),
           const SizedBox(width: 8),
-          const _QuickActionChip(icon: Icons.logout_rounded, label: 'Check Out', route: AppRoutes.visitorsMy),
+          _QuickActionChip(icon: Icons.logout_rounded, label: 'Check Out', route: '$visitorLog?tab=inside'),
         ]),
         const SizedBox(height: 8),
         Row(children: [
-          const _QuickActionChip(icon: Icons.list_alt_rounded, label: 'Visitor Log', route: AppRoutes.visitorsMy),
+          _QuickActionChip(icon: Icons.list_alt_rounded, label: 'Visitor Log', route: visitorLog),
           const SizedBox(width: 8),
           const _QuickActionChip(icon: Icons.local_parking_rounded, label: 'Vehicle Gate', route: AppRoutes.parkingGateCheck),
         ]),

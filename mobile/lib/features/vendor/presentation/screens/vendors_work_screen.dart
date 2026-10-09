@@ -264,7 +264,9 @@ class _WorkOrderSheetState extends ConsumerState<WorkOrderSheet> {
             minLines: 3,
             maxLines: 8,
             decoration: const InputDecoration(
-                labelText: 'Scope of work', helperText: 'One item per line; printed on the work order'),
+                labelText: 'Scope of work',
+                helperText: 'One item per line; printed on the work order',
+                helperMaxLines: 2),
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -272,7 +274,9 @@ class _WorkOrderSheetState extends ConsumerState<WorkOrderSheet> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: moneyInput,
             decoration: const InputDecoration(
-                labelText: 'Estimated cost (₹)', helperText: 'Shows early whether tenders and the general body are needed'),
+                labelText: 'Estimated cost (₹)',
+                helperText: 'Shows early whether tenders and the general body are needed',
+                helperMaxLines: 2),
           ),
           const SizedBox(height: 12),
           ledgers.when(
@@ -335,7 +339,7 @@ class _WorkOrderSheetState extends ConsumerState<WorkOrderSheet> {
                 enabled: !_termsLocked,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
-                decoration: const InputDecoration(labelText: 'Defect liability (months)'),
+                decoration: const InputDecoration(labelText: 'Defect (mo)'),
                 validator: (v) => (int.tryParse(v ?? '') ?? 0) > 120 ? 'At most 120' : null,
               ),
             ),

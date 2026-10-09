@@ -4,6 +4,27 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-09 (c)
+
+### fix: UI/UX audit of every module — phone and desktop, admin / resident / guard
+
+Walked all ~50 screens and every "add" form at phone (390px) and desktop (1280px) width, as a Society Admin, a Resident
+and a guard.
+
+- **Security:** a Society Admin could edit the *Platform Admin* role's permissions through the Permission Matrix, and saw
+  that role in both matrices. Now the role is hidden from everyone but platform admins, `PUT /roles/{id}/permissions`
+  returns 403 for it (as the forms endpoint already did), and it is never offered when choosing a role.
+- **Guard dashboard:** Check In / Check Out / Visitor Log opened resident screens (visitors for one's *own flat*, no
+  check-in buttons). They now open the society visitor log; Check Out opens it on "Inside Now".
+- **Staff paper sheet:** on a phone the date button squeezed the staff name into a one-letter column; it now sits under it.
+- **Headers:** secondary actions (Defaulters, Add expense, Spend by element) crowded the page title down to "M…" on a
+  phone; they are icon-only there (label as tooltip), with the label on wider screens.
+- **Forms:** vendor-bill dates are real date fields like everywhere else (they were plain buttons); work-order help text
+  is no longer cut off after one line; "Receivable from members" is "Dues receivable".
+- Staff page now also offers the management tiles to a Society Admin or committee member.
+- Not changed, for you to decide: roles are shared by every society, so a Society Admin editing a role such as
+  "Resident" in the Permission Matrix changes it for all societies.
+
 ## 2026-10-09 (b)
 
 ### feat: Platform Console screens; suspending a society now really locks it

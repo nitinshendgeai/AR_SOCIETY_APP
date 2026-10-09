@@ -47,7 +47,7 @@ class StaffHomeScreen extends ConsumerWidget {
     final isSupervisor = roles.any((r) => r.contains('Supervisor'));
     final isManager = roles.any((r) =>
         r.contains('Manager') || r.contains('Committee'));
-    final showManagement = (isSupervisor || isManager) && societyId != null;
+    final showManagement = (isSupervisor || isManager || (user?.isAdminOrCommittee ?? false)) && societyId != null;
     // A manager / committee member with no staff record of their own uses
     // this page only to manage the staff: no "My Operations" or missing-
     // profile notice for them.

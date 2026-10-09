@@ -7,6 +7,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/vendor/domain/entities/vendor_entities.dart';
 import 'package:ar_society_app/features/vendor/presentation/providers/vendor_providers.dart';
+import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_widgets.dart' show DateField;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
@@ -307,18 +308,6 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
     return ((amount * 100).round() + (gst * 100).round()) / 100;
   }
 
-  Future<void> _pickDate({required bool isDue}) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: isDue ? (_dueDate ?? DateTime.now()) : _invoiceDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-    );
-    if (picked != null) {
-      setState(() => isDue ? _dueDate = picked : _invoiceDate = picked);
-    }
-  }
-
   Future<void> _addVendor() async {
     final created = await showDialog<VendorEntity>(
       context: context,
@@ -427,20 +416,19 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
               const SizedBox(height: 12),
               Row(children: [
                 Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _pickDate(isDue: false),
-                    child: Text('Invoice Date: ${_invoiceDate.day}/${_invoiceDate.month}/${_invoiceDate.year}'),
+                  child: DateField(
+                    label: 'Invoice date',
+                    value: _invoiceDate,
+                    required: true,
+                    onChanged: (d) => setState(() => _invoiceDate = d ?? _invoiceDate),
                   ),
                 ),
-              ]),
-              const SizedBox(height: 8),
-              Row(children: [
+                const SizedBox(width: 12),
                 Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _pickDate(isDue: true),
-                    child: Text(_dueDate == null
-                        ? 'Due Date (optional)'
-                        : 'Due: ${_dueDate!.day}/${_dueDate!.month}/${_dueDate!.year}'),
+                  child: DateField(
+                    label: 'Due date (optional)',
+                    value: _dueDate,
+                    onChanged: (d) => setState(() => _dueDate = d),
                   ),
                 ),
               ]),

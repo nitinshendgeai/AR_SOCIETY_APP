@@ -38,15 +38,15 @@ class MaintenanceElementsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(title: const Text('Maintenance Elements'), actions: [
-        TextButton.icon(
+        AppBarTextAction(
           onPressed: () => context.push(AppRoutes.accountsExpenseNew),
-          icon: const Icon(Icons.shopping_bag_outlined, size: 18),
-          label: const Text('Add expense'),
+          icon: Icons.shopping_bag_outlined,
+          label: 'Add expense',
         ),
-        TextButton.icon(
+        AppBarTextAction(
           onPressed: () => context.push(AppRoutes.accountsExpenses),
-          icon: const Icon(Icons.pie_chart_outline_rounded, size: 18),
-          label: const Text('Spend by element'),
+          icon: Icons.pie_chart_outline_rounded,
+          label: 'Spend by element',
         ),
         if (desktop) HeaderActionButton(icon: Icons.add_rounded, label: 'Add Element', onPressed: openSheet),
       ]),

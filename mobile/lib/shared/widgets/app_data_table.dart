@@ -381,6 +381,23 @@ class HeaderActionButton extends StatelessWidget {
       );
 }
 
+/// A secondary header action: icon and label where there is room, icon only
+/// (label as tooltip) on a phone, so it never squeezes the page title.
+class AppBarTextAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+  const AppBarTextAction({super.key, required this.icon, required this.label, this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.sizeOf(context).width < 600) {
+      return IconButton(icon: Icon(icon, size: 22), tooltip: label, onPressed: onPressed);
+    }
+    return TextButton.icon(onPressed: onPressed, icon: Icon(icon, size: 18), label: Text(label));
+  }
+}
+
 /// Width-limited search field for a table toolbar.
 class TableSearchField extends StatelessWidget {
   final TextEditingController? controller;

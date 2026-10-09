@@ -25,7 +25,10 @@ def test_default_grants_match_dashboard_logic(client, db):
     assert r.status_code == 200, r.text
     matrix = {row["role_name"]: set(row["form_codes"]) for row in r.json()}
 
+    assert "Platform Admin" not in matrix      # the platform team's role is never shown to a society
     for role_name, expected_codes in default_role_form_codes().items():
+        if role_name == "Platform Admin":
+            continue
         expected_codes = set(expected_codes) - {"platform_admin"}      # a society admin is never shown the console
         assert matrix.get(role_name) == set(expected_codes), (
             f"{role_name}: expected {sorted(expected_codes)}, got {sorted(matrix.get(role_name, []))}"
