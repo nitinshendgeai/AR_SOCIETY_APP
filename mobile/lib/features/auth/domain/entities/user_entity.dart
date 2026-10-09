@@ -45,6 +45,9 @@ class UserEntity {
 
   bool get isManager => roles.contains(AppConstants.roleManager);
 
+  /// Runs the platform itself (every society), belonging to none.
+  bool get isPlatformAdmin => roles.contains('Platform Admin');
+
   bool get isAdminOrCommittee => isAdmin || isCommittee;
 
   /// Returns the primary role for routing decisions.

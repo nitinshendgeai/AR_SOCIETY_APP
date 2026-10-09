@@ -4,6 +4,24 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-09 (b)
+
+### feat: Platform Console screens; suspending a society now really locks it
+
+- **Behaviour change:** suspending a society used to set a flag nothing read, so it carried on working. Now its people
+  cannot sign in or refresh, and every API call returns 403 with the reason (`/auth/me` and sign-out still work; platform
+  admins are never blocked; activating restores access at once). Ended trials are flagged but **not** blocked, and limits
+  are shown but not enforced.
+- **Platform Console** (platform admins only, who now land on it): societies with standing, people and flats against their
+  limits, last sign-in and setup progress; search and status filter; an Activity tab; and a society page with extend
+  trial, put on a paid plan (with a paid-until date) / let back in, suspend (a reason is required), limits, admins and
+  history. Platform admins see only the console in the sidebar.
+- API: society list carries usage, plan, contact and `trial_ended` with `q` and `status`; `GET /societies/{id}`,
+  `GET /activity`, `PUT /societies/{id}/limits`; stats gain totals. Migration `5f2a3b4c5d6e` registers the
+  `platform_admin` form for the Platform Admin role only; it is hidden from society admins' Forms Matrix, and only a platform
+  admin can edit the Platform Admin role.
+- Docs: `docs/PLATFORM_ADMIN.md`.
+
 ## 2026-10-09
 
 ### feat: stores screens — stock in, issue to staff, returns, low stock

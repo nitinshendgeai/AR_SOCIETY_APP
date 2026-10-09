@@ -52,6 +52,11 @@ Body: { "plan": "starter" }
 
 ## Read-Only Mode (Expired)
 
+> **Not implemented.** Nothing enforces this yet: a society whose trial has ended (or whose status is EXPIRED) keeps working
+> normally. The Platform Console flags such societies ("Trial ended") so the platform team can act. Suspension, by
+> contrast, **is** enforced (see `PLATFORM_ADMIN.md`). Whether and how an expired trial should be restricted is still to be
+> decided.
+
 When `account_status = EXPIRED`:
 - GET endpoints continue to work
 - All POST/PATCH/DELETE endpoints return `402 Payment Required`

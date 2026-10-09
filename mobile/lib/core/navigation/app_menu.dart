@@ -30,6 +30,9 @@ class AppMenuCategory {
 /// a 403 no matter what the drawer shows. Categories with zero granted
 /// items are dropped entirely rather than shown empty.
 const appMenuCategories = [
+  AppMenuCategory('Platform', Icons.public_rounded, [
+    AppMenuItem('platform_admin', 'Platform Console', Icons.dashboard_rounded, AppRoutes.platformHome),
+  ]),
   AppMenuCategory('People', Icons.people_alt_rounded, [
     AppMenuItem('residents', 'Residents', Icons.people_outline_rounded, AppRoutes.residentsList),
     AppMenuItem('tenants', 'Tenants', Icons.groups_2_outlined, AppRoutes.tenantsList),
@@ -77,6 +80,8 @@ const appMenuCategories = [
 /// Complaints lists, everyone else on their own; admin, committee and
 /// managers get the staff register rather than the Staff Portal.
 List<AppMenuCategory> visibleMenuCategories(Set<String> grantedFormCodes, {UserEntity? user}) => appMenuCategories
+    // The society screens need a society; a platform admin has none, so they see only the console.
+    .where((category) => user?.isPlatformAdmin != true || category.label == 'Platform')
     .map((category) => AppMenuCategory(
           category.label,
           category.icon,

@@ -95,6 +95,11 @@ class AuthService:
                 detail="User account is disabled",
             )
 
+        from app.core.society_gate import society_block_reason
+        blocked = society_block_reason(self.db, user)
+        if blocked:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=blocked)
+
         roles = self.repo.get_roles(user)
         session = SessionService(self.db).start(
             user, AuditService._get_ua(request), AuditService._get_ip(request))
@@ -159,6 +164,11 @@ class AuthService:
 
         if not user or not user.is_active or user.status != UserStatus.ACTIVE:
             raise HTTPException(status_code=401, detail="User not found or inactive")
+
+        from app.core.society_gate import society_block_reason
+        blocked = society_block_reason(self.db, user)
+        if blocked:
+            raise HTTPException(status_code=403, detail=blocked)
 
         sessions = SessionService(self.db)
         sid = payload.get("sid")

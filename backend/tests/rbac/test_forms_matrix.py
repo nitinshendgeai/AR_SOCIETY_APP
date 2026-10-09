@@ -26,6 +26,7 @@ def test_default_grants_match_dashboard_logic(client, db):
     matrix = {row["role_name"]: set(row["form_codes"]) for row in r.json()}
 
     for role_name, expected_codes in default_role_form_codes().items():
+        expected_codes = set(expected_codes) - {"platform_admin"}      # a society admin is never shown the console
         assert matrix.get(role_name) == set(expected_codes), (
             f"{role_name}: expected {sorted(expected_codes)}, got {sorted(matrix.get(role_name, []))}"
         )
@@ -47,7 +48,8 @@ def test_gaps_in_old_dashboard_logic_are_preserved_by_default():
     and collect quotations for the committee to sanction) were added to Manager's default grants (see
     FORM_ROLE_GRANTS)."""
     codes_by_role = default_role_form_codes()
-    for role_name in ("Platform Admin", "Gym Trainer", "Tenant"):
+    assert set(codes_by_role.get("Platform Admin", [])) == {"visitors", "complaints", "notices", "amenities", "platform_admin"}
+    for role_name in ("Gym Trainer", "Tenant"):
         assert set(codes_by_role.get(role_name, [])) == {"visitors", "complaints", "notices", "amenities"}, (
             f"{role_name} unexpectedly has default form grants: {codes_by_role.get(role_name)}"
         )
@@ -76,7 +78,7 @@ def test_list_forms_returns_all_definitions(client, db):
     r = client.get("/api/v1/roles/forms", headers=admin["headers"])
     assert r.status_code == 200
     codes = {f["code"] for f in r.json()}
-    assert codes == set(FORM_ROLE_GRANTS.keys())
+    assert codes == set(FORM_ROLE_GRANTS.keys()) - {"platform_admin"}      # kept from society admins
 
 
 def test_form_matrix_requires_admin(client, db):
@@ -194,3 +196,22 @@ def test_custom_role_name_gets_zero_default_forms(db):
     db.add(custom); db.commit()
     db.refresh(custom)
     assert custom.role_forms == []
+
+
+def test_a_society_admin_cannot_see_or_grant_the_platform_console(client, db):
+    admin = make_user(db, "adm.pc@rbac.com", role="Society Admin")
+    forms = client.get("/api/v1/roles/forms", headers=admin["headers"]).json()
+    assert "platform_admin" not in [f["code"] for f in forms]
+    matrix = client.get("/api/v1/roles/form-matrix", headers=admin["headers"]).json()
+    assert all("platform_admin" not in row["form_codes"] for row in matrix)
+    resident = db.query(Role).filter(Role.name == "Resident").first() or make_user(db, "r.pc@rbac.com", role="Resident") and db.query(Role).filter(Role.name == "Resident").first()
+    r = client.put(f"/api/v1/roles/{resident.id}/forms", headers=admin["headers"], json={"form_codes": ["visitors", "platform_admin"]})
+    assert r.status_code == 422
+
+
+def test_only_a_platform_admin_can_change_the_platform_admin_role(client, db):
+    admin = make_user(db, "adm.pc2@rbac.com", role="Society Admin")
+    platform = make_user(db, "pa@rbac.com", role="Platform Admin")
+    role = db.query(Role).filter(Role.name == "Platform Admin").first()
+    r = client.put(f"/api/v1/roles/{role.id}/forms", headers=admin["headers"], json={"form_codes": []})
+    assert r.status_code == 403

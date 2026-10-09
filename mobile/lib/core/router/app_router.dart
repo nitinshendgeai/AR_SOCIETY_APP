@@ -68,6 +68,8 @@ import 'package:ar_society_app/features/accounts/presentation/screens/members_le
 import 'package:ar_society_app/features/accounts/presentation/screens/expense_form_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/recurring_expenses_screen.dart';
 import 'package:ar_society_app/features/amenities/presentation/screens/amenities_screen.dart';
+import 'package:ar_society_app/features/platform/presentation/screens/platform_console_screen.dart';
+import 'package:ar_society_app/features/platform/presentation/screens/platform_society_screen.dart';
 import 'package:ar_society_app/features/stores/presentation/screens/store_item_screen.dart';
 import 'package:ar_society_app/features/stores/presentation/screens/stores_screen.dart';
 import 'package:ar_society_app/features/amenities/presentation/screens/amenity_detail_screen.dart';
@@ -161,6 +163,8 @@ class AppRoutes {
   static const bankReconciliation = '/billing/bank-reconciliation';
   static const vendorBills        = '/vendors/bills';
   static const vendorsWork        = '/vendors/work';
+  static const platformHome       = '/platform';
+  static const platformSociety    = '/platform/societies/:id';
   static const stores             = '/stores';
   static const storeItem          = '/stores/:id';
   static const amenities          = '/amenities';
@@ -563,6 +567,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           // Notice board (everyone) and one notice
           GoRoute(path: AppRoutes.notices, builder: (_, __) => const NoticesScreen()),
+          // Platform console: only for platform admins (the API refuses everyone else anyway)
+          for (final (path, builder) in <(String, Widget Function(GoRouterState))>[
+            (AppRoutes.platformHome, (_) => const PlatformConsoleScreen()),
+            (AppRoutes.platformSociety, (s) => PlatformSocietyScreen(key: ValueKey(s.pathParameters['id']), societyId: s.pathParameters['id']!)),
+          ])
+            GoRoute(
+              path: path,
+              redirect: (_, __) {
+                if (authState is AuthAuthenticated) {
+                  final user = (authState as AuthAuthenticated).user;
+                  if (!user.isPlatformAdmin) return userRoleHome(user);
+                }
+                return null;
+              },
+              builder: (_, s) => builder(s),
+            ),
           // Stores: consumables, stock in, issue to staff, returns
           GoRoute(path: AppRoutes.stores, builder: (_, __) => const StoresScreen()),
           GoRoute(
@@ -970,6 +990,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 /// instead of Staff Home on first login, with no way to reach Attendance
 /// until the app was restarted and this router's redirect re-fired.
 String userRoleHome(UserEntity user) {
+  if (user.isPlatformAdmin) return AppRoutes.platformHome;
   if (user.isAdmin) return AppRoutes.adminHome;
   if (user.isCommittee) return AppRoutes.committeeHome;
   final roles = user.roles;
