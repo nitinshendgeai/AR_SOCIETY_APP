@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart' show formatBillDate;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -210,6 +211,12 @@ class _DetailsCard extends StatelessWidget {
                 value: '${flat.areaSqft!.toStringAsFixed(0)} sq ft'),
           if (flat.virtualAccountNumber != null)
             _Row(label: 'Virtual A/c No.', value: flat.virtualAccountNumber!),
+          if (flat.possessionDate != null)
+            _Row(label: 'Possession date', value: formatBillDate(flat.possessionDate!)),
+          if (flat.electricMeterNo != null)
+            _Row(label: 'Electric meter', value: flat.electricMeterNo!),
+          if (flat.electricConsumerNo != null)
+            _Row(label: 'Consumer no.', value: flat.electricConsumerNo!),
           _Row(label: 'Status', value: flat.isActive ? 'Active' : 'Inactive'),
           if (flat.remarks != null && flat.remarks!.isNotEmpty)
             _Row(label: 'Remarks', value: flat.remarks!),

@@ -1,10 +1,12 @@
 import re
 from typing import Optional
 from uuid import UUID
+from datetime import date
 from pydantic import Field, field_validator
 from app.schemas.common import OrmBase, TimestampSchema
 from app.models.flat import FlatType, OccupancyStatus
 from app.schemas.floor import MAX_FLOOR, MIN_FLOOR
+from app.utils.unit_fields import clean_possession_date, clean_ref
 
 _VAN = re.compile(r"^[A-Z0-9]{4,30}$")
 
@@ -40,9 +42,14 @@ class FlatCreate(OrmBase):
     occupancy_status: Optional[OccupancyStatus] = None
     remarks:          Optional[str] = None
     virtual_account_number: Optional[str] = None
+    possession_date:  Optional[date] = None
+    electric_meter_no: Optional[str] = Field(default=None, max_length=40)
+    electric_consumer_no: Optional[str] = Field(default=None, max_length=40)
     wing_id:          UUID
 
     _van = field_validator("virtual_account_number")(_clean_van)
+    _possession = field_validator("possession_date")(clean_possession_date)
+    _meter = field_validator("electric_meter_no", "electric_consumer_no")(clean_ref)
     _number = field_validator("flat_number", mode="before")(_flat_number)
 
 
@@ -67,8 +74,14 @@ class FlatUpdate(OrmBase):
     remarks:          Optional[str] = None
     # Sent as null or "" to clear it (see FlatService.update)
     virtual_account_number: Optional[str] = None
+    # These three can be cleared the same way
+    possession_date:  Optional[date] = None
+    electric_meter_no: Optional[str] = Field(default=None, max_length=40)
+    electric_consumer_no: Optional[str] = Field(default=None, max_length=40)
 
     _van = field_validator("virtual_account_number")(_clean_van)
+    _possession = field_validator("possession_date")(clean_possession_date)
+    _meter = field_validator("electric_meter_no", "electric_consumer_no")(clean_ref)
     _number = field_validator("flat_number", mode="before")(_flat_number)
 
 
@@ -80,5 +93,8 @@ class FlatOut(TimestampSchema):
     occupancy_status: Optional[OccupancyStatus]
     remarks:          Optional[str]
     virtual_account_number: Optional[str] = None
+    possession_date:  Optional[date] = None
+    electric_meter_no: Optional[str] = None
+    electric_consumer_no: Optional[str] = None
     wing_id:          UUID
     wing_name:        Optional[str] = None   # populated by service helper

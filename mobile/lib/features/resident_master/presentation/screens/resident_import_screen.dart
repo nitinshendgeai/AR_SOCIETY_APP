@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/features/resident_master/data/import_columns.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
 import 'package:ar_society_app/features/resident_master/data/repositories/resident_master_repository.dart';
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
@@ -16,9 +17,7 @@ import 'package:ar_society_app/features/society_structure/presentation/providers
 import 'package:ar_society_app/shared/utils/csv_file.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
-const _templateHeader = [
-  'Wing', 'Flat Number', 'Full Name', 'Resident Type', 'Is Primary', 'Phone', 'Email', 'Floor',
-];
+const _templateHeader = importTemplateHeader;
 
 enum _RowStatus { valid, error, pending, created, failed }
 
@@ -109,8 +108,9 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
               const SizedBox(height: 8),
               const Text(
                 '1. Download the template and fill it in (in Excel, Google Sheets, etc.)\n'
-                '2. Floor is optional. If a Wing, Floor, or Flat Number doesn\'t exist yet, it will be created automatically during import\n'
-                '3. Choose the filled file, review the preview, then import',
+                '2. Floor, Possession Date, Electric Meter No and Consumer No are optional. If a Wing, Floor, or Flat Number doesn\'t exist yet, it will be created automatically during import\n'
+                '3. Your own sheet works too: columns are found by their headings (Wing, Flat No, Name, Possession Date, Meter No…), in any order. Dates are read day first (01/04/2019)\n'
+                '4. Possession date and meter details are saved on the flat. Choose the filled file, review the preview, then import',
                 style: TextStyle(fontSize: 13, color: AppTheme.textPrimary, height: 1.5),
               ),
             ],
@@ -152,7 +152,7 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
     try {
       final rows = [
         _templateHeader,
-        ['A Wing', '101', 'Ramesh Kumar', 'owner', 'yes', '9876543210', 'ramesh@example.com', '1'],
+        ['A Wing', '101', 'Ramesh Kumar', 'owner', 'yes', '9876543210', 'ramesh@example.com', '1', '01/04/2019', 'MTR-001234', '170012345678'],
       ];
       final csvString = const ListToCsvConverter().convert(rows);
       await _saveCsv(csvString, 'resident_import_template.csv', 'Template');
@@ -271,32 +271,31 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
         .toList();
     if (table.isEmpty) return [];
 
-    // Skip a header row if the first cell looks like the template's own
-    // header rather than actual data (so re-importing a downloaded-then-
-    // filled template doesn't try to create a resident named "Wing").
-    final startIndex =
-        table.first.isNotEmpty && table.first[0].toString().trim().toLowerCase() == 'wing'
-            ? 1
-            : 0;
+    // A header row says which column is which (any order, the names people use); without one the template's
+    // own order is used. Either way the header isn't a resident.
+    final headerColumns = ImportColumns.fromHeader(table.first.map((c) => c.toString().trim()).toList());
+    final columns = headerColumns ?? ImportColumns.positional();
+    final startIndex = headerColumns != null ? 1 : 0;
 
     final result = <_ImportRow>[];
     for (var i = startIndex; i < table.length; i++) {
-      final raw = table[i].map((c) => c.toString().trim()).toList();
+      final fileRow = table[i].map((c) => c.toString().trim()).toList();
+      final raw = columns.canonical(fileRow);           // in template order, for the preview and the error file
       final lineNumber = i + 1;
 
-      String cell(int idx) => idx < raw.length ? raw[idx] : '';
+      String cell(String key) => columns.cell(fileRow, key);
 
-      final wingText = cell(0);
-      final flatText = cell(1);
-      final fullName = cell(2);
-      final typeText = cell(3);
-      final primaryText = cell(4);
-      final phone = cell(5);
-      final email = cell(6);
-      // Trailing, optional column — appended rather than inserted so a CSV
-      // exported before Floor existed (just the original 7 columns) keeps
-      // parsing identically; a missing column 7 reads as ''.
-      final floorText = cell(7);
+      final wingText = cell('wing');
+      final flatText = cell('flat');
+      final fullName = cell('name');
+      final typeText = cell('type');
+      final primaryText = cell('primary');
+      final phone = cell('phone');
+      final email = cell('email');
+      final floorText = cell('floor');
+      final possessionText = cell('possession');
+      final meterText = cell('meter');
+      final consumerText = cell('consumer');
 
       String? error;
 
@@ -308,6 +307,17 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
       if (error == null && floorText.isNotEmpty) {
         floorNumber = int.tryParse(floorText);
         if (floorNumber == null) error = 'Floor must be a whole number';
+      }
+
+      DateTime? possession;
+      if (error == null && possessionText.isNotEmpty) {
+        possession = parseImportDate(possessionText);
+        if (possession == null) {
+          error = 'Possession Date "$possessionText" is not a date (use dd/mm/yyyy)';
+        } else if (possession.isAfter(DateTime.now().add(const Duration(days: 366))) ||
+            possession.isBefore(DateTime(1950))) {
+          error = 'Possession Date must be between 1950 and a year from today';
+        }
       }
 
       // Wing/Floor/Flat need not already exist — a row referencing a Wing,
@@ -371,6 +381,14 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
       } else if (floorNumber != null) {
         note = 'Will ensure Floor $floorNumber exists in Wing "$wingText"';
       }
+      final flatNotes = [
+        if (possession != null) 'possession ${possession.day}/${possession.month}/${possession.year}',
+        if (meterText.isNotEmpty) 'meter $meterText',
+        if (consumerText.isNotEmpty) 'consumer no. $consumerText',
+      ];
+      if (flatNotes.isNotEmpty) {
+        note = [if (note != null) note, 'Will set ${flatNotes.join(', ')} on the flat'].join(' · ');
+      }
 
       result.add(_ImportRow(
         lineNumber: lineNumber,
@@ -388,11 +406,18 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
           'is_primary': isPrimary,
           if (phone.isNotEmpty) 'phone': phone,
           if (email.isNotEmpty) 'email': email,
+          // Kept on the flat, not the resident (taken out before the resident is created)
+          if (possession != null) 'possession_date': _iso(possession),
+          if (meterText.isNotEmpty) 'electric_meter_no': meterText,
+          if (consumerText.isNotEmpty) 'electric_consumer_no': consumerText,
         },
       ));
     }
     return result;
   }
+
+  static String _iso(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   // ── Step 2: preview + import ─────────────────────────────────────────────
 
@@ -483,6 +508,7 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
         '${f.wingId}|${f.flatNumber.trim().toLowerCase()}': f,
     };
     final floorsByWing = <String, Map<int, FloorModel>>{};
+    final appliedByFlat = <String, Map<String, dynamic>>{};
     String? societyId;
 
     Future<Map<int, FloorModel>> floorsFor(String wingId) async {
@@ -503,6 +529,10 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
       final flatNumber = payload.remove('flat_number') as String;
       var wingId = payload.remove('wing_id') as String?;
       var flatId = payload.remove('flat_id') as String?;
+      final flatFields = <String, dynamic>{
+        for (final k in const ['possession_date', 'electric_meter_no', 'electric_consumer_no'])
+          if (payload.containsKey(k)) k: payload.remove(k),
+      };
 
       try {
         if (wingId == null) {
@@ -534,11 +564,25 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
           flatsByKey[flatKey] = flat;
           flatId = flat.id;
         }
+
+        // The flat's own details from the file: only what the file gives, and only once per flat per value
+        // (a family of four rows for one flat patches it once).
+        if (flatFields.isNotEmpty) {
+          final applied = appliedByFlat.putIfAbsent(flatId, () => <String, dynamic>{});
+          final changed = {
+            for (final e in flatFields.entries)
+              if (applied[e.key] != e.value) e.key: e.value,
+          };
+          if (changed.isNotEmpty) {
+            await ref.read(flatsBySocietyProvider.notifier).updateFlat(flatId, changed);
+            applied.addAll(changed);
+          }
+        }
       } catch (e) {
         setState(() => rows[i] = rows[i].copyWith(
               status: _RowStatus.failed,
               clearMessage: true,
-              message: 'Could not create Wing/Floor/Flat: ${friendlyErrorMessage(e)}',
+              message: 'Could not create or update the Wing/Floor/Flat: ${friendlyErrorMessage(e)}',
             ));
         continue;
       }

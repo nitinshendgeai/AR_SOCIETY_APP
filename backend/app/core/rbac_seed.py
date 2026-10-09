@@ -115,6 +115,7 @@ def _autogrant_default_permissions(mapper, connection, target: Role) -> None:
 FORM_DEFINITIONS = [
     ("residents",                 "Residents",                 "Resident master records"),
     ("tenants",                   "Tenants",                   "Tenant master records"),
+    ("shops",                     "Shops",                     "Shop master: owners, possession dates and electricity meters; bulk import"),
     ("users_roles",               "Users & Roles",              "User account and role assignment management"),
     ("permission_matrix",         "Permission Matrix",          "Edit which access tiers each role is granted"),
     ("forms_matrix",              "Forms Matrix",                "Edit which navigation screens each role is granted"),
@@ -165,6 +166,7 @@ _ALL_CANONICAL_ROLES = (
 FORM_ROLE_GRANTS = {
     "residents":                _ADMIN_OR_COMMITTEE_ROLES,
     "tenants":                  _ADMIN_OR_COMMITTEE_ROLES,
+    "shops":                    _ADMIN_OR_COMMITTEE_ROLES,
     "users_roles":              _ADMIN_ONLY_ROLES,
     "permission_matrix":        _ADMIN_ONLY_ROLES,
     "forms_matrix":             _ADMIN_ONLY_ROLES,

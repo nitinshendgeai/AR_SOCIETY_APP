@@ -52,6 +52,9 @@ Society (1)
 | area_sqft | float | optional |
 | floor | int | raw floor number on flat record |
 | occupancy_status | str | "vacant" / "owner_occupied" / "tenant_occupied" |
+| possession_date | date | optional; when the owner took possession |
+| electric_meter_no | str(40) | optional; unique per society across flats and shops |
+| electric_consumer_no | str(40) | optional; may be shared |
 | remarks | str | optional notes |
 | wing_name | str | denormalized for display |
 | is_active | bool | soft delete |
@@ -104,6 +107,9 @@ class FlatModel {
   final String? flatType;
   final double? areaSqft;
   final String? occupancyStatus;
+  final DateTime? possessionDate;
+  final String? electricMeterNo;
+  final String? electricConsumerNo;
   final String? remarks;
   final String wingId;
   final String? wingName;  // denormalized for display
@@ -152,3 +158,27 @@ GoRouter passes model objects in `extra`. The contract is strict — the router 
 | DELETE | `/api/v1/flats/{id}` | Soft-delete flat |
 
 All endpoints enforce `society_id` isolation from the authenticated user's token.
+
+---
+
+## Shops (`backend/app/modules/shops/`)
+
+Commercial units are a separate master (table `shops`), not flats. Each shop has: `shop_number` (unique per society
+among active shops), `floor`, `location`, `area_sqft`, `business_name`, owner name/phone/email, `occupancy`
+(`owner_run` / `rented` / `vacant`) with tenant name/phone, `possession_date`, `electric_meter_no`,
+`electric_consumer_no`, `remarks`. Form code `shops` (Society Admin + committee roles). Meter numbers are checked
+against flats and shops together (`services/meter_registry.py`).
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/api/v1/shops/` | Create shop |
+| POST | `/api/v1/shops/import` | Bulk import (`dry_run` previews; existing shop numbers are filled in, never wiped) |
+| GET | `/api/v1/shops/society/{id}` | List (`q`, `occupancy`, `include_inactive`) |
+| GET / PATCH / DELETE | `/api/v1/shops/{id}` | Detail / update / soft-remove |
+
+Shop maintenance billing is not built yet.
+
+## Residents import columns
+
+`Wing, Flat Number, Full Name, Resident Type, Is Primary, Phone, Email, Floor, Possession Date, Electric Meter No, Consumer No`
+(headings matched by alias in any order; dates day-first; possession/meter/consumer go to the flat, once per flat).

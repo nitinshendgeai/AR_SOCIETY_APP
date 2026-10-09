@@ -17,6 +17,8 @@ def _enrich(flat: Flat) -> FlatOut:
         out.wing_name = flat.wing.name
     return out
 
+from app.services.meter_registry import assert_meter_free
+
 
 class FlatService:
     def __init__(self, db: Session):
@@ -34,6 +36,7 @@ class FlatService:
         self.repo.assert_unique_flat_number(data.wing_id, data.flat_number)
         if data.virtual_account_number:
             self.repo.assert_unique_van(wing.society_id, data.virtual_account_number)
+        assert_meter_free(self.repo.db, wing.society_id, data.electric_meter_no)
         flat = Flat(**data.model_dump())
         return _enrich(self.repo.create(flat))
 
@@ -66,6 +69,12 @@ class FlatService:
             patch["virtual_account_number"] = data.virtual_account_number
             if data.virtual_account_number:
                 self.repo.assert_unique_van(flat.wing.society_id, data.virtual_account_number, exclude_id=id)
+        # The possession date and the electricity numbers can be cleared the same way (sent as null / "")
+        for key in ("possession_date", "electric_meter_no", "electric_consumer_no"):
+            if key in data.model_fields_set:
+                patch[key] = getattr(data, key)
+        if patch.get("electric_meter_no"):
+            assert_meter_free(self.repo.db, flat.wing.society_id, patch["electric_meter_no"], exclude_flat_id=id)
         if "flat_number" in patch and patch["flat_number"] != flat.flat_number:
             self.repo.assert_unique_flat_number(
                 flat.wing_id, patch["flat_number"], exclude_id=id

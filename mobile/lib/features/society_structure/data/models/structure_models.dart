@@ -96,6 +96,10 @@ class FlatModel {
   final String? remarks;
   /// The bank's virtual account number for this flat — printed on its bills.
   final String? virtualAccountNumber;
+  /// The day the owner took possession of the unit, and its electricity connection.
+  final DateTime? possessionDate;
+  final String? electricMeterNo;
+  final String? electricConsumerNo;
   final String wingId;
   final String? wingName;
   final bool isActive;
@@ -109,6 +113,9 @@ class FlatModel {
     this.occupancyStatus,
     this.remarks,
     this.virtualAccountNumber,
+    this.possessionDate,
+    this.electricMeterNo,
+    this.electricConsumerNo,
     required this.wingId,
     this.wingName,
     this.isActive = true,
@@ -123,6 +130,9 @@ class FlatModel {
         occupancyStatus: j['occupancy_status'] as String?,
         remarks: j['remarks'] as String?,
         virtualAccountNumber: j['virtual_account_number'] as String?,
+        possessionDate: j['possession_date'] == null ? null : DateTime.parse(j['possession_date'] as String),
+        electricMeterNo: j['electric_meter_no'] as String?,
+        electricConsumerNo: j['electric_consumer_no'] as String?,
         wingId: j['wing_id'] as String,
         wingName: j['wing_name'] as String?,
         isActive: j['is_active'] as bool? ?? true,

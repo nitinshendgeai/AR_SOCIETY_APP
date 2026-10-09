@@ -39,11 +39,14 @@ class StructureRepository {
   Future<FlatModel> createFlat({required String flatNumber,
       required String wingId, int? floor, String? flatType,
       double? areaSqft, String? occupancyStatus, String? remarks,
-      String? virtualAccountNumber}) =>
+      String? virtualAccountNumber, String? possessionDate,
+      String? electricMeterNo, String? electricConsumerNo}) =>
       _ds.createFlat(flatNumber: flatNumber, wingId: wingId, floor: floor,
           flatType: flatType, areaSqft: areaSqft,
           occupancyStatus: occupancyStatus, remarks: remarks,
-          virtualAccountNumber: virtualAccountNumber);
+          virtualAccountNumber: virtualAccountNumber,
+          possessionDate: possessionDate, electricMeterNo: electricMeterNo,
+          electricConsumerNo: electricConsumerNo);
   Future<FlatModel> updateFlat(String id, Map<String, dynamic> data) =>
       _ds.updateFlat(id, data);
   Future<void> deleteFlat(String id) => _ds.deleteFlat(id);

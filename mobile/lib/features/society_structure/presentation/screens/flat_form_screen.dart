@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_widgets.dart' show DateField;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -24,6 +25,9 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
   final _remarks      = TextEditingController();
   final _van          = TextEditingController();
   final _floor        = TextEditingController();
+  final _meter        = TextEditingController();
+  final _consumer     = TextEditingController();
+  DateTime? _possession;
 
   String? _selectedWingId;
   String? _selectedFlatType;
@@ -49,6 +53,9 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
       _area.text         = widget.flat!.areaSqft?.toStringAsFixed(0) ?? '';
       _remarks.text      = widget.flat!.remarks ?? '';
       _van.text          = widget.flat!.virtualAccountNumber ?? '';
+      _possession        = widget.flat!.possessionDate;
+      _meter.text        = widget.flat!.electricMeterNo ?? '';
+      _consumer.text     = widget.flat!.electricConsumerNo ?? '';
       _selectedWingId    = widget.flat!.wingId;
       _selectedFlatType  = widget.flat!.flatType;
       // Occupancy status is deliberately NOT loaded here — it is display-only
@@ -71,8 +78,13 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
     _remarks.dispose();
     _van.dispose();
     _floor.dispose();
+    _meter.dispose();
+    _consumer.dispose();
     super.dispose();
   }
+
+  static String _iso(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
@@ -99,6 +111,10 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
               : _remarks.text.trim(),
           // Always sent, so clearing the field removes the VAN
           'virtual_account_number': _van.text.trim(),
+          // The possession date and the electricity numbers are always sent too, so they can be cleared
+          'possession_date': _possession == null ? null : _iso(_possession!),
+          'electric_meter_no': _meter.text.trim().isEmpty ? null : _meter.text.trim(),
+          'electric_consumer_no': _consumer.text.trim().isEmpty ? null : _consumer.text.trim(),
         };
         await ref.read(flatsBySocietyProvider.notifier).updateFlat(widget.flat!.id, data);
       } else {
@@ -115,6 +131,9 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
               ? null
               : _remarks.text.trim(),
           virtualAccountNumber: _van.text.trim(),
+          possessionDate: _possession == null ? null : _iso(_possession!),
+          electricMeterNo: _meter.text.trim(),
+          electricConsumerNo: _consumer.text.trim(),
         );
       }
       if (mounted) Navigator.pop(context);
@@ -294,6 +313,31 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
                     : 'Use 4-30 letters or digits';
               },
             ),
+            const SizedBox(height: 16),
+            DateField(
+              label: 'Possession date',
+              value: _possession,
+              lastDate: DateTime.now().add(const Duration(days: 366)),
+              onChanged: (d) => setState(() => _possession = d),
+            ),
+            const SizedBox(height: 16),
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _meter,
+                  inputFormatters: [LengthLimitingTextInputFormatter(40)],
+                  decoration: const InputDecoration(labelText: 'Electric meter no.'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _consumer,
+                  inputFormatters: [LengthLimitingTextInputFormatter(40)],
+                  decoration: const InputDecoration(labelText: 'Consumer no.', helperText: 'Electricity account'),
+                ),
+              ),
+            ]),
             const SizedBox(height: 16),
             TextFormField(
               controller: _remarks,

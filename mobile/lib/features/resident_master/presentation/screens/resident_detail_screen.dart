@@ -103,7 +103,11 @@ class _ResidentDetailBody extends ConsumerWidget {
               RmRow(label: 'Flat', value: flat?.displayName ?? '—'),
               if (flat?.floor != null) RmRow(label: 'Floor', value: flat!.floor.toString()),
               RmRow(label: 'Relationship', value: resident.residentType.label),
+              if (flat?.possessionDate != null)
+                RmRow(label: 'Possession Date', value: rmFormatDate(flat!.possessionDate!.toIso8601String())),
               RmRow(label: 'Move-in Date', value: rmFormatDate(resident.moveInDate)),
+              if (flat?.electricMeterNo != null) RmRow(label: 'Electric Meter', value: flat!.electricMeterNo!),
+              if (flat?.electricConsumerNo != null) RmRow(label: 'Consumer No.', value: flat!.electricConsumerNo!),
               if (resident.moveOutDate != null)
                 RmRow(label: 'Move-out Date', value: rmFormatDate(resident.moveOutDate)),
             ],
