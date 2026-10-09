@@ -46,6 +46,9 @@ from app.modules.governance.models.governance import (
 # Certificates
 from app.modules.certificates.models.certificates import CertificateRequest
 
+# Gate extras
+from app.modules.gate.models.gate import Parcel, DomesticHelp, DomesticHelpFlat, DomesticHelpEntry
+
 # Staff module
 from app.modules.staff.models.staff import (
     Staff, StaffDesignation, StaffShift, DutyAssignment,

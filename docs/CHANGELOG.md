@@ -4,6 +4,20 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-09 (n)
+
+### feat: parcels at the gate and a domestic help register
+
+Two new screens under Community (`docs/GATE_EXTRAS.md`):
+- **Parcels** — security logs a parcel for a flat (courier, name on it); the flat is notified at once. Security hands it
+  over (recording who collected it) or returns it to the courier; a resident can also mark their own parcel collected.
+- **Domestic help** — residents register their maid, cook or driver; the office issues a numbered pass
+  (`DH-0001`, valid a year, with a printable QR card) after checking. One person working in several flats is one
+  record. Security searches by name, mobile or pass number and taps Check in / Check out; the flats are told, and a
+  suspended or expired pass is refused at entry (leaving is always allowed). Entry history is kept for 30 days+.
+
+Migration `d3b0213c4d5e` adds four tables and grants both screens to every role (idempotent).
+
 ## 2026-10-09 (m)
 
 ### feat: NOC and certificate requests

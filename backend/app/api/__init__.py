@@ -16,6 +16,7 @@ from app.modules.dashboard.routes.dashboard import router as dashboard_router
 from app.modules.automation.routes.automation import router as automation_router
 from app.modules.governance.routes.governance import router as governance_router
 from app.modules.certificates.routes.certificates import router as certificates_router
+from app.modules.gate.routes.gate import router as gate_router
 from app.modules.staff.routes.staff         import router as staff_router
 from app.modules.staff.routes.handover      import router as handover_router
 from app.modules.inventory.routes.inventory import router as inventory_router
@@ -50,6 +51,7 @@ api_router.include_router(dashboard_router)
 api_router.include_router(automation_router)
 api_router.include_router(governance_router)
 api_router.include_router(certificates_router)
+api_router.include_router(gate_router)
 api_router.include_router(staff_router)
 api_router.include_router(handover_router)
 api_router.include_router(inventory_router)
