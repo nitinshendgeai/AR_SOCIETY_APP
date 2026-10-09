@@ -127,7 +127,7 @@ class _SuspendSheetState extends ConsumerState<SuspendSheet> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(color: AppTheme.errorSoft, borderRadius: BorderRadius.circular(AppTheme.radiusM)),
-            child: Text('Everyone in ${s.name} (${s.users} ${s.users == 1 ? 'person' : 'people'}) is signed out and cannot sign in or use the app until you let them back in. Their data is kept.',
+            child: Text('Everyone in ${s.name} (${s.users} ${s.users == 1 ? 'person' : 'people'}) can no longer sign in or use the app until you let them back in. Their data is kept.',
                 style: const TextStyle(height: 1.4)),
           ),
           const SizedBox(height: 12),

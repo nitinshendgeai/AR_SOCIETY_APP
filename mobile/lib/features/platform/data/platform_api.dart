@@ -209,7 +209,8 @@ class PlatformSociety {
   String get standing {
     switch (status) {
       case 'TRIAL':
-        return trialEnded ? 'Trial ended ${dayText(trialEnd)}' : 'Trial ends ${dayText(trialEnd)} ($trialDaysRemaining days)';
+        if (trialEnd == null) return 'On trial, no end date set';
+        return trialEnded ? 'Trial ended ${dayText(trialEnd)}' : 'Trial ends ${dayText(trialEnd)} ($trialDaysRemaining ${trialDaysRemaining == 1 ? 'day' : 'days'})';
       case 'ACTIVE':
         return '${planLabel(plan)} plan${subscriptionExpiry == null ? '' : ' until ${dayText(subscriptionExpiry)}'}';
       case 'EXPIRED':
