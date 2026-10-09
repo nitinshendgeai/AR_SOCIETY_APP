@@ -10,6 +10,8 @@ from app.models.permission import Permission, RolePermission
 from app.models.form import Form, RoleForm
 from app.core.dependencies import get_current_user, require_admin
 from app.core.rbac_seed import PERMISSION_DEFINITIONS, FORM_DEFINITIONS
+
+PLATFORM_FORM = "platform_admin"
 from pydantic import BaseModel
 
 
@@ -120,6 +122,8 @@ def list_forms(
     """The fixed set of top-level screens the Forms Matrix can grant. See
     app.core.rbac_seed for the canonical definitions and default grants."""
     forms = db.query(Form).order_by(Form.code).all()
+    if not current_user.is_superadmin:
+        forms = [f for f in forms if f.code != PLATFORM_FORM]      # a society admin never grants the console
     if not forms:
         # Defensive fallback in case a deployment hasn't run the seed
         # migration yet — surface the static definitions rather than 404ing.
@@ -141,6 +145,7 @@ def get_form_matrix(
     for role in roles:
         codes = sorted({
             rf.form.code for rf in role.role_forms if rf.form
+            and (current_user.is_superadmin or rf.form.code != PLATFORM_FORM)
         })
         rows.append(RoleFormMatrixRow(
             role_id=str(role.id), role_name=role.name, form_codes=codes,
@@ -161,7 +166,10 @@ def update_role_forms(
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
 
-    valid_codes = {f.code for f in db.query(Form).all()}
+    if role.name == "Platform Admin" and not current_user.is_superadmin:
+        raise HTTPException(status_code=403, detail="Only a platform admin can change the Platform Admin role")
+    valid_codes = {f.code for f in db.query(Form).all()
+                   if current_user.is_superadmin or f.code != PLATFORM_FORM}
     unknown = set(payload.form_codes) - valid_codes
     if unknown:
         raise HTTPException(

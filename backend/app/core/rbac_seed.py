@@ -140,6 +140,7 @@ FORM_DEFINITIONS = [
     ("assets",                    "Assets",                     "Society-owned assets (lifts, pumps, ACs, generators): warranty, service schedule and history"),
     ("inventory",                 "Stores",                     "Consumable stock, stock in, issue to staff and return"),
     ("amenities",                 "Amenities",                  "Clubhouse, gym, pool and hall: book a time, rules, prices, closed dates and approvals"),
+    ("platform_admin",            "Platform Console",           "Every society on the platform: trials, plans, suspension, limits and the record of what was done"),
 ]
 
 _ADMIN_OR_COMMITTEE_ROLES = (
@@ -189,6 +190,7 @@ FORM_ROLE_GRANTS = {
     "assets":                   tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
     "inventory":                tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
     "amenities":                _ALL_CANONICAL_ROLES,
+    "platform_admin":           _PLATFORM,
 }
 
 

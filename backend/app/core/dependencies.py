@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from app.core.security import decode_token
@@ -33,6 +33,7 @@ def _find_user_by_id(db: Session, user_id: str) -> "User | None":
 
 
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> User:
@@ -69,6 +70,12 @@ def get_current_user(
             )
         sessions.touch(session)
         user.current_session_id = session.id      # not a column: which device is making this request
+
+    # A suspended society is shut: only the calls that tell the app why, and sign out, still work.
+    from app.core.society_gate import path_is_allowed, society_block_reason
+    reason = society_block_reason(db, user)
+    if reason and not path_is_allowed(request.url.path):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=reason)
     return user
 
 
