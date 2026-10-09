@@ -56,11 +56,12 @@ The duty sheet and blank checklist PDFs use the standard PDF fonts, which have n
 written in Marathi or Hindi will not print correctly. Write checklist items in English / Latin letters, or bundle a
 Devanagari font (for example Noto Sans Devanagari) in `duty_sheet_pdf.py`.
 
-### [KNOWN GAP] Timestamps elsewhere still show UTC digits
+### [FIXED 2026-10-09] Timestamps elsewhere showed UTC digits
 
-Staff attendance now sends UTC with a `Z` and the app converts to local time. Other modules (visitors, complaints,
-parking, notices …) still return naive UTC timestamps, which the app shows as clock digits without conversion, so they
-read about 5½ hours behind in India. Fix them the same way (serialize with a `Z`, `toLocal()` when displaying).
+Every server-stamped time (fields ending `_at` / `_time`) is now sent with a `Z` and shown on the viewer's clock (see
+CHANGELOG 2026-10-09 (h)). A new screen that shows such a time should read it with `parseStamp`
+(`mobile/lib/core/utils/server_time.dart`) or call `.toLocal()` before formatting. Times a person enters (a visitor's
+expected arrival, due dates, notice publish/expiry) are still stored and shown as typed.
 
 ### [KNOWN GAP] Close Handover — not implemented
 

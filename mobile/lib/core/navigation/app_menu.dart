@@ -36,6 +36,13 @@ const appMenuCategories = [
   AppMenuCategory('People', Icons.people_alt_rounded, [
     AppMenuItem('residents', 'Residents', Icons.people_outline_rounded, AppRoutes.residentsList),
     AppMenuItem('tenants', 'Tenants', Icons.groups_2_outlined, AppRoutes.tenantsList),
+  ]),
+  // Wings and flats are everyday records (who lives where, what is vacant), not
+  // just first-time setup, so they sit in the menu rather than only behind the
+  // Setup Wizard. They share the wizard's access.
+  AppMenuCategory('Property', Icons.apartment_rounded, [
+    AppMenuItem('setup_wizard', 'Wings', Icons.domain_rounded, AppRoutes.wingsList),
+    AppMenuItem('setup_wizard', 'Flats', Icons.door_front_door_rounded, AppRoutes.flatsList),
     AppMenuItem('shops', 'Shops', Icons.storefront_rounded, AppRoutes.shops),
   ]),
   AppMenuCategory('Community', Icons.diversity_3_rounded, [

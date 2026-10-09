@@ -1,4 +1,5 @@
 import 'package:ar_society_app/features/billing/domain/entities/billing_entities.dart';
+import 'package:ar_society_app/core/utils/server_time.dart';
 
 class OnlinePaymentModel {
   final String id;
@@ -80,11 +81,11 @@ class OnlinePaymentModel {
       status: json['status'] as String? ?? 'pending',
       recordedBy: json['recorded_by'] as String?,
       reviewedBy: json['reviewed_by'] as String?,
-      reviewedAt: json['reviewed_at'] != null ? DateTime.parse(json['reviewed_at'] as String) : null,
+      reviewedAt: parseStampOrNull(json['reviewed_at']),
       reviewNotes: json['review_notes'] as String?,
       screenshotMimeType: json['screenshot_mime_type'] as String?,
       screenshotFileName: json['screenshot_file_name'] as String?,
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null,
+      createdAt: parseStampOrNull(json['created_at']),
       setOffs: [
         for (final a in (json['allocations'] as List? ?? const []))
           PaymentSetOff(
@@ -92,8 +93,8 @@ class OnlinePaymentModel {
             invoiceNumber: a['invoice_number'] as String?,
             billDate: a['bill_date'] != null ? DateTime.parse(a['bill_date'] as String) : null,
             amount: double.tryParse('${a['amount']}') ?? 0,
-            allocatedAt: a['allocated_at'] != null ? DateTime.parse(a['allocated_at'] as String) : null,
-            releasedAt: a['released_at'] != null ? DateTime.parse(a['released_at'] as String) : null,
+            allocatedAt: parseStampOrNull(a['allocated_at']),
+            releasedAt: parseStampOrNull(a['released_at']),
             releasedReason: a['released_reason'] as String?,
           ),
       ],
@@ -215,9 +216,9 @@ class BankStatementEntryModel {
       matchStatus: json['match_status'] as String? ?? 'unmatched',
       matchedSubmissionId: json['matched_submission_id'] as String?,
       matchedSubmissionReceiptNumber: json['matched_submission_receipt_number'] as String?,
-      matchedAt: json['matched_at'] != null ? DateTime.parse(json['matched_at'] as String) : null,
+      matchedAt: parseStampOrNull(json['matched_at']),
       ignoreReason: json['ignore_reason'] as String?,
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null,
+      createdAt: parseStampOrNull(json['created_at']),
     );
   }
 

@@ -4,6 +4,22 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-09 (h)
+
+### fix: times show on the viewer's clock; Wings and Flats in the menu; dashboard shortcuts
+
+- **Times:** visitor entry and exit, complaints, parking gate logs, payment reviews, bank matches, vendor bills and
+  voucher edits showed the stored UTC digits, about 5½ hours behind in India. The API now marks every server-stamped
+  time (any field ending `_at` or `_time`) as UTC with a `Z` (`app/utils/utc_response.py`), and the app reads those
+  with `parseStamp` and shows local time (`lib/core/utils/server_time.dart`). Dates a person typed in (due date,
+  expiry, expected arrival) and plain times of day are untouched.
+- **Menu:** **Wings** and **Flats** are now in the menu under a new **Property** group (with Shops) instead of only
+  behind the Setup Wizard; the page is highlighted and the breadcrumb reads "Property › Flats".
+- **Dashboards:** the Complaints shortcut on the Admin dashboard, and the Complaints, Staff and Visitors shortcuts on
+  the Committee dashboard, opened "My Complaints" / the Staff Portal / "My visitors"; they now open the society-wide
+  lists, like the menu does.
+- **Resident dashboard:** a login that is not linked to a flat now says so and what to do.
+
 ## 2026-10-09 (g)
 
 ### fix: rental / tenant audit

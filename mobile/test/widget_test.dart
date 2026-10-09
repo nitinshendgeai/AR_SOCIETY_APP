@@ -231,6 +231,7 @@ void main() {
       for (final label in [
         'Residents', 'Tenants', 'Users & Roles', 'Permission Matrix', 'Forms Matrix', 'Society Settings',
         'Visitors', 'Complaints', 'Pending Resident Changes', 'Staff', 'Parking Management', 'Setup Wizard',
+        'Wings', 'Flats',
       ]) {
         await expectVisibleInDrawer(tester, label);
       }
