@@ -2,10 +2,26 @@
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
+from app.core.config import settings
+from app.services.email_service import EmailService
 from tests.conftest import make_user
 
 
 REGISTER_URL = "/api/v1/public/register"
+
+
+@pytest.fixture
+def admin_emails(monkeypatch):
+    """SMTP configured; outgoing mail recorded instead of sent."""
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.test.local")
+    monkeypatch.setattr(EmailService, "run_in_background", False)
+    sent = []
+    monkeypatch.setattr(EmailService, "_deliver",
+                         classmethod(lambda cls, to, message: sent.append({
+                             "to": to, "subject": message["Subject"],
+                             "body": message.get_payload()[0].get_payload(),
+                         }) or True))
+    return sent
 
 VALID_PAYLOAD = {
     "society_name":        "Sunrise Heights",
@@ -96,6 +112,22 @@ class TestSelfRegistration:
                     "contact_mobile": "9876543213"}
         resp = client.post(REGISTER_URL, json=payload2)
         assert resp.status_code == 409
+
+    def test_register_emails_admin_with_credentials(self, client: TestClient, admin_emails):
+        resp = client.post(REGISTER_URL, json=VALID_PAYLOAD)
+        assert resp.status_code == 201, resp.text
+        data = resp.json()
+
+        assert len(admin_emails) == 1
+        mail = admin_emails[0]
+        assert mail["to"] == settings.ADMIN_NOTIFICATION_EMAIL == "admin@duxos.in"
+        assert data["society_code"] in mail["subject"]
+        assert data["society_name"] in mail["subject"]
+        assert VALID_PAYLOAD["contact_email"] in mail["body"]
+        for cred in data["credentials"]:
+            assert cred["email"] in mail["body"]
+            assert cred["password"] in mail["body"]
+            assert cred["role"] in mail["body"]
 
 
 # ── Trial status ──────────────────────────────────────────────────────────────
