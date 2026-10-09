@@ -13,7 +13,9 @@ import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 class VisitorListScreen extends ConsumerStatefulWidget {
   final bool isMy;
   final String societyId;
-  const VisitorListScreen({super.key, this.isMy = false, this.societyId = ''});
+  /// 1 opens on "Inside Now" (the gate's check-out view).
+  final int initialTab;
+  const VisitorListScreen({super.key, this.isMy = false, this.societyId = '', this.initialTab = 0});
 
   @override
   ConsumerState<VisitorListScreen> createState() => _VisitorListScreenState();
@@ -34,7 +36,7 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 2, vsync: this);
+    _tabs = TabController(length: 2, vsync: this, initialIndex: widget.initialTab);
     WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
   }
 

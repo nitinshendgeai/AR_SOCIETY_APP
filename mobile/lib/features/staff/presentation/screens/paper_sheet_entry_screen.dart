@@ -256,25 +256,36 @@ class _PaperSheetEntryScreenState extends ConsumerState<PaperSheetEntryScreen> {
   Widget _header() {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final who = Row(children: [
+      const Icon(Icons.person_rounded, color: AppTheme.primary),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(widget.staffName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          const Text('Enter what is written on the printed sheet',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        ]),
+      ),
+    ]);
+    final dateButton = OutlinedButton.icon(
+      onPressed: _pickDate,
+      icon: const Icon(Icons.calendar_today_rounded, size: 16),
+      label: Text('${days[_date.weekday - 1]}, ${_date.day} ${months[_date.month - 1]} ${_date.year}'),
+    );
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: _box(),
-      child: Row(children: [
-        const Icon(Icons.person_rounded, color: AppTheme.primary),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(widget.staffName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-            const Text('Enter what is written on the printed sheet',
-                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-          ]),
-        ),
-        OutlinedButton.icon(
-          onPressed: _pickDate,
-          icon: const Icon(Icons.calendar_today_rounded, size: 16),
-          label: Text('${days[_date.weekday - 1]}, ${_date.day} ${months[_date.month - 1]} ${_date.year}'),
-        ),
-      ]),
+      // On a phone the date button would squeeze the name to nothing, so it goes underneath.
+      child: LayoutBuilder(builder: (context, c) {
+        if (c.maxWidth < 520) {
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            who,
+            const SizedBox(height: 10),
+            dateButton,
+          ]);
+        }
+        return Row(children: [Expanded(child: who), const SizedBox(width: 10), dateButton]);
+      }),
     );
   }
 

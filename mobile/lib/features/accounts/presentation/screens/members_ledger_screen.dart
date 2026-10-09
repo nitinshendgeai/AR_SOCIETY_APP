@@ -38,10 +38,10 @@ class _MembersLedgerScreenState extends ConsumerState<MembersLedgerScreen> {
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(title: const Text("Members' Ledger"), actions: [
-        TextButton.icon(
+        AppBarTextAction(
           onPressed: () => context.push(AppRoutes.defaulters),
-          icon: const Icon(Icons.warning_amber_rounded, size: 18),
-          label: const Text('Defaulters'),
+          icon: Icons.warning_amber_rounded,
+          label: 'Defaulters',
         ),
         PdfActions(
           load: async.valueOrNull == null ? null : () => ref.read(accountsApiProvider).membersLedgerPdf(societyId),
@@ -89,7 +89,7 @@ class _MembersLedgerScreenState extends ConsumerState<MembersLedgerScreen> {
                   KpiGrid(cards: [
                     KpiCard(
                       icon: Icons.call_received_rounded,
-                      label: 'Receivable from members',
+                      label: 'Dues receivable',
                       value: formatInr(receivable),
                       note: '${ledger.members.where((m) => m.signed > 0).length} flats with dues',
                       color: AppTheme.warning,

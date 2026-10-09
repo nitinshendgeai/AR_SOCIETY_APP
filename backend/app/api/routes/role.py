@@ -61,6 +61,20 @@ class MyFormsResponse(BaseModel):
 
 router = APIRouter(prefix="/roles", tags=["Roles"])
 
+PLATFORM_ROLE = "Platform Admin"
+
+
+def _visible_roles(db: Session, user: User):
+    """Roles a caller may see and edit. The Platform Admin role belongs to the
+    platform team, so a society's admin never sees it."""
+    roles = db.query(Role).order_by(Role.name).all()
+    return roles if user.is_superadmin else [r for r in roles if r.name != PLATFORM_ROLE]
+
+
+def _guard_platform_role(role: Role, user: User) -> None:
+    if role.name == PLATFORM_ROLE and not user.is_superadmin:
+        raise HTTPException(status_code=403, detail="Only a platform admin can change the Platform Admin role")
+
 
 @router.get("/", response_model=List[RoleListItem])
 def list_roles(
@@ -89,6 +103,8 @@ def list_roles(
         if not roles:
             roles = db.query(Role).order_by(Role.name).all()
 
+    if not current_user.is_superadmin:
+        roles = [r for r in roles if r.name != PLATFORM_ROLE]
     return [RoleListItem(id=str(r.id), name=r.name, description=r.description)
             for r in roles]
 
@@ -140,9 +156,8 @@ def get_form_matrix(
 ):
     """Every role in the system with the form codes currently granted to
     it — the data backing the Forms Matrix editor screen."""
-    roles = db.query(Role).order_by(Role.name).all()
     rows = []
-    for role in roles:
+    for role in _visible_roles(db, current_user):
         codes = sorted({
             rf.form.code for rf in role.role_forms if rf.form
             and (current_user.is_superadmin or rf.form.code != PLATFORM_FORM)
@@ -166,8 +181,7 @@ def update_role_forms(
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
 
-    if role.name == "Platform Admin" and not current_user.is_superadmin:
-        raise HTTPException(status_code=403, detail="Only a platform admin can change the Platform Admin role")
+    _guard_platform_role(role, current_user)
     valid_codes = {f.code for f in db.query(Form).all()
                    if current_user.is_superadmin or f.code != PLATFORM_FORM}
     unknown = set(payload.form_codes) - valid_codes
@@ -216,9 +230,8 @@ def get_permission_matrix(
 ):
     """Every role in the system with the permission codes currently granted
     to it — the data backing the Permission Matrix editor screen."""
-    roles = db.query(Role).order_by(Role.name).all()
     rows = []
-    for role in roles:
+    for role in _visible_roles(db, current_user):
         codes = sorted({
             rp.permission.code for rp in role.role_permissions if rp.permission
         })
@@ -240,6 +253,8 @@ def update_role_permissions(
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
+
+    _guard_platform_role(role, current_user)
 
     valid_codes = {p.code for p in db.query(Permission).all()}
     unknown = set(payload.permission_codes) - valid_codes

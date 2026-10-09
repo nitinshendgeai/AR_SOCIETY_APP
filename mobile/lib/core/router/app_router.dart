@@ -563,6 +563,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, state) => VisitorListScreen(
               isMy: false,
               societyId: state.pathParameters['societyId']!,
+              initialTab: state.uri.queryParameters['tab'] == 'inside' ? 1 : 0,
             ),
           ),
           // Notice board (everyone) and one notice

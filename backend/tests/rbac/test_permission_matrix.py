@@ -27,10 +27,24 @@ def test_default_grants_match_canonical_role_sets(client, db):
     assert r.status_code == 200, r.text
     matrix = {row["role_name"]: set(row["permission_codes"]) for row in r.json()}
 
+    assert "Platform Admin" not in matrix      # the platform team's role is never shown to a society
     for role_name, expected_codes in default_role_permission_codes().items():
+        if role_name == "Platform Admin":
+            continue
         assert matrix.get(role_name) == set(expected_codes), (
             f"{role_name}: expected {sorted(expected_codes)}, got {sorted(matrix.get(role_name, []))}"
         )
+
+
+def test_a_society_admin_cannot_edit_the_platform_admin_permissions(client, db):
+    admin = make_user(db, "adm.pp@rbac.com", role="Society Admin")
+    make_user(db, "pa.pp@rbac.com", role="Platform Admin")
+    role = db.query(Role).filter(Role.name == "Platform Admin").first()
+    r = client.put(f"/api/v1/roles/{role.id}/permissions", headers=admin["headers"], json={"permission_codes": []})
+    assert r.status_code == 403
+    assert client.get("/api/v1/roles/", headers=admin["headers"]).status_code == 200
+    names = [x["name"] for x in client.get("/api/v1/roles/", headers=admin["headers"]).json()]
+    assert "Platform Admin" not in names
 
 
 def test_guard_tiers_match_grants_for_every_role():

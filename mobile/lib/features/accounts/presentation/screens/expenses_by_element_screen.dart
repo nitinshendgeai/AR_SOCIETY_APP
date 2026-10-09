@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -87,10 +88,10 @@ class _ExpensesByElementScreenState extends ConsumerState<ExpensesByElementScree
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(title: const Text('Spend by element'), actions: [
-        TextButton.icon(
+        AppBarTextAction(
           onPressed: () => context.push(AppRoutes.accountsExpenseNew),
-          icon: const Icon(Icons.add_rounded, size: 18),
-          label: const Text('Add expense'),
+          icon: Icons.add_rounded,
+          label: 'Add expense',
         ),
       ]),
       body: ResponsiveBody(
