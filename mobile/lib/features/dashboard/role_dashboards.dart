@@ -17,10 +17,10 @@ import 'package:ar_society_app/features/users/presentation/providers/user_provid
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart' show BillingCycle, amountOf, formatRupees;
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart' show billingCyclesProvider, myBillsProvider;
-import 'package:ar_society_app/features/dashboard/dashboard_stats.dart';
+import 'package:ar_society_app/features/dashboard/admin_overview.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart' show pendingVisitorApprovalsProvider;
 import 'package:ar_society_app/features/visitor/presentation/widgets/pending_visitors_banner.dart';
-import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart' show flatByIdProvider, flatsBySocietyProvider;
+import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart' show flatByIdProvider;
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart' show myResidentProvider;
 
 // ── Shared scaffold wrapper ───────────────────────────────────────────────────
@@ -274,20 +274,6 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-class _ActionItem {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final String? badge;
-  final String? route;
-  const _ActionItem({
-    required this.icon,
-    required this.label,
-    required this.color,
-    this.badge,
-    this.route,
-  });
-}
 
 // Thin wrapper over the shared KpiCard — kept as its own name since every
 // dashboard below already calls _SummaryCard(...); redefining it here (once)
@@ -415,9 +401,6 @@ class _InfoTile extends StatelessWidget {
   }
 }
 
-/// Tile value for an async count: the number, or "--" while loading/failed.
-String _count(AsyncValue<int?> v) => v.valueOrNull?.toString() ?? '--';
-
 // ── Trial Status Widget ───────────────────────────────────────────────────────
 
 class _TrialStatusWidget extends StatelessWidget {
@@ -530,48 +513,16 @@ class AdminDashboardScreen extends ConsumerWidget {
       );
     }
 
-    // Live data
-    final societyAsync   = ref.watch(societyInfoProvider);
-    final societyInfo    = societyAsync.valueOrNull;
+    // The overview numbers come from one server call (AdminOverview); only the
+    // active-staff count is read here.
     final staffListState = ref.watch(staffListProvider);
     if (societyId != null && staffListState is StaffListInitial) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(staffListProvider.notifier).load(societyId);
       });
     }
-    final flats       = ref.watch(flatsBySocietyProvider).valueOrNull;
-    final totalFlats  = flats != null && flats.isNotEmpty
-        ? '${flats.length}'
-        : societyInfo?.totalFlats != null ? '${societyInfo!.totalFlats}' : '--';
-    final occupied    = flats == null
-        ? '--'
-        : '${flats.where((f) => f.occupancyStatus != null && f.occupancyStatus != 'vacant').length}';
     final activeStaff = staffListState is StaffListLoaded ? '${staffListState.staff.length}' : '--';
-    final residents   = _count(ref.watch(activeResidentCountProvider));
-    final visitorsToday = societyId == null ? '--' : _count(ref.watch(visitorsTodayProvider(societyId)));
-    final cycles      = societyId == null ? null : ref.watch(billingCyclesProvider(societyId)).valueOrNull;
-    final dues        = cycles == null
-        ? '--'
-        : formatRupees('${cycles.fold<double>(0, (sum, c) => sum + amountOf(c.totalOutstanding))}');
-    final societyVisitors = societyId == null ? AppRoutes.visitorsMy : AppRoutes.visitorsSociety.replaceFirst(':societyId', societyId);
     final societyComplaints = societyId == null ? AppRoutes.complaints : AppRoutes.complaintsSociety.replaceFirst(':societyId', societyId);
-
-    // Open complaints count
-    final complaintsAsync = societyId != null
-        ? ref.watch(openComplaintsCountProvider(societyId))
-        : const AsyncValue<int>.data(0);
-    final openComplaints = complaintsAsync.valueOrNull != null ? '${complaintsAsync.valueOrNull}' : '--';
-
-    // Pending approvals (check-in + check-out)
-    final approvalState = ref.watch(approvalProvider);
-    if (societyId != null && approvalState is ApprovalInitial) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(approvalProvider.notifier).load(societyId);
-      });
-    }
-    final pendingApprovals = approvalState is ApprovalLoaded
-        ? '${approvalState.pendingCheckin.length + approvalState.pendingCheckout.length}'
-        : '--';
 
     return _DashboardShell(
       title: 'Society Overview',
@@ -579,36 +530,7 @@ class AdminDashboardScreen extends ConsumerWidget {
         _GreetingCard(user: user, subtitle: 'Society Admin · Operational dashboard'),
         const SizedBox(height: 18),
         trialBanner,
-        const _SectionLabel('Summary'),
-        const SizedBox(height: 10),
-        GridView(
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 280,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            mainAxisExtent: 130,
-          ),
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            _SummaryCard(icon: Icons.apartment_rounded, label: 'Total Flats', value: totalFlats, color: AppTheme.primary,
-                onTap: () => context.push(AppRoutes.flatsList)),
-            _SummaryCard(icon: Icons.home_rounded, label: 'Occupied Flats', value: occupied, color: AppTheme.success,
-                onTap: () => context.push(AppRoutes.flatsList)),
-            _SummaryCard(icon: Icons.people_rounded, label: 'Residents', value: residents, color: AppTheme.secondary,
-                onTap: () => context.go(AppRoutes.residentsList)),
-            _SummaryCard(icon: Icons.badge_rounded, label: 'Active Staff', value: activeStaff, color: AppTheme.warning,
-                onTap: () => context.go(AppRoutes.staffList)),
-            _SummaryCard(icon: Icons.meeting_room_rounded, label: 'Visitors Today', value: visitorsToday, color: AppTheme.primary,
-                onTap: () => context.go(societyVisitors)),
-            _SummaryCard(icon: Icons.report_problem_rounded, label: 'Open Complaints', value: openComplaints, color: AppTheme.error,
-                onTap: () => context.go(societyComplaints)),
-            _SummaryCard(icon: Icons.approval_rounded, label: 'Pending Approvals', value: pendingApprovals, color: AppTheme.warning,
-                onTap: societyId == null ? null : () => context.push(AppRoutes.staffApprovals, extra: societyId)),
-            _SummaryCard(icon: Icons.account_balance_wallet_rounded, label: 'Maintenance Dues', value: dues, color: AppTheme.error,
-                onTap: () => context.go(AppRoutes.maintenanceBilling)),
-          ],
-        ),
+        if (societyId != null) AdminOverview(societyId: societyId, activeStaff: activeStaff),
         const SizedBox(height: 18),
         const _SectionLabel('Quick Actions'),
         const SizedBox(height: 10),
