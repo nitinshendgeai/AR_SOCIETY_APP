@@ -68,7 +68,7 @@ def upgrade():
         INSERT INTO vendor_payment_transactions
             (id, created_at, updated_at, society_id, vendor_id, invoice_id,
              payment_number, payment_date, amount, payment_mode,
-             transaction_ref, bank_name, remarks, is_reversed, created_by)
+             transaction_ref, bank_name, remarks, is_reversed, is_legacy, created_by)
         SELECT gen_random_uuid(), NOW(), NOW(), society_id, vendor_id, id,
                'LP-' || id::text, COALESCE(paid_date, invoice_date),
                paid_amount, payment_mode::text, payment_ref, bank_name,

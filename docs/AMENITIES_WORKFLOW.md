@@ -1,45 +1,29 @@
 # Amenity Management — Workflow
 
-## Rule Engine (Database-driven)
+See `docs/MODULES/AMENITIES.md` for the rules, prices, checks and permissions. This is the flow.
 
-Rules are stored in `amenity_rules` table — NOT hardcoded. Each rule has a `rule_type` and `rule_value`.
+## Setting up (Admin / Committee) — Amenities → an amenity
+1. **Add an amenity**: name, kind, where, opening and closing times, most people at a time, whether residents book a
+   time, whether the committee approves, whether there is a charge. A name can't repeat; it must close after it opens.
+2. **Rules** (optional): longest booking, most people, bookings a week/month, how far ahead, deposit, charge per hour.
+3. **Rates** (if chargeable): flat price and/or per hour, deposit; the default rate is used for bookings.
+4. **Closed dates**: a day the amenity can't be booked (painting, a society event).
+5. **Close / reopen** an amenity that is out of use. A closed one disappears for residents.
 
-| Rule Type | Value Example | Effect |
-|-----------|--------------|--------|
-| `owners_only` | `true` | Only registered residents can book |
-| `max_duration_hours` | `4` | Max 4h per booking |
-| `max_bookings_per_week` | `2` | 2 bookings/week per user |
-| `max_bookings_per_month` | `4` | 4 bookings/month per user |
-| `min_advance_hours` | `24` | Must book 24h in advance |
-| `max_advance_days` | `30` | Can't book more than 30 days ahead |
-| `approval_required` | `true` | Committee must approve |
-| `charge_per_hour` | `500.00` | ₹500/hour charge |
-| `deposit_required` | `2000.00` | ₹2000 deposit |
-| `max_guests` | `50` | Max 50 guests |
+## Booking (any member)
+1. Open the amenity, pick a day (arrows or the calendar): the page shows the opening hours, whether it's closed that day
+   and the times already taken.
+2. **Book**: date, from/to, how many people, what for. The sheet shows the charge and deposit if there are any.
+3. Confirmed at once, or "waiting for approval" when the committee approves bookings. Rejected bookings show the reason.
+4. **My bookings** lists everything; a booking can be cancelled until it starts.
+
+## Deciding (Admin / Committee / Manager) — Requests tab
+Approve, or reject with a reason; both notify the resident. **All bookings** filters by status and lets the committee
+cancel any booking or mark one as used afterwards (noting any damage).
 
 ## Booking FSM
-
 ```
 PENDING ──► APPROVED ──► COMPLETED
         ──► REJECTED
-        ──► CANCELLED
-APPROVED ──► CANCELLED
+PENDING / APPROVED ──► CANCELLED
 ```
-
-## API Flow
-
-| Step | Actor | Endpoint |
-|------|-------|----------|
-| Setup amenity | Admin/Committee | `POST /amenities/` |
-| Configure rules | Admin/Committee | `POST /amenities/{id}/rules` |
-| Add blackout | Admin/Committee | `POST /amenities/{id}/blackouts` |
-| Create booking | Any member | `POST /amenities/bookings` |
-| Approve | Admin/Committee | `POST /amenities/bookings/{id}/approve` |
-| Reject | Admin/Committee | `POST /amenities/bookings/{id}/reject` |
-| Cancel | Any member | `POST /amenities/bookings/{id}/cancel` |
-| Complete + log | Admin/Committee | `POST /amenities/bookings/{id}/complete` |
-
-## Financial readiness
-`charge_amount`, `deposit_amount`, `deposit_paid`, `deposit_refunded` on bookings.
-`AmenityPricing` model supports hourly rates, flat rates, deposits.
-Payment gateway integration ready when Finance module is built.

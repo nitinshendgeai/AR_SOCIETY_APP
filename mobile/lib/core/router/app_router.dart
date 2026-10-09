@@ -67,6 +67,8 @@ import 'package:ar_society_app/features/accounts/presentation/screens/ledger_sta
 import 'package:ar_society_app/features/accounts/presentation/screens/members_ledger_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/expense_form_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/recurring_expenses_screen.dart';
+import 'package:ar_society_app/features/amenities/presentation/screens/amenities_screen.dart';
+import 'package:ar_society_app/features/amenities/presentation/screens/amenity_detail_screen.dart';
 import 'package:ar_society_app/features/assets/presentation/screens/asset_detail_screen.dart';
 import 'package:ar_society_app/features/assets/presentation/screens/assets_screen.dart';
 import 'package:ar_society_app/features/notices/presentation/screens/notice_detail_screen.dart';
@@ -157,6 +159,8 @@ class AppRoutes {
   static const bankReconciliation = '/billing/bank-reconciliation';
   static const vendorBills        = '/vendors/bills';
   static const vendorsWork        = '/vendors/work';
+  static const amenities          = '/amenities';
+  static const amenityDetail      = '/amenities/:id';
   static const assets             = '/assets';
   static const assetDetail        = '/assets/:id';
   static const workOrderDetail    = '/vendors/work-orders/:id';
@@ -555,6 +559,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           // Notice board (everyone) and one notice
           GoRoute(path: AppRoutes.notices, builder: (_, __) => const NoticesScreen()),
+          // Amenities: book a time (everyone); the committee sets them up on the amenity's own page
+          GoRoute(path: AppRoutes.amenities, builder: (_, __) => const AmenitiesScreen()),
+          GoRoute(
+            path: AppRoutes.amenityDetail,
+            builder: (_, state) => AmenityDetailScreen(key: ValueKey(state.pathParameters['id']), amenityId: state.pathParameters['id']!),
+          ),
           GoRoute(
             path: AppRoutes.noticeDetail,
             builder: (_, state) => NoticeDetailScreen(key: ValueKey(state.pathParameters['id']), noticeId: state.pathParameters['id']!),

@@ -139,6 +139,7 @@ FORM_DEFINITIONS = [
     ("notices",                   "Notices",                    "Notice board: notices for the society, acknowledgements and emergency alerts"),
     ("assets",                    "Assets",                     "Society-owned assets (lifts, pumps, ACs, generators): warranty, service schedule and history"),
     ("inventory",                 "Stores",                     "Consumable stock, stock in, issue to staff and return"),
+    ("amenities",                 "Amenities",                  "Clubhouse, gym, pool and hall: book a time, rules, prices, closed dates and approvals"),
 ]
 
 _ADMIN_OR_COMMITTEE_ROLES = (
@@ -187,6 +188,7 @@ FORM_ROLE_GRANTS = {
     "notices":                  _ALL_CANONICAL_ROLES,
     "assets":                   tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
     "inventory":                tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
+    "amenities":                _ALL_CANONICAL_ROLES,
 }
 
 

@@ -3,7 +3,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 
-revision = "f8a9b0c1d2e3"
+revision = "f9b0c1d2e3f4"
 down_revision = "e6f7a8b9c1d2"
 branch_labels = None
 depends_on = None
@@ -29,8 +29,6 @@ def upgrade():
         sa.Column("ledger_system_key", sa.String(50), nullable=True),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         sa.Column("notes", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
         sa.ForeignKeyConstraint(["society_id"], ["societies.id"], ondelete="CASCADE"),
         sa.UniqueConstraint("society_id", "code", name="uq_tax_config_society_code"),
     )
