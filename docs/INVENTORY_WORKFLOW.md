@@ -1,12 +1,13 @@
 # Inventory & Asset Management — Workflow
 
-## Stock Workflow
+## Stock Workflow (Operations → Stores)
 ```
-Stock In (stock_in) → inventory_stock.current_quantity increases
-Item Issued (issue_item) → stock decreases + issue record created
-Item Returned (return_item) → stock increases + return record, issue status updated
-Adjustment → direct quantity override with notes
+Stock in  → quantity up (cost and bill number recorded)
+Issue     → to a staff member; either expected back by a date, or "used up" (consumed)
+Take back → some or all of what is outstanding; damaged / lost is closed off and not restocked
+Count correction → the real count, with a reason
 ```
+Overdue returns show on the Stores tiles and under *Issued → Overdue*.
 
 ## Ledger
 Every stock change creates an immutable `InventoryTransaction` record with `quantity_before` and `quantity_after` — full audit trail.

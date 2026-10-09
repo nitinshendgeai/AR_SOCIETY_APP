@@ -33,8 +33,28 @@ class ItemCreate(OrmBase):
     category_id: Optional[UUID]    = None
     remarks: Optional[str]         = None
 
+    @field_validator("name")
+    @classmethod
+    def name_required(cls, v):
+        if not (v or "").strip(): raise ValueError("Give the item a name")
+        return v.strip()
+
+    @field_validator("minimum_stock")
+    @classmethod
+    def minimum_not_negative(cls, v):
+        if v < 0: raise ValueError("The minimum can't be negative")
+        return v
+
+    @field_validator("unit_cost")
+    @classmethod
+    def cost_not_negative(cls, v):
+        if v is not None and v < 0: raise ValueError("A cost can't be negative")
+        return v
+
 class ItemUpdate(OrmBase):
     name: Optional[str]             = None
+    category: Optional[ItemCategory] = None
+    is_active: Optional[bool]       = None       # false: retired, no longer listed or issued
     description: Optional[str]      = None
     storage_location: Optional[str] = None
     minimum_stock: Optional[float]  = None
@@ -42,17 +62,41 @@ class ItemUpdate(OrmBase):
     vendor_name: Optional[str]      = None
     vendor_contact: Optional[str]   = None
 
+    @field_validator("minimum_stock")
+    @classmethod
+    def minimum_not_negative(cls, v):
+        if v is not None and v < 0: raise ValueError("The minimum can't be negative")
+        return v
+
+    @field_validator("unit_cost")
+    @classmethod
+    def cost_not_negative(cls, v):
+        if v is not None and v < 0: raise ValueError("A cost can't be negative")
+        return v
+
 class ItemOut(TimestampSchema):
     society_id: UUID; item_code: str; name: str; category: ItemCategory
     unit_type: UnitType; description: Optional[str]; storage_location: Optional[str]
     minimum_stock: float; unit_cost: Optional[Decimal]
-    vendor_name: Optional[str]; current_stock: Optional[float] = None
+    vendor_name: Optional[str]; vendor_contact: Optional[str] = None
+    current_stock: Optional[float] = None
+
+    @computed_field
+    @property
+    def is_low_stock(self) -> bool:
+        return (self.current_stock or 0) <= (self.minimum_stock or 0)
 
 
 # ── Stock operations ──────────────────────────────────────────────────────────
 class StockInRequest(OrmBase):
     item_id:  UUID; quantity: float; unit_cost: Optional[Decimal] = None
     notes: Optional[str] = None; reference_id: Optional[str] = None
+
+    @field_validator("unit_cost")
+    @classmethod
+    def cost_not_negative(cls, v):
+        if v is not None and v < 0: raise ValueError("A cost can't be negative")
+        return v
 
     @field_validator("quantity")
     @classmethod
@@ -62,6 +106,12 @@ class StockInRequest(OrmBase):
 
 class StockAdjustRequest(OrmBase):
     item_id: UUID; new_quantity: float; notes: str
+
+    @field_validator("notes")
+    @classmethod
+    def reason_required(cls, v):
+        if not (v or "").strip(): raise ValueError("Say why the count changed")
+        return v.strip()
 
 class TransactionOut(TimestampSchema):
     society_id: UUID; item_id: UUID; transaction_type: TransactionType
@@ -85,6 +135,7 @@ class IssueCreate(OrmBase):
     quantity_issued: float
     purpose: Optional[str]          = None
     expected_return_date: Optional[date] = None
+    consumed: bool                  = False     # used up (cleaning supplies…): not expected back
     notes: Optional[str]            = None
 
     @field_validator("quantity_issued")
@@ -96,6 +147,12 @@ class IssueCreate(OrmBase):
 class ReturnCreate(OrmBase):
     issue_id: UUID; quantity: float
     condition: Optional[str] = None; notes: Optional[str] = None
+
+    @field_validator("quantity")
+    @classmethod
+    def qty_positive(cls, v):
+        if v <= 0: raise ValueError("Quantity must be positive")
+        return v
 
 class IssueOut(TimestampSchema):
     society_id: UUID; item_id: UUID; status: IssueStatus

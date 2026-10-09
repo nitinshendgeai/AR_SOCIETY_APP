@@ -23,6 +23,7 @@ from app.modules.inventory.repositories.inventory_repo import (
     AssetRepo, AssetMaintenanceRepo, AssetAMCRepo,
 )
 from app.core.tenant_scope import assert_society_access, resolve_create_society_id
+from app.utils.local_time import local_today, zone
 from app.models.user import User
 from app.models.audit_log import AuditAction
 from app.services.audit_service import AuditService
@@ -143,6 +144,7 @@ class InventoryService:
             cat = self.cat_repo.get(data.category_id)
             if cat is None or cat.society_id != society_id:
                 raise HTTPException(status_code=422, detail="Category not found in this society")
+        self._name_free(society_id, data.name)
         code = self.item_repo.next_item_code(society_id)
         item = InventoryItem(**{**data.model_dump(), "society_id": society_id}, item_code=code)
         self.item_repo.create(item)
@@ -153,10 +155,36 @@ class InventoryService:
         self.db.commit()
         return self._with_stock([item])[0]
 
+    def _name_free(self, society_id: UUID, name: str, exclude: Optional[UUID] = None) -> None:
+        q = self.db.query(InventoryItem.id).filter(
+            InventoryItem.society_id == society_id, InventoryItem.is_active == True,
+            InventoryItem.name.ilike(name.strip()))
+        if exclude:
+            q = q.filter(InventoryItem.id != exclude)
+        if q.first():
+            raise HTTPException(status_code=409, detail=f"There is already an item called “{name.strip()}”")
+
+    def _scope_today(self, society_id: UUID) -> date:
+        from app.models.society import Society
+        society = self.db.query(Society).filter(Society.id == society_id).first()
+        return local_today(zone(society.timezone if society else None))
+
     def update_item(self, item_id: UUID, data: ItemUpdate, user: User) -> InventoryItem:
         item = self._item_or_404(item_id, user)
         changes = {k: v for k, v in data.model_dump(exclude_unset=True).items()
-                   if not (k == "name" and not (v or "").strip())}
+                   if not (k in ("name", "category", "is_active") and v is None)
+                   and not (k == "name" and not (v or "").strip())}
+        if "name" in changes:
+            changes["name"] = changes["name"].strip()
+            self._name_free(item.society_id, changes["name"], exclude=item.id)
+        if changes.get("is_active") is False:
+            stock = self.stock_repo.get_by_item(item.id)
+            if stock and stock.current_quantity > 0:
+                raise HTTPException(status_code=409, detail="There is still stock of it. Count it down to zero before retiring it.")
+            if self.db.query(InventoryIssue.id).filter(
+                    InventoryIssue.item_id == item.id,
+                    InventoryIssue.status.in_([IssueStatus.ISSUED, IssueStatus.PARTIALLY_RETURNED])).first():
+                raise HTTPException(status_code=409, detail="Some of it is still out with someone. Get it back first.")
         self.item_repo.update(item, changes)
         return self._with_stock([item])[0]
 
@@ -213,6 +241,8 @@ class InventoryService:
         stock.current_quantity = data.new_quantity
         stock.last_updated_by  = user.id
         self._check_low_stock(item, stock, user)
+        self._audit(AuditAction.UPDATE, item, "InventoryItem", user, request,
+                    new_values={"action": "adjusted", "from": qty_before, "to": data.new_quantity, "why": data.notes})
         self.db.commit()
         self.db.refresh(stock)
         return stock
@@ -229,10 +259,27 @@ class InventoryService:
 
     # ── Issue / Return ────────────────────────────────────────────────────────
 
+    def _same_society_link(self, model_path: str, row_id: Optional[UUID], society_id: UUID, what: str):
+        if row_id is None: return
+        import importlib
+        mod, cls = model_path.rsplit(".", 1)
+        model = getattr(importlib.import_module(mod), cls)
+        row = self.db.query(model).filter(model.id == row_id).first()
+        if row is None or getattr(row, "society_id", None) != society_id:
+            raise HTTPException(status_code=422, detail=f"{what} not found in this society")
+
     def issue_item(self, data: IssueCreate, user: User, request=None) -> InventoryIssue:
         item  = self._item_or_404(data.item_id, user)
+        if not item.is_active:
+            raise HTTPException(status_code=409, detail=f"{item.name} has been retired and can't be issued")
+        if data.issued_to_user is None and data.issued_to_staff is None:
+            raise HTTPException(status_code=422, detail="Say who it is being given to")
         self._same_society_user(data.issued_to_user, item.society_id, "User")
         self._same_society_staff(data.issued_to_staff, item.society_id)
+        self._same_society_link("app.modules.complaint.models.complaint.Complaint", data.complaint_id, item.society_id, "Complaint")
+        if data.expected_return_date is not None and not data.consumed \
+                and data.expected_return_date < self._scope_today(item.society_id):
+            raise HTTPException(status_code=422, detail="The return date can't be in the past")
         stock = self.stock_repo.get_or_create(item.id, item.society_id)
 
         if stock.current_quantity < data.quantity_issued:
@@ -240,10 +287,16 @@ class InventoryService:
                 detail=f"Insufficient stock. Available: {stock.current_quantity} {item.unit_type.value}, Requested: {data.quantity_issued}")
 
         # Deduct stock
-        self._record_txn(item, stock, TransactionType.STOCK_OUT, data.quantity_issued, user,
+        self._record_txn(item, stock,
+                         TransactionType.CONSUMPTION if data.consumed else TransactionType.STOCK_OUT,
+                         data.quantity_issued, user,
                          notes=data.purpose, ref=str(data.issued_to_user or data.issued_to_staff or ""))
 
-        issue = InventoryIssue(**{**data.model_dump(), "society_id": item.society_id}, issued_by=user.id)
+        values = data.model_dump(exclude={"consumed", "society_id"})
+        if data.consumed:
+            values["expected_return_date"] = None
+        issue = InventoryIssue(**values, society_id=item.society_id, issued_by=user.id,
+                               status=IssueStatus.CONSUMED if data.consumed else IssueStatus.ISSUED)
         self.db.add(issue)
         self.db.flush()
 
@@ -258,6 +311,8 @@ class InventoryService:
         issue = self._scoped_or_404(self.issue_repo.get(data.issue_id), user, "Issue record")
         if issue.status == IssueStatus.RETURNED:
             raise HTTPException(status_code=409, detail="Item already fully returned")
+        if issue.status == IssueStatus.CONSUMED:
+            raise HTTPException(status_code=409, detail="That was used up, so there is nothing to return")
 
         remaining_to_return = issue.quantity_issued - issue.quantity_returned
         if data.quantity > remaining_to_return:
@@ -291,9 +346,77 @@ class InventoryService:
         self.db.refresh(issue)
         return issue
 
-    def get_issues(self, society_id: UUID, skip=0, limit=50, user: Optional[User] = None) -> List[InventoryIssue]:
+    def get_issues(self, society_id: UUID, skip=0, limit=50, user: Optional[User] = None,
+                   status: Optional[str] = None, item_id: Optional[UUID] = None) -> List[InventoryIssue]:
+        """Issues, newest first. ``status`` may be ``open`` (still out), ``overdue`` or any issue status."""
         if user is not None: assert_society_access(user, society_id)
-        return self.issue_repo.get_by_society(society_id, skip, limit)
+        q = self.db.query(InventoryIssue).filter(InventoryIssue.society_id == society_id,
+                                                 InventoryIssue.is_active == True)
+        if item_id:
+            q = q.filter(InventoryIssue.item_id == item_id)
+        out_now = [IssueStatus.ISSUED, IssueStatus.PARTIALLY_RETURNED]
+        if status == "open":
+            q = q.filter(InventoryIssue.status.in_(out_now))
+        elif status == "overdue":
+            q = q.filter(InventoryIssue.status.in_(out_now), InventoryIssue.expected_return_date != None,
+                         InventoryIssue.expected_return_date < self._scope_today(society_id))
+        elif status:
+            q = q.filter(InventoryIssue.status == status)
+        return q.order_by(InventoryIssue.created_at.desc()).offset(skip).limit(limit).all()
+
+    def issue_rows(self, issues: List[InventoryIssue]) -> List[dict]:
+        """Issues with the names a screen shows: the item, who has it, who gave it, and what is still out."""
+        from app.modules.staff.models.staff import Staff
+        from app.modules.inventory.schemas.inventory import IssueOut
+        staff_ids = [i.issued_to_staff for i in issues if i.issued_to_staff]
+        staff = {st.id: st for st in self.db.query(Staff).filter(Staff.id.in_(staff_ids)).all()} if staff_ids else {}
+        today = self._scope_today(issues[0].society_id) if issues else None
+        rows = []
+        for i in issues:
+            d = IssueOut.model_validate(i).model_dump(mode="json")
+            out = max(i.quantity_issued - i.quantity_returned, 0) if i.status != IssueStatus.CONSUMED else 0
+            st = staff.get(i.issued_to_staff)
+            d.update({
+                "item_name": i.item.name if i.item else None,
+                "item_code": i.item.item_code if i.item else None,
+                "unit": i.item.unit_type.value if i.item else None,
+                "issued_to_staff": str(i.issued_to_staff) if i.issued_to_staff else None,
+                "issued_to_name": (st.full_name if st else (i.issued_to.full_name if i.issued_to else None)),
+                "issued_by_name": i.issuer.full_name if i.issuer else None,
+                "outstanding": out,
+                "overdue": bool(out and i.expected_return_date and today and i.expected_return_date < today),
+                "notes": i.notes,
+            })
+            rows.append(d)
+        return rows
+
+    def transaction_rows(self, txns: List[InventoryTransaction]) -> List[dict]:
+        from app.modules.inventory.schemas.inventory import TransactionOut
+        rows = []
+        for t in txns:
+            d = TransactionOut.model_validate(t).model_dump(mode="json")
+            d["performed_by_name"] = t.performer.full_name if t.performer else None
+            rows.append(d)
+        return rows
+
+    def stores_summary(self, society_id: UUID, user: Optional[User] = None) -> dict:
+        """Numbers for the top of the Stores screen."""
+        if user is not None: assert_society_access(user, society_id)
+        items = self.db.query(InventoryItem).filter(InventoryItem.society_id == society_id,
+                                                    InventoryItem.is_active == True).all()
+        qty = dict(self.db.query(InventoryStock.item_id, InventoryStock.current_quantity)
+                   .filter(InventoryStock.society_id == society_id).all())
+        value = 0.0
+        low = out = 0
+        for i in items:
+            q = qty.get(i.id, 0) or 0
+            if q <= 0: out += 1
+            if q <= (i.minimum_stock or 0): low += 1
+            if i.unit_cost is not None: value += float(i.unit_cost) * q
+        open_issues = self.get_issues(society_id, 0, 1000, None, status="open")
+        overdue = [i for i in open_issues if i.expected_return_date and i.expected_return_date < self._scope_today(society_id)]
+        return {"items": len(items), "low_stock": low, "out_of_stock": out,
+                "stock_value": round(value, 2), "out_with_people": len(open_issues), "overdue_returns": len(overdue)}
 
     # ── Asset register ────────────────────────────────────────────────────────
 

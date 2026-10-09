@@ -68,6 +68,8 @@ import 'package:ar_society_app/features/accounts/presentation/screens/members_le
 import 'package:ar_society_app/features/accounts/presentation/screens/expense_form_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/recurring_expenses_screen.dart';
 import 'package:ar_society_app/features/amenities/presentation/screens/amenities_screen.dart';
+import 'package:ar_society_app/features/stores/presentation/screens/store_item_screen.dart';
+import 'package:ar_society_app/features/stores/presentation/screens/stores_screen.dart';
 import 'package:ar_society_app/features/amenities/presentation/screens/amenity_detail_screen.dart';
 import 'package:ar_society_app/features/assets/presentation/screens/asset_detail_screen.dart';
 import 'package:ar_society_app/features/assets/presentation/screens/assets_screen.dart';
@@ -159,6 +161,8 @@ class AppRoutes {
   static const bankReconciliation = '/billing/bank-reconciliation';
   static const vendorBills        = '/vendors/bills';
   static const vendorsWork        = '/vendors/work';
+  static const stores             = '/stores';
+  static const storeItem          = '/stores/:id';
   static const amenities          = '/amenities';
   static const amenityDetail      = '/amenities/:id';
   static const assets             = '/assets';
@@ -559,6 +563,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           // Notice board (everyone) and one notice
           GoRoute(path: AppRoutes.notices, builder: (_, __) => const NoticesScreen()),
+          // Stores: consumables, stock in, issue to staff, returns
+          GoRoute(path: AppRoutes.stores, builder: (_, __) => const StoresScreen()),
+          GoRoute(
+            path: AppRoutes.storeItem,
+            builder: (_, state) => StoreItemScreen(key: ValueKey(state.pathParameters['id']), itemId: state.pathParameters['id']!),
+          ),
           // Amenities: book a time (everyone); the committee sets them up on the amenity's own page
           GoRoute(path: AppRoutes.amenities, builder: (_, __) => const AmenitiesScreen()),
           GoRoute(
