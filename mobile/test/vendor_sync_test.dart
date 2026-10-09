@@ -63,15 +63,35 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Was typed as "Shield Security Services"'), findsOneWidget);
 
+    // "+" opens the Vendor Master form itself, with its GSTIN / PAN / bank fields, not a cut-down copy
     await tester.tap(find.byTooltip('Add a new vendor'));
     await tester.pumpAndSettle();
-    expect(find.text('Add a vendor'), findsOneWidget);
-    expect(find.text('Name of the vendor *'), findsOneWidget);
+    expect(find.text('Add Vendor'), findsWidgets);
+    expect(find.text('Company / name *'), findsOneWidget);
+    expect(find.text('Tax and bank'), findsOneWidget);
+    expect(find.text('GSTIN'), findsOneWidget);
+    expect(find.text('Bank account no.'), findsOneWidget);
     // an empty form does not go through
-    await tester.tap(find.text('Add vendor'));
+    await tester.dragUntilVisible(find.text('Add Vendor').last, find.byType(SingleChildScrollView).last, const Offset(0, -200));
+    await tester.tap(find.text('Add Vendor').last);
     await tester.pumpAndSettle();
-    expect(find.text('Required'), findsWidgets);
-    expect(find.text('Add a vendor'), findsOneWidget);
+    expect(find.text('Enter the name'), findsOneWidget);
+  });
+
+  testWidgets('a bill needs a vendor, so there is no "No vendor" entry', (tester) async {
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        vendorRecordsProvider('s1').overrideWith((ref) async => [VendorRecord.fromJson(_vendor('1', 'Shield Security'))]),
+      ],
+      child: MaterialApp(
+        home: Scaffold(body: VendorPicker(societyId: 's1', value: null, required: true, label: 'Vendor *', onChanged: (_) {})),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<String?>));
+    await tester.pumpAndSettle();
+    expect(find.text('No vendor'), findsNothing);
+    expect(find.textContaining('Shield Security'), findsWidgets);
   });
 
   testWidgets('a vendor already chosen stays listed even if it was blacklisted since', (tester) async {

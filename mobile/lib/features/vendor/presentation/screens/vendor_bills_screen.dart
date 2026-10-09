@@ -8,6 +8,7 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/features/vendor/domain/entities/vendor_entities.dart';
 import 'package:ar_society_app/features/vendor/presentation/providers/vendor_providers.dart';
 import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_widgets.dart' show DateField;
+import 'package:ar_society_app/features/vendor/presentation/widgets/vendor_picker.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
@@ -308,14 +309,6 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
     return ((amount * 100).round() + (gst * 100).round()) / 100;
   }
 
-  Future<void> _addVendor() async {
-    final created = await showDialog<VendorEntity>(
-      context: context,
-      builder: (_) => _AddVendorDialog(societyId: widget.societyId),
-    );
-    if (created != null && mounted) setState(() => _vendorId = created.id);
-  }
-
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_vendorId == null) {
@@ -353,7 +346,6 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final vendorsAsync = ref.watch(vendorsProvider(widget.societyId));
     // Fills the side panel on desktop; a draggable part-height sheet on phones.
     final panel = isDesktopLayout(context);
     return DraggableScrollableSheet(
@@ -381,30 +373,12 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
             children: [
               const Text('Add Vendor Bill', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               const SizedBox(height: 16),
-              vendorsAsync.when(
-                loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-                data: (vendors) => Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: _vendorId,
-                        decoration: const InputDecoration(labelText: 'Vendor', border: OutlineInputBorder()),
-                        items: vendors
-                            .map((v) => DropdownMenuItem(value: v.id, child: Text(v.companyName)))
-                            .toList(),
-                        onChanged: (v) => setState(() => _vendorId = v),
-                        validator: (v) => v == null ? 'Required' : null,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      onPressed: _addVendor,
-                      icon: const Icon(Icons.add_circle_outline_rounded),
-                      tooltip: 'Add new vendor',
-                    ),
-                  ],
-                ),
+              VendorPicker(
+                societyId: widget.societyId,
+                value: _vendorId,
+                label: 'Vendor *',
+                required: true,
+                onChanged: (v) => setState(() => _vendorId = v?.id),
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -499,89 +473,6 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _AddVendorDialog extends ConsumerStatefulWidget {
-  final String societyId;
-  const _AddVendorDialog({required this.societyId});
-
-  @override
-  ConsumerState<_AddVendorDialog> createState() => _AddVendorDialogState();
-}
-
-class _AddVendorDialogState extends ConsumerState<_AddVendorDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameCtrl = TextEditingController();
-  final _mobileCtrl = TextEditingController();
-  String _category = kVendorCategories.first.$1;
-  bool _saving = false;
-
-  Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _saving = true);
-    try {
-      final vendor = await ref.read(vendorsProvider(widget.societyId).notifier).create(
-            companyName: _nameCtrl.text.trim(),
-            mobile: _mobileCtrl.text.trim(),
-            category: _category,
-          );
-      if (mounted) Navigator.pop(context, vendor);
-    } catch (e) {
-      if (mounted) showErrorToast(context, e);
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add Vendor'),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: _nameCtrl,
-              inputFormatters: [LengthLimitingTextInputFormatter(255)],
-              decoration: const InputDecoration(labelText: 'Company Name'),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-            ),
-            TextFormField(
-              controller: _mobileCtrl,
-              keyboardType: TextInputType.phone,
-              inputFormatters: [LengthLimitingTextInputFormatter(20)],
-              decoration: const InputDecoration(labelText: 'Mobile'),
-              validator: (v) {
-                final t = (v ?? '').trim();
-                if (t.isEmpty) return 'Required';
-                final digits = t.replaceAll(RegExp(r'[\s\-()]'), '');
-                return RegExp(r'^\+?\d{7,15}$').hasMatch(digits) ? null : 'Enter a valid phone number';
-              },
-            ),
-            DropdownButtonFormField<String>(
-              initialValue: _category,
-              decoration: const InputDecoration(labelText: 'Category'),
-              items: kVendorCategories
-                  .map((c) => DropdownMenuItem(value: c.$1, child: Text(c.$2)))
-                  .toList(),
-              onChanged: (v) => setState(() => _category = v!),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        ElevatedButton(
-          onPressed: _saving ? null : _save,
-          child: _saving
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Add'),
-        ),
-      ],
     );
   }
 }
