@@ -12,6 +12,8 @@ void main() {
     final trial = PlatformSociety.fromJson(society({}));
     expect(trial.standing, contains('Trial ends'));
     expect(trial.standing, contains('12 days'));
+    expect(PlatformSociety.fromJson(society({'trial_end_date': null})).standing, 'On trial, no end date set');
+    expect(PlatformSociety.fromJson(society({'trial_days_remaining': 1})).standing, contains('(1 day)'));
     final ended = PlatformSociety.fromJson(society({'trial_ended': true, 'trial_days_remaining': 0}));
     expect(ended.standing, startsWith('Trial ended'));
     final paid = PlatformSociety.fromJson(society({'account_status': 'ACTIVE', 'subscription_plan': 'growth', 'subscription_expiry_date': '2027-03-31'}));
