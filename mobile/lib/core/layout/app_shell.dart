@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
+import 'package:ar_society_app/core/l10n/language_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/layout/phone_bottom_bar.dart';
@@ -52,7 +54,7 @@ class AppShell extends ConsumerWidget {
         const VerticalDivider(width: 1),
         Expanded(
           child: Column(children: [
-            _TopBar(user: user, crumbs: _breadcrumbs(active)),
+            _TopBar(user: user, crumbs: [for (final c in _breadcrumbs(active)) context.tr(c)]),
             const EmergencyBanner(),
             Expanded(
               child: Align(
@@ -196,11 +198,11 @@ class _PhoneFrameState extends ConsumerState<_PhoneFrame> {
               alignment: Alignment.centerLeft,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.border))),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.arrow_back_rounded, size: 18, color: AppTheme.primary),
-                SizedBox(width: 6),
-                Text('Dashboard',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primary)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.arrow_back_rounded, size: 18, color: AppTheme.primary),
+                const SizedBox(width: 6),
+                Text(context.tr('Dashboard'),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primary)),
               ]),
             ),
           ),
@@ -247,7 +249,7 @@ class _Sidebar extends ConsumerWidget {
             children: [
               _NavTile(
                 icon: Icons.space_dashboard_rounded,
-                label: 'Dashboard',
+                label: context.tr('Dashboard'),
                 selected: onHome,
                 collapsed: collapsed,
                 onTap: () => context.go(homeRoute),
@@ -261,7 +263,7 @@ class _Sidebar extends ConsumerWidget {
                 else
                   Padding(
                     padding: const EdgeInsets.fromLTRB(24, 18, 16, 6),
-                    child: Text(c.label.toUpperCase(),
+                    child: Text(context.tr(c.label).toUpperCase(),
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -272,7 +274,7 @@ class _Sidebar extends ConsumerWidget {
                 for (final item in c.items)
                   _NavTile(
                     icon: item.icon,
-                    label: item.label,
+                    label: context.tr(item.label),
                     selected: item.route == activeRoute,
                     collapsed: collapsed,
                     badge: item.formCode == 'visitors' ? waitingVisitors : 0,
@@ -285,7 +287,7 @@ class _Sidebar extends ConsumerWidget {
         const Divider(height: 1),
         _NavTile(
           icon: collapsed ? Icons.keyboard_double_arrow_right_rounded : Icons.keyboard_double_arrow_left_rounded,
-          label: 'Collapse',
+          label: context.tr('Collapse'),
           selected: false,
           collapsed: collapsed,
           onTap: () => ref.read(sidebarCollapsedProvider.notifier).state = !collapsed,
@@ -470,11 +472,12 @@ class _UserMenu extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return PopupMenuButton<String>(
-      tooltip: 'Account',
+      tooltip: context.tr('Account'),
       offset: const Offset(0, 48),
       onSelected: (v) {
         if (v == 'logout') _signOut(context, ref);
         if (v == 'devices') context.go(AppRoutes.activeDevices);
+        if (v == 'language') showLanguagePicker(context, ref);
       },
       itemBuilder: (_) => [
         PopupMenuItem<String>(
@@ -486,20 +489,28 @@ class _UserMenu extends ConsumerWidget {
           ]),
         ),
         const PopupMenuDivider(),
-        const PopupMenuItem<String>(
-          value: 'devices',
+        PopupMenuItem<String>(
+          value: 'language',
           child: Row(children: [
-            Icon(Icons.devices_rounded, size: 18, color: AppTheme.textSecondary),
-            SizedBox(width: 10),
-            Text('Signed-in devices'),
+            const Icon(Icons.translate_rounded, size: 18, color: AppTheme.textSecondary),
+            const SizedBox(width: 10),
+            Text(context.tr('Language')),
           ]),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
+          value: 'devices',
+          child: Row(children: [
+            const Icon(Icons.devices_rounded, size: 18, color: AppTheme.textSecondary),
+            const SizedBox(width: 10),
+            Text(context.tr('Signed-in devices')),
+          ]),
+        ),
+        PopupMenuItem<String>(
           value: 'logout',
           child: Row(children: [
-            Icon(Icons.logout_rounded, size: 18, color: AppTheme.error),
-            SizedBox(width: 10),
-            Text('Sign out', style: TextStyle(color: AppTheme.error)),
+            const Icon(Icons.logout_rounded, size: 18, color: AppTheme.error),
+            const SizedBox(width: 10),
+            Text(context.tr('Sign out'), style: const TextStyle(color: AppTheme.error)),
           ]),
         ),
       ],

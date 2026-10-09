@@ -29,3 +29,7 @@ httpx
 
 # Utils
 python-dotenv
+
+# Devanagari (Hindi / Marathi) PDFs need text shaping
+fpdf2
+uharfbuzz

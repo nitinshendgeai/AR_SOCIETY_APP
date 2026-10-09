@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -32,13 +33,13 @@ class ParcelsScreen extends ConsumerWidget {
     final async = ref.watch(parcelsProvider(sid));
     return Scaffold(
       backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Parcels')),
+      appBar: AppBar(title: Text(context.tr('Parcels'))),
       floatingActionButton: gate
           ? FloatingActionButton.extended(
               onPressed: () => showAppSheet(
                   context: context, builder: (_) => const _LogSheet()),
               icon: const Icon(Icons.inventory_2_rounded),
-              label: const Text('Log parcel'))
+              label: Text(context.tr('Log parcel')))
           : null,
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -50,7 +51,7 @@ class ParcelsScreen extends ConsumerWidget {
           if (items.isEmpty) {
             return AppEmptyState(
                 icon: Icons.inventory_2_outlined,
-                title: 'No parcels',
+                title: context.tr('No parcels'),
                 subtitle: gate
                     ? 'Log a parcel when a courier leaves one at the gate.'
                     : 'Parcels left for your flat at the gate will show here.');
@@ -107,7 +108,7 @@ class _ParcelCard extends ConsumerWidget {
                     child: const Text('Cancel')),
                 FilledButton(
                     onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('Collected')),
+                    child: Text(context.tr('Collected'))),
               ],
             ));
     if (ok != true) return;
@@ -136,7 +137,7 @@ class _ParcelCard extends ConsumerWidget {
                     child: const Text('Cancel')),
                 FilledButton(
                     onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('Return')),
+                    child: Text(context.tr('Return'))),
               ],
             ));
     if (ok != true) return;
@@ -179,10 +180,11 @@ class _ParcelCard extends ConsumerWidget {
                           color: AppTheme.textPrimary))),
               const SizedBox(width: 8),
               switch (p.status) {
-                'collected' => const StatusPill('Collected', AppTheme.success),
+                'collected' =>
+                  StatusPill(context.tr('Collected'), AppTheme.success),
                 'returned' =>
-                  const StatusPill('Returned', AppTheme.textSecondary),
-                _ => const StatusPill('At the gate', AppTheme.warning),
+                  StatusPill(context.tr('Returned'), AppTheme.textSecondary),
+                _ => StatusPill(context.tr('At the gate'), AppTheme.warning),
               },
             ]),
             const SizedBox(height: 6),
@@ -221,13 +223,14 @@ class _ParcelCard extends ConsumerWidget {
                 Expanded(
                     child: ElevatedButton(
                         onPressed: () => _collect(context, ref),
-                        child: Text(gate ? 'Hand over' : 'I collected it'))),
+                        child: Text(context
+                            .tr(gate ? 'Hand over' : 'I collected it')))),
                 if (gate) ...[
                   const SizedBox(width: 8),
                   Expanded(
                       child: OutlinedButton(
                           onPressed: () => _return(context, ref),
-                          child: const Text('Return'))),
+                          child: Text(context.tr('Return')))),
                 ],
               ]),
             ],
@@ -327,7 +330,9 @@ class _LogSheetState extends ConsumerState<_LogSheet> {
                   labelText: 'What it looks like (optional)')),
           const SizedBox(height: 16),
           AppPrimaryButton(
-              label: 'Log parcel', isLoading: _saving, onPressed: _save),
+              label: context.tr('Log parcel'),
+              isLoading: _saving,
+              onPressed: _save),
         ]),
       ),
     );

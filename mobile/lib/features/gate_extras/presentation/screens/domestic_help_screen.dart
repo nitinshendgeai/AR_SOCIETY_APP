@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -49,7 +50,7 @@ class _DomesticHelpScreenState extends ConsumerState<DomesticHelpScreen> {
     final async = ref.watch(domesticHelpProvider(sid));
     return Scaffold(
       backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Domestic help')),
+      appBar: AppBar(title: Text(context.tr('Domestic help'))),
       floatingActionButton: gate
           ? null
           : FloatingActionButton.extended(
@@ -57,7 +58,7 @@ class _DomesticHelpScreenState extends ConsumerState<DomesticHelpScreen> {
                   context: context,
                   builder: (_) => _RegisterSheet(office: office)),
               icon: const Icon(Icons.person_add_alt_1_rounded),
-              label: const Text('Add help')),
+              label: Text(context.tr('Add help'))),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
@@ -178,7 +179,7 @@ class _HelpCard extends ConsumerWidget {
                                   fontWeight: FontWeight.w700,
                                   color: AppTheme.textPrimary))),
                       const SizedBox(width: 8),
-                      StatusPill(label, color),
+                      StatusPill(context.tr(label), color),
                     ]),
                     const SizedBox(height: 6),
                     Text(
@@ -207,7 +208,8 @@ class _HelpCard extends ConsumerWidget {
                         width: double.infinity,
                         child: ElevatedButton(
                             onPressed: () => _scan(context, ref),
-                            child: Text(h.inside ? 'Check out' : 'Check in')),
+                            child: Text(context
+                                .tr(h.inside ? 'Check out' : 'Check in'))),
                       ),
                     ],
                   ]),
@@ -294,7 +296,9 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
     return BillingSheetFrame(
       title: h.name,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Align(alignment: Alignment.centerLeft, child: StatusPill(label, color)),
+        Align(
+            alignment: Alignment.centerLeft,
+            child: StatusPill(context.tr(label), color)),
         const SizedBox(height: 12),
         _line('Work', helpKindLabel(h.kind)),
         _line('Mobile', h.mobile),
@@ -346,13 +350,14 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
         ),
         const SizedBox(height: 12),
         if (h.passNo != null && h.status == 'active')
-          AppPrimaryButton(label: 'Download pass', onPressed: _download),
+          AppPrimaryButton(
+              label: context.tr('Download pass'), onPressed: _download),
         if (widget.office) ...[
           if (h.status == 'pending')
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: AppPrimaryButton(
-                  label: 'Issue pass',
+                  label: context.tr('Issue pass'),
                   isLoading: _busy,
                   onPressed: () => _do(
                       (api) => api.approve(h.id, policeVerified: false),
@@ -377,7 +382,7 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
                           'Pass suspended'),
                   style:
                       OutlinedButton.styleFrom(foregroundColor: AppTheme.error),
-                  child: const Text('Suspend pass')),
+                  child: Text(context.tr('Suspend pass'))),
             ),
           if (h.status == 'suspended' || h.status == 'ended')
             Padding(

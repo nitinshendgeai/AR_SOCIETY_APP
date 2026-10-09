@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
@@ -94,12 +95,12 @@ class DocumentsScreen extends ConsumerWidget {
     final async = ref.watch(documentsProvider(sid));
     return Scaffold(
       backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Documents')),
+      appBar: AppBar(title: Text(context.tr('Documents'))),
       floatingActionButton: office
           ? FloatingActionButton.extended(
               onPressed: () => _add(context),
               icon: const Icon(Icons.upload_file_rounded),
-              label: const Text('Add document'))
+              label: Text(context.tr('Add document')))
           : null,
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -111,7 +112,7 @@ class DocumentsScreen extends ConsumerWidget {
           if (docs.isEmpty) {
             return AppEmptyState(
                 icon: Icons.folder_open_rounded,
-                title: 'No documents yet',
+                title: context.tr('No documents yet'),
                 subtitle: office
                     ? 'Add the bye-laws, minutes and audit reports.'
                     : 'Documents from the committee will appear here.');

@@ -76,8 +76,10 @@ class CertificatesApi {
 
   Future<void> cancel(String id) => _dio.post('/certificates/$id/cancel');
 
-  Future<Uint8List> pdf(String id) async {
+  /// [lang] is en, hi (Hindi) or mr (Marathi).
+  Future<Uint8List> pdf(String id, {String lang = 'en'}) async {
     final r = await _dio.get<List<int>>('/certificates/$id/pdf',
+        queryParameters: {'lang': lang},
         options: Options(responseType: ResponseType.bytes));
     return Uint8List.fromList(r.data!);
   }

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
+import 'package:ar_society_app/core/l10n/language_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/navigation/app_menu.dart';
@@ -59,7 +61,7 @@ class PhoneBottomBar extends ConsumerWidget {
       selectedIndex: active ?? tabs.length,
       onDestinationSelected: (i) {
         if (i == tabs.length) {
-          _showMore(context, menu);
+          _showMore(context, ref, menu);
         } else {
           context.go(tabs[i].route);
         }
@@ -69,15 +71,15 @@ class PhoneBottomBar extends ConsumerWidget {
           NavigationDestination(
             icon: icon(tabs[i], selected: false),
             selectedIcon: icon(tabs[i], selected: true),
-            label: tabs[i].label,
+            label: context.tr(tabs[i].label),
           ),
-        const NavigationDestination(icon: Icon(Icons.menu_rounded), label: 'More'),
+        NavigationDestination(icon: const Icon(Icons.menu_rounded), label: context.tr('More')),
       ],
     );
   }
 }
 
-void _showMore(BuildContext context, List<AppMenuCategory> menu) {
+void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu) {
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -92,17 +94,31 @@ void _showMore(BuildContext context, List<AppMenuCategory> menu) {
         controller: controller,
         padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
         children: [
+          // Phones have no account menu, so the language is chosen here.
+          Consumer(
+            builder: (ctx, sheetRef, _) => ListTile(
+              leading: const Icon(Icons.translate_rounded, color: AppTheme.textSecondary),
+              title: Text(ctx.tr('Language')),
+              trailing: Text(kLanguageNames[sheetRef.watch(localeProvider).languageCode] ?? 'English',
+                  style: const TextStyle(color: AppTheme.textSecondary)),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                showLanguagePicker(context, ref);
+              },
+            ),
+          ),
+          const Divider(height: 8),
           for (final c in menu) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-              child: Text(c.label.toUpperCase(),
+              child: Text(ctx.tr(c.label).toUpperCase(),
                   style: const TextStyle(
                       fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.8, color: AppTheme.textTertiary)),
             ),
             for (final item in c.items)
               ListTile(
                 leading: Icon(item.icon, color: AppTheme.textSecondary),
-                title: Text(item.label),
+                title: Text(ctx.tr(item.label)),
                 onTap: item.route == null
                     ? null
                     : () {

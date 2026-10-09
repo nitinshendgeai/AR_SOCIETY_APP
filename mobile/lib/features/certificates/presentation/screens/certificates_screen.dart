@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
@@ -38,12 +39,12 @@ class CertificatesScreen extends ConsumerWidget {
     final async = ref.watch(certificatesProvider(sid));
     return Scaffold(
       backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Certificates & NOC')),
+      appBar: AppBar(title: Text(context.tr('Certificates & NOC'))),
       floatingActionButton: FloatingActionButton.extended(
           onPressed: () => showAppSheet(
               context: context, builder: (_) => const _RequestSheet()),
           icon: const Icon(Icons.note_add_rounded),
-          label: const Text('Request certificate')),
+          label: Text(context.tr('Request certificate'))),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
@@ -54,7 +55,7 @@ class CertificatesScreen extends ConsumerWidget {
           if (items.isEmpty) {
             return AppEmptyState(
                 icon: Icons.verified_outlined,
-                title: 'No requests yet',
+                title: context.tr('No requests yet'),
                 subtitle: office
                     ? 'Requests from members will appear here for approval.'
                     : 'Ask for a NOC, a no dues certificate or an address certificate.');
@@ -87,13 +88,14 @@ class CertificatesScreen extends ConsumerWidget {
                                 children: [
                                   Row(children: [
                                     Expanded(
-                                        child: Text(r.title,
+                                        child: Text(context.tr(r.title),
                                             style: const TextStyle(
                                                 fontSize: 15,
                                                 fontWeight: FontWeight.w700,
                                                 color: AppTheme.textPrimary))),
                                     const SizedBox(width: 8),
-                                    StatusPill(_statusLabel(r.status),
+                                    StatusPill(
+                                        context.tr(_statusLabel(r.status)),
                                         _statusColor(r.status)),
                                   ]),
                                   const SizedBox(height: 6),
@@ -188,7 +190,7 @@ class _RequestSheetState extends ConsumerState<_RequestSheet> {
     final needsParty =
         const {'noc_sale', 'noc_rent', 'noc_loan'}.contains(_kind);
     return BillingSheetFrame(
-      title: 'Request a certificate',
+      title: context.tr('Request a certificate'),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         DropdownButtonFormField<String>(
           initialValue: _kind,
@@ -228,7 +230,9 @@ class _RequestSheetState extends ConsumerState<_RequestSheet> {
                 const InputDecoration(labelText: 'Reason / note (optional)')),
         const SizedBox(height: 16),
         AppPrimaryButton(
-            label: 'Send request', isLoading: _saving, onPressed: _save),
+            label: context.tr('Send request'),
+            isLoading: _saving,
+            onPressed: _save),
       ]),
     );
   }
@@ -341,12 +345,13 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
         'Request turned down');
   }
 
-  Future<void> _download() async {
+  Future<void> _download([String lang = 'en']) async {
     final r = widget.request;
     try {
-      final bytes = await ref.read(certificatesApiProvider).pdf(r.id);
+      final bytes =
+          await ref.read(certificatesApiProvider).pdf(r.id, lang: lang);
       final name =
-          '${(r.certificateNo ?? 'certificate').replaceAll('/', '-')}.pdf';
+          '${(r.certificateNo ?? 'certificate').replaceAll('/', '-')}${lang == 'en' ? '' : '-$lang'}.pdf';
       final saved =
           await saveFileBytes(bytes, name, mimeType: 'application/pdf');
       if (mounted && saved) AppToast.success(context, 'Saved $name');
@@ -376,11 +381,12 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
   Widget build(BuildContext context) {
     final r = widget.request;
     return BillingSheetFrame(
-      title: r.title,
+      title: context.tr(r.title),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Align(
             alignment: Alignment.centerLeft,
-            child: StatusPill(_statusLabel(r.status), _statusColor(r.status))),
+            child: StatusPill(
+                context.tr(_statusLabel(r.status)), _statusColor(r.status))),
         const SizedBox(height: 12),
         _line('Member', r.applicantName),
         _line('Flat', r.flat),
@@ -396,8 +402,25 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
           _line('Dues then', 'Rs. ${r.duesAtDecision!.toStringAsFixed(2)}'),
         _line(r.status == 'rejected' ? 'Reason given' : 'Note', r.decisionNote),
         const SizedBox(height: 8),
-        if (r.approved)
-          AppPrimaryButton(label: 'Download PDF', onPressed: _download),
+        if (r.approved) ...[
+          AppPrimaryButton(
+              label: context.tr('Download PDF'), onPressed: () => _download()),
+          const SizedBox(height: 4),
+          // The same certificate in Hindi or Marathi, for members who read those more easily.
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text('${context.tr('PDF in')}: ',
+                  style: const TextStyle(
+                      fontSize: 13, color: AppTheme.textSecondary)),
+              for (final l in const ['hi', 'mr'])
+                TextButton(
+                    onPressed: () => _download(l),
+                    child: Text(kLanguageNames[l]!)),
+            ],
+          ),
+        ],
         if (r.pending && widget.office) ...[
           TextFormField(
               controller: _note,
@@ -407,12 +430,14 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
                   const InputDecoration(labelText: 'Note (needed to decline)')),
           const SizedBox(height: 12),
           AppPrimaryButton(
-              label: 'Approve', isLoading: _busy, onPressed: _approve),
+              label: context.tr('Approve'),
+              isLoading: _busy,
+              onPressed: _approve),
           const SizedBox(height: 8),
           OutlinedButton(
               onPressed: _busy ? null : _decline,
               style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error),
-              child: const Text('Decline')),
+              child: Text(context.tr('Decline'))),
         ] else if (r.pending)
           OutlinedButton(
               onPressed: _busy
@@ -420,7 +445,7 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
                   : () => _run(
                       () => ref.read(certificatesApiProvider).cancel(r.id),
                       'Request withdrawn'),
-              child: const Text('Withdraw request')),
+              child: Text(context.tr('Withdraw request'))),
       ]),
     );
   }

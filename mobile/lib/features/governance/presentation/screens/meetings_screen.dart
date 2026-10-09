@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
@@ -32,13 +33,13 @@ class MeetingsScreen extends ConsumerWidget {
     final async = ref.watch(meetingsProvider(sid));
     return Scaffold(
       backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Meetings')),
+      appBar: AppBar(title: Text(context.tr('Meetings'))),
       floatingActionButton: office
           ? FloatingActionButton.extended(
               onPressed: () => showAppSheet(
                   context: context, builder: (_) => const _ScheduleSheet()),
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Schedule meeting'))
+              label: Text(context.tr('Schedule meeting')))
           : null,
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -50,7 +51,7 @@ class MeetingsScreen extends ConsumerWidget {
           if (all.isEmpty) {
             return AppEmptyState(
                 icon: Icons.groups_rounded,
-                title: 'No meetings yet',
+                title: context.tr('No meetings yet'),
                 subtitle: office
                     ? 'Schedule the next one and everyone is told.'
                     : 'Meetings will appear here.');

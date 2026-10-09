@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
@@ -24,13 +25,13 @@ class PollsScreen extends ConsumerWidget {
     final async = ref.watch(pollsProvider(sid));
     return Scaffold(
       backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Polls')),
+      appBar: AppBar(title: Text(context.tr('Polls'))),
       floatingActionButton: office
           ? FloatingActionButton.extended(
               onPressed: () => showAppSheet(
                   context: context, builder: (_) => const _NewPollSheet()),
               icon: const Icon(Icons.add_rounded),
-              label: const Text('New poll'))
+              label: Text(context.tr('New poll')))
           : null,
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -135,8 +136,8 @@ class _PollCardState extends ConsumerState<_PollCard> {
                           color: AppTheme.textPrimary))),
               const SizedBox(width: 8),
               p.open
-                  ? const StatusPill('Open', AppTheme.success)
-                  : const StatusPill('Closed', AppTheme.textSecondary),
+                  ? StatusPill(context.tr('Open'), AppTheme.success)
+                  : StatusPill(context.tr('Closed'), AppTheme.textSecondary),
             ]),
             if ((p.description ?? '').isNotEmpty) ...[
               const SizedBox(height: 4),
@@ -181,7 +182,7 @@ class _PollCardState extends ConsumerState<_PollCard> {
             if (p.canVote) ...[
               const SizedBox(height: 10),
               AppPrimaryButton(
-                  label: 'Vote',
+                  label: context.tr('Vote'),
                   isLoading: _busy,
                   onPressed: _choice == null ? null : _vote),
             ],
@@ -189,7 +190,7 @@ class _PollCardState extends ConsumerState<_PollCard> {
               Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                      onPressed: _close, child: const Text('Close now'))),
+                      onPressed: _close, child: Text(context.tr('Close now')))),
           ]),
         ),
       ),
@@ -304,7 +305,7 @@ class _NewPollSheetState extends ConsumerState<_NewPollSheet> {
   @override
   Widget build(BuildContext context) {
     return BillingSheetFrame(
-      title: 'New poll',
+      title: context.tr('New poll'),
       child: Form(
         key: _form,
         child:

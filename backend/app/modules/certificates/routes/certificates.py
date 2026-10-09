@@ -13,6 +13,7 @@ from app.models.society import Society
 from app.models.user import User
 from app.modules.certificates.models.certificates import CERTIFICATE_KINDS
 from app.modules.certificates.services.certificate_pdf import generate_certificate_pdf
+from app.modules.certificates.services.certificate_pdf_deva import generate_deva_certificate_pdf, supported
 from app.modules.certificates.services.certificate_service import CertificateService
 from fastapi import HTTPException
 
@@ -71,12 +72,18 @@ def cancel(request_id: UUID, db: Session = Depends(get_db), user: User = Depends
 
 
 @router.get("/{request_id}/pdf", dependencies=[Depends(require_any_member)])
-def certificate_pdf(request_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def certificate_pdf(request_id: UUID, lang: str = "en", db: Session = Depends(get_db),
+                    user: User = Depends(get_current_user)):
+    """The certificate as a PDF: lang=en (default), hi (Hindi) or mr (Marathi)."""
+    if lang != "en" and not supported(lang):
+        raise HTTPException(422, "Language must be en, hi or mr")
     req = CertificateService(db).get(request_id, user)
     if req.status != "approved":
         raise HTTPException(409, "The certificate can be downloaded only once the request is approved")
     society = db.query(Society).filter(Society.id == req.society_id).first()
     flat = db.query(Flat).filter(Flat.id == req.flat_id).first()
     name = (req.certificate_no or "certificate").replace("/", "-")
-    return Response(content=generate_certificate_pdf(req, society, flat), media_type="application/pdf",
-                    headers={"Content-Disposition": f"inline; filename={name}.pdf"})
+    pdf = (generate_deva_certificate_pdf(req, society, flat, lang) if supported(lang)
+           else generate_certificate_pdf(req, society, flat))
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f"inline; filename={name}{'' if lang == 'en' else '-' + lang}.pdf"})

@@ -4,6 +4,27 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-09 (o)
+
+### feat: Hindi and Marathi groundwork — app language and Devanagari certificates
+
+(`docs/LANGUAGES.md`)
+- **Language choice** — English, हिन्दी, मराठी. On a phone: More → Language (top of the sheet); on desktop: the account
+  menu. Remembered on the device. Dates, date pickers and system dialogs follow the language too.
+- **What is translated now** — the whole navigation (menu groups and items, bottom bar, breadcrumbs, account menu) and the
+  screens added in this release (meetings, polls, documents, certificates, parcels, domestic help, automatic tasks:
+  titles, buttons, statuses). Everything else still shows English until its texts are added to
+  `mobile/lib/core/l10n/translations.dart`; a text with no entry falls back to English.
+- **Devanagari font** — Noto Sans Devanagari (SIL OFL) is bundled in the app, so Hindi and Marathi never depend on a
+  network font.
+- **Certificates in Hindi / Marathi** — the approved certificate downloads as a PDF in English, हिन्दी or मराठी
+  (`GET /certificates/{id}/pdf?lang=hi|mr`). reportlab cannot shape Devanagari, so these use fpdf2 + HarfBuzz
+  (`fpdf2`, `uharfbuzz` added to requirements, with hashes).
+- `intl` raised to ^0.20.2 (needed by `flutter_localizations`).
+
+The Hindi and Marathi wording was written without a native reviewer: please have it checked before it goes on real
+documents.
+
 ## 2026-10-09 (n)
 
 ### feat: parcels at the gate and a domestic help register

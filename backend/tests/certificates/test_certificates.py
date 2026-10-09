@@ -137,3 +137,26 @@ def test_a_login_with_no_flat_is_told_why(client, db):
     r = _ask(client, lone, society)
     assert r.status_code == 422 and "not linked to a flat" in r.json()["detail"]
     assert _ask(client, lone, society, kind="nonsense").status_code in (422,)
+
+
+def test_the_certificate_downloads_in_hindi_and_marathi_too(client, db):
+    society, _, _, admin, res, _ = _rig(db, "c8")
+    for kind in ("noc_renovation", "address_proof"):
+        rid = _ask(client, res, society, kind=kind, purpose="Tiles").json()["id"]
+        _decide(client, admin, rid, approve=True)
+        en = client.get(f"/api/v1/certificates/{rid}/pdf", headers=res["headers"])
+        assert en.status_code == 200 and b".pdf" in en.headers["content-disposition"].encode()
+        for lang in ("hi", "mr"):
+            r = client.get(f"/api/v1/certificates/{rid}/pdf?lang={lang}", headers=res["headers"])
+            assert r.status_code == 200 and r.content.startswith(b"%PDF"), (kind, lang)
+            assert f"-{lang}.pdf" in r.headers["content-disposition"]
+            assert r.content != en.content
+        assert client.get(f"/api/v1/certificates/{rid}/pdf?lang=fr", headers=res["headers"]).status_code == 422
+
+
+def test_every_kind_has_wording_in_every_language():
+    from app.modules.certificates.models.certificates import CERTIFICATE_KINDS
+    from app.modules.certificates.services.certificate_text import LANGUAGES, TEXT
+    for lang in LANGUAGES:
+        assert set(TEXT[lang]["titles"]) == set(CERTIFICATE_KINDS) == set(TEXT[lang]["bodies"])
+        assert all(TEXT[lang]["titles"].values())
