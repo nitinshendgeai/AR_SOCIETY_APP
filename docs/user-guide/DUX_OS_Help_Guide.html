@@ -541,6 +541,31 @@ details>div p{color:var(--fg)}
   <p>Make a charge head from the <b>Parking Charges</b> element with the basis <b>Per parking slot</b>. Each flat then pays that rate for every slot it holds on the day the bill is made. A slot allotted with its <b>own monthly charge</b> pays that figure instead. A slot that has not started, or whose end date has passed, is not billed.</p>
 </section>
 
+<!-- stores -->
+<section class="sec" id="stores" data-roles="committee manager" data-title="Stores">
+  <header><h2>Stores</h2><span class="for">manager · committee · admin</span></header>
+  <p class="lede"><span class="path">Operations → Stores</span> keeps the things the society uses up or lends out: floor cleaner, bulbs, gloves, tools, uniforms. It shows what is in stock, what is running low, and who has what.</p>
+
+  <h3>Add an item and bring stock in</h3>
+  <ol class="steps">
+    <li><div>Press <span class="btn">Add item</span>. Give the <b>name</b>, the <b>kind</b>, what it is counted in (litre, piece, box…) and the level at which you want it to show as <b>low</b>. Say where it is kept if you like.</div></li>
+    <li><div>Open the item and press <span class="btn">Stock in</span>. Enter how many came in, and the cost and bill number if you have them.</div></li>
+  </ol>
+  <p>The tiles at the top show the items, how many are <span class="pill a">Running low</span>, how many are out with people, and the value of the stock. An item at or below its minimum shows as low; at zero it shows <span class="pill r">Out of stock</span>.</p>
+
+  <h3>Give something to a staff member</h3>
+  <ol class="steps">
+    <li><div>Open the item and press <span class="btn">Issue</span>. Choose the staff member, how many, and what it is for.</div></li>
+    <li><div>If it will be <b>used up</b> (cleaning supplies), switch that on. Nothing is expected back. Otherwise choose a <b>bring it back by</b> date.</div></li>
+    <li><div>Press <span class="btn">Issue</span>. The stock goes down straight away. You cannot issue more than is in stock.</div></li>
+  </ol>
+  <p>Under the <b>Issued</b> tab, <b>Still out</b> lists everything that has not come back and <b>Overdue</b> lists what is past its date. Press <span class="btn">Take back</span>, enter how many came back and their condition. Good items go back on the shelf. <b>Damaged</b> or <b>lost</b> ones are closed off but do not go back into stock.</p>
+
+  <h3>Correct the count</h3>
+  <p>After counting the shelf, open the item and press <span class="btn">Correct the count</span>. Enter what you counted and say why it changed. The change is recorded under <b>Every movement</b> with your name.</p>
+  <div class="note"><b>Limits</b>The app does not remind anyone about overdue returns, and stock cannot be issued to a resident. An item can be retired from its edit page only when none is in stock and none is out.</div>
+</section>
+
 <!-- assets -->
 <section class="sec" id="assets" data-roles="committee manager" data-title="Assets">
   <header><h2>Assets</h2><span class="for">manager · committee · admin</span></header>
@@ -603,7 +628,6 @@ details>div p{color:var(--fg)}
 
   <h3>Not in the app yet</h3>
   <ul>
-    <li>The consumable stores (stock in, issue to staff) have no screens yet.</li>
     <li>Amenity charges and deposits are recorded on the booking but not added to bills or accounts.</li>
     <li>Reading a number plate from a camera photo. The gate check uses a typed or scanned number.</li>
         <li>A one-time password (OTP) at sign-in.</li>

@@ -87,29 +87,38 @@ def stock_adjust(data: StockAdjustRequest, request: Request,
 def get_stock(item_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return InventoryService(db).get_stock(item_id, user)
 
-@router.get("/transactions/{item_id}", response_model=List[TransactionOut],
-            dependencies=[Depends(any_auth)])
+@router.get("/transactions/{item_id}", dependencies=[Depends(any_auth)])
 def get_transactions(item_id: UUID, skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200),
                      db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return InventoryService(db).get_transactions(item_id, skip, limit, user)
+    service = InventoryService(db)
+    return service.transaction_rows(service.get_transactions(item_id, skip, limit, user))
+
+
+@router.get("/summary/{society_id}", dependencies=[Depends(admin_or_committee)])
+def stores_summary(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return InventoryService(db).stores_summary(society_id, user)
 
 
 # ── Issue / Return ────────────────────────────────────────────────────────────
-@router.post("/issues", response_model=IssueOut, status_code=201)
+@router.post("/issues", status_code=201)
 def issue_item(data: IssueCreate, request: Request, db: Session = Depends(get_db),
                user: User = Depends(staff_above)):
-    return InventoryService(db).issue_item(data, user, request)
+    service = InventoryService(db)
+    return service.issue_rows([service.issue_item(data, user, request)])[0]
 
-@router.post("/returns", response_model=IssueOut)
+@router.post("/returns")
 def return_item(data: ReturnCreate, request: Request, db: Session = Depends(get_db),
                 user: User = Depends(staff_above)):
-    return InventoryService(db).return_item(data, user, request)
+    service = InventoryService(db)
+    return service.issue_rows([service.return_item(data, user, request)])[0]
 
-@router.get("/issues/society/{society_id}", response_model=List[IssueOut],
-            dependencies=[Depends(any_auth)])
+@router.get("/issues/society/{society_id}", dependencies=[Depends(any_auth)])
 def list_issues(society_id: UUID, skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200),
+                status: Optional[str] = Query(None, description="open, overdue, or an issue status"),
+                item_id: Optional[UUID] = None,
                 db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return InventoryService(db).get_issues(society_id, skip, limit, user)
+    service = InventoryService(db)
+    return service.issue_rows(service.get_issues(society_id, skip, limit, user, status=status, item_id=item_id))
 
 
 # ── Assets ────────────────────────────────────────────────────────────────────

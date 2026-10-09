@@ -4,6 +4,23 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-09
+
+### feat: stores screens — stock in, issue to staff, returns, low stock
+
+- **Operations → Stores** (admin, committee, manager): items with stock, running-low and out-of-stock markers, tiles for
+  items, running low, issued but not back, and stock value. An item's page has **Stock in**, **Issue**, **Correct the
+  count**, who has some now, and every movement with who did it. The *Issued* tab lists what is out, with **Take back**
+  and an overdue view.
+- Issues can be *used up* (cleaning supplies: nothing is expected back) or returnable with a return date.
+- Backend: issues now need a recipient, a same-society staff member and complaint, and a return date that isn't in the
+  past; a used-up issue can't be returned; returns must be above zero. Items need a name, can't repeat a name or have
+  negative minimums or costs, and can be recategorised or retired (not while stocked or out). A count correction needs a
+  reason and is audited. Issues and history now carry names (item, who has it, who gave it, who did it) and an
+  outstanding quantity; new summary endpoint.
+- Not covered: overdue-return reminders, issuing to a resident, and the supervisors (who may issue through the API) don't
+  see the Stores screen.
+
 ## 2026-10-07 (d)
 
 ### feat: amenity booking — screens, a day schedule, and a hardened booking check
