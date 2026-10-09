@@ -30,7 +30,7 @@ Any → CANCELLED
 
 ## One Vendor Master
 Every place that says who was paid takes a vendor from the Vendor Master, and a vendor can be added on the spot
-(name, mobile, kind of work; GSTIN, PAN and bank details are filled in later under Vendors & Work). A vendor added in
+in the Vendor Master form itself (the same one as Vendors & Work, GSTIN, PAN and bank details included). A vendor added in
 the **Add Expense**, **monthly expense**, **payment voucher** or **vendor bill** form is in the master immediately,
 and a vendor edited in the master shows in all of them.
 

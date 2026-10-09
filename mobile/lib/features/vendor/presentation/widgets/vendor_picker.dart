@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
+import 'package:ar_society_app/core/layout/app_sheet.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/vendor/data/vendors_work_api.dart';
-import 'package:ar_society_app/features/vendor/presentation/providers/vendor_providers.dart';
 import 'package:ar_society_app/features/vendor/presentation/providers/vendors_work_providers.dart';
-import 'package:ar_society_app/shared/widgets/app_widgets.dart' show showErrorToast;
+import 'package:ar_society_app/features/vendor/presentation/widgets/vendor_master_sheet.dart';
 
-/// Pick who was paid from the Vendor Master, or add them on the spot. A vendor added here lands in the
+/// Pick who was paid from the Vendor Master, or add them on the spot in the Vendor Master form. A vendor added here lands in the
 /// master (Vendors & Work, vendor bills, work orders) at once, so there is one list of vendors, not a
 /// typed name per expense.
 class VendorPicker extends ConsumerWidget {
@@ -16,6 +15,9 @@ class VendorPicker extends ConsumerWidget {
   final String? value;
   final ValueChanged<VendorRecord?> onChanged;
   final String label;
+
+  /// The vendor must be chosen (a bill), so there is no "No vendor" entry.
+  final bool required;
 
   /// A payee typed before the master was linked to expenses, shown when no vendor is chosen.
   final String? legacyName;
@@ -25,13 +27,15 @@ class VendorPicker extends ConsumerWidget {
     required this.value,
     required this.onChanged,
     this.label = 'Paid to (vendor)',
+    this.required = false,
     this.legacyName,
   });
 
+  /// The Vendor Master form itself — GSTIN, PAN and bank details included — not a cut-down copy of it.
   Future<void> _add(BuildContext context, WidgetRef ref) async {
-    final created = await showDialog<VendorRecord>(
+    final created = await showAppSheet<VendorRecord>(
       context: context,
-      builder: (_) => QuickAddVendorDialog(societyId: societyId),
+      builder: (_) => VendorSheet(societyId: societyId),
     );
     if (created != null) onChanged(created);
   }
@@ -60,8 +64,9 @@ class VendorPicker extends ConsumerWidget {
                     : (list.isEmpty ? 'No vendors yet — add one with +' : null),
                 helperMaxLines: 2,
               ),
+              validator: required ? (v) => v == null ? 'Choose the vendor' : null : null,
               items: [
-                const DropdownMenuItem<String?>(value: null, child: Text('No vendor')),
+                if (!required) const DropdownMenuItem<String?>(value: null, child: Text('No vendor')),
                 for (final v in list)
                   DropdownMenuItem<String?>(
                     value: v.id,
@@ -84,99 +89,4 @@ class VendorPicker extends ConsumerWidget {
       },
     );
   }
-}
-
-/// Name, phone and kind of work — enough to add a vendor in the middle of another form; the rest (GSTIN,
-/// PAN, bank details) is filled in later under Vendors & Work.
-class QuickAddVendorDialog extends ConsumerStatefulWidget {
-  final String societyId;
-  const QuickAddVendorDialog({super.key, required this.societyId});
-
-  @override
-  ConsumerState<QuickAddVendorDialog> createState() => _QuickAddVendorDialogState();
-}
-
-class _QuickAddVendorDialogState extends ConsumerState<QuickAddVendorDialog> {
-  final _form = GlobalKey<FormState>();
-  final _name = TextEditingController();
-  final _mobile = TextEditingController();
-  String _category = 'other';
-  bool _saving = false;
-
-  @override
-  void dispose() {
-    _name.dispose();
-    _mobile.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    if (!_form.currentState!.validate()) return;
-    setState(() => _saving = true);
-    try {
-      final vendor = await ref.read(vendorsWorkApiProvider).createVendor({
-        'society_id': widget.societyId,
-        'company_name': _name.text.trim(),
-        'mobile': _mobile.text.trim(),
-        'category': _category,
-      });
-      // Both vendor lists (the master and the bill form's) pick the new vendor up.
-      ref.invalidate(vendorRecordsProvider(widget.societyId));
-      ref.invalidate(vendorsProvider(widget.societyId));
-      if (mounted) Navigator.pop(context, vendor);
-    } catch (e) {
-      if (mounted) {
-        setState(() => _saving = false);
-        showErrorToast(context, e);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-        title: const Text('Add a vendor'),
-        content: Form(
-          key: _form,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextFormField(
-              controller: _name,
-              autofocus: true,
-              inputFormatters: [LengthLimitingTextInputFormatter(255)],
-              decoration: const InputDecoration(labelText: 'Name of the vendor *'),
-              validator: (v) => (v ?? '').trim().isEmpty ? 'Required' : null,
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _mobile,
-              keyboardType: TextInputType.phone,
-              inputFormatters: [LengthLimitingTextInputFormatter(20)],
-              decoration: const InputDecoration(labelText: 'Mobile *'),
-              validator: (v) {
-                final digits = (v ?? '').trim().replaceAll(RegExp(r'[\s\-()]'), '');
-                if (digits.isEmpty) return 'Required';
-                return RegExp(r'^\+?\d{7,15}$').hasMatch(digits) ? null : 'Enter a valid phone number';
-              },
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: _category,
-              decoration: const InputDecoration(labelText: 'Kind of work'),
-              items: [for (final c in kVendorCategories) DropdownMenuItem(value: c.$1, child: Text(c.$2))],
-              onChanged: (v) => setState(() => _category = v ?? 'other'),
-            ),
-            const SizedBox(height: 8),
-            const Text('Add GSTIN, PAN and bank details later under Vendors & Work.',
-                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-          ]),
-        ),
-        actions: [
-          TextButton(onPressed: _saving ? null : () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Add vendor'),
-          ),
-        ],
-      );
 }

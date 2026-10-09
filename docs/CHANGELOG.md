@@ -4,6 +4,15 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-09 (e)
+
+### fix: one vendor form — the Vendor Master
+
+The **+** next to a vendor (Add Expense, monthly expense, payment voucher, and the Add Vendor Bill form) opened a
+cut-down "Add Vendor" dialog of its own. It now opens the Vendor Master form itself, and closes with the vendor saved and
+selected; the vendor-bill form uses the same vendor list as everywhere else. The form is grouped (Vendor, Contact,
+Address, Tax and bank). A vendor added from any form is in Vendors & Work at once.
+
 ## 2026-10-09 (d)
 
 ### feat: expenses use the Vendor Master; the app numbers its own documents
