@@ -295,9 +295,10 @@ void main() {
       await tester.pump();
 
       expect(find.text('Resident Dashboard'), findsOneWidget);
-      expect(find.text('Complaints'), findsOneWidget);
-      expect(find.text('My Visitors'), findsOneWidget);
-      expect(find.text('Pending Approvals'), findsOneWidget);
+      expect(find.text('Open Complaints'), findsOneWidget);
+      expect(find.text('Visitors Waiting'), findsOneWidget);
+      expect(find.text('Bills Due'), findsOneWidget);
+      expect(find.text('My Flat'), findsOneWidget);
     });
   });
 
@@ -308,7 +309,7 @@ void main() {
       await tester.pumpWidget(_wrapWithUser(const SecurityDashboardScreen(), user));
       await tester.pump();
 
-      expect(find.text('Security Dashboard'), findsOneWidget);
+      expect(find.text('Security Supervisor'), findsWidgets);
       expect(find.text('Log Visitor'), findsOneWidget);
       expect(find.text('Check In'), findsOneWidget);
       expect(find.text('Check Out'), findsOneWidget);
@@ -320,8 +321,9 @@ void main() {
   // never use (docs/RBAC_MATRIX.md), per the M1.9-R2 "drawer not role-scoped"
   // known gap.
   group('Role-filtered drawer', () {
-    Future<void> openDrawer(WidgetTester tester, Widget screen, UserEntity user) async {
-      await tester.pumpWidget(_wrapWithUser(screen, user));
+    Future<void> openDrawer(WidgetTester tester, Widget screen, UserEntity user,
+        List<String> formCodes) async {
+      await tester.pumpWidget(_wrapWithUser(screen, user, formCodes: formCodes));
       await tester.pump();
       await tester.tap(find.byIcon(Icons.menu_rounded));
       await tester.pumpAndSettle();
@@ -334,7 +336,7 @@ void main() {
     // logic those extra roles share, so that mocking cost isn't repeated here.
 
     testWidgets('Resident only sees Visitors and Complaints, not admin/master links', (tester) async {
-      await openDrawer(tester, const ResidentDashboardScreen(), _makeUser(role: 'Resident'));
+      await openDrawer(tester, const ResidentDashboardScreen(), _makeUser(role: 'Resident'), _residentFormCodes);
 
       expect(find.text('Complaints'), findsOneWidget);
       expect(find.text('Residents'), findsNothing);
@@ -346,7 +348,7 @@ void main() {
     });
 
     testWidgets('Security does not see Users & Roles or Society Settings', (tester) async {
-      await openDrawer(tester, const SecurityDashboardScreen(), _makeUser(role: 'Security'));
+      await openDrawer(tester, const SecurityDashboardScreen(), _makeUser(role: 'Security'), _securityFormCodes);
 
       expect(find.text('Complaints'), findsOneWidget);
       expect(find.text('Users & Roles'), findsNothing);
