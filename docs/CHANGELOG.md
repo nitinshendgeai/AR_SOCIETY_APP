@@ -4,6 +4,21 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-09 (m)
+
+### feat: NOC and certificate requests
+
+A member asks for a certificate from **Certificates & NOC** (Community menu); the Society Admin or committee approves
+or declines it, and the member downloads a PDF on the society's letterhead (`docs/CERTIFICATES.md`).
+- Types: NOC for sale / letting / home loan / renovation, no dues certificate, address certificate, other.
+- NOCs for sale, letting and loan, and the no dues certificate, check the flat's dues: approval is refused (409)
+  with the amount unless the committee chooses "Approve anyway"; the amount is then printed on the certificate.
+- Numbers run per society and financial year (`NOC/2026-27/0001`, `ND/…`, `AP/…`).
+- The office is notified of each request and the member of the decision; a decline needs a reason.
+- A tenant may ask only for an address certificate; one pending request of a kind per flat; a member can withdraw.
+
+Migration `c2a9102b3c4d` adds the table and grants the screen to every role (idempotent).
+
 ## 2026-10-09 (l)
 
 ### feat: meetings, polls and a documents library

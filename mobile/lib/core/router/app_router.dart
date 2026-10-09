@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ar_society_app/features/automation/presentation/screens/automation_screen.dart';
+import 'package:ar_society_app/features/certificates/presentation/screens/certificates_screen.dart';
 import 'package:ar_society_app/features/governance/presentation/screens/documents_screen.dart';
 import 'package:ar_society_app/features/governance/presentation/screens/meetings_screen.dart';
 import 'package:ar_society_app/features/governance/presentation/screens/polls_screen.dart';
@@ -220,6 +221,7 @@ class AppRoutes {
   static const meetings           = '/meetings';
   static const polls              = '/polls';
   static const documents          = '/documents';
+  static const certificates       = '/certificates';
   static const tenantsList        = '/tenants';
   static const tenantDetail       = '/tenants/detail';
   static const tenantForm         = '/tenants/form';
@@ -602,6 +604,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: AppRoutes.meetings, builder: (_, __) => const MeetingsScreen()),
           GoRoute(path: AppRoutes.polls, builder: (_, __) => const PollsScreen()),
           GoRoute(path: AppRoutes.documents, builder: (_, __) => const DocumentsScreen()),
+          GoRoute(path: AppRoutes.certificates, builder: (_, __) => const CertificatesScreen()),
           GoRoute(path: AppRoutes.shopsImport, builder: (_, __) => const ShopsImportScreen()),
           GoRoute(path: AppRoutes.stores, builder: (_, __) => const StoresScreen()),
           GoRoute(

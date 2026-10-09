@@ -43,6 +43,9 @@ from app.modules.governance.models.governance import (
     Meeting, MeetingAttendee, MeetingResolution, Poll, PollOption, PollVote, SocietyDocument,
 )
 
+# Certificates
+from app.modules.certificates.models.certificates import CertificateRequest
+
 # Staff module
 from app.modules.staff.models.staff import (
     Staff, StaffDesignation, StaffShift, DutyAssignment,

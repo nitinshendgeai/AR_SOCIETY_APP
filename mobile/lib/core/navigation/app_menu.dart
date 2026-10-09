@@ -52,6 +52,7 @@ const appMenuCategories = [
     AppMenuItem('meetings', 'Meetings', Icons.groups_rounded, AppRoutes.meetings),
     AppMenuItem('polls', 'Polls', Icons.how_to_vote_rounded, AppRoutes.polls),
     AppMenuItem('documents', 'Documents', Icons.folder_open_rounded, AppRoutes.documents),
+    AppMenuItem('certificates', 'Certificates & NOC', Icons.verified_outlined, AppRoutes.certificates),
     AppMenuItem('complaints', 'Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
     AppMenuItem('pending_resident_changes', 'Pending Resident Changes', Icons.fact_check_outlined, AppRoutes.pendingResidentChanges),
   ]),
