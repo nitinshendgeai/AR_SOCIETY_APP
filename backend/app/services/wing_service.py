@@ -23,6 +23,9 @@ def _enrich(wing: Wing) -> WingOut:
     return out
 
 
+from app.utils.auto_code import short_code
+
+
 class WingService:
     def __init__(self, db: Session):
         self.repo         = WingRepository(db)
@@ -37,6 +40,10 @@ class WingService:
         if data.code:
             self.repo.assert_unique_code(society_id, data.code)
         payload = data.model_dump()
+        if not (payload.get("code") or "").strip():
+            # No code given: the app makes one from the name ("A Wing" -> "A").
+            taken = [w.code for w in self.repo.get_by_society(society_id, True)]
+            payload["code"] = short_code(data.name, taken)
         payload["society_id"] = society_id
         wing = Wing(**payload)
         created = self.repo.create(wing)

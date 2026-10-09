@@ -153,7 +153,7 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
           TextField(controller: nameCtrl, autofocus: true,
               decoration: const InputDecoration(labelText: 'Zone name (e.g. Basement)')),
           const SizedBox(height: 10),
-          TextField(controller: codeCtrl, decoration: const InputDecoration(labelText: 'Short code (optional)')),
+          TextField(controller: codeCtrl, decoration: const InputDecoration(labelText: 'Short code', hintText: 'Leave blank — made from the name')),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),

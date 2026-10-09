@@ -111,7 +111,7 @@ class _WingFormScreenState extends ConsumerState<WingFormScreen> {
               textCapitalization: TextCapitalization.characters,
               decoration: const InputDecoration(
                 labelText: 'Wing Code',
-                hintText: 'e.g. A, T1 (optional)',
+                hintText: 'Leave blank — made from the name',
               ),
             ),
             const SizedBox(height: 16),

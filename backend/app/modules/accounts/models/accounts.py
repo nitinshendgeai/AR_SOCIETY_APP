@@ -128,7 +128,9 @@ class Voucher(Base, TimestampMixin):
     fiscal_year    = Column(String(7), nullable=False, index=True)    # "2026-27"
     amount         = Column(Numeric(14, 2), nullable=False)
     narration      = Column(Text, nullable=True)
-    reference      = Column(String(100), nullable=True)
+    reference      = Column(String(100), nullable=True)      # the outside number: supplier's bill, cheque, UTR
+    # Who was paid, from the Vendor Master (a payment voucher).
+    vendor_id      = Column(UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Set on vouchers the app posts itself: maintenance_bill, payment_receipt,
     # online_payment, vendor_invoice, vendor_payment.
@@ -159,6 +161,7 @@ class Voucher(Base, TimestampMixin):
 
     entries = relationship("VoucherEntry", back_populates="voucher", cascade="all, delete-orphan",
                            order_by="VoucherEntry.line_no")
+    vendor  = relationship("Vendor", foreign_keys=[vendor_id])
     creator = relationship("User", foreign_keys=[created_by])
     editor  = relationship("User", foreign_keys=[edited_by])
     submitter = relationship("User", foreign_keys=[submitted_by])
@@ -253,11 +256,13 @@ class RecurringExpense(Base, TimestampMixin):
     start_month        = Column(Date, nullable=False)                # first of the month it begins
     end_month          = Column(Date, nullable=True)                 # first of the last month, or open-ended
     payee              = Column(String(255), nullable=True)
+    vendor_id          = Column(UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True, index=True)
     note               = Column(Text, nullable=True)
     created_by         = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     expense_account = relationship("Account", foreign_keys=[expense_account_id])
     paid_from       = relationship("Account", foreign_keys=[paid_from_id])
+    vendor          = relationship("Vendor", foreign_keys=[vendor_id])
     runs            = relationship("RecurringExpenseRun", back_populates="recurring", cascade="all, delete-orphan")
 
 

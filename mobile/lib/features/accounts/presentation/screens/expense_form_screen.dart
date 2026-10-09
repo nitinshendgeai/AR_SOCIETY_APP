@@ -8,6 +8,9 @@ import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart';
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
+import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart' show NextVoucherNumber;
+import 'package:ar_society_app/features/vendor/data/vendors_work_api.dart' show VendorRecord;
+import 'package:ar_society_app/features/vendor/presentation/widgets/vendor_picker.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
@@ -38,7 +41,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   LedgerAccount? _paidFrom;
   late final _amount = TextEditingController(
       text: widget.initialAmount == null ? '' : widget.initialAmount!.toStringAsFixed(widget.initialAmount! % 1 == 0 ? 0 : 2));
-  final _paidTo = TextEditingController();
+  VendorRecord? _vendor;
   final _reference = TextEditingController();
   late final _note = TextEditingController(text: widget.initialNote);
   bool _saving = false;
@@ -47,7 +50,6 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   @override
   void dispose() {
     _amount.dispose();
-    _paidTo.dispose();
     _reference.dispose();
     _note.dispose();
     super.dispose();
@@ -108,7 +110,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         final updated = await api.updateLedger(head.id, {'maintenance_element_id': _elementKey});
         counted = updated.maintenanceElementName;
       }
-      final narration = [_paidTo.text.trim(), _note.text.trim()].where((s) => s.isNotEmpty).join(' — ');
+      final narration = [_vendor?.companyName ?? '', _note.text.trim()].where((s) => s.isNotEmpty).join(' — ');
       final v = await api.createVoucher(
         societyId: societyId,
         type: 'payment',
@@ -119,6 +121,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         ],
         narration: narration,
         reference: _reference.text.trim(),
+        vendorId: _vendor?.id,
       );
       invalidateBooks(ref);
       if (!mounted) return;
@@ -129,7 +132,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           _saving = false;
           _lastSaved = '${head.name} ${formatInr(amount)}';
           _amount.clear();
-          _paidTo.clear();
+          _vendor = null;
           _reference.clear();
           _note.clear();
         });
@@ -287,9 +290,23 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           onChanged: (v) => setState(() => _paidFrom = v),
         ),
         const SizedBox(height: 14),
-        TextField(controller: _paidTo, decoration: const InputDecoration(labelText: 'Paid to (optional)')),
+        VendorPicker(
+          societyId: societyId,
+          value: _vendor?.id,
+          label: 'Paid to (optional)',
+          onChanged: (v) => setState(() => _vendor = v),
+        ),
         const SizedBox(height: 14),
-        TextField(controller: _reference, decoration: const InputDecoration(labelText: 'Bill / cheque / receipt no. (optional)')),
+        TextField(
+          controller: _reference,
+          decoration: const InputDecoration(
+            labelText: "Supplier's bill / cheque no. (optional)",
+            helperText: 'The number on their bill or your cheque — ours is given automatically',
+            helperMaxLines: 2,
+          ),
+        ),
+        const SizedBox(height: 14),
+        NextVoucherNumber(societyId: societyId, type: 'payment', date: _date),
         const SizedBox(height: 14),
         TextField(controller: _note, decoration: const InputDecoration(labelText: 'Note (optional)'), maxLines: 2),
         const SizedBox(height: 22),

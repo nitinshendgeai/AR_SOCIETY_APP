@@ -38,6 +38,7 @@ from app.modules.accounts.models.entities import EntityAccount
 from app.modules.accounts.services.entities import AccountingEntityService
 from app.modules.billing.models.billing import MaintenanceElement, MaintenanceSettings
 from app.services.audit_service import AuditService
+from app.utils.auto_code import next_number_code
 
 ZERO = Decimal("0.00")
 CENT = Decimal("0.01")
@@ -247,7 +248,8 @@ class AccountsService:
         if (data.get("is_bank") or data.get("is_cash")) and group.nature != "asset":
             raise HTTPException(422, "Cash and bank ledgers belong under an asset group")
         account = Account(
-            society_id=society_id, group_id=group.id, name=data["name"].strip(), code=data.get("code"),
+            society_id=society_id, group_id=group.id, name=data["name"].strip(),
+            code=(data.get("code") or "").strip() or self._next_account_code(society_id, group),
             description=data.get("description"),
             opening_balance=money(data.get("opening_balance")), opening_type=data.get("opening_type") or (
                 "dr" if group.nature in DEBIT_NATURES else "cr"),
@@ -266,6 +268,24 @@ class AccountsService:
         self.db.commit()
         self.db.refresh(account)
         return account
+
+    def _next_account_code(self, society_id: UUID, group: AccountGroup) -> Optional[str]:
+        """The code a new ledger gets when none is given: the next number in its group, or — when the group
+        has no numbered ledger yet — the next after the highest in the same kind of group. Never one in use."""
+        in_group = [c for (c,) in self.db.query(Account.code).filter(
+            Account.society_id == society_id, Account.group_id == group.id)]
+        code = next_number_code(in_group)
+        if code is None:
+            same_nature = [c for (c,) in self.db.query(Account.code).join(
+                AccountGroup, AccountGroup.id == Account.group_id).filter(
+                Account.society_id == society_id, AccountGroup.nature == group.nature)]
+            code = next_number_code(same_nature)
+        if code is None:
+            return None
+        used = {c for (c,) in self.db.query(Account.code).filter(Account.society_id == society_id)}
+        while code in used:
+            code = str(int(code) + 1)
+        return code
 
     def update_account(self, account_id: UUID, data: dict, user: User) -> Account:
         account = self.get_account(account_id)
@@ -325,8 +345,20 @@ class AccountsService:
                 return number
             n += 1
 
+    def vendor_in_society(self, vendor_id: Optional[UUID], society_id: UUID):
+        """The Vendor Master entry `vendor_id`, which must be an active vendor of this society (None: no vendor)."""
+        if not vendor_id:
+            return None
+        from app.modules.vendor.models.vendor import Vendor
+        vendor = self.db.query(Vendor).filter(
+            Vendor.id == vendor_id, Vendor.society_id == society_id, Vendor.is_active.is_(True)).first()
+        if not vendor:
+            raise HTTPException(422, "Vendor not found in this society")
+        return vendor
+
     def build_voucher(self, society_id: UUID, voucher_type: str, voucher_date: date, lines: List[Line], *,
                       narration: Optional[str] = None, reference: Optional[str] = None,
+                      vendor_id: Optional[UUID] = None,
                       source_type: Optional[str] = None, source_id: Optional[UUID] = None,
                       reversal_of_id: Optional[UUID] = None, user: Optional[User] = None,
                       approval_status: str = "approved", approval_note: Optional[str] = None) -> Voucher:
@@ -340,7 +372,8 @@ class AccountsService:
             society_id=society_id, voucher_type=voucher_type,
             voucher_number=self._next_number(society_id, voucher_type, voucher_date),
             voucher_date=voucher_date, fiscal_year=fiscal_year(voucher_date), amount=total,
-            narration=narration, reference=reference, source_type=source_type, source_id=source_id,
+            narration=narration, reference=reference, vendor_id=vendor_id,
+            source_type=source_type, source_id=source_id,
             reversal_of_id=reversal_of_id, created_by=user.id if user else None,
             approval_status=approval_status,
             submitted_at=datetime.utcnow() if approval_status == "pending" else None,
@@ -422,10 +455,14 @@ class AccountsService:
         if vtype not in MANUAL_VOUCHER_TYPES:
             raise HTTPException(422, f"Voucher type must be one of: {', '.join(MANUAL_VOUCHER_TYPES)}")
         lines = self._manual_lines(society_id, vtype, data["entries"])
+        vendor = self.vendor_in_society(data.get("vendor_id"), society_id)
+        if vendor and vtype != "payment":
+            raise HTTPException(422, "Only a payment can be made to a vendor")
         requires_approval = vtype in ("payment", "journal")
         voucher = self.build_voucher(
             society_id, vtype, data["voucher_date"], lines,
-            narration=data.get("narration"), reference=data.get("reference"), user=user,
+            narration=data.get("narration"), reference=data.get("reference"),
+            vendor_id=vendor.id if vendor else None, user=user,
             approval_status="pending" if requires_approval else "approved",
             approval_note="Manual voucher submitted for committee/admin approval" if requires_approval else None,
         )
@@ -486,7 +523,7 @@ class AccountsService:
                 if not vendor or vendor.society_id != society_id:
                     raise HTTPException(422, "Vendor not found in this society")
             lines.append(Line(account, money(e.get("debit")), money(e.get("credit")),
-                              e.get("flat_id"), e.get("vendor_id"), e.get("narration")))
+                              flat_id=e.get("flat_id"), vendor_id=e.get("vendor_id"), narration=e.get("narration")))
 
         debits = [l for l in lines if l.debit]
         credits = [l for l in lines if l.credit]
@@ -509,6 +546,8 @@ class AccountsService:
         return {
             "voucher_number": voucher.voucher_number, "voucher_date": voucher.voucher_date.isoformat(),
             "amount": str(money(voucher.amount)), "narration": voucher.narration, "reference": voucher.reference,
+            "vendor_id": str(voucher.vendor_id) if voucher.vendor_id else None,
+            "vendor_name": voucher.vendor.company_name if voucher.vendor else None,
             "entries": [{
                 "account_id": str(e.account_id), "account_name": e.account.name if e.account else None,
                 "debit": str(money(e.debit)), "credit": str(money(e.credit)),
@@ -545,6 +584,10 @@ class AccountsService:
         self.assert_open(society_id, new_date)
         lines, total = self._balanced(society_id, self._manual_lines(society_id, voucher.voucher_type,
                                                                      data["entries"]))
+        if "vendor_id" in data:
+            vendor = self.vendor_in_society(data["vendor_id"], society_id)
+            if vendor and voucher.voucher_type != "payment":
+                raise HTTPException(422, "Only a payment can be made to a vendor")
         before = self.snapshot(voucher)
         voucher.revisions.append(VoucherRevision(
             revision_no=len(voucher.revisions) + 1, snapshot=before, reason=data["reason"],
@@ -556,6 +599,8 @@ class AccountsService:
         voucher.amount = total
         voucher.narration = data.get("narration")
         voucher.reference = data.get("reference")
+        if "vendor_id" in data:
+            voucher.vendor_id = data["vendor_id"]
         voucher.entries.clear()
         self.db.flush()
         self._set_entries(voucher, lines)
@@ -583,7 +628,7 @@ class AccountsService:
                 selectinload(Voucher.entries).joinedload(VoucherEntry.flat).joinedload(Flat.wing),
                 selectinload(Voucher.entries).joinedload(VoucherEntry.vendor),
                 selectinload(Voucher.revisions).joinedload(VoucherRevision.editor),
-                joinedload(Voucher.creator), joinedload(Voucher.editor))
+                joinedload(Voucher.creator), joinedload(Voucher.editor), joinedload(Voucher.vendor))
 
     def get_voucher(self, voucher_id: UUID) -> Voucher:
         v = self.db.query(Voucher).options(*self._voucher_loads()).filter(Voucher.id == voucher_id).first()
@@ -630,8 +675,11 @@ class AccountsService:
 
     def list_vouchers(self, society_id: UUID, voucher_type: Optional[str] = None,
                       date_from: Optional[date] = None, date_to: Optional[date] = None,
-                      include_cancelled: bool = True, skip: int = 0, limit: int = 100) -> List[Voucher]:
+                      include_cancelled: bool = True, skip: int = 0, limit: int = 100,
+                      vendor_id: Optional[UUID] = None) -> List[Voucher]:
         q = self.db.query(Voucher).options(*self._voucher_loads()).filter(Voucher.society_id == society_id)
+        if vendor_id:
+            q = q.filter(Voucher.vendor_id == vendor_id)
         if voucher_type:
             q = q.filter(Voucher.voucher_type == voucher_type)
         if date_from:

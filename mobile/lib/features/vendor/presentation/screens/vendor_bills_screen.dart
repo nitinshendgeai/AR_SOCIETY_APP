@@ -410,7 +410,7 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
               TextFormField(
                 controller: _invoiceNumberCtrl,
                 inputFormatters: [LengthLimitingTextInputFormatter(50)],
-                decoration: const InputDecoration(labelText: 'Invoice Number', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: "Supplier's invoice no.", border: OutlineInputBorder()),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
               ),
               const SizedBox(height: 12),
