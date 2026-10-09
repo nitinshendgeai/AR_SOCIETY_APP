@@ -4,6 +4,19 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-09 (j)
+
+### feat: bottom bar on phones
+
+On a phone every page was reached through the menu icon and a "Dashboard" back link. A bottom bar now carries **Home**,
+three screens for the person's role, and **More** (the whole menu in a sheet):
+
+- Resident: Bills, Visitors, Notices. Admin, committee and manager: Visitors, Complaints, Billing (the society-wide
+  lists). Security: Visitors, Notices, Complaints. Others: Notices, Complaints, Visitors.
+- Only screens the person is allowed to open are offered; Visitors shows how many are waiting for a resident's approval.
+- It shows on the pages people move between (the tabs and the menu's own pages) and steps aside on a record or form
+  opened from them, which has its own back arrow. The Platform Console has no bar.
+
 ## 2026-10-09 (i)
 
 ### feat: admin dashboard that shows how the society is doing

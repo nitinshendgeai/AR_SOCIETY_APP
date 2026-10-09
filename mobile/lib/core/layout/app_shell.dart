@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/core/layout/phone_bottom_bar.dart';
 import 'package:ar_society_app/core/navigation/app_menu.dart';
 import 'package:ar_society_app/features/notices/presentation/widgets/emergency_banner.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
@@ -166,8 +167,21 @@ class _PhoneFrameState extends ConsumerState<_PhoneFrame> {
     final home = user == null ? AppRoutes.home : userRoleHome(user);
     final onHome = widget.location == home || widget.location == AppRoutes.home;
     if (user == null) return widget.child;
+
+    // Home, the screens this role reaches for most, and More. Shown on the pages
+    // people move between, not on the records and forms opened from them.
+    final granted = ref.watch(myFormCodesProvider).valueOrNull?.toSet() ?? const <String>{};
+    final menu = visibleMenuCategories(granted, user: user);
+    final tabs = phoneTabsFor(user, granted);
+    final bar = !user.isPlatformAdmin && showsPhoneBar(tabs, menu, widget.location)
+        ? PhoneBottomBar(location: widget.location, user: user, tabs: tabs, menu: menu)
+        : null;
+
     // An emergency alert in force shows above every page.
-    if (onHome || _canGoBack) return Column(children: [const EmergencyBanner(), Expanded(child: widget.child)]);
+    if (bar != null || onHome || _canGoBack) {
+      final page = bar == null ? widget.child : MediaQuery.removePadding(context: context, removeBottom: true, child: widget.child);
+      return Column(children: [const EmergencyBanner(), Expanded(child: page), if (bar != null) bar]);
+    }
 
     return Column(children: [
       const EmergencyBanner(),

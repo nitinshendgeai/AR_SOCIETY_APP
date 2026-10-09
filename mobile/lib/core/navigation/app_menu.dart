@@ -118,3 +118,45 @@ AppMenuItem _resolveFor(AppMenuItem item, UserEntity? user) {
   };
   return route == item.route ? item : AppMenuItem(item.formCode, item.label, item.icon, route);
 }
+
+/// One tab of the phone's bottom bar.
+class PhoneTab {
+  final String label;
+  final IconData icon;
+  final String route;
+  const PhoneTab(this.label, this.icon, this.route);
+}
+
+/// Short names for the bottom bar, where the menu's name is too long for it.
+const _tabLabels = {'my_bills': 'Bills', 'maintenance_billing': 'Billing'};
+
+/// The screens each kind of person reaches for most, in order. The bar takes the
+/// first three they are allowed to open; "Home" and "More" are always there.
+List<String> _tabPreference(UserEntity user) {
+  if (user.isAdminOrCommittee || user.isManager) {
+    return const ['visitors', 'complaints', 'maintenance_billing', 'notices'];
+  }
+  if (user.isSecurity) return const ['visitors', 'notices', 'complaints'];
+  if (user.isResident) return const ['my_bills', 'visitors', 'notices', 'complaints'];
+  return const ['notices', 'complaints', 'visitors'];
+}
+
+/// Home plus up to three screens for [user], limited to what [grantedFormCodes]
+/// allow. Routes are resolved the way the menu does (society-wide lists for the
+/// people who run the society).
+List<PhoneTab> phoneTabsFor(UserEntity user, Set<String> grantedFormCodes) {
+  final byCode = <String, AppMenuItem>{};
+  for (final c in visibleMenuCategories(grantedFormCodes, user: user)) {
+    for (final i in c.items) {
+      if (i.route != null) byCode.putIfAbsent(i.formCode, () => i);
+    }
+  }
+  final tabs = <PhoneTab>[PhoneTab('Home', Icons.home_rounded, userRoleHome(user))];
+  for (final code in _tabPreference(user)) {
+    final item = byCode[code];
+    if (item == null) continue;
+    tabs.add(PhoneTab(_tabLabels[code] ?? item.label, item.icon, item.route!));
+    if (tabs.length == 4) break;
+  }
+  return tabs;
+}
