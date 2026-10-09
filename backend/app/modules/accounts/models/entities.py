@@ -51,7 +51,7 @@ class Entity(Base, TimestampMixin):
     society_id  = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"),
                          nullable=False, index=True)
     entity_type = Column(String(20), nullable=False, index=True)
-    entity_code = Column(String(40), nullable=False)
+    entity_code = Column(String(64), nullable=False)
     display_name = Column(String(255), nullable=False)
     source_type = Column(String(40), nullable=True)
     source_id   = Column(UUID(as_uuid=True), nullable=True, index=True)
