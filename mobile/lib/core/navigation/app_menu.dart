@@ -49,6 +49,9 @@ const appMenuCategories = [
     AppMenuItem('visitors', 'Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
     AppMenuItem('notices', 'Notices', Icons.campaign_rounded, AppRoutes.notices),
     AppMenuItem('amenities', 'Amenities', Icons.pool_rounded, AppRoutes.amenities),
+    AppMenuItem('meetings', 'Meetings', Icons.groups_rounded, AppRoutes.meetings),
+    AppMenuItem('polls', 'Polls', Icons.how_to_vote_rounded, AppRoutes.polls),
+    AppMenuItem('documents', 'Documents', Icons.folder_open_rounded, AppRoutes.documents),
     AppMenuItem('complaints', 'Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
     AppMenuItem('pending_resident_changes', 'Pending Resident Changes', Icons.fact_check_outlined, AppRoutes.pendingResidentChanges),
   ]),
@@ -74,6 +77,7 @@ const appMenuCategories = [
     AppMenuItem('permission_matrix', 'Permission Matrix', Icons.rule_rounded, AppRoutes.permissionMatrix),
     AppMenuItem('forms_matrix', 'Forms Matrix', Icons.dashboard_customize_rounded, AppRoutes.formsMatrix),
     AppMenuItem('society_settings', 'Society Settings', Icons.apartment_rounded, AppRoutes.societySettings),
+    AppMenuItem('automation', 'Automatic tasks', Icons.autorenew_rounded, AppRoutes.automation),
     AppMenuItem('setup_wizard', 'Setup Wizard', Icons.checklist_rounded, AppRoutes.structureWizard),
   ]),
   AppMenuCategory('My Account', Icons.person_rounded, [

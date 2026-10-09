@@ -14,7 +14,7 @@ reviews, puts up for the general body and sends reminders from; the
 statutory recovery steps are the committee's to take.
 """
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Dict, Iterable, List, Optional
 from uuid import UUID
@@ -176,9 +176,11 @@ class MemberDues:
 
     # ── Reminders ─────────────────────────────────────────────────────────────
 
-    def remind(self, society_id: UUID, flat_ids: Optional[List[UUID]], min_months: int, user: User) -> dict:
+    def remind(self, society_id: UUID, flat_ids: Optional[List[UUID]], min_months: int, user: Optional[User],
+               not_reminded_within_days: Optional[int] = None) -> dict:
         """Send each flat's members (those with an app login) a reminder of
-        the dues outstanding. `flat_ids` None: every defaulter."""
+        the dues outstanding. `flat_ids` None: every defaulter. `user` None: sent by the
+        automatic task. `not_reminded_within_days`: skip flats reminded more recently."""
         from app.services.notification_service import NotificationService
 
         as_of = date.today()
@@ -186,6 +188,10 @@ class MemberDues:
         if flat_ids is None:
             cutoff = months_before(as_of, min_months)
             dues = [fd for fd in dues if fd.overdue_beyond(cutoff) > 0]
+        if not_reminded_within_days:
+            self._last_reminders({fd.flat.id: fd for fd in dues})
+            recent = datetime.utcnow() - timedelta(days=not_reminded_within_days)
+            dues = [fd for fd in dues if fd.last_reminded_at is None or fd.last_reminded_at < recent]
         reminded, notifications, no_login = 0, 0, []
         for fd in dues:
             users = {r.user_id for r in fd.flat.residents if r.is_active and r.user_id}
@@ -208,7 +214,8 @@ class MemberDues:
         from app.services.audit_service import AuditService
         AuditService.log(db=self.db, action=AuditAction.CREATE, module="billing", entity_type="DuesReminder",
                          entity_id=str(society_id), user=user,
-                         new_values={"flats": reminded, "notifications": notifications})
+                         new_values={"flats": reminded, "notifications": notifications,
+                                     "automatic": user is None})
         self.db.commit()
         return {"flats_reminded": reminded, "notifications": notifications, "flats_without_app_login": no_login}
 

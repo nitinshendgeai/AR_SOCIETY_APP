@@ -4,6 +4,33 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-09 (l)
+
+### feat: meetings, polls and a documents library
+
+Three new screens under Community (`docs/GOVERNANCE.md`):
+- **Meetings** — the office schedules a meeting (optionally announcing it to every resident and tenant), then records
+  minutes, who attended and the resolutions. Minutes stay with the office until published.
+- **Polls** — one vote per flat, with a closing date. Results show after a person has voted (or once the poll closes),
+  as totals only; nobody can see how a flat voted.
+- **Documents** — bye-laws, audit reports, circulars and so on, stored in the database (10 MB each), visible to
+  everyone or to the committee only.
+
+Migration `b1f8091a2b3c` adds the tables and grants the three screens to every role (idempotent). Fixed on the way: rows
+placed inside a coloured card hid their tap feedback.
+
+## 2026-10-09 (k)
+
+### feat: automatic tasks
+
+Reminders that waited for someone to press a button now run by themselves (`docs/AUTOMATION.md`): tenant agreement alerts
+at 30 and 7 days, a weekly asset service and warranty digest, a weekly "bills not started" reminder, expiry of visitor
+requests nobody answered in 24 hours, and an optional maintenance-dues reminder to members (off until switched on, no
+more often than every N days). A background loop runs them each morning in the society's time; each run for a period is
+claimed by a database row, so several workers cannot repeat it. **Administration → Automatic tasks** shows each task,
+its switch, what it did last, and **Run now**. Migration `a0e7f8091a2b` (tables, and the screen's grant to Society Admin
+and committee roles). Money-moving steps (late fees, generating bills, posting expenses) stay manual.
+
 ## 2026-10-09 (j)
 
 ### feat: bottom bar on phones

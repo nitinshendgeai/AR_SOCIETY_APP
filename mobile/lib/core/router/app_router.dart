@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/features/automation/presentation/screens/automation_screen.dart';
+import 'package:ar_society_app/features/governance/presentation/screens/documents_screen.dart';
+import 'package:ar_society_app/features/governance/presentation/screens/meetings_screen.dart';
+import 'package:ar_society_app/features/governance/presentation/screens/polls_screen.dart';
 import 'package:ar_society_app/features/shops/presentation/screens/shops_screen.dart';
 import 'package:ar_society_app/features/shops/presentation/screens/shops_import_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -212,6 +216,10 @@ class AppRoutes {
   static const pendingResidentChanges  = '/residents/edit-requests/pending';
   static const shops              = '/shops';
   static const shopsImport        = '/shops/import';
+  static const automation         = '/automation';
+  static const meetings           = '/meetings';
+  static const polls              = '/polls';
+  static const documents          = '/documents';
   static const tenantsList        = '/tenants';
   static const tenantDetail       = '/tenants/detail';
   static const tenantForm         = '/tenants/form';
@@ -590,6 +598,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           // Stores: consumables, stock in, issue to staff, returns
           GoRoute(path: AppRoutes.shops, builder: (_, __) => const ShopsScreen()),
+          GoRoute(path: AppRoutes.automation, builder: (_, __) => const AutomationScreen()),
+          GoRoute(path: AppRoutes.meetings, builder: (_, __) => const MeetingsScreen()),
+          GoRoute(path: AppRoutes.polls, builder: (_, __) => const PollsScreen()),
+          GoRoute(path: AppRoutes.documents, builder: (_, __) => const DocumentsScreen()),
           GoRoute(path: AppRoutes.shopsImport, builder: (_, __) => const ShopsImportScreen()),
           GoRoute(path: AppRoutes.stores, builder: (_, __) => const StoresScreen()),
           GoRoute(

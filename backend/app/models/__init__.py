@@ -35,6 +35,14 @@ from app.modules.amenity.models.amenity import (
 # Shops module
 from app.modules.shops.models.shop import Shop
 
+# Automatic tasks
+from app.modules.automation.models.automation import SocietyAutomation, ScheduledJobRun
+
+# Governance
+from app.modules.governance.models.governance import (
+    Meeting, MeetingAttendee, MeetingResolution, Poll, PollOption, PollVote, SocietyDocument,
+)
+
 # Staff module
 from app.modules.staff.models.staff import (
     Staff, StaffDesignation, StaffShift, DutyAssignment,

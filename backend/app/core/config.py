@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     SUPERADMIN_EMAIL: Optional[str] = None
     SUPERADMIN_PASSWORD: Optional[str] = None
 
+    # Runs the automatic tasks (reminders, alerts) in the background. Off in tests.
+    SCHEDULER_ENABLED: bool = True
+
     # Transactional email (SMTP). While SMTP_HOST is empty, email is off
     # and every EmailService call is a no-op.
     SMTP_HOST: str = ""
