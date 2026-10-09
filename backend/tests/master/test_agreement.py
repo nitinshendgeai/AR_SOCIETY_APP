@@ -129,6 +129,62 @@ def test_invalid_renewal_end_before_start_rejected(client, db, rig):
     assert r.status_code == 422
 
 
+def test_back_dated_renewal_is_rejected_and_changes_nothing(client, db, rig):
+    from app.models.agreement_tracker import AgreementTracker, AgreementStatus
+    tenant, start, end = _create_active_tenant(client, rig, rent="15000.00")
+    headers = rig["admin"]["headers"]
+    url = f"/api/v1/tenants/{tenant['id']}/renew-agreement"
+
+    # wholly in the past, before the current agreement
+    r = client.post(url, json={
+        "start_date": str(start - timedelta(days=400)), "end_date": str(start - timedelta(days=100)),
+        "monthly_rent": "99999",
+    }, headers=headers)
+    assert r.status_code == 422, r.text
+    # starts after the current start but would end before it ends
+    r = client.post(url, json={
+        "start_date": str(start + timedelta(days=1)), "end_date": str(end - timedelta(days=1)),
+    }, headers=headers)
+    assert r.status_code == 422, r.text
+
+    cur = db.query(AgreementTracker).filter(AgreementTracker.id == _to_uuid(tenant["active_agreement_id"])).first()
+    db.refresh(cur)
+    assert cur.status == AgreementStatus.ACTIVE
+    t = client.get(f"/api/v1/tenants/{tenant['id']}", headers=headers).json()
+    assert t["agreement_end_date"] == str(end) and t["monthly_rent"] == "15000.00"
+    assert db.query(AgreementTracker).filter(AgreementTracker.tenant_id == _to_uuid(tenant["id"])).count() == 1
+
+
+def test_refused_move_in_leaves_no_half_created_tenant(client, db, rig):
+    from app.models.tenant import Tenant
+    first, start, end = _create_active_tenant(client, rig)
+    headers = rig["admin"]["headers"]
+    before = db.query(Tenant).filter(Tenant.flat_id == rig["flat"].id).count()
+
+    r = client.post("/api/v1/tenants/", json={
+        "flat_id": str(rig["flat"].id), "full_name": "Second Tenant",
+        "move_in_date": str(date.today()),
+    }, headers=headers)
+    assert r.status_code == 409, r.text
+    db.expire_all()
+    assert db.query(Tenant).filter(Tenant.flat_id == rig["flat"].id).count() == before
+
+
+def test_refused_resident_move_in_leaves_no_half_created_resident(client, db, rig):
+    from app.models.resident import Resident
+    _create_active_tenant(client, rig)  # flat is now tenant-occupied
+    headers = rig["admin"]["headers"]
+    before = db.query(Resident).filter(Resident.flat_id == rig["flat"].id).count()
+
+    r = client.post("/api/v1/residents/", json={
+        "flat_id": str(rig["flat"].id), "full_name": "Owner Person",
+        "resident_type": "owner", "move_in_date": str(date.today()),
+    }, headers=headers)
+    assert r.status_code == 409, r.text
+    db.expire_all()
+    assert db.query(Resident).filter(Resident.flat_id == rig["flat"].id).count() == before
+
+
 def test_renewal_with_no_active_agreement_rejected(client, db, rig):
     created = client.post("/api/v1/tenants/", json={
         "flat_id": str(rig["flat"].id), "full_name": "Never Moved In Tenant",
@@ -151,13 +207,13 @@ def test_overlapping_renewal_rejected(client, db, rig):
     # a data state the renewal overlap-check must still catch).
     other_agr = AgreementTracker(
         society_id=rig["society"].id, flat_id=rig["flat"].id, tenant_id=_to_uuid(tenant["id"]),
-        start_date=end + timedelta(days=1), end_date=end + timedelta(days=100),
+        start_date=start + timedelta(days=1), end_date=end - timedelta(days=3),
         status=AgreementStatus.ACTIVE,
     )
     db.add(other_agr); db.commit()
 
     r = client.post(f"/api/v1/tenants/{tenant['id']}/renew-agreement", json={
-        "start_date": str(end), "end_date": str(end + timedelta(days=50)),  # overlaps other_agr
+        "start_date": str(end - timedelta(days=5)), "end_date": str(end + timedelta(days=50)),  # overlaps other_agr
     }, headers=rig["admin"]["headers"])
     assert r.status_code == 409
 

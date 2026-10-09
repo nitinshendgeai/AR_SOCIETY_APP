@@ -54,6 +54,15 @@ class TenantService:
             id_proof_type=data.id_proof_type, id_proof_number=data.id_proof_number,
         )
 
+        # Refuse a move-in that cannot happen before the tenant row exists,
+        # so a failed request leaves nothing behind.
+        if data.move_in_date is not None:
+            OccupancyService(self.db).check_tenant_move_in(
+                flat,
+                agreement_start=data.agreement_start_date,
+                agreement_end=data.agreement_end_date,
+            )
+
         payload = data.model_dump(exclude={"move_in_date"})
         tenant = Tenant(**payload)
         created = self.repo.create(tenant)

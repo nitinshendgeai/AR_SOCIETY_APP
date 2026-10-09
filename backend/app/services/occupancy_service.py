@@ -100,6 +100,17 @@ class OccupancyService:
 
     # ── Resident move-in ──────────────────────────────────────────────────────
 
+    def check_resident_move_in(self, flat: Flat) -> None:
+        """Raises 409 if a resident cannot move into this flat. Callable
+        before the resident row exists, so a refused request creates nothing."""
+        active_tenant = self.db.query(Tenant).filter(
+            Tenant.flat_id == flat.id, Tenant.is_active == True,
+            Tenant.move_out_date == None,
+        ).first()
+        if active_tenant and flat.occupancy_status == OccupancyStatus.TENANT_OCCUPIED:
+            raise HTTPException(status_code=409,
+                detail="Flat is currently tenant-occupied. Move out tenant first.")
+
     def resident_move_in(self, flat_id: UUID, resident_id: UUID,
                           move_in_date: date, user: User) -> Resident:
         flat = self._flat_or_404(flat_id, society_id=user.society_id)
@@ -112,14 +123,7 @@ class OccupancyService:
         ).first()
         if not resident: raise HTTPException(status_code=404, detail="Resident not found")
 
-        # Validate no active tenant if marking owner-occupied
-        active_tenant = self.db.query(Tenant).filter(
-            Tenant.flat_id == flat_id, Tenant.is_active == True,
-            Tenant.move_out_date == None,
-        ).first()
-        if active_tenant and flat.occupancy_status == OccupancyStatus.TENANT_OCCUPIED:
-            raise HTTPException(status_code=409,
-                detail="Flat is currently tenant-occupied. Move out tenant first.")
+        self.check_resident_move_in(flat)
 
         resident.move_in_date = move_in_date
         flat.occupancy_status = OccupancyStatus.OWNER_OCCUPIED
@@ -167,6 +171,42 @@ class OccupancyService:
 
     # ── Tenant move-in / move-out ─────────────────────────────────────────────
 
+    def check_tenant_move_in(self, flat: Flat, exclude_tenant_id: Optional[UUID] = None,
+                              agreement_start: Optional[date] = None,
+                              agreement_end: Optional[date] = None) -> None:
+        """Raises 409 if a tenant cannot move into this flat (another tenant
+        already active, an owner living there, or the agreement dates clash
+        with an active agreement). Callable before the tenant row exists, so
+        a refused request creates nothing."""
+        # No double tenancy
+        active_tenant = self.db.query(Tenant).filter(
+            Tenant.flat_id == flat.id, Tenant.is_active == True,
+            Tenant.move_out_date == None,
+            *([Tenant.id != exclude_tenant_id] if exclude_tenant_id else []),
+        ).first()
+        if active_tenant:
+            raise HTTPException(status_code=409, detail="Another tenant is already active in this flat")
+
+        # Validate no active owner-resident if marking tenant-occupied —
+        # symmetric to the TENANT_OCCUPIED guard in check_resident_move_in().
+        active_resident = self.db.query(Resident).filter(
+            Resident.flat_id == flat.id, Resident.is_active == True,
+        ).first()
+        if active_resident and flat.occupancy_status == OccupancyStatus.OWNER_OCCUPIED:
+            raise HTTPException(status_code=409,
+                detail="Flat is currently owner-occupied. Move out the resident first.")
+
+        if agreement_start and agreement_end:
+            overlap = self.db.query(AgreementTracker).filter(
+                AgreementTracker.flat_id == flat.id,
+                AgreementTracker.status  == AgreementStatus.ACTIVE,
+                AgreementTracker.start_date <= agreement_end,
+                AgreementTracker.end_date   >= agreement_start,
+            ).first()
+            if overlap:
+                raise HTTPException(status_code=409,
+                    detail="An active agreement overlaps with the specified dates")
+
     def tenant_move_in(self, flat_id: UUID, tenant_id: UUID,
                         move_in_date: date, user: User,
                         create_agreement: bool = True) -> Tenant:
@@ -176,38 +216,16 @@ class OccupancyService:
         ).first()
         if not tenant: raise HTTPException(status_code=404, detail="Tenant not found")
 
-        # No double tenancy
-        active_tenant = self.db.query(Tenant).filter(
-            Tenant.flat_id == flat_id, Tenant.is_active == True,
-            Tenant.move_out_date == None, Tenant.id != tenant_id,
-        ).first()
-        if active_tenant:
-            raise HTTPException(status_code=409, detail="Another tenant is already active in this flat")
-
-        # Validate no active owner-resident if marking tenant-occupied —
-        # symmetric to the TENANT_OCCUPIED guard in resident_move_in() above.
-        active_resident = self.db.query(Resident).filter(
-            Resident.flat_id == flat_id, Resident.is_active == True,
-        ).first()
-        if active_resident and flat.occupancy_status == OccupancyStatus.OWNER_OCCUPIED:
-            raise HTTPException(status_code=409,
-                detail="Flat is currently owner-occupied. Move out the resident first.")
+        self.check_tenant_move_in(
+            flat, exclude_tenant_id=tenant_id,
+            agreement_start=tenant.agreement_start_date if create_agreement else None,
+            agreement_end=tenant.agreement_end_date if create_agreement else None,
+        )
 
         tenant.move_in_date  = move_in_date
         flat.occupancy_status = OccupancyStatus.TENANT_OCCUPIED
 
         if create_agreement and tenant.agreement_start_date and tenant.agreement_end_date:
-            # Check for overlapping active agreement
-            overlap = self.db.query(AgreementTracker).filter(
-                AgreementTracker.flat_id == flat_id,
-                AgreementTracker.status  == AgreementStatus.ACTIVE,
-                AgreementTracker.start_date <= tenant.agreement_end_date,
-                AgreementTracker.end_date   >= tenant.agreement_start_date,
-            ).first()
-            if overlap:
-                raise HTTPException(status_code=409,
-                    detail="An active agreement overlaps with the specified dates")
-
             agr = AgreementTracker(
                 society_id=flat.wing.society_id, flat_id=flat_id, tenant_id=tenant_id,
                 start_date=tenant.agreement_start_date,
@@ -301,6 +319,16 @@ class OccupancyService:
         ).order_by(AgreementTracker.end_date.desc()).first()
         if not current:
             raise HTTPException(status_code=409, detail="Tenant has no active agreement to renew")
+
+        # A renewal carries the tenancy forward. One that starts before the
+        # current agreement began, or ends before it does, would rewrite the
+        # tenant's current terms with past dates and hide the real agreement.
+        if new_start_date <= current.start_date or new_end_date <= current.end_date:
+            raise HTTPException(
+                status_code=422,
+                detail=("A renewal must start after the current agreement started and "
+                        f"end after it ends ({current.end_date.isoformat()})"),
+            )
 
         # Same overlap-check shape as tenant_move_in, excluding the
         # agreement being renewed (it's about to become RENEWED).

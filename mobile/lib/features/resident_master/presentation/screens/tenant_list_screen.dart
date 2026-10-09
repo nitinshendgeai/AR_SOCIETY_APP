@@ -85,10 +85,10 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
               sortKey: (t) => t.fullName.toLowerCase(),
               cell: (t) => TwoLineCell(t.fullName, t.email),
             ),
-            AppDataColumn.text('Flat', (t) => flatsById[t.flatId]?.displayName ?? '—'),
-            AppDataColumn.text('Phone', (t) => t.phone ?? '—', flex: 2),
+            AppDataColumn.text('Flat', (t) => flatsById[t.flatId]?.displayName ?? '—', width: 130),
+            AppDataColumn.text('Phone', (t) => t.phone ?? '—', width: 130),
             AppDataColumn.text('Rent / month', (t) => tableMoney(t.monthlyRent),
-                numeric: true, sortKey: (t) => double.tryParse(t.monthlyRent ?? '') ?? -1),
+                numeric: true, width: 130, sortKey: (t) => double.tryParse(t.monthlyRent ?? '') ?? -1),
             AppDataColumn(
               label: 'Agreement ends',
               flex: 2,

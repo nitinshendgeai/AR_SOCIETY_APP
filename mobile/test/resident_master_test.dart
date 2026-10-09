@@ -70,6 +70,8 @@ TenantModel _tenant({
   String? agreementEndDate,
   bool isActive = true,
   String? moveOutDate,
+  String? activeAgreementId,
+  String? moveInDate,
 }) =>
     TenantModel(
       id: id,
@@ -79,6 +81,8 @@ TenantModel _tenant({
       agreementEndDate: agreementEndDate,
       isActive: isActive,
       moveOutDate: moveOutDate,
+      activeAgreementId: activeAgreementId,
+      moveInDate: moveInDate,
     );
 
 VehicleModel _vehicle({
@@ -691,6 +695,27 @@ void main() {
 
       expect(find.text('Not yet active — becomes effective when the tenant moves in.'), findsOneWidget);
       expect(find.text('TERMINATED'), findsNothing);
+    });
+  });
+
+  group('Tenant Detail expired agreement', () {
+    testWidgets('an agreement past its end date shows EXPIRED and how long ago', (tester) async {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final past = DateTime.now().subtract(const Duration(days: 5));
+      final iso = '${past.year}-${past.month.toString().padLeft(2, '0')}-${past.day.toString().padLeft(2, '0')}';
+      final tenant = _tenant(id: 'ten-1', agreementEndDate: iso, activeAgreementId: 'agr-1', moveInDate: '2026-01-01');
+      final repo = ResidentMasterRepository(ds: _FakeDataSource()..tenants = [tenant]);
+      await tester.pumpWidget(_wrap(
+        TenantDetailScreen(tenant: tenant),
+        overrides: [residentMasterRepositoryProvider.overrideWithValue(repo)],
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('EXPIRED'), findsOneWidget);
+      expect(find.text('Expired 5 days ago'), findsOneWidget);
     });
   });
 
