@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Float, Enum, ForeignKey, Boolean, Text
+from sqlalchemy import Column, String, Integer, Float, Enum, ForeignKey, Boolean, Text, Date
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
@@ -49,6 +49,11 @@ class Flat(Base, TimestampMixin):
     # their maintenance by NEFT to it, and the bank reports which flat paid.
     # Printed on the bill.
     virtual_account_number = Column(String(40), nullable=True)
+
+    # The day the owner took possession of the unit (the handover date), and its electricity connection.
+    possession_date    = Column(Date, nullable=True)
+    electric_meter_no  = Column(String(40), nullable=True)
+    electric_consumer_no = Column(String(40), nullable=True)   # the utility's consumer / account number
 
     # KYC / docs readiness
     kyc_verified       = Column(Boolean, default=False, nullable=False)

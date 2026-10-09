@@ -114,6 +114,9 @@ class StructureRemoteDataSource {
     String? occupancyStatus,
     String? remarks,
     String? virtualAccountNumber,
+    String? possessionDate,
+    String? electricMeterNo,
+    String? electricConsumerNo,
   }) async {
     final r = await _dio.post('/flats/', data: {
       'flat_number': flatNumber,
@@ -125,6 +128,9 @@ class StructureRemoteDataSource {
       if (remarks != null && remarks.isNotEmpty) 'remarks': remarks,
       if (virtualAccountNumber != null && virtualAccountNumber.isNotEmpty)
         'virtual_account_number': virtualAccountNumber,
+      if (possessionDate != null) 'possession_date': possessionDate,
+      if (electricMeterNo != null && electricMeterNo.isNotEmpty) 'electric_meter_no': electricMeterNo,
+      if (electricConsumerNo != null && electricConsumerNo.isNotEmpty) 'electric_consumer_no': electricConsumerNo,
     });
     return FlatModel.fromJson(r.data as Map<String, dynamic>);
   }

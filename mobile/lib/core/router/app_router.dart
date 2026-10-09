@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/features/shops/presentation/screens/shops_screen.dart';
+import 'package:ar_society_app/features/shops/presentation/screens/shops_import_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart';
@@ -208,6 +210,8 @@ class AppRoutes {
   static const residentImport     = '/residents/import';
   static const editMyProfile           = '/residents/me/edit';
   static const pendingResidentChanges  = '/residents/edit-requests/pending';
+  static const shops              = '/shops';
+  static const shopsImport        = '/shops/import';
   static const tenantsList        = '/tenants';
   static const tenantDetail       = '/tenants/detail';
   static const tenantForm         = '/tenants/form';
@@ -585,6 +589,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               builder: (_, s) => builder(s),
             ),
           // Stores: consumables, stock in, issue to staff, returns
+          GoRoute(path: AppRoutes.shops, builder: (_, __) => const ShopsScreen()),
+          GoRoute(path: AppRoutes.shopsImport, builder: (_, __) => const ShopsImportScreen()),
           GoRoute(path: AppRoutes.stores, builder: (_, __) => const StoresScreen()),
           GoRoute(
             path: AppRoutes.storeItem,

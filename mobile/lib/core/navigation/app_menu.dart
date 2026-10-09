@@ -36,6 +36,7 @@ const appMenuCategories = [
   AppMenuCategory('People', Icons.people_alt_rounded, [
     AppMenuItem('residents', 'Residents', Icons.people_outline_rounded, AppRoutes.residentsList),
     AppMenuItem('tenants', 'Tenants', Icons.groups_2_outlined, AppRoutes.tenantsList),
+    AppMenuItem('shops', 'Shops', Icons.storefront_rounded, AppRoutes.shops),
   ]),
   AppMenuCategory('Community', Icons.diversity_3_rounded, [
     AppMenuItem('visitors', 'Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),

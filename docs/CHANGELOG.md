@@ -4,6 +4,23 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-09 (f)
+
+### feat: possession date and electric meter on flats, a Shops master, and a richer residents import
+
+- **Flats:** each flat now carries a **possession date**, an **electric meter no.** and a **consumer no.** (Flat form,
+  Flat detail, and the resident's page). A meter number can belong to only one flat or shop in a society; a consumer
+  number may be shared. Migration `7b4c5d6e7f80`.
+- **Residents import:** the CSV can have **Possession Date**, **Electric Meter No** and **Consumer No** columns. Columns
+  are found by their heading in any order (e.g. "Date of Possession", "Meter No"), dates are read day-first, and each
+  flat is updated once however many residents it has. Bad dates are shown row by row and the rest still import. The
+  downloadable template has the new columns.
+- **Shops master** (People → Shops): shop number, floor, location, area, business name, owner, who runs it (owner /
+  rented / vacant) with tenant, possession date, electric meter and consumer no. Add, edit, remove, search, filter, and a
+  **CSV import** with a preview before anything is saved (existing shops are filled in, never wiped). Migration
+  `8c5d6e7f8091` creates the table and gives the Shops screen to the Society Admin and committee roles.
+- Not included: maintenance billing for shops. Shops are master data (owners, possession, meters) for now.
+
 ## 2026-10-09 (e)
 
 ### fix: one vendor form — the Vendor Master

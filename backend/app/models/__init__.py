@@ -32,6 +32,9 @@ from app.modules.amenity.models.amenity import (
     AmenityType, BookingStatus, RuleType,
 )
 
+# Shops module
+from app.modules.shops.models.shop import Shop
+
 # Staff module
 from app.modules.staff.models.staff import (
     Staff, StaffDesignation, StaffShift, DutyAssignment,
