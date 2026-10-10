@@ -13,6 +13,7 @@ import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_
 import 'package:ar_society_app/shared/widgets/app_data_table.dart'
     show StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Polls the committee puts to the society. One vote per flat; totals only, never who voted what.
 class PollsScreen extends ConsumerWidget {
@@ -311,17 +312,17 @@ class _NewPollSheetState extends ConsumerState<_NewPollSheet> {
         key: _form,
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          TextFormField(
+          FormFieldBox(label: 'Question', required: true, child: TextFormField(
               controller: _question,
-              decoration: const InputDecoration(labelText: 'Question *'),
+              decoration: const InputDecoration(),
               validator: (v) =>
-                  (v ?? '').trim().length < 3 ? 'Enter the question' : null),
+                  (v ?? '').trim().length < 3 ? 'Enter the question' : null)),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'More detail', child: TextFormField(
               controller: _description,
               minLines: 2,
               maxLines: 5,
-              decoration: const InputDecoration(labelText: 'More detail')),
+              decoration: const InputDecoration())),
           const SizedBox(height: 14),
           const Text('Options',
               style: TextStyle(
@@ -333,10 +334,10 @@ class _NewPollSheetState extends ConsumerState<_NewPollSheet> {
               padding: const EdgeInsets.only(top: 8),
               child: Row(children: [
                 Expanded(
-                    child: TextField(
+                    child: FormFieldBox(label: 'Option ${i + 1}', child: TextField(
                         controller: _options[i],
                         decoration:
-                            InputDecoration(labelText: 'Option ${i + 1}'))),
+                            InputDecoration()))),
                 if (_options.length > 2)
                   IconButton(
                       onPressed: () => setState(() => _options.removeAt(i)),
@@ -353,16 +354,15 @@ class _NewPollSheetState extends ConsumerState<_NewPollSheet> {
                   label: const Text('Add an option')),
             ),
           const SizedBox(height: 6),
-          DateField(
-              label: 'Voting closes on',
-              required: true,
+          FormFieldBox(label: 'Voting closes on', child: DateField(
+              label: '',required: true,
               value: _closes,
               lastDate: DateTime.now().add(const Duration(days: 365)),
-              onChanged: (d) => setState(() => _closes = d)),
+              onChanged: (d) => setState(() => _closes = d))),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          FormFieldBox(label: 'Show results', child: DropdownButtonFormField<String>(
             initialValue: _results,
-            decoration: const InputDecoration(labelText: 'Show results'),
+            decoration: const InputDecoration(),
             items: const [
               DropdownMenuItem(
                   value: 'vote', child: Text('After a flat has voted')),
@@ -370,7 +370,7 @@ class _NewPollSheetState extends ConsumerState<_NewPollSheet> {
                   value: 'close', child: Text('Only when the poll closes')),
             ],
             onChanged: (v) => setState(() => _results = v ?? 'vote'),
-          ),
+          )),
           const SizedBox(height: 16),
           AppPrimaryButton(
               label: 'Start poll', isLoading: _saving, onPressed: _save),

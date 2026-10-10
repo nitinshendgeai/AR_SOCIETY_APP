@@ -13,6 +13,7 @@ import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Admin/Committee master of maintenance elements — the kinds of charge
 /// the society levies and how each is calculated by default. Starts with
@@ -259,34 +260,33 @@ class _ElementSheetState extends ConsumerState<_ElementSheet> {
       child: Form(
         key: _formKey,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          TextFormField(
+          FormFieldBox(label: 'Name', required: true, child: TextFormField(
             controller: _nameCtrl,
-            decoration: const InputDecoration(labelText: 'Name *', hintText: 'e.g. Festival Fund'),
+            decoration: const InputDecoration(hintText: 'e.g. Festival Fund'),
             validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-          ),
+          )),
           const SizedBox(height: 14),
-          DropdownButtonFormField<String>(
+          FormFieldBox(label: 'Category (for reports)', child: DropdownButtonFormField<String>(
             initialValue: _category,
-            decoration: const InputDecoration(labelText: 'Category (for reports)'),
+            decoration: const InputDecoration(),
             items: [for (final t in kChargeTypes) DropdownMenuItem(value: t.$1, child: Text(t.$2))],
             onChanged: (v) => setState(() => _category = v ?? _category),
-          ),
+          )),
           const SizedBox(height: 14),
-          DropdownButtonFormField<String>(
+          FormFieldBox(label: 'Default calculation', child: DropdownButtonFormField<String>(
             initialValue: _basis,
             isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Default calculation'),
+            decoration: const InputDecoration(),
             items: [for (final b in kChargeBases) DropdownMenuItem(value: b.$1, child: Text(b.$2))],
             onChanged: (v) => setState(() => _basis = v ?? _basis),
-          ),
+          )),
           const SizedBox(height: 6),
           Text(chargeBasisHint(_basis), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           const SizedBox(height: 14),
-          TextFormField(
+          FormFieldBox(label: 'Default ${chargeAmountFieldLabel(_basis).toLowerCase()}', child: TextFormField(
             controller: _amountCtrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
-              labelText: 'Default ${chargeAmountFieldLabel(_basis).toLowerCase()}',
               helperText: 'Optional — leave blank if each society decides it',
             ),
             validator: (v) {
@@ -294,7 +294,7 @@ class _ElementSheetState extends ConsumerState<_ElementSheet> {
               final n = double.tryParse(v.trim());
               return (n == null || n < 0) ? 'Enter a valid amount' : null;
             },
-          ),
+          )),
           const SizedBox(height: 4),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -309,16 +309,16 @@ class _ElementSheetState extends ConsumerState<_ElementSheet> {
             value: _gst,
             onChanged: (v) => setState(() => _gst = v),
           ),
-          TextFormField(
+          FormFieldBox(label: 'Bye-law reference', child: TextFormField(
             controller: _refCtrl,
-            decoration: const InputDecoration(labelText: 'Bye-law reference', hintText: 'e.g. Bye-law 67(a)(iii)'),
-          ),
+            decoration: const InputDecoration(hintText: 'e.g. Bye-law 67(a)(iii)'),
+          )),
           const SizedBox(height: 14),
-          TextFormField(
+          FormFieldBox(label: 'Description', child: TextFormField(
             controller: _descCtrl,
             maxLines: 3,
-            decoration: const InputDecoration(labelText: 'Description'),
-          ),
+            decoration: const InputDecoration(),
+          )),
           if (_editing) ...[
             const SizedBox(height: 4),
             SwitchListTile(

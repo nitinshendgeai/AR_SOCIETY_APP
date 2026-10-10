@@ -10,6 +10,7 @@ import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
@@ -284,16 +285,16 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
           const SizedBox(width: 12),
           SizedBox(
             width: 200,
-            child: DropdownButtonFormField<ComplaintStatus?>(
+            child: FormFieldBox(label: 'Status', child: DropdownButtonFormField<ComplaintStatus?>(
               initialValue: _statusFilter,
               isDense: true,
-              decoration: const InputDecoration(labelText: 'Status'),
+              decoration: const InputDecoration(),
               items: [
                 const DropdownMenuItem(value: null, child: Text('All statuses')),
                 for (final st in ComplaintStatus.values) DropdownMenuItem(value: st, child: Text(st.label)),
               ],
               onChanged: (v) => setState(() => _statusFilter = v),
-            ),
+            )),
           ),
           const Spacer(),
           Text('${rows.length} of ${all.length}',

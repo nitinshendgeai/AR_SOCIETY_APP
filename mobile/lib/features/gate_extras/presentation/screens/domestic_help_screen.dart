@@ -15,6 +15,7 @@ import 'package:ar_society_app/shared/utils/file_saver.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart'
     show StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 (String, Color) _state(DomesticHelp h) => switch (h.effectiveStatus) {
       'active' => ('Pass active', AppTheme.success),
@@ -472,46 +473,45 @@ class _RegisterSheetState extends ConsumerState<_RegisterSheet> {
         key: _form,
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          TextFormField(
+          FormFieldBox(label: 'Name', required: true, child: TextFormField(
               controller: _name,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Name *'),
+              decoration: const InputDecoration(),
               validator: (v) =>
-                  (v ?? '').trim().length < 2 ? 'Enter the name' : null),
+                  (v ?? '').trim().length < 2 ? 'Enter the name' : null)),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Mobile', required: true, child: TextFormField(
               controller: _mobile,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(labelText: 'Mobile *'),
+              decoration: const InputDecoration(),
               validator: (v) => (v ?? '').trim().length < 7
                   ? 'Enter the mobile number'
-                  : null),
+                  : null)),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          FormFieldBox(label: 'Work', child: DropdownButtonFormField<String>(
             initialValue: _kind,
-            decoration: const InputDecoration(labelText: 'Work'),
+            decoration: const InputDecoration(),
             items: [
               for (final k in kHelpKinds)
                 DropdownMenuItem(value: k.$1, child: Text(k.$2))
             ],
             onChanged: (v) => setState(() => _kind = v ?? _kind),
-          ),
+          )),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'ID proof (optional)', child: TextFormField(
               controller: _proof,
               decoration: const InputDecoration(
-                  labelText: 'ID proof (optional)',
-                  hintText: 'e.g. Aadhaar ending 4821')),
+                  hintText: 'e.g. Aadhaar ending 4821'))),
           if (flats != null) ...[
             const SizedBox(height: 12),
             flats.when(
               loading: () => const LinearProgressIndicator(),
               error: (e, _) => Text(friendlyErrorMessage(e),
                   style: const TextStyle(color: AppTheme.error)),
-              data: (list) => DropdownButtonFormField<FlatModel>(
+              data: (list) => FormFieldBox(label: 'Works in flat', required: true, child: DropdownButtonFormField<FlatModel>(
                 initialValue: _flat,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Works in flat *'),
+                decoration: const InputDecoration(),
                 items: [
                   for (final f in list.where((f) => f.isActive))
                     DropdownMenuItem(
@@ -520,7 +520,7 @@ class _RegisterSheetState extends ConsumerState<_RegisterSheet> {
                 ],
                 onChanged: (f) => setState(() => _flat = f),
                 validator: (v) => v == null ? 'Choose the flat' : null,
-              ),
+              )),
             ),
           ],
           const SizedBox(height: 16),

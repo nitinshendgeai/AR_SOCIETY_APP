@@ -5,6 +5,7 @@ import 'package:ar_society_app/features/resident_master/data/models/resident_mas
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
 
@@ -174,62 +175,36 @@ class _MoveSheetBodyState extends ConsumerState<_MoveSheetBody> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-        decoration: const BoxDecoration(
-          color: AppTheme.cardBg,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(color: AppTheme.border, borderRadius: BorderRadius.circular(2)),
-                ),
-              ),
-              Text(widget.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-              const SizedBox(height: 16),
-              if (widget.warning != null) ...[
-                AppErrorBanner(message: widget.warning!),
-                const SizedBox(height: 8),
-              ],
-              const Text('Effective Date', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
-              const SizedBox(height: 6),
-              InkWell(
-                onTap: _pickDate,
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface, borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.border),
-                  ),
-                  child: Row(children: [
-                    const Icon(Icons.calendar_today_rounded, size: 18, color: AppTheme.primary),
-                    const SizedBox(width: 10),
-                    Text('${_date.day}/${_date.month}/${_date.year}', style: const TextStyle(fontSize: 14)),
-                  ]),
-                ),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                AppErrorBanner(message: _error!),
-              ],
-              const SizedBox(height: 20),
-              AppPrimaryButton(
-                label: widget.confirmLabel,
-                isLoading: _submitting,
-                onPressed: _submit,
-              ),
-            ],
+    return AppSheetFrame(
+      title: widget.title,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.warning != null) ...[
+            AppErrorBanner(message: widget.warning!),
+            const SizedBox(height: 12),
+          ],
+          FormFieldBox(
+            label: 'Effective date',
+            child: FormDateField(
+              value: _date,
+              hint: 'Select date',
+              format: (d) => '${d.day}/${d.month}/${d.year}',
+              onTap: _pickDate,
+            ),
           ),
-        ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            AppErrorBanner(message: _error!),
+          ],
+          const SizedBox(height: 22),
+          AppPrimaryButton(
+            label: widget.confirmLabel,
+            isLoading: _submitting,
+            onPressed: _submit,
+          ),
+        ],
       ),
     );
   }

@@ -17,6 +17,7 @@ import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Society side of maintenance billing: set up charge heads once, then each
 /// period create a cycle → generate one bill per flat → issue to residents.
@@ -407,12 +408,12 @@ class _NewCycleSheetState extends ConsumerState<_NewCycleSheet> {
             }),
           ),
           const SizedBox(height: 14),
-          TextFormField(
+          FormFieldBox(label: 'Cycle name', required: true, child: TextFormField(
             controller: _nameCtrl,
-            decoration: const InputDecoration(labelText: 'Cycle name *'),
+            decoration: const InputDecoration(),
             onChanged: (_) => _nameEdited = true,
             validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-          ),
+          )),
           const SizedBox(height: 14),
           Row(children: [
             Expanded(child: _DateField(label: 'From', value: formatBillDate(_start),
@@ -716,11 +717,10 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
             ref.watch(maintenanceElementsProvider((societyId: widget.societyId, includeInactive: false))).when(
                   loading: () => const LinearProgressIndicator(),
                   error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-                  data: (elements) => DropdownButtonFormField<String>(
+                  data: (elements) => FormFieldBox(label: 'Start from element', child: DropdownButtonFormField<String>(
                     initialValue: _elementId,
                     isExpanded: true,
                     decoration: const InputDecoration(
-                      labelText: 'Start from element',
                       helperText: 'Fills in the defaults below — you can still change them',
                     ),
                     items: [
@@ -730,7 +730,7 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
                       final el = elements.where((e) => e.id == id).firstOrNull;
                       if (el != null) _applyElement(el);
                     }),
-                  ),
+                  )),
                 ),
             const SizedBox(height: 14),
           ] else if (widget.existing!.elementName != null) ...[
@@ -738,38 +738,38 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
                 style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             const SizedBox(height: 14),
           ],
-          DropdownButtonFormField<String>(
+          FormFieldBox(label: 'Type', required: true, child: DropdownButtonFormField<String>(
             key: ValueKey('type-$_type'),
             initialValue: _type,
-            decoration: const InputDecoration(labelText: 'Type *'),
+            decoration: const InputDecoration(),
             items: [for (final t in kChargeTypes) DropdownMenuItem(value: t.$1, child: Text(t.$2))],
             onChanged: (v) => setState(() => _onTypeChanged(v ?? _type)),
-          ),
+          )),
           const SizedBox(height: 14),
-          TextFormField(
+          FormFieldBox(label: 'Name on bill', required: true, child: TextFormField(
             controller: _nameCtrl,
-            decoration: const InputDecoration(labelText: 'Name on bill *', hintText: 'e.g. Service Charges'),
+            decoration: const InputDecoration(hintText: 'e.g. Service Charges'),
             validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-          ),
+          )),
           const SizedBox(height: 14),
-          DropdownButtonFormField<String>(
+          FormFieldBox(label: 'How is it calculated?', required: true, child: DropdownButtonFormField<String>(
             key: ValueKey('basis-$_basis'),
             initialValue: _basis,
             isExpanded: true,
-            decoration: const InputDecoration(labelText: 'How is it calculated? *'),
+            decoration: const InputDecoration(),
             items: [for (final b in kChargeBases) DropdownMenuItem(value: b.$1, child: Text(b.$2))],
             onChanged: (v) => setState(() => _basis = v ?? _basis),
-          ),
+          )),
           const SizedBox(height: 6),
           Text(chargeBasisHint(_basis),
               style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           const SizedBox(height: 14),
-          TextFormField(
+          FormFieldBox(label: '${chargeAmountFieldLabel(_basis)} *', child: TextFormField(
             controller: _amountCtrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(labelText: '${chargeAmountFieldLabel(_basis)} *'),
+            decoration: InputDecoration(),
             validator: _number,
-          ),
+          )),
           if (_canAuto) ...[
             const SizedBox(height: 4),
             SwitchListTile(
@@ -781,19 +781,18 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
               onChanged: (v) => setState(() => _auto = v),
             ),
             if (_auto)
-              TextFormField(
+              FormFieldBox(label: 'Months of expenses to look back', required: true, child: TextFormField(
                 controller: _monthsCtrl,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(2)],
                 decoration: const InputDecoration(
-                  labelText: 'Months of expenses to look back *',
                   helperText: '1 to 36 — spend is scaled up to a year',
                 ),
                 validator: (v) {
                   final n = int.tryParse((v ?? '').trim());
                   return n == null || n < 1 || n > 36 ? 'Enter 1 to 36' : null;
                 },
-              ),
+              )),
           ],
           const SizedBox(height: 4),
           SwitchListTile(
@@ -812,16 +811,15 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
               onChanged: (v) => setState(() => _gst = v),
             )
           else
-            TextFormField(
+            FormFieldBox(label: 'Tax %', child: TextFormField(
               controller: _taxCtrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
-                labelText: 'Tax %',
                 hintText: '0',
                 helperText: 'Or turn on GST in Rules to apply the ₹7,500 threshold automatically',
               ),
-              validator: (v) => _number(v, required: false),
-            ),
+              validator: (v) => _number(v),
+            )),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _saving ? null : _save,
@@ -983,11 +981,11 @@ class _ElementPickRow extends StatelessWidget {
       if (selected && !added)
         Padding(
           padding: const EdgeInsets.only(left: 48, bottom: 8),
-          child: TextField(
+          child: FormFieldBox(label: chargeAmountFieldLabel(element.defaultBasis), child: TextField(
             controller: amountCtrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(labelText: chargeAmountFieldLabel(element.defaultBasis), isDense: true),
-          ),
+            decoration: InputDecoration(isDense: true),
+          )),
         ),
     ]);
   }
@@ -1070,22 +1068,22 @@ class _BudgetSuggestionSheetState extends ConsumerState<_BudgetSuggestionSheet> 
         const SizedBox(height: 14),
         Row(children: [
           Expanded(
-            child: DropdownButtonFormField<int>(
+            child: FormFieldBox(label: 'Based on', child: DropdownButtonFormField<int>(
               initialValue: _months,
-              decoration: const InputDecoration(labelText: 'Based on'),
+              decoration: const InputDecoration(),
               items: [for (final (m, label) in _periods) DropdownMenuItem(value: m, child: Text(label))],
               onChanged: (v) => setState(() => _months = v ?? _months),
-            ),
+            )),
           ),
           const SizedBox(width: 12),
           SizedBox(
             width: 150,
-            child: TextField(
+            child: FormFieldBox(label: 'Expected increase', child: TextField(
               controller: _increaseCtrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Expected increase', suffixText: '%'),
+              decoration: const InputDecoration(suffixText: '%'),
               onChanged: (_) => setState(() {}),
-            ),
+            )),
           ),
         ]),
         const SizedBox(height: 12),
@@ -1355,9 +1353,8 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
                   );
                   if (d != null) setState(() => _billingStart = d);
                 },
-                child: InputDecorator(
+                child: FormFieldBox(label: 'Billing in this app starts on', child: InputDecorator(
                   decoration: InputDecoration(
-                    labelText: 'Billing in this app starts on',
                     suffixIcon: _billingStart == null
                         ? const Icon(Icons.calendar_today_rounded, size: 18)
                         : IconButton(
@@ -1372,7 +1369,7 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
                         : '${_billingStart!.day.toString().padLeft(2, '0')}/${_billingStart!.month.toString().padLeft(2, '0')}/${_billingStart!.year}',
                     style: TextStyle(color: _billingStart == null ? AppTheme.textSecondary : AppTheme.textPrimary),
                   ),
-                ),
+                )),
               ),
             ],
           ),
@@ -1381,12 +1378,12 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
             'Architect-certified construction cost per sq ft, excluding land. Used for '
                 'charge heads calculated as a % of construction cost (sinking fund, repair fund).',
             [
-              TextFormField(
+              FormFieldBox(label: 'Construction cost per sq ft (₹)', child: TextFormField(
                 controller: _costCtrl,
                 keyboardType: number,
-                decoration: const InputDecoration(labelText: 'Construction cost per sq ft (₹)'),
-                validator: _range(1e7, required: false),
-              ),
+                decoration: const InputDecoration(),
+                validator: _range(1e7),
+              )),
             ],
           ),
           _section(
@@ -1394,23 +1391,23 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
             'Simple interest on unpaid bills, from the due date until paid, added to the next bill. '
                 'Maharashtra caps it at 12% p.a. (2026 amendment); older bye-laws allowed 21%.',
             [
-              TextFormField(
+              FormFieldBox(label: 'Interest rate (% per year)', child: TextFormField(
                 controller: _interestCtrl,
                 keyboardType: number,
-                decoration: const InputDecoration(labelText: 'Interest rate (% per year)'),
+                decoration: const InputDecoration(),
                 validator: _range(21),
-              ),
+              )),
               const SizedBox(height: 12),
-              TextFormField(
+              FormFieldBox(label: 'Grace period after due date (days)', child: TextFormField(
                 controller: _graceCtrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Grace period after due date (days)'),
+                decoration: const InputDecoration(),
                 validator: (v) {
                   final base = _range(90)(v);
                   if (base != null) return base;
                   return int.tryParse(v!.trim()) == null ? 'Whole days only' : null;
                 },
-              ),
+              )),
             ],
           ),
           _section(
@@ -1418,12 +1415,12 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
             'Extra charge for flats marked Tenant occupied, as a % of service charges only. '
                 'Capped at 10% by law. Set 0 to turn off.',
             [
-              TextFormField(
+              FormFieldBox(label: 'Non-occupancy (% of service charges)', child: TextFormField(
                 controller: _nocCtrl,
                 keyboardType: number,
-                decoration: const InputDecoration(labelText: 'Non-occupancy (% of service charges)'),
+                decoration: const InputDecoration(),
                 validator: _range(10),
-              ),
+              )),
             ],
           ),
           _section(
@@ -1439,19 +1436,19 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
                 onChanged: (v) => setState(() => _gst = v),
               ),
               if (_gst) ...[
-                TextFormField(
+                FormFieldBox(label: 'GST rate (%)', child: TextFormField(
                   controller: _gstRateCtrl,
                   keyboardType: number,
-                  decoration: const InputDecoration(labelText: 'GST rate (%)'),
+                  decoration: const InputDecoration(),
                   validator: _range(28),
-                ),
+                )),
                 const SizedBox(height: 12),
-                TextFormField(
+                FormFieldBox(label: 'Monthly threshold per flat (₹)', child: TextFormField(
                   controller: _gstThresholdCtrl,
                   keyboardType: number,
-                  decoration: const InputDecoration(labelText: 'Monthly threshold per flat (₹)'),
+                  decoration: const InputDecoration(),
                   validator: _range(1e7),
-                ),
+                )),
               ],
             ],
           ),
@@ -1460,58 +1457,57 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
             'Printed on every maintenance bill so members know where to pay. '
                 'Leave blank what doesn\'t apply.',
             [
-              TextFormField(
+              FormFieldBox(label: 'Account name', child: TextFormField(
                 controller: _accountNameCtrl,
                 decoration: const InputDecoration(
-                    labelText: 'Account name', hintText: 'e.g. Green Park Co-operative Housing Society Ltd'),
-              ),
+                    hintText: 'e.g. Green Park Co-operative Housing Society Ltd'),
+              )),
               const SizedBox(height: 12),
-              TextFormField(
+              FormFieldBox(label: 'Bank and branch', child: TextFormField(
                 controller: _bankNameCtrl,
-                decoration: const InputDecoration(labelText: 'Bank and branch'),
-              ),
+                decoration: const InputDecoration(),
+              )),
               const SizedBox(height: 12),
-              TextFormField(
+              FormFieldBox(label: 'Account number', child: TextFormField(
                 controller: _accountNoCtrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Account number'),
+                decoration: const InputDecoration(),
                 validator: (v) {
                   final t = (v ?? '').replaceAll(' ', '');
                   if (t.isEmpty) return null;
                   return RegExp(r'^\d{6,20}$').hasMatch(t) ? null : '6-20 digits';
                 },
-              ),
+              )),
               const SizedBox(height: 12),
-              TextFormField(
+              FormFieldBox(label: 'IFSC', child: TextFormField(
                 controller: _ifscCtrl,
                 textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(labelText: 'IFSC', hintText: 'e.g. SBIN0001234'),
+                decoration: const InputDecoration(hintText: 'e.g. SBIN0001234'),
                 validator: (v) {
                   final t = (v ?? '').trim().toUpperCase();
                   if (t.isEmpty) return null;
                   return RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$').hasMatch(t) ? null : 'e.g. SBIN0001234';
                 },
-              ),
+              )),
               const SizedBox(height: 12),
-              TextFormField(
+              FormFieldBox(label: 'UPI ID', child: TextFormField(
                 controller: _upiCtrl,
-                decoration: const InputDecoration(labelText: 'UPI ID', hintText: 'e.g. society@okaxis'),
+                decoration: const InputDecoration(hintText: 'e.g. society@okaxis'),
                 validator: (v) {
                   final t = (v ?? '').trim();
                   if (t.isEmpty) return null;
                   return RegExp(r'^[\w.\-]{2,}@[A-Za-z][\w.]*$').hasMatch(t) ? null : 'e.g. society@okaxis';
                 },
-              ),
+              )),
               const SizedBox(height: 12),
-              TextFormField(
+              FormFieldBox(label: 'Extra notes on bills (optional)', child: TextFormField(
                 controller: _billNotesCtrl,
                 maxLines: 3,
                 maxLength: 1000,
                 decoration: const InputDecoration(
-                  labelText: 'Extra notes on bills (optional)',
                   hintText: 'One per line, e.g. "Cheques in the office drop box by the 10th"',
                 ),
-              ),
+              )),
             ],
           ),
           ElevatedButton(
@@ -1537,12 +1533,11 @@ class _DateField extends StatelessWidget {
   @override
   Widget build(BuildContext context) => InkWell(
         onTap: onTap,
-        child: InputDecorator(
+        child: FormFieldBox(label: label, child: InputDecorator(
           decoration: InputDecoration(
-            labelText: label,
             suffixIcon: const Icon(Icons.calendar_today_rounded, size: 18),
           ),
           child: Text(value),
-        ),
+        )),
       );
 }

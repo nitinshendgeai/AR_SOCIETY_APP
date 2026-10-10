@@ -4,6 +4,20 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-10 (v)
+
+### feat: the rest of the forms and every sheet on the same layout
+
+- **Sheets** (`AppSheetFrame`; `BillingSheetFrame` now delegates to it): header with title and subtitle, a rule, a
+  scrolling body, on both the phone's bottom sheet and the computer's side panel. Hand-built sheets (parking, vehicle,
+  renew agreement, move in/out, handover item, vendor bill, assign complaint) moved onto it.
+- **Labels above fields** in about 150 sheet and dialog fields (was floating labels), the same as the full pages.
+- **Full pages** moved to `AppFormPage`: Voucher, Assign Duty, Edit My Info. **Society Settings** now has a page header
+  and its four tabs are grouped cards on one width (`AppPageHeader`, `SettingsColumn`).
+- Left as they are (see `docs/UI_FORMS.md`): sign-in/registration pages, attendance corrections, the paper-sheet grid,
+  and the pick-from-a-list sheets.
+- Tests: the vehicle-sheet tests scroll to the Deactivate button (the sheet now scrolls); no behaviour changes.
+
 ## 2026-10-10 (u)
 
 ### feat: one professional layout for full-page forms

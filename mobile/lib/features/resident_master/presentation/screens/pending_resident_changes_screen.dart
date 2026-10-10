@@ -5,6 +5,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Admin/Committee queue for Residents' self-service profile change
 /// requests (see edit_my_profile_screen.dart) — approve applies the
@@ -61,13 +62,13 @@ class _PendingResidentChangesScreenState extends ConsumerState<PendingResidentCh
         title: const Text('Reject Change Request?'),
         content: Form(
           key: formKey,
-          child: TextFormField(
+          child: FormFieldBox(label: 'Reason', required: true, child: TextFormField(
             controller: reasonCtrl,
             maxLines: 3,
             autofocus: true,
-            decoration: const InputDecoration(labelText: 'Reason *'),
+            decoration: const InputDecoration(),
             validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-          ),
+          )),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),

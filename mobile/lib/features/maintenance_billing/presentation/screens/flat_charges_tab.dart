@@ -12,6 +12,7 @@ import 'package:ar_society_app/features/society_structure/data/models/structure_
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Opens the form to add a fine or an additional charge on one flat.
 void showFlatChargeSheet(BuildContext context, String societyId) => showAppSheet(
@@ -39,13 +40,13 @@ class FlatChargesTab extends ConsumerWidget {
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('"${c.title}" (${formatRupees(c.amount)}) on ${c.flatLabel} won\'t be billed.'),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'Reason', required: true, child: TextFormField(
               controller: reason,
               maxLength: 1000,
               maxLines: 2,
-              decoration: const InputDecoration(labelText: 'Reason *'),
+              decoration: const InputDecoration(),
               validator: (v) => (v ?? '').trim().isEmpty ? 'Enter the reason' : null,
-            ),
+            )),
           ]),
         ),
         actions: [
@@ -226,60 +227,58 @@ class _FlatChargeSheetState extends ConsumerState<_FlatChargeSheet> {
           flats.when(
             loading: () => const LinearProgressIndicator(),
             error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-            data: (list) => DropdownButtonFormField<FlatModel>(
+            data: (list) => FormFieldBox(label: 'Flat', required: true, child: DropdownButtonFormField<FlatModel>(
               initialValue: _flat,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Flat *'),
+              decoration: const InputDecoration(),
               items: [
                 for (final f in list.where((f) => f.isActive))
                   DropdownMenuItem(value: f, child: Text('${f.wingName ?? ''} / ${f.flatNumber}')),
               ],
               onChanged: (f) => setState(() => _flat = f),
               validator: (v) => v == null ? 'Choose the flat' : null,
-            ),
+            )),
           ),
           const SizedBox(height: 14),
-          TextFormField(
+          FormFieldBox(label: 'What is it for?', required: true, child: TextFormField(
             controller: _title,
             maxLength: 150,
             decoration: InputDecoration(
-              labelText: 'What is it for? *',
               hintText: _kind == 'fine' ? 'e.g. Parked in visitor bay' : 'e.g. Club house fee',
               counterText: '',
             ),
             validator: (v) => (v ?? '').trim().isEmpty ? 'Required' : null,
-          ),
+          )),
           const SizedBox(height: 14),
-          TextFormField(
+          FormFieldBox(label: 'Amount (₹)', required: true, child: TextFormField(
             controller: _amount,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,8}(\.\d{0,2})?'))],
-            decoration: const InputDecoration(labelText: 'Amount (₹) *'),
+            decoration: const InputDecoration(),
             validator: (v) {
               final n = double.tryParse((v ?? '').trim());
               return n == null || n <= 0 ? 'Enter an amount above 0' : null;
             },
-          ),
+          )),
           const SizedBox(height: 14),
-          TextFormField(
+          FormFieldBox(label: 'Reason / details', child: TextFormField(
             controller: _reason,
             maxLength: 1000,
             maxLines: 3,
-            decoration: const InputDecoration(labelText: 'Reason / details', helperText: 'Shown to the member'),
-          ),
+            decoration: const InputDecoration(helperText: 'Shown to the member'),
+          )),
           const SizedBox(height: 6),
           InkWell(
             onTap: () => _pick(_from, (d) {
               _from = d;
               if (_to != null && _to!.isBefore(d)) _to = null;
             }),
-            child: InputDecorator(
+            child: FormFieldBox(label: 'Applies from', child: InputDecorator(
               decoration: const InputDecoration(
-                labelText: 'Applies from',
                 suffixIcon: Icon(Icons.calendar_today_rounded, size: 18),
               ),
               child: Text(formatBillDate(_from)),
-            ),
+            )),
           ),
           if (_kind == 'extra')
             SwitchListTile(
@@ -301,15 +300,14 @@ class _FlatChargeSheetState extends ConsumerState<_FlatChargeSheet> {
           if (_recurring)
             InkWell(
               onTap: () => _pick(_to ?? _from, (d) => _to = d.isBefore(_from) ? _from : d),
-              child: InputDecorator(
+              child: FormFieldBox(label: 'Ends on (optional)', child: InputDecorator(
                 decoration: InputDecoration(
-                  labelText: 'Ends on (optional)',
                   suffixIcon: _to == null
                       ? const Icon(Icons.calendar_today_rounded, size: 18)
                       : IconButton(icon: const Icon(Icons.close_rounded, size: 18), onPressed: () => setState(() => _to = null)),
                 ),
                 child: Text(_to == null ? 'No end date' : formatBillDate(_to!)),
-              ),
+              )),
             ),
           const SizedBox(height: 20),
           ElevatedButton(

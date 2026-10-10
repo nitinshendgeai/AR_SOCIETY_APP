@@ -21,6 +21,7 @@ import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_
 import 'package:ar_society_app/features/vendor/presentation/widgets/vendor_master_sheet.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 String workOrderRoute(String id) => AppRoutes.workOrderDetail.replaceFirst(':id', id);
 String contractRoute(String id) => AppRoutes.contractDetail.replaceFirst(':id', id);
@@ -242,75 +243,72 @@ class _WorkOrderSheetState extends ConsumerState<WorkOrderSheet> {
       child: Form(
         key: _form,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          TextFormField(
+          FormFieldBox(label: 'Work', required: true, child: TextFormField(
             controller: _title,
             maxLength: 255,
-            decoration: const InputDecoration(labelText: 'Work *', hintText: 'e.g. Waterproofing of terrace', counterText: ''),
+            decoration: const InputDecoration(hintText: 'e.g. Waterproofing of terrace', counterText: ''),
             validator: (v) => (v ?? '').trim().isEmpty ? 'Describe the work' : null,
-          ),
+          )),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          FormFieldBox(label: 'Category', required: true, child: DropdownButtonFormField<String>(
             initialValue: _category,
-            decoration: const InputDecoration(labelText: 'Category *'),
+            decoration: const InputDecoration(),
             items: [for (final c in kVendorCategories) DropdownMenuItem(value: c.$1, child: Text(c.$2))],
             onChanged: (v) => setState(() => _category = v!),
-          ),
+          )),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Location', child: TextFormField(
             controller: _location,
             maxLength: 255,
-            decoration: const InputDecoration(labelText: 'Location', hintText: 'e.g. B wing terrace', counterText: ''),
-          ),
+            decoration: const InputDecoration(hintText: 'e.g. B wing terrace', counterText: ''),
+          )),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Scope of work', child: TextFormField(
             controller: _scope,
             enabled: !_termsLocked,
             maxLength: 5000,
             minLines: 3,
             maxLines: 8,
             decoration: const InputDecoration(
-                labelText: 'Scope of work',
                 helperText: 'One item per line; printed on the work order',
                 helperMaxLines: 2),
-          ),
+          )),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Estimated cost (₹)', child: TextFormField(
             controller: _estimate,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: moneyInput,
             decoration: const InputDecoration(
-                labelText: 'Estimated cost (₹)',
                 helperText: 'Shows early whether tenders and the general body are needed',
                 helperMaxLines: 2),
-          ),
+          )),
           const SizedBox(height: 12),
           ledgers.when(
             loading: () => const LinearProgressIndicator(),
             error: (err, _) => const SizedBox.shrink(),
             data: (list) {
               final heads = list.where((a) => a.nature == 'expense' && a.isActive).toList();
-              return DropdownButtonFormField<String?>(
+              return FormFieldBox(label: 'Expense head', child: DropdownButtonFormField<String?>(
                 initialValue: heads.any((a) => a.id == _expense) ? _expense : null,
                 isExpanded: true,
                 decoration: const InputDecoration(
-                    labelText: 'Expense head', helperText: 'Bills on this work order are booked here'),
+                    helperText: 'Bills on this work order are booked here'),
                 items: [
                   const DropdownMenuItem<String?>(value: null, child: Text('By the vendor\'s category')),
                   for (final a in heads) DropdownMenuItem<String?>(value: a.id, child: Text(a.name)),
                 ],
                 onChanged: (v) => setState(() => _expense = v),
-              );
+              ));
             },
           ),
           const SizedBox(height: 12),
           Row(children: [
-            Expanded(child: DateField(label: 'Start', value: _start, onChanged: (d) => setState(() => _start = d))),
+            Expanded(child: FormFieldBox(label: 'Start', child: DateField(label: '',value: _start, onChanged: (d) => setState(() => _start = d)))),
             const SizedBox(width: 12),
             Expanded(
-                child: DateField(
-                    label: 'Complete by',
-                    value: _due,
-                    onChanged: (d) => setState(() => _due = d))),
+                child: FormFieldBox(label: 'Complete by', child: DateField(
+                    label: '',value: _due,
+                    onChanged: (d) => setState(() => _due = d)))),
           ]),
           const SizedBox(height: 16),
           Text(_termsLocked ? 'Terms (fixed by the sanction)' : 'Terms',
@@ -318,46 +316,46 @@ class _WorkOrderSheetState extends ConsumerState<WorkOrderSheet> {
           const SizedBox(height: 8),
           Row(children: [
             Expanded(
-              child: TextFormField(
+              child: FormFieldBox(label: 'Advance (₹)', child: TextFormField(
                 controller: _advance,
                 enabled: !_termsLocked,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: moneyInput,
-                decoration: const InputDecoration(labelText: 'Advance (₹)'),
-              ),
+                decoration: const InputDecoration(),
+              )),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: TextFormField(
+              child: FormFieldBox(label: 'Retention %', child: TextFormField(
                 controller: _retention,
                 enabled: !_termsLocked,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,2}(\.\d{0,2})?'))],
-                decoration: const InputDecoration(labelText: 'Retention %'),
+                decoration: const InputDecoration(),
                 validator: (v) => (parseMoney(v ?? '') ?? 0) > 50 ? 'At most 50%' : null,
-              ),
+              )),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: TextFormField(
+              child: FormFieldBox(label: 'Defect (mo)', child: TextFormField(
                 controller: _dlp,
                 enabled: !_termsLocked,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
-                decoration: const InputDecoration(labelText: 'Defect (mo)'),
+                decoration: const InputDecoration(),
                 validator: (v) => (int.tryParse(v ?? '') ?? 0) > 120 ? 'At most 120' : null,
-              ),
+              )),
             ),
           ]),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Payment terms', child: TextFormField(
             controller: _terms,
             enabled: !_termsLocked,
             maxLength: 2000,
             maxLines: 2,
             decoration: const InputDecoration(
-                labelText: 'Payment terms', hintText: 'e.g. 20% advance; balance after completion is certified'),
-          ),
+                hintText: 'e.g. 20% advance; balance after completion is certified'),
+          )),
           const SizedBox(height: 12),
           ElevatedButton(
             onPressed: _saving ? null : _save,
@@ -467,41 +465,40 @@ class _ContractSheetState extends ConsumerState<_ContractSheet> {
       child: Form(
         key: _form,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          TextFormField(
+          FormFieldBox(label: 'Contract', required: true, child: TextFormField(
             controller: _name,
             maxLength: 255,
-            decoration: const InputDecoration(labelText: 'Contract *', hintText: 'e.g. Lift AMC 2026-27', counterText: ''),
+            decoration: const InputDecoration(hintText: 'e.g. Lift AMC 2026-27', counterText: ''),
             validator: (v) => (v ?? '').trim().isEmpty ? 'Name the contract' : null,
-          ),
+          )),
           const SizedBox(height: 12),
           Row(children: [
             Expanded(
-              child: DropdownButtonFormField<String>(
+              child: FormFieldBox(label: 'Category', required: true, child: DropdownButtonFormField<String>(
                 initialValue: _category,
-                decoration: const InputDecoration(labelText: 'Category *'),
+                decoration: const InputDecoration(),
                 items: [for (final c in kVendorCategories) DropdownMenuItem(value: c.$1, child: Text(c.$2))],
                 onChanged: (v) => setState(() => _category = v!),
-              ),
+              )),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: DropdownButtonFormField<String>(
+              child: FormFieldBox(label: 'Service visits', required: true, child: DropdownButtonFormField<String>(
                 initialValue: _frequency,
-                decoration: const InputDecoration(labelText: 'Service visits *'),
+                decoration: const InputDecoration(),
                 items: [for (final f in kServiceFrequencies) DropdownMenuItem(value: f.$1, child: Text(f.$2))],
                 onChanged: (v) => setState(() => _frequency = v!),
-              ),
+              )),
             ),
           ]),
           const SizedBox(height: 12),
           vendors.when(
             loading: () => const LinearProgressIndicator(),
             error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-            data: (list) => DropdownButtonFormField<String>(
+            data: (list) => FormFieldBox(label: 'Present vendor', required: true, child: DropdownButtonFormField<String>(
               initialValue: _vendor,
               isExpanded: true,
               decoration: const InputDecoration(
-                  labelText: 'Present vendor *',
                   helperText: 'The contract goes to whichever quotation is sanctioned'),
               items: [
                 for (final v in list.where((v) => v.isActive))
@@ -509,21 +506,21 @@ class _ContractSheetState extends ConsumerState<_ContractSheet> {
               ],
               onChanged: (v) => setState(() => _vendor = v),
               validator: (v) => v == null ? 'Choose a vendor' : null,
-            ),
+            )),
           ),
           const SizedBox(height: 12),
           Row(children: [
-            Expanded(child: DateField(label: 'From', value: _start, required: true, onChanged: (d) => setState(() => _start = d))),
+            Expanded(child: FormFieldBox(label: 'From', child: DateField(label: '',value: _start, required: true, onChanged: (d) => setState(() => _start = d)))),
             const SizedBox(width: 12),
-            Expanded(child: DateField(label: 'To', value: _end, required: true, onChanged: (d) => setState(() => _end = d))),
+            Expanded(child: FormFieldBox(label: 'To', child: DateField(label: '',value: _end, required: true, onChanged: (d) => setState(() => _end = d)))),
           ]),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Scope of work', child: TextFormField(
             controller: _scope,
             maxLength: 5000,
             maxLines: 4,
-            decoration: const InputDecoration(labelText: 'Scope of work'),
-          ),
+            decoration: const InputDecoration(),
+          )),
           const SizedBox(height: 12),
           ElevatedButton(
             onPressed: _saving ? null : _save,
@@ -736,43 +733,43 @@ class _LimitsSheetState extends ConsumerState<_LimitsSheet> {
                 '${widget.limits.members} members). Other figures must be resolved by the general body.',
                 style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'Committee may sanction up to (₹)', child: TextFormField(
               controller: _committee,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: moneyInput,
               onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(labelText: 'Committee may sanction up to (₹)'),
-            ),
+              decoration: const InputDecoration(),
+            )),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'Tenders needed above (₹)', child: TextFormField(
               controller: _tender,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: moneyInput,
               onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(labelText: 'Tenders needed above (₹)'),
-            ),
+              decoration: const InputDecoration(),
+            )),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'Tenders / quotations needed', required: true, child: TextFormField(
               controller: _min,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(2)],
-              decoration: const InputDecoration(labelText: 'Tenders / quotations needed *'),
+              decoration: const InputDecoration(),
               validator: (v) {
                 final n = int.tryParse(v ?? '');
                 return n == null || n < 2 || n > 10 ? 'Between 2 and 10' : null;
               },
-            ),
+            )),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'General body resolution no.${_custom ? ' *' : ''}', child: TextFormField(
               controller: _resolution,
               maxLength: 50,
-              decoration: InputDecoration(labelText: 'General body resolution no.${_custom ? ' *' : ''}', counterText: ''),
+              decoration: InputDecoration(counterText: ''),
               validator: (v) => _custom && (v ?? '').trim().isEmpty ? 'Needed for limits other than the bye-law\'s' : null,
-            ),
+            )),
             const SizedBox(height: 12),
-            DateField(
-                label: 'General body meeting date', value: _meeting, required: _custom, lastDate: DateTime.now(),
-                onChanged: (d) => setState(() => _meeting = d)),
+            FormFieldBox(label: 'General body meeting date', child: DateField(
+                label: '',value: _meeting, required: _custom, lastDate: DateTime.now(),
+                onChanged: (d) => setState(() => _meeting = d))),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _saving ? null : _save,

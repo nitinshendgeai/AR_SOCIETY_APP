@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -176,93 +177,65 @@ class _VehicleFormSheetBodyState extends ConsumerState<_VehicleFormSheetBody> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-        decoration: const BoxDecoration(
-          color: AppTheme.cardBg,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(color: AppTheme.border, borderRadius: BorderRadius.circular(2)),
-                  ),
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(_isEdit ? 'Edit Vehicle' : 'Add Vehicle',
-                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-                    ),
-                    if (_isEdit)
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline_rounded, color: AppTheme.error),
-                        tooltip: 'Deactivate vehicle',
-                        onPressed: (_submitting || _deactivating) ? null : _deactivate,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
+    return AppSheetFrame(
+      title: _isEdit ? 'Edit Vehicle' : 'Add Vehicle',
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+                FormFieldBox(label: 'Vehicle Number', required: true, child: TextFormField(
                   controller: _numberCtrl,
                   enabled: !_isEdit,
                   textCapitalization: TextCapitalization.characters,
                   inputFormatters: [LengthLimitingTextInputFormatter(30)],
-                  decoration: const InputDecoration(labelText: 'Vehicle Number *', hintText: 'e.g. MH12AB1234'),
+                  decoration: const InputDecoration(hintText: 'e.g. MH12AB1234'),
                   validator: rmVehicleNumberValidator,
-                ),
+                )),
                 const SizedBox(height: 14),
-                DropdownButtonFormField<VehicleType>(
+                FormFieldBox(label: 'Vehicle Type', child: DropdownButtonFormField<VehicleType>(
                   value: _type,
-                  decoration: const InputDecoration(labelText: 'Vehicle Type'),
+                  decoration: const InputDecoration(),
                   items: VehicleType.values
                       .map((t) => DropdownMenuItem(value: t, child: Text(t.label)))
                       .toList(),
                   onChanged: (v) => setState(() => _type = v ?? VehicleType.car),
-                ),
+                )),
                 const SizedBox(height: 14),
                 Row(children: [
                   Expanded(
-                    child: TextFormField(
+                    child: FormFieldBox(label: 'Make', child: TextFormField(
                       controller: _makeCtrl,
                       inputFormatters: [LengthLimitingTextInputFormatter(100)],
-                      decoration: const InputDecoration(labelText: 'Make', hintText: 'Honda'),
-                    ),
+                      decoration: const InputDecoration(hintText: 'Honda'),
+                    )),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: TextFormField(
+                    child: FormFieldBox(label: 'Model', child: TextFormField(
                       controller: _modelCtrl,
                       inputFormatters: [LengthLimitingTextInputFormatter(100)],
-                      decoration: const InputDecoration(labelText: 'Model', hintText: 'City'),
-                    ),
+                      decoration: const InputDecoration(hintText: 'City'),
+                    )),
                   ),
                 ]),
                 const SizedBox(height: 14),
                 Row(children: [
                   Expanded(
-                    child: TextFormField(
+                    child: FormFieldBox(label: 'Color', child: TextFormField(
                       controller: _colorCtrl,
                       inputFormatters: [LengthLimitingTextInputFormatter(50)],
-                      decoration: const InputDecoration(labelText: 'Color'),
-                    ),
+                      decoration: const InputDecoration(),
+                    )),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: TextFormField(
+                    child: FormFieldBox(label: 'Parking Slot', child: TextFormField(
                       controller: _slotCtrl,
                       inputFormatters: [LengthLimitingTextInputFormatter(20)],
-                      decoration: const InputDecoration(labelText: 'Parking Slot'),
-                    ),
+                      decoration: const InputDecoration(),
+                    )),
                   ),
                 ]),
                 if (_error != null) ...[
@@ -296,9 +269,7 @@ class _VehicleFormSheetBodyState extends ConsumerState<_VehicleFormSheetBody> {
                     ),
                   ),
                 ],
-              ],
-            ),
-          ),
+          ],
         ),
       ),
     );

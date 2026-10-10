@@ -791,6 +791,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Deactivate Vehicle'), findsOneWidget);
+      await tester.ensureVisible(find.text('Deactivate Vehicle'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Deactivate Vehicle'));
       await tester.pumpAndSettle();
 
@@ -808,6 +810,8 @@ void main() {
       await tester.tap(find.text('open sheet'));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.text('Deactivate Vehicle'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Deactivate Vehicle'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Cancel'));
@@ -828,6 +832,8 @@ void main() {
       await tester.tap(find.text('open sheet'));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.text('Deactivate Vehicle'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Deactivate Vehicle'));
       await tester.pumpAndSettle();
       // Two "Deactivate"-labelled controls exist now (the sheet's own button,
@@ -856,6 +862,8 @@ void main() {
       await tester.tap(find.text('open sheet'));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.text('Deactivate Vehicle'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Deactivate Vehicle'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(ElevatedButton, 'Deactivate'));

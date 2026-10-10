@@ -8,6 +8,7 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 String? _trimmed(TextEditingController c) => c.text.trim().isEmpty ? null : c.text.trim();
 
@@ -25,15 +26,14 @@ class TimeField extends StatelessWidget {
           final t = await showTimePicker(context: context, initialTime: value ?? const TimeOfDay(hour: 9, minute: 0));
           if (t != null) onChanged(t);
         },
-        child: InputDecorator(
+        child: FormFieldBox(label: label, child: InputDecorator(
           decoration: InputDecoration(
-            labelText: label,
             suffixIcon: clearable && value != null
                 ? IconButton(icon: const Icon(Icons.close_rounded, size: 18), onPressed: () => onChanged(null))
                 : const Icon(Icons.schedule_rounded, size: 18),
           ),
           child: Text(value == null ? '—' : timeLabel(value)),
-        ),
+        )),
       );
 }
 
@@ -130,12 +130,11 @@ class _BookingSheetState extends ConsumerState<BookingSheet> {
           Text('${a.hours}${a.capacity != null ? ' · up to ${a.capacity} people' : ''}',
               style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
           const SizedBox(height: 12),
-          DateField(
-            label: 'Date',
-            value: _date,
+          FormFieldBox(label: 'Date', child: DateField(
+            label: '',value: _date,
             required: true,
             onChanged: (v) => setState(() => _date = v ?? _date),
-          ),
+          )),
           const SizedBox(height: 12),
           Row(children: [
             Expanded(child: TimeField(label: 'From', value: _start, onChanged: (v) => setState(() => _start = v ?? _start))),
@@ -143,20 +142,20 @@ class _BookingSheetState extends ConsumerState<BookingSheet> {
             Expanded(child: TimeField(label: 'To', value: _end, onChanged: (v) => setState(() => _end = v ?? _end))),
           ]),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'How many people', child: TextFormField(
             controller: _guests,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(labelText: 'How many people', helperText: 'Including you'),
+            decoration: const InputDecoration(helperText: 'Including you'),
             validator: (v) => (int.tryParse((v ?? '').trim()) ?? 0) < 1 ? 'At least one person' : null,
-          ),
+          )),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'What for (optional)', child: TextFormField(
             controller: _purpose,
             maxLength: 200,
             textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(labelText: 'What for (optional)', hintText: 'e.g. Birthday party', counterText: ''),
-          ),
+            decoration: const InputDecoration(hintText: 'e.g. Birthday party', counterText: ''),
+          )),
           if (cost != null) ...[
             const SizedBox(height: 8),
             Container(
@@ -259,34 +258,34 @@ class _AmenityFormSheetState extends ConsumerState<AmenityFormSheet> {
           key: _form,
           autovalidateMode: AutovalidateMode.onUserInteraction,
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            TextFormField(
+            FormFieldBox(label: 'Name', required: true, child: TextFormField(
               controller: _name,
               maxLength: 150,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Name *', hintText: 'e.g. Clubhouse', counterText: ''),
+              decoration: const InputDecoration(hintText: 'e.g. Clubhouse', counterText: ''),
               validator: (v) => (v ?? '').trim().isEmpty ? 'Give it a name' : null,
-            ),
+            )),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
+            FormFieldBox(label: 'Kind', child: DropdownButtonFormField<String>(
               initialValue: _type,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Kind'),
+              decoration: const InputDecoration(),
               items: [
                 for (final t in kAmenityTypes)
                   DropdownMenuItem(value: t.$1, child: Row(children: [Icon(t.$3, size: 18, color: AppTheme.textSecondary), const SizedBox(width: 10), Text(t.$2)])),
               ],
               onChanged: (v) => setState(() => _type = v ?? _type),
-            ),
+            )),
             const SizedBox(height: 12),
-            TextFormField(controller: _location, maxLength: 200, decoration: const InputDecoration(labelText: 'Where', hintText: 'e.g. Ground floor, Wing A', counterText: '')),
+            FormFieldBox(label: 'Where', child: TextFormField(controller: _location, maxLength: 200, decoration: const InputDecoration(hintText: 'e.g. Ground floor, Wing A', counterText: ''))),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'Most people at a time (optional)', child: TextFormField(
               controller: _capacity,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(labelText: 'Most people at a time (optional)'),
+              decoration: const InputDecoration(),
               validator: (v) => (v ?? '').trim().isNotEmpty && (int.tryParse(v!.trim()) ?? 0) < 1 ? 'At least 1' : null,
-            ),
+            )),
             const SizedBox(height: 12),
             Row(children: [
               Expanded(child: TimeField(label: 'Opens', value: _open, clearable: true, onChanged: (v) => setState(() => _open = v))),
@@ -294,13 +293,13 @@ class _AmenityFormSheetState extends ConsumerState<AmenityFormSheet> {
               Expanded(child: TimeField(label: 'Closes', value: _close, clearable: true, onChanged: (v) => setState(() => _close = v))),
             ]),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'About it (optional)', child: TextFormField(
               controller: _description,
               minLines: 2,
               maxLines: 4,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(labelText: 'About it (optional)', alignLabelWithHint: true),
-            ),
+              decoration: const InputDecoration(alignLabelWithHint: true),
+            )),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               value: _booking,
@@ -376,25 +375,25 @@ class _RuleSheetState extends ConsumerState<RuleSheet> {
       child: Form(
         key: _form,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          DropdownButtonFormField<String>(
+          FormFieldBox(label: 'Rule', child: DropdownButtonFormField<String>(
             initialValue: _type,
             isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Rule'),
+            decoration: const InputDecoration(),
             items: [for (final r in kRuleKinds) DropdownMenuItem(value: r.$1, child: Text(r.$2))],
             onChanged: (v) => setState(() {
               _type = v ?? _type;
               _value.clear();
             }),
-          ),
+          )),
           if (k.kind != 'flag') ...[
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'Value', required: true, child: TextFormField(
               controller: _value,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: k.kind == 'int' ? [FilteringTextInputFormatter.digitsOnly] : moneyInput,
-              decoration: InputDecoration(labelText: 'Value *', helperText: k.hint),
+              decoration: InputDecoration(helperText: k.hint),
               validator: (v) => (double.tryParse((v ?? '').trim()) ?? 0) <= 0 ? 'Enter a number above zero' : null,
-            ),
+            )),
           ] else
             Padding(padding: const EdgeInsets.only(top: 10), child: Text(k.hint, style: const TextStyle(color: AppTheme.textSecondary))),
           const SizedBox(height: 6),
@@ -468,17 +467,17 @@ class _RateSheetState extends ConsumerState<RateSheet> {
         child: Form(
           key: _form,
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            TextFormField(
+            FormFieldBox(label: 'Name', required: true, child: TextFormField(
               controller: _label,
-              decoration: const InputDecoration(labelText: 'Name *', hintText: 'e.g. Weekend'),
+              decoration: const InputDecoration(hintText: 'e.g. Weekend'),
               validator: (v) => (v ?? '').trim().isEmpty ? 'Name this rate' : null,
-            ),
+            )),
             const SizedBox(height: 12),
-            TextFormField(controller: _flat, keyboardType: const TextInputType.numberWithOptions(decimal: true), inputFormatters: moneyInput, decoration: const InputDecoration(labelText: 'Price per booking (₹)')),
+            FormFieldBox(label: 'Price per booking (₹)', child: TextFormField(controller: _flat, keyboardType: const TextInputType.numberWithOptions(decimal: true), inputFormatters: moneyInput, decoration: const InputDecoration())),
             const SizedBox(height: 12),
-            TextFormField(controller: _hour, keyboardType: const TextInputType.numberWithOptions(decimal: true), inputFormatters: moneyInput, decoration: const InputDecoration(labelText: 'Price per hour (₹)', helperText: 'Used when there is no price per booking')),
+            FormFieldBox(label: 'Price per hour (₹)', child: TextFormField(controller: _hour, keyboardType: const TextInputType.numberWithOptions(decimal: true), inputFormatters: moneyInput, decoration: const InputDecoration(helperText: 'Used when there is no price per booking'))),
             const SizedBox(height: 12),
-            TextFormField(controller: _deposit, keyboardType: const TextInputType.numberWithOptions(decimal: true), inputFormatters: moneyInput, decoration: const InputDecoration(labelText: 'Refundable deposit (₹)')),
+            FormFieldBox(label: 'Refundable deposit (₹)', child: TextFormField(controller: _deposit, keyboardType: const TextInputType.numberWithOptions(decimal: true), inputFormatters: moneyInput, decoration: const InputDecoration())),
             SwitchListTile(contentPadding: EdgeInsets.zero, value: _default, onChanged: (v) => setState(() => _default = v), title: const Text('Use this rate for bookings')),
             const SizedBox(height: 10),
             AppPrimaryButton(label: 'Save rate', isLoading: _saving, onPressed: _saving ? null : _save),
@@ -528,9 +527,9 @@ class _ClosedDateSheetState extends ConsumerState<ClosedDateSheet> {
   Widget build(BuildContext context) => BillingSheetFrame(
         title: 'Close it on a date',
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          DateField(label: 'Date', value: _date, required: true, onChanged: (v) => setState(() => _date = v ?? _date)),
+          FormFieldBox(label: 'Date', child: DateField(label: '',value: _date, required: true, onChanged: (v) => setState(() => _date = v ?? _date))),
           const SizedBox(height: 12),
-          TextField(controller: _reason, decoration: const InputDecoration(labelText: 'Why (optional)', hintText: 'e.g. Painting')),
+          FormFieldBox(label: 'Why (optional)', child: TextField(controller: _reason, decoration: const InputDecoration(hintText: 'e.g. Painting'))),
           const SizedBox(height: 6),
           const Text('Nobody can book it on that day. Bookings already made are not cancelled.',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
@@ -570,14 +569,14 @@ class _ReasonSheetState extends State<ReasonSheet> {
         child: Form(
           key: _form,
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            TextFormField(
+            FormFieldBox(label: widget.required ? '${widget.label} *' : widget.label, child: TextFormField(
               controller: _text,
               minLines: 2,
               maxLines: 4,
               textCapitalization: TextCapitalization.sentences,
-              decoration: InputDecoration(labelText: widget.required ? '${widget.label} *' : widget.label, alignLabelWithHint: true),
+              decoration: InputDecoration(alignLabelWithHint: true),
               validator: (v) => widget.required && (v ?? '').trim().isEmpty ? 'Say why' : null,
-            ),
+            )),
             const SizedBox(height: 14),
             FilledButton(
               onPressed: () {
@@ -614,7 +613,7 @@ class _CompleteSheetState extends State<CompleteSheet> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           SwitchListTile(contentPadding: EdgeInsets.zero, value: _damage, onChanged: (v) => setState(() => _damage = v), title: const Text('Something was damaged')),
           if (_damage)
-            TextField(controller: _notes, minLines: 2, maxLines: 4, decoration: const InputDecoration(labelText: 'What was damaged *', alignLabelWithHint: true)),
+            FormFieldBox(label: 'What was damaged', required: true, child: TextField(controller: _notes, minLines: 2, maxLines: 4, decoration: const InputDecoration(alignLabelWithHint: true))),
           const SizedBox(height: 14),
           FilledButton(
             onPressed: () {

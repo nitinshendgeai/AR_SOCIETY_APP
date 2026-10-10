@@ -11,7 +11,9 @@ import 'package:ar_society_app/features/accounts/data/accounts_api.dart';
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
 import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 class _Line {
   LedgerAccount? account;
@@ -256,214 +258,181 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
     final loadError = _loadError ?? (ledgers.isEmpty ? ledgersAsync.error : null);
     final editing = _editing;
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-          title: Text(_isEdit ? 'Edit ${editing?.voucherNumber ?? 'voucher'}' : 'New ${voucherTypeLabel(_type)}')),
-      body: loadError != null
-          ? Center(child: Text(friendlyErrorMessage(loadError), style: const TextStyle(color: AppTheme.error)))
-          : (ledgersAsync.isLoading && ledgers.isEmpty) || (_isEdit && editing == null)
-              ? const AppLoader()
-              : editing != null && !editing.canEdit
-                  ? Center(
-                      child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                          editing.isLocked
-                              ? 'The books for FY ${editing.fiscalYear} are closed — ${editing.voucherNumber} can\'t be changed.'
-                              : '${editing.voucherNumber} can\'t be edited.',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: AppTheme.textSecondary)),
-                    ))
-                  : ResponsiveBody(
-                      maxWidth: 820,
-                      child: ListView(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-                        children: [
-                          if (editing != null)
-                            Row(children: [
-                              VoucherTypeChip(_type),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                    'Correct the ${voucherTypeLabel(_type).toLowerCase()} and give the reason. '
-                                    'The voucher keeps its number; the earlier version stays in its history.',
-                                    style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
-                              ),
-                            ])
-                          else ...[
-                            SegmentedButton<String>(
-                              showSelectedIcon: false,
-                              style: const ButtonStyle(
-                                visualDensity: VisualDensity.compact,
-                                padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 4)),
-                                textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                              ),
-                              segments: [
-                                for (final t in kManualVoucherTypes)
-                                  ButtonSegment(
-                                      value: t, label: Text(voucherTypeLabel(t), maxLines: 1, softWrap: false)),
-                              ],
-                              selected: {_type},
-                              onSelectionChanged: (s) => _setType(s.first),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(voucherTypeHint(_type),
-                                style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
-                          ],
-                          const SizedBox(height: 16),
-                          _Card(children: [
-                            Row(children: [
-                              Expanded(
-                                child: InkWell(
-                                  onTap: _pickDate,
-                                  child: InputDecorator(
-                                    decoration: const InputDecoration(
-                                        labelText: 'Date', suffixIcon: Icon(Icons.calendar_today_rounded, size: 18)),
-                                    child: Text(formatAccountsDate(_date)),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: TextField(
-                                  controller: _reference,
-                                  decoration: const InputDecoration(
-                                      labelText: 'Cheque / UTR no.', hintText: 'Cheque, UTR or supplier\'s bill no.'),
-                                ),
-                              ),
-                            ]),
-                            if (_type == 'receipt' || _type == 'payment' || _type == 'contra') ...[
-                              const SizedBox(height: 12),
-                              _LedgerField(
-                                label: switch (_type) {
-                                  'receipt' => 'Received into',
-                                  'payment' => 'Paid from',
-                                  _ => 'From (cash / bank)',
-                                },
-                                value: _cashBank,
-                                onTap: () async {
-                                  final l = await pickLedger(context, cashBank, title: 'Cash or bank account');
-                                  if (l != null) setState(() => _cashBank = l);
-                                },
-                              ),
-                            ],
-                            if (_type == 'payment') ...[
-                              const SizedBox(height: 12),
-                              VendorPicker(
-                                societyId: societyId,
-                                value: _vendorId,
-                                label: 'Paid to (vendor, optional)',
-                                onChanged: (v) => setState(() => _vendorId = v?.id),
-                              ),
-                            ],
-                            if (!_isEdit) ...[
-                              const SizedBox(height: 12),
-                              NextVoucherNumber(societyId: societyId, type: _type, date: _date),
-                            ],
-                            if (_type == 'contra') ...[
-                              const SizedBox(height: 12),
-                              _LedgerField(
-                                label: 'To (cash / bank)',
-                                value: _contraTo,
-                                onTap: () async {
-                                  final l = await pickLedger(context, cashBank, title: 'Cash or bank account');
-                                  if (l != null) setState(() => _contraTo = l);
-                                },
-                              ),
-                              const SizedBox(height: 12),
-                              _AmountField(controller: _contraAmount, onChanged: () => setState(() {})),
-                            ],
-                          ]),
-                          if (_type != 'contra') ...[
-                            const SizedBox(height: 16),
-                            Padding(
-                              padding: const EdgeInsets.only(left: 2, bottom: 8),
-                              child: Text(
-                                switch (_type) {
-                                  'receipt' => 'Received from / towards',
-                                  'payment' => 'Paid to / for',
-                                  _ => 'Debit and credit lines',
-                                },
-                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                              ),
-                            ),
-                            for (final (i, l) in _lines.indexed)
-                              _LineCard(
-                                key: ObjectKey(l),
-                                line: l,
-                                journal: _type == 'journal',
-                                ledgers: others,
-                                societyId: societyId,
-                                onChanged: () => setState(() {}),
-                                onRemove: _lines.length > (_type == 'journal' ? 2 : 1)
-                                    ? () => setState(() {
-                                          _lines.removeAt(i);
-                                          l.amount.dispose();
-                                        })
-                                    : null,
-                              ),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: TextButton.icon(
-                                onPressed: () => setState(() =>
-                                    _lines.add(_Line(side: _type == 'journal' && _drTotal > _crTotal ? 'cr' : 'dr'))),
-                                icon: const Icon(Icons.add_rounded, size: 18),
-                                label: const Text('Add line'),
-                              ),
-                            ),
-                            _Totals(
-                              journal: _type == 'journal',
-                              total: _linesTotal,
-                              dr: _drTotal,
-                              cr: _crTotal,
-                            ),
-                          ],
-                          const SizedBox(height: 16),
-                          _Card(children: [
-                            TextField(
-                              controller: _narration,
-                              minLines: 2,
-                              maxLines: 4,
-                              decoration: const InputDecoration(
-                                  labelText: 'Narration', hintText: 'e.g. MSEDCL electricity bill for Aug-2026'),
-                            ),
-                          ]),
-                          if (_isEdit) ...[
-                            const SizedBox(height: 16),
-                            _Card(children: [
-                              TextField(
-                                controller: _reason,
-                                decoration: const InputDecoration(
-                                    labelText: 'Reason for the change *', hintText: 'e.g. Wrong amount entered'),
-                              ),
-                            ]),
-                          ],
-                          const SizedBox(height: 20),
-                          AppPrimaryButton(
-                            label: _isEdit ? 'Save changes' : 'Save ${voucherTypeLabel(_type)}',
-                            icon: Icons.check_rounded,
-                            isLoading: _saving,
-                            onPressed: () => _save(societyId),
-                          ),
-                        ],
-                      ),
-                    ),
+    final title = _isEdit ? 'Edit ${editing?.voucherNumber ?? 'voucher'}' : 'New ${voucherTypeLabel(_type)}';
+    Widget waiting(Widget body) => Scaffold(
+          backgroundColor: AppTheme.surface,
+          appBar: AppBar(title: Text(title)),
+          body: body,
+        );
+    if (loadError != null) {
+      return waiting(Center(child: Text(friendlyErrorMessage(loadError), style: const TextStyle(color: AppTheme.error))));
+    }
+    if ((ledgersAsync.isLoading && ledgers.isEmpty) || (_isEdit && editing == null)) return waiting(const AppLoader());
+    if (editing != null && !editing.canEdit) {
+      return waiting(Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+              editing.isLocked
+                  ? 'The books for FY ${editing.fiscalYear} are closed — ${editing.voucherNumber} can\'t be changed.'
+                  : '${editing.voucherNumber} can\'t be edited.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppTheme.textSecondary)),
+        ),
+      ));
+    }
+
+    final needsCashBank = _type == 'receipt' || _type == 'payment' || _type == 'contra';
+    return AppFormPage(
+      title: title,
+      subtitle: editing != null
+          ? 'Correct the ${voucherTypeLabel(_type).toLowerCase()} and give the reason. The voucher keeps its number; the earlier version stays in its history.'
+          : voucherTypeHint(_type),
+      status: editing != null ? VoucherTypeChip(_type) : null,
+      submitLabel: _isEdit ? 'Save changes' : 'Save ${voucherTypeLabel(_type)}',
+      submitIcon: Icons.check_rounded,
+      saving: _saving,
+      onSubmit: () => _save(societyId),
+      children: [
+        if (editing == null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: SegmentedButton<String>(
+              showSelectedIcon: false,
+              style: const ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12)),
+                textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              ),
+              segments: [
+                for (final t in kManualVoucherTypes)
+                  ButtonSegment(value: t, label: Text(voucherTypeLabel(t), maxLines: 1, softWrap: false)),
+              ],
+              selected: {_type},
+              onSelectionChanged: (s) => _setType(s.first),
+            ),
+          ),
+        FormSection(
+          title: 'Details',
+          description: 'The date, the account the money moves through, and a reference.',
+          children: [
+            FormFieldBox(
+              label: 'Date',
+              child: FormDateField(value: _date, hint: 'Select date', format: formatAccountsDate, onTap: _pickDate),
+            ),
+            FormFieldBox(
+              label: 'Cheque / UTR no.',
+              child: TextField(
+                controller: _reference,
+                decoration: const InputDecoration(hintText: 'Cheque, UTR or supplier\'s bill no.'),
+              ),
+            ),
+            if (needsCashBank)
+              _LedgerField(
+                label: switch (_type) {
+                  'receipt' => 'Received into',
+                  'payment' => 'Paid from',
+                  _ => 'From (cash / bank)',
+                },
+                value: _cashBank,
+                onTap: () async {
+                  final l = await pickLedger(context, cashBank, title: 'Cash or bank account');
+                  if (l != null) setState(() => _cashBank = l);
+                },
+              ),
+            if (_type == 'contra')
+              _LedgerField(
+                label: 'To (cash / bank)',
+                value: _contraTo,
+                onTap: () async {
+                  final l = await pickLedger(context, cashBank, title: 'Cash or bank account');
+                  if (l != null) setState(() => _contraTo = l);
+                },
+              ),
+            if (_type == 'contra') _AmountField(controller: _contraAmount, onChanged: () => setState(() {})),
+            if (_type == 'payment')
+              FormFieldBox(
+                label: 'Paid to',
+                helper: 'Vendor, optional',
+                child: VendorPicker(
+                  societyId: societyId,
+                  value: _vendorId,
+                  label: '',
+                  onChanged: (v) => setState(() => _vendorId = v?.id),
+                ),
+              ),
+            if (!_isEdit)
+              FormFieldBox(
+                label: 'Voucher no.',
+                helper: 'Given automatically when you save',
+                child: NextVoucherNumber(societyId: societyId, type: _type, date: _date, showLabel: false),
+              ),
+          ],
+        ),
+        if (_type != 'contra')
+          FormSection(
+            title: switch (_type) {
+              'receipt' => 'Received from / towards',
+              'payment' => 'Paid to / for',
+              _ => 'Debit and credit lines',
+            },
+            description: _type == 'journal' ? 'Debits and credits must match.' : 'One line for each ledger the money is booked to.',
+            columns: 1,
+            children: [
+              for (final (i, l) in _lines.indexed)
+                _LineCard(
+                  key: ObjectKey(l),
+                  line: l,
+                  journal: _type == 'journal',
+                  ledgers: others,
+                  societyId: societyId,
+                  onChanged: () => setState(() {}),
+                  onRemove: _lines.length > (_type == 'journal' ? 2 : 1)
+                      ? () => setState(() {
+                            _lines.removeAt(i);
+                            l.amount.dispose();
+                          })
+                      : null,
+                ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () =>
+                      setState(() => _lines.add(_Line(side: _type == 'journal' && _drTotal > _crTotal ? 'cr' : 'dr'))),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Add line'),
+                ),
+              ),
+              _Totals(journal: _type == 'journal', total: _linesTotal, dr: _drTotal, cr: _crTotal),
+            ],
+          ),
+        FormSection(
+          title: 'Narration',
+          description: _isEdit ? 'What the voucher is for, and why it is being changed.' : 'What the voucher is for.',
+          columns: 1,
+          children: [
+            FormFieldBox(
+              label: 'Narration',
+              child: TextField(
+                controller: _narration,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(hintText: 'e.g. MSEDCL electricity bill for Aug-2026'),
+              ),
+            ),
+            if (_isEdit)
+              FormFieldBox(
+                label: 'Reason for the change',
+                required: true,
+                child: TextField(controller: _reason, decoration: const InputDecoration(hintText: 'e.g. Wrong amount entered')),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }
 
-class _Card extends StatelessWidget {
-  final List<Widget> children;
-  const _Card({required this.children});
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
-      );
-}
 
 class _LedgerField extends StatelessWidget {
   final String label;
@@ -475,12 +444,12 @@ class _LedgerField extends StatelessWidget {
   Widget build(BuildContext context) => InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppTheme.radiusS),
-        child: InputDecorator(
-          decoration: InputDecoration(labelText: label, suffixIcon: const Icon(Icons.arrow_drop_down_rounded)),
+        child: FormFieldBox(label: label, child: InputDecorator(
+          decoration: InputDecoration(suffixIcon: const Icon(Icons.arrow_drop_down_rounded)),
           child: Text(value?.name ?? 'Choose ledger',
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: value == null ? AppTheme.textTertiary : AppTheme.textPrimary)),
-        ),
+        )),
       );
 }
 
@@ -490,14 +459,14 @@ class _AmountField extends StatelessWidget {
   const _AmountField({required this.controller, required this.onChanged});
 
   @override
-  Widget build(BuildContext context) => TextField(
+  Widget build(BuildContext context) => FormFieldBox(label: 'Amount (₹)', child: TextField(
         controller: controller,
         onChanged: (_) => onChanged(),
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
         textAlign: TextAlign.right,
-        decoration: const InputDecoration(labelText: 'Amount (₹)', hintText: '0.00'),
-      );
+        decoration: const InputDecoration(hintText: '0.00'),
+      ));
 }
 
 class _LineCard extends ConsumerWidget {
@@ -584,11 +553,11 @@ class _LineCard extends ConsumerWidget {
                     onChanged();
                   }
                 },
-                child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Flat', suffixIcon: Icon(Icons.arrow_drop_down_rounded)),
+                child: FormFieldBox(label: 'Flat', child: InputDecorator(
+                  decoration: const InputDecoration(suffixIcon: Icon(Icons.arrow_drop_down_rounded)),
                   child: Text(line.flat == null ? 'Choose flat' : '${line.flat!.flatLabel} · ${line.flat!.memberName}',
                       style: TextStyle(color: line.flat == null ? AppTheme.textTertiary : AppTheme.textPrimary)),
-                ),
+                )),
               ),
             ],
           ]),

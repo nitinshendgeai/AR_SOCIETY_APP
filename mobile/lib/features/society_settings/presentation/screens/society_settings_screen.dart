@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show kDesktopBreakpoint;
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -13,57 +15,73 @@ class SocietySettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final societyAsync = ref.watch(currentSocietyProvider);
+    final desktop = MediaQuery.sizeOf(context).width >= kDesktopBreakpoint;
+    final gutter = desktop ? 32.0 : 0.0;
+    final refresh = IconButton(
+      tooltip: 'Refresh',
+      icon: const Icon(Icons.refresh_rounded),
+      onPressed: () => ref.read(currentSocietyProvider.notifier).refresh(),
+    );
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Society Settings'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () =>
-                ref.read(currentSocietyProvider.notifier).refresh(),
-          ),
-        ],
-      ),
+      appBar: desktop ? null : AppBar(title: const Text('Society Settings'), actions: [refresh]),
       body: societyAsync.when(
         loading: () => const AppLoader(),
         error: (e, _) => Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline_rounded,
-                  color: AppTheme.error, size: 40),
+              const Icon(Icons.error_outline_rounded, color: AppTheme.error, size: 40),
               const SizedBox(height: 12),
               Text(friendlyErrorMessage(e),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppTheme.textSecondary)),
+                  textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.textSecondary)),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: () =>
-                    ref.read(currentSocietyProvider.notifier).refresh(),
+                onPressed: () => ref.read(currentSocietyProvider.notifier).refresh(),
                 child: const Text('Retry'),
               ),
             ],
           ),
         ),
-        data: (society) => ResponsiveBody(child: DefaultTabController(
+        data: (society) => DefaultTabController(
           length: 4,
           child: Column(
             children: [
+              if (desktop)
+                Padding(
+                  padding: EdgeInsets.fromLTRB(gutter, 24, gutter, 8),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1080),
+                      child: AppPageHeader(
+                        title: 'Society Settings',
+                        subtitle: 'Profile, contacts, subscription and security',
+                        actions: [refresh],
+                      ),
+                    ),
+                  ),
+                ),
               _SubscriptionBanner(society: society),
-              const TabBar(
-                isScrollable: true,
-                labelColor: AppTheme.primary,
-                unselectedLabelColor: AppTheme.textSecondary,
-                indicatorColor: AppTheme.primary,
-                tabAlignment: TabAlignment.start,
-                tabs: [
-                  Tab(text: 'General'),
-                  Tab(text: 'Contact'),
-                  Tab(text: 'Subscription'),
-                  Tab(text: 'Security'),
-                ],
+              Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1080),
+                  child: const TabBar(
+                    isScrollable: true,
+                    labelColor: AppTheme.primary,
+                    unselectedLabelColor: AppTheme.textSecondary,
+                    indicatorColor: AppTheme.primary,
+                    tabAlignment: TabAlignment.start,
+                    tabs: [
+                      Tab(text: 'General'),
+                      Tab(text: 'Contact'),
+                      Tab(text: 'Subscription'),
+                      Tab(text: 'Security'),
+                    ],
+                  ),
+                ),
               ),
               Expanded(
                 child: TabBarView(
@@ -77,7 +95,7 @@ class SocietySettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
-        )),
+        ),
       ),
     );
   }
@@ -220,73 +238,74 @@ class _GeneralTabState extends ConsumerState<_GeneralTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _SectionHeader('Society Profile'),
-            _Field('Society Name', _nameCtrl,
-                validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Required' : null),
-            _Field('Address', _addressCtrl),
-            Row(
-              children: [
-                Expanded(child: _Field('City', _cityCtrl)),
-                const SizedBox(width: 12),
-                Expanded(child: _Field('State', _stateCtrl)),
-              ],
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: _Field('Pincode', _pincodeCtrl,
-                      keyboardType: TextInputType.number,
-                      validator: (v) {
-                        final t = (v ?? '').replaceAll(' ', '');
-                        return t.isEmpty || RegExp(r'^[0-9]{6}$').hasMatch(t) ? null : 'Pincode must be 6 digits';
-                      }),
+    return Form(
+      key: _formKey,
+      child: SettingsColumn(
+        save: _SaveButton(saving: _saving, onSave: _save),
+        children: [
+          FormSection(
+            title: 'Society profile',
+            description: 'Printed on bills, receipts and certificates.',
+            children: [
+              FormFieldBox(
+                label: 'Society name',
+                required: true,
+                child: TextFormField(controller: _nameCtrl, validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null),
+              ),
+              FormFieldBox(label: 'Website', child: TextFormField(controller: _websiteCtrl, keyboardType: TextInputType.url, decoration: const InputDecoration(hintText: 'https://example.com'))),
+              FormFull(child: FormFieldBox(label: 'Address', child: TextFormField(controller: _addressCtrl))),
+              FormFieldBox(label: 'City', child: TextFormField(controller: _cityCtrl)),
+              FormFieldBox(label: 'State', child: TextFormField(controller: _stateCtrl)),
+              FormFieldBox(
+                label: 'Pincode',
+                child: TextFormField(
+                  controller: _pincodeCtrl,
+                  keyboardType: TextInputType.number,
+                  validator: (v) {
+                    final t = (v ?? '').replaceAll(' ', '');
+                    return t.isEmpty || RegExp(r'^[0-9]{6}$').hasMatch(t) ? null : 'Pincode must be 6 digits';
+                  },
                 ),
-                const SizedBox(width: 12),
-                Expanded(child: _Field('Country', _countryCtrl)),
-              ],
-            ),
-            _Field('Website', _websiteCtrl,
-                hint: 'https://example.com',
-                keyboardType: TextInputType.url),
-            const SizedBox(height: 16),
-            _SectionHeader('Legal / Registration'),
-            _Field('Registration Number', _regNumberCtrl,
-                hint: 'e.g. MH-2024-001'),
-            Row(children: [
-              Expanded(
-                child: _Field('GST Number', _gstCtrl,
-                    hint: 'e.g. 27AAAAA0000A1Z5',
-                    validator: (v) {
-                      final t = (v ?? '').replaceAll(' ', '').toUpperCase();
-                      return t.isEmpty || RegExp(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$').hasMatch(t)
-                          ? null
-                          : 'GSTIN is 15 characters, like 27AAAAA0000A1Z5';
-                    }),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _Field('PAN Number', _panCtrl,
-                    hint: 'e.g. AAAAA0000A',
-                    validator: (v) {
-                      final t = (v ?? '').replaceAll(' ', '').toUpperCase();
-                      return t.isEmpty || RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$').hasMatch(t)
-                          ? null
-                          : 'PAN looks like ABCDE1234F';
-                    }),
+              FormFieldBox(label: 'Country', child: TextFormField(controller: _countryCtrl)),
+            ],
+          ),
+          FormSection(
+            title: 'Legal and registration',
+            description: 'Registration and tax numbers, used on bills and statutory reports.',
+            children: [
+              FormFieldBox(
+                label: 'Registration number',
+                child: TextFormField(controller: _regNumberCtrl, decoration: const InputDecoration(hintText: 'e.g. MH-2024-001')),
               ),
-            ]),
-            const SizedBox(height: 24),
-            _SaveButton(saving: _saving, onSave: _save),
-          ],
-        ),
+              const SizedBox.shrink(),
+              FormFieldBox(
+                label: 'GST number',
+                child: TextFormField(
+                  controller: _gstCtrl,
+                  decoration: const InputDecoration(hintText: 'e.g. 27AAAAA0000A1Z5'),
+                  validator: (v) {
+                    final t = (v ?? '').replaceAll(' ', '').toUpperCase();
+                    return t.isEmpty || RegExp(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$').hasMatch(t)
+                        ? null
+                        : 'GSTIN is 15 characters, like 27AAAAA0000A1Z5';
+                  },
+                ),
+              ),
+              FormFieldBox(
+                label: 'PAN number',
+                child: TextFormField(
+                  controller: _panCtrl,
+                  decoration: const InputDecoration(hintText: 'e.g. AAAAA0000A'),
+                  validator: (v) {
+                    final t = (v ?? '').replaceAll(' ', '').toUpperCase();
+                    return t.isEmpty || RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$').hasMatch(t) ? null : 'PAN looks like ABCDE1234F';
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -373,28 +392,29 @@ class _ContactTabState extends ConsumerState<_ContactTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _SectionHeader('Primary Contact'),
-            _Field('Contact Email', _emailCtrl,
-                keyboardType: TextInputType.emailAddress),
-            _Field('Contact Phone', _phoneCtrl,
-                keyboardType: TextInputType.phone),
-            _Field('Contact Person Name', _personCtrl),
-            const SizedBox(height: 8),
-            _SectionHeader('Emergency Contact'),
-            _Field('Emergency Contact Name', _emgNameCtrl),
-            _Field('Emergency Contact Phone', _emgPhoneCtrl,
-                keyboardType: TextInputType.phone),
-            const SizedBox(height: 24),
-            _SaveButton(saving: _saving, onSave: _save),
-          ],
-        ),
+    return Form(
+      key: _formKey,
+      child: SettingsColumn(
+        save: _SaveButton(saving: _saving, onSave: _save),
+        children: [
+          FormSection(
+            title: 'Primary contact',
+            description: 'Who the society office can be reached through.',
+            children: [
+              FormFieldBox(label: 'Contact email', child: TextFormField(controller: _emailCtrl, keyboardType: TextInputType.emailAddress)),
+              FormFieldBox(label: 'Contact phone', child: TextFormField(controller: _phoneCtrl, keyboardType: TextInputType.phone)),
+              FormFieldBox(label: 'Contact person', child: TextFormField(controller: _personCtrl)),
+            ],
+          ),
+          FormSection(
+            title: 'Emergency contact',
+            description: 'Called when something urgent happens in the society.',
+            children: [
+              FormFieldBox(label: 'Name', child: TextFormField(controller: _emgNameCtrl)),
+              FormFieldBox(label: 'Phone', child: TextFormField(controller: _emgPhoneCtrl, keyboardType: TextInputType.phone)),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -408,72 +428,45 @@ class _SubscriptionTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeader('Account Status'),
-          _InfoTile(
-            icon: Icons.business_rounded,
-            label: 'Account Status',
-            value: society.accountStatus ?? 'Unknown',
-            valueColor: society.isTrial ? AppTheme.warning : AppTheme.success,
-          ),
-          const SizedBox(height: 8),
-          if (society.isTrial) ...[
+    return SettingsColumn(
+      children: [
+        FormSection(
+          title: 'Account and plan',
+          description: 'Your subscription and what it allows.',
+          columns: 1,
+          children: [
             _InfoTile(
-              icon: Icons.access_time_rounded,
-              label: 'Trial Ends',
-              value: society.trialEndDate ?? '—',
+              icon: Icons.business_rounded,
+              label: 'Account status',
+              value: society.accountStatus ?? 'Unknown',
+              valueColor: society.isTrial ? AppTheme.warning : AppTheme.success,
             ),
-            const SizedBox(height: 8),
+            if (society.isTrial) _InfoTile(icon: Icons.access_time_rounded, label: 'Trial ends', value: society.trialEndDate ?? '—'),
+            _InfoTile(icon: Icons.receipt_long_rounded, label: 'Subscription plan', value: society.subscriptionPlan ?? 'Free Trial'),
+            _InfoTile(icon: Icons.people_rounded, label: 'Allowed users', value: '${society.allowedUsers}'),
+            _InfoTile(icon: Icons.home_rounded, label: 'Allowed flats', value: '${society.allowedFlats}'),
           ],
-          _InfoTile(
-            icon: Icons.receipt_long_rounded,
-            label: 'Subscription Plan',
-            value: society.subscriptionPlan ?? 'Free Trial',
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppTheme.primarySoft.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppTheme.primary.withOpacity(0.2)),
           ),
-          const SizedBox(height: 8),
-          _InfoTile(
-            icon: Icons.people_rounded,
-            label: 'Allowed Users',
-            value: '${society.allowedUsers}',
-          ),
-          const SizedBox(height: 8),
-          _InfoTile(
-            icon: Icons.home_rounded,
-            label: 'Allowed Flats',
-            value: '${society.allowedFlats}',
-          ),
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                  color: AppTheme.primary.withOpacity(0.2)),
-            ),
-            child: const Column(
+          child: const Padding(
+            padding: EdgeInsets.all(20),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Upgrade Plan',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                        color: AppTheme.textPrimary)),
+                Text('Upgrade plan', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppTheme.textPrimary)),
                 SizedBox(height: 4),
-                Text(
-                  'Contact support to upgrade your subscription and unlock more users, flats, and features.',
-                  style: TextStyle(
-                      fontSize: 13, color: AppTheme.textSecondary),
-                ),
+                Text('Contact support to upgrade your subscription and unlock more users, flats and features.',
+                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
               ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -551,52 +544,65 @@ class _SecurityTabState extends ConsumerState<_SecurityTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Form(
-        key: _settingsFormKey,
-        child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Form(
+      key: _settingsFormKey,
+      child: SettingsColumn(
+        save: _SaveButton(saving: _saving, onSave: _save),
         children: [
-          _SectionHeader('Access Controls'),
-          _SwitchTile(
-            title: 'Tenant Portal',
-            subtitle: 'Allow tenants to access the resident portal',
-            value: _allowTenantPortal,
-            onChanged: (v) => setState(() => _allowTenantPortal = v),
+          FormSection(
+            title: 'Access controls',
+            description: 'Who can use the app, and what needs approval.',
+            columns: 1,
+            children: [
+              FormSwitchTile(
+                title: 'Tenant portal',
+                subtitle: 'Allow tenants to use the resident portal',
+                value: _allowTenantPortal,
+                onChanged: (v) => setState(() => _allowTenantPortal = v),
+              ),
+              FormSwitchTile(
+                title: 'Visitor approval required',
+                subtitle: 'Require resident approval before a visitor is let in',
+                value: _requireVisitorApproval,
+                onChanged: (v) => setState(() => _requireVisitorApproval = v),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          _SwitchTile(
-            title: 'Visitor Approval Required',
-            subtitle: 'Require resident approval before visitor entry',
-            value: _requireVisitorApproval,
-            onChanged: (v) =>
-                setState(() => _requireVisitorApproval = v),
+          FormSection(
+            title: 'Billing settings',
+            description: 'Defaults used when maintenance bills are made.',
+            children: [
+              FormFieldBox(
+                label: 'Maintenance day (1–28)',
+                child: TextFormField(
+                  controller: _maintenanceDayCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(hintText: 'e.g. 1'),
+                  validator: (v) {
+                    final t = (v ?? '').trim();
+                    if (t.isEmpty) return null;
+                    final n = int.tryParse(t);
+                    return n == null || n < 1 || n > 28 ? 'Enter a day from 1 to 28' : null;
+                  },
+                ),
+              ),
+              FormFieldBox(
+                label: 'Late fee %',
+                child: TextFormField(
+                  controller: _lateFeeCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(hintText: 'e.g. 5'),
+                  validator: (v) {
+                    final t = (v ?? '').trim();
+                    if (t.isEmpty) return null;
+                    final n = int.tryParse(t);
+                    return n == null || n < 0 || n > 100 ? 'Enter a percentage from 0 to 100' : null;
+                  },
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          _SectionHeader('Billing Settings'),
-          _Field('Maintenance Day (1–28)', _maintenanceDayCtrl,
-              hint: 'e.g. 1',
-              keyboardType: TextInputType.number,
-              validator: (v) {
-                final t = (v ?? '').trim();
-                if (t.isEmpty) return null;
-                final n = int.tryParse(t);
-                return n == null || n < 1 || n > 28 ? 'Enter a day from 1 to 28' : null;
-              }),
-          _Field('Late Fee %', _lateFeeCtrl,
-              hint: 'e.g. 5',
-              keyboardType: TextInputType.number,
-              validator: (v) {
-                final t = (v ?? '').trim();
-                if (t.isEmpty) return null;
-                final n = int.tryParse(t);
-                return n == null || n < 0 || n > 100 ? 'Enter a percentage from 0 to 100' : null;
-              }),
-          const SizedBox(height: 24),
-          _SaveButton(saving: _saving, onSave: _save),
         ],
-      ),
       ),
     );
   }
@@ -604,123 +610,8 @@ class _SecurityTabState extends ConsumerState<_SecurityTab>
 
 // ── Shared components ─────────────────────────────────────────────────────────
 
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  const _SectionHeader(this.title);
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Text(title,
-          style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textSecondary,
-              letterSpacing: 0.3)),
-    );
-  }
-}
 
-class _Field extends StatelessWidget {
-  final String label;
-  final TextEditingController controller;
-  final String? hint;
-  final TextInputType? keyboardType;
-  final String? Function(String?)? validator;
-
-  const _Field(this.label, this.controller,
-      {this.hint, this.keyboardType, this.validator});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary)),
-          const SizedBox(height: 4),
-          TextFormField(
-            controller: controller,
-            keyboardType: keyboardType,
-            validator: validator,
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: const TextStyle(
-                  color: AppTheme.textSecondary, fontSize: 13),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              filled: true,
-              fillColor: AppTheme.cardBg,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppTheme.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppTheme.border),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SwitchTile extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  const _SwitchTile(
-      {required this.title,
-      required this.subtitle,
-      required this.value,
-      required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: AppTheme.textPrimary)),
-                const SizedBox(height: 2),
-                Text(subtitle,
-                    style: const TextStyle(
-                        fontSize: 11, color: AppTheme.textSecondary)),
-              ],
-            ),
-          ),
-          Switch(
-            value: value,
-            activeColor: AppTheme.success,
-            onChanged: onChanged,
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _InfoTile extends StatelessWidget {
   final IconData icon;
@@ -768,17 +659,11 @@ class _SaveButton extends StatelessWidget {
   const _SaveButton({required this.saving, required this.onSave});
 
   @override
-  Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: saving ? null : onSave,
-      icon: saving
-          ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                  strokeWidth: 2, color: Colors.white))
-          : const Icon(Icons.save_rounded, size: 18),
-      label: Text(saving ? 'Saving…' : 'Save Changes'),
-    );
-  }
+  Widget build(BuildContext context) => AppPrimaryButton(
+        label: 'Save Changes',
+        icon: Icons.save_rounded,
+        isLoading: saving,
+        expand: MediaQuery.sizeOf(context).width < kDesktopBreakpoint,
+        onPressed: saving ? null : onSave,
+      );
 }

@@ -12,6 +12,7 @@ import 'package:ar_society_app/features/maintenance_billing/presentation/provide
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/billing_cycle_screen.dart' show billStatusColor;
 import 'package:ar_society_app/shared/utils/file_saver.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// One maintenance bill. [canManage] (society side) adds Issue / Record
 /// Payment / Cancel; residents get the read-only view plus PDF sharing.
@@ -101,11 +102,11 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
           Text('${bill.flatLabel} · ${formatRupees(bill.totalAmount)}\n'
               'The amount is removed from the flat\'s dues.'),
           const SizedBox(height: 12),
-          TextField(
+          FormFieldBox(label: 'Reason', required: true, child: TextField(
             controller: reasonCtrl,
             autofocus: true,
-            decoration: const InputDecoration(labelText: 'Reason *', hintText: 'e.g. Raised in error'),
-          ),
+            decoration: const InputDecoration(hintText: 'e.g. Raised in error'),
+          )),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Keep Bill')),
