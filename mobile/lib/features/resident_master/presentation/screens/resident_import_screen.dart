@@ -108,9 +108,9 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
               const SizedBox(height: 8),
               const Text(
                 '1. Download the template and fill it in (in Excel, Google Sheets, etc.)\n'
-                '2. Floor, Possession Date, Electric Meter No and Consumer No are optional. If a Wing, Floor, or Flat Number doesn\'t exist yet, it will be created automatically during import\n'
-                '3. Your own sheet works too: columns are found by their headings (Wing, Flat No, Name, Possession Date, Meter No…), in any order. Dates are read day first (01/04/2019)\n'
-                '4. Possession date and meter details are saved on the flat. Choose the filled file, review the preview, then import',
+                '2. Floor, Flat Type (1 BHK, 2 BHK…), Area (sq ft), Possession or Purchase Date, Electric Meter No and Consumer No are optional. If a Wing, Floor, or Flat Number doesn\'t exist yet, it will be created automatically during import\n'
+                '3. Your own sheet works too: columns are found by their headings (Wing, Flat No, Name, Flat Type, Area, Possession Date or Purchase Date, Meter No…), in any order. Dates are read day first (01/04/2019). An area in square metres ("60 sq m") is converted to square feet\n'
+                '4. Type, area, date and meter details are saved on the flat (and used in billing). Choose the filled file, review the preview, then import',
                 style: TextStyle(fontSize: 13, color: AppTheme.textPrimary, height: 1.5),
               ),
             ],
@@ -152,7 +152,7 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
     try {
       final rows = [
         _templateHeader,
-        ['A Wing', '101', 'Ramesh Kumar', 'owner', 'yes', '9876543210', 'ramesh@example.com', '1', '01/04/2019', 'MTR-001234', '170012345678'],
+        ['A Wing', '101', 'Ramesh Kumar', 'owner', 'yes', '9876543210', 'ramesh@example.com', '1', '01/04/2019', 'MTR-001234', '170012345678', '2 BHK', '650'],
       ];
       final csvString = const ListToCsvConverter().convert(rows);
       await _saveCsv(csvString, 'resident_import_template.csv', 'Template');
@@ -293,7 +293,10 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
       final phone = cell('phone');
       final email = cell('email');
       final floorText = cell('floor');
-      final possessionText = cell('possession');
+      final dateCell = columns.dateOf(fileRow);
+      final possessionText = dateCell.text;
+      final bhkText = cell('bhk');
+      final areaText = cell('area');
       final meterText = cell('meter');
       final consumerText = cell('consumer');
 
@@ -313,12 +316,17 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
       if (error == null && possessionText.isNotEmpty) {
         possession = parseImportDate(possessionText);
         if (possession == null) {
-          error = 'Possession Date "$possessionText" is not a date (use dd/mm/yyyy)';
+          error = '${dateCell.heading} "$possessionText" is not a date (use dd/mm/yyyy)';
         } else if (possession.isAfter(DateTime.now().add(const Duration(days: 366))) ||
             possession.isBefore(DateTime(1950))) {
-          error = 'Possession Date must be between 1950 and a year from today';
+          error = '${dateCell.heading} must be between 1950 and a year from today';
         }
       }
+
+      final flatType = parseFlatType(bhkText);
+      if (error == null) error = flatType.error;
+      final area = parseAreaSqft(areaText);
+      if (error == null) error = area.error;
 
       // Wing/Floor/Flat need not already exist — a row referencing a Wing,
       // Floor, or Flat that isn't in the society yet is still importable;
@@ -383,12 +391,15 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
       }
       final flatNotes = [
         if (possession != null) 'possession ${possession.day}/${possession.month}/${possession.year}',
+        if (flatType.value != null) 'type ${flatType.value}',
+        if (area.sqft != null) 'area ${area.sqft!.toStringAsFixed(area.sqft! == area.sqft!.roundToDouble() ? 0 : 2)} sq ft',
         if (meterText.isNotEmpty) 'meter $meterText',
         if (consumerText.isNotEmpty) 'consumer no. $consumerText',
       ];
       if (flatNotes.isNotEmpty) {
         note = [if (note != null) note, 'Will set ${flatNotes.join(', ')} on the flat'].join(' · ');
       }
+      if (flatType.note != null) note = [if (note != null) note, flatType.note!].join(' · ');
 
       result.add(_ImportRow(
         lineNumber: lineNumber,
@@ -408,6 +419,8 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
           if (email.isNotEmpty) 'email': email,
           // Kept on the flat, not the resident (taken out before the resident is created)
           if (possession != null) 'possession_date': _iso(possession),
+          if (flatType.value != null) 'flat_type': flatType.value,
+          if (area.sqft != null) 'area_sqft': area.sqft,
           if (meterText.isNotEmpty) 'electric_meter_no': meterText,
           if (consumerText.isNotEmpty) 'electric_consumer_no': consumerText,
         },
@@ -530,7 +543,7 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
       var wingId = payload.remove('wing_id') as String?;
       var flatId = payload.remove('flat_id') as String?;
       final flatFields = <String, dynamic>{
-        for (final k in const ['possession_date', 'electric_meter_no', 'electric_consumer_no'])
+        for (final k in const ['possession_date', 'electric_meter_no', 'electric_consumer_no', 'flat_type', 'area_sqft'])
           if (payload.containsKey(k)) k: payload.remove(k),
       };
 

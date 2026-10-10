@@ -102,6 +102,12 @@ class _ResidentDetailBody extends ConsumerWidget {
               RmRow(label: 'Wing', value: flat?.wingName ?? '—'),
               RmRow(label: 'Flat', value: flat?.displayName ?? '—'),
               if (flat?.floor != null) RmRow(label: 'Floor', value: flat!.floor.toString()),
+              if ((flat?.flatType ?? '').isNotEmpty) RmRow(label: 'Flat Type', value: flat!.flatType!),
+              if (flat?.areaSqft != null)
+                RmRow(
+                    label: 'Area',
+                    value:
+                        '${flat!.areaSqft!.toStringAsFixed(flat.areaSqft! == flat.areaSqft!.roundToDouble() ? 0 : 2)} sq ft'),
               RmRow(label: 'Relationship', value: resident.residentType.label),
               if (flat?.possessionDate != null)
                 RmRow(label: 'Possession Date', value: rmFormatDate(flat!.possessionDate!.toIso8601String())),
