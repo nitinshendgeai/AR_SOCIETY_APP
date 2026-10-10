@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:ar_society_app/core/motion/loading.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -368,7 +369,7 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
     return BillingSheetFrame(
       title: 'Voucher',
       child: async.when(
-        loading: () => const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator())),
+        loading: () => const Padding(padding: EdgeInsets.all(32), child: const AppLoader()),
         error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
         data: (v) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -99,7 +100,7 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
     }
     final payment = _findPayment(societyId);
     if (payment == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: const AppLoader());
     }
 
     return Scaffold(
@@ -137,7 +138,7 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
             Consumer(builder: (context, ref, _) {
               final screenshotAsync = ref.watch(onlinePaymentScreenshotProvider(widget.paymentId));
               return screenshotAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading: () => const AppLoader(),
                 error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
                 data: (bytes) => ClipRRect(
                   borderRadius: BorderRadius.circular(8),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
@@ -250,7 +251,7 @@ class _SlotsTab extends ConsumerWidget {
         ref.invalidate(parkingSlotsProvider(societyId));
       },
       child: zonesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+        loading: () => const AppLoader(),
         error: (e, _) => ListView(children: [
           const SizedBox(height: 60),
           AppErrorBanner(message: 'Could not load zones: $e'),
@@ -376,7 +377,7 @@ class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(parkingVehiclesProvider(widget.societyId)),
       child: vehiclesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+        loading: () => const AppLoader(),
         error: (e, _) => ListView(children: [
           const SizedBox(height: 60),
           AppErrorBanner(message: 'Could not load vehicles: $e'),
@@ -620,7 +621,7 @@ class _AllocationsTab extends ConsumerWidget {
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(parkingAllocationsProvider(societyId)),
       child: allocationsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+        loading: () => const AppLoader(),
         error: (e, _) => ListView(children: [
           const SizedBox(height: 60),
           AppErrorBanner(message: 'Could not load allocations: $e'),

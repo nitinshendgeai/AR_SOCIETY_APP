@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/material.dart';
 import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -73,7 +74,7 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
       backgroundColor: AppTheme.surface,
       appBar: AppBar(title: Text(context.tr('Automatic tasks'))),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AppLoader(),
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),

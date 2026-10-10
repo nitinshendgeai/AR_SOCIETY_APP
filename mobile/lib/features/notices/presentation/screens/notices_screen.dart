@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -96,7 +97,7 @@ class _Board extends ConsumerWidget {
         child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 96), children: [
           for (final a in alerts) _AlertCard(alert: a, canEnd: raiser),
           board.when(
-            loading: () => const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator())),
+            loading: () => const SkeletonList(),
             error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
             data: (rows) {
               if (rows.isEmpty) {
@@ -286,7 +287,7 @@ class _ManageState extends ConsumerState<_Manage> {
           ]),
           const SizedBox(height: 12),
           rows.when(
-            loading: () => const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator())),
+            loading: () => const SkeletonList(),
             error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
             data: (list) => list.isEmpty
                 ? const Padding(

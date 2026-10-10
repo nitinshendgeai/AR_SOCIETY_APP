@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
@@ -83,7 +84,7 @@ class _AttendanceApprovalScreenState extends ConsumerState<AttendanceApprovalScr
             )
           : switch (state) {
         ApprovalLoading() || ApprovalInitial() =>
-          const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+          const AppLoader(),
         ApprovalError(:final message) => _ErrorView(
             message: message,
             onRetry: () => ref.read(approvalProvider.notifier)
@@ -106,7 +107,7 @@ class _AttendanceApprovalScreenState extends ConsumerState<AttendanceApprovalScr
             ),
           ],
         ),
-        _ => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+        _ => const AppLoader(),
       },
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
@@ -67,7 +68,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
 
   Widget _buildBody(AttendanceState state) {
     if (state is AttendanceLoading || state is AttendanceInitial || state is AttendanceSuccess) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+      return const AppLoader();
     }
     if (state is AttendanceError) {
       return Center(

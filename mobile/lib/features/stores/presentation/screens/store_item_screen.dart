@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
@@ -33,7 +34,7 @@ class StoreItemScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async => invalidateStores(ref),
         child: async.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+          loading: () => const AppLoader(),
           error: (e, _) => ListView(padding: const EdgeInsets.all(20), children: [AppErrorBanner(message: friendlyErrorMessage(e))]),
           data: (i) {
             final color = i.out ? AppTheme.error : (i.low ? AppTheme.warning : AppTheme.success);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,7 +43,7 @@ class ParcelsScreen extends ConsumerWidget {
               label: Text(context.tr('Log parcel')))
           : null,
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const SkeletonList(),
         error: (e, _) => Center(
             child: OutlinedButton(
                 onPressed: () => ref.invalidate(parcelsProvider(sid)),

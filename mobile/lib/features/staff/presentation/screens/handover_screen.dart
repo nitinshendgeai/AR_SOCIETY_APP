@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -103,7 +104,7 @@ class _PendingTab extends ConsumerWidget {
     final state = ref.watch(handoverProvider);
 
     if (state is HandoverLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+      return const AppLoader();
     }
 
     final pending = state is HandoverLoaded ? state.pending : <HandoverEntity>[];
@@ -144,7 +145,7 @@ class _HistoryTab extends ConsumerWidget {
     final history = state is HandoverLoaded ? state.history : <HandoverEntity>[];
 
     if (state is HandoverLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+      return const AppLoader();
     }
 
     if (history.isEmpty) {

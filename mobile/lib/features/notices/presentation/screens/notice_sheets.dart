@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -215,7 +216,7 @@ class _FlatPickerState extends ConsumerState<_FlatPicker> {
         width: 420,
         height: 420,
         child: flats.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const AppLoader(),
           error: (e, _) => Text(friendlyErrorMessage(e)),
           data: (all) {
             final shown = all.where((f) => '${f.wingName ?? ''} ${f.flatNumber}'.toLowerCase().contains(_q)).toList()

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
@@ -149,7 +150,7 @@ class _DutyOverviewScreenState extends ConsumerState<DutyOverviewScreen> {
       );
     }
     if (state is DutyOverviewLoading || state is DutyOverviewInitial) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+      return const AppLoader();
     }
     if (state is DutyOverviewError) {
       return Center(

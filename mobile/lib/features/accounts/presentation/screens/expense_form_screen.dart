@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -166,12 +167,12 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       body: ResponsiveBody(
         maxWidth: 640,
         child: ledgersAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+          loading: () => const AppLoader(),
           error: (e, _) => ListView(padding: const EdgeInsets.all(20), children: [
             AppErrorBanner(message: friendlyErrorMessage(e)),
           ]),
           data: (all) => elementsAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+            loading: () => const AppLoader(),
             error: (e, _) => ListView(padding: const EdgeInsets.all(20), children: [
               AppErrorBanner(message: friendlyErrorMessage(e)),
             ]),

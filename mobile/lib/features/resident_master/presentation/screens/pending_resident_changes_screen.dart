@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
@@ -111,7 +112,7 @@ class _PendingResidentChangesScreenState extends ConsumerState<PendingResidentCh
         ],
       ),
       body: requestsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AppLoader(),
         error: (e, _) => Center(child: Text('Could not load requests: $e')),
         data: (requests) {
           if (requests.isEmpty) {

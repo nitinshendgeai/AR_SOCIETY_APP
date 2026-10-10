@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -122,7 +123,7 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
       ),
       bottomNavigationBar: desktop || action == null ? null : _bar(action.$1, action.$2, action.$3),
       body: cycleAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AppLoader(),
         error: (e, _) => Center(
             child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
         data: (cycle) => RefreshIndicator(
@@ -147,7 +148,7 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
               SliverToBoxAdapter(child: _filters()),
               ...billsAsync.when<List<Widget>>(
                 loading: () => [
-                  const SliverFillRemaining(child: Center(child: CircularProgressIndicator())),
+                  const SliverFillRemaining(child: const AppLoader()),
                 ],
                 error: (e, _) => [
                   SliverFillRemaining(

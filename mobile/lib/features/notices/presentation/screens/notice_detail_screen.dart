@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -76,7 +77,7 @@ class _NoticeDetailScreenState extends ConsumerState<NoticeDetailScreen> {
       body: RefreshIndicator(
         onRefresh: () async => invalidateNotices(ref),
         child: async.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+          loading: () => const AppLoader(),
           error: (e, _) => ListView(padding: const EdgeInsets.all(20), children: [AppErrorBanner(message: friendlyErrorMessage(e))]),
           data: (n) => ResponsiveBody(
             maxWidth: 760,

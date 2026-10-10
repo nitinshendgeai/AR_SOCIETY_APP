@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
@@ -67,7 +68,7 @@ class _AttendanceCorrectionScreenState
       ),
       body: switch (state) {
         CorrectionLoading() || CorrectionInitial() =>
-          const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+          const AppLoader(),
         CorrectionError(:final message) => Center(
             child: Padding(
               padding: const EdgeInsets.all(16),

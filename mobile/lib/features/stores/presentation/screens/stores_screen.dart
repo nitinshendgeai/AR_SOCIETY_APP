@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -119,7 +120,7 @@ class _StoresScreenState extends ConsumerState<StoresScreen> with SingleTickerPr
           ),
           const SizedBox(height: 12),
           list.when(
-            loading: () => const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator(color: AppTheme.primary))),
+            loading: () => const SkeletonList(),
             error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
             data: (all) {
               var rows = all.where((i) => _view == _View.all || i.low).toList();
@@ -206,7 +207,7 @@ class _IssuedTabState extends ConsumerState<_IssuedTab> {
           ]),
           const SizedBox(height: 10),
           async.when(
-            loading: () => const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator())),
+            loading: () => const SkeletonList(),
             error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
             data: (rows) => rows.isEmpty
                 ? const Padding(

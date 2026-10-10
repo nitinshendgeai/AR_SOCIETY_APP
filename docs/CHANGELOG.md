@@ -4,6 +4,19 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-10 (t)
+
+### feat: motion for buttons, waiting and page changes (web first)
+
+New `mobile/lib/core/motion/` plus `AppTheme` changes, so every screen gets it (`docs/UI_MOTION.md`):
+- **Buttons**: eased colour, a soft lift under the pointer, settle on press, accent border on hover for outlined
+  buttons, hand cursor. `AppPrimaryButton`, KPI cards and dashboard quick actions also press in (`PressableScale`).
+- **Waiting**: `AppLoader` (no flash for quick answers, "still working…" after 6 s), shimmering `SkeletonList` on the
+  list screens and in `AppDataTable`'s own columns; the loading overlay fades; ~120 bare spinners replaced.
+- **Page changes**: a short fade-and-rise for every route; dashboard sections and table rows arrive one after another;
+  the collection chart's bars grow.
+- Everything stops when the device asks for reduced motion. Tests: `test/motion_test.dart`.
+
 ## 2026-10-10 (s)
 
 ### feat: Help in the app

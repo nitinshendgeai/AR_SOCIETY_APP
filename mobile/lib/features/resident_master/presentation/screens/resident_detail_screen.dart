@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
@@ -27,7 +28,7 @@ class ResidentDetailScreen extends ConsumerWidget {
     final canEdit = user?.isAdminOrCommittee ?? false;
 
     return detailAsync.when(
-      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      loading: () => const Scaffold(body: const AppLoader()),
       error: (e, _) => Scaffold(
         appBar: AppBar(title: const Text('Resident')),
         body: Center(child: Text(rmFriendlyError(e), style: const TextStyle(color: AppTheme.error))),

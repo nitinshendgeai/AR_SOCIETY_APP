@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
@@ -70,7 +71,7 @@ class _ContractDetailScreenState extends ConsumerState<ContractDetailScreen> {
       backgroundColor: AppTheme.surface,
       appBar: AppBar(title: Text(async.valueOrNull?.contractNumber ?? 'Contract')),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AppLoader(),
         error: (e, _) => Center(child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
         data: (c) {
           final open = c.isDraft && !c.sanction.isSanctioned;

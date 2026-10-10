@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/motion.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -153,7 +155,7 @@ class AdminOverview extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(dashboardOverviewProvider(societyId));
     return async.when(
-      loading: () => const _Frame(child: SizedBox(height: 160, child: Center(child: CircularProgressIndicator()))),
+      loading: () => const _Frame(child: SizedBox(height: 160, child: const AppLoader())),
       error: (e, _) => _Frame(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('The overview could not be loaded.', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -393,10 +395,19 @@ class _Bar extends StatelessWidget {
   final Color color;
   const _Bar({required this.height, required this.color});
   @override
-  Widget build(BuildContext context) => Container(
-      width: 12,
-      height: height < 2 && height > 0 ? 2 : height,
-      decoration: BoxDecoration(color: color, borderRadius: const BorderRadius.vertical(top: Radius.circular(3))));
+  Widget build(BuildContext context) {
+    final target = height < 2 && height > 0 ? 2.0 : height;
+    // Bars grow from the baseline when the chart first appears (and ease to a new height if it changes).
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: target),
+      duration: AppMotion.reduced(context) ? Duration.zero : const Duration(milliseconds: 650),
+      curve: Curves.easeOutCubic,
+      builder: (context, h, _) => Container(
+          width: 12,
+          height: h,
+          decoration: BoxDecoration(color: color, borderRadius: const BorderRadius.vertical(top: Radius.circular(3)))),
+    );
+  }
 }
 
 class _Key extends StatelessWidget {

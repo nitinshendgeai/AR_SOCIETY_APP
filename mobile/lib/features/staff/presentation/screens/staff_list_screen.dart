@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -115,7 +116,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
           // Staff list
           Expanded(
             child: switch (state) {
-              StaffListLoading() => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+              StaffListLoading() => const SkeletonList(),
               StaffListError(:final message, :final statusCode) when statusCode == 403 =>
                 _AccessDeniedWidget(onRetry: _load),
               StaffListError(:final message) => Center(
@@ -133,7 +134,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
                   ),
                 ),
               StaffListLoaded(:final staff) => _buildList(staff, societyId),
-              _ => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+              _ => const AppLoader(),
             },
           ),
         ],

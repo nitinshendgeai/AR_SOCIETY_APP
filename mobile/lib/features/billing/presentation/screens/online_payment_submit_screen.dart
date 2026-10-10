@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -178,7 +179,7 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
           const Text('Flat', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 8),
           wingsAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const AppLoader(),
             error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
             data: (wings) => DropdownButtonFormField<String>(
               value: _wingId,
@@ -196,7 +197,7 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
             Consumer(builder: (context, ref, _) {
               final flatsAsync = ref.watch(flatsByWingProvider(_wingId!));
               return flatsAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading: () => const AppLoader(),
                 error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
                 data: (flats) => DropdownButtonFormField<String>(
                   value: _flatId,
@@ -228,7 +229,7 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
             const Text('Select a flat first to see its outstanding bills',
                 style: TextStyle(color: AppTheme.textSecondary, fontSize: 12))
           else if (billsAsync == null || billsAsync.isLoading)
-            const Center(child: CircularProgressIndicator())
+            const AppLoader()
           else if (billsAsync.hasError)
             Text(friendlyErrorMessage(billsAsync.error!), style: const TextStyle(color: AppTheme.error))
           else if (_target == _PaymentTarget.openBills)

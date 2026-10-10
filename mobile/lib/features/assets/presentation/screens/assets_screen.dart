@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -143,7 +144,7 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
             ),
             const SizedBox(height: 12),
             list.when(
-              loading: () => const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator(color: AppTheme.primary))),
+              loading: () => const SkeletonList(),
               error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
               data: (all) {
                 var rows = all;

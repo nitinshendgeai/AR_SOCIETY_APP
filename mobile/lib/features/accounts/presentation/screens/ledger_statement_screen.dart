@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
@@ -116,7 +117,7 @@ class _LedgerStatementScreenState extends ConsumerState<LedgerStatementScreen> {
               ]),
               const SizedBox(height: 14),
               ...async.when(
-                loading: () => [const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))],
+                loading: () => [const AppLoader()],
                 error: (e, _) => [Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))],
                 data: (st) => [
                   _Header(st: st, from: from, to: to, subtitle: widget.title == null ? null : st.account.name),
