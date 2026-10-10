@@ -4,6 +4,17 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-10 (u)
+
+### feat: one professional layout for full-page forms
+
+The forms had a header at the page edge, a narrow phone-style column in the middle and one long stack of fields.
+New `AppFormPage` + `FormSection` / `FormFieldBox` / `FormSwitchTile` / `FormDateField` (`docs/UI_FORMS.md`):
+header and cards on one width, fields grouped into titled cards in two columns, labels above fields with a red star
+for required ones, a fixed action bar (Cancel + main button with spinner). Phones keep the app bar and stack the fields.
+Moved: Resident, Tenant, Flat, Wing, Floor, Staff add/edit, User create/edit, Visitor, Complaint, Expense.
+Same fields, validation and API calls. Tests: `test/app_form_test.dart`.
+
 ## 2026-10-10 (t)
 
 ### feat: motion for buttons, waiting and page changes (web first)

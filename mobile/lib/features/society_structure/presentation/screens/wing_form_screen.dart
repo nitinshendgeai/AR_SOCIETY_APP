@@ -5,7 +5,7 @@ import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
-import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 class WingFormScreen extends ConsumerStatefulWidget {
   final WingModel? wing;
@@ -83,81 +83,66 @@ class _WingFormScreenState extends ConsumerState<WingFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text(_isEdit ? 'Edit Wing' : 'Add Wing')),
-      body: ResponsiveBody(child: Form(
-        key: _formKey,
-        // A plain scroll view, not a lazy ListView: fields scrolled out of
-        // view stay mounted, so validate() checks every one of them.
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return AppFormPage(
+      title: _isEdit ? 'Edit Wing' : 'Add Wing',
+      subtitle: _isEdit ? widget.wing!.displayName : 'A wing, block or tower of the society',
+      formKey: _formKey,
+      submitLabel: _isEdit ? 'Save Changes' : 'Add Wing',
+      submitIcon: _isEdit ? Icons.save_rounded : Icons.add_rounded,
+      saving: _saving,
+      onSubmit: _submit,
+      children: [
+        FormSection(
+          title: 'Wing details',
+          description: 'Floors and flats are added to the wing afterwards.',
           children: [
-            TextFormField(
-              controller: _name,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Wing Name *',
-                hintText: 'e.g. A Block, Tower 1',
-              ),
-              validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Name is required' : null,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _code,
-              textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(
-                labelText: 'Wing Code',
-                hintText: 'Leave blank — made from the name',
+            FormFieldBox(
+              label: 'Wing name',
+              required: true,
+              child: TextFormField(
+                controller: _name,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(hintText: 'e.g. A Block, Tower 1'),
+                validator: (v) => v == null || v.trim().isEmpty ? 'Name is required' : null,
               ),
             ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _desc,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                labelText: 'Description',
-                hintText: 'Optional note about this wing',
-                alignLabelWithHint: true,
+            FormFieldBox(
+              label: 'Wing code',
+              helper: 'Leave blank to make it from the name',
+              child: TextFormField(
+                controller: _code,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(hintText: 'e.g. A'),
               ),
             ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _floors,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                labelText: 'Total Floors',
-                hintText: 'e.g. 10 (optional)',
+            FormFieldBox(
+              label: 'Total floors',
+              child: TextFormField(
+                controller: _floors,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(hintText: 'e.g. 10 (optional)'),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return null;
+                  final n = int.tryParse(v.trim());
+                  if (n == null || n <= 0) return 'Enter a valid number';
+                  return null;
+                },
               ),
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) return null;
-                final n = int.tryParse(v.trim());
-                if (n == null || n <= 0) return 'Enter a valid number';
-                return null;
-              },
             ),
-            const SizedBox(height: 32),
-            SizedBox(
-              height: 48,
-              child: ElevatedButton(
-                onPressed: _saving ? null : _submit,
-                child: _saving
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
-                    : Text(_isEdit ? 'Save Changes' : 'Add Wing'),
+            FormFull(
+              child: FormFieldBox(
+                label: 'Description',
+                child: TextFormField(
+                  controller: _desc,
+                  maxLines: 3,
+                  decoration: const InputDecoration(hintText: 'Optional note about this wing'),
+                ),
               ),
             ),
           ],
-          ),
         ),
-      )),
+      ],
     );
   }
 }

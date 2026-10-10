@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_widgets.dart' show DateField;
+import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart' show formatBillDate;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
-import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 class FlatFormScreen extends ConsumerStatefulWidget {
   final FlatModel? flat;
@@ -151,221 +151,199 @@ class _FlatFormScreenState extends ConsumerState<FlatFormScreen> {
   Widget build(BuildContext context) {
     final wingsAsync = ref.watch(wingsProvider);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text(_isEdit ? 'Edit Flat' : 'Add Flat')),
-      body: ResponsiveBody(child: Form(
-        key: _formKey,
-        // A plain scroll view, not a lazy ListView: fields scrolled out of
-        // view stay mounted, so validate() checks every one of them.
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return AppFormPage(
+      title: _isEdit ? 'Edit Flat' : 'Add Flat',
+      subtitle: _isEdit
+          ? '${widget.flat!.wingName != null ? '${widget.flat!.wingName} — ' : ''}${widget.flat!.flatNumber}'
+          : 'A flat in one of the society\'s wings',
+      formKey: _formKey,
+      submitLabel: _isEdit ? 'Save Changes' : 'Add Flat',
+      submitIcon: _isEdit ? Icons.save_rounded : Icons.add_rounded,
+      saving: _saving,
+      onSubmit: _submit,
+      children: [
+        FormSection(
+          title: 'Location',
+          description: 'Where the flat is. A flat cannot move to another wing once it exists.',
           children: [
-            // Wing selector — a flat can't move to another wing, so when
-            // editing it is shown, not chosen
-            if (_isEdit)
-              InputDecorator(
-                decoration: const InputDecoration(labelText: 'Wing'),
-                child: Text(widget.flat!.wingName ?? '—'),
-              )
-            else
-            wingsAsync.when(
-              loading: () => const LinearProgressIndicator(),
-              error: (_, __) => const SizedBox.shrink(),
-              data: (wings) {
-                final active = wings.where((w) => w.isActive).toList();
-                return DropdownButtonFormField<String>(
-                  value: _selectedWingId,
-                  decoration: const InputDecoration(labelText: 'Wing *'),
-                  hint: const Text('Select wing'),
-                  items: active
-                      .map((w) => DropdownMenuItem(
-                          value: w.id, child: Text(w.displayName)))
-                      .toList(),
-                  onChanged: (v) => setState(() {
-                    _selectedWingId = v;
-                    _selectedFloor  = null;
-                    _floor.clear();
-                  }),
-                  validator: (v) =>
-                      v == null ? 'Wing is required' : null,
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _flatNumber,
-              decoration: const InputDecoration(
-                labelText: 'Flat Number *',
-                hintText: 'e.g. 101, A-101',
-              ),
-              validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Flat number is required' : null,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _floor,
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^-?\d*')),
-              ],
-              decoration: const InputDecoration(
-                labelText: 'Floor Number',
-                hintText: '0 = Ground, negative for basement (optional)',
-              ),
-              validator: (v) {
-                final t = (v ?? '').trim();
-                if (t.isEmpty) return null;
-                final n = int.tryParse(t);
-                if (n == null) return 'Must be a number';
-                if (n < -10 || n > 200) return 'Floor must be between -10 and 200';
-                return null;
-              },
-              onChanged: (v) =>
-                  _selectedFloor = v.trim().isEmpty ? null : int.tryParse(v.trim()),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _selectedFlatType,
-              decoration: const InputDecoration(labelText: 'Flat Type'),
-              hint: const Text('Select type (optional)'),
-              // A type the list doesn't know (an older record) stays selectable
-              items: [
-                ..._flatTypes,
-                if (_selectedFlatType != null && !_flatTypes.contains(_selectedFlatType)) _selectedFlatType!,
-              ].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-              onChanged: (v) => setState(() => _selectedFlatType = v),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _area,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-              ],
-              decoration: const InputDecoration(
-                labelText: 'Area (sq ft)',
-                hintText: 'e.g. 850 (optional)',
-              ),
-              validator: (v) {
-                final t = (v ?? '').trim();
-                if (t.isEmpty) return null;
-                final n = double.tryParse(t);
-                return n == null || n <= 0 ? 'Enter an area above zero' : null;
-              },
-            ),
-            const SizedBox(height: 16),
-            if (_isEdit) ...[
-              // Occupancy status is display-only once a flat exists — it is
-              // changed exclusively through the Occupancy move-in/move-out
-              // workflow (Resident/Tenant detail screens), never by editing
-              // the flat directly. See Phase M1.3 §5 / M1.4 §5.
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppTheme.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.border),
-                ),
-                child: Row(children: [
-                  const Icon(Icons.info_outline_rounded, size: 18, color: AppTheme.textSecondary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Occupancy status: ${_occupancyLabel(widget.flat!.occupancyStatus ?? 'vacant')} '
-                      '— change this via Move In / Move Out on the resident or tenant, not here.',
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+            FormFieldBox(
+              label: 'Wing',
+              required: !_isEdit,
+              child: _isEdit
+                  ? InputDecorator(
+                      decoration: const InputDecoration(),
+                      child: Text(widget.flat!.wingName ?? '—'),
+                    )
+                  : wingsAsync.when(
+                      loading: () => const LinearProgressIndicator(),
+                      error: (_, __) => const SizedBox.shrink(),
+                      data: (wings) {
+                        final active = wings.where((w) => w.isActive).toList();
+                        return DropdownButtonFormField<String>(
+                isExpanded: true,
+                          value: _selectedWingId,
+                          hint: const Text('Select wing'),
+                          items: active.map((w) => DropdownMenuItem(value: w.id, child: Text(w.displayName))).toList(),
+                          onChanged: (v) => setState(() {
+                            _selectedWingId = v;
+                            _selectedFloor = null;
+                            _floor.clear();
+                          }),
+                          validator: (v) => v == null ? 'Wing is required' : null,
+                        );
+                      },
                     ),
-                  ),
-                ]),
-              ),
-            ] else
-              DropdownButtonFormField<String>(
-                value: _selectedOccupancy,
-                decoration: const InputDecoration(labelText: 'Occupancy Status'),
-                hint: const Text('Select status (optional)'),
-                items: _occupancyStatuses
-                    .map((s) => DropdownMenuItem(
-                        value: s, child: Text(_occupancyLabel(s))))
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedOccupancy = v),
-              ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _van,
-              textCapitalization: TextCapitalization.characters,
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9 -]')),
-                LengthLimitingTextInputFormatter(40),
-              ],
-              decoration: const InputDecoration(
-                labelText: 'Virtual A/c No. (VAN)',
-                hintText: 'From the society\'s bank, for NEFT payments (optional)',
-                helperText: 'Printed on this flat\'s maintenance bills',
-              ),
-              validator: (v) {
-                final van = (v ?? '').replaceAll(RegExp(r'[\s-]'), '');
-                if (van.isEmpty) return null;
-                return RegExp(r'^[A-Za-z0-9]{4,30}$').hasMatch(van)
-                    ? null
-                    : 'Use 4-30 letters or digits';
-              },
             ),
-            const SizedBox(height: 16),
-            DateField(
-              label: 'Possession date',
-              value: _possession,
-              lastDate: DateTime.now().add(const Duration(days: 366)),
-              onChanged: (d) => setState(() => _possession = d),
-            ),
-            const SizedBox(height: 16),
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _meter,
-                  inputFormatters: [LengthLimitingTextInputFormatter(40)],
-                  decoration: const InputDecoration(labelText: 'Electric meter no.'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextFormField(
-                  controller: _consumer,
-                  inputFormatters: [LengthLimitingTextInputFormatter(40)],
-                  decoration: const InputDecoration(labelText: 'Consumer no.', helperText: 'Electricity account'),
-                ),
-              ),
-            ]),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _remarks,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                labelText: 'Remarks',
-                hintText: 'Optional notes about this flat',
-                alignLabelWithHint: true,
+            FormFieldBox(
+              label: 'Flat number',
+              required: true,
+              child: TextFormField(
+                controller: _flatNumber,
+                decoration: const InputDecoration(hintText: 'e.g. 101, A-101'),
+                validator: (v) => v == null || v.trim().isEmpty ? 'Flat number is required' : null,
               ),
             ),
-            const SizedBox(height: 32),
-            SizedBox(
-              height: 48,
-              child: ElevatedButton(
-                onPressed: _saving ? null : _submit,
-                child: _saving
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
-                    : Text(_isEdit ? 'Save Changes' : 'Add Flat'),
+            FormFieldBox(
+              label: 'Floor number',
+              helper: '0 = ground, negative for a basement',
+              child: TextFormField(
+                controller: _floor,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^-?\d*'))],
+                decoration: const InputDecoration(hintText: 'Optional'),
+                validator: (v) {
+                  final t = (v ?? '').trim();
+                  if (t.isEmpty) return null;
+                  final n = int.tryParse(t);
+                  if (n == null) return 'Must be a number';
+                  if (n < -10 || n > 200) return 'Floor must be between -10 and 200';
+                  return null;
+                },
+                onChanged: (v) => _selectedFloor = v.trim().isEmpty ? null : int.tryParse(v.trim()),
               ),
             ),
           ],
-          ),
         ),
-      )),
+        FormSection(
+          title: 'Size and type',
+          description: 'Used for area-based charges and for reports.',
+          children: [
+            FormFieldBox(
+              label: 'Flat type',
+              child: DropdownButtonFormField<String>(
+                isExpanded: true,
+                value: _selectedFlatType,
+                hint: const Text('Select type (optional)'),
+                // A type the list doesn't know (an older record) stays selectable
+                items: [
+                  ..._flatTypes,
+                  if (_selectedFlatType != null && !_flatTypes.contains(_selectedFlatType)) _selectedFlatType!,
+                ].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                onChanged: (v) => setState(() => _selectedFlatType = v),
+              ),
+            ),
+            FormFieldBox(
+              label: 'Area (sq ft)',
+              child: TextFormField(
+                controller: _area,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                decoration: const InputDecoration(hintText: 'e.g. 850 (optional)'),
+                validator: (v) {
+                  final t = (v ?? '').trim();
+                  if (t.isEmpty) return null;
+                  final n = double.tryParse(t);
+                  return n == null || n <= 0 ? 'Enter an area above zero' : null;
+                },
+              ),
+            ),
+            FormFieldBox(
+              label: 'Possession date',
+              child: FormDateField(
+                value: _possession,
+                hint: 'Optional',
+                format: formatBillDate,
+                onClear: () => setState(() => _possession = null),
+                onTap: () async {
+                  final d = await showDatePicker(
+                    context: context,
+                    initialDate: _possession ?? DateTime.now(),
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime.now().add(const Duration(days: 366)),
+                  );
+                  if (d != null) setState(() => _possession = d);
+                },
+              ),
+            ),
+            // Occupancy status is display-only once a flat exists — it is changed exclusively through the
+            // Occupancy move-in/move-out workflow (Resident/Tenant detail screens), never by editing the
+            // flat directly. See Phase M1.3 §5 / M1.4 §5.
+            if (_isEdit)
+              FormFieldBox(
+                label: 'Occupancy status',
+                helper: 'Change this with Move In / Move Out on the resident or tenant, not here.',
+                child: InputDecorator(
+                  decoration: const InputDecoration(),
+                  child: Text(_occupancyLabel(widget.flat!.occupancyStatus ?? 'vacant')),
+                ),
+              )
+            else
+              FormFieldBox(
+                label: 'Occupancy status',
+                child: DropdownButtonFormField<String>(
+                isExpanded: true,
+                  value: _selectedOccupancy,
+                  hint: const Text('Select status (optional)'),
+                  items: _occupancyStatuses.map((s) => DropdownMenuItem(value: s, child: Text(_occupancyLabel(s)))).toList(),
+                  onChanged: (v) => setState(() => _selectedOccupancy = v),
+                ),
+              ),
+          ],
+        ),
+        FormSection(
+          title: 'Billing and utilities',
+          description: 'Printed on this flat\'s maintenance bills.',
+          children: [
+            FormFieldBox(
+              label: 'Virtual A/c No. (VAN)',
+              helper: 'From the society\'s bank, for NEFT payments',
+              child: TextFormField(
+                controller: _van,
+                textCapitalization: TextCapitalization.characters,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9 -]')),
+                  LengthLimitingTextInputFormatter(40),
+                ],
+                decoration: const InputDecoration(hintText: 'Optional'),
+                validator: (v) {
+                  final van = (v ?? '').replaceAll(RegExp(r'[\s-]'), '');
+                  if (van.isEmpty) return null;
+                  return RegExp(r'^[A-Za-z0-9]{4,30}$').hasMatch(van) ? null : 'Use 4-30 letters or digits';
+                },
+              ),
+            ),
+            FormFieldBox(
+              label: 'Electric meter no.',
+              child: TextFormField(controller: _meter, inputFormatters: [LengthLimitingTextInputFormatter(40)]),
+            ),
+            FormFieldBox(
+              label: 'Consumer no.',
+              helper: 'Electricity account',
+              child: TextFormField(controller: _consumer, inputFormatters: [LengthLimitingTextInputFormatter(40)]),
+            ),
+            FormFull(
+              child: FormFieldBox(
+                label: 'Remarks',
+                child: TextFormField(
+                  controller: _remarks,
+                  maxLines: 3,
+                  decoration: const InputDecoration(hintText: 'Optional notes about this flat'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

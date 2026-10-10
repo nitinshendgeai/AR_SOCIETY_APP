@@ -7,7 +7,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
-import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Form to create a new staff member.
 class StaffAddScreen extends ConsumerStatefulWidget {
@@ -126,24 +126,22 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
       }
     });
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Add Staff')),
-      body: ResponsiveBody(child: Form(
-        key: _formKey,
-        // A plain scroll view, not a lazy ListView: fields scrolled out of
-        // view stay mounted, so validate() checks every one of them.
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return AppFormPage(
+      title: 'Add Staff',
+      subtitle: 'Add a staff member to the society',
+      formKey: _formKey,
+      submitLabel: 'Add Staff',
+      submitIcon: Icons.person_add_rounded,
+      saving: isLoading,
+      onSubmit: () => _submit(societyId),
+      children: [
+        FormSection(
+          title: 'Personal details',
+          description: 'An email creates a login for the person (password Staff@1234).',
           children: [
-            // ── Personal details ────────────────────────────────────────────
-            const _SectionHeader('Personal Details'),
-            const SizedBox(height: 10),
-
-            _FormField(
-              label: 'Full Name *',
+            FormFieldBox(
+              label: 'Full name',
+              required: true,
               child: TextFormField(
                 controller: _nameCtrl,
                 decoration: const InputDecoration(hintText: 'Enter full name'),
@@ -152,9 +150,9 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Name is required' : null,
               ),
             ),
-
-            _FormField(
-              label: 'Mobile Number *',
+            FormFieldBox(
+              label: 'Mobile number',
+              required: true,
               child: TextFormField(
                 controller: _mobileCtrl,
                 decoration: const InputDecoration(hintText: '10-digit mobile number'),
@@ -163,35 +161,41 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Mobile is required' : rmPhoneValidator(v),
               ),
             ),
-
-            _FormField(
-              label: 'Email (optional)',
+            FormFieldBox(
+              label: 'Email',
+              helper: 'Optional. Giving one creates a login account for this person.',
               child: TextFormField(
                 controller: _emailCtrl,
-                decoration: const InputDecoration(
-                  hintText: 'e.g. security1@artsociety.com',
-                  helperText: 'Providing an email auto-creates a login account (password: Staff@1234)',
-                  helperMaxLines: 2,
-                ),
+                decoration: const InputDecoration(hintText: 'e.g. security1@artsociety.com'),
                 keyboardType: TextInputType.emailAddress,
                 inputFormatters: [LengthLimitingTextInputFormatter(255)],
                 validator: rmEmailValidator,
               ),
             ),
-
-            // ── Employment details ──────────────────────────────────────────
-            const SizedBox(height: 8),
-            const _SectionHeader('Employment Details'),
-            const SizedBox(height: 10),
-
-            _FormField(
-              label: 'Department *',
+            FormFieldBox(
+              label: 'Joining date',
+              child: FormDateField(
+                value: _joiningDate,
+                hint: 'Select joining date',
+                format: (d) => '${d.day}/${d.month}/${d.year}',
+                onClear: () => setState(() => _joiningDate = null),
+                onTap: _pickJoiningDate,
+              ),
+            ),
+          ],
+        ),
+        FormSection(
+          title: 'Employment',
+          description: 'Where the person works and who they report to.',
+          children: [
+            FormFieldBox(
+              label: 'Department',
+              required: true,
               child: DropdownButtonFormField<String>(
+                isExpanded: true,
                 value: _selectedDept,
                 decoration: const InputDecoration(hintText: 'Select department'),
-                items: _departments
-                    .map((d) => DropdownMenuItem(value: d.$1, child: Text(d.$2)))
-                    .toList(),
+                items: _departments.map((d) => DropdownMenuItem(value: d.$1, child: Text(d.$2))).toList(),
                 onChanged: (v) => setState(() {
                   _selectedDept = v;
                   _selectedDesignationId = null;
@@ -199,35 +203,28 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
                 validator: (v) => v == null ? 'Select a department' : null,
               ),
             ),
-
-            _FormField(
+            FormFieldBox(
               label: 'Designation',
               child: allDesignations.isEmpty
-                  ? Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.cardBg,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.border),
-                      ),
+                  ? InputDecorator(
+                      decoration: const InputDecoration(),
                       child: const Text(
-                        'No designations configured. Ask your admin to set up designations first.',
+                        'No designations set up yet',
                         style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
                       ),
                     )
                   : DropdownButtonFormField<String>(
+                isExpanded: true,
                       value: _selectedDesignationId,
                       decoration: const InputDecoration(hintText: 'Select designation'),
-                      items: deptDesignations
-                          .map((d) => DropdownMenuItem(value: d.id, child: Text(d.name)))
-                          .toList(),
+                      items: deptDesignations.map((d) => DropdownMenuItem(value: d.id, child: Text(d.name))).toList(),
                       onChanged: (v) => setState(() => _selectedDesignationId = v),
                     ),
             ),
-
-            _FormField(
+            FormFieldBox(
               label: 'Shift',
               child: DropdownButtonFormField<String>(
+                isExpanded: true,
                 value: _selectedShiftId,
                 decoration: const InputDecoration(hintText: 'Select shift'),
                 items: allShifts
@@ -236,66 +233,29 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
                 onChanged: (v) => setState(() => _selectedShiftId = v),
               ),
             ),
-
-            _FormField(
-              label: 'Joining Date',
-              child: InkWell(
-                onTap: _pickJoiningDate,
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardBg,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.border),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.calendar_today_rounded, size: 18, color: AppTheme.primary),
-                      const SizedBox(width: 10),
-                      Text(
-                        _joiningDate != null
-                            ? '${_joiningDate!.day}/${_joiningDate!.month}/${_joiningDate!.year}'
-                            : 'Select joining date',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: _joiningDate != null ? AppTheme.textPrimary : AppTheme.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // ── Reporting structure ─────────────────────────────────────────
-            const SizedBox(height: 8),
-            const _SectionHeader('Reporting Structure'),
-            const SizedBox(height: 10),
-
-            _FormField(
-              label: 'Reporting Manager',
+            FormFieldBox(
+              label: 'Reporting manager',
               child: DropdownButtonFormField<String>(
+                isExpanded: true,
                 value: _selectedReportingManagerId,
                 decoration: const InputDecoration(hintText: 'Select reporting manager'),
                 items: managers
                     .map((s) => DropdownMenuItem(
                           value: s.userId,
-                          child: Text('${s.fullName} (${s.departmentLabel})',
-                              overflow: TextOverflow.ellipsis),
+                          child: Text('${s.fullName} (${s.departmentLabel})', overflow: TextOverflow.ellipsis),
                         ))
                     .toList(),
                 onChanged: (v) => setState(() => _selectedReportingManagerId = v),
               ),
             ),
-
-            // ── Emergency contact ───────────────────────────────────────────
-            const SizedBox(height: 8),
-            const _SectionHeader('Emergency Contact'),
-            const SizedBox(height: 10),
-
-            _FormField(
-              label: 'Contact Name',
+          ],
+        ),
+        FormSection(
+          title: 'Emergency contact',
+          description: 'Who to call if something happens at work.',
+          children: [
+            FormFieldBox(
+              label: 'Contact name',
               child: TextFormField(
                 controller: _emergencyNameCtrl,
                 decoration: const InputDecoration(hintText: 'e.g. Father / Spouse'),
@@ -303,9 +263,8 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
                 inputFormatters: [LengthLimitingTextInputFormatter(255)],
               ),
             ),
-
-            _FormField(
-              label: 'Contact Phone',
+            FormFieldBox(
+              label: 'Contact phone',
               child: TextFormField(
                 controller: _emergencyPhoneCtrl,
                 decoration: const InputDecoration(hintText: '10-digit mobile number'),
@@ -314,14 +273,14 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
                 validator: rmPhoneValidator,
               ),
             ),
-
-            // ── Additional info ─────────────────────────────────────────────
-            const SizedBox(height: 8),
-            const _SectionHeader('Additional Info'),
-            const SizedBox(height: 10),
-
-            _FormField(
-              label: 'Residential Address',
+          ],
+        ),
+        FormSection(
+          title: 'Additional information',
+          columns: 1,
+          children: [
+            FormFieldBox(
+              label: 'Residential address',
               child: TextFormField(
                 controller: _addressCtrl,
                 decoration: const InputDecoration(hintText: 'Full address'),
@@ -330,30 +289,20 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
                 textCapitalization: TextCapitalization.sentences,
               ),
             ),
-
-            _FormField(
-              label: 'Admin Notes',
+            FormFieldBox(
+              label: 'Admin notes',
+              helper: 'Internal notes, not visible to the staff member.',
               child: TextFormField(
                 controller: _notesCtrl,
-                decoration: const InputDecoration(hintText: 'Internal notes (not visible to staff)'),
+                decoration: const InputDecoration(hintText: 'Notes'),
                 inputFormatters: [LengthLimitingTextInputFormatter(2000)],
                 maxLines: 2,
                 textCapitalization: TextCapitalization.sentences,
               ),
             ),
-
-            const SizedBox(height: 32),
-
-            AppPrimaryButton(
-              label: 'Add Staff',
-              icon: Icons.person_add_rounded,
-              isLoading: isLoading,
-              onPressed: () => _submit(societyId),
-            ),
           ],
-          ),
         ),
-      )),
+      ],
     );
   }
 
@@ -452,37 +401,7 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  final String text;
-  const _SectionHeader(this.text);
 
-  @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-        color: AppTheme.primary, letterSpacing: 0.4),
-  );
-}
-
-class _FormField extends StatelessWidget {
-  final String label;
-  final Widget child;
-  const _FormField({required this.label, required this.child});
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-            color: AppTheme.textSecondary)),
-        const SizedBox(height: 6),
-        child,
-      ],
-    ),
-  );
-}
 
 class _CredentialRow extends StatelessWidget {
   final String label;

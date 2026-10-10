@@ -8,7 +8,7 @@ import 'package:ar_society_app/features/resident_master/presentation/providers/r
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
-import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Add / Edit Resident — single screen handling both, mirroring
 /// FlatFormScreen's create/edit split (society_structure module).
@@ -169,22 +169,22 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
         .where((f) => _selectedWingId == null || f.wingId == _selectedWingId)
         .toList();
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text(_isEdit ? 'Edit Resident' : 'Add Resident')),
-      body: ResponsiveBody(child: Form(
-        key: _formKey,
-        // A plain scroll view, not a lazy ListView: fields scrolled out of
-        // view stay mounted, so validate() checks every one of them.
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return AppFormPage(
+      title: _isEdit ? 'Edit Resident' : 'Add Resident',
+      subtitle: _isEdit ? widget.resident!.fullName : 'Add a person to a flat in the society',
+      formKey: _formKey,
+      submitLabel: _isEdit ? 'Save Changes' : 'Add Resident',
+      submitIcon: _isEdit ? Icons.save_rounded : Icons.person_add_rounded,
+      saving: isLoading,
+      onSubmit: _submit,
+      children: [
+        FormSection(
+          title: 'Personal information',
+          description: 'Who the person is and how they relate to the flat.',
           children: [
-            const RmSectionHeader('Personal Information'),
-            const SizedBox(height: 10),
-            RmFormField(
-              label: 'Full Name *',
+            FormFieldBox(
+              label: 'Full name',
+              required: true,
               child: TextFormField(
                 controller: _nameCtrl,
                 textCapitalization: TextCapitalization.words,
@@ -193,22 +193,27 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Name is required' : null,
               ),
             ),
-            RmFormField(
-              label: 'Resident Type *',
+            FormFieldBox(
+              label: 'Resident type',
+              required: true,
               child: DropdownButtonFormField<ResidentType>(
+                isExpanded: true,
                 value: _residentType,
-                items: ResidentType.values
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t.label)))
-                    .toList(),
+                items: ResidentType.values.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
                 onChanged: (v) => setState(() {
                   _residentType = v ?? ResidentType.owner;
                   if (!_residentType.canBePrimary) _isPrimary = false;
                 }),
               ),
             ),
-            RmFormField(
-              label: 'Date of Birth',
-              child: InkWell(
+            FormFieldBox(
+              label: 'Date of birth',
+              child: FormDateField(
+                value: _dateOfBirth,
+                hint: 'Optional',
+                icon: Icons.cake_outlined,
+                format: _dateStr,
+                onClear: () => setState(() => _dateOfBirth = null),
                 onTap: () async {
                   final picked = await showDatePicker(
                     context: context,
@@ -218,36 +223,24 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
                   );
                   if (picked != null) setState(() => _dateOfBirth = picked);
                 },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardBg, borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.border),
-                  ),
-                  child: Row(children: [
-                    const Icon(Icons.cake_outlined, size: 18, color: AppTheme.primary),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        _dateOfBirth != null ? _dateStr(_dateOfBirth!) : 'Select date of birth (optional)',
-                        style: TextStyle(fontSize: 14, color: _dateOfBirth != null ? AppTheme.textPrimary : AppTheme.textSecondary),
-                      ),
-                    ),
-                    if (_dateOfBirth != null)
-                      InkWell(
-                        onTap: () => setState(() => _dateOfBirth = null),
-                        child: const Icon(Icons.close_rounded, size: 18, color: AppTheme.textSecondary),
-                      ),
-                  ]),
-                ),
               ),
             ),
-
-            const SizedBox(height: 8),
-            const RmSectionHeader('Contact'),
-            const SizedBox(height: 10),
-            RmFormField(
+            FormFieldBox(
+              label: 'Communication preference',
+              child: DropdownButtonFormField<CommPreference>(
+                isExpanded: true,
+                value: _commPreference,
+                items: CommPreference.values.map((c) => DropdownMenuItem(value: c, child: Text(c.label))).toList(),
+                onChanged: (v) => setState(() => _commPreference = v ?? CommPreference.appOnly),
+              ),
+            ),
+          ],
+        ),
+        FormSection(
+          title: 'Contact',
+          description: 'How the society reaches this person.',
+          children: [
+            FormFieldBox(
               label: 'Mobile',
               child: TextFormField(
                 controller: _phoneCtrl,
@@ -258,7 +251,7 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
                 validator: rmPhoneValidator,
               ),
             ),
-            RmFormField(
+            FormFieldBox(
               label: 'Email',
               child: TextFormField(
                 controller: _emailCtrl,
@@ -268,20 +261,41 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
                 validator: rmEmailValidator,
               ),
             ),
-
-            if (!_isEdit) ...[
-              const SizedBox(height: 8),
-              const RmSectionHeader('Flat'),
-              const SizedBox(height: 10),
-              RmFormField(
+            FormFieldBox(
+              label: 'Emergency contact name',
+              child: TextFormField(
+                controller: _emergencyNameCtrl,
+                textCapitalization: TextCapitalization.words,
+                inputFormatters: [LengthLimitingTextInputFormatter(255)],
+              ),
+            ),
+            FormFieldBox(
+              label: 'Emergency contact phone',
+              child: TextFormField(
+                controller: _emergencyPhoneCtrl,
+                keyboardType: TextInputType.phone,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+                validator: rmPhoneValidator,
+              ),
+            ),
+          ],
+        ),
+        if (!_isEdit)
+          FormSection(
+            title: 'Flat',
+            description: 'Which flat this person belongs to. Pick a wing first to shorten the flat list.',
+            children: [
+              FormFieldBox(
                 label: 'Wing',
                 child: wingsAsync.when(
                   loading: () => const LinearProgressIndicator(),
                   error: (_, __) => const SizedBox.shrink(),
                   data: (wings) => DropdownButtonFormField<String>(
+                isExpanded: true,
                     value: _selectedWingId,
-                    hint: const Text('Select wing (optional filter)'),
-                    items: wings.where((w) => w.isActive)
+                    hint: const Text('All wings'),
+                    items: wings
+                        .where((w) => w.isActive)
                         .map((w) => DropdownMenuItem(value: w.id, child: Text(w.displayName)))
                         .toList(),
                     onChanged: (v) => setState(() {
@@ -291,121 +305,41 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
                   ),
                 ),
               ),
-              RmFormField(
-                label: 'Flat *',
+              FormFieldBox(
+                label: 'Flat',
+                required: true,
                 child: DropdownButtonFormField<String>(
+                isExpanded: true,
                   value: _selectedFlatId,
                   hint: const Text('Select flat'),
-                  items: flats.map((f) => DropdownMenuItem(
-                        value: f.id,
-                        child: Text(f.wingName != null ? '${f.wingName} — ${f.flatNumber}' : f.flatNumber),
-                      )).toList(),
+                  items: flats
+                      .map((f) => DropdownMenuItem(
+                            value: f.id,
+                            child: Text(f.wingName != null ? '${f.wingName} — ${f.flatNumber}' : f.flatNumber),
+                          ))
+                      .toList(),
                   onChanged: (v) => setState(() => _selectedFlatId = v),
                   validator: (v) => v == null ? 'Flat is required' : null,
                 ),
               ),
-            ],
-
-            const SizedBox(height: 8),
-            const RmSectionHeader('Status / Relationship'),
-            const SizedBox(height: 10),
-            RmFormField(
-              label: 'Primary Resident',
-              child: SwitchListTile(
-                value: _isPrimary,
-                onChanged: _residentType.canBePrimary
-                    ? (v) => setState(() => _isPrimary = v)
-                    : null,
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  _residentType.canBePrimary
-                      ? 'This person is the primary contact for the flat'
-                      : 'Only Owner/Co-Owner can be marked primary',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                ),
-              ),
-            ),
-            RmFormField(
-              label: 'KYC Verified',
-              child: SwitchListTile(
-                value: _kycVerified,
-                onChanged: (v) => setState(() => _kycVerified = v),
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Identity documents verified', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-              ),
-            ),
-            RmFormField(
-              label: 'Communication Preference',
-              child: DropdownButtonFormField<CommPreference>(
-                value: _commPreference,
-                items: CommPreference.values
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c.label)))
-                    .toList(),
-                onChanged: (v) => setState(() => _commPreference = v ?? CommPreference.appOnly),
-              ),
-            ),
-
-            const SizedBox(height: 8),
-            const RmSectionHeader('Identity (optional)'),
-            const SizedBox(height: 10),
-            RmFormField(
-              label: 'ID Proof Type',
-              child: DropdownButtonFormField<String>(
-                value: _idProofType,
-                hint: const Text('Select ID type'),
-                items: [
-                  if (_idProofType != null) const DropdownMenuItem(value: rmNoneOption, child: Text(rmNoneOption)),
-                  ..._idProofTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))),
-                ],
-                onChanged: (v) => setState(() => _idProofType = v == rmNoneOption ? null : v),
-              ),
-            ),
-            RmFormField(
-              label: 'ID Proof Number',
-              child: TextFormField(controller: _idProofNumberCtrl, inputFormatters: [LengthLimitingTextInputFormatter(100)]),
-            ),
-
-            const SizedBox(height: 8),
-            const RmSectionHeader('Emergency Contact'),
-            const SizedBox(height: 10),
-            RmFormField(
-              label: 'Contact Name',
-              child: TextFormField(
-                controller: _emergencyNameCtrl,
-                textCapitalization: TextCapitalization.words,
-                inputFormatters: [LengthLimitingTextInputFormatter(255)],
-              ),
-            ),
-            RmFormField(
-              label: 'Contact Phone',
-              child: TextFormField(
-                controller: _emergencyPhoneCtrl,
-                keyboardType: TextInputType.phone,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-                validator: rmPhoneValidator,
-              ),
-            ),
-
-            if (!_isEdit) ...[
-              const SizedBox(height: 8),
-              const RmSectionHeader('Occupancy'),
-              const SizedBox(height: 10),
-              RmFormField(
-                label: 'Already Moved In?',
-                child: SwitchListTile(
+              FormFull(
+                child: FormSwitchTile(
+                  title: 'Already moved in',
+                  subtitle: 'Record a move-in date now',
                   value: _recordMoveIn,
                   onChanged: (v) => setState(() {
                     _recordMoveIn = v;
                     if (v) _moveInDate ??= DateTime.now();
                   }),
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Record a move-in date now', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                 ),
               ),
               if (_recordMoveIn)
-                RmFormField(
-                  label: 'Move-in Date',
-                  child: InkWell(
+                FormFieldBox(
+                  label: 'Move-in date',
+                  child: FormDateField(
+                    value: _moveInDate,
+                    hint: 'Select date',
+                    format: _dateStr,
                     onTap: () async {
                       final picked = await showDatePicker(
                         context: context,
@@ -415,34 +349,55 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
                       );
                       if (picked != null) setState(() => _moveInDate = picked);
                     },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: AppTheme.cardBg, borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.border),
-                      ),
-                      child: Row(children: [
-                        const Icon(Icons.calendar_today_rounded, size: 18, color: AppTheme.primary),
-                        const SizedBox(width: 10),
-                        Text(_moveInDate != null ? _dateStr(_moveInDate!) : 'Select date'),
-                      ]),
-                    ),
                   ),
                 ),
             ],
-
-            const SizedBox(height: 32),
-            AppPrimaryButton(
-              label: _isEdit ? 'Save Changes' : 'Add Resident',
-              icon: _isEdit ? Icons.save_rounded : Icons.person_add_rounded,
-              isLoading: isLoading,
-              onPressed: _submit,
+          ),
+        FormSection(
+          title: 'Status',
+          description: 'Primary contact and verification.',
+          children: [
+            FormSwitchTile(
+              title: 'Primary resident',
+              subtitle: _residentType.canBePrimary
+                  ? 'The main contact for the flat'
+                  : 'Only an Owner or Co-Owner can be primary',
+              value: _isPrimary,
+              onChanged: _residentType.canBePrimary ? (v) => setState(() => _isPrimary = v) : null,
+            ),
+            FormSwitchTile(
+              title: 'KYC verified',
+              subtitle: 'Identity documents have been checked',
+              value: _kycVerified,
+              onChanged: (v) => setState(() => _kycVerified = v),
             ),
           ],
-          ),
         ),
-      )),
+        FormSection(
+          title: 'Identity',
+          description: 'Optional. An ID proof the society keeps on record.',
+          children: [
+            FormFieldBox(
+              label: 'ID proof type',
+              child: DropdownButtonFormField<String>(
+                isExpanded: true,
+                value: _idProofType,
+                hint: const Text('Select ID type'),
+                items: [
+                  if (_idProofType != null) const DropdownMenuItem(value: rmNoneOption, child: Text(rmNoneOption)),
+                  ..._idProofTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))),
+                ],
+                onChanged: (v) => setState(() => _idProofType = v == rmNoneOption ? null : v),
+              ),
+            ),
+            FormFieldBox(
+              label: 'ID proof number',
+              child: TextFormField(
+                  controller: _idProofNumberCtrl, inputFormatters: [LengthLimitingTextInputFormatter(100)]),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

@@ -15,6 +15,7 @@ import 'package:ar_society_app/features/vendor/presentation/widgets/vendor_picke
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// "Other": an expense that is not recovered through the monthly maintenance bill.
@@ -155,30 +156,19 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     final ledgersAsync = ref.watch(ledgersProvider(societyId));
     final elementsAsync = ref.watch(maintenanceElementsProvider((societyId: societyId, includeInactive: false)));
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Add Expense'), actions: [
-        AppBarTextAction(
-          onPressed: () => context.push(AppRoutes.accountsExpenses),
-          icon: Icons.pie_chart_outline_rounded,
-          label: 'Spend by element',
-        ),
-      ]),
-      body: ResponsiveBody(
-        maxWidth: 640,
-        child: ledgersAsync.when(
-          loading: () => const AppLoader(),
-          error: (e, _) => ListView(padding: const EdgeInsets.all(20), children: [
-            AppErrorBanner(message: friendlyErrorMessage(e)),
-          ]),
-          data: (all) => elementsAsync.when(
-            loading: () => const AppLoader(),
-            error: (e, _) => ListView(padding: const EdgeInsets.all(20), children: [
-              AppErrorBanner(message: friendlyErrorMessage(e)),
-            ]),
-            data: (elements) => _form(societyId, all, elements),
-          ),
-        ),
+    // Until the books and the element list have loaded there is nothing to fill in.
+    Widget waiting(Widget body) => Scaffold(
+          backgroundColor: AppTheme.surface,
+          appBar: AppBar(title: const Text('Add Expense')),
+          body: body,
+        );
+    return ledgersAsync.when(
+      loading: () => waiting(const AppLoader()),
+      error: (e, _) => waiting(ListView(padding: const EdgeInsets.all(20), children: [AppErrorBanner(message: friendlyErrorMessage(e))])),
+      data: (all) => elementsAsync.when(
+        loading: () => waiting(const AppLoader()),
+        error: (e, _) => waiting(ListView(padding: const EdgeInsets.all(20), children: [AppErrorBanner(message: friendlyErrorMessage(e))])),
+        data: (elements) => _form(societyId, all, elements),
       ),
     );
   }
@@ -198,124 +188,147 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     final element = elements.where((e) => e.id == _elementKey).firstOrNull;
     final head = heads.contains(_head) ? _head : null;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-      children: [
-        const Text(
-          'Record any expense — a daily petty-cash purchase or the month\'s bill for security, electricity or the lift. '
-          'It is posted to the books as a payment and counts towards the maintenance element it belongs to.',
-          style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+    return AppFormPage(
+      title: 'Add Expense',
+      subtitle: 'A petty-cash purchase or a monthly bill. It is posted to the books and counts towards its maintenance element.',
+      submitLabel: 'Save expense',
+      submitIcon: Icons.save_rounded,
+      saving: _saving,
+      onSubmit: _saving ? null : () => _save(societyId, another: false),
+      actions: [
+        AppBarTextAction(
+          onPressed: () => context.push(AppRoutes.accountsExpenses),
+          icon: Icons.pie_chart_outline_rounded,
+          label: 'Spend by element',
         ),
-        if (_lastSaved != null) ...[
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppTheme.success.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-            child: Row(children: [
-              const Icon(Icons.check_circle_rounded, size: 18, color: AppTheme.success),
-              const SizedBox(width: 8),
-              Expanded(child: Text('Saved: $_lastSaved. Add the next one below.', style: const TextStyle(fontSize: 13))),
-            ]),
-          ),
-        ],
-        const SizedBox(height: 16),
-        InkWell(
-          onTap: _pickDate,
-          child: InputDecorator(
-            decoration: const InputDecoration(labelText: 'Date', suffixIcon: Icon(Icons.calendar_today_rounded, size: 18)),
-            child: Text(apiDate(_date)),
-          ),
-        ),
-        const SizedBox(height: 14),
-        DropdownButtonFormField<String>(
-          value: _elementKey,
-          isExpanded: true,
-          decoration: const InputDecoration(labelText: 'What is it for? (maintenance element)'),
-          items: [
-            for (final e in elements) DropdownMenuItem(value: e.id, child: Text(e.name, overflow: TextOverflow.ellipsis)),
-            const DropdownMenuItem(value: _otherElement, child: Text('Other — not billed through maintenance')),
-          ],
-          onChanged: (v) => _chooseElement(v, expense),
-        ),
-        const SizedBox(height: 14),
-        DropdownButtonFormField<LedgerAccount>(
-          key: ValueKey('head/$_elementKey/${heads.length}'),
-          value: head,
-          isExpanded: true,
-          decoration: InputDecoration(
-            labelText: 'Expense head',
-            helperText: _elementKey == null
-                ? 'Choose what it is for first'
-                : _willLink(head)
-                    ? 'Not linked to an element yet — it will be linked to ${element?.name} when you save, '
-                        'so the next one counts automatically.'
-                    : head?.maintenanceElementName != null
-                        ? 'Counts towards ${head!.maintenanceElementName}'
-                        : null,
-            helperMaxLines: 3,
-          ),
-          items: [for (final l in heads) DropdownMenuItem(value: l, child: Text(l.name, overflow: TextOverflow.ellipsis))],
-          onChanged: _elementKey == null ? null : (v) => setState(() => _head = v),
-        ),
-        if (_elementKey != null && heads.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: TextButton.icon(
-              onPressed: () => context.push(AppRoutes.accountsChart),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('No expense head for this yet — add one in the Chart of Accounts'),
-            ),
-          ),
-        const SizedBox(height: 14),
-        TextField(
-          controller: _amount,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
-          decoration: const InputDecoration(labelText: 'Amount (₹)', prefixText: '₹ '),
-        ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: () => context.push(AppRoutes.accountsRecurring),
-            icon: const Icon(Icons.event_repeat_rounded, size: 16),
-            label: const Text('Comes every month? Set it up as a monthly expense'),
-          ),
-        ),
-        const SizedBox(height: 14),
-        DropdownButtonFormField<LedgerAccount>(
-          value: _paidFrom,
-          isExpanded: true,
-          decoration: const InputDecoration(labelText: 'Paid from'),
-          items: [for (final l in cashBank) DropdownMenuItem(value: l, child: Text(l.name, overflow: TextOverflow.ellipsis))],
-          onChanged: (v) => setState(() => _paidFrom = v),
-        ),
-        const SizedBox(height: 14),
-        VendorPicker(
-          societyId: societyId,
-          value: _vendor?.id,
-          label: 'Paid to (optional)',
-          onChanged: (v) => setState(() => _vendor = v),
-        ),
-        const SizedBox(height: 14),
-        TextField(
-          controller: _reference,
-          decoration: const InputDecoration(
-            labelText: "Supplier's bill / cheque no. (optional)",
-            helperText: 'The number on their bill or your cheque — ours is given automatically',
-            helperMaxLines: 2,
-          ),
-        ),
-        const SizedBox(height: 14),
-        NextVoucherNumber(societyId: societyId, type: 'payment', date: _date),
-        const SizedBox(height: 14),
-        TextField(controller: _note, decoration: const InputDecoration(labelText: 'Note (optional)'), maxLines: 2),
-        const SizedBox(height: 22),
-        AppPrimaryButton(label: 'Save expense', isLoading: _saving, onPressed: _saving ? null : () => _save(societyId, another: false)),
-        const SizedBox(height: 10),
+      ],
+      extraActions: [
         OutlinedButton(
           onPressed: _saving ? null : () => _save(societyId, another: true),
+          style: OutlinedButton.styleFrom(minimumSize: const Size(150, 44)),
           child: const Text('Save and add another'),
+        ),
+      ],
+      children: [
+        if (_lastSaved != null)
+          DecoratedBox(
+            decoration: BoxDecoration(color: AppTheme.successSoft, borderRadius: BorderRadius.circular(10)),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(children: [
+                const Icon(Icons.check_circle_rounded, size: 18, color: AppTheme.success),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Saved: $_lastSaved. Add the next one below.', style: const TextStyle(fontSize: 13))),
+              ]),
+            ),
+          ),
+        FormSection(
+          title: 'What it is for',
+          description: 'Pick the maintenance element and the expense head it is booked under.',
+          children: [
+            FormFieldBox(
+              label: 'Date',
+              child: FormDateField(value: _date, hint: 'Select date', format: apiDate, onTap: _pickDate),
+            ),
+            FormFieldBox(
+              label: 'Maintenance element',
+              child: DropdownButtonFormField<String>(
+                value: _elementKey,
+                isExpanded: true,
+                hint: const Text('What is it for?'),
+                items: [
+                  for (final e in elements) DropdownMenuItem(value: e.id, child: Text(e.name, overflow: TextOverflow.ellipsis)),
+                  const DropdownMenuItem(value: _otherElement, child: Text('Other — not billed through maintenance')),
+                ],
+                onChanged: (v) => _chooseElement(v, expense),
+              ),
+            ),
+            FormFull(
+              child: FormFieldBox(
+                label: 'Expense head',
+                helper: _elementKey == null
+                    ? 'Choose what it is for first'
+                    : _willLink(head)
+                        ? 'Not linked to an element yet — it will be linked to ${element?.name} when you save, so the next one counts automatically.'
+                        : head?.maintenanceElementName != null
+                            ? 'Counts towards ${head!.maintenanceElementName}'
+                            : null,
+                child: DropdownButtonFormField<LedgerAccount>(
+                  key: ValueKey('head/$_elementKey/${heads.length}'),
+                  value: head,
+                  isExpanded: true,
+                  items: [for (final l in heads) DropdownMenuItem(value: l, child: Text(l.name, overflow: TextOverflow.ellipsis))],
+                  onChanged: _elementKey == null ? null : (v) => setState(() => _head = v),
+                ),
+              ),
+            ),
+            if (_elementKey != null && heads.isEmpty)
+              FormFull(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => context.push(AppRoutes.accountsChart),
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('No expense head for this yet — add one in the Chart of Accounts'),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        FormSection(
+          title: 'Payment',
+          description: 'How much, and where the money came from.',
+          children: [
+            FormFieldBox(
+              label: 'Amount (₹)',
+              child: TextField(
+                controller: _amount,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                decoration: const InputDecoration(prefixText: '₹ ', hintText: '0.00'),
+              ),
+            ),
+            FormFieldBox(
+              label: 'Paid from',
+              child: DropdownButtonFormField<LedgerAccount>(
+                value: _paidFrom,
+                isExpanded: true,
+                items: [for (final l in cashBank) DropdownMenuItem(value: l, child: Text(l.name, overflow: TextOverflow.ellipsis))],
+                onChanged: (v) => setState(() => _paidFrom = v),
+              ),
+            ),
+            FormFieldBox(
+              label: 'Paid to',
+              helper: 'Optional',
+              child: VendorPicker(societyId: societyId, value: _vendor?.id, label: '', onChanged: (v) => setState(() => _vendor = v)),
+            ),
+            FormFieldBox(
+              label: "Supplier's bill / cheque no.",
+              helper: 'Optional. The number on their bill or your cheque — ours is given automatically.',
+              child: TextField(controller: _reference),
+            ),
+            FormFieldBox(
+              label: 'Voucher no.',
+              helper: 'Given automatically when you save',
+              child: NextVoucherNumber(societyId: societyId, type: 'payment', date: _date, showLabel: false),
+            ),
+            FormFull(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => context.push(AppRoutes.accountsRecurring),
+                  icon: const Icon(Icons.event_repeat_rounded, size: 16),
+                  label: const Text('Comes every month? Set it up as a monthly expense'),
+                ),
+              ),
+            ),
+            FormFull(
+              child: FormFieldBox(
+                label: 'Note',
+                child: TextField(controller: _note, maxLines: 2, decoration: const InputDecoration(hintText: 'Optional')),
+              ),
+            ),
+          ],
         ),
       ],
     );

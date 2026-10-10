@@ -163,12 +163,16 @@ class AppPrimaryButton extends StatelessWidget {
   final bool isLoading;
   final IconData? icon;
 
+  /// Full width (the phone layout) or only as wide as its label, with a sensible minimum (a form's action bar).
+  final bool expand;
+
   const AppPrimaryButton({
     super.key,
     required this.label,
     this.onPressed,
     this.isLoading = false,
     this.icon,
+    this.expand = true,
   });
 
   @override
@@ -178,9 +182,11 @@ class AppPrimaryButton extends StatelessWidget {
     return PressableScale(
       enabled: onPressed != null && !isLoading,
       child: SizedBox(
-        width: double.infinity,
-        height: 52,
+        width: expand ? double.infinity : null,
+        height: expand ? 52 : 44,
         child: ElevatedButton(
+          // The theme's phone buttons are full width; a button beside others must say how wide it is.
+          style: expand ? null : ElevatedButton.styleFrom(minimumSize: const Size(150, 44)),
           onPressed: isLoading ? null : onPressed,
           child: AnimatedSwitcher(
             duration: AppMotion.base,

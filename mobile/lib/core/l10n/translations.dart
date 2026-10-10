@@ -72,6 +72,10 @@ const Map<String, Map<String, String>> kTranslations = {
   'Account': {'hi': 'खाता', 'mr': 'खाते'},
   'Language': {'hi': 'भाषा', 'mr': 'भाषा'},
   'Help': {'hi': 'सहायता', 'mr': 'मदत'},
+  'Back': {'hi': 'वापस', 'mr': 'मागे'},
+  'Cancel': {'hi': 'रद्द करें', 'mr': 'रद्द करा'},
+  'Clear': {'hi': 'हटाएँ', 'mr': 'काढा'},
+  'Fields marked * are required': {'hi': '* वाले फ़ील्ड ज़रूरी हैं', 'mr': '* असलेली रकाने आवश्यक आहेत'},
   'How to use the app': {'hi': 'ऐप कैसे इस्तेमाल करें', 'mr': 'अ‍ॅप कसे वापरावे'},
   'Signed-in devices': {
     'hi': 'साइन-इन किए गए डिवाइस',

@@ -8,7 +8,7 @@ import 'package:ar_society_app/features/resident_master/presentation/providers/r
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
-import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Add / Edit Tenant — single screen handling both, mirroring
 /// ResidentFormScreen. Edit mode never exposes flat_id or the agreement
@@ -177,22 +177,27 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
         .where((f) => _selectedWingId == null || f.wingId == _selectedWingId)
         .toList();
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text(_isEdit ? 'Edit Tenant' : 'Add Tenant')),
-      body: ResponsiveBody(child: Form(
-        key: _formKey,
-        // A plain scroll view, not a lazy ListView: fields scrolled out of
-        // view stay mounted, so validate() checks every one of them.
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    Future<void> pick({required DateTime? current, required DateTime first, required DateTime last, required DateTime fallback, required ValueChanged<DateTime> set}) async {
+      final picked = await showDatePicker(context: context, initialDate: current ?? fallback, firstDate: first, lastDate: last);
+      if (picked != null) setState(() => set(picked));
+    }
+
+    return AppFormPage(
+      title: _isEdit ? 'Edit Tenant' : 'Add Tenant',
+      subtitle: _isEdit ? widget.tenant!.fullName : 'Add a tenant to a rented flat',
+      formKey: _formKey,
+      submitLabel: _isEdit ? 'Save Changes' : 'Add Tenant',
+      submitIcon: _isEdit ? Icons.save_rounded : Icons.person_add_alt_1_rounded,
+      saving: isLoading,
+      onSubmit: _submit,
+      children: [
+        FormSection(
+          title: 'Tenant information',
+          description: 'Who is renting, and how to reach them.',
           children: [
-            const RmSectionHeader('Tenant Information'),
-            const SizedBox(height: 10),
-            RmFormField(
-              label: 'Full Name *',
+            FormFieldBox(
+              label: 'Full name',
+              required: true,
               child: TextFormField(
                 controller: _nameCtrl,
                 textCapitalization: TextCapitalization.words,
@@ -201,11 +206,7 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Name is required' : null,
               ),
             ),
-
-            const SizedBox(height: 8),
-            const RmSectionHeader('Contact'),
-            const SizedBox(height: 10),
-            RmFormField(
+            FormFieldBox(
               label: 'Mobile',
               child: TextFormField(
                 controller: _phoneCtrl,
@@ -216,7 +217,7 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
                 validator: rmPhoneValidator,
               ),
             ),
-            RmFormField(
+            FormFieldBox(
               label: 'Email',
               child: TextFormField(
                 controller: _emailCtrl,
@@ -226,20 +227,24 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
                 validator: rmEmailValidator,
               ),
             ),
-
-            if (!_isEdit) ...[
-              const SizedBox(height: 8),
-              const RmSectionHeader('Flat'),
-              const SizedBox(height: 10),
-              RmFormField(
+          ],
+        ),
+        if (!_isEdit)
+          FormSection(
+            title: 'Flat and agreement',
+            description: 'The flat being rented and the rent agreement (the agreement is optional).',
+            children: [
+              FormFieldBox(
                 label: 'Wing',
                 child: wingsAsync.when(
                   loading: () => const LinearProgressIndicator(),
                   error: (_, __) => const SizedBox.shrink(),
                   data: (wings) => DropdownButtonFormField<String>(
+                isExpanded: true,
                     value: _selectedWingId,
-                    hint: const Text('Select wing (optional filter)'),
-                    items: wings.where((w) => w.isActive)
+                    hint: const Text('All wings'),
+                    items: wings
+                        .where((w) => w.isActive)
                         .map((w) => DropdownMenuItem(value: w.id, child: Text(w.displayName)))
                         .toList(),
                     onChanged: (v) => setState(() {
@@ -249,58 +254,57 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
                   ),
                 ),
               ),
-              RmFormField(
-                label: 'Flat *',
+              FormFieldBox(
+                label: 'Flat',
+                required: true,
                 child: DropdownButtonFormField<String>(
+                isExpanded: true,
                   value: _selectedFlatId,
                   hint: const Text('Select flat'),
-                  items: flats.map((f) => DropdownMenuItem(
-                        value: f.id,
-                        child: Text(f.wingName != null ? '${f.wingName} — ${f.flatNumber}' : f.flatNumber),
-                      )).toList(),
+                  items: flats
+                      .map((f) => DropdownMenuItem(
+                            value: f.id,
+                            child: Text(f.wingName != null ? '${f.wingName} — ${f.flatNumber}' : f.flatNumber),
+                          ))
+                      .toList(),
                   onChanged: (v) => setState(() => _selectedFlatId = v),
                   validator: (v) => v == null ? 'Flat is required' : null,
                 ),
               ),
-
-              const SizedBox(height: 8),
-              const RmSectionHeader('Agreement (optional)'),
-              const SizedBox(height: 10),
-              Row(children: [
-                Expanded(
-                  child: RmFormField(
-                    label: 'Start Date',
-                    child: InkWell(
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context, initialDate: _agreementStart ?? DateTime.now(),
-                          firstDate: DateTime(2000), lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
-                        );
-                        if (picked != null) setState(() => _agreementStart = picked);
-                      },
-                      child: _DatePillDisplay(date: _agreementStart),
-                    ),
+              FormFieldBox(
+                label: 'Agreement start',
+                child: FormDateField(
+                  value: _agreementStart,
+                  hint: 'Optional',
+                  format: _dateStr,
+                  onClear: () => setState(() => _agreementStart = null),
+                  onTap: () => pick(
+                    current: _agreementStart,
+                    fallback: DateTime.now(),
+                    first: DateTime(2000),
+                    last: DateTime.now().add(const Duration(days: 365 * 5)),
+                    set: (d) => _agreementStart = d,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: RmFormField(
-                    label: 'End Date',
-                    child: InkWell(
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context, initialDate: _agreementEnd ?? DateTime.now().add(const Duration(days: 365)),
-                          firstDate: DateTime(2000), lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
-                        );
-                        if (picked != null) setState(() => _agreementEnd = picked);
-                      },
-                      child: _DatePillDisplay(date: _agreementEnd),
-                    ),
+              ),
+              FormFieldBox(
+                label: 'Agreement end',
+                child: FormDateField(
+                  value: _agreementEnd,
+                  hint: 'Optional',
+                  format: _dateStr,
+                  onClear: () => setState(() => _agreementEnd = null),
+                  onTap: () => pick(
+                    current: _agreementEnd,
+                    fallback: DateTime.now().add(const Duration(days: 365)),
+                    first: DateTime(2000),
+                    last: DateTime.now().add(const Duration(days: 365 * 5)),
+                    set: (d) => _agreementEnd = d,
                   ),
                 ),
-              ]),
-              RmFormField(
-                label: 'Monthly Rent',
+              ),
+              FormFieldBox(
+                label: 'Monthly rent',
                 child: TextFormField(
                   controller: _rentCtrl,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -308,8 +312,8 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
                   decoration: const InputDecoration(prefixText: '₹ '),
                 ),
               ),
-              RmFormField(
-                label: 'Security Deposit',
+              FormFieldBox(
+                label: 'Security deposit',
                 child: TextFormField(
                   controller: _depositCtrl,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -317,33 +321,60 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
                   decoration: const InputDecoration(prefixText: '₹ '),
                 ),
               ),
+              FormFull(
+                child: FormSwitchTile(
+                  title: 'Already moved in',
+                  subtitle: 'Record a move-in date now',
+                  value: _recordMoveIn,
+                  onChanged: (v) => setState(() {
+                    _recordMoveIn = v;
+                    if (v) _moveInDate ??= DateTime.now();
+                  }),
+                ),
+              ),
+              if (_recordMoveIn)
+                FormFieldBox(
+                  label: 'Move-in date',
+                  child: FormDateField(
+                    value: _moveInDate,
+                    hint: 'Select date',
+                    format: _dateStr,
+                    onTap: () => pick(
+                      current: _moveInDate,
+                      fallback: DateTime.now(),
+                      first: DateTime(2000),
+                      last: DateTime.now(),
+                      set: (d) => _moveInDate = d,
+                    ),
+                  ),
+                ),
             ],
-
-            const SizedBox(height: 8),
-            const RmSectionHeader('Verification'),
-            const SizedBox(height: 10),
-            RmFormField(
-              label: 'KYC Verified',
-              child: SwitchListTile(
+          ),
+        FormSection(
+          title: 'Verification',
+          description: 'Identity and police verification the society keeps on record.',
+          children: [
+            FormFull(
+              child: FormSwitchTile(
+                title: 'KYC verified',
+                subtitle: 'Identity documents have been checked',
                 value: _kycVerified,
                 onChanged: (v) => setState(() => _kycVerified = v),
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Identity documents verified', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ),
             ),
-            RmFormField(
-              label: 'Police Verification',
+            FormFieldBox(
+              label: 'Police verification',
               child: DropdownButtonFormField<PoliceVerificationStatus>(
+                isExpanded: true,
                 value: _policeStatus,
-                items: PoliceVerificationStatus.values
-                    .map((s) => DropdownMenuItem(value: s, child: Text(s.label)))
-                    .toList(),
+                items: PoliceVerificationStatus.values.map((s) => DropdownMenuItem(value: s, child: Text(s.label))).toList(),
                 onChanged: (v) => setState(() => _policeStatus = v ?? PoliceVerificationStatus.pending),
               ),
             ),
-            RmFormField(
-              label: 'ID Proof Type',
+            FormFieldBox(
+              label: 'ID proof type',
               child: DropdownButtonFormField<String>(
+                isExpanded: true,
                 value: _idProofType,
                 hint: const Text('Select ID type'),
                 items: [
@@ -353,24 +384,25 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
                 onChanged: (v) => setState(() => _idProofType = v == rmNoneOption ? null : v),
               ),
             ),
-            RmFormField(
-              label: 'ID Proof Number',
+            FormFieldBox(
+              label: 'ID proof number',
               child: TextFormField(controller: _idProofNumberCtrl, inputFormatters: [LengthLimitingTextInputFormatter(100)]),
             ),
-
-            const SizedBox(height: 8),
-            const RmSectionHeader('Emergency Contact'),
-            const SizedBox(height: 10),
-            RmFormField(
-              label: 'Contact Name',
+          ],
+        ),
+        FormSection(
+          title: 'Emergency contact and notes',
+          children: [
+            FormFieldBox(
+              label: 'Contact name',
               child: TextFormField(
                 controller: _emergencyNameCtrl,
                 textCapitalization: TextCapitalization.words,
                 inputFormatters: [LengthLimitingTextInputFormatter(255)],
               ),
             ),
-            RmFormField(
-              label: 'Contact Phone',
+            FormFieldBox(
+              label: 'Contact phone',
               child: TextFormField(
                 controller: _emergencyPhoneCtrl,
                 keyboardType: TextInputType.phone,
@@ -378,85 +410,16 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
                 validator: rmPhoneValidator,
               ),
             ),
-
-            const SizedBox(height: 8),
-            const RmSectionHeader('Remarks'),
-            const SizedBox(height: 10),
-            RmFormField(
-              label: 'Notes',
-              child: TextFormField(controller: _remarksCtrl, maxLines: 2, maxLength: 1000),
-            ),
-
-            if (!_isEdit) ...[
-              const SizedBox(height: 8),
-              const RmSectionHeader('Occupancy'),
-              const SizedBox(height: 10),
-              RmFormField(
-                label: 'Already Moved In?',
-                child: SwitchListTile(
-                  value: _recordMoveIn,
-                  onChanged: (v) => setState(() {
-                    _recordMoveIn = v;
-                    if (v) _moveInDate ??= DateTime.now();
-                  }),
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Record a move-in date now', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                ),
+            FormFull(
+              child: FormFieldBox(
+                label: 'Notes',
+                child: TextFormField(controller: _remarksCtrl, maxLines: 3, maxLength: 1000),
               ),
-              if (_recordMoveIn)
-                RmFormField(
-                  label: 'Move-in Date',
-                  child: InkWell(
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context, initialDate: _moveInDate ?? DateTime.now(),
-                        firstDate: DateTime(2000), lastDate: DateTime.now(),
-                      );
-                      if (picked != null) setState(() => _moveInDate = picked);
-                    },
-                    child: _DatePillDisplay(date: _moveInDate),
-                  ),
-                ),
-            ],
-
-            const SizedBox(height: 32),
-            AppPrimaryButton(
-              label: _isEdit ? 'Save Changes' : 'Add Tenant',
-              icon: _isEdit ? Icons.save_rounded : Icons.person_add_alt_1_rounded,
-              isLoading: isLoading,
-              onPressed: _submit,
             ),
           ],
-          ),
         ),
-      )),
+      ],
     );
   }
 }
 
-class _DatePillDisplay extends StatelessWidget {
-  final DateTime? date;
-  const _DatePillDisplay({this.date});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      decoration: BoxDecoration(
-        color: AppTheme.cardBg, borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Row(children: [
-        const Icon(Icons.calendar_today_rounded, size: 16, color: AppTheme.primary),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            date != null ? '${date!.day}/${date!.month}/${date!.year}' : 'Select',
-            style: TextStyle(fontSize: 13, color: date != null ? AppTheme.textPrimary : AppTheme.textSecondary),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ]),
-    );
-  }
-}
