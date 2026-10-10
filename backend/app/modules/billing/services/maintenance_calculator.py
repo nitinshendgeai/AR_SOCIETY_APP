@@ -27,6 +27,7 @@ cover RWAs elsewhere):
   unpaid principal of earlier issued bills, from their due date (+ grace)
   or from where it was last billed, up to this bill's date.
 """
+import calendar
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -67,6 +68,31 @@ def cycle_months(cycle: BillingCycle) -> int:
     return max(1, round(days / 30.44))
 
 
+def calendar_months(start: date, end: date) -> Decimal:
+    """The months from `start` to `end` inclusive, a part of a month by its days: 12 Jan – 31 Jan is 20/31."""
+    total, cur = ZERO, start
+    while cur <= end:
+        days_in_month = calendar.monthrange(cur.year, cur.month)[1]
+        month_end = date(cur.year, cur.month, days_in_month)
+        last = min(month_end, end)
+        total += Decimal((last - cur).days + 1) / Decimal(days_in_month)
+        cur = month_end + timedelta(days=1)
+    return total.quantize(Decimal("0.000001"))
+
+
+def months_to_bill(start: date, cycle: BillingCycle) -> Decimal:
+    """How many months a flat is charged for when its bill runs from `start` to the end of `cycle`. The cycle's own
+    length is `cycle_months` (so a bill that starts with the cycle is charged exactly as before); days before the
+    cycle are charged by calendar month, days of the cycle that the flat was not yet there for by the cycle's share."""
+    whole = Decimal(cycle_months(cycle))
+    if start > cycle.cycle_end:
+        return ZERO
+    if start >= cycle.cycle_start:
+        length = (cycle.cycle_end - cycle.cycle_start).days + 1
+        return (whole * Decimal((cycle.cycle_end - start).days + 1) / Decimal(length)).quantize(Decimal("0.000001"))
+    return whole + calendar_months(start, cycle.cycle_start - timedelta(days=1))
+
+
 def default_settings(society_id) -> MaintenanceSettings:
     """Unsaved settings carrying the column defaults (SQLAlchemy only
     applies those on INSERT)."""
@@ -97,6 +123,9 @@ class LineDraft:
 @dataclass
 class FlatBillDraft:
     flat: Flat
+    period_start: Optional[date] = None      # the days this bill charges for
+    period_end: Optional[date] = None
+    months: Decimal = Decimal(1)
     lines: List[LineDraft] = field(default_factory=list)
     previous_dues: Decimal = ZERO
     interest_bills: List[MaintenanceBill] = field(default_factory=list)
@@ -194,9 +223,40 @@ class MaintenanceCalculator:
             by_flat[b.flat_id].append(b)
         return by_flat
 
+    def _billed_through(self, exclude_cycle_id: UUID) -> Dict[UUID, date]:
+        """For each flat, the last day any of its (not cancelled) bills charged for."""
+        rows = self.db.query(MaintenanceBill.flat_id, MaintenanceBill.period_end, BillingCycle.cycle_end).join(
+            BillingCycle, BillingCycle.id == MaintenanceBill.cycle_id).filter(
+            MaintenanceBill.society_id == self.society_id,
+            MaintenanceBill.is_active == True,
+            MaintenanceBill.bill_status != BillStatus.CANCELLED,
+            MaintenanceBill.cycle_id != exclude_cycle_id,
+        ).all()
+        through: Dict[UUID, date] = {}
+        for flat_id, period_end, cycle_end in rows:
+            end = period_end or cycle_end
+            if flat_id not in through or end > through[flat_id]:
+                through[flat_id] = end
+        return through
+
+    def _period_for(self, flat: Flat, cycle: BillingCycle, through: Dict[UUID, date]) -> Optional[tuple]:
+        """(from, to, months) the flat's bill covers, or None when there is nothing to charge it for in this cycle.
+        Without a billing start date every flat is charged for the cycle itself."""
+        begin = self.settings.billing_start_date
+        if begin is None:
+            return cycle.cycle_start, cycle.cycle_end, Decimal(cycle_months(cycle))
+        if flat.id in through:
+            start = through[flat.id] + timedelta(days=1)                 # carry on from the last bill
+        else:
+            start = max(begin, flat.possession_date or begin)             # a first bill: possession, but not before `begin`
+        if start > cycle.cycle_end:
+            return None
+        months = months_to_bill(start, cycle)
+        return (start, cycle.cycle_end, months) if months > 0 else None
+
     # ── Charge heads ─────────────────────────────────────────────────────────
 
-    def _charge_amount(self, charge: MaintenanceChargeConfig, flat: Flat, months: int) -> Decimal:
+    def _charge_amount(self, charge: MaintenanceChargeConfig, flat: Flat, months: Decimal) -> Decimal:
         rate = self._auto_rate.get(charge.id, charge.default_amount or ZERO)
         area = Decimal(str(flat.area_sqft)) if flat.area_sqft else ZERO
         basis = charge.basis or ChargeBasis.FIXED
@@ -237,14 +297,22 @@ class MaintenanceCalculator:
 
     def calculate(self, cycle: BillingCycle, bill_date: date) -> List[FlatBillDraft]:
         s = self.settings
-        months = cycle_months(cycle)
         self._apply_expense_budgets(bill_date)
         open_bills = self._open_bills_by_flat(cycle.id)
+        through = self._billed_through(cycle.id) if s.billing_start_date else {}
         drafts: List[FlatBillDraft] = []
         skipped = 0
+        catch_up = not_yet = 0
 
         for flat in self.flats:
-            draft = FlatBillDraft(flat=flat)
+            period = self._period_for(flat, cycle, through)
+            if period is None:
+                not_yet += 1
+                continue
+            start, end, months = period
+            if months > Decimal(cycle_months(cycle)):
+                catch_up += 1
+            draft = FlatBillDraft(flat=flat, period_start=start, period_end=end, months=months)
 
             for charge in self.charges:
                 amount = money(self._charge_amount(charge, flat, months))
@@ -295,6 +363,14 @@ class MaintenanceCalculator:
                 skipped += 1
 
         self._collect_warnings(skipped)
+        if catch_up:
+            self.warnings.append(
+                f"{catch_up} flat(s) are charged for more than this cycle — from their possession date or the end of "
+                f"their last bill (billing starts on {s.billing_start_date:%d %b %Y}).")
+        if not_yet:
+            self.warnings.append(
+                f"{not_yet} flat(s) are not billed in this cycle: possession is after it, or an earlier bill already "
+                f"covers it.")
         return drafts
 
     @staticmethod

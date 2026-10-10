@@ -231,6 +231,11 @@ class MaintenanceSettings(Base, TimestampMixin):
     upi_id              = Column(String(100), nullable=True)
     bill_notes          = Column(Text, nullable=True)   # extra lines under the bye-law notes
 
+    # "Billing in this app starts on": when set, each flat is billed for the days from the end of what it was last
+    # billed for — or, for a flat never billed here, from its possession date (never earlier than this date) — up to
+    # the end of the cycle being billed. Empty: every cycle bills its own period only, as before.
+    billing_start_date  = Column(Date, nullable=True)
+
     society = relationship("Society")
 
 
@@ -306,6 +311,11 @@ class MaintenanceBill(Base, TimestampMixin):
     # Interest on this bill's unpaid balance has been billed (on later
     # bills) up to this date, so the next bill only charges the new days.
     arrears_interest_upto = Column(Date, nullable=True)
+    # The days this bill charges for. Normally the cycle's own period; longer for a flat billed from its possession
+    # date or from its last bill (catch-up), shorter for a flat that took possession during the cycle. Empty on bills
+    # made before this existed: the cycle's period then.
+    period_start    = Column(Date, nullable=True)
+    period_end      = Column(Date, nullable=True)
 
     # Numbers run per society, so they are unique within one.
     __table_args__ = (UniqueConstraint("society_id", "invoice_number", name="uq_bill_society_invoice_number"),)

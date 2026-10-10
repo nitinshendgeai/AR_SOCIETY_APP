@@ -184,6 +184,9 @@ class MaintenanceRules {
   final String? bankIfsc;
   final String? upiId;
   final String? billNotes;
+  /// "Billing in this app starts on": when set, each flat is billed from its possession date (never before this
+  /// date) or from the end of its last bill, to the end of the cycle.
+  final DateTime? billingStartDate;
 
   const MaintenanceRules({
     this.constructionCostPerSqft,
@@ -199,6 +202,7 @@ class MaintenanceRules {
     this.bankIfsc,
     this.upiId,
     this.billNotes,
+    this.billingStartDate,
   });
 
   factory MaintenanceRules.fromJson(Map<String, dynamic> j) => MaintenanceRules(
@@ -215,6 +219,8 @@ class MaintenanceRules {
         bankIfsc: j['bank_ifsc'] as String?,
         upiId: j['upi_id'] as String?,
         billNotes: j['bill_notes'] as String?,
+        billingStartDate:
+            j['billing_start_date'] == null ? null : DateTime.parse(j['billing_start_date'] as String),
       );
 }
 
@@ -244,10 +250,15 @@ class FlatPreview {
   final List<PreviewLine> lines;
   final String tax;
   final String total;
+  /// The days this flat's bill charges for, and how many months that is (more than the cycle's own for a flat
+  /// billed from its possession date or last bill; part of it for one that took possession during the cycle).
+  final DateTime? periodStart;
+  final DateTime? periodEnd;
+  final String? months;
 
   const FlatPreview({required this.flatId, required this.flatLabel, this.areaSqft,
       this.occupancy, required this.previousDues, required this.lines,
-      required this.tax, required this.total});
+      required this.tax, required this.total, this.periodStart, this.periodEnd, this.months});
 
   factory FlatPreview.fromJson(Map<String, dynamic> j) => FlatPreview(
         flatId: j['flat_id'] as String,
@@ -258,6 +269,9 @@ class FlatPreview {
         lines: [for (final e in (j['lines'] as List)) PreviewLine.fromJson(e as Map<String, dynamic>)],
         tax: _str(j['tax']),
         total: _str(j['total']),
+        periodStart: j['period_start'] == null ? null : DateTime.parse(j['period_start'] as String),
+        periodEnd: j['period_end'] == null ? null : DateTime.parse(j['period_end'] as String),
+        months: j['months'] as String?,
       );
 }
 

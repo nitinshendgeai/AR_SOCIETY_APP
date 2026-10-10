@@ -1,7 +1,7 @@
 import re
 from typing import List, Optional
 from uuid import UUID
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from fastapi import APIRouter, Depends, Request, UploadFile, File, Form, HTTPException, Query
 from pydantic import Field, field_validator, model_validator
@@ -315,6 +315,15 @@ class MaintenanceSettingsUpdate(OrmBase):
     bank_ifsc: Optional[str] = Field(None, max_length=20)
     upi_id: Optional[str] = Field(None, max_length=100)
     bill_notes: Optional[str] = Field(None, max_length=1000)
+    # Billing in this app starts on (empty clears it: every cycle then bills its own period only)
+    billing_start_date: Optional[date] = None
+
+    @field_validator("billing_start_date")
+    @classmethod
+    def _start_sane(cls, v):
+        if v is not None and not (date(1990, 1, 1) <= v <= date.today() + timedelta(days=366)):
+            raise ValueError("Billing start date must be between 1990 and a year from today")
+        return v
 
     @field_validator("bank_account_name", "bank_name", "bank_account_number",
                      "bank_ifsc", "upi_id", "bill_notes")
@@ -360,6 +369,7 @@ def _settings_out(st) -> dict:
         "bank_ifsc": st.bank_ifsc,
         "upi_id": st.upi_id,
         "bill_notes": st.bill_notes,
+        "billing_start_date": st.billing_start_date.isoformat() if st.billing_start_date else None,
     }
 
 @router.get("/maintenance-settings/{society_id}", dependencies=[Depends(manager_above)])
@@ -429,6 +439,9 @@ def preview_cycle(cycle_id: UUID, db: Session = Depends(get_db), user: User = De
             "area_sqft": d.flat.area_sqft,
             "occupancy": d.flat.occupancy_status.value if d.flat.occupancy_status else None,
             "previous_dues": str(d.previous_dues),
+            "period_start": d.period_start.isoformat() if d.period_start else None,
+            "period_end": d.period_end.isoformat() if d.period_end else None,
+            "months": str(d.months.normalize()) if d.months else None,
             "lines": [{
                 "charge_type": l.charge_type.value,
                 "description": l.description,

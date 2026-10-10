@@ -238,6 +238,8 @@ def _bill_month(bill: MaintenanceBill) -> str:
     more than one month."""
     cycle = bill.cycle
     start, end = (cycle.cycle_start, cycle.cycle_end) if cycle else (bill.bill_date, bill.bill_date)
+    if bill.period_start and bill.period_end:                    # the days actually charged for
+        start, end = bill.period_start, bill.period_end
     if (start.year, start.month) == (end.year, end.month):
         return f"Bill for the Month of {start.strftime('%b-%Y')}"
     return f"Bill for the Period {start.strftime('%b-%Y')} to {end.strftime('%b-%Y')}"
@@ -357,7 +359,9 @@ def generate_maintenance_bill_pdf(
     email = m.email if m and m.email and not m.email.endswith("@duxos.local") else ""
     area = f"{flat.area_sqft:,.0f}" if flat and flat.area_sqft else ""
     cycle = bill.cycle
-    period = f"{_dm(cycle.cycle_start)} to {_dm(cycle.cycle_end)}" if cycle else ""
+    p_start = (bill.period_start or cycle.cycle_start) if cycle else None
+    p_end = (bill.period_end or cycle.cycle_end) if cycle else None
+    period = f"{_dm(p_start)} to {_dm(p_end)}" if cycle else ""
     left = _kv([
         ("Name", f"<b>{escape(member_name(flat, bill.resident))}</b>"),
         ("Flat No.", escape(flat_label(flat))),

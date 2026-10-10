@@ -324,6 +324,7 @@ class BillingService:
                 invoice_number=self.bill_repo.next_invoice_number(cycle.society_id),
                 bill_status=BillStatus.GENERATED,
                 bill_date=today, due_date=cycle.due_date,
+                period_start=draft.period_start or cycle.cycle_start, period_end=draft.period_end or cycle.cycle_end,
                 subtotal=draft.subtotal, tax_amount=draft.tax,
                 total_amount=draft.total, outstanding=draft.total,
                 previous_dues=draft.previous_dues,
