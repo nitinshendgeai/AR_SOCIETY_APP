@@ -8,6 +8,7 @@ import 'package:ar_society_app/features/vendor/data/vendors_work_api.dart';
 import 'package:ar_society_app/features/vendor/presentation/providers/vendor_providers.dart' show vendorsProvider;
 import 'package:ar_society_app/features/vendor/presentation/providers/vendors_work_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// The Vendor Master form: the one place a vendor is entered or edited, from Vendors & Work and from every form that
 /// asks who was paid. Closes with the saved vendor, so the caller can select it.
@@ -99,14 +100,14 @@ class _VendorSheetState extends ConsumerState<VendorSheet> {
           TextInputType? keyboard}) =>
       Padding(
         padding: const EdgeInsets.only(bottom: 12),
-        child: TextFormField(
+        child: FormFieldBox(label: label, child: TextFormField(
           controller: c,
           maxLength: max,
           textCapitalization: caps,
           keyboardType: keyboard,
-          decoration: InputDecoration(labelText: label, counterText: ''),
+          decoration: InputDecoration(counterText: ''),
           validator: validator,
-        ),
+        )),
       );
 
   Widget _section(String title, {bool first = false}) => Padding(
@@ -128,21 +129,21 @@ class _VendorSheetState extends ConsumerState<VendorSheet> {
               validator: (v) => (v ?? '').trim().isEmpty ? 'Enter the name' : null),
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Expanded(
-              child: DropdownButtonFormField<String>(
+              child: FormFieldBox(label: 'Kind of work', required: true, child: DropdownButtonFormField<String>(
                 initialValue: _category,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Kind of work *'),
+                decoration: const InputDecoration(),
                 items: [for (final c in kVendorCategories) DropdownMenuItem(value: c.$1, child: Text(c.$2))],
                 onChanged: (v) => setState(() => _category = v!),
-              ),
+              )),
             ),
             if (e != null) ...[
               const SizedBox(width: 12),
               Expanded(
-                child: DropdownButtonFormField<String>(
+                child: FormFieldBox(label: 'Status', child: DropdownButtonFormField<String>(
                   initialValue: _status,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Status'),
+                  decoration: const InputDecoration(),
                   items: [
                     if (e!.status == 'blacklisted') const DropdownMenuItem(value: 'blacklisted', child: Text('Blacklisted')),
                     const DropdownMenuItem(value: 'active', child: Text('Active')),
@@ -150,7 +151,7 @@ class _VendorSheetState extends ConsumerState<VendorSheet> {
                     const DropdownMenuItem(value: 'under_review', child: Text('Under review')),
                   ],
                   onChanged: (v) => setState(() => _status = v!),
-                ),
+                )),
               ),
             ],
           ]),

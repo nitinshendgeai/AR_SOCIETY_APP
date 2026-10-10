@@ -14,6 +14,7 @@ import 'package:ar_society_app/features/society_structure/presentation/providers
 import 'package:ar_society_app/shared/widgets/app_data_table.dart'
     show StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Whether the person works the gate (security) or the office; they log, hand over and return parcels.
 bool _atGate(WidgetRef ref) {
@@ -98,10 +99,10 @@ class _ParcelCard extends ConsumerWidget {
         builder: (ctx) => AlertDialog(
               title: const Text('Hand over this parcel?'),
               content: gate
-                  ? TextField(
+                  ? FormFieldBox(label: 'Who collected it?', child: TextField(
                       controller: name,
                       decoration:
-                          const InputDecoration(labelText: 'Who collected it?'))
+                          const InputDecoration()))
                   : const Text('Mark it as collected by you.'),
               actions: [
                 TextButton(
@@ -129,9 +130,9 @@ class _ParcelCard extends ConsumerWidget {
         context: context,
         builder: (ctx) => AlertDialog(
               title: const Text('Return to the courier?'),
-              content: TextField(
+              content: FormFieldBox(label: 'Reason', child: TextField(
                   controller: note,
-                  decoration: const InputDecoration(labelText: 'Reason')),
+                  decoration: const InputDecoration())),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
@@ -300,10 +301,10 @@ class _LogSheetState extends ConsumerState<_LogSheet> {
             loading: () => const LinearProgressIndicator(),
             error: (e, _) => Text(friendlyErrorMessage(e),
                 style: const TextStyle(color: AppTheme.error)),
-            data: (list) => DropdownButtonFormField<FlatModel>(
+            data: (list) => FormFieldBox(label: 'Flat', required: true, child: DropdownButtonFormField<FlatModel>(
               initialValue: _flat,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Flat *'),
+              decoration: const InputDecoration(),
               items: [
                 for (final f in list.where((f) => f.isActive))
                   DropdownMenuItem(
@@ -312,23 +313,23 @@ class _LogSheetState extends ConsumerState<_LogSheet> {
               ],
               onChanged: (f) => setState(() => _flat = f),
               validator: (v) => v == null ? 'Choose the flat' : null,
-            ),
+            )),
           ),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'From (courier / shop)', child: TextFormField(
               controller: _courier,
               decoration: const InputDecoration(
-                  labelText: 'From (courier / shop)', hintText: 'e.g. Amazon')),
+                  hintText: 'e.g. Amazon'))),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'For (name on parcel)', child: TextFormField(
               controller: _recipient,
               decoration:
-                  const InputDecoration(labelText: 'For (name on parcel)')),
+                  const InputDecoration())),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'What it looks like (optional)', child: TextFormField(
               controller: _desc,
               decoration: const InputDecoration(
-                  labelText: 'What it looks like (optional)')),
+                  ))),
           const SizedBox(height: 16),
           AppPrimaryButton(
               label: context.tr('Log parcel'),

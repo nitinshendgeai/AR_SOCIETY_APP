@@ -16,6 +16,7 @@ import 'package:ar_society_app/features/vendor/presentation/screens/vendors_work
 import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// One work order from quotations to closure. The manager prepares it and
 /// enters quotations and bills; the committee sanctions, issues, certifies
@@ -444,23 +445,23 @@ class _CompleteSheetState extends ConsumerState<_CompleteSheet> {
             const Text('Certify only after the work has been inspected. The final payment is released after this.',
                 style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
             const SizedBox(height: 12),
-            DateField(
-                label: 'Completed on', value: _on, required: true, lastDate: DateTime.now(),
-                onChanged: (d) => setState(() => _on = d)),
+            FormFieldBox(label: 'Completed on', child: DateField(
+                label: '',value: _on, required: true, lastDate: DateTime.now(),
+                onChanged: (d) => setState(() => _on = d))),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'What was checked', required: true, child: TextFormField(
               controller: _notes,
               maxLength: 2000,
               maxLines: 3,
-              decoration: const InputDecoration(labelText: 'What was checked *', hintText: 'e.g. Tank tested for 24 h, no leaks'),
+              decoration: const InputDecoration(hintText: 'e.g. Tank tested for 24 h, no leaks'),
               validator: (v) => (v ?? '').trim().isEmpty ? 'Describe the inspection' : null,
-            ),
-            TextFormField(
+            )),
+            FormFieldBox(label: 'Architect / engineer certificate ref.', child: TextFormField(
               controller: _cert,
               maxLength: 100,
               decoration: const InputDecoration(
-                  labelText: 'Architect / engineer certificate ref.', counterText: ''),
-            ),
+                  counterText: ''),
+            )),
             const SizedBox(height: 12),
             ElevatedButton(
               onPressed: _saving ? null : _save,
@@ -536,43 +537,43 @@ class _BillSheetState extends ConsumerState<_BillSheet> {
           Text('Up to ${formatRupees(widget.wo.unbilled)} more can be billed on ${widget.wo.woNumber}.',
               style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Vendor\'s bill no. *', child: TextFormField(
             controller: _number,
             maxLength: 50,
-            decoration: const InputDecoration(labelText: 'Vendor\'s bill no. *', counterText: ''),
+            decoration: const InputDecoration(counterText: ''),
             validator: (v) => (v ?? '').trim().isEmpty ? 'Enter the bill number' : null,
-          ),
+          )),
           const SizedBox(height: 12),
-          DateField(
-              label: 'Bill date', value: _date, required: true, lastDate: DateTime.now(),
-              onChanged: (d) => setState(() => _date = d)),
+          FormFieldBox(label: 'Bill date', child: DateField(
+              label: '',value: _date, required: true, lastDate: DateTime.now(),
+              onChanged: (d) => setState(() => _date = d))),
           const SizedBox(height: 12),
           Row(children: [
             Expanded(
-              child: TextFormField(
+              child: FormFieldBox(label: 'Amount (₹)', required: true, child: TextFormField(
                 controller: _amount,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: moneyInput,
                 onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(labelText: 'Amount (₹) *'),
+                decoration: const InputDecoration(),
                 validator: (v) => (parseMoney(v ?? '') ?? 0) <= 0 ? 'Enter the amount' : null,
-              ),
+              )),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: TextFormField(
+              child: FormFieldBox(label: 'GST (₹)', child: TextFormField(
                 controller: _gst,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: moneyInput,
                 onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(labelText: 'GST (₹)'),
-              ),
+                decoration: const InputDecoration(),
+              )),
             ),
           ]),
           const SizedBox(height: 6),
           Text('Total ${formatRupees(total.toStringAsFixed(2))}', style: const TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
-          TextFormField(controller: _desc, maxLength: 2000, decoration: const InputDecoration(labelText: 'Description')),
+          FormFieldBox(label: 'Description', child: TextFormField(controller: _desc, maxLength: 2000, decoration: const InputDecoration())),
           const SizedBox(height: 12),
           ElevatedButton(
             onPressed: _saving ? null : _save,
@@ -652,44 +653,44 @@ class _ReviseSheetState extends ConsumerState<_ReviseSheet> {
             Text('Extra work beyond the sanctioned ${formatRupees(widget.wo.sanction.amount ?? '0')} needs a fresh '
                 'resolution before it is billed.', style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'New sanctioned amount (₹)', required: true, child: TextFormField(
               controller: _amount,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: moneyInput,
               onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(labelText: 'New sanctioned amount (₹) *'),
+              decoration: const InputDecoration(),
               validator: (v) => (parseMoney(v ?? '') ?? 0) <= 0 ? 'Enter the amount' : null,
-            ),
+            )),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'Why', required: true, child: TextFormField(
               controller: _reason,
               maxLength: 1000,
               maxLines: 2,
-              decoration: const InputDecoration(labelText: 'Why *'),
+              decoration: const InputDecoration(),
               validator: (v) => (v ?? '').trim().isEmpty ? 'Record why' : null,
-            ),
-            TextFormField(
+            )),
+            FormFieldBox(label: 'Committee resolution no.', required: true, child: TextFormField(
               controller: _resolution,
               maxLength: 50,
-              decoration: const InputDecoration(labelText: 'Committee resolution no. *', counterText: ''),
+              decoration: const InputDecoration(counterText: ''),
               validator: (v) => (v ?? '').trim().isEmpty ? 'Enter the resolution number' : null,
-            ),
+            )),
             const SizedBox(height: 12),
-            DateField(
-                label: 'Committee meeting date', value: _meeting, required: true, lastDate: DateTime.now(),
-                onChanged: (d) => setState(() => _meeting = d)),
+            FormFieldBox(label: 'Committee meeting date', child: DateField(
+                label: '',value: _meeting, required: true, lastDate: DateTime.now(),
+                onChanged: (d) => setState(() => _meeting = d))),
             if (_needsGb) ...[
               const SizedBox(height: 12),
-              TextFormField(
+              FormFieldBox(label: 'General body resolution no.', required: true, child: TextFormField(
                 controller: _gbResolution,
                 maxLength: 50,
-                decoration: const InputDecoration(labelText: 'General body resolution no. *', counterText: ''),
+                decoration: const InputDecoration(counterText: ''),
                 validator: (v) => (v ?? '').trim().isEmpty ? 'This amount needs the general body' : null,
-              ),
+              )),
               const SizedBox(height: 12),
-              DateField(
-                  label: 'General body meeting date', value: _gbMeeting, required: true, lastDate: DateTime.now(),
-                  onChanged: (d) => setState(() => _gbMeeting = d)),
+              FormFieldBox(label: 'General body meeting date', child: DateField(
+                  label: '',value: _gbMeeting, required: true, lastDate: DateTime.now(),
+                  onChanged: (d) => setState(() => _gbMeeting = d))),
             ],
             const SizedBox(height: 12),
             ElevatedButton(

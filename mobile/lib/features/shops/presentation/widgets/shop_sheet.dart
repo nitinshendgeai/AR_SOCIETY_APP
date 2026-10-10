@@ -8,6 +8,7 @@ import 'package:ar_society_app/features/shops/data/shops_api.dart';
 import 'package:ar_society_app/features/shops/presentation/providers/shops_providers.dart';
 import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_widgets.dart' show DateField;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Add a shop, or change one: its number and place, who owns it, who runs it, when the owner took possession, and
 /// its electricity meter. Closes with `true` when something was saved or deleted.
@@ -144,14 +145,14 @@ class _ShopSheetState extends ConsumerState<ShopSheet> {
           List<TextInputFormatter>? formatters, String? helper, TextCapitalization caps = TextCapitalization.none}) =>
       Padding(
         padding: const EdgeInsets.only(bottom: 12),
-        child: TextFormField(
+        child: FormFieldBox(label: label, child: TextFormField(
           controller: c,
           keyboardType: keyboard,
           textCapitalization: caps,
           inputFormatters: [LengthLimitingTextInputFormatter(max), ...?formatters],
-          decoration: InputDecoration(labelText: label, helperText: helper, counterText: ''),
+          decoration: InputDecoration(helperText: helper, counterText: ''),
           validator: validator,
-        ),
+        )),
       );
 
   @override
@@ -195,13 +196,13 @@ class _ShopSheetState extends ConsumerState<ShopSheet> {
           _section('Who runs it'),
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: DropdownButtonFormField<String>(
+            child: FormFieldBox(label: 'Occupancy', child: DropdownButtonFormField<String>(
               initialValue: _occupancy,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Occupancy'),
+              decoration: const InputDecoration(),
               items: [for (final o in kShopOccupancy) DropdownMenuItem(value: o.$1, child: Text(o.$2))],
               onChanged: (v) => setState(() => _occupancy = v ?? 'vacant'),
-            ),
+            )),
           ),
           if (_occupancy == 'rented')
             pair(
@@ -211,12 +212,11 @@ class _ShopSheetState extends ConsumerState<ShopSheet> {
           _section('Possession and electricity'),
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: DateField(
-              label: 'Possession date',
-              value: _possession,
+            child: FormFieldBox(label: 'Possession date', child: DateField(
+              label: '',value: _possession,
               lastDate: DateTime.now().add(const Duration(days: 366)),
               onChanged: (d) => setState(() => _possession = d),
-            ),
+            )),
           ),
           pair(
             _field(_meter, 'Electric meter no.', max: 40),

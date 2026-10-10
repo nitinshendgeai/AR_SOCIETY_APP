@@ -9,6 +9,7 @@ import 'package:ar_society_app/features/society_structure/data/models/structure_
 import 'package:ar_society_app/features/society_structure/domain/flat_numbering.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 class FloorListScreen extends ConsumerWidget {
   final WingModel wing;
@@ -229,15 +230,14 @@ class _FloorCard extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Add Flats to ${floor.displayName}'),
-        content: TextField(
+        content: FormFieldBox(label: 'Number of flats to add', child: TextField(
           controller: countCtrl,
           keyboardType: TextInputType.number,
           autofocus: true,
           decoration: const InputDecoration(
-            labelText: 'Number of flats to add',
             hintText: 'e.g. 5',
           ),
-        ),
+        )),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),

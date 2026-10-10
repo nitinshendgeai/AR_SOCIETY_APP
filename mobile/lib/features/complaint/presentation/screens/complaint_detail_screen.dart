@@ -11,6 +11,7 @@ import 'package:ar_society_app/features/staff/presentation/providers/staff_provi
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
@@ -643,16 +644,16 @@ Future<void> _openStatusDialog(
       title: Text('${_statusActionLabel(target)} Complaint?'),
       content: Form(
         key: formKey,
-        child: TextFormField(
+        child: FormFieldBox(label: requiresNotes ? '$label *' : label, child: TextFormField(
           controller: ctrl,
           maxLines: 3,
           inputFormatters: [LengthLimitingTextInputFormatter(1000)],
           autofocus: requiresNotes,
-          decoration: InputDecoration(labelText: requiresNotes ? '$label *' : label),
+          decoration: InputDecoration(),
           validator: requiresNotes
               ? (v) => (v == null || v.trim().isEmpty) ? 'Required' : null
               : null,
-        ),
+        )),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -692,14 +693,14 @@ Future<void> _openReopenDialog(
       title: const Text('Reopen Complaint?'),
       content: Form(
         key: formKey,
-        child: TextFormField(
+        child: FormFieldBox(label: 'Reason', required: true, child: TextFormField(
           controller: ctrl,
           maxLines: 3,
           inputFormatters: [LengthLimitingTextInputFormatter(1000)],
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Reason *'),
+          decoration: const InputDecoration(),
           validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-        ),
+        )),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -778,36 +779,13 @@ class _AssignSheetBodyState extends ConsumerState<_AssignSheetBody> {
         : <StaffEntity>[];
     final isReassign = widget.complaint.status == ComplaintStatus.assigned;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-        decoration: const BoxDecoration(
-          color: AppTheme.cardBg,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                      color: AppTheme.border, borderRadius: BorderRadius.circular(2)),
-                ),
-              ),
-              Text(isReassign ? 'Reassign Complaint' : 'Assign Complaint',
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-              if (isReassign && widget.complaint.assignedToName != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  'Currently with ${widget.complaint.assignedToName}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                ),
-              ],
-              const SizedBox(height: 16),
+    return AppSheetFrame(
+      title: isReassign ? 'Reassign Complaint' : 'Assign Complaint',
+      subtitle: isReassign && widget.complaint.assignedToName != null ? 'Currently with ${widget.complaint.assignedToName}' : null,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
               if (staffState is StaffListLoading)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 12),
@@ -822,9 +800,9 @@ class _AssignSheetBodyState extends ConsumerState<_AssignSheetBody> {
                   ),
                 )
               else
-                DropdownButtonFormField<String>(
+                FormFieldBox(label: 'Assign to', required: true, child: DropdownButtonFormField<String>(
                   value: _selectedUserId,
-                  decoration: const InputDecoration(labelText: 'Assign to *'),
+                  decoration: const InputDecoration(),
                   hint: const Text('Select staff member'),
                   items: assignable
                       .map((s) => DropdownMenuItem(
@@ -835,25 +813,24 @@ class _AssignSheetBodyState extends ConsumerState<_AssignSheetBody> {
                           ))
                       .toList(),
                   onChanged: (v) => setState(() => _selectedUserId = v),
-                ),
+                )),
               const SizedBox(height: 14),
-              InkWell(
-                onTap: _pickDueDate,
-                child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Due date (optional)'),
-                  child: Text(
-                    _dueDate == null
-                        ? 'Not set'
-                        : '${_dueDate!.day}/${_dueDate!.month}/${_dueDate!.year}',
-                  ),
+              FormFieldBox(
+                label: 'Due date',
+                child: FormDateField(
+                  value: _dueDate,
+                  hint: 'Optional',
+                  format: (d) => '${d.day}/${d.month}/${d.year}',
+                  onTap: _pickDueDate,
+                  onClear: () => setState(() => _dueDate = null),
                 ),
               ),
               const SizedBox(height: 14),
-              TextField(
+              FormFieldBox(label: 'Notes (optional)', child: TextField(
                 controller: _notesCtrl,
                 maxLines: 2,
-                decoration: const InputDecoration(labelText: 'Notes (optional)'),
-              ),
+                decoration: const InputDecoration(),
+              )),
               const SizedBox(height: 20),
               AppPrimaryButton(
                 label: isReassign ? 'Reassign' : 'Assign',
@@ -861,9 +838,7 @@ class _AssignSheetBodyState extends ConsumerState<_AssignSheetBody> {
                 onPressed:
                     (_selectedUserId == null || _submitting) ? null : _submit,
               ),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }

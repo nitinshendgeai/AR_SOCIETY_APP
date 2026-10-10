@@ -7,6 +7,7 @@ import 'package:ar_society_app/features/assets/presentation/providers/assets_pro
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 DateTime _day(DateTime d) => DateTime(d.year, d.month, d.day);
 String? _trimmed(TextEditingController c) => c.text.trim().isEmpty ? null : c.text.trim();
@@ -119,19 +120,19 @@ class _AssetFormSheetState extends ConsumerState<AssetFormSheet> {
         key: _form,
         autovalidateMode: AutovalidateMode.onUserInteraction,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          TextFormField(
+          FormFieldBox(label: 'Name', required: true, child: TextFormField(
             controller: _name,
             maxLength: 255,
             textCapitalization: TextCapitalization.words,
             decoration: const InputDecoration(
-                labelText: 'Name *', hintText: 'e.g. Terrace water pump, Clubhouse AC 1', counterText: ''),
+                hintText: 'e.g. Terrace water pump, Clubhouse AC 1', counterText: ''),
             validator: (v) => (v ?? '').trim().isEmpty ? 'Give the asset a name' : null,
-          ),
+          )),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          FormFieldBox(label: 'Kind of asset', required: true, child: DropdownButtonFormField<String>(
             initialValue: _category,
             isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Kind of asset *'),
+            decoration: const InputDecoration(),
             validator: (v) => v == null ? 'Choose what kind of asset it is' : null,
             items: [
               for (final c in kAssetCategories)
@@ -142,23 +143,22 @@ class _AssetFormSheetState extends ConsumerState<AssetFormSheet> {
                 ])),
             ],
             onChanged: (v) => setState(() => _category = v),
-          ),
+          )),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Where it is', child: TextFormField(
             controller: _location,
             maxLength: 255,
             decoration: const InputDecoration(
-                labelText: 'Where it is', hintText: 'e.g. Terrace, Wing A · Basement pump room', counterText: ''),
-          ),
+                hintText: 'e.g. Terrace, Wing A · Basement pump room', counterText: ''),
+          )),
           const SizedBox(height: 16),
           const Text('Servicing', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
           const SizedBox(height: 8),
-          TextFormField(
+          FormFieldBox(label: 'Serviced every (months)', child: TextFormField(
             controller: _interval,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
             decoration: InputDecoration(
-              labelText: 'Serviced every (months)',
               helperText: hint ?? 'e.g. 3 for an AC, 6 for a pump. Leave blank if it has no routine service.',
               helperMaxLines: 2,
             ),
@@ -167,18 +167,18 @@ class _AssetFormSheetState extends ConsumerState<AssetFormSheet> {
               return (v ?? '').trim().isNotEmpty && (n == null || n < 1 || n > 120) ? 'Enter 1 to 120 months' : null;
             },
             onChanged: (_) => setState(() {}),
-          ),
+          )),
           const SizedBox(height: 12),
           Row(children: [
             Expanded(
-              child: DateField(
-                  label: 'Last serviced', value: _lastServiced, lastDate: DateTime.now(),
-                  onChanged: (d) => setState(() => _lastServiced = d)),
+              child: FormFieldBox(label: 'Last serviced', child: DateField(
+                  label: '',value: _lastServiced, lastDate: DateTime.now(),
+                  onChanged: (d) => setState(() => _lastServiced = d))),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: DateField(
-                  label: 'Next service due', value: _nextDue, onChanged: (d) => setState(() => _nextDue = d)),
+              child: FormFieldBox(label: 'Next service due', child: DateField(
+                  label: '',value: _nextDue, onChanged: (d) => setState(() => _nextDue = d))),
             ),
           ]),
           const SizedBox(height: 16),
@@ -186,41 +186,41 @@ class _AssetFormSheetState extends ConsumerState<AssetFormSheet> {
           const SizedBox(height: 8),
           Row(children: [
             Expanded(
-              child: DateField(
-                  label: 'Bought on', value: _purchased, lastDate: DateTime.now(),
-                  onChanged: (d) => setState(() => _purchased = d)),
+              child: FormFieldBox(label: 'Bought on', child: DateField(
+                  label: '',value: _purchased, lastDate: DateTime.now(),
+                  onChanged: (d) => setState(() => _purchased = d))),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: DateField(
-                  label: 'Warranty until', value: _warranty, onChanged: (d) => setState(() => _warranty = d)),
+              child: FormFieldBox(label: 'Warranty until', child: DateField(
+                  label: '',value: _warranty, onChanged: (d) => setState(() => _warranty = d))),
             ),
           ]),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Cost (₹)', child: TextFormField(
             controller: _cost,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: moneyInput,
-            decoration: const InputDecoration(labelText: 'Cost (₹)', prefixText: '₹ '),
-          ),
+            decoration: const InputDecoration(prefixText: '₹ '),
+          )),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Bought from / serviced by', child: TextFormField(
             controller: _vendor,
             maxLength: 255,
-            decoration: const InputDecoration(labelText: 'Bought from / serviced by', counterText: ''),
-          ),
+            decoration: const InputDecoration(counterText: ''),
+          )),
           const SizedBox(height: 12),
           Row(children: [
             Expanded(
-              child: TextFormField(
+              child: FormFieldBox(label: 'Their phone', child: TextFormField(
                   controller: _vendorContact, maxLength: 100, keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(labelText: 'Their phone', counterText: '')),
+                  decoration: const InputDecoration(counterText: ''))),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: TextFormField(
+              child: FormFieldBox(label: "Supplier's invoice no.", child: TextFormField(
                   controller: _invoice, maxLength: 100,
-                  decoration: const InputDecoration(labelText: "Supplier's invoice no.", counterText: '')),
+                  decoration: const InputDecoration(counterText: ''))),
             ),
           ]),
           const SizedBox(height: 16),
@@ -228,31 +228,31 @@ class _AssetFormSheetState extends ConsumerState<AssetFormSheet> {
           const SizedBox(height: 8),
           Row(children: [
             Expanded(
-              child: TextFormField(
+              child: FormFieldBox(label: 'Make / model', child: TextFormField(
                   controller: _model, maxLength: 100,
-                  decoration: const InputDecoration(labelText: 'Make / model', counterText: '')),
+                  decoration: const InputDecoration(counterText: ''))),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: TextFormField(
+              child: FormFieldBox(label: 'Serial no.', child: TextFormField(
                   controller: _serial, maxLength: 100,
-                  decoration: const InputDecoration(labelText: 'Serial no.', counterText: '')),
+                  decoration: const InputDecoration(counterText: ''))),
             ),
           ]),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Expected life (years)', child: TextFormField(
             controller: _life,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
-            decoration: const InputDecoration(labelText: 'Expected life (years)'),
-          ),
+            decoration: const InputDecoration(),
+          )),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Notes', child: TextFormField(
             controller: _notes,
             minLines: 2,
             maxLines: 5,
-            decoration: const InputDecoration(labelText: 'Notes'),
-          ),
+            decoration: const InputDecoration(),
+          )),
           const SizedBox(height: 20),
           AppPrimaryButton(label: editing ? 'Save changes' : 'Add asset', isLoading: _saving, onPressed: _saving ? null : _save),
         ]),
@@ -334,43 +334,42 @@ class _LogServiceSheetState extends ConsumerState<LogServiceSheet> {
           Text(widget.asset.name, style: const TextStyle(color: AppTheme.textSecondary)),
           const SizedBox(height: 12),
           if (widget.service == null) ...[
-            DropdownButtonFormField<String>(
+            FormFieldBox(label: 'What was done', required: true, child: DropdownButtonFormField<String>(
               initialValue: _type,
-              decoration: const InputDecoration(labelText: 'What was done *'),
+              decoration: const InputDecoration(),
               items: [for (final t in kMaintenanceTypes) DropdownMenuItem(value: t.$1, child: Text(t.$2))],
               onChanged: (v) => setState(() => _type = v!),
-            ),
+            )),
             const SizedBox(height: 12),
           ],
-          DateField(
-              label: 'Done on', value: _doneOn, required: true, lastDate: DateTime.now(),
-              onChanged: (d) => setState(() => _doneOn = _day(d ?? DateTime.now()))),
+          FormFieldBox(label: 'Done on', child: DateField(
+              label: '',value: _doneOn, required: true, lastDate: DateTime.now(),
+              onChanged: (d) => setState(() => _doneOn = _day(d ?? DateTime.now())))),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Done by (agency or person)', child: TextFormField(
             controller: _vendor,
             maxLength: 255,
-            decoration: const InputDecoration(labelText: 'Done by (agency or person)', counterText: ''),
-          ),
+            decoration: const InputDecoration(counterText: ''),
+          )),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Cost (₹)', child: TextFormField(
             controller: _cost,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: moneyInput,
-            decoration: const InputDecoration(labelText: 'Cost (₹)', prefixText: '₹ ', helperText: 'Leave blank if it was free (under AMC or warranty)'),
-          ),
+            decoration: const InputDecoration(prefixText: '₹ ', helperText: 'Leave blank if it was free (under AMC or warranty)'),
+          )),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'What was found or done', child: TextFormField(
             controller: _findings,
             minLines: 2,
             maxLines: 5,
-            decoration: const InputDecoration(labelText: 'What was found or done', hintText: 'e.g. Gas topped up, filters cleaned'),
-          ),
+            decoration: const InputDecoration(hintText: 'e.g. Gas topped up, filters cleaned'),
+          )),
           const SizedBox(height: 12),
-          DateField(
-            label: 'Next service due',
-            value: _nextDue,
+          FormFieldBox(label: 'Next service due', child: DateField(
+            label: '',value: _nextDue,
             onChanged: (d) => setState(() => _nextDue = d == null ? null : _day(d)),
-          ),
+          )),
           Padding(
             padding: const EdgeInsets.only(top: 6, left: 4),
             child: Text(
@@ -453,27 +452,27 @@ class _ScheduleServiceSheetState extends ConsumerState<ScheduleServiceSheet> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text(widget.asset.name, style: const TextStyle(color: AppTheme.textSecondary)),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
+            FormFieldBox(label: 'Kind of visit', required: true, child: DropdownButtonFormField<String>(
               initialValue: _type,
-              decoration: const InputDecoration(labelText: 'Kind of visit *'),
+              decoration: const InputDecoration(),
               items: [for (final t in kMaintenanceTypes) DropdownMenuItem(value: t.$1, child: Text(t.$2))],
               onChanged: (v) => setState(() => _type = v!),
-            ),
+            )),
             const SizedBox(height: 12),
-            DateField(label: 'On', value: _date, required: true, onChanged: (d) => setState(() => _date = _day(d ?? _date))),
+            FormFieldBox(label: 'On', child: DateField(label: '',value: _date, required: true, onChanged: (d) => setState(() => _date = _day(d ?? _date)))),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'Who will do it', child: TextFormField(
               controller: _vendor,
               maxLength: 255,
-              decoration: const InputDecoration(labelText: 'Who will do it', counterText: ''),
-            ),
+              decoration: const InputDecoration(counterText: ''),
+            )),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'What needs doing', child: TextFormField(
               controller: _what,
               minLines: 2,
               maxLines: 4,
-              decoration: const InputDecoration(labelText: 'What needs doing'),
-            ),
+              decoration: const InputDecoration(),
+            )),
             const SizedBox(height: 20),
             AppPrimaryButton(label: 'Plan service', isLoading: _saving, onPressed: _saving ? null : _save),
           ]),
@@ -554,38 +553,38 @@ class _AmcSheetState extends ConsumerState<AmcSheet> {
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.35),
             ),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'Agency', required: true, child: TextFormField(
               controller: _vendor,
               maxLength: 255,
-              decoration: const InputDecoration(labelText: 'Agency *', counterText: ''),
+              decoration: const InputDecoration(counterText: ''),
               validator: (v) => (v ?? '').trim().isEmpty ? 'Who holds the contract?' : null,
-            ),
+            )),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'Contract no.', child: TextFormField(
               controller: _number,
               maxLength: 100,
-              decoration: const InputDecoration(labelText: 'Contract no.', counterText: ''),
-            ),
+              decoration: const InputDecoration(counterText: ''),
+            )),
             const SizedBox(height: 12),
             Row(children: [
-              Expanded(child: DateField(label: 'From', value: _start, required: true, onChanged: (d) => setState(() => _start = _day(d ?? _start)))),
+              Expanded(child: FormFieldBox(label: 'From', child: DateField(label: '',value: _start, required: true, onChanged: (d) => setState(() => _start = _day(d ?? _start))))),
               const SizedBox(width: 12),
-              Expanded(child: DateField(label: 'Until', value: _end, required: true, onChanged: (d) => setState(() => _end = _day(d ?? _end)))),
+              Expanded(child: FormFieldBox(label: 'Until', child: DateField(label: '',value: _end, required: true, onChanged: (d) => setState(() => _end = _day(d ?? _end))))),
             ]),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'Yearly cost (₹)', child: TextFormField(
               controller: _cost,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: moneyInput,
-              decoration: const InputDecoration(labelText: 'Yearly cost (₹)', prefixText: '₹ '),
-            ),
+              decoration: const InputDecoration(prefixText: '₹ '),
+            )),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'What is covered', child: TextFormField(
               controller: _coverage,
               minLines: 2,
               maxLines: 4,
-              decoration: const InputDecoration(labelText: 'What is covered', hintText: 'e.g. 4 visits a year, labour, gas top-up'),
-            ),
+              decoration: const InputDecoration(hintText: 'e.g. 4 visits a year, labour, gas top-up'),
+            )),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               value: _comprehensive,

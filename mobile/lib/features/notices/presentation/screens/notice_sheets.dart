@@ -9,6 +9,7 @@ import 'package:ar_society_app/features/notices/presentation/providers/notices_p
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 String? _trimmed(TextEditingController c) => c.text.trim().isEmpty ? null : c.text.trim();
 
@@ -101,27 +102,27 @@ class _NoticeFormSheetState extends ConsumerState<NoticeFormSheet> {
         key: _form,
         autovalidateMode: AutovalidateMode.onUserInteraction,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          TextFormField(
+          FormFieldBox(label: 'Title', required: true, child: TextFormField(
             controller: _title,
             maxLength: 255,
             textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(labelText: 'Title *', hintText: 'e.g. Water supply off on Sunday', counterText: ''),
+            decoration: const InputDecoration(hintText: 'e.g. Water supply off on Sunday', counterText: ''),
             validator: (v) => (v ?? '').trim().isEmpty ? 'Give the notice a title' : null,
-          ),
+          )),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Notice', required: true, child: TextFormField(
             controller: _content,
             minLines: 4,
             maxLines: 12,
             textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(labelText: 'Notice *', alignLabelWithHint: true),
+            decoration: const InputDecoration(alignLabelWithHint: true),
             validator: (v) => (v ?? '').trim().isEmpty ? 'Write the notice' : null,
-          ),
+          )),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          FormFieldBox(label: 'About', child: DropdownButtonFormField<String>(
             initialValue: _category,
             isExpanded: true,
-            decoration: const InputDecoration(labelText: 'About'),
+            decoration: const InputDecoration(),
             items: [
               for (final c in kNoticeCategories)
                 DropdownMenuItem(value: c.$1, child: Row(children: [
@@ -131,7 +132,7 @@ class _NoticeFormSheetState extends ConsumerState<NoticeFormSheet> {
                 ])),
             ],
             onChanged: (v) => setState(() => _category = v ?? 'general'),
-          ),
+          )),
           const SizedBox(height: 12),
           const Text('How important', style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
           const SizedBox(height: 6),
@@ -145,13 +146,13 @@ class _NoticeFormSheetState extends ConsumerState<NoticeFormSheet> {
               ),
           ]),
           const SizedBox(height: 14),
-          DropdownButtonFormField<String>(
+          FormFieldBox(label: 'Who is it for', child: DropdownButtonFormField<String>(
             initialValue: _audience,
             isExpanded: true,
-            decoration: InputDecoration(labelText: 'Who is it for', helperText: hint, helperMaxLines: 2),
+            decoration: InputDecoration(helperText: hint, helperMaxLines: 2),
             items: [for (final a in kAudiences) DropdownMenuItem(value: a.$1, child: Text(a.$2))],
             onChanged: (v) => setState(() => _audience = v ?? 'all'),
-          ),
+          )),
           if (_audience == 'specific_wings') ...[
             const SizedBox(height: 10),
             Wrap(spacing: 8, runSpacing: 4, children: [
@@ -173,11 +174,10 @@ class _NoticeFormSheetState extends ConsumerState<NoticeFormSheet> {
             ),
           ],
           const SizedBox(height: 12),
-          DateField(
-            label: 'Take it down after (optional)',
-            value: _expiry,
+          FormFieldBox(label: 'Take it down after (optional)', child: DateField(
+            label: '',value: _expiry,
             onChanged: (v) => setState(() => _expiry = v),
-          ),
+          )),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: _ack,
@@ -317,23 +317,23 @@ class _AlertSheetState extends ConsumerState<AlertSheet> {
                 ),
             ]),
             const SizedBox(height: 14),
-            TextFormField(
+            FormFieldBox(label: 'What is happening', required: true, child: TextFormField(
               controller: _title,
               maxLength: 255,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(labelText: 'What is happening *', hintText: 'e.g. Fire in Wing B basement', counterText: ''),
+              decoration: const InputDecoration(hintText: 'e.g. Fire in Wing B basement', counterText: ''),
               validator: (v) => (v ?? '').trim().isEmpty ? 'Say what is happening' : null,
-            ),
+            )),
             const SizedBox(height: 12),
-            TextFormField(controller: _where, maxLength: 255, decoration: const InputDecoration(labelText: 'Where', counterText: '')),
+            FormFieldBox(label: 'Where', child: TextFormField(controller: _where, maxLength: 255, decoration: const InputDecoration(counterText: ''))),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'What people should do', child: TextFormField(
               controller: _what,
               minLines: 2,
               maxLines: 4,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(labelText: 'What people should do', hintText: 'e.g. Leave by the stairs. Do not use the lift.'),
-            ),
+              decoration: const InputDecoration(hintText: 'e.g. Leave by the stairs. Do not use the lift.'),
+            )),
             const SizedBox(height: 8),
             SwitchListTile(contentPadding: EdgeInsets.zero, value: _residents, onChanged: (v) => setState(() => _residents = v), title: const Text('Residents and tenants')),
             SwitchListTile(contentPadding: EdgeInsets.zero, value: _security, onChanged: (v) => setState(() => _security = v), title: const Text('Security team')),

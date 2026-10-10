@@ -11,6 +11,7 @@ import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dar
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/duty_sheet_actions.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart' show EmptyState;
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 const kStaffDepartments = [
   ('security',     'Security'),
@@ -331,25 +332,25 @@ class _TemplateEditorScreenState extends ConsumerState<_TemplateEditorScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          DropdownButtonFormField<String>(
+          FormFieldBox(label: 'Department', required: true, child: DropdownButtonFormField<String>(
             value: _department,
-            decoration: const InputDecoration(labelText: 'Department *'),
+            decoration: const InputDecoration(),
             items: [for (final d in kStaffDepartments) DropdownMenuItem(value: d.$1, child: Text(d.$2))],
             onChanged: (v) => setState(() => _department = v ?? _department),
-          ),
+          )),
           const SizedBox(height: 14),
-          TextField(
+          FormFieldBox(label: 'Template Name', required: true, child: TextField(
             controller: _nameCtrl,
             inputFormatters: [LengthLimitingTextInputFormatter(255)],
-            decoration: const InputDecoration(labelText: 'Template Name *', hintText: 'e.g. Security Gate Round'),
-          ),
+            decoration: const InputDecoration(hintText: 'e.g. Security Gate Round'),
+          )),
           const SizedBox(height: 14),
-          TextField(
+          FormFieldBox(label: 'Description (optional)', child: TextField(
             controller: _descCtrl,
             inputFormatters: [LengthLimitingTextInputFormatter(1000)],
             maxLines: 2,
-            decoration: const InputDecoration(labelText: 'Description (optional)'),
-          ),
+            decoration: const InputDecoration(),
+          )),
           const SizedBox(height: 20),
           const Text('Checklist Items', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 8),

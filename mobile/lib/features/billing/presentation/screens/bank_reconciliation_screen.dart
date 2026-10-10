@@ -12,6 +12,7 @@ import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// FMC Manager/Admin/Committee: import a bank statement (CSV) and match
 /// its credit rows against payments residents said they made, closing the
@@ -373,12 +374,12 @@ class _MatchEntrySheetState extends ConsumerState<_MatchEntrySheet> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Ignore this row?'),
-        content: TextField(
+        content: FormFieldBox(label: 'Reason (optional)', child: TextField(
           controller: controller,
           maxLines: 2,
           decoration: const InputDecoration(
-              labelText: 'Reason (optional)', hintText: 'e.g. bank interest, not a resident payment'),
-        ),
+              hintText: 'e.g. bank interest, not a resident payment'),
+        )),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(

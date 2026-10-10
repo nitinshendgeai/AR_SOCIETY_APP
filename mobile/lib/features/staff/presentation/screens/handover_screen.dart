@@ -8,6 +8,7 @@ import 'package:ar_society_app/features/staff/presentation/providers/staff_provi
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 class HandoverScreen extends ConsumerStatefulWidget {
   final String staffId;
@@ -335,14 +336,13 @@ class _HandoverCard extends ConsumerWidget {
           children: [
             const Text('Confirm you have received this handover.'),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'Notes (optional)', child: TextFormField(
               controller: notesCtrl,
               decoration: const InputDecoration(
-                labelText: 'Notes (optional)',
                 hintText: 'E.g., All keys received, confirmed count',
               ),
               maxLines: 2,
-            ),
+            )),
           ],
         ),
         actions: [
@@ -376,15 +376,14 @@ class _HandoverCard extends ConsumerWidget {
           children: [
             const Text('Describe the issue with this handover.'),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'Reason', required: true, child: TextFormField(
               controller: reasonCtrl,
               autofocus: true,
               decoration: const InputDecoration(
-                labelText: 'Reason *',
                 hintText: 'E.g., Gate keys missing, count mismatch',
               ),
               maxLines: 3,
-            ),
+            )),
           ],
         ),
         actions: [
@@ -494,21 +493,19 @@ class _CreateTabState extends ConsumerState<_CreateTab> {
                           fontWeight: FontWeight.w700,
                           color: AppTheme.textPrimary)),
                   const SizedBox(height: 16),
-                  AppTextField(
-                    label: 'Area / Location',
-                    hint: 'e.g., Main Gate, Lobby, B-Block',
+                  FormFieldBox(label: 'Area / Location', child: AppTextField(
+                    label: '',hint: 'e.g., Main Gate, Lobby, B-Block',
                     controller: _areaCtrl,
                     maxLength: 255,
-                  ),
+                  )),
                   const SizedBox(height: 14),
-                  AppTextField(
-                    label: 'Handover Summary *',
-                    hint: 'Describe the shift situation and key notes',
+                  FormFieldBox(label: 'Handover Summary', required: true, child: AppTextField(
+                    label: '',hint: 'Describe the shift situation and key notes',
                     controller: _summaryCtrl,
                     maxLength: 2000,
                     validator: (v) =>
                         (v == null || v.trim().isEmpty) ? 'Summary is required' : null,
-                  ),
+                  )),
                   const SizedBox(height: 14),
                   // Who takes over: picked from the society's active staff.
                   Builder(builder: (context) {
@@ -518,11 +515,10 @@ class _CreateTabState extends ConsumerState<_CreateTab> {
                             .where((s) => s.status == 'active' && s.id != widget.staffId)
                             .toList()
                         : <StaffEntity>[];
-                    return DropdownButtonFormField<String>(
+                    return FormFieldBox(label: 'Incoming Staff', required: true, child: DropdownButtonFormField<String>(
                       value: candidates.any((s) => s.id == _incomingId) ? _incomingId : null,
                       isExpanded: true,
                       decoration: InputDecoration(
-                        labelText: 'Incoming Staff *',
                         hintText: staffState is StaffListLoading ? 'Loading staff…' : 'Who is taking over?',
                       ),
                       items: [
@@ -534,7 +530,7 @@ class _CreateTabState extends ConsumerState<_CreateTab> {
                       ],
                       onChanged: (v) => setState(() => _incomingId = v),
                       validator: (v) => v == null ? 'Choose who is taking over' : null,
-                    );
+                    ));
                   }),
                 ],
               ),
@@ -720,24 +716,12 @@ class _AddItemSheetState extends State<_AddItemSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.only(
-        left: 20, right: 20, top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+    return AppSheetFrame(
+      title: 'Add Handover Item',
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Add Handover Item',
-              style: TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary)),
-          const SizedBox(height: 16),
           // Type selector
           Wrap(
             spacing: 8,
@@ -764,23 +748,23 @@ class _AddItemSheetState extends State<_AddItemSheet> {
             }).toList(),
           ),
           const SizedBox(height: 14),
-          TextFormField(
+          FormFieldBox(label: 'Description', required: true, child: TextFormField(
             controller: _titleCtrl,
             autofocus: true,
             inputFormatters: [LengthLimitingTextInputFormatter(255)],
-            decoration: const InputDecoration(labelText: 'Description *'),
-          ),
+            decoration: const InputDecoration(),
+          )),
           const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                child: TextFormField(
+                child: FormFieldBox(label: 'Quantity (optional)', child: TextFormField(
                   controller: _qtyCtrl,
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(7)],
                   decoration: const InputDecoration(
-                      labelText: 'Quantity (optional)'),
-                ),
+                      ),
+                )),
               ),
               const SizedBox(width: 12),
               Row(

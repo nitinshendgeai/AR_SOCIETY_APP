@@ -7,6 +7,7 @@ import 'package:ar_society_app/features/platform/data/platform_api.dart';
 import 'package:ar_society_app/features/platform/presentation/providers/platform_providers.dart';
 import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 Future<void> _run(BuildContext context, WidgetRef ref, void Function(bool) busy, Future<void> Function() action, String done) async {
   busy(true);
@@ -87,7 +88,7 @@ class _ActivateSheetState extends ConsumerState<ActivateSheet> {
           for (final p in kPlans) ChoiceChip(label: Text(p.$2), selected: _plan == p.$1, onSelected: (_) => setState(() => _plan = p.$1)),
         ]),
         const SizedBox(height: 12),
-        DateField(label: 'Paid until (optional)', value: _until, onChanged: (v) => setState(() => _until = v)),
+        FormFieldBox(label: 'Paid until (optional)', child: DateField(label: '',value: _until, onChanged: (v) => setState(() => _until = v))),
         const SizedBox(height: 14),
         AppPrimaryButton(label: 'Activate', isLoading: _saving, onPressed: _saving ? null : () => _run(context, ref, (b) => setState(() => _saving = b), () => ref.read(platformApiProvider).activate(s.id, _plan, _until), 'Activated')),
       ]),
@@ -131,13 +132,13 @@ class _SuspendSheetState extends ConsumerState<SuspendSheet> {
                 style: const TextStyle(height: 1.4)),
           ),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Why', required: true, child: TextFormField(
             controller: _reason,
             minLines: 2,
             maxLines: 4,
-            decoration: const InputDecoration(labelText: 'Why *', alignLabelWithHint: true, hintText: 'e.g. Subscription unpaid since August'),
+            decoration: const InputDecoration(alignLabelWithHint: true, hintText: 'e.g. Subscription unpaid since August'),
             validator: (v) => (v ?? '').trim().isEmpty ? 'Say why. It is kept in the record.' : null,
-          ),
+          )),
           const SizedBox(height: 14),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: AppTheme.error, padding: const EdgeInsets.symmetric(vertical: 14)),
@@ -180,18 +181,18 @@ class _LimitsSheetState extends ConsumerState<LimitsSheet> {
     super.dispose();
   }
 
-  Widget _field(TextEditingController c, String label, {int? atLeast}) => TextFormField(
+  Widget _field(TextEditingController c, String label, {int? atLeast}) => FormFieldBox(label: label, child: TextFormField(
         controller: c,
         keyboardType: TextInputType.number,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: InputDecoration(labelText: label, helperText: atLeast == null ? null : 'It has $atLeast now'),
+        decoration: InputDecoration(helperText: atLeast == null ? null : 'It has $atLeast now'),
         validator: (v) {
           final n = int.tryParse((v ?? '').trim()) ?? 0;
           if (n < 1) return 'At least 1';
           if (atLeast != null && n < atLeast) return 'Not below $atLeast';
           return null;
         },
-      );
+      ));
 
   @override
   Widget build(BuildContext context) {

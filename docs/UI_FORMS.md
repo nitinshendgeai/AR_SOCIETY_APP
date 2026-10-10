@@ -46,6 +46,26 @@ AppFormPage(
 Rules: put the label in `FormFieldBox`, not `InputDecoration.labelText`; keep hints short; give a dropdown
 `isExpanded: true`; keep controllers, validation and API calls exactly as they were — only the layout changes.
 
-**Moved so far:** Resident, Tenant, Flat, Wing, Floor, Staff (add/edit), User (create/edit), Visitor, Complaint, Expense.
-Still on the old layout: the voucher form, Edit My Profile, Society Settings, duty/attendance screens, and the bottom
-sheets and dialogs (they use `AppSheet`).
+## Forms in sheets and panels
+
+Forms that open over a list (a bottom sheet on a phone, a side panel on a computer, via `showAppSheet`) use
+`AppSheetFrame` (`BillingSheetFrame` is the same thing under its older name): a header with the title and what the
+sheet is for, a rule, then the fields. Fields inside use `FormFieldBox` (label above), as on full pages.
+
+## Settings pages and tabs
+
+`AppPageHeader` (title, a line, buttons at the right) and `SettingsColumn` (a scrolling column of `FormSection`s on one
+content width, with the save button at the end) give a settings screen with tabs the same look (Society Settings).
+
+## Where it is used
+
+- **Full-page forms (`AppFormPage`)**: Resident, Tenant, Flat, Wing, Floor, Staff add/edit, User create/edit, Visitor,
+  Complaint, Expense, Voucher, Assign Duty, Edit My Info.
+- **Settings (`SettingsColumn`)**: Society Settings (General, Contact, Subscription, Security).
+- **Sheets (`AppSheetFrame`)**: every form sheet (stores, assets, amenities, notices, vendors and work orders, billing,
+  platform console, meetings, polls, documents, parcels, domestic help, certificates, parking, vehicle, agreement
+  renewal, move in/out, handover item, vendor bill, assign complaint…). About 150 fields now have their label above.
+
+Not changed on purpose: the sign-in, change-password and registration pages (they stand alone, outside the app shell),
+review lists with a small reason field (attendance corrections), the paper-sheet entry grid, and pick-from-a-list
+sheets (account pickers, bank-statement match candidates).

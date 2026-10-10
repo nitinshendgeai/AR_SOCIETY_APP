@@ -13,6 +13,7 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 String reportRoute(String report, String fy) =>
     Uri(path: AppRoutes.accountsReport.replaceFirst(':report', report), queryParameters: {'fy': fy}).toString();
@@ -230,11 +231,11 @@ class _ClosingCardState extends ConsumerState<_ClosingCard> {
             style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 12),
-          TextField(
+          FormFieldBox(label: 'Reason', child: TextField(
             controller: reason,
             autofocus: true,
-            decoration: const InputDecoration(labelText: 'Reason', hintText: 'e.g. Audit adjustments'),
-          ),
+            decoration: const InputDecoration(hintText: 'e.g. Audit adjustments'),
+          )),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep closed')),
@@ -355,17 +356,16 @@ class _CloseSheetState extends State<_CloseSheet> {
         ),
         const SizedBox(height: 16),
         if (y.surplus > 0) ...[
-          TextField(
+          FormFieldBox(label: 'Share of surplus to Reserve Fund (%)', child: TextField(
             controller: _pct,
             onChanged: (_) => setState(() {}),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,3}(\.\d{0,2})?'))],
             decoration: InputDecoration(
-              labelText: 'Share of surplus to Reserve Fund (%)',
               helperText: valid ? '${formatInr(transfer)} to the Reserve Fund' : 'Between 0 and 100',
               helperMaxLines: 2,
             ),
-          ),
+          )),
           const SizedBox(height: 6),
           const Text(
             'Under the MCS Act at least 25% of the year\'s net surplus is carried to the Reserve Fund; '

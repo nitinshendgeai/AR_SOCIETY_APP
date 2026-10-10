@@ -10,6 +10,7 @@ import 'package:ar_society_app/features/staff/presentation/providers/staff_provi
 import 'package:ar_society_app/features/staff/presentation/widgets/duty_sheet_actions.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Supervisor/manager screen: every duty assigned for a chosen date, grouped
 /// by where it stands in the duty lifecycle — Awaiting Verification (staff
@@ -486,11 +487,11 @@ class _DutyOverviewCard extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Verify "${duty.dutyName}"?'),
-        content: TextField(
+        content: FormFieldBox(label: 'Notes (optional)', child: TextField(
           controller: ctrl,
           maxLines: 2,
-          decoration: const InputDecoration(labelText: 'Notes (optional)'),
-        ),
+          decoration: const InputDecoration(),
+        )),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(

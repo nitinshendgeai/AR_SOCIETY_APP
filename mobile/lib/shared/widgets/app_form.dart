@@ -440,3 +440,139 @@ class FormDateField extends StatelessWidget {
     );
   }
 }
+
+/// The body of a form that opens in a sheet (a bottom sheet on a phone, a side panel on a computer): a header with
+/// the title and what the sheet is for, a rule, then the fields. Used by every `showAppSheet` form so they look
+/// like one product; fields inside should use [FormFieldBox] (label above) like the full-page forms.
+class AppSheetFrame extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final Widget child;
+
+  /// Buttons kept at the bottom of the panel while the fields scroll (optional; most sheets put theirs at the end
+  /// of [child]).
+  final Widget? footer;
+  const AppSheetFrame({super.key, required this.title, this.subtitle, required this.child, this.footer});
+
+  @override
+  Widget build(BuildContext context) {
+    final desktop = MediaQuery.sizeOf(context).width >= kDesktopBreakpoint;
+    final header = Padding(
+      // On a computer the panel's close button sits at the right.
+      padding: EdgeInsets.fromLTRB(desktop ? 28 : 20, desktop ? 24 : 6, desktop ? 64 : 20, 16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(context.tr(title),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, height: 1.25, color: AppTheme.textPrimary)),
+        if (subtitle != null) ...[
+          const SizedBox(height: 3),
+          Text(context.tr(subtitle!), style: const TextStyle(fontSize: 13.5, height: 1.4, color: AppTheme.textSecondary)),
+        ],
+      ]),
+    );
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final body = SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(desktop ? 28 : 20, 20, desktop ? 28 : 20, 24 + (desktop ? 0 : bottomInset)),
+      child: child,
+    );
+
+    if (desktop) {
+      return SizedBox.expand(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          header,
+          const Divider(height: 1),
+          Expanded(child: body),
+          if (footer != null) ...[
+            const Divider(height: 1),
+            Padding(padding: const EdgeInsets.fromLTRB(28, 14, 28, 18), child: footer),
+          ],
+        ]),
+      );
+    }
+    return Container(
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.92),
+      decoration: const BoxDecoration(
+        color: AppTheme.cardBg,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const SizedBox(height: 8),
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(color: AppTheme.border, borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          header,
+          const Divider(height: 1),
+          Flexible(child: body),
+          if (footer != null) ...[
+            const Divider(height: 1),
+            Padding(padding: EdgeInsets.fromLTRB(20, 12, 20, 12 + bottomInset), child: footer),
+          ],
+        ]),
+      ),
+    );
+  }
+}
+
+/// The title row of a page that is not a form (settings, a list): title, a line under it, buttons at the right.
+/// Lines up with [SettingsColumn] below it.
+class AppPageHeader extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final List<Widget> actions;
+  const AppPageHeader({super.key, required this.title, this.subtitle, this.actions = const []});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+          Text(context.tr(title),
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, height: 1.2, color: AppTheme.textPrimary)),
+          if (subtitle != null) ...[
+            const SizedBox(height: 2),
+            Text(context.tr(subtitle!), style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+          ],
+        ]),
+      ),
+      for (final a in actions) ...[const SizedBox(width: 8), a],
+    ]);
+  }
+}
+
+/// A scrolling column of [FormSection]s on one content width (a tab of settings), with the save button at the end.
+class SettingsColumn extends StatelessWidget {
+  final List<Widget> children;
+  final Widget? save;
+  final double maxWidth;
+  const SettingsColumn({super.key, required this.children, this.save, this.maxWidth = 1080});
+
+  @override
+  Widget build(BuildContext context) {
+    final desktop = MediaQuery.sizeOf(context).width >= kDesktopBreakpoint;
+    final gutter = desktop ? 32.0 : 16.0;
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(gutter, 20, gutter, 32),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            for (var i = 0; i < children.length; i++) ...[
+              if (i > 0) const SizedBox(height: 20),
+              AppReveal(index: i, child: children[i]),
+            ],
+            if (save != null) ...[
+              const SizedBox(height: 20),
+              Align(alignment: Alignment.centerRight, child: save),
+            ],
+          ]),
+        ),
+      ),
+    );
+  }
+}

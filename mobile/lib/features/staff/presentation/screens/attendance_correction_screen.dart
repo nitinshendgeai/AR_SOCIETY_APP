@@ -6,6 +6,7 @@ import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dar
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Manager/Admin/Committee review screen for staff attendance-correction
 /// requests raised from the Attendance screen. Mirrors AttendanceApprovalScreen's
@@ -232,13 +233,13 @@ class _CorrectionReviewCard extends ConsumerWidget {
         title: const Text('Reject Correction?'),
         content: Form(
           key: formKey,
-          child: TextFormField(
+          child: FormFieldBox(label: 'Reason', required: true, child: TextFormField(
             controller: reasonCtrl,
             maxLines: 3,
             autofocus: true,
-            decoration: const InputDecoration(labelText: 'Reason *'),
+            decoration: const InputDecoration(),
             validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-          ),
+          )),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),

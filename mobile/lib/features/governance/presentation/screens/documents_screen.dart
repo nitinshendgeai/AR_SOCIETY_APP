@@ -13,6 +13,7 @@ import 'package:ar_society_app/shared/utils/file_saver.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart'
     show StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 const _mimeByExtension = {
   'pdf': 'application/pdf',
@@ -262,38 +263,38 @@ class _AddSheetState extends ConsumerState<_AddSheet> {
                         fontSize: 13, color: AppTheme.textSecondary))),
           ]),
           const SizedBox(height: 14),
-          TextFormField(
+          FormFieldBox(label: 'Title', required: true, child: TextFormField(
               controller: _title,
-              decoration: const InputDecoration(labelText: 'Title *'),
+              decoration: const InputDecoration(),
               validator: (v) =>
-                  (v ?? '').trim().isEmpty ? 'Enter a title' : null),
+                  (v ?? '').trim().isEmpty ? 'Enter a title' : null)),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          FormFieldBox(label: 'Kind of document', child: DropdownButtonFormField<String>(
             initialValue: _category,
-            decoration: const InputDecoration(labelText: 'Kind of document'),
+            decoration: const InputDecoration(),
             items: [
               for (final c in kDocCategories)
                 DropdownMenuItem(value: c.$1, child: Text(c.$2))
             ],
             onChanged: (v) => setState(() => _category = v ?? _category),
-          ),
+          )),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          FormFieldBox(label: 'Who can see it', child: DropdownButtonFormField<String>(
             initialValue: _visibility,
-            decoration: const InputDecoration(labelText: 'Who can see it'),
+            decoration: const InputDecoration(),
             items: const [
               DropdownMenuItem(value: 'everyone', child: Text('Every member')),
               DropdownMenuItem(
                   value: 'committee', child: Text('Committee only')),
             ],
             onChanged: (v) => setState(() => _visibility = v ?? _visibility),
-          ),
+          )),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Note (optional)', child: TextFormField(
               controller: _description,
               minLines: 1,
               maxLines: 3,
-              decoration: const InputDecoration(labelText: 'Note (optional)')),
+              decoration: const InputDecoration())),
           const SizedBox(height: 16),
           AppPrimaryButton(label: 'Add', isLoading: _saving, onPressed: _save),
         ]),

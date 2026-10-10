@@ -6,6 +6,7 @@ import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dar
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 class AttendanceScreen extends ConsumerStatefulWidget {
   final String staffId;
@@ -550,22 +551,22 @@ Future<void> _openCorrectionDialog(
               Text(formatDate(record.attendanceDate),
                   style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               const SizedBox(height: 12),
-              DropdownButtonFormField<AttendanceStatus>(
+              FormFieldBox(label: 'Correct status to', child: DropdownButtonFormField<AttendanceStatus>(
                 value: selected,
-                decoration: const InputDecoration(labelText: 'Correct status to'),
+                decoration: const InputDecoration(),
                 items: AttendanceStatus.values
                     .map((s) => DropdownMenuItem(value: s, child: Text(s.label)))
                     .toList(),
                 onChanged: (v) => setState(() => selected = v ?? selected),
-              ),
+              )),
               const SizedBox(height: 12),
-              TextFormField(
+              FormFieldBox(label: 'Reason', required: true, child: TextFormField(
                 controller: reasonCtrl,
                 maxLines: 3,
                 autofocus: true,
-                decoration: const InputDecoration(labelText: 'Reason *'),
+                decoration: const InputDecoration(),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
+              )),
             ],
           ),
         ),

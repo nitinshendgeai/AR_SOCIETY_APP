@@ -6,7 +6,8 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
-import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart' show AppErrorBanner;
 
 /// Resident self-service: request a change to your own profile. Never
 /// applied directly — submits a ResidentEditRequest that only takes effect
@@ -113,177 +114,156 @@ class _EditMyProfileScreenState extends ConsumerState<EditMyProfileScreen> {
     final requestsAsync = ref.watch(myEditRequestsProvider);
     final actionState = ref.watch(editRequestActionProvider);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Edit My Info')),
-      body: ResponsiveBody(
-        child: residentAsync.when(
-          loading: () => const AppLoader(),
-          error: (e, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(rmFriendlyError(e), textAlign: TextAlign.center),
-            ),
-          ),
-          data: (resident) {
-            if (resident == null) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text('No resident profile is linked to your account.'),
+    Widget waiting(Widget body) => Scaffold(
+          backgroundColor: AppTheme.surface,
+          appBar: AppBar(title: const Text('Edit My Info')),
+          body: body,
+        );
+
+    return residentAsync.when(
+      loading: () => waiting(const AppLoader()),
+      error: (e, _) => waiting(Center(
+        child: Padding(padding: const EdgeInsets.all(24), child: Text(rmFriendlyError(e), textAlign: TextAlign.center)),
+      )),
+      data: (resident) {
+        if (resident == null) {
+          return waiting(const Center(
+            child: Padding(padding: EdgeInsets.all(24), child: Text('No resident profile is linked to your account.')),
+          ));
+        }
+        _loadFrom(resident);
+
+        final pending = requestsAsync.valueOrNull?.where((r) => r.status == ResidentEditRequestStatus.pending).firstOrNull;
+        final saving = actionState is EditRequestActionLoading;
+        final locked = pending != null;
+
+        return AppFormPage(
+          title: 'Edit My Info',
+          subtitle: 'Changes are sent to the society office for approval',
+          formKey: _formKey,
+          submitLabel: 'Submit for Approval',
+          submitIcon: Icons.send_rounded,
+          saving: saving,
+          onSubmit: locked || saving ? null : () => _submit(resident),
+          children: [
+            if (pending != null)
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppTheme.warningSoft,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.warning.withOpacity(0.3)),
                 ),
-              );
-            }
-            _loadFrom(resident);
-
-            final pending = requestsAsync.valueOrNull
-                ?.where((r) => r.status == ResidentEditRequestStatus.pending)
-                .firstOrNull;
-
-            return ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                if (pending != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.warning.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.warning.withOpacity(0.25)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(children: [
-                          const Icon(Icons.pending_actions_rounded, color: AppTheme.warning, size: 18),
-                          const SizedBox(width: 8),
-                          const Expanded(
-                            child: Text('Change request pending approval',
-                                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                          ),
-                        ]),
-                        const SizedBox(height: 8),
-                        ...pending.changes.entries.map((e) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 2),
-                              child: Text('${_fieldLabel(e.key)}: ${e.value ?? '—'}',
-                                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                            )),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'You can submit a new request once this one is reviewed by an Admin or Committee member.',
-                          style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ] else if (requestsAsync.valueOrNull?.firstOrNull case final last?
-                    when last.status == ResidentEditRequestStatus.rejected) ...[
-                  AppErrorBanner(message: 'Your last request was rejected: ${last.rejectionReason ?? 'No reason given'}'),
-                  const SizedBox(height: 20),
-                ],
-                Form(
-                  key: _formKey,
-                  child: AbsorbPointer(
-                    absorbing: pending != null,
-                    child: Opacity(
-                      opacity: pending != null ? 0.5 : 1,
-                      child: Column(children: [
-                        RmFormField(
-                          label: 'Full Name',
-                          child: TextFormField(
-                            controller: _fullNameCtrl,
-                            validator: (v) => (v == null || v.trim().isEmpty) ? 'Full name is required' : null,
-                          ),
-                        ),
-                        RmFormField(
-                          label: 'Mobile',
-                          child: TextFormField(
-                            controller: _phoneCtrl,
-                            keyboardType: TextInputType.phone,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-                            decoration: const InputDecoration(hintText: '10-digit mobile number'),
-                            validator: rmPhoneValidator,
-                          ),
-                        ),
-                        RmFormField(
-                          label: 'Email',
-                          child: TextFormField(
-                            controller: _emailCtrl,
-                            keyboardType: TextInputType.emailAddress,
-                            decoration: const InputDecoration(hintText: 'name@example.com'),
-                          ),
-                        ),
-                        RmFormField(
-                          label: 'Date of Birth',
-                          child: InkWell(
-                            onTap: () async {
-                              final picked = await showDatePicker(
-                                context: context,
-                                initialDate: _dateOfBirth ?? DateTime(1990),
-                                firstDate: DateTime(1900),
-                                lastDate: DateTime.now(),
-                              );
-                              if (picked != null) setState(() => _dateOfBirth = picked);
-                            },
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                              decoration: BoxDecoration(
-                                color: AppTheme.cardBg, borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppTheme.border),
-                              ),
-                              child: Row(children: [
-                                const Icon(Icons.cake_outlined, size: 18, color: AppTheme.primary),
-                                const SizedBox(width: 10),
-                                Text(
-                                  _dateOfBirth != null ? _dateStr(_dateOfBirth!) : 'Select date of birth (optional)',
-                                  style: TextStyle(fontSize: 14, color: _dateOfBirth != null ? AppTheme.textPrimary : AppTheme.textSecondary),
-                                ),
-                              ]),
-                            ),
-                          ),
-                        ),
-                        RmFormField(
-                          label: 'Emergency Contact Name',
-                          child: TextFormField(controller: _emergencyNameCtrl),
-                        ),
-                        RmFormField(
-                          label: 'Emergency Contact Phone',
-                          child: TextFormField(
-                            controller: _emergencyPhoneCtrl,
-                            keyboardType: TextInputType.phone,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-                          ),
-                        ),
-                        RmFormField(
-                          label: 'Communication Preference',
-                          child: DropdownButtonFormField<CommPreference>(
-                            value: _commPreference,
-                            items: CommPreference.values
-                                .map((c) => DropdownMenuItem(value: c, child: Text(c.label)))
-                                .toList(),
-                            onChanged: (v) => setState(() => _commPreference = v ?? CommPreference.appOnly),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        AppPrimaryButton(
-                          label: 'Submit for Approval',
-                          icon: Icons.send_rounded,
-                          isLoading: actionState is EditRequestActionLoading,
-                          onPressed: pending != null || actionState is EditRequestActionLoading
-                              ? null
-                              : () => _submit(resident),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        const Icon(Icons.pending_actions_rounded, color: AppTheme.warning, size: 18),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text('Change request pending approval',
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                         ),
                       ]),
-                    ),
+                      const SizedBox(height: 8),
+                      ...pending.changes.entries.map((e) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: Text('${_fieldLabel(e.key)}: ${e.value ?? '—'}',
+                                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                          )),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'You can send a new request once this one is reviewed by an Admin or Committee member.',
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            );
-          },
-        ),
-      ),
+              )
+            else if (requestsAsync.valueOrNull?.firstOrNull case final last? when last.status == ResidentEditRequestStatus.rejected)
+              AppErrorBanner(message: 'Your last request was rejected: ${last.rejectionReason ?? 'No reason given'}'),
+            AbsorbPointer(
+              absorbing: locked,
+              child: Opacity(
+                opacity: locked ? 0.5 : 1,
+                child: FormSection(
+                  title: 'Your details',
+                  description: 'How the society knows and reaches you.',
+                  children: [
+                    FormFieldBox(
+                      label: 'Full name',
+                      required: true,
+                      child: TextFormField(
+                        controller: _fullNameCtrl,
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Full name is required' : null,
+                      ),
+                    ),
+                    FormFieldBox(
+                      label: 'Mobile',
+                      child: TextFormField(
+                        controller: _phoneCtrl,
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+                        decoration: const InputDecoration(hintText: '10-digit mobile number'),
+                        validator: rmPhoneValidator,
+                      ),
+                    ),
+                    FormFieldBox(
+                      label: 'Email',
+                      child: TextFormField(
+                        controller: _emailCtrl,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(hintText: 'name@example.com'),
+                      ),
+                    ),
+                    FormFieldBox(
+                      label: 'Date of birth',
+                      child: FormDateField(
+                        value: _dateOfBirth,
+                        hint: 'Optional',
+                        icon: Icons.cake_outlined,
+                        format: _dateStr,
+                        onClear: () => setState(() => _dateOfBirth = null),
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: _dateOfBirth ?? DateTime(1990),
+                            firstDate: DateTime(1900),
+                            lastDate: DateTime.now(),
+                          );
+                          if (picked != null) setState(() => _dateOfBirth = picked);
+                        },
+                      ),
+                    ),
+                    FormFieldBox(
+                      label: 'Emergency contact name',
+                      child: TextFormField(controller: _emergencyNameCtrl),
+                    ),
+                    FormFieldBox(
+                      label: 'Emergency contact phone',
+                      child: TextFormField(
+                        controller: _emergencyPhoneCtrl,
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+                      ),
+                    ),
+                    FormFieldBox(
+                      label: 'Communication preference',
+                      child: DropdownButtonFormField<CommPreference>(
+                        isExpanded: true,
+                        value: _commPreference,
+                        items: CommPreference.values.map((c) => DropdownMenuItem(value: c, child: Text(c.label))).toList(),
+                        onChanged: (v) => setState(() => _commPreference = v ?? CommPreference.appOnly),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

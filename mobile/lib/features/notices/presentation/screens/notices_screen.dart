@@ -14,6 +14,7 @@ import 'package:ar_society_app/features/notices/presentation/screens/notice_shee
 import 'package:ar_society_app/features/notices/presentation/widgets/emergency_banner.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show HeaderActionButton, StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 String noticeRoute(String id) => AppRoutes.noticeDetail.replaceFirst(':id', id);
 
@@ -148,7 +149,7 @@ class _AlertCard extends ConsumerWidget {
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('The red bar goes away for everyone.'),
           const SizedBox(height: 12),
-          TextField(controller: notes, decoration: const InputDecoration(labelText: 'What happened (optional)')),
+          FormFieldBox(label: 'What happened (optional)', child: TextField(controller: notes, decoration: const InputDecoration())),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Keep it')),

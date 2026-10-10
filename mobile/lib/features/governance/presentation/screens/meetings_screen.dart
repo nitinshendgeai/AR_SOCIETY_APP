@@ -13,6 +13,7 @@ import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_
 import 'package:ar_society_app/shared/widgets/app_data_table.dart'
     show StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 String _timeText(String? hhmm) {
   if (hhmm == null) return '';
@@ -349,29 +350,28 @@ class _ScheduleSheetState extends ConsumerState<_ScheduleSheet> {
         key: _form,
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          TextFormField(
+          FormFieldBox(label: 'Title', required: true, child: TextFormField(
               controller: _title,
-              decoration: const InputDecoration(labelText: 'Title *'),
+              decoration: const InputDecoration(),
               validator: (v) =>
-                  (v ?? '').trim().length < 2 ? 'Enter a title' : null),
+                  (v ?? '').trim().length < 2 ? 'Enter a title' : null)),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          FormFieldBox(label: 'Kind of meeting', child: DropdownButtonFormField<String>(
             initialValue: _type,
-            decoration: const InputDecoration(labelText: 'Kind of meeting'),
+            decoration: const InputDecoration(),
             items: [
               for (final t in kMeetingTypes)
                 DropdownMenuItem(value: t.$1, child: Text(t.$2))
             ],
             onChanged: (v) => setState(() => _type = v ?? _type),
-          ),
+          )),
           const SizedBox(height: 12),
           Row(children: [
             Expanded(
-                child: DateField(
-                    label: 'Date',
-                    required: true,
+                child: FormFieldBox(label: 'Date', child: DateField(
+                    label: '',required: true,
                     value: _date,
-                    onChanged: (d) => setState(() => _date = d))),
+                    onChanged: (d) => setState(() => _date = d)))),
             const SizedBox(width: 12),
             Expanded(
               child: InkWell(
@@ -382,23 +382,23 @@ class _ScheduleSheetState extends ConsumerState<_ScheduleSheet> {
                           _time ?? const TimeOfDay(hour: 18, minute: 0));
                   if (t != null) setState(() => _time = t);
                 },
-                child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Time'),
+                child: FormFieldBox(label: 'Time', child: InputDecorator(
+                  decoration: const InputDecoration(),
                   child: Text(_time == null ? '—' : _time!.format(context)),
-                ),
+                )),
               ),
             ),
           ]),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Venue', child: TextFormField(
               controller: _venue,
-              decoration: const InputDecoration(labelText: 'Venue')),
+              decoration: const InputDecoration())),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Agenda', child: TextFormField(
               controller: _agenda,
               minLines: 3,
               maxLines: 6,
-              decoration: const InputDecoration(labelText: 'Agenda')),
+              decoration: const InputDecoration())),
           SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Tell residents now'),
@@ -513,22 +513,21 @@ class _MinutesSheetState extends ConsumerState<_MinutesSheet> {
     return BillingSheetFrame(
       title: 'Minutes: ${widget.meeting.title}',
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        TextField(
+        FormFieldBox(label: 'Minutes', child: TextField(
             controller: _minutes,
             minLines: 5,
             maxLines: 12,
             decoration: const InputDecoration(
-                labelText: 'Minutes', alignLabelWithHint: true)),
+                alignLabelWithHint: true))),
         const SizedBox(height: 12),
-        TextField(
+        FormFieldBox(label: 'Present', child: TextField(
             controller: _present,
             minLines: 3,
             maxLines: 10,
             decoration: const InputDecoration(
-                labelText: 'Present',
                 helperText:
                     'One per line: name, flat, designation (flat and designation are optional)',
-                alignLabelWithHint: true)),
+                alignLabelWithHint: true))),
         const SizedBox(height: 14),
         const Text('Resolutions',
             style: TextStyle(
@@ -539,19 +538,19 @@ class _MinutesSheetState extends ConsumerState<_MinutesSheet> {
           Padding(
             padding: const EdgeInsets.only(top: 10),
             child: Column(children: [
-              TextField(
+              FormFieldBox(label: 'Resolution ${i + 1}', child: TextField(
                   controller: _rows[i].text,
                   minLines: 1,
                   maxLines: 4,
                   decoration:
-                      InputDecoration(labelText: 'Resolution ${i + 1}')),
+                      InputDecoration())),
               const SizedBox(height: 8),
               Row(children: [
                 Expanded(
-                    child: TextField(
+                    child: FormFieldBox(label: 'Proposed by', child: TextField(
                         controller: _rows[i].proposer,
                         decoration:
-                            const InputDecoration(labelText: 'Proposed by'))),
+                            const InputDecoration()))),
                 const SizedBox(width: 10),
                 SizedBox(
                   width: 130,

@@ -10,6 +10,7 @@ import 'package:ar_society_app/features/billing/domain/entities/billing_entities
 import 'package:ar_society_app/features/billing/presentation/providers/billing_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show tableMoney;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 class OnlinePaymentDetailScreen extends ConsumerStatefulWidget {
   final String paymentId;
@@ -38,11 +39,11 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(status == 'reconciled' ? 'Mark Reconciled?' : 'Reject Submission?'),
-        content: TextField(
+        content: FormFieldBox(label: 'Notes (optional)', child: TextField(
           controller: notesCtrl,
           maxLines: 2,
-          decoration: const InputDecoration(labelText: 'Notes (optional)'),
-        ),
+          decoration: const InputDecoration(),
+        )),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(

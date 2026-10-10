@@ -13,6 +13,7 @@ import 'package:ar_society_app/shared/utils/file_saver.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart'
     show StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 Color _statusColor(String s) => switch (s) {
       'approved' => AppTheme.success,
@@ -193,16 +194,16 @@ class _RequestSheetState extends ConsumerState<_RequestSheet> {
     return BillingSheetFrame(
       title: context.tr('Request a certificate'),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        DropdownButtonFormField<String>(
+        FormFieldBox(label: 'What do you need?', required: true, child: DropdownButtonFormField<String>(
           initialValue: _kind,
           isExpanded: true,
-          decoration: const InputDecoration(labelText: 'What do you need? *'),
+          decoration: const InputDecoration(),
           items: [
             for (final k in kinds)
               DropdownMenuItem(value: k.$1, child: Text(k.$2))
           ],
           onChanged: (v) => setState(() => _kind = v),
-        ),
+        )),
         if (kCertificateKinds.where((k) => k.$1 == _kind && k.$3).isNotEmpty)
           const Padding(
             padding: EdgeInsets.only(top: 8),
@@ -213,22 +214,22 @@ class _RequestSheetState extends ConsumerState<_RequestSheet> {
           ),
         if (needsParty) ...[
           const SizedBox(height: 12),
-          TextFormField(
-              controller: _party,
-              decoration: InputDecoration(
-                  labelText: _kind == 'noc_loan'
+          FormFieldBox(label: _kind == 'noc_loan'
                       ? 'Bank / lender'
                       : _kind == 'noc_rent'
                           ? 'Name of the tenant'
-                          : 'Name of the buyer')),
+                          : 'Name of the buyer', child: TextFormField(
+              controller: _party,
+              decoration: InputDecoration(
+                  ))),
         ],
         const SizedBox(height: 12),
-        TextFormField(
+        FormFieldBox(label: 'Reason / note (optional)', child: TextFormField(
             controller: _purpose,
             minLines: 1,
             maxLines: 3,
             decoration:
-                const InputDecoration(labelText: 'Reason / note (optional)')),
+                const InputDecoration())),
         const SizedBox(height: 16),
         AppPrimaryButton(
             label: context.tr('Send request'),
@@ -423,12 +424,12 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
           ),
         ],
         if (r.pending && widget.office) ...[
-          TextFormField(
+          FormFieldBox(label: 'Note (needed to decline)', child: TextFormField(
               controller: _note,
               minLines: 1,
               maxLines: 3,
               decoration:
-                  const InputDecoration(labelText: 'Note (needed to decline)')),
+                  const InputDecoration())),
           const SizedBox(height: 12),
           AppPrimaryButton(
               label: context.tr('Approve'),

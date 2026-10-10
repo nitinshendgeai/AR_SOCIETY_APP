@@ -16,6 +16,7 @@ import 'package:ar_society_app/features/maintenance_billing/presentation/widgets
 import 'package:ar_society_app/shared/utils/file_saver.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show HeaderActionButton;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 String editVoucherRoute(String voucherId) => AppRoutes.accountsVoucherEdit.replaceFirst(':voucherId', voucherId);
 
@@ -331,7 +332,7 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
           const Text('The voucher stays on record, marked cancelled, and drops out of every ledger.',
               style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           const SizedBox(height: 12),
-          TextField(controller: reason, decoration: const InputDecoration(labelText: 'Reason')),
+          FormFieldBox(label: 'Reason', child: TextField(controller: reason, decoration: const InputDecoration())),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep')),

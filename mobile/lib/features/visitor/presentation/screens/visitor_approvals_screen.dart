@@ -7,6 +7,7 @@ import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Resident's screen: visitors waiting for their approval. The list comes
 /// from [pendingVisitorApprovalsProvider], so a visitor the guard logs while
@@ -199,15 +200,14 @@ class _ApprovalCard extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Deny Visitor?'),
-        content: TextFormField(
+        content: FormFieldBox(label: 'Reason', required: true, child: TextFormField(
           controller: reasonCtrl,
           inputFormatters: [LengthLimitingTextInputFormatter(1000)],
           autofocus: true,
           decoration: const InputDecoration(
-            labelText: 'Reason *',
             hintText: 'e.g., Not expected',
           ),
-        ),
+        )),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),

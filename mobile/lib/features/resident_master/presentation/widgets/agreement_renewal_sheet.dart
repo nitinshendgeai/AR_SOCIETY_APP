@@ -5,6 +5,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
 
@@ -107,100 +108,63 @@ class _RenewalSheetBodyState extends ConsumerState<_RenewalSheetBody> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-        decoration: const BoxDecoration(
-          color: AppTheme.cardBg,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(color: AppTheme.border, borderRadius: BorderRadius.circular(2)),
-                ),
+    String fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
+    return AppSheetFrame(
+      title: 'Renew Agreement',
+      subtitle: 'Creates a new agreement record — the current one is kept as history.',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              child: FormFieldBox(
+                label: 'New start date',
+                child: FormDateField(value: _start, hint: 'Select date', format: fmt, onTap: () => _pickDate(isStart: true)),
               ),
-              const Text('Renew Agreement',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-              const SizedBox(height: 4),
-              const Text('Creates a new agreement record — the current one is preserved as history.',
-                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-              const SizedBox(height: 16),
-              Row(children: [
-                Expanded(child: _DateField(label: 'New Start Date', date: _start, onTap: () => _pickDate(isStart: true))),
-                const SizedBox(width: 12),
-                Expanded(child: _DateField(label: 'New End Date', date: _end, onTap: () => _pickDate(isStart: false))),
-              ]),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _rentCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,10}(\.\d{0,2})?'))],
-                decoration: InputDecoration(
-                  labelText: 'Monthly Rent',
-                  hintText: widget.tenant.monthlyRent != null ? 'Carry over: ${widget.tenant.monthlyRent}' : 'Optional',
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _depositCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,10}(\.\d{0,2})?'))],
-                decoration: InputDecoration(
-                  labelText: 'Security Deposit',
-                  hintText: widget.tenant.securityDeposit != null ? 'Carry over: ${widget.tenant.securityDeposit}' : 'Optional',
-                ),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                AppErrorBanner(message: _error!),
-              ],
-              const SizedBox(height: 20),
-              AppPrimaryButton(label: 'Renew Agreement', isLoading: _submitting, onPressed: _submit),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DateField extends StatelessWidget {
-  final String label;
-  final DateTime date;
-  final VoidCallback onTap;
-  const _DateField({required this.label, required this.date, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
-        const SizedBox(height: 6),
-        InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-            decoration: BoxDecoration(
-              color: AppTheme.surface, borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.border),
             ),
-            child: Row(children: [
-              const Icon(Icons.calendar_today_rounded, size: 16, color: AppTheme.primary),
-              const SizedBox(width: 8),
-              Text('${date.day}/${date.month}/${date.year}', style: const TextStyle(fontSize: 13)),
-            ]),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FormFieldBox(
+                label: 'New end date',
+                child: FormDateField(value: _end, hint: 'Select date', format: fmt, onTap: () => _pickDate(isStart: false)),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 16),
+          FormFieldBox(
+            label: 'Monthly rent',
+            child: TextField(
+              controller: _rentCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,10}(\.\d{0,2})?'))],
+              decoration: InputDecoration(
+                prefixText: '₹ ',
+                hintText: widget.tenant.monthlyRent != null ? 'Carry over: ${widget.tenant.monthlyRent}' : 'Optional',
+              ),
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 16),
+          FormFieldBox(
+            label: 'Security deposit',
+            child: TextField(
+              controller: _depositCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,10}(\.\d{0,2})?'))],
+              decoration: InputDecoration(
+                prefixText: '₹ ',
+                hintText: widget.tenant.securityDeposit != null ? 'Carry over: ${widget.tenant.securityDeposit}' : 'Optional',
+              ),
+            ),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            AppErrorBanner(message: _error!),
+          ],
+          const SizedBox(height: 22),
+          AppPrimaryButton(label: 'Renew Agreement', isLoading: _submitting, onPressed: _submit),
+        ],
+      ),
     );
   }
 }

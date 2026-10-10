@@ -14,6 +14,7 @@ import 'package:ar_society_app/features/maintenance_billing/presentation/widgets
 import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show HeaderActionButton, StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 const _monthNames = [
   'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'
@@ -130,7 +131,7 @@ class _DueCard extends ConsumerWidget {
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Nothing is booked. Use it when the month was paid another way or does not apply.'),
           const SizedBox(height: 12),
-          TextField(controller: reason, decoration: const InputDecoration(labelText: 'Why (optional)')),
+          FormFieldBox(label: 'Why (optional)', child: TextField(controller: reason, decoration: const InputDecoration())),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancel')),
@@ -304,13 +305,13 @@ class _RecurringFormSheetState extends ConsumerState<RecurringFormSheet> {
         key: _form,
         autovalidateMode: AutovalidateMode.onUserInteraction,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          TextFormField(
+          FormFieldBox(label: 'What is it', required: true, child: TextFormField(
             controller: _name,
             maxLength: 150,
             textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(labelText: 'What is it *', hintText: 'e.g. Security agency, Lift AMC', counterText: ''),
+            decoration: const InputDecoration(hintText: 'e.g. Security agency, Lift AMC', counterText: ''),
             validator: (v) => (v ?? '').trim().isEmpty ? 'Give it a name' : null,
-          ),
+          )),
           const SizedBox(height: 12),
           ledgers.when(
             loading: () => const LinearProgressIndicator(),
@@ -320,11 +321,10 @@ class _RecurringFormSheetState extends ConsumerState<RecurringFormSheet> {
                 ..sort((a, b) => a.name.compareTo(b.name));
               final cashBank = all.where((l) => l.isCashOrBank && l.isActive).toList();
               return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                DropdownButtonFormField<String>(
+                FormFieldBox(label: 'Expense head', required: true, child: DropdownButtonFormField<String>(
                   initialValue: heads.any((h) => h.id == _head) ? _head : null,
                   isExpanded: true,
                   decoration: InputDecoration(
-                    labelText: 'Expense head *',
                     helperText: _helper(heads),
                     helperMaxLines: 2,
                   ),
@@ -339,18 +339,18 @@ class _RecurringFormSheetState extends ConsumerState<RecurringFormSheet> {
                       ),
                   ],
                   onChanged: (v) => setState(() => _head = v),
-                ),
+                )),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String?>(
+                FormFieldBox(label: 'Usually paid from', child: DropdownButtonFormField<String?>(
                   initialValue: cashBank.any((c) => c.id == _paidFrom) ? _paidFrom : null,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Usually paid from'),
+                  decoration: const InputDecoration(),
                   items: [
                     const DropdownMenuItem<String?>(value: null, child: Text('Cash in hand')),
                     for (final c in cashBank.where((c) => !c.isCash)) DropdownMenuItem<String?>(value: c.id, child: Text(c.name)),
                   ],
                   onChanged: (v) => setState(() => _paidFrom = v),
-                ),
+                )),
               ]);
             },
           ),
@@ -358,37 +358,37 @@ class _RecurringFormSheetState extends ConsumerState<RecurringFormSheet> {
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Expanded(
               flex: 3,
-              child: TextFormField(
+              child: FormFieldBox(label: 'Amount (₹)', child: TextFormField(
                 controller: _amount,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: moneyInput,
                 decoration: const InputDecoration(
-                    labelText: 'Amount (₹)', prefixText: '₹ ', helperText: 'Blank if it changes each month', helperMaxLines: 2),
-              ),
+                    prefixText: '₹ ', helperText: 'Blank if it changes each month', helperMaxLines: 2),
+              )),
             ),
             const SizedBox(width: 12),
             Expanded(
               flex: 2,
-              child: DropdownButtonFormField<int>(
+              child: FormFieldBox(label: 'Due on day', child: DropdownButtonFormField<int>(
                 initialValue: _dayOfMonth,
-                decoration: const InputDecoration(labelText: 'Due on day', helperText: ' '),
+                decoration: const InputDecoration(helperText: ' '),
                 items: [for (var d = 1; d <= 31; d++) DropdownMenuItem(value: d, child: Text('$d'))],
                 onChanged: (v) => setState(() => _dayOfMonth = v ?? 1),
-              ),
+              )),
             ),
           ]),
           const SizedBox(height: 12),
           Row(children: [
             Expanded(
-              child: DateField(
-                  label: 'From month', value: _start, required: true,
-                  onChanged: (d) => setState(() => _start = DateTime((d ?? _start).year, (d ?? _start).month, 1))),
+              child: FormFieldBox(label: 'From month', child: DateField(
+                  label: '',value: _start, required: true,
+                  onChanged: (d) => setState(() => _start = DateTime((d ?? _start).year, (d ?? _start).month, 1)))),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: DateField(
-                  label: 'Until (optional)', value: _end,
-                  onChanged: (d) => setState(() => _end = d == null ? null : DateTime(d.year, d.month, 1))),
+              child: FormFieldBox(label: 'Until (optional)', child: DateField(
+                  label: '',value: _end,
+                  onChanged: (d) => setState(() => _end = d == null ? null : DateTime(d.year, d.month, 1)))),
             ),
           ]),
           const SizedBox(height: 12),
@@ -400,7 +400,7 @@ class _RecurringFormSheetState extends ConsumerState<RecurringFormSheet> {
             onChanged: (v) => setState(() => _vendorId = v?.id),
           ),
           const SizedBox(height: 12),
-          TextFormField(controller: _note, minLines: 1, maxLines: 3, decoration: const InputDecoration(labelText: 'Note')),
+          FormFieldBox(label: 'Note', child: TextFormField(controller: _note, minLines: 1, maxLines: 3, decoration: const InputDecoration())),
           if (e != null)
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
@@ -490,42 +490,41 @@ class _RecordDueSheetState extends ConsumerState<RecordDueSheet> {
               '${(widget.due.elementName ?? '').isEmpty ? '' : ' · counts towards ${widget.due.elementName}'}',
               style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
           const SizedBox(height: 14),
-          TextFormField(
+          FormFieldBox(label: 'Amount for this month (₹)', required: true, child: TextFormField(
             controller: _amount,
             autofocus: widget.due.amount == null,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: moneyInput,
             decoration: InputDecoration(
-              labelText: 'Amount for this month (₹) *',
               prefixText: '₹ ',
               helperText: widget.due.amount == null ? 'Enter the amount on this month\'s bill' : 'Change it if this month was different',
             ),
             validator: (v) => (parseMoney(v ?? '') ?? 0) <= 0 ? 'Enter the amount' : null,
-          ),
+          )),
           const SizedBox(height: 12),
-          DateField(label: 'Paid on', value: _paidOn, required: true, lastDate: _today(), onChanged: (d) => setState(() => _paidOn = d ?? _paidOn)),
+          FormFieldBox(label: 'Paid on', child: DateField(label: '',value: _paidOn, required: true, lastDate: _today(), onChanged: (d) => setState(() => _paidOn = d ?? _paidOn))),
           const SizedBox(height: 12),
           ledgers.when(
             loading: () => const LinearProgressIndicator(),
             error: (err, _) => const SizedBox.shrink(),
             data: (all) {
               final cashBank = all.where((l) => l.isCashOrBank && l.isActive).toList();
-              return DropdownButtonFormField<String?>(
+              return FormFieldBox(label: 'Paid from', child: DropdownButtonFormField<String?>(
                 initialValue: cashBank.any((c) => c.id == _paidFrom) ? _paidFrom : null,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Paid from'),
+                decoration: const InputDecoration(),
                 items: [
                   const DropdownMenuItem<String?>(value: null, child: Text('Cash in hand')),
                   for (final c in cashBank.where((c) => !c.isCash)) DropdownMenuItem<String?>(value: c.id, child: Text(c.name)),
                 ],
                 onChanged: (v) => setState(() => _paidFrom = v),
-              );
+              ));
             },
           ),
           const SizedBox(height: 12),
-          TextFormField(controller: _reference, maxLength: 100, decoration: const InputDecoration(labelText: "Supplier's bill / cheque no. (optional)", counterText: '')),
+          FormFieldBox(label: "Supplier's bill / cheque no. (optional)", child: TextFormField(controller: _reference, maxLength: 100, decoration: const InputDecoration(counterText: ''))),
           const SizedBox(height: 12),
-          TextFormField(controller: _note, minLines: 1, maxLines: 3, decoration: const InputDecoration(labelText: 'Note')),
+          FormFieldBox(label: 'Note', child: TextFormField(controller: _note, minLines: 1, maxLines: 3, decoration: const InputDecoration())),
           const SizedBox(height: 20),
           AppPrimaryButton(label: 'Record payment', isLoading: _saving, onPressed: _saving ? null : _save),
         ]),

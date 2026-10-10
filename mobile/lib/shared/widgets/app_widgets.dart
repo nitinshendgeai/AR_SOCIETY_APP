@@ -540,7 +540,7 @@ class AppTextField extends StatelessWidget {
       onFieldSubmitted:
           onFieldSubmitted != null ? (_) => onFieldSubmitted!() : null,
       decoration: InputDecoration(
-        labelText: label,
+        labelText: label.isEmpty ? null : label,
         hintText: hint,
         prefixIcon: prefixIcon,
         suffixIcon: suffixIcon,

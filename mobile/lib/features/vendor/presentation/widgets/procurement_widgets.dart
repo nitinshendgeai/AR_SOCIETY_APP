@@ -6,6 +6,7 @@ import 'package:ar_society_app/features/maintenance_billing/data/maintenance_bil
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/features/vendor/data/vendors_work_api.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 final moneyInput = [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,10}(\.\d{0,2})?'))];
 
@@ -40,7 +41,7 @@ class DateField extends StatelessWidget {
           },
           child: InputDecorator(
             decoration: InputDecoration(
-              labelText: required ? '$label *' : label,
+              labelText: label.isEmpty ? null : (required ? '$label *' : label),
               errorText: state.errorText,
               suffixIcon: value != null && !required
                   ? IconButton(
@@ -263,64 +264,64 @@ class _QuotationSheetState extends State<QuotationSheet> {
       child: Form(
         key: _form,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          DropdownButtonFormField<String>(
+          FormFieldBox(label: 'Vendor', required: true, child: DropdownButtonFormField<String>(
             initialValue: _vendor,
             isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Vendor *'),
+            decoration: const InputDecoration(),
             items: [
               for (final v in choices)
                 DropdownMenuItem(value: v.id, child: Text('${v.companyName} · ${vendorCategoryLabel(v.category)}')),
             ],
             onChanged: (v) => setState(() => _vendor = v),
             validator: (v) => v == null ? 'Choose the vendor (add them under Vendors first)' : null,
-          ),
+          )),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Quotation no. / reference', child: TextFormField(
             controller: _ref,
             maxLength: 50,
-            decoration: const InputDecoration(labelText: 'Quotation no. / reference', counterText: ''),
-          ),
+            decoration: const InputDecoration(counterText: ''),
+          )),
           const SizedBox(height: 12),
           Row(children: [
             Expanded(
-                child: DateField(
-                    label: 'Dated', value: _date, required: true, lastDate: DateTime.now(),
-                    onChanged: (d) => setState(() => _date = d))),
+                child: FormFieldBox(label: 'Dated', child: DateField(
+                    label: '',value: _date, required: true, lastDate: DateTime.now(),
+                    onChanged: (d) => setState(() => _date = d)))),
             const SizedBox(width: 12),
-            Expanded(child: DateField(label: 'Valid until', value: _valid, onChanged: (d) => setState(() => _valid = d))),
+            Expanded(child: FormFieldBox(label: 'Valid until', child: DateField(label: '',value: _valid, onChanged: (d) => setState(() => _valid = d)))),
           ]),
           const SizedBox(height: 12),
           Row(children: [
             Expanded(
-              child: TextFormField(
+              child: FormFieldBox(label: 'Amount (₹)', required: true, child: TextFormField(
                 controller: _amount,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: moneyInput,
-                decoration: const InputDecoration(labelText: 'Amount (₹) *'),
+                decoration: const InputDecoration(),
                 onChanged: (_) => setState(() {}),
                 validator: (v) => (parseMoney(v ?? '') ?? 0) <= 0 ? 'Enter the amount' : null,
-              ),
+              )),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: TextFormField(
+              child: FormFieldBox(label: 'GST (₹)', child: TextFormField(
                 controller: _gst,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: moneyInput,
-                decoration: const InputDecoration(labelText: 'GST (₹)'),
+                decoration: const InputDecoration(),
                 onChanged: (_) => setState(() {}),
-              ),
+              )),
             ),
           ]),
           const SizedBox(height: 6),
           Text('Total ${formatRupees(total.toStringAsFixed(2))}', style: const TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Remarks', child: TextFormField(
             controller: _remarks,
             maxLength: 2000,
             maxLines: 2,
-            decoration: const InputDecoration(labelText: 'Remarks', hintText: 'e.g. make, warranty, exclusions'),
-          ),
+            decoration: const InputDecoration(hintText: 'e.g. make, warranty, exclusions'),
+          )),
           const SizedBox(height: 12),
           ElevatedButton(
             onPressed: _saving ? null : _save,
@@ -426,43 +427,43 @@ class _SanctionSheetState extends State<SanctionSheet> {
             ]),
           ),
           if (notLowest) ...[
-            TextFormField(
+            FormFieldBox(label: 'Why not the lowest quotation?', required: true, child: TextFormField(
               controller: _reason,
               maxLength: 1000,
               maxLines: 2,
-              decoration: const InputDecoration(labelText: 'Why not the lowest quotation? *'),
+              decoration: const InputDecoration(),
               validator: (v) => (v ?? '').trim().isEmpty ? 'Record the reason' : null,
-            ),
+            )),
             const SizedBox(height: 8),
           ],
-          TextFormField(
+          FormFieldBox(label: 'Committee resolution no.', required: true, child: TextFormField(
             controller: _resolution,
             maxLength: 50,
-            decoration: const InputDecoration(labelText: 'Committee resolution no. *', counterText: ''),
+            decoration: const InputDecoration(counterText: ''),
             validator: (v) => (v ?? '').trim().isEmpty ? 'Enter the resolution number' : null,
-          ),
+          )),
           const SizedBox(height: 12),
-          DateField(
-              label: 'Committee meeting date', value: _meeting, required: true, lastDate: today,
-              onChanged: (d) => setState(() => _meeting = d)),
+          FormFieldBox(label: 'Committee meeting date', child: DateField(
+              label: '',value: _meeting, required: true, lastDate: today,
+              onChanged: (d) => setState(() => _meeting = d))),
           if (tenders) ...[
             const SizedBox(height: 12),
-            DateField(
-                label: 'Tenders opened on (committee meeting)', value: _opened, required: true, lastDate: today,
-                onChanged: (d) => setState(() => _opened = d)),
+            FormFieldBox(label: 'Tenders opened on (committee meeting)', child: DateField(
+                label: '',value: _opened, required: true, lastDate: today,
+                onChanged: (d) => setState(() => _opened = d))),
           ],
           if (gb) ...[
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'General body resolution no.', required: true, child: TextFormField(
               controller: _gbResolution,
               maxLength: 50,
-              decoration: const InputDecoration(labelText: 'General body resolution no. *', counterText: ''),
+              decoration: const InputDecoration(counterText: ''),
               validator: (v) => (v ?? '').trim().isEmpty ? 'The general body must sanction this work' : null,
-            ),
+            )),
             const SizedBox(height: 12),
-            DateField(
-                label: 'General body meeting date', value: _gbMeeting, required: true, lastDate: today,
-                onChanged: (d) => setState(() => _gbMeeting = d)),
+            FormFieldBox(label: 'General body meeting date', child: DateField(
+                label: '',value: _gbMeeting, required: true, lastDate: today,
+                onChanged: (d) => setState(() => _gbMeeting = d))),
           ],
           const SizedBox(height: 8),
           CheckboxListTile(
@@ -500,13 +501,13 @@ Future<String?> askReason(BuildContext context, {required String title, required
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(message),
           const SizedBox(height: 12),
-          TextFormField(
+          FormFieldBox(label: 'Reason', required: true, child: TextFormField(
             controller: c,
             maxLength: 1000,
             maxLines: 2,
-            decoration: const InputDecoration(labelText: 'Reason *'),
+            decoration: const InputDecoration(),
             validator: (v) => (v ?? '').trim().isEmpty ? 'Enter the reason' : null,
-          ),
+          )),
         ]),
       ),
       actions: [

@@ -9,6 +9,7 @@ import 'package:ar_society_app/features/staff/presentation/providers/staff_provi
 import 'package:ar_society_app/features/staff/presentation/widgets/duty_sheet_actions.dart' show isoDay;
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// A supervisor enters a staff member's filled-in printed sheet for one day:
 /// the checklist items ticked, which duties were completed, and the in / out
@@ -297,36 +298,36 @@ class _PaperSheetEntryScreenState extends ConsumerState<PaperSheetEntryScreen> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('Attendance', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
         const SizedBox(height: 10),
-        DropdownButtonFormField<String?>(
+        FormFieldBox(label: 'Status on the sheet', child: DropdownButtonFormField<String?>(
           value: _status,
           isExpanded: true,
-          decoration: const InputDecoration(labelText: 'Status on the sheet'),
+          decoration: const InputDecoration(),
           items: [
             for (final o in _statusOptions) DropdownMenuItem<String?>(value: o.$1, child: Text(o.$2)),
           ],
           onChanged: (v) => setState(() => _status = v),
-        ),
+        )),
         if (_hasTimes) ...[
           const SizedBox(height: 12),
           Row(children: [
             Expanded(
-              child: TextFormField(
+              child: FormFieldBox(label: 'IN time', child: TextFormField(
                 controller: _inCtrl,
-                decoration: const InputDecoration(labelText: 'IN time', hintText: '09:00'),
+                decoration: const InputDecoration(hintText: '09:00'),
                 keyboardType: TextInputType.datetime,
                 inputFormatters: [LengthLimitingTextInputFormatter(5)],
                 validator: _timeValidator,
-              ),
+              )),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: TextFormField(
+              child: FormFieldBox(label: 'OUT time', child: TextFormField(
                 controller: _outCtrl,
-                decoration: const InputDecoration(labelText: 'OUT time', hintText: '17:30'),
+                decoration: const InputDecoration(hintText: '17:30'),
                 keyboardType: TextInputType.datetime,
                 inputFormatters: [LengthLimitingTextInputFormatter(5)],
                 validator: _timeValidator,
-              ),
+              )),
             ),
           ]),
           const SizedBox(height: 6),

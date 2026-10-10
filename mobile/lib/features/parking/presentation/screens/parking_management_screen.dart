@@ -14,6 +14,7 @@ import 'package:ar_society_app/features/society_structure/presentation/providers
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Admin/Committee screen for the parking setup that gate validation
 /// depends on: define zones and slots, then allocate a slot to a specific
@@ -151,10 +152,10 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
       builder: (dialogContext) => AlertDialog(
         title: const Text('Add Parking Zone'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: nameCtrl, autofocus: true,
-              decoration: const InputDecoration(labelText: 'Zone name (e.g. Basement)')),
+          FormFieldBox(label: 'Zone name (e.g. Basement)', child: TextField(controller: nameCtrl, autofocus: true,
+              decoration: const InputDecoration())),
           const SizedBox(height: 10),
-          TextField(controller: codeCtrl, decoration: const InputDecoration(labelText: 'Short code', hintText: 'Leave blank — made from the name')),
+          FormFieldBox(label: 'Short code', child: TextField(controller: codeCtrl, decoration: const InputDecoration(hintText: 'Leave blank — made from the name'))),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
@@ -185,18 +186,18 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
         return AlertDialog(
           title: const Text('Add Parking Slot'),
           content: Column(mainAxisSize: MainAxisSize.min, children: [
-            DropdownButtonFormField<String>(
+            FormFieldBox(label: 'Zone', child: DropdownButtonFormField<String>(
               value: zoneId,
-              decoration: const InputDecoration(labelText: 'Zone'),
+              decoration: const InputDecoration(),
               items: zones.map((z) => DropdownMenuItem(value: z.id, child: Text(z.name))).toList(),
               onChanged: (v) => setState(() => zoneId = v!),
-            ),
+            )),
             const SizedBox(height: 10),
-            TextField(controller: slotCtrl, decoration: const InputDecoration(labelText: 'Slot number (e.g. B1-24)')),
+            FormFieldBox(label: 'Slot number (e.g. B1-24)', child: TextField(controller: slotCtrl, decoration: const InputDecoration())),
             const SizedBox(height: 10),
-            DropdownButtonFormField<String>(
+            FormFieldBox(label: 'Reserved for', child: DropdownButtonFormField<String>(
               value: slotType,
-              decoration: const InputDecoration(labelText: 'Reserved for'),
+              decoration: const InputDecoration(),
               items: const [
                 DropdownMenuItem(value: 'resident', child: Text('Resident')),
                 DropdownMenuItem(value: 'tenant', child: Text('Tenant')),
@@ -205,7 +206,7 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
                 DropdownMenuItem(value: 'reserved', child: Text('Reserved')),
               ],
               onChanged: (v) => setState(() => slotType = v!),
-            ),
+            )),
           ]),
           actions: [
             TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
@@ -531,27 +532,13 @@ class _AllotVehicleSheetState extends ConsumerState<_AllotVehicleSheet> {
     final busy = ref.watch(parkingManagementProvider) is ParkingActionLoading;
     final v = widget.vehicle;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: AppTheme.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Allot parking to ${v.vehicleNumber}',
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-              if (v.flatLabel.isNotEmpty || v.ownerName != null) ...[
-                const SizedBox(height: 4),
-                Text([if (v.flatLabel.isNotEmpty) v.flatLabel, if (v.ownerName != null) v.ownerName!].join(' · '),
-                    style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-              ],
-              const SizedBox(height: 16),
+    return AppSheetFrame(
+      title: 'Allot parking to ${v.vehicleNumber}',
+      subtitle: [if (v.flatLabel.isNotEmpty) v.flatLabel, if (v.ownerName != null) v.ownerName!].join(' · '),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
               slotsAsync.when(
                 loading: () => const LinearProgressIndicator(),
                 error: (e, _) => Text('Could not load slots: $e'),
@@ -560,24 +547,23 @@ class _AllotVehicleSheetState extends ConsumerState<_AllotVehicleSheet> {
                     return const Text('No free slots — add one in the Slots tab first.',
                         style: TextStyle(fontSize: 13, color: AppTheme.textSecondary));
                   }
-                  return DropdownButtonFormField<ParkingSlotEntity>(
+                  return FormFieldBox(label: 'Free slot', child: DropdownButtonFormField<ParkingSlotEntity>(
                     value: _slot,
-                    decoration: const InputDecoration(labelText: 'Free slot'),
+                    decoration: const InputDecoration(),
                     items: slots.map((s) => DropdownMenuItem(value: s, child: Text(s.slotNumber))).toList(),
                     onChanged: (s) => setState(() => _slot = s),
-                  );
+                  ));
                 },
               ),
               const SizedBox(height: 12),
-              TextField(
+              FormFieldBox(label: 'Monthly charge (optional)', child: TextField(
                 controller: _chargeCtrl,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  labelText: 'Monthly charge (optional)',
                   helperText: 'Leave blank for free/alloted parking; set an amount for rented parking',
                   helperMaxLines: 2,
                 ),
-              ),
+              )),
               const SizedBox(height: 20),
               AppPrimaryButton(
                 label: 'Allot',
@@ -600,9 +586,7 @@ class _AllotVehicleSheetState extends ConsumerState<_AllotVehicleSheet> {
                         Navigator.pop(context);
                       },
               ),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }
@@ -731,34 +715,24 @@ class _AllocateParkingSheetState extends ConsumerState<_AllocateParkingSheet> {
     final availableSlotsAsync = ref.watch(parkingAvailableSlotsProvider(widget.societyId));
     final actionState = ref.watch(parkingManagementProvider);
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: AppTheme.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Allocate Parking',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 16),
+    return AppSheetFrame(
+      title: 'Allocate Parking',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
               flatsAsync.when(
                 loading: () => const LinearProgressIndicator(),
                 error: (e, _) => Text('Could not load flats: $e'),
-                data: (flats) => DropdownButtonFormField<FlatModel>(
+                data: (flats) => FormFieldBox(label: 'Flat', child: DropdownButtonFormField<FlatModel>(
                   value: _flat,
-                  decoration: const InputDecoration(labelText: 'Flat'),
+                  decoration: const InputDecoration(),
                   items: flats
                       .map((f) => DropdownMenuItem(
                           value: f, child: Text('${f.wingName ?? ''} — ${f.flatNumber}')))
                       .toList(),
                   onChanged: (v) => setState(() { _flat = v; _vehicle = null; }),
-                ),
+                )),
               ),
               const SizedBox(height: 12),
               if (_flat != null)
@@ -772,14 +746,14 @@ class _AllocateParkingSheetState extends ConsumerState<_AllocateParkingSheet> {
                         return const Text('No vehicles registered on this flat yet.',
                             style: TextStyle(fontSize: 13, color: AppTheme.textSecondary));
                       }
-                      return DropdownButtonFormField<VehicleModel>(
+                      return FormFieldBox(label: 'Vehicle', child: DropdownButtonFormField<VehicleModel>(
                         value: _vehicle,
-                        decoration: const InputDecoration(labelText: 'Vehicle'),
+                        decoration: const InputDecoration(),
                         items: vehicles
                             .map((v) => DropdownMenuItem(value: v, child: Text(v.vehicleNumber)))
                             .toList(),
                         onChanged: (v) => setState(() => _vehicle = v),
-                      );
+                      ));
                     },
                   );
                 }),
@@ -792,26 +766,25 @@ class _AllocateParkingSheetState extends ConsumerState<_AllocateParkingSheet> {
                     return const Text('No available slots — add one in the Slots tab first.',
                         style: TextStyle(fontSize: 13, color: AppTheme.textSecondary));
                   }
-                  return DropdownButtonFormField<ParkingSlotEntity>(
+                  return FormFieldBox(label: 'Available Slot', child: DropdownButtonFormField<ParkingSlotEntity>(
                     value: _slot,
-                    decoration: const InputDecoration(labelText: 'Available Slot'),
+                    decoration: const InputDecoration(),
                     items: slots
                         .map((s) => DropdownMenuItem(value: s, child: Text(s.slotNumber)))
                         .toList(),
                     onChanged: (v) => setState(() => _slot = v),
-                  );
+                  ));
                 },
               ),
               const SizedBox(height: 12),
-              TextField(
+              FormFieldBox(label: 'Monthly charge (optional)', child: TextField(
                 controller: _chargeCtrl,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  labelText: 'Monthly charge (optional)',
                   helperText: 'Leave blank for free/alloted parking; set an amount for rented parking',
                   helperMaxLines: 2,
                 ),
-              ),
+              )),
               const SizedBox(height: 20),
               AppPrimaryButton(
                 label: 'Allocate',
@@ -836,9 +809,7 @@ class _AllocateParkingSheetState extends ConsumerState<_AllocateParkingSheet> {
                         Navigator.pop(context);
                       },
               ),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }

@@ -14,6 +14,7 @@ import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// FMC Manager/Admin/Committee: bills owed to vendors and payments made
 /// against them — the society's payable side, the mirror of the
@@ -347,98 +348,79 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // Fills the side panel on desktop; a draggable part-height sheet on phones.
-    final panel = isDesktopLayout(context);
-    return DraggableScrollableSheet(
-      initialChildSize: panel ? 1 : 0.85,
-      minChildSize: 0.5,
-      maxChildSize: panel ? 1 : 0.95,
-      expand: false,
-      builder: (context, scrollController) => Container(
-        decoration: const BoxDecoration(
-          color: AppTheme.cardBg,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: EdgeInsets.only(
-          left: 20, right: 20, top: 20,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-        ),
-        child: Form(
-          key: _formKey,
-          // A plain scroll view, not a lazy ListView: fields scrolled out of
-          // view stay mounted, so validate() checks every one of them.
-          child: SingleChildScrollView(
-            controller: scrollController,
-            child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text('Add Vendor Bill', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 16),
-              VendorPicker(
-                societyId: widget.societyId,
-                value: _vendorId,
-                label: 'Vendor *',
+    return AppSheetFrame(
+      title: 'Add Vendor Bill',
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+              FormFieldBox(
+                label: 'Vendor',
                 required: true,
-                onChanged: (v) => setState(() => _vendorId = v?.id),
+                child: VendorPicker(
+                  societyId: widget.societyId,
+                  value: _vendorId,
+                  label: '',
+                  required: true,
+                  onChanged: (v) => setState(() => _vendorId = v?.id),
+                ),
               ),
               const SizedBox(height: 12),
-              TextFormField(
+              FormFieldBox(label: "Supplier's invoice no.", child: TextFormField(
                 controller: _invoiceNumberCtrl,
                 inputFormatters: [LengthLimitingTextInputFormatter(50)],
-                decoration: const InputDecoration(labelText: "Supplier's invoice no.", border: OutlineInputBorder()),
+                decoration: const InputDecoration(border: OutlineInputBorder()),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
+              )),
               const SizedBox(height: 12),
               Row(children: [
                 Expanded(
-                  child: DateField(
-                    label: 'Invoice date',
-                    value: _invoiceDate,
+                  child: FormFieldBox(label: 'Invoice date', child: DateField(
+                    label: '',value: _invoiceDate,
                     required: true,
                     onChanged: (d) => setState(() => _invoiceDate = d ?? _invoiceDate),
-                  ),
+                  )),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: DateField(
-                    label: 'Due date (optional)',
-                    value: _dueDate,
+                  child: FormFieldBox(label: 'Due date (optional)', child: DateField(
+                    label: '',value: _dueDate,
                     onChanged: (d) => setState(() => _dueDate = d),
-                  ),
+                  )),
                 ),
               ]),
               const SizedBox(height: 12),
-              TextFormField(
+              FormFieldBox(label: 'Amount', child: TextFormField(
                 controller: _amountCtrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: _moneyFormatters,
-                decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹', border: OutlineInputBorder()),
+                decoration: const InputDecoration(prefixText: '₹', border: OutlineInputBorder()),
                 onChanged: (_) => setState(() {}),
                 validator: (v) {
                   final n = double.tryParse(v ?? '');
                   return (n == null || n <= 0) ? 'Enter a valid amount' : null;
                 },
-              ),
+              )),
               const SizedBox(height: 12),
-              TextFormField(
+              FormFieldBox(label: 'GST Amount', child: TextFormField(
                 controller: _gstCtrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: _moneyFormatters,
-                decoration: const InputDecoration(labelText: 'GST Amount', prefixText: '₹', border: OutlineInputBorder()),
+                decoration: const InputDecoration(prefixText: '₹', border: OutlineInputBorder()),
                 onChanged: (_) => setState(() {}),
                 validator: (v) => (v == null || v.trim().isEmpty || double.tryParse(v) != null) ? null : 'Enter a valid amount',
-              ),
+              )),
               const SizedBox(height: 8),
               Text('Total: ₹${_total.toStringAsFixed(2)}',
                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               const SizedBox(height: 12),
               // The expense head the bill is booked to in the accounts.
               ref.watch(ledgersProvider(widget.societyId)).maybeWhen(
-                    data: (ledgers) => DropdownButtonFormField<String?>(
+                    data: (ledgers) => FormFieldBox(label: 'Expense head (optional)', child: DropdownButtonFormField<String?>(
                       initialValue: _expenseAccountId,
                       isExpanded: true,
                       decoration: const InputDecoration(
-                        labelText: 'Expense head (optional)',
                         helperText: 'Leave as is to book it by the vendor\'s category',
                         border: OutlineInputBorder(),
                       ),
@@ -448,30 +430,19 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
                           DropdownMenuItem<String?>(value: l.id, child: Text(l.name, overflow: TextOverflow.ellipsis)),
                       ],
                       onChanged: (v) => setState(() => _expenseAccountId = v),
-                    ),
+                    )),
                     orElse: () => const SizedBox.shrink(),
                   ),
               const SizedBox(height: 12),
-              TextFormField(
+              FormFieldBox(label: 'Description (optional)', child: TextFormField(
                 controller: _descCtrl,
                 maxLines: 2,
                 inputFormatters: [LengthLimitingTextInputFormatter(2000)],
-                decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
-              ),
+                decoration: const InputDecoration(border: OutlineInputBorder()),
+              )),
               const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _saving ? null : _save,
-                  child: _saving
-                      ? const SizedBox(width: 18, height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text('Save Bill'),
-                ),
-              ),
-            ],
-            ),
-          ),
+              AppPrimaryButton(label: 'Save Bill', isLoading: _saving, onPressed: _saving ? null : _save),
+          ],
         ),
       ),
     );
@@ -621,11 +592,11 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
             Text('Outstanding: ₹${widget.invoice.outstanding}',
                 style: const TextStyle(color: AppTheme.textSecondary)),
             const SizedBox(height: 16),
-            TextFormField(
+            FormFieldBox(label: 'Amount', child: TextFormField(
               controller: _amountCtrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,10}(\.\d{0,2})?'))],
-              decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹', border: OutlineInputBorder()),
+              decoration: const InputDecoration(prefixText: '₹', border: OutlineInputBorder()),
               validator: (v) {
                 final n = double.tryParse(v ?? '');
                 if (n == null || n <= 0) return 'Enter a valid amount';
@@ -633,33 +604,33 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
                 if (n > outstanding) return 'Cannot exceed outstanding (₹$outstanding)';
                 return null;
               },
-            ),
+            )),
             const SizedBox(height: 12),
             OutlinedButton(
               onPressed: _pickDate,
               child: Text('Paid On: ${_paidDate.day}/${_paidDate.month}/${_paidDate.year}'),
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
+            FormFieldBox(label: 'Payment Mode', child: DropdownButtonFormField<String>(
               initialValue: _mode,
-              decoration: const InputDecoration(labelText: 'Payment Mode', border: OutlineInputBorder()),
+              decoration: const InputDecoration(border: OutlineInputBorder()),
               items: kVendorPaymentModes
                   .map((m) => DropdownMenuItem(value: m.$1, child: Text(m.$2)))
                   .toList(),
               onChanged: (v) => setState(() => _mode = v!),
-            ),
+            )),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'Reference (optional)', child: TextFormField(
               controller: _refCtrl,
               inputFormatters: [LengthLimitingTextInputFormatter(100)],
-              decoration: const InputDecoration(labelText: 'Reference (optional)', border: OutlineInputBorder()),
-            ),
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            )),
             const SizedBox(height: 12),
-            TextFormField(
+            FormFieldBox(label: 'Bank Name (optional)', child: TextFormField(
               controller: _bankCtrl,
               inputFormatters: [LengthLimitingTextInputFormatter(100)],
-              decoration: const InputDecoration(labelText: 'Bank Name (optional)', border: OutlineInputBorder()),
-            ),
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            )),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,

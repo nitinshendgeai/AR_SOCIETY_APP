@@ -12,6 +12,7 @@ import 'package:ar_society_app/features/billing/presentation/providers/billing_p
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show tableMoney;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// FMC Manager (or Admin/Committee) records a resident's payment: select
 /// Wing → Flat; the payment settles the flat's open bills oldest first
@@ -181,16 +182,16 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
           wingsAsync.when(
             loading: () => const AppLoader(),
             error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-            data: (wings) => DropdownButtonFormField<String>(
+            data: (wings) => FormFieldBox(label: 'Wing', required: true, child: DropdownButtonFormField<String>(
               value: _wingId,
-              decoration: const InputDecoration(labelText: 'Wing *'),
+              decoration: const InputDecoration(),
               items: [for (final w in wings) DropdownMenuItem(value: w.id, child: Text(w.name))],
               onChanged: (v) => setState(() {
                 _wingId = v;
                 _flatId = null;
                 _billId = null;
               }),
-            ),
+            )),
           ),
           const SizedBox(height: 14),
           if (_wingId != null)
@@ -199,15 +200,15 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
               return flatsAsync.when(
                 loading: () => const AppLoader(),
                 error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-                data: (flats) => DropdownButtonFormField<String>(
+                data: (flats) => FormFieldBox(label: 'Flat', required: true, child: DropdownButtonFormField<String>(
                   value: _flatId,
-                  decoration: const InputDecoration(labelText: 'Flat *'),
+                  decoration: const InputDecoration(),
                   items: [for (final f in flats) DropdownMenuItem(value: f.id, child: Text(f.flatNumber))],
                   onChanged: (v) => setState(() {
                     _flatId = v;
                     _billId = null;
                   }),
-                ),
+                )),
               );
             }),
           const SizedBox(height: 20),
@@ -238,9 +239,9 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
             const Text('No outstanding bills for this flat',
                 style: TextStyle(color: AppTheme.textSecondary, fontSize: 12))
           else
-            DropdownButtonFormField<String>(
+            FormFieldBox(label: 'Bill', required: true, child: DropdownButtonFormField<String>(
               value: _billId,
-              decoration: const InputDecoration(labelText: 'Bill *'),
+              decoration: const InputDecoration(),
               items: [
                 for (final b in billsAsync.value!)
                   DropdownMenuItem(
@@ -249,59 +250,59 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
                   ),
               ],
               onChanged: (v) => setState(() => _billId = v),
-            ),
+            )),
           const SizedBox(height: 20),
           const Text('Payment Details', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 8),
-          TextField(
+          FormFieldBox(label: 'Amount (₹)', required: true, child: TextField(
             controller: _amountCtrl,
             onChanged: (_) => setState(() {}),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Amount (₹) *'),
-          ),
+            decoration: const InputDecoration(),
+          )),
           const SizedBox(height: 14),
           InkWell(
             onTap: _pickDate,
-            child: InputDecorator(
-              decoration: const InputDecoration(labelText: 'Payment Date *'),
+            child: FormFieldBox(label: 'Payment Date *', child: InputDecorator(
+              decoration: const InputDecoration(),
               child: Text('${_paymentDate.day}/${_paymentDate.month}/${_paymentDate.year}'),
-            ),
+            )),
           ),
           const SizedBox(height: 14),
-          DropdownButtonFormField<String>(
+          FormFieldBox(label: 'Payment Mode', required: true, child: DropdownButtonFormField<String>(
             value: _paymentMode,
-            decoration: const InputDecoration(labelText: 'Payment Mode *'),
+            decoration: const InputDecoration(),
             items: [for (final m in kPaymentModes) DropdownMenuItem(value: m.$1, child: Text(m.$2))],
             onChanged: (v) => setState(() => _paymentMode = v ?? _paymentMode),
-          ),
+          )),
           if (allAdvance) ...[
             const SizedBox(height: 14),
-            DropdownButtonFormField<String>(
+            FormFieldBox(label: 'Advance On Account Of', required: true, child: DropdownButtonFormField<String>(
               value: _purpose,
               decoration: const InputDecoration(
-                  labelText: 'Advance On Account Of *', hintText: 'What this payment is for'),
+                  hintText: 'What this payment is for'),
               items: [
                 for (final p in kOnlinePaymentPurposes) DropdownMenuItem(value: p.$1, child: Text(p.$2))
               ],
               onChanged: (v) => setState(() => _purpose = v ?? _purpose),
-            ),
+            )),
           ],
           const SizedBox(height: 14),
-          TextField(
+          FormFieldBox(label: 'Transaction Ref / UTR', child: TextField(
             controller: _refCtrl,
-            decoration: const InputDecoration(labelText: 'Transaction Ref / UTR', hintText: 'e.g. UPI reference number'),
-          ),
+            decoration: const InputDecoration(hintText: 'e.g. UPI reference number'),
+          )),
           const SizedBox(height: 14),
-          TextField(
+          FormFieldBox(label: 'Bank Name (optional)', child: TextField(
             controller: _bankCtrl,
-            decoration: const InputDecoration(labelText: 'Bank Name (optional)'),
-          ),
+            decoration: const InputDecoration(),
+          )),
           const SizedBox(height: 14),
-          TextField(
+          FormFieldBox(label: 'Notes (optional)', child: TextField(
             controller: _notesCtrl,
             maxLines: 2,
-            decoration: const InputDecoration(labelText: 'Notes (optional)'),
-          ),
+            decoration: const InputDecoration(),
+          )),
           const SizedBox(height: 20),
           Text(_screenshotRequired ? 'Payment Screenshot' : 'Payment Screenshot (optional)',
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),

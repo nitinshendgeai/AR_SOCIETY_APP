@@ -6,6 +6,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/duty_sheet_actions.dart' show isoDay;
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// Manager / supervisor screen to give a duty to one or several staff, for one
@@ -114,194 +115,176 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
     final selected = staffList.where((s) => _staffIds.contains(s.id)).toList();
     final days = _days;
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Assign Duty')),
-      body: Form(
-        key: _formKey,
-        // A plain scroll view, not a lazy ListView: fields scrolled out of
-        // view stay mounted, so validate() checks every one of them.
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    String fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
+    return AppFormPage(
+      title: 'Assign Duty',
+      subtitle: 'Give one or more staff a duty, once or on repeat',
+      formKey: _formKey,
+      submitLabel: _staffIds.length * days.length > 1 ? 'Assign Duties' : 'Assign Duty',
+      submitIcon: Icons.assignment_turned_in_rounded,
+      saving: isLoading,
+      onSubmit: _submit,
+      footerNote: Text('${_staffIds.length} staff · ${days.length} day${days.length == 1 ? '' : 's'}'),
+      children: [
+        FormSection(
+          title: 'Who',
+          description: 'Pick the staff, and a checklist template if the duty has one. The template\'s items are copied onto every duty made.',
+          columns: 1,
           children: [
-            _Label('Assign to  (${_staffIds.length} selected)'),
-            const SizedBox(height: 8),
-            if (staffState is StaffListLoading)
-              const AppLoader()
-            else
-              _StaffPicker(
-                staff: staffList,
-                selectedIds: _staffIds,
-                onChanged: (ids) => setState(() {
-                  _staffIds
-                    ..clear()
-                    ..addAll(ids);
-                  _selectedTemplateId = null;
-                }),
-              ),
-            const SizedBox(height: 16),
-
-            // Checklist template (optional) — the departments of the chosen
-            // staff; picking one copies its items onto every duty made.
-            if (selected.isNotEmpty) ...[
-              const _Label('Checklist Template (optional)'),
-              const SizedBox(height: 8),
-              _ChecklistTemplateDropdown(
-                societyId: widget.societyId,
-                departments: selected.map((s) => s.department).toSet(),
-                selectedId: _selectedTemplateId,
-                onChanged: (t) => setState(() {
-                  _selectedTemplateId = t?.id;
-                  if (t != null && _dutyNameCtrl.text.trim().isEmpty) {
-                    _dutyNameCtrl.text = t.name;
-                  }
-                }),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // Duty name (predefined + custom)
-            const _Label('Duty'),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              value: _dutyOptions.contains(_dutyNameCtrl.text) ? _dutyNameCtrl.text : null,
-              decoration: const InputDecoration(hintText: 'Select duty type'),
-              items: _dutyOptions.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
-              onChanged: (v) {
-                if (v == 'Custom') {
-                  _dutyNameCtrl.clear();
-                } else {
-                  _dutyNameCtrl.text = v ?? '';
-                }
-                setState(() {});
-              },
-            ),
-            if (_dutyNameCtrl.text.isEmpty) ...[
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _dutyNameCtrl,
-                inputFormatters: [LengthLimitingTextInputFormatter(255)],
-                decoration: const InputDecoration(hintText: 'Enter custom duty name'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Duty name required' : null,
-              ),
-            ],
-            const SizedBox(height: 16),
-
-            // Description
-            const _Label('Description (optional)'),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _descCtrl,
-              inputFormatters: [LengthLimitingTextInputFormatter(2000)],
-              maxLines: 2,
-              decoration: const InputDecoration(hintText: 'Add details about this duty'),
-            ),
-            const SizedBox(height: 16),
-
-            // Location
-            const _Label('Location (optional)'),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _locationCtrl,
-              inputFormatters: [LengthLimitingTextInputFormatter(255)],
-              decoration: const InputDecoration(hintText: 'e.g. Gate 1, Wing B'),
-            ),
-            const SizedBox(height: 16),
-
-            // Date
-            _Label(_repeat ? 'From' : 'Duty Date'),
-            const SizedBox(height: 8),
-            _DateBox(date: _fromDate, onTap: _pickFrom),
-            const SizedBox(height: 4),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              title: const Text('Repeat on more days', style: TextStyle(fontSize: 14)),
-              subtitle: const Text('A daily round, or the same duty on certain weekdays',
-                  style: TextStyle(fontSize: 12)),
-              value: _repeat,
-              onChanged: (v) => setState(() {
-                _repeat = v;
-                if (v) _untilDate ??= _fromDate.add(const Duration(days: 6));
-              }),
-            ),
-            if (_repeat) ...[
-              const SizedBox(height: 8),
-              const _Label('Until'),
-              const SizedBox(height: 8),
-              _DateBox(date: _untilDate ?? _fromDate, onTap: _pickUntil),
-              const SizedBox(height: 12),
-              const _Label('On these days'),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: [
-                  for (var i = 0; i < 7; i++)
-                    FilterChip(
-                      label: Text(_weekdayLabels[i]),
-                      selected: _weekdays.contains(i),
-                      onSelected: (on) => setState(() => on ? _weekdays.add(i) : _weekdays.remove(i)),
+            FormFieldBox(
+              label: 'Assign to (${_staffIds.length} selected)',
+              child: staffState is StaffListLoading
+                  ? const AppLoader(compact: true)
+                  : _StaffPicker(
+                      staff: staffList,
+                      selectedIds: _staffIds,
+                      onChanged: (ids) => setState(() {
+                        _staffIds
+                          ..clear()
+                          ..addAll(ids);
+                        _selectedTemplateId = null;
+                      }),
                     ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 16),
-
-            // Times
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const _Label('Start Time'),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _startTimeCtrl,
-                        decoration: const InputDecoration(hintText: '09:00'),
-                        keyboardType: TextInputType.datetime,
-                        inputFormatters: [LengthLimitingTextInputFormatter(5)],
-                        validator: _timeValidator,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const _Label('End Time'),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _endTimeCtrl,
-                        decoration: const InputDecoration(hintText: '17:00'),
-                        keyboardType: TextInputType.datetime,
-                        inputFormatters: [LengthLimitingTextInputFormatter(5)],
-                        validator: _timeValidator,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
             ),
-            const SizedBox(height: 20),
-
-            _Summary(staff: _staffIds.length, days: days.length),
-            const SizedBox(height: 16),
-
-            AppPrimaryButton(
-              label: _staffIds.length * days.length > 1 ? 'Assign Duties' : 'Assign Duty',
-              isLoading: isLoading,
-              icon: Icons.assignment_turned_in_rounded,
-              onPressed: _submit,
+            if (selected.isNotEmpty)
+              FormFieldBox(
+                label: 'Checklist template',
+                helper: 'Optional',
+                child: _ChecklistTemplateDropdown(
+                  societyId: widget.societyId,
+                  departments: selected.map((s) => s.department).toSet(),
+                  selectedId: _selectedTemplateId,
+                  onChanged: (t) => setState(() {
+                    _selectedTemplateId = t?.id;
+                    if (t != null && _dutyNameCtrl.text.trim().isEmpty) {
+                      _dutyNameCtrl.text = t.name;
+                    }
+                  }),
+                ),
+              ),
+          ],
+        ),
+        FormSection(
+          title: 'What',
+          description: 'The duty and where it is done.',
+          children: [
+            FormFieldBox(
+              label: 'Duty',
+              child: DropdownButtonFormField<String>(
+                isExpanded: true,
+                value: _dutyOptions.contains(_dutyNameCtrl.text) ? _dutyNameCtrl.text : null,
+                hint: const Text('Select duty type'),
+                items: _dutyOptions.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
+                onChanged: (v) {
+                  if (v == 'Custom') {
+                    _dutyNameCtrl.clear();
+                  } else {
+                    _dutyNameCtrl.text = v ?? '';
+                  }
+                  setState(() {});
+                },
+              ),
+            ),
+            FormFieldBox(
+              label: 'Location',
+              child: TextFormField(
+                controller: _locationCtrl,
+                inputFormatters: [LengthLimitingTextInputFormatter(255)],
+                decoration: const InputDecoration(hintText: 'e.g. Gate 1, Wing B (optional)'),
+              ),
+            ),
+            if (_dutyNameCtrl.text.isEmpty)
+              FormFull(
+                child: FormFieldBox(
+                  label: 'Custom duty name',
+                  required: true,
+                  child: TextFormField(
+                    controller: _dutyNameCtrl,
+                    inputFormatters: [LengthLimitingTextInputFormatter(255)],
+                    decoration: const InputDecoration(hintText: 'Enter custom duty name'),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Duty name required' : null,
+                  ),
+                ),
+              ),
+            FormFull(
+              child: FormFieldBox(
+                label: 'Description',
+                child: TextFormField(
+                  controller: _descCtrl,
+                  inputFormatters: [LengthLimitingTextInputFormatter(2000)],
+                  maxLines: 2,
+                  decoration: const InputDecoration(hintText: 'Add details about this duty (optional)'),
+                ),
+              ),
             ),
           ],
-          ),
         ),
-      ),
+        FormSection(
+          title: 'When',
+          description: 'The day, or a run of days, and the hours.',
+          children: [
+            FormFieldBox(
+              label: _repeat ? 'From' : 'Duty date',
+              child: FormDateField(value: _fromDate, hint: 'Select date', format: fmt, onTap: _pickFrom),
+            ),
+            if (_repeat)
+              FormFieldBox(
+                label: 'Until',
+                child: FormDateField(value: _untilDate ?? _fromDate, hint: 'Select date', format: fmt, onTap: _pickUntil),
+              ),
+            FormFull(
+              child: FormSwitchTile(
+                title: 'Repeat on more days',
+                subtitle: 'A daily round, or the same duty on certain weekdays',
+                value: _repeat,
+                onChanged: (v) => setState(() {
+                  _repeat = v;
+                  if (v) _untilDate ??= _fromDate.add(const Duration(days: 6));
+                }),
+              ),
+            ),
+            if (_repeat)
+              FormFull(
+                child: FormFieldBox(
+                  label: 'On these days',
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (var i = 0; i < 7; i++)
+                        FilterChip(
+                          label: Text(_weekdayLabels[i]),
+                          selected: _weekdays.contains(i),
+                          onSelected: (on) => setState(() => on ? _weekdays.add(i) : _weekdays.remove(i)),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            FormFieldBox(
+              label: 'Start time',
+              child: TextFormField(
+                controller: _startTimeCtrl,
+                decoration: const InputDecoration(hintText: '09:00'),
+                keyboardType: TextInputType.datetime,
+                inputFormatters: [LengthLimitingTextInputFormatter(5)],
+                validator: _timeValidator,
+              ),
+            ),
+            FormFieldBox(
+              label: 'End time',
+              child: TextFormField(
+                controller: _endTimeCtrl,
+                decoration: const InputDecoration(hintText: '17:00'),
+                keyboardType: TextInputType.datetime,
+                inputFormatters: [LengthLimitingTextInputFormatter(5)],
+                validator: _timeValidator,
+              ),
+            ),
+          ],
+        ),
+        _Summary(staff: _staffIds.length, days: days.length),
+      ],
     );
   }
 
@@ -432,46 +415,7 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
   }
 }
 
-class _Label extends StatelessWidget {
-  final String text;
-  const _Label(this.text);
 
-  @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
-  );
-}
-
-class _DateBox extends StatelessWidget {
-  final DateTime date;
-  final VoidCallback onTap;
-  const _DateBox({required this.date, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          decoration: BoxDecoration(
-            color: AppTheme.cardBg,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.border),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.calendar_today_rounded, color: AppTheme.primary, size: 18),
-              const SizedBox(width: 10),
-              Text(
-                '${date.day}/${date.month}/${date.year}',
-                style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary),
-              ),
-            ],
-          ),
-        ),
-      );
-}
 
 class _Summary extends StatelessWidget {
   final int staff;

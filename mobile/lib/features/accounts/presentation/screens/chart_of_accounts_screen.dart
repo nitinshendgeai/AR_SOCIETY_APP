@@ -16,6 +16,7 @@ import 'package:ar_society_app/features/maintenance_billing/presentation/provide
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// The society's chart of accounts — Balance Sheet heads (funds,
 /// liabilities, assets) then Income & Expenditure heads — each ledger with
@@ -283,11 +284,10 @@ class _LedgerSheetState extends ConsumerState<_LedgerSheet> {
         ref.watch(maintenanceElementsProvider((societyId: widget.societyId, includeInactive: false))).when(
               loading: () => const LinearProgressIndicator(),
               error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-              data: (elements) => DropdownButtonFormField<String?>(
+              data: (elements) => FormFieldBox(label: 'Counts towards maintenance element', child: DropdownButtonFormField<String?>(
                 initialValue: elements.any((e) => e.id == _elementId) ? _elementId : null,
                 isExpanded: true,
                 decoration: const InputDecoration(
-                  labelText: 'Counts towards maintenance element',
                   helperText: 'Spend on this ledger feeds that element\'s budget in the monthly maintenance',
                   helperMaxLines: 2,
                 ),
@@ -297,7 +297,7 @@ class _LedgerSheetState extends ConsumerState<_LedgerSheet> {
                     DropdownMenuItem<String?>(value: el.id, child: Text(el.name, overflow: TextOverflow.ellipsis)),
                 ],
                 onChanged: (v) => setState(() => _elementId = v),
-              ),
+              )),
             ),
       ];
 
@@ -310,10 +310,10 @@ class _LedgerSheetState extends ConsumerState<_LedgerSheet> {
       child: Form(
         key: _form,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          DropdownButtonFormField<String>(
+          FormFieldBox(label: 'Group', child: DropdownButtonFormField<String>(
             initialValue: _groupId,
             isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Group'),
+            decoration: const InputDecoration(),
             items: [
               for (final g in widget.groups)
                 DropdownMenuItem(value: g.id, child: Text(g.name, overflow: TextOverflow.ellipsis)),
@@ -327,7 +327,7 @@ class _LedgerSheetState extends ConsumerState<_LedgerSheet> {
                       if (nature != 'asset') _kind = 'ledger';
                     }),
             validator: (v) => v == null ? 'Choose the group this ledger belongs to' : null,
-          ),
+          )),
           if (system)
             const Padding(
               padding: EdgeInsets.only(top: 6),
@@ -338,15 +338,15 @@ class _LedgerSheetState extends ConsumerState<_LedgerSheet> {
           Row(children: [
             Expanded(
               flex: 3,
-              child: TextFormField(
+              child: FormFieldBox(label: 'Ledger name', child: TextFormField(
                 controller: _name,
-                decoration: const InputDecoration(labelText: 'Ledger name'),
+                decoration: const InputDecoration(),
                 validator: (v) => (v ?? '').trim().isEmpty ? 'Enter a name' : null,
-              ),
+              )),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: TextFormField(controller: _code, decoration: const InputDecoration(labelText: 'Code', hintText: 'Auto')),
+              child: FormFieldBox(label: 'Code', child: TextFormField(controller: _code, decoration: const InputDecoration(hintText: 'Auto'))),
             ),
           ]),
           if (_group?.nature == 'expense') ..._elementPicker(),
@@ -364,18 +364,18 @@ class _LedgerSheetState extends ConsumerState<_LedgerSheet> {
           ],
           if (_kind == 'bank') ...[
             const SizedBox(height: 12),
-            TextFormField(controller: _bankName, decoration: const InputDecoration(labelText: 'Bank name')),
+            FormFieldBox(label: 'Bank name', child: TextFormField(controller: _bankName, decoration: const InputDecoration())),
             const SizedBox(height: 10),
             Row(children: [
               Expanded(
-                child: TextFormField(
-                    controller: _bankAcc, decoration: const InputDecoration(labelText: 'Account number')),
+                child: FormFieldBox(label: 'Account number', child: TextFormField(
+                    controller: _bankAcc, decoration: const InputDecoration())),
               ),
               const SizedBox(width: 10),
-              Expanded(child: TextFormField(controller: _ifsc, decoration: const InputDecoration(labelText: 'IFSC'))),
+              Expanded(child: FormFieldBox(label: 'IFSC', child: TextFormField(controller: _ifsc, decoration: const InputDecoration()))),
             ]),
             const SizedBox(height: 10),
-            TextFormField(controller: _branch, decoration: const InputDecoration(labelText: 'Branch')),
+            FormFieldBox(label: 'Branch', child: TextFormField(controller: _branch, decoration: const InputDecoration())),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               value: _defaultBank,
@@ -388,14 +388,14 @@ class _LedgerSheetState extends ConsumerState<_LedgerSheet> {
           const SizedBox(height: 12),
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Expanded(
-              child: TextFormField(
+              child: FormFieldBox(label: 'Opening balance (₹)', child: TextFormField(
                 controller: _opening,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
-                decoration: const InputDecoration(labelText: 'Opening balance (₹)', hintText: '0.00'),
+                decoration: const InputDecoration(hintText: '0.00'),
                 validator: (v) =>
                     (v ?? '').trim().isNotEmpty && double.tryParse(v!.trim()) == null ? 'Enter an amount' : null,
-              ),
+              )),
             ),
             const SizedBox(width: 10),
             Padding(
