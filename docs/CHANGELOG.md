@@ -4,6 +4,15 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-10 (s)
+
+### feat: Help in the app
+
+**Help** is now in the phone's More sheet (below Language) and the desktop account menu. It opens the user guide in a new
+tab, already filtered to the signed-in person's role (resident, guard, staff, manager, committee/admin). The guide is served
+by the web app itself from `mobile/web/help/` (a copy of `docs/user-guide/`; see its README; a test keeps the two equal),
+and has a "Download as PDF" link. Hindi/Marathi labels for the entry. Web build only: a device build has no browser page to open.
+
 ## 2026-10-10 (r)
 
 ### docs: the help guide covers everything built since it was written

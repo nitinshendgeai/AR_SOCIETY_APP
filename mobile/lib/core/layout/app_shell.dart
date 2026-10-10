@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/help/help_launcher.dart';
 import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/l10n/language_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -478,6 +479,7 @@ class _UserMenu extends ConsumerWidget {
         if (v == 'logout') _signOut(context, ref);
         if (v == 'devices') context.go(AppRoutes.activeDevices);
         if (v == 'language') showLanguagePicker(context, ref);
+        if (v == 'help') openHelp(user);
       },
       itemBuilder: (_) => [
         PopupMenuItem<String>(
@@ -497,6 +499,15 @@ class _UserMenu extends ConsumerWidget {
             Text(context.tr('Language')),
           ]),
         ),
+        if (helpAvailable)
+          PopupMenuItem<String>(
+            value: 'help',
+            child: Row(children: [
+              const Icon(Icons.help_outline_rounded, size: 18, color: AppTheme.textSecondary),
+              const SizedBox(width: 10),
+              Text(context.tr('Help')),
+            ]),
+          ),
         PopupMenuItem<String>(
           value: 'devices',
           child: Row(children: [

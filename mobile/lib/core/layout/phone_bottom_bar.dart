@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ar_society_app/core/l10n/app_locale.dart';
+import 'package:ar_society_app/core/help/help_launcher.dart';
 import 'package:ar_society_app/core/l10n/language_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -61,7 +62,7 @@ class PhoneBottomBar extends ConsumerWidget {
       selectedIndex: active ?? tabs.length,
       onDestinationSelected: (i) {
         if (i == tabs.length) {
-          _showMore(context, ref, menu);
+          _showMore(context, ref, menu, user);
         } else {
           context.go(tabs[i].route);
         }
@@ -79,7 +80,7 @@ class PhoneBottomBar extends ConsumerWidget {
   }
 }
 
-void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu) {
+void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, UserEntity user) {
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -107,6 +108,16 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu) 
               },
             ),
           ),
+          if (helpAvailable)
+            ListTile(
+              leading: const Icon(Icons.help_outline_rounded, color: AppTheme.textSecondary),
+              title: Text(ctx.tr('Help')),
+              subtitle: Text(ctx.tr('How to use the app')),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                openHelp(user);
+              },
+            ),
           const Divider(height: 8),
           for (final c in menu) ...[
             Padding(
