@@ -4,6 +4,17 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-10 (z)
+
+### fix: page header lines up with the page on wide screens (accounts ledger and every `AppPage` screen)
+
+On a wide monitor (content column centred, over about 1350 px) the title, tabs and buttons sat 16 px left of the cards below
+them, and the right-hand button stopped 25-40 px short of the right edge (seen on the Cash in Hand ledger). Two causes, both
+in `AppPage`/`HeaderActionButton`: the header was inset 32 px from the column while the body is 16 + each screen's own 16, and
+buttons written for a phone app bar carried a 24 px right margin and a trailing spacer. Header, tabs and body now share one
+inset, the spacer is dropped on a computer, and `HeaderActionButton` has no right margin there. Tests: `app_form_test.dart`
+(1280 and 2560 wide).
+
 ## 2026-10-10 (y)
 
 ### feat: pick-from-a-list sheets and the last hand-built sheets on the shared sheet frame
