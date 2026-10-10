@@ -4,6 +4,22 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-10 (p)
+
+### feat: resident import also reads flat type, area and a purchase date
+
+The resident import (CSV) now reads, for each flat:
+- **Flat Type** — "1 BHK", "2bhk", "2-BHK", "2", "3 BHK", "4 BHK", "Studio" (also "1 RK"), "Penthouse", "Duplex", "Shop",
+  "Office". 5 BHK and above are kept as "Other" (the preview says so). Saved as the flat's type.
+- **Area (sq ft)** — "650", "650.5", "1,050", "650 sq ft"; an area in square metres ("60 sq m") is converted. Saved as the
+  flat's area, which the maintenance calculation uses (per-sq-ft rates and area-based splits) and the bill prints.
+- **Purchase date** — a sheet that has "Date of Purchase" / "Purchase Date" instead of the possession date is read the same
+  way; if a sheet has both, the possession date is used (the purchase date stands in when that cell is empty).
+
+Columns are found by their headings in any order ("Carpet Area (Sq.Ft.)", "BHK", "Date of Purchase" …). The template has
+the two new columns at the end, so files made from the earlier template still import. Unreadable values are listed as
+row errors in the preview, like the other columns. The resident detail page now shows the flat's type and area.
+
 ## 2026-10-09 (o)
 
 ### feat: Hindi and Marathi groundwork — app language and Devanagari certificates
