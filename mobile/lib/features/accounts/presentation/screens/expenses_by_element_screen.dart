@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -130,7 +131,7 @@ class _ExpensesByElementScreenState extends ConsumerState<ExpensesByElementScree
               const SizedBox(height: 10),
               async.when(
                 loading: () => const Padding(
-                    padding: EdgeInsets.only(top: 80), child: Center(child: CircularProgressIndicator(color: AppTheme.primary))),
+                    padding: EdgeInsets.only(top: 80), child: const AppLoader()),
                 error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
                 data: (r) => _body(r, elements),
               ),

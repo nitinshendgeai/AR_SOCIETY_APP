@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -81,7 +82,7 @@ class _PlatformConsoleScreenState extends ConsumerState<PlatformConsoleScreen> w
           ),
           const SizedBox(height: 12),
           list.when(
-            loading: () => const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator(color: AppTheme.primary))),
+            loading: () => const AppLoader(),
             error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
             data: (rows) => rows.isEmpty
                 ? const Padding(padding: EdgeInsets.only(top: 24), child: AppEmptyState(icon: Icons.apartment_rounded, title: 'No society matches'))
@@ -143,7 +144,7 @@ class _ActivityTab extends ConsumerWidget {
         maxWidth: 820,
         child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 40), children: [
           async.when(
-            loading: () => const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator())),
+            loading: () => const AppLoader(),
             error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
             data: (rows) => rows.isEmpty
                 ? const Padding(padding: EdgeInsets.only(top: 24), child: AppEmptyState(icon: Icons.history_rounded, title: 'Nothing yet', subtitle: 'Suspensions, activations, extended trials and changed limits are listed here.'))

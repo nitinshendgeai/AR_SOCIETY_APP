@@ -1,4 +1,5 @@
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -184,7 +185,7 @@ class _VendorBillsScreenState extends ConsumerState<VendorBillsScreen> {
           ),
           Expanded(
             child: invoicesAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const SkeletonList(),
               error: (e, _) => Center(
                   child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
               data: (invoices) {

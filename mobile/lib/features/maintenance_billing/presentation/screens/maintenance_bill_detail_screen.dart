@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
@@ -159,7 +160,7 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
       ),
       bottomNavigationBar: billAsync.valueOrNull == null ? null : _actions(billAsync.value!),
       body: billAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AppLoader(),
         error: (e, _) => Center(
             child: Padding(
           padding: const EdgeInsets.all(24),

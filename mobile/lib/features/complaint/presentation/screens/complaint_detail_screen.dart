@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -242,9 +243,7 @@ class _ComplaintDetailScreenState
 
   Widget _buildBody(ComplaintDetailState state) {
     if (state is ComplaintDetailLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppTheme.primary),
-      );
+      return const AppLoader();
     }
     if (state is ComplaintDetailError) {
       return Center(

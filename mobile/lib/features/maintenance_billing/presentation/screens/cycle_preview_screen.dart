@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -72,7 +73,7 @@ class _CyclePreviewScreenState extends ConsumerState<CyclePreviewScreen> {
               ),
             ),
       body: previewAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AppLoader(),
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),

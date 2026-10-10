@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
@@ -79,8 +80,7 @@ class _DutiesScreenState extends ConsumerState<DutiesScreen> {
         ],
       ),
       body: switch (state) {
-        DutyLoading() => const Center(
-            child: CircularProgressIndicator(color: AppTheme.primary)),
+        DutyLoading() => const AppLoader(),
         DutyError(:final message) => Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -98,7 +98,7 @@ class _DutiesScreenState extends ConsumerState<DutiesScreen> {
             duties: duties,
             staffId: widget.staffId,
           ),
-        _ => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+        _ => const AppLoader(),
       },
     );
   }

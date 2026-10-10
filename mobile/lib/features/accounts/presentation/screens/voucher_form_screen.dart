@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:ar_society_app/features/vendor/presentation/widgets/vendor_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -262,7 +263,7 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
       body: loadError != null
           ? Center(child: Text(friendlyErrorMessage(loadError), style: const TextStyle(color: AppTheme.error)))
           : (ledgersAsync.isLoading && ledgers.isEmpty) || (_isEdit && editing == null)
-              ? const Center(child: CircularProgressIndicator())
+              ? const AppLoader()
               : editing != null && !editing.canEdit
                   ? Center(
                       child: Padding(

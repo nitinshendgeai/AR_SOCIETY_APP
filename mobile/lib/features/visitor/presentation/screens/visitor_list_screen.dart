@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -112,7 +113,7 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
 
   Widget _buildBody(VisitorListState state) {
     if (state is VisitorListLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+      return const SkeletonList();
     }
     if (state is VisitorListError) {
       return Center(

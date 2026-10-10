@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -33,12 +34,12 @@ class FormsMatrixScreen extends ConsumerWidget {
         ],
       ),
       body: formsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AppLoader(),
         error: (e, _) => Center(
             child: Text(friendlyErrorMessage(e),
                 style: const TextStyle(color: AppTheme.error))),
         data: (forms) => matrixAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const AppLoader(),
           error: (e, _) => Center(
               child: Text(friendlyErrorMessage(e),
                   style: const TextStyle(color: AppTheme.error))),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -339,9 +340,7 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
 
   Widget _buildBody(ComplaintListState state) {
     if (state is ComplaintListLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppTheme.primary),
-      );
+      return const SkeletonList();
     }
     if (state is ComplaintListError) {
       return SingleChildScrollView(

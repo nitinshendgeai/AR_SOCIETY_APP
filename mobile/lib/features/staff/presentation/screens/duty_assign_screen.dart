@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -128,7 +129,7 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
             _Label('Assign to  (${_staffIds.length} selected)'),
             const SizedBox(height: 8),
             if (staffState is StaffListLoading)
-              const Center(child: CircularProgressIndicator(color: AppTheme.primary))
+              const AppLoader()
             else
               _StaffPicker(
                 staff: staffList,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -77,7 +78,7 @@ class FlatChargesTab extends ConsumerWidget {
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(flatChargesProvider(societyId)),
       child: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AppLoader(),
         error: (e, _) => ListView(children: [
           Padding(
             padding: const EdgeInsets.all(24),

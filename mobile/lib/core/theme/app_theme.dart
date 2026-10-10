@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:ar_society_app/core/motion/motion.dart';
 
 /// Design language: a native-feeling, iOS-inspired system — vivid single
 /// accent, layered neutral grays instead of heavy borders, generous corner
@@ -90,6 +91,13 @@ class AppTheme {
     statusBarBrightness: Brightness.light,
   );
 
+  /// Buttons rise a little under the pointer and settle when pressed, so they feel like something you can push.
+  static final WidgetStateProperty<double> _liftOnHover = WidgetStateProperty.resolveWith((states) {
+    if (states.contains(WidgetState.disabled) || states.contains(WidgetState.pressed)) return 0;
+    if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) return 3;
+    return 0;
+  });
+
   static ThemeData get lightTheme {
     const onSurfaceVariant = textSecondary;
 
@@ -121,6 +129,19 @@ class AppTheme {
       fontFamily: _fontFamily, fontFamilyFallback: _fontFallback,
       textTheme: textTheme,
       splashFactory: InkSparkle.splashFactory,
+      // Every page, on every platform, fades in and rises a few pixels (see AppPageTransitions).
+      pageTransitionsTheme: PageTransitionsTheme(
+        builders: {for (final p in TargetPlatform.values) p: const AppPageTransitions()},
+      ),
+      // Every spinner and progress bar in the app: the brand blue, round ends, no grey track.
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: primary,
+        circularTrackColor: Colors.transparent,
+        linearTrackColor: primarySoft,
+        linearMinHeight: 3,
+        strokeWidth: 3,
+        strokeCap: StrokeCap.round,
+      ),
       colorScheme: ColorScheme.fromSeed(
         seedColor: primary,
         brightness: Brightness.light,
@@ -135,6 +156,8 @@ class AppTheme {
       scaffoldBackgroundColor: surface,
       splashColor: primary.withOpacity(0.06),
       highlightColor: Colors.transparent,
+      hoverColor: primary.withOpacity(0.04),
+      focusColor: primary.withOpacity(0.10),
 
       appBarTheme: AppBarTheme(
         backgroundColor: surface,
@@ -163,6 +186,10 @@ class AppTheme {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusM)),
           textStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.1),
         ).copyWith(
+          animationDuration: AppMotion.base,
+          mouseCursor: const WidgetStatePropertyAll(SystemMouseCursors.click),
+          elevation: _liftOnHover,
+          shadowColor: WidgetStatePropertyAll(primary.withOpacity(0.35)),
           overlayColor: WidgetStateProperty.resolveWith(
             (states) => states.contains(WidgetState.pressed) ? Colors.white.withOpacity(0.14) : null,
           ),
@@ -333,12 +360,6 @@ class AppTheme {
         ),
       ),
 
-      progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: primary,
-        linearTrackColor: surface,
-        circularTrackColor: surface,
-      ),
-
       tabBarTheme: TabBarThemeData(
         labelColor: primary,
         unselectedLabelColor: textSecondary,
@@ -438,6 +459,10 @@ class AppTheme {
             return primary;
           }),
           overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          animationDuration: AppMotion.base,
+          mouseCursor: const WidgetStatePropertyAll(SystemMouseCursors.click),
+          elevation: _liftOnHover,
+          shadowColor: WidgetStatePropertyAll(primary.withOpacity(0.35)),
         ),
       ),
 
@@ -448,6 +473,11 @@ class AppTheme {
           visualDensity: VisualDensity.standard,
           shape: buttonShape,
           textStyle: buttonText,
+        ).copyWith(
+          animationDuration: AppMotion.base,
+          mouseCursor: const WidgetStatePropertyAll(SystemMouseCursors.click),
+          elevation: _liftOnHover,
+          shadowColor: WidgetStatePropertyAll(primary.withOpacity(0.30)),
         ),
       ),
 
@@ -462,6 +492,12 @@ class AppTheme {
           shape: buttonShape,
           textStyle: buttonText,
         ).copyWith(
+          animationDuration: AppMotion.base,
+          mouseCursor: const WidgetStatePropertyAll(SystemMouseCursors.click),
+          // The border picks up the accent when the pointer is over it.
+          side: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)
+              ? const BorderSide(color: primary)
+              : const BorderSide(color: Color(0xFFD1D1D6))),
           overlayColor: WidgetStateProperty.resolveWith(
             (states) => states.contains(WidgetState.hovered) || states.contains(WidgetState.pressed)
                 ? textPrimary.withOpacity(0.05)
@@ -477,6 +513,14 @@ class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           shape: buttonShape,
           textStyle: buttonText,
+        ).copyWith(
+          animationDuration: AppMotion.base,
+          mouseCursor: const WidgetStatePropertyAll(SystemMouseCursors.click),
+          overlayColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.pressed)) return primary.withOpacity(0.14);
+            if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) return primary.withOpacity(0.08);
+            return null;
+          }),
         ),
       ),
 

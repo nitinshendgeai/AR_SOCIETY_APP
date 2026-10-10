@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -222,7 +223,7 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
           ),
           Expanded(
             child: paymentsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const SkeletonList(),
               error: (e, _) => Center(
                   child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
               data: (payments) {

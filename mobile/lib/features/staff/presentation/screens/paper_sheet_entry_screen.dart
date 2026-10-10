@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -208,7 +209,7 @@ class _PaperSheetEntryScreenState extends ConsumerState<PaperSheetEntryScreen> {
       backgroundColor: AppTheme.surface,
       appBar: AppBar(title: const Text('Enter from sheet')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
+          ? const AppLoader()
           : _error != null
               ? Center(
                   child: Column(mainAxisSize: MainAxisSize.min, children: [

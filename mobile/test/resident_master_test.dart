@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -328,13 +329,13 @@ void main() {
   // ── Resident list screen ──────────────────────────────────────────────
 
   group('ResidentListScreen', () {
-    testWidgets('shows loading indicator before data resolves', (tester) async {
+    testWidgets('shows placeholder rows before data resolves', (tester) async {
       final repo = ResidentMasterRepository(ds: _FakeDataSource());
       await tester.pumpWidget(_wrap(
         const ResidentListScreen(),
         overrides: [residentMasterRepositoryProvider.overrideWithValue(repo)],
       ));
-      expect(find.byType(CircularProgressIndicator), findsWidgets);
+      expect(find.byType(SkeletonList), findsOneWidget);
     });
 
     testWidgets('renders resident cards once loaded, with type + primary badge', (tester) async {

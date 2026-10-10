@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -111,7 +112,7 @@ class _CyclesTab extends ConsumerWidget {
         ref.invalidate(chargeHeadsProvider(societyId));
       },
       child: cyclesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AppLoader(),
         error: (e, _) => ListView(children: [
           Padding(
             padding: const EdgeInsets.all(24),
@@ -449,7 +450,7 @@ class _ChargeHeadsTab extends ConsumerWidget {
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(chargeHeadsProvider(societyId)),
       child: chargesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const AppLoader(),
         error: (e, _) => ListView(children: [
           Padding(
             padding: const EdgeInsets.all(24),
@@ -914,7 +915,7 @@ class _LoadFromElementsSheetState extends ConsumerState<_LoadFromElementsSheet> 
       child: elementsAsync.when(
         loading: () => const Padding(
           padding: EdgeInsets.all(24),
-          child: Center(child: CircularProgressIndicator()),
+          child: const AppLoader(),
         ),
         error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
         data: (elements) {
@@ -1091,7 +1092,7 @@ class _BudgetSuggestionSheetState extends ConsumerState<_BudgetSuggestionSheet> 
         async.when(
           loading: () => const Padding(
             padding: EdgeInsets.all(24),
-            child: Center(child: CircularProgressIndicator()),
+            child: const AppLoader(),
           ),
           error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
           data: (data) {
@@ -1220,7 +1221,7 @@ class _RulesTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ref.watch(maintenanceRulesProvider(societyId)).when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const AppLoader(),
           error: (e, _) => Center(
               child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
           data: (rules) => _RulesForm(societyId: societyId, rules: rules),

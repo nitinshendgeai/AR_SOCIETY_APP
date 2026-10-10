@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -209,7 +210,7 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
         Expanded(
           child: switch (state) {
             TenantListLoading() || TenantListInitial() =>
-              const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+              const SkeletonList(),
             TenantListError(:final message) => Center(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
                   Padding(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/data/repositories/auth_repository.dart';
@@ -71,7 +72,7 @@ class _ActiveDevicesScreenState extends ConsumerState<ActiveDevicesScreen> {
       ),
       body: ResponsiveBody(
         child: sessions.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+          loading: () => const AppLoader(),
           error: (e, _) => ListView(padding: const EdgeInsets.all(20), children: [
             AppErrorBanner(message: '$e'.replaceFirst('Exception: ', '')),
           ]),

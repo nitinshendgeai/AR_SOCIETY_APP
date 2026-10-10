@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -248,7 +249,7 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
         Expanded(
           child: switch (state) {
             ResidentListLoading() || ResidentListInitial() =>
-              const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+              const SkeletonList(),
             ResidentListError(:final message) => Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,

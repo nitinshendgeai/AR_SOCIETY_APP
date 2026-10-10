@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
@@ -24,7 +25,7 @@ class PlatformSocietyScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async => invalidatePlatform(ref),
         child: async.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+          loading: () => const AppLoader(),
           error: (e, _) => ListView(padding: const EdgeInsets.all(20), children: [AppErrorBanner(message: friendlyErrorMessage(e))]),
           data: (s) => ResponsiveBody(
             maxWidth: 760,

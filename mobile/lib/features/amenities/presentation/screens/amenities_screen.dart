@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -107,7 +108,7 @@ class _AmenityListState extends ConsumerState<_AmenityList> {
               child: FilterChip(label: const Text('Show closed ones'), selected: _closed, onSelected: (v) => setState(() => _closed = v)),
             ),
           async.when(
-            loading: () => const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator())),
+            loading: () => const SkeletonList(),
             error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
             data: (rows) => rows.isEmpty
                 ? Padding(
@@ -297,7 +298,7 @@ class _MyBookings extends ConsumerWidget {
         maxWidth: 820,
         child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 96), children: [
           async.when(
-            loading: () => const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator())),
+            loading: () => const SkeletonList(),
             error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
             data: (rows) => rows.isEmpty
                 ? const Padding(
@@ -325,7 +326,7 @@ class _Requests extends ConsumerWidget {
         maxWidth: 820,
         child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 96), children: [
           async.when(
-            loading: () => const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator())),
+            loading: () => const SkeletonList(),
             error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
             data: (rows) => rows.isEmpty
                 ? const Padding(
@@ -365,7 +366,7 @@ class _AllBookingsState extends ConsumerState<_AllBookings> {
           ]),
           const SizedBox(height: 10),
           async.when(
-            loading: () => const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator())),
+            loading: () => const SkeletonList(),
             error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
             data: (all) {
               final rows = _status == null ? all : all.where((b) => b.status == _status).toList();

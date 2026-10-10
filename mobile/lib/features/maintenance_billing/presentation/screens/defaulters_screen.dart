@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
@@ -192,7 +193,7 @@ class _DefaultersScreenState extends ConsumerState<DefaultersScreen> {
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(defaultersProvider(key)),
         child: async.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const SkeletonList(),
           error: (e, _) => ListView(children: [
             Padding(
               padding: const EdgeInsets.all(24),

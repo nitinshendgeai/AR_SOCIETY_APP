@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -117,7 +118,7 @@ class _EditMyProfileScreenState extends ConsumerState<EditMyProfileScreen> {
       appBar: AppBar(title: const Text('Edit My Info')),
       body: ResponsiveBody(
         child: residentAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const AppLoader(),
           error: (e, _) => Center(
             child: Padding(
               padding: const EdgeInsets.all(24),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/auth/biometric_preference.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart';
+import 'package:ar_society_app/core/motion/motion.dart';
 import 'package:ar_society_app/core/navigation/app_menu.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -105,7 +106,11 @@ class _DashboardShell extends ConsumerWidget {
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
-          children: [const _BiometricEnrollTrigger(), ...children],
+          children: [
+            const _BiometricEnrollTrigger(),
+            // Sections arrive one after another rather than all at once.
+            for (var i = 0; i < children.length; i++) AppReveal(index: i, child: children[i]),
+          ],
         ),
       ),
     );
@@ -307,7 +312,8 @@ class _QuickActionChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: InkWell(
+      child: PressableScale(
+        child: InkWell(
         onTap: onTap ?? (route == null ? null : () => context.push(route!)),
         borderRadius: BorderRadius.circular(12),
         child: Container(
@@ -324,6 +330,7 @@ class _QuickActionChip extends StatelessWidget {
             Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
           ]),
         ),
+      ),
       ),
     );
   }

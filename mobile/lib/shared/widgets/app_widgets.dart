@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
+import 'package:ar_society_app/core/motion/motion.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 
 // ── Responsive body wrapper ───────────────────────────────────────────────
@@ -62,32 +63,47 @@ class AppLoadingOverlay extends StatelessWidget {
     return Stack(
       children: [
         child,
-        if (isLoading)
-          Positioned.fill(
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 120),
-              opacity: 1,
-              child: Container(
-                color: AppTheme.textPrimary.withOpacity(0.12),
-                child: Center(
-                  child: Container(
-                    width: 84,
-                    height: 84,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cardBg,
-                      borderRadius: BorderRadius.circular(AppTheme.radiusL),
-                      boxShadow: AppTheme.cardShadow,
+        // The scrim fades in and the card eases up from slightly smaller, then both fade out when the work is
+        // done, instead of the whole screen flicking dark and light.
+        Positioned.fill(
+          child: IgnorePointer(
+            ignoring: !isLoading,
+            child: AnimatedSwitcher(
+              duration: AppMotion.base,
+              switchInCurve: AppMotion.curve,
+              transitionBuilder: (child, animation) =>
+                  FadeTransition(opacity: animation, child: child),
+              child: !isLoading
+                  ? const SizedBox.shrink(key: ValueKey('idle'))
+                  : Container(
+                      key: const ValueKey('busy'),
+                      color: AppTheme.textPrimary.withOpacity(0.12),
+                      child: Center(
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0.9, end: 1),
+                          duration: AppMotion.slow,
+                          curve: Curves.easeOutBack,
+                          builder: (context, scale, child) =>
+                              Transform.scale(scale: scale, child: child),
+                          child: Container(
+                            width: 84,
+                            height: 84,
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: AppTheme.cardBg,
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.radiusL),
+                              boxShadow: AppTheme.cardShadow,
+                            ),
+                            child: const CircularProgressIndicator(
+                                strokeWidth: 2.6),
+                          ),
+                        ),
+                      ),
                     ),
-                    child: const CircularProgressIndicator(
-                      color: AppTheme.primary,
-                      strokeWidth: 2.6,
-                    ),
-                  ),
-                ),
-              ),
             ),
           ),
+        ),
       ],
     );
   }
@@ -157,30 +173,47 @@ class AppPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
-        child: isLoading
-            ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: Colors.white,
-                ),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (icon != null) ...[
-                    Icon(icon, size: 20),
-                    const SizedBox(width: 8),
-                  ],
-                  Text(label),
-                ],
-              ),
+    // The button presses in under a finger or click; while it works the label gives way to a spinner (and back)
+    // with a short cross-fade rather than jumping.
+    return PressableScale(
+      enabled: onPressed != null && !isLoading,
+      child: SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: ElevatedButton(
+          onPressed: isLoading ? null : onPressed,
+          child: AnimatedSwitcher(
+            duration: AppMotion.base,
+            switchInCurve: AppMotion.curve,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(
+                  scale: Tween<double>(begin: 0.85, end: 1).animate(animation),
+                  child: child),
+            ),
+            child: isLoading
+                ? const SizedBox(
+                    key: ValueKey('busy'),
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  )
+                : Row(
+                    key: const ValueKey('label'),
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (icon != null) ...[
+                        Icon(icon, size: 20),
+                        const SizedBox(width: 8),
+                      ],
+                      Text(label),
+                    ],
+                  ),
+          ),
+        ),
       ),
     );
   }
@@ -335,64 +368,82 @@ class KpiCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Shadow sits on an outer box *behind* the white card: painted on a
     // transparent box above the Material it tinted the whole card gray.
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppTheme.radiusL),
-        boxShadow: AppTheme.cardShadow,
-      ),
-      child: Material(
-        color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(AppTheme.radiusL),
-        child: InkWell(
-          onTap: onTap,
+    return PressableScale(
+      enabled: onTap != null,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(10),
+          boxShadow: AppTheme.cardShadow,
+        ),
+        child: Material(
+          color: AppTheme.cardBg,
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(AppTheme.radiusL),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(icon, color: color, size: 17),
                       ),
-                      child: Icon(icon, color: color, size: 17),
-                    ),
-                    const Spacer(),
-                    if (onTap != null)
-                      Icon(Icons.chevron_right_rounded, color: color.withOpacity(0.6), size: 16),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+                      const Spacer(),
+                      if (onTap != null)
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: color.withOpacity(0.6),
+                          size: 16,
+                        ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(label,
+                  const SizedBox(height: 10),
+                  Text(
+                    value,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
-                if (note != null) ...[
-                  const SizedBox(height: 3),
-                  Text(note!,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (note != null) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      note!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11, color: AppTheme.textTertiary)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.textTertiary,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

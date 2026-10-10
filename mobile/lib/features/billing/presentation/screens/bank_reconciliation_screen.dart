@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -252,7 +253,7 @@ class _BankReconciliationScreenState extends ConsumerState<BankReconciliationScr
           ),
           Expanded(
             child: entriesAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const AppLoader(),
               error: (e, _) => Center(
                   child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
               data: (entries) {
@@ -435,7 +436,7 @@ class _MatchEntrySheetState extends ConsumerState<_MatchEntrySheet> {
             const SizedBox(height: 8),
             Expanded(
               child: candidatesAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading: () => const AppLoader(),
                 error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
                 data: (candidates) {
                   if (candidates.isEmpty) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:ar_society_app/features/vendor/presentation/widgets/vendor_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -66,7 +67,7 @@ class RecurringExpensesScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             const _Title('Due now'),
             due.when(
-              loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator())),
+              loading: () => const Padding(padding: EdgeInsets.all(24), child: const AppLoader()),
               error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
               data: (rows) => rows.isEmpty
                   ? Card(

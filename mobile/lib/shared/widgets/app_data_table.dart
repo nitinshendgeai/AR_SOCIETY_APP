@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/motion/loading.dart';
+import 'package:ar_society_app/core/motion/motion.dart';
 import 'package:intl/intl.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 
@@ -173,10 +175,7 @@ class _AppDataTableState<T> extends State<AppDataTable<T>> {
         _header(),
         const Divider(height: 1),
         if (widget.loading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 48),
-            child: Center(child: CircularProgressIndicator(color: AppTheme.primary)),
-          )
+          _skeletonRows()
         else if (widget.error != null)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 16),
@@ -199,7 +198,7 @@ class _AppDataTableState<T> extends State<AppDataTable<T>> {
         else
           for (var i = 0; i < visible.length; i++) ...[
             if (i > 0) const Divider(height: 1),
-            _row(visible[i]),
+            AppReveal(index: i, child: _row(visible[i])),
           ],
         if (total > 0 && !widget.loading && widget.error == null) ...[
           const Divider(height: 1),
@@ -208,6 +207,42 @@ class _AppDataTableState<T> extends State<AppDataTable<T>> {
       ]),
     );
   }
+
+  /// Grey bars where the cells will be, shimmering, in the table's own columns.
+  Widget _skeletonRows() => Semantics(
+        label: 'Loading',
+        liveRegion: true,
+        child: Shimmer(
+          child: Column(children: [
+            for (var r = 0; r < 6; r++) ...[
+              if (r > 0) const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: SizedBox(
+                  height: 36,
+                  child: Row(children: [
+                    for (var c = 0; c < widget.columns.length; c++)
+                      _sized(
+                        widget.columns[c],
+                        Padding(
+                          padding: const EdgeInsets.only(right: 16),
+                          child: Align(
+                            alignment: widget.columns[c].numeric ? Alignment.centerRight : Alignment.centerLeft,
+                            child: FractionallySizedBox(
+                              widthFactor: 0.45 + ((r * 3 + c * 2) % 5) * 0.1,
+                              child: const SkeletonBox(height: 12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (widget.actions != null) SizedBox(width: widget.actionsWidth),
+                  ]),
+                ),
+              ),
+            ],
+          ]),
+        ),
+      );
 
   Widget _header() => Container(
         color: AppTheme.surface.withOpacity(0.6),
