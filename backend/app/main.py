@@ -44,6 +44,10 @@ app = FastAPI(
     default_response_class=UtcJSONResponse,
 )
 
+# ── Automatic tasks ──────────────────────────────────────────────────────────
+from app.modules.automation import scheduler  # noqa: E402
+scheduler.start()
+
 # ── Exception handlers ────────────────────────────────────────────────────────
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(IntegrityError, integrity_error_handler)

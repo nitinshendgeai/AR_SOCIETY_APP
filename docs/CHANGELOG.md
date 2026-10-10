@@ -4,6 +4,96 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-09 (o)
+
+### feat: Hindi and Marathi groundwork — app language and Devanagari certificates
+
+(`docs/LANGUAGES.md`)
+- **Language choice** — English, हिन्दी, मराठी. On a phone: More → Language (top of the sheet); on desktop: the account
+  menu. Remembered on the device. Dates, date pickers and system dialogs follow the language too.
+- **What is translated now** — the whole navigation (menu groups and items, bottom bar, breadcrumbs, account menu) and the
+  screens added in this release (meetings, polls, documents, certificates, parcels, domestic help, automatic tasks:
+  titles, buttons, statuses). Everything else still shows English until its texts are added to
+  `mobile/lib/core/l10n/translations.dart`; a text with no entry falls back to English.
+- **Devanagari font** — Noto Sans Devanagari (SIL OFL) is bundled in the app, so Hindi and Marathi never depend on a
+  network font.
+- **Certificates in Hindi / Marathi** — the approved certificate downloads as a PDF in English, हिन्दी or मराठी
+  (`GET /certificates/{id}/pdf?lang=hi|mr`). reportlab cannot shape Devanagari, so these use fpdf2 + HarfBuzz
+  (`fpdf2`, `uharfbuzz` added to requirements, with hashes).
+- `intl` raised to ^0.20.2 (needed by `flutter_localizations`).
+
+The Hindi and Marathi wording was written without a native reviewer: please have it checked before it goes on real
+documents.
+
+## 2026-10-09 (n)
+
+### feat: parcels at the gate and a domestic help register
+
+Two new screens under Community (`docs/GATE_EXTRAS.md`):
+- **Parcels** — security logs a parcel for a flat (courier, name on it); the flat is notified at once. Security hands it
+  over (recording who collected it) or returns it to the courier; a resident can also mark their own parcel collected.
+- **Domestic help** — residents register their maid, cook or driver; the office issues a numbered pass
+  (`DH-0001`, valid a year, with a printable QR card) after checking. One person working in several flats is one
+  record. Security searches by name, mobile or pass number and taps Check in / Check out; the flats are told, and a
+  suspended or expired pass is refused at entry (leaving is always allowed). Entry history is kept for 30 days+.
+
+Migration `d3b0213c4d5e` adds four tables and grants both screens to every role (idempotent).
+
+## 2026-10-09 (m)
+
+### feat: NOC and certificate requests
+
+A member asks for a certificate from **Certificates & NOC** (Community menu); the Society Admin or committee approves
+or declines it, and the member downloads a PDF on the society's letterhead (`docs/CERTIFICATES.md`).
+- Types: NOC for sale / letting / home loan / renovation, no dues certificate, address certificate, other.
+- NOCs for sale, letting and loan, and the no dues certificate, check the flat's dues: approval is refused (409)
+  with the amount unless the committee chooses "Approve anyway"; the amount is then printed on the certificate.
+- Numbers run per society and financial year (`NOC/2026-27/0001`, `ND/…`, `AP/…`).
+- The office is notified of each request and the member of the decision; a decline needs a reason.
+- A tenant may ask only for an address certificate; one pending request of a kind per flat; a member can withdraw.
+
+Migration `c2a9102b3c4d` adds the table and grants the screen to every role (idempotent).
+
+## 2026-10-09 (l)
+
+### feat: meetings, polls and a documents library
+
+Three new screens under Community (`docs/GOVERNANCE.md`):
+- **Meetings** — the office schedules a meeting (optionally announcing it to every resident and tenant), then records
+  minutes, who attended and the resolutions. Minutes stay with the office until published.
+- **Polls** — one vote per flat, with a closing date. Results show after a person has voted (or once the poll closes),
+  as totals only; nobody can see how a flat voted.
+- **Documents** — bye-laws, audit reports, circulars and so on, stored in the database (10 MB each), visible to
+  everyone or to the committee only.
+
+Migration `b1f8091a2b3c` adds the tables and grants the three screens to every role (idempotent). Fixed on the way: rows
+placed inside a coloured card hid their tap feedback.
+
+## 2026-10-09 (k)
+
+### feat: automatic tasks
+
+Reminders that waited for someone to press a button now run by themselves (`docs/AUTOMATION.md`): tenant agreement alerts
+at 30 and 7 days, a weekly asset service and warranty digest, a weekly "bills not started" reminder, expiry of visitor
+requests nobody answered in 24 hours, and an optional maintenance-dues reminder to members (off until switched on, no
+more often than every N days). A background loop runs them each morning in the society's time; each run for a period is
+claimed by a database row, so several workers cannot repeat it. **Administration → Automatic tasks** shows each task,
+its switch, what it did last, and **Run now**. Migration `a0e7f8091a2b` (tables, and the screen's grant to Society Admin
+and committee roles). Money-moving steps (late fees, generating bills, posting expenses) stay manual.
+
+## 2026-10-09 (j)
+
+### feat: bottom bar on phones
+
+On a phone every page was reached through the menu icon and a "Dashboard" back link. A bottom bar now carries **Home**,
+three screens for the person's role, and **More** (the whole menu in a sheet):
+
+- Resident: Bills, Visitors, Notices. Admin, committee and manager: Visitors, Complaints, Billing (the society-wide
+  lists). Security: Visitors, Notices, Complaints. Others: Notices, Complaints, Visitors.
+- Only screens the person is allowed to open are offered; Visitors shows how many are waiting for a resident's approval.
+- It shows on the pages people move between (the tabs and the menu's own pages) and steps aside on a record or form
+  opened from them, which has its own back arrow. The Platform Console has no bar.
+
 ## 2026-10-09 (i)
 
 ### feat: admin dashboard that shows how the society is doing

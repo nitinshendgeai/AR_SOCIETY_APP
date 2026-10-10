@@ -51,15 +51,15 @@ def test_gaps_in_old_dashboard_logic_are_preserved_by_default():
     and collect quotations for the committee to sanction) were added to Manager's default grants (see
     FORM_ROLE_GRANTS)."""
     codes_by_role = default_role_form_codes()
-    assert set(codes_by_role.get("Platform Admin", [])) == {"visitors", "complaints", "notices", "amenities", "platform_admin"}
+    assert set(codes_by_role.get("Platform Admin", [])) == {"visitors", "complaints", "notices", "amenities", "platform_admin", "meetings", "polls", "documents", "certificates", "parcels", "domestic_help"}
     for role_name in ("Gym Trainer", "Tenant"):
-        assert set(codes_by_role.get(role_name, [])) == {"visitors", "complaints", "notices", "amenities"}, (
+        assert set(codes_by_role.get(role_name, [])) == {"visitors", "complaints", "notices", "amenities", "meetings", "polls", "documents", "certificates", "parcels", "domestic_help"}, (
             f"{role_name} unexpectedly has default form grants: {codes_by_role.get(role_name)}"
         )
     assert set(codes_by_role.get("Manager", [])) == {
         "visitors", "complaints", "notices", "online_payments", "bank_reconciliation", "vendor_bills",
         "maintenance_billing", "maintenance_elements", "staff", "checklist_templates", "accounts", "defaulters",
-        "vendors", "assets", "inventory", "amenities",
+        "vendors", "assets", "inventory", "amenities", "meetings", "polls", "documents", "certificates", "parcels", "domestic_help",
     }
 
 
@@ -113,13 +113,13 @@ def test_my_forms_returns_default_grants_for_own_role(client, db):
     assert set(r.json()["form_codes"]) == {
         "visitors", "complaints", "notices", "online_payments", "bank_reconciliation", "vendor_bills",
         "maintenance_billing", "maintenance_elements", "staff", "checklist_templates", "accounts", "defaulters",
-        "vendors", "assets", "inventory", "amenities",
+        "vendors", "assets", "inventory", "amenities", "meetings", "polls", "documents", "certificates", "parcels", "domestic_help",
     }
 
     resident = make_user(db, "formsres4@rbac.com", role="Resident")
     r2 = client.get("/api/v1/roles/forms/mine", headers=resident["headers"])
     assert r2.status_code == 200
-    assert set(r2.json()["form_codes"]) == {"visitors", "complaints", "notices", "amenities", "edit_my_info", "my_bills"}
+    assert set(r2.json()["form_codes"]) == {"visitors", "complaints", "notices", "amenities", "edit_my_info", "my_bills", "meetings", "polls", "documents", "certificates", "parcels", "domestic_help"}
 
 
 def test_admin_can_grant_form_and_it_takes_effect_immediately(client, db):

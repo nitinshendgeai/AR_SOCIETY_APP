@@ -1,7 +1,11 @@
 """Staff attendance workflow tests — edge cases and validation."""
 import pytest
 from datetime import date
+from app.utils.local_time import local_today, zone
 from tests.conftest import make_user, make_society
+
+# The society's own date: the server's is a different day for a few hours every night.
+local_date_today = lambda: local_today(zone(None))   # noqa: E731
 
 
 def _make_staff(db, society_id, name="Guard One"):
@@ -57,7 +61,7 @@ def test_checkin_checkout_working_hours(client, db):
     # Manual attendance insertion to simulate 8h shift
     att = StaffAttendance(
         society_id=society.id, staff_id=staff.id,
-        attendance_date=date.today(), status=AttendanceStatus.PRESENT,
+        attendance_date=local_date_today(), status=AttendanceStatus.PRESENT,
         check_in_time=datetime.utcnow() - timedelta(hours=8),
     )
     db.add(att); db.commit()
@@ -79,7 +83,7 @@ def test_duplicate_checkout_prevented(client, db):
 
     att = StaffAttendance(
         society_id=society.id, staff_id=staff.id,
-        attendance_date=date.today(), status=AttendanceStatus.PRESENT,
+        attendance_date=local_date_today(), status=AttendanceStatus.PRESENT,
         check_in_time=datetime.utcnow() - timedelta(hours=9),
         check_out_time=datetime.utcnow(),  # already checked out
     )
@@ -101,7 +105,7 @@ def test_pending_attendance_approval_list_and_approve(client, db):
     att = StaffAttendance(
         society_id=society.id,
         staff_id=staff.id,
-        attendance_date=date.today(),
+        attendance_date=local_date_today(),
         status=AttendanceStatus.PRESENT,
         check_in_time=datetime.utcnow() - timedelta(hours=7),
         check_out_time=datetime.utcnow(),

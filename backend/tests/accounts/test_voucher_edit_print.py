@@ -8,33 +8,42 @@ from app.modules.accounts.models.accounts import Voucher, VoucherRevision
 from tests.accounts.test_accounts import _balance, _issued_bills
 from tests.accounts.test_reports import _books, _ledgers, _voucher
 from tests.billing.test_maintenance_billing import _rig
+from tests.conftest import make_user
 
 API = "/api/v1/accounts"
 
 
-def _payment(client, h, sid, L, amount="8450", d="2026-09-15"):
+def _payment(client, h, sid, L, amount="8450", d="2026-09-15", approver=None):
     return _voucher(client, h, sid, "payment", d, [
         {"account_id": L["electricity"]["id"], "debit": amount},
-        {"account_id": L["bank"]["id"], "credit": amount}])
+        {"account_id": L["bank"]["id"], "credit": amount}], approver=approver)
 
 
-def _edit(client, h, vid, d, entries, reason="Typed the wrong amount", expect=200, **extra):
+def _edit(client, h, vid, d, entries, reason="Typed the wrong amount", expect=200, approver=None, **extra):
+    """Edit a voucher. An edited payment or journal goes back for approval, so it is approved again when an
+    approver is given (the manager who edits cannot approve)."""
     r = client.put(f"{API}/vouchers/{vid}", json={"voucher_date": d, "entries": entries, "reason": reason, **extra},
                    headers=h)
     assert r.status_code == expect, r.text
-    return r.json()
+    out = r.json()
+    if expect == 200 and approver and out.get("approval_status") == "pending":
+        ok = client.post(f"{API}/vouchers/{vid}/approve", json={"note": "Approved"}, headers=approver["headers"])
+        assert ok.status_code == 200, ok.text
+        out = ok.json() if "revisions" in ok.json() else out
+    return out
 
 
 def test_edit_voucher_keeps_number_and_earlier_version(client, db):
     society, *_, manager, _res, _other = _rig(db, "ve1")
     h, sid = manager["headers"], str(society.id)
+    approver = make_user(db, "approver@ve1.com", role="Society Admin")
     L = _ledgers(client, h, sid)
-    v = _payment(client, h, sid, L)
+    v = _payment(client, h, sid, L, approver=approver)
     assert v["revisions"] == [] and v["edited_at"] is None
 
     out = _edit(client, h, v["id"], "2026-09-16", [
         {"account_id": L["electricity"]["id"], "debit": "8540"},
-        {"account_id": L["bank"]["id"], "credit": "8540"}], narration="MSEDCL Aug-2026", reference="CHQ 124")
+        {"account_id": L["bank"]["id"], "credit": "8540"}], narration="MSEDCL Aug-2026", reference="CHQ 124", approver=approver)
     assert out["voucher_number"] == "PV/2026-27/0001" and out["amount"] == "8540.00"
     assert out["voucher_date"] == "2026-09-16" and out["narration"] == "MSEDCL Aug-2026"
     assert out["edited_by_name"] and out["edited_at"]
@@ -49,7 +58,7 @@ def test_edit_voucher_keeps_number_and_earlier_version(client, db):
     out = _edit(client, h, v["id"], "2026-09-16", [
         {"account_id": L["electricity"]["id"], "debit": "8000"},
         {"account_id": L["audit_fees"]["id"], "debit": "540"},
-        {"account_id": L["bank"]["id"], "credit": "8540"}], reason="Split the audit fee out")
+        {"account_id": L["bank"]["id"], "credit": "8540"}], reason="Split the audit fee out", approver=approver)
     assert [r["revision_no"] for r in out["revisions"]] == [2, 1]
     assert out["revisions"][0]["before"]["amount"] == "8540.00" and len(out["entries"]) == 3
     assert _balance(client, h, sid, "electricity") == Decimal("8000")
@@ -58,15 +67,16 @@ def test_edit_voucher_keeps_number_and_earlier_version(client, db):
     # Moved into the next financial year: numbered in that year
     out = _edit(client, h, v["id"], "2027-04-02", [
         {"account_id": L["electricity"]["id"], "debit": "8540"},
-        {"account_id": L["bank"]["id"], "credit": "8540"}], reason="Paid after year end")
+        {"account_id": L["bank"]["id"], "credit": "8540"}], reason="Paid after year end", approver=approver)
     assert out["voucher_number"] == "PV/2027-28/0001" and out["fiscal_year"] == "2027-28"
 
 
 def test_edit_follows_the_voucher_rules(client, db):
     society, flat1, _f2, manager, _res, _bill = _issued_bills(client, db, "ve2")
     h, sid = manager["headers"], str(society.id)
+    approver = make_user(db, "approver@ve2.com", role="Society Admin")
     L = _ledgers(client, h, sid)
-    v = _payment(client, h, sid, L, "500")
+    v = _payment(client, h, sid, L, "500", approver=approver)
     ok = [{"account_id": L["electricity"]["id"], "debit": "600"}, {"account_id": L["bank"]["id"], "credit": "600"}]
     # A reason is needed; debits must equal credits; a payment stays a payment
     _edit(client, h, v["id"], "2026-09-15", ok, reason="", expect=422)
@@ -105,12 +115,13 @@ def test_closed_year_vouchers_cant_be_edited(client, db):
 def test_printed_documents(client, db):
     society, flat1, _flat2, manager, resident, _bill = _issued_bills(client, db, "ve4")
     h, sid = manager["headers"], str(society.id)
+    approver = make_user(db, "approver@ve4.com", role="Society Admin")
     L = _ledgers(client, h, sid)
-    v = _payment(client, h, sid, L)
+    v = _payment(client, h, sid, L, approver=approver)
     _edit(client, h, v["id"], "2026-09-15", [
         {"account_id": L["electricity"]["id"], "debit": "8500"},
-        {"account_id": L["bank"]["id"], "credit": "8500"}])
-    client.post(f"{API}/vouchers/{_payment(client, h, sid, L, '50')['id']}/cancel", json={"reason": "Duplicate"},
+        {"account_id": L["bank"]["id"], "credit": "8500"}], approver=approver)
+    client.post(f"{API}/vouchers/{_payment(client, h, sid, L, '50', approver=approver)['id']}/cancel", json={"reason": "Duplicate"},
                 headers=h)
 
     def pdf(url, **params):

@@ -2,6 +2,7 @@
 
 from datetime import date
 from decimal import Decimal
+from uuid import UUID
 
 from app.modules.accounts.models.accounts import Voucher
 from app.modules.accounts.models.entities import EntityAccount
@@ -35,7 +36,7 @@ def test_member_advance_posts_to_advance_subledger_and_moves_to_ar(client, db):
     assert payment["unapplied_amount"] == "1000.00"
 
     receipt_voucher = db.query(Voucher).filter_by(
-        society_id=society.id, source_type="online_payment", source_id=payment["id"]
+        society_id=society.id, source_type="online_payment", source_id=UUID(payment["id"])
     ).one()
     advance_entries = [
         e for e in receipt_voucher.entries

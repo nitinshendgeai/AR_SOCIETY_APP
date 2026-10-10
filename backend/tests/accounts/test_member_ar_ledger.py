@@ -14,14 +14,19 @@ def _ledgers(client, headers, sid):
     return {a["system_key"] or a["name"]: a for a in r.json()}
 
 
-def _voucher(client, headers, sid, entries, d="2026-04-30"):
+def _voucher(client, headers, sid, entries, approver, d="2026-04-30", vtype="journal"):
+    """A manual voucher. Journals and payments only count in the books once the committee/admin approves them."""
     r = client.post(
         f"{API}/vouchers",
-        json={"society_id": sid, "voucher_type": "journal", "voucher_date": d, "entries": entries},
+        json={"society_id": sid, "voucher_type": vtype, "voucher_date": d, "entries": entries},
         headers=headers,
     )
     assert r.status_code == 201, r.text
-    return r.json()
+    v = r.json()
+    if v["approval_status"] == "pending":
+        ok = client.post(f"{API}/vouchers/{v['id']}/approve", json={"note": "Approved"}, headers=approver["headers"])
+        assert ok.status_code == 200, ok.text
+    return v
 
 
 def test_member_ar_reconciles_to_billing_outstanding(client, db):
@@ -29,6 +34,7 @@ def test_member_ar_reconciles_to_billing_outstanding(client, db):
     sid = str(society.id)
     h = manager["headers"]
     ledgers = _ledgers(client, h, sid)
+    approver = make_user(db, f"approver-{sid[:8]}@t.com", role="Society Admin")
 
     cycle = BillingCycle(
         society_id=society.id,
@@ -48,7 +54,7 @@ def test_member_ar_reconciles_to_billing_outstanding(client, db):
         invoice_number="AR-TEST-0001",
         bill_status=BillStatus.PARTIALLY_PAID,
         bill_date=date(2026, 4, 1),
-        due_date="2026-05-10",
+        due_date=date(2026, 5, 10),
         subtotal=1000,
         total_amount=1000,
         paid_amount=400,
@@ -60,11 +66,11 @@ def test_member_ar_reconciles_to_billing_outstanding(client, db):
     _voucher(client, h, sid, [
         {"account_id": ledgers["members_dues"]["id"], "debit": "1000", "flat_id": str(flat.id)},
         {"account_id": ledgers["service_charges"]["id"], "credit": "1000"},
-    ])
+    ], approver)
     _voucher(client, h, sid, [
         {"account_id": ledgers["bank"]["id"], "debit": "400"},
         {"account_id": ledgers["members_dues"]["id"], "credit": "400", "flat_id": str(flat.id)},
-    ])
+    ], approver, vtype="receipt")
 
     r = client.get(f"{API}/members/{sid}/ar-reconciliation", headers=h)
     assert r.status_code == 200, r.text
@@ -80,6 +86,7 @@ def test_member_ar_statement_exposes_bill_wise_and_voucher_lines(client, db):
     sid = str(society.id)
     h = manager["headers"]
     ledgers = _ledgers(client, h, sid)
+    approver = make_user(db, f"approver-{sid[:8]}@t.com", role="Society Admin")
 
     cycle = BillingCycle(
         society_id=society.id,
@@ -99,7 +106,7 @@ def test_member_ar_statement_exposes_bill_wise_and_voucher_lines(client, db):
         invoice_number="AR-TEST-0002",
         bill_status=BillStatus.ISSUED,
         bill_date=date(2026, 5, 1),
-        due_date="2026-06-10",
+        due_date=date(2026, 6, 10),
         subtotal=1500,
         total_amount=1500,
         paid_amount=0,
@@ -110,7 +117,7 @@ def test_member_ar_statement_exposes_bill_wise_and_voucher_lines(client, db):
     _voucher(client, h, sid, [
         {"account_id": ledgers["members_dues"]["id"], "debit": "1500", "flat_id": str(flat.id)},
         {"account_id": ledgers["service_charges"]["id"], "credit": "1500"},
-    ])
+    ], approver)
 
     r = client.get(f"{API}/members/{sid}/{flat.id}/ar-statement", headers=h)
     assert r.status_code == 200, r.text
@@ -128,6 +135,7 @@ def test_member_ar_historical_snapshot_uses_dated_receipts(client, db):
     sid = str(society.id)
     h = manager["headers"]
     ledgers = _ledgers(client, h, sid)
+    approver = make_user(db, f"approver-{sid[:8]}@t.com", role="Society Admin")
 
     cycle = BillingCycle(
         society_id=society.id,
@@ -147,7 +155,7 @@ def test_member_ar_historical_snapshot_uses_dated_receipts(client, db):
         invoice_number="AR-TEST-0003",
         bill_status=BillStatus.PARTIALLY_PAID,
         bill_date=date(2026, 6, 1),
-        due_date="2026-07-10",
+        due_date=date(2026, 7, 10),
         subtotal=1000,
         total_amount=1000,
         paid_amount=400,
@@ -159,11 +167,11 @@ def test_member_ar_historical_snapshot_uses_dated_receipts(client, db):
     _voucher(client, h, sid, [
         {"account_id": ledgers["members_dues"]["id"], "debit": "1000", "flat_id": str(flat.id)},
         {"account_id": ledgers["service_charges"]["id"], "credit": "1000"},
-    ])
+    ], approver, d="2026-06-01")
     _voucher(client, h, sid, [
         {"account_id": ledgers["bank"]["id"], "debit": "400"},
         {"account_id": ledgers["members_dues"]["id"], "credit": "400", "flat_id": str(flat.id)},
-    ])
+    ], approver, d="2026-06-20", vtype="receipt")
     db.add(PaymentReceipt(
         society_id=society.id,
         bill_id=bill.id,

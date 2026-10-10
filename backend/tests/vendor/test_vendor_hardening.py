@@ -176,3 +176,29 @@ def test_list_paging_is_bounded(client, rig):
     sid = rig["society"].id
     assert client.get(f"{V}/society/{sid}?limit=100000", headers=rig["mgr"]["headers"]).status_code == 422
     assert client.get(f"{V}/invoices/society/{sid}?skip=-1", headers=rig["mgr"]["headers"]).status_code == 422
+
+
+def test_a_bill_with_gst_is_split_by_state_and_never_answers_500(client, rig, db):
+    """The app sends only the GST amount. It is split CGST + SGST for a vendor in the society's state and IGST for
+    another state; a bill that does not add up is a 422, never a server error."""
+    from app.models.society import Society
+    rig["society"].gst_number = "27AAAAA0000A1Z5"
+    db.commit()
+    same = _vendor(client, rig, gst_number="27BBBBB1111B1Z6").json()["id"]
+    a = _invoice(client, rig, same)
+    assert a.status_code == 201, a.text
+    assert (a.json()["cgst_amount"], a.json()["sgst_amount"], a.json()["igst_amount"]) == ("90.00", "90.00", "0.00")
+
+    other = _vendor(client, rig, company_name="Karnataka Lifts", mobile="9876500302", gst_number="29CCCCC2222C1Z7").json()["id"]
+    b = _invoice(client, rig, other, invoice_number="INV-9")
+    assert b.status_code == 201, b.text
+    assert (b.json()["cgst_amount"], b.json()["sgst_amount"], b.json()["igst_amount"]) == ("0.00", "0.00", "180.00")
+
+    # no GSTIN on file: treated as in-state; the caller may also say which
+    c = _vendor(client, rig, company_name="Local Plumber", mobile="9876500303").json()["id"]
+    assert _invoice(client, rig, c, invoice_number="INV-3").json()["cgst_amount"] == "90.00"
+    d = _invoice(client, rig, c, invoice_number="INV-4", gst_component="IGST")
+    assert d.status_code == 201 and d.json()["igst_amount"] == "180.00"
+    assert _invoice(client, rig, c, invoice_number="INV-5", gst_component="BOTH").status_code == 422
+    # a bill without GST is unaffected
+    assert _invoice(client, rig, c, invoice_number="INV-6", gst_amount="0.00", total_amount="1000.00").status_code == 201

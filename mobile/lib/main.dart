@@ -1,11 +1,13 @@
 import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/config/env.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -38,7 +40,11 @@ Future<void> main() async {
     );
   }
 
-  runApp(const ProviderScope(child: ArSocietyApp()));
+  final language = await loadSavedLanguage();
+  runApp(ProviderScope(
+    overrides: [initialLanguageProvider.overrideWithValue(language)],
+    child: const ArSocietyApp(),
+  ));
 }
 
 /// Flutter's default scroll behaviour on desktop browsers ignores mouse dragging, so a horizontal
@@ -62,6 +68,7 @@ class ArSocietyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
+    final locale = ref.watch(localeProvider);
 
     // Once signed in, register this device for push notifications.
     ref.listen<AuthState>(authProvider, (previous, next) {
@@ -79,6 +86,13 @@ class ArSocietyApp extends ConsumerWidget {
       title: Env.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      locale: locale,
+      supportedLocales: kSupportedLocales,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       scrollBehavior: const AppScrollBehavior(),
       routerConfig: router,
       // Desktop-width web gets the denser ERP theme; phones keep the

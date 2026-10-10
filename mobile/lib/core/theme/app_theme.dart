@@ -31,6 +31,9 @@ class AppTheme {
   // out of this one asset — no separate weight files needed.
   static const String _fontFamily = 'Inter';
 
+  /// Hindi and Marathi text is drawn with the bundled Devanagari font (Inter has no Devanagari glyphs).
+  static const List<String> _fontFallback = ['NotoSansDevanagari'];
+
   // ── Brand & accent ──────────────────────────────────────────────────────
   static const Color primary      = Color(0xFF0066FF);
   static const Color primaryDark  = Color(0xFF0050CC);
@@ -93,29 +96,29 @@ class AppTheme {
     final textTheme = TextTheme(
       // Apple's Large Title / Title 1-3 — tight tracking at large sizes,
       // easing toward neutral as size drops, matching SF Pro's own tracking.
-      displayLarge:  const TextStyle(fontFamily: _fontFamily, fontSize: 34, height: 1.15, fontWeight: FontWeight.w700, letterSpacing: -0.4, color: textPrimary),
-      displayMedium: const TextStyle(fontFamily: _fontFamily, fontSize: 28, height: 1.2,  fontWeight: FontWeight.w700, letterSpacing: -0.3, color: textPrimary),
-      displaySmall:  const TextStyle(fontFamily: _fontFamily, fontSize: 24, height: 1.2,  fontWeight: FontWeight.w700, letterSpacing: -0.2, color: textPrimary),
-      headlineLarge: const TextStyle(fontFamily: _fontFamily, fontSize: 22, height: 1.25, fontWeight: FontWeight.w600, letterSpacing: -0.2, color: textPrimary),
-      headlineMedium:const TextStyle(fontFamily: _fontFamily, fontSize: 20, height: 1.25, fontWeight: FontWeight.w600, letterSpacing: -0.1, color: textPrimary),
-      headlineSmall: const TextStyle(fontFamily: _fontFamily, fontSize: 18, height: 1.3,  fontWeight: FontWeight.w600, color: textPrimary),
+      displayLarge:  const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 34, height: 1.15, fontWeight: FontWeight.w700, letterSpacing: -0.4, color: textPrimary),
+      displayMedium: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 28, height: 1.2,  fontWeight: FontWeight.w700, letterSpacing: -0.3, color: textPrimary),
+      displaySmall:  const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 24, height: 1.2,  fontWeight: FontWeight.w700, letterSpacing: -0.2, color: textPrimary),
+      headlineLarge: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 22, height: 1.25, fontWeight: FontWeight.w600, letterSpacing: -0.2, color: textPrimary),
+      headlineMedium:const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 20, height: 1.25, fontWeight: FontWeight.w600, letterSpacing: -0.1, color: textPrimary),
+      headlineSmall: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 18, height: 1.3,  fontWeight: FontWeight.w600, color: textPrimary),
       // Headline / Body — the workhorse sizes, tuned for comfortable reading
       // rather than density.
-      titleLarge:  const TextStyle(fontFamily: _fontFamily, fontSize: 17, height: 1.3, fontWeight: FontWeight.w600, color: textPrimary),
-      titleMedium: const TextStyle(fontFamily: _fontFamily, fontSize: 16, height: 1.3, fontWeight: FontWeight.w600, color: textPrimary),
-      titleSmall:  const TextStyle(fontFamily: _fontFamily, fontSize: 14, height: 1.3, fontWeight: FontWeight.w600, color: textPrimary),
-      bodyLarge:  const TextStyle(fontFamily: _fontFamily, fontSize: 17, height: 1.45, fontWeight: FontWeight.w400, color: textPrimary),
-      bodyMedium: const TextStyle(fontFamily: _fontFamily, fontSize: 15, height: 1.45, fontWeight: FontWeight.w400, color: textPrimary),
-      bodySmall:  const TextStyle(fontFamily: _fontFamily, fontSize: 13, height: 1.4,  fontWeight: FontWeight.w400, color: onSurfaceVariant),
+      titleLarge:  const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 17, height: 1.3, fontWeight: FontWeight.w600, color: textPrimary),
+      titleMedium: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 16, height: 1.3, fontWeight: FontWeight.w600, color: textPrimary),
+      titleSmall:  const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 14, height: 1.3, fontWeight: FontWeight.w600, color: textPrimary),
+      bodyLarge:  const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 17, height: 1.45, fontWeight: FontWeight.w400, color: textPrimary),
+      bodyMedium: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 15, height: 1.45, fontWeight: FontWeight.w400, color: textPrimary),
+      bodySmall:  const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 13, height: 1.4,  fontWeight: FontWeight.w400, color: onSurfaceVariant),
       // Labels — buttons, chips, tabs, uppercase eyebrows.
-      labelLarge:  const TextStyle(fontFamily: _fontFamily, fontSize: 16, height: 1.2, fontWeight: FontWeight.w600, color: textPrimary),
-      labelMedium: const TextStyle(fontFamily: _fontFamily, fontSize: 13, height: 1.2, fontWeight: FontWeight.w600, color: onSurfaceVariant),
-      labelSmall:  const TextStyle(fontFamily: _fontFamily, fontSize: 11, height: 1.2, fontWeight: FontWeight.w600, color: textTertiary, letterSpacing: 0.2),
+      labelLarge:  const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 16, height: 1.2, fontWeight: FontWeight.w600, color: textPrimary),
+      labelMedium: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 13, height: 1.2, fontWeight: FontWeight.w600, color: onSurfaceVariant),
+      labelSmall:  const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 11, height: 1.2, fontWeight: FontWeight.w600, color: textTertiary, letterSpacing: 0.2),
     );
 
     return ThemeData(
       useMaterial3: true,
-      fontFamily: _fontFamily,
+      fontFamily: _fontFamily, fontFamilyFallback: _fontFallback,
       textTheme: textTheme,
       splashFactory: InkSparkle.splashFactory,
       colorScheme: ColorScheme.fromSeed(
@@ -158,7 +161,7 @@ class AppTheme {
           elevation: 0,
           shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusM)),
-          textStyle: const TextStyle(fontFamily: _fontFamily, fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.1),
+          textStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.1),
         ).copyWith(
           overlayColor: WidgetStateProperty.resolveWith(
             (states) => states.contains(WidgetState.pressed) ? Colors.white.withOpacity(0.14) : null,
@@ -173,7 +176,7 @@ class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           side: const BorderSide(color: border, width: 1.2),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusM)),
-          textStyle: const TextStyle(fontFamily: _fontFamily, fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.1),
+          textStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.1),
         ).copyWith(
           overlayColor: WidgetStateProperty.resolveWith(
             (states) => states.contains(WidgetState.pressed) ? primary.withOpacity(0.06) : null,
@@ -186,7 +189,7 @@ class AppTheme {
           foregroundColor: primary,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusS)),
-          textStyle: const TextStyle(fontFamily: _fontFamily, fontSize: 15, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),
 
@@ -200,7 +203,7 @@ class AppTheme {
         backgroundColor: primary,
         foregroundColor: Colors.white,
         elevation: 3,
-        extendedTextStyle: const TextStyle(fontFamily: _fontFamily, fontSize: 16, fontWeight: FontWeight.w600),
+        extendedTextStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 16, fontWeight: FontWeight.w600),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
@@ -237,10 +240,10 @@ class AppTheme {
           borderSide: const BorderSide(color: error, width: 1.6),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        labelStyle: const TextStyle(fontFamily: _fontFamily, fontSize: 15, fontWeight: FontWeight.w400, color: textSecondary),
-        floatingLabelStyle: const TextStyle(fontFamily: _fontFamily, fontSize: 13, fontWeight: FontWeight.w600, color: primary),
-        hintStyle: const TextStyle(fontFamily: _fontFamily, fontSize: 15, fontWeight: FontWeight.w400, color: textTertiary),
-        errorStyle: const TextStyle(fontFamily: _fontFamily, fontSize: 12.5, fontWeight: FontWeight.w500, color: error),
+        labelStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 15, fontWeight: FontWeight.w400, color: textSecondary),
+        floatingLabelStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 13, fontWeight: FontWeight.w600, color: primary),
+        hintStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 15, fontWeight: FontWeight.w400, color: textTertiary),
+        errorStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 12.5, fontWeight: FontWeight.w500, color: error),
       ),
 
       cardTheme: CardThemeData(
@@ -274,7 +277,7 @@ class AppTheme {
 
       snackBarTheme: SnackBarThemeData(
         backgroundColor: textPrimary,
-        contentTextStyle: const TextStyle(fontFamily: _fontFamily, fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white),
+        contentTextStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white),
         behavior: SnackBarBehavior.floating,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusM)),
@@ -300,8 +303,8 @@ class AppTheme {
         backgroundColor: surface,
         selectedColor: primarySoft,
         disabledColor: surface,
-        labelStyle: const TextStyle(fontFamily: _fontFamily, fontSize: 13, fontWeight: FontWeight.w600, color: textSecondary),
-        secondaryLabelStyle: const TextStyle(fontFamily: _fontFamily, fontSize: 13, fontWeight: FontWeight.w600, color: primary),
+        labelStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 13, fontWeight: FontWeight.w600, color: textSecondary),
+        secondaryLabelStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 13, fontWeight: FontWeight.w600, color: primary),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         shape: const StadiumBorder(),
         side: BorderSide.none,
@@ -339,8 +342,8 @@ class AppTheme {
       tabBarTheme: TabBarThemeData(
         labelColor: primary,
         unselectedLabelColor: textSecondary,
-        labelStyle: const TextStyle(fontFamily: _fontFamily, fontSize: 14, fontWeight: FontWeight.w600),
-        unselectedLabelStyle: const TextStyle(fontFamily: _fontFamily, fontSize: 14, fontWeight: FontWeight.w500),
+        labelStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 14, fontWeight: FontWeight.w600),
+        unselectedLabelStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 14, fontWeight: FontWeight.w500),
         indicatorColor: primary,
         dividerColor: border,
       ),
@@ -350,7 +353,7 @@ class AppTheme {
           color: textPrimary,
           borderRadius: BorderRadius.circular(8),
         ),
-        textStyle: const TextStyle(fontFamily: _fontFamily, fontSize: 12.5, color: Colors.white),
+        textStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 12.5, color: Colors.white),
       ),
 
       dropdownMenuTheme: DropdownMenuThemeData(
@@ -392,7 +395,7 @@ class AppTheme {
       bodySmall:   t.bodySmall?.copyWith(fontSize: 12.5),
       labelLarge:  t.labelLarge?.copyWith(fontSize: 14),
     );
-    const buttonText = TextStyle(fontFamily: _fontFamily, fontSize: 14, fontWeight: FontWeight.w600);
+    const buttonText = TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 14, fontWeight: FontWeight.w600);
     final buttonShape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(8));
     const buttonSize = Size(64, 40);
     const buttonPadding = EdgeInsets.symmetric(horizontal: 18);
@@ -498,8 +501,8 @@ class AppTheme {
         focusedErrorBorder: outline(error, 2),
         disabledBorder: outline(border),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        labelStyle: const TextStyle(fontFamily: _fontFamily, fontSize: 14, fontWeight: FontWeight.w400, color: textSecondary),
-        hintStyle: const TextStyle(fontFamily: _fontFamily, fontSize: 14, fontWeight: FontWeight.w400, color: textTertiary),
+        labelStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 14, fontWeight: FontWeight.w400, color: textSecondary),
+        hintStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 14, fontWeight: FontWeight.w400, color: textTertiary),
       ),
 
       cardTheme: base.cardTheme.copyWith(

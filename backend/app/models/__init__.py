@@ -35,6 +35,20 @@ from app.modules.amenity.models.amenity import (
 # Shops module
 from app.modules.shops.models.shop import Shop
 
+# Automatic tasks
+from app.modules.automation.models.automation import SocietyAutomation, ScheduledJobRun
+
+# Governance
+from app.modules.governance.models.governance import (
+    Meeting, MeetingAttendee, MeetingResolution, Poll, PollOption, PollVote, SocietyDocument,
+)
+
+# Certificates
+from app.modules.certificates.models.certificates import CertificateRequest
+
+# Gate extras
+from app.modules.gate.models.gate import Parcel, DomesticHelp, DomesticHelpFlat, DomesticHelpEntry
+
 # Staff module
 from app.modules.staff.models.staff import (
     Staff, StaffDesignation, StaffShift, DutyAssignment,

@@ -2,11 +2,12 @@
 voucher a confirmation makes, skipping, and keeping each society's own."""
 from datetime import date
 
+from app.utils.local_time import local_today, zone
 from tests.billing.test_budget_suggestions import _rig
 from tests.conftest import make_society, make_user
 
 A = "/api/v1/accounts"
-TODAY = date.today()
+TODAY = local_today(zone(None))     # the society's own date, not the server's
 
 
 def _month(back: int) -> date:

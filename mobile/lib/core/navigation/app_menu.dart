@@ -49,6 +49,12 @@ const appMenuCategories = [
     AppMenuItem('visitors', 'Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
     AppMenuItem('notices', 'Notices', Icons.campaign_rounded, AppRoutes.notices),
     AppMenuItem('amenities', 'Amenities', Icons.pool_rounded, AppRoutes.amenities),
+    AppMenuItem('meetings', 'Meetings', Icons.groups_rounded, AppRoutes.meetings),
+    AppMenuItem('polls', 'Polls', Icons.how_to_vote_rounded, AppRoutes.polls),
+    AppMenuItem('documents', 'Documents', Icons.folder_open_rounded, AppRoutes.documents),
+    AppMenuItem('certificates', 'Certificates & NOC', Icons.verified_outlined, AppRoutes.certificates),
+    AppMenuItem('parcels', 'Parcels', Icons.inventory_2_rounded, AppRoutes.parcels),
+    AppMenuItem('domestic_help', 'Domestic help', Icons.cleaning_services_rounded, AppRoutes.domesticHelp),
     AppMenuItem('complaints', 'Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
     AppMenuItem('pending_resident_changes', 'Pending Resident Changes', Icons.fact_check_outlined, AppRoutes.pendingResidentChanges),
   ]),
@@ -74,6 +80,7 @@ const appMenuCategories = [
     AppMenuItem('permission_matrix', 'Permission Matrix', Icons.rule_rounded, AppRoutes.permissionMatrix),
     AppMenuItem('forms_matrix', 'Forms Matrix', Icons.dashboard_customize_rounded, AppRoutes.formsMatrix),
     AppMenuItem('society_settings', 'Society Settings', Icons.apartment_rounded, AppRoutes.societySettings),
+    AppMenuItem('automation', 'Automatic tasks', Icons.autorenew_rounded, AppRoutes.automation),
     AppMenuItem('setup_wizard', 'Setup Wizard', Icons.checklist_rounded, AppRoutes.structureWizard),
   ]),
   AppMenuCategory('My Account', Icons.person_rounded, [
@@ -117,4 +124,46 @@ AppMenuItem _resolveFor(AppMenuItem item, UserEntity? user) {
     _ => item.route,
   };
   return route == item.route ? item : AppMenuItem(item.formCode, item.label, item.icon, route);
+}
+
+/// One tab of the phone's bottom bar.
+class PhoneTab {
+  final String label;
+  final IconData icon;
+  final String route;
+  const PhoneTab(this.label, this.icon, this.route);
+}
+
+/// Short names for the bottom bar, where the menu's name is too long for it.
+const _tabLabels = {'my_bills': 'Bills', 'maintenance_billing': 'Billing'};
+
+/// The screens each kind of person reaches for most, in order. The bar takes the
+/// first three they are allowed to open; "Home" and "More" are always there.
+List<String> _tabPreference(UserEntity user) {
+  if (user.isAdminOrCommittee || user.isManager) {
+    return const ['visitors', 'complaints', 'maintenance_billing', 'notices'];
+  }
+  if (user.isSecurity) return const ['visitors', 'notices', 'complaints'];
+  if (user.isResident) return const ['my_bills', 'visitors', 'notices', 'complaints'];
+  return const ['notices', 'complaints', 'visitors'];
+}
+
+/// Home plus up to three screens for [user], limited to what [grantedFormCodes]
+/// allow. Routes are resolved the way the menu does (society-wide lists for the
+/// people who run the society).
+List<PhoneTab> phoneTabsFor(UserEntity user, Set<String> grantedFormCodes) {
+  final byCode = <String, AppMenuItem>{};
+  for (final c in visibleMenuCategories(grantedFormCodes, user: user)) {
+    for (final i in c.items) {
+      if (i.route != null) byCode.putIfAbsent(i.formCode, () => i);
+    }
+  }
+  final tabs = <PhoneTab>[PhoneTab('Home', Icons.home_rounded, userRoleHome(user))];
+  for (final code in _tabPreference(user)) {
+    final item = byCode[code];
+    if (item == null) continue;
+    tabs.add(PhoneTab(_tabLabels[code] ?? item.label, item.icon, item.route!));
+    if (tabs.length == 4) break;
+  }
+  return tabs;
 }
