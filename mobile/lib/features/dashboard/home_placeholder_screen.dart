@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/config/constants.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Temporary home screen for each role.
 /// Replace with real dashboards as modules are built.
@@ -14,19 +15,16 @@ class HomePlaceholderScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Text('${_roleEmoji(role)} ${_roleTitle(role)}'),
-        centerTitle: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            tooltip: 'Sign out',
-            onPressed: () => _confirmLogout(context, ref),
-          ),
-        ],
-      ),
+    return AppPage(
+      title: '${_roleEmoji(role)} ${_roleTitle(role)}',
+      showBack: false,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.logout_rounded),
+          tooltip: 'Sign out',
+          onPressed: () => _confirmLogout(context, ref),
+        ),
+      ],
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),

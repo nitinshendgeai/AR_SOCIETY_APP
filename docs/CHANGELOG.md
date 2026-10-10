@@ -4,6 +4,18 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-10 (x)
+
+### feat: dashboards and sign-in pages on the same frames
+
+- **Dashboards** (`AppPage`): Society Overview, Chairman, Security, Resident, Manager and Supervisor dashboards now have the
+  same header as every other screen (24 px title, content on one centred width, 16 px gutters). On a phone the menu button
+  and sign-out are as before (`AppPage` takes a `drawer`).
+- **Sign-in pages** (`AuthPage`, new): sign in, register a society (3 steps), set a new password, unlock, setup wizard and
+  "society created" share one frame — brand panel at the left and the page at the right on a computer, logo + card on a
+  phone. Labels are above the fields. Sign-in no longer lives in a loose centred column.
+- No logic changed (same validators, same calls, same redirects). Tests: `auth_page_test.dart`.
+
 ## 2026-10-10 (w)
 
 ### feat: every remaining screen on one page frame (`AppPage`)
@@ -12,7 +24,7 @@ About 85 screens (lists, detail pages, accounts, billing, staff, vendors, stores
 their own `Scaffold` + `AppBar`, so headers differed and some bodies were narrow phone-style columns in the middle of a wide
 screen. They now use `AppPage`: on a computer a header (back button when needed, title, subtitle, buttons at the right, tabs at
 the left) over a body on one centred width; on a phone the same app bar as before. `ResponsiveBody` no longer narrows a body
-inside it. Converted by script from `Scaffold(appBar: AppBar(...))`; no logic changed. Left alone: sign-in / change-password /
+inside it. Converted by script from `Scaffold(appBar: AppBar(...))`; no logic changed. Left alone at the time: sign-in / change-password /
 registration pages and the role dashboards. `docs/UI_FORMS.md` describes the three layers (page, form, sheet).
 
 ## 2026-10-10 (v)

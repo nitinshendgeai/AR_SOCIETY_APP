@@ -9,7 +9,9 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/features/auth/presentation/widgets/forgot_password_dialog.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart'
     show rmPhoneValidator;
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/auth_page.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -49,146 +51,117 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final isLoading = authState is AuthLoading;
     final errorMsg  = authState is AuthError ? authState.message : null;
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      body: SafeArea(
-        child: AppLoadingOverlay(
-          isLoading: isLoading,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: ResponsiveBody(maxWidth: 480, child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return AuthPage(
+      title: 'Welcome back',
+      subtitle: 'Sign in to ${Env.appName}',
+      footer: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        _RegisterCTA(),
+        // Demo format hint — debug/staging builds only; the exact
+        // default-password convention it documents (Admin@1234,
+        // resident "admin1234") isn't something to hand an unauthenticated
+        // visitor on a production login screen.
+        if (!Env.isProduction) ...[
+          const SizedBox(height: 16),
+          _DemoFormatHint(),
+        ],
+      ]),
+      child: AppLoadingOverlay(
+        isLoading: isLoading,
+        child: Form(
+          key: _formKey,
+          child: AutofillGroup(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 64),
-
-                // Header
-                _Header(),
-
-                const SizedBox(height: 40),
-
-                // Form card
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardBg,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppTheme.border),
+                // Error banner
+                if (errorMsg != null) ...[
+                  AppErrorBanner(
+                    message: errorMsg,
+                    onDismiss: () => ref.read(authProvider.notifier).clearError(),
                   ),
-                  child: Form(
-                    key: _formKey,
-                    child: AutofillGroup(
-                      child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Error banner
-                        if (errorMsg != null) ...[
-                          AppErrorBanner(
-                            message: errorMsg,
-                            onDismiss: () =>
-                                ref.read(authProvider.notifier).clearError(),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // Email or mobile number — admin/committee/staff
-                        // accounts use email, resident/tenant accounts are
-                        // auto-provisioned by mobile number (see backend's
-                        // AuthService.login()/get_by_email_or_phone()).
-                        AppTextField(
-                          label: 'Email or Mobile Number',
-                          hint: 'admin@arsociety.com or 9876543210',
-                          controller: _emailCtrl,
-                          keyboardType: TextInputType.text,
-                          textInputAction: TextInputAction.next,
-                          autofillHints: const [AutofillHints.username],
-                          validator: (v) {
-                            if (v == null || v.trim().isEmpty) {
-                              return 'Email or mobile number is required';
-                            }
-                            final input = v.trim();
-                            if (input.contains('@')) {
-                              if (!input.contains('.')) return 'Enter a valid email';
-                              return null;
-                            }
-                            return rmPhoneValidator(input);
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Password
-                        AppTextField(
-                          label: 'Password',
-                          controller: _passCtrl,
-                          obscureText: _obscurePass,
-                          textInputAction: TextInputAction.done,
-                          onFieldSubmitted: _submit,
-                          autofillHints: const [AutofillHints.password],
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePass
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                              color: AppTheme.textSecondary,
-                              size: 20,
-                            ),
-                            tooltip: _obscurePass ? 'Show password' : 'Hide password',
-                            onPressed: () =>
-                                setState(() => _obscurePass = !_obscurePass),
-                          ),
-                          validator: (v) {
-                            // Login only checks that something was typed —
-                            // no minimum length here. That's a password-
-                            // creation rule (see RegisterRequest/
-                            // ChangePasswordRequest's 8-char minimum), and
-                            // passwords set before that rule may be shorter.
-                            if (v == null || v.isEmpty) {
-                              return 'Password is required';
-                            }
-                            return null;
-                          },
-                        ),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: isLoading
-                                ? null
-                                : () => showForgotPasswordDialog(context,
-                                    initialIdentifier: _emailCtrl.text),
-                            child: const Text('Forgot password?'),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Login button
-                        AppPrimaryButton(
-                          label: 'Sign In',
-                          isLoading: isLoading,
-                          onPressed: _submit,
-                          icon: Icons.login_rounded,
-                        ),
-                      ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Register CTA
-                _RegisterCTA(),
-
-                // Demo format hint — debug/staging builds only; the exact
-                // default-password convention it documents (Admin@1234,
-                // resident "admin1234") isn't something to hand an unauthenticated
-                // visitor on a production login screen.
-                if (!Env.isProduction) ...[
                   const SizedBox(height: 16),
-                  _DemoFormatHint(),
                 ],
 
-                const SizedBox(height: 40),
+                // Email or mobile number — admin/committee/staff
+                // accounts use email, resident/tenant accounts are
+                // auto-provisioned by mobile number (see backend's
+                // AuthService.login()/get_by_email_or_phone()).
+                FormFieldBox(
+                  label: 'Email or Mobile Number',
+                  child: AppTextField(
+                    label: '',
+                    hint: 'admin@arsociety.com or 9876543210',
+                    controller: _emailCtrl,
+                    keyboardType: TextInputType.text,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.username],
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) {
+                        return 'Email or mobile number is required';
+                      }
+                      final input = v.trim();
+                      if (input.contains('@')) {
+                        if (!input.contains('.')) return 'Enter a valid email';
+                        return null;
+                      }
+                      return rmPhoneValidator(input);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Password
+                FormFieldBox(
+                  label: 'Password',
+                  child: AppTextField(
+                    label: '',
+                    controller: _passCtrl,
+                    obscureText: _obscurePass,
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: _submit,
+                    autofillHints: const [AutofillHints.password],
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePass ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                        color: AppTheme.textSecondary,
+                        size: 20,
+                      ),
+                      tooltip: _obscurePass ? 'Show password' : 'Hide password',
+                      onPressed: () => setState(() => _obscurePass = !_obscurePass),
+                    ),
+                    validator: (v) {
+                      // Login only checks that something was typed —
+                      // no minimum length here. That's a password-
+                      // creation rule (see RegisterRequest/
+                      // ChangePasswordRequest's 8-char minimum), and
+                      // passwords set before that rule may be shorter.
+                      if (v == null || v.isEmpty) {
+                        return 'Password is required';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: isLoading
+                        ? null
+                        : () => showForgotPasswordDialog(context, initialIdentifier: _emailCtrl.text),
+                    child: const Text('Forgot password?'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Login button
+                AppPrimaryButton(
+                  label: 'Sign In',
+                  isLoading: isLoading,
+                  onPressed: _submit,
+                  icon: Icons.login_rounded,
+                ),
               ],
-            )),
+            ),
           ),
         ),
       ),
@@ -255,49 +228,6 @@ class _RegisterCTA extends StatelessWidget {
                 size: 14, color: AppTheme.primary),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ── Header ────────────────────────────────────────────────────────────────────
-
-class _Header extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: Image.asset(
-            'assets/branding/duxos_logo.png',
-            width: 96,
-            height: 96,
-            fit: BoxFit.cover,
-          ),
-        ),
-        const SizedBox(height: 20),
-        Text(
-          'Welcome back',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary,
-                letterSpacing: -0.5,
-              ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Sign in to ${Env.appName}',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: AppTheme.textSecondary,
-              ),
-        ),
-      ],
       ),
     );
   }

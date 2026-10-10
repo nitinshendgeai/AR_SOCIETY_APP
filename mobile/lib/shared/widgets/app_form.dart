@@ -618,6 +618,10 @@ class AppPage extends StatelessWidget {
   final double maxWidth;
   final bool showBack;
 
+  /// A side menu opened from the menu button of the phone app bar (a dashboard's navigation). Not used on a
+  /// computer, where the sidebar does that.
+  final Widget? drawer;
+
   const AppPage({
     super.key,
     required this.title,
@@ -630,6 +634,7 @@ class AppPage extends StatelessWidget {
     this.bottomNavigationBar,
     this.maxWidth = 1280,
     this.showBack = true,
+    this.drawer,
   });
 
   @override
@@ -638,7 +643,22 @@ class AppPage extends StatelessWidget {
     if (!desktop) {
       return Scaffold(
         backgroundColor: AppTheme.surface,
-        appBar: AppBar(title: Text(context.tr(title)), actions: actions, bottom: bottom),
+        drawer: drawer,
+        appBar: AppBar(
+          automaticallyImplyLeading: drawer == null,
+          leading: drawer == null
+              ? null
+              : Builder(
+                  builder: (ctx) => IconButton(
+                    icon: const Icon(Icons.menu_rounded),
+                    tooltip: 'Open menu',
+                    onPressed: () => Scaffold.of(ctx).openDrawer(),
+                  ),
+                ),
+          title: Text(context.tr(title)),
+          actions: actions,
+          bottom: bottom,
+        ),
         body: _AppPageScope(child: body),
         floatingActionButton: floatingActionButton,
         floatingActionButtonLocation: floatingActionButtonLocation,

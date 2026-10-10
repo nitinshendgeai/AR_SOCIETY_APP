@@ -64,7 +64,28 @@ AppPage(
 On a computer it draws the same header as the forms (back button when there is somewhere to go back to, a 24 px title, a line
 under it, buttons at the right) with the body on one centred content width (1280 px), so the header and the page line up. On a
 phone it is the normal app bar. `ResponsiveBody` does nothing inside an `AppPage` (the page already sets the width).
-Pass `maxWidth:` for a page of cards that reads better narrower.
+Pass `maxWidth:` for a page of cards that reads better narrower. `showBack: false` hides the back button (a dashboard);
+`drawer:` gives the phone app bar a menu button that opens a side menu (the role dashboards' navigation).
+
+## Pages before sign-in (`AuthPage`)
+
+Sign-in, register a society, set a new password, biometric unlock, the first-run setup wizard and the "society created"
+page use `AuthPage` (`mobile/lib/shared/widgets/auth_page.dart`): on a computer a brand panel at the left (logo, product
+name, three things it does) and the page at the right; on a phone the logo, the heading and the form in a card.
+
+```dart
+AuthPage(
+  title: 'Welcome back',
+  subtitle: 'Sign in to DUX OS',
+  footer: ...,           // under the form, outside the card (register link)
+  onBack: ...,           // shows a Back link (steps of a wizard)
+  top: ...,              // above the heading (a step bar)
+  scrollable: false,     // child gets the height under the heading (a PageView of steps)
+  child: ...,
+)
+```
+
+Fields on these pages use `FormFieldBox` (label above) like everywhere else.
 
 ## Forms in sheets and panels
 
@@ -86,6 +107,9 @@ content width, with the save button at the end) give a settings screen with tabs
   platform console, meetings, polls, documents, parcels, domestic help, certificates, parking, vehicle, agreement
   renewal, move in/out, handover item, vendor bill, assign complaint…). About 150 fields now have their label above.
 
-Not changed on purpose: the sign-in, change-password and registration pages (they stand alone, outside the app shell),
-the role dashboards (they have their own layout and phone drawer), and pick-from-a-list sheets (account pickers,
-bank-statement match candidates).
+- **Pages before sign-in (`AuthPage`)**: Sign in, Register Your Society, Set a new password, Unlock, Setup Wizard,
+  Society Created.
+- **Dashboards (`AppPage`)**: the role dashboards (Society Overview, Chairman, Security, Resident, Manager, Supervisor) and
+  the staff portal, with the phone navigation drawer kept.
+
+Not changed on purpose: pick-from-a-list sheets (account pickers, bank-statement match candidates).

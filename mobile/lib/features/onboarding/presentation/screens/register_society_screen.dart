@@ -6,6 +6,8 @@ import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/features/onboarding/presentation/providers/onboarding_providers.dart';
 import 'package:ar_society_app/features/onboarding/domain/registration_result.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/auth_page.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 class RegisterSocietyScreen extends ConsumerStatefulWidget {
   const RegisterSocietyScreen({super.key});
@@ -72,54 +74,45 @@ class _RegisterSocietyScreenState
 
     final isLoading = state is OnboardingLoading;
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Register Society'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () {
-            if (_page > 0) {
-              _goPage(_page - 1);
-            } else {
-              context.pop();
-            }
-          },
-        ),
-      ),
-      body: AppLoadingOverlay(
+    return AuthPage(
+      title: 'Register Your Society',
+      subtitle: 'Start a 30-day free trial — no credit card needed',
+      onBack: () {
+        if (_page > 0) {
+          _goPage(_page - 1);
+        } else {
+          context.pop();
+        }
+      },
+      top: _StepIndicator(current: _page, total: 3),
+      scrollable: false,
+      maxWidth: 480,
+      child: AppLoadingOverlay(
         isLoading: isLoading,
-        child: Column(
+        child: PageView(
+          controller: _pageCtrl,
+          physics: const NeverScrollableScrollPhysics(),
           children: [
-            ResponsiveBody(maxWidth: 480, child: _StepIndicator(current: _page, total: 3)),
-            Expanded(
-              child: ResponsiveBody(maxWidth: 480, child: PageView(
-                controller: _pageCtrl,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _Page1(
-                    nameCtrl:  _nameCtrl,
-                    codeCtrl:  _codeCtrl,
-                    cityCtrl:  _cityCtrl,
-                    stateCtrl: _stateCtrl,
-                    onNext:    () => _goPage(1),
-                  ),
-                  _Page2(
-                    personCtrl: _personCtrl,
-                    emailCtrl:  _emailCtrl,
-                    mobileCtrl: _mobileCtrl,
-                    onNext:     () => _goPage(2),
-                  ),
-                  _Page3(
-                    totalWings: _totalWings,
-                    totalFlats: _totalFlats,
-                    onWingsChanged: (v) => setState(() => _totalWings = v),
-                    onFlatsChanged: (v) => setState(() => _totalFlats = v),
-                    error: state is OnboardingError ? state.message : null,
-                    onSubmit: _submit,
-                  ),
-                ],
-              )),
+            _Page1(
+              nameCtrl:  _nameCtrl,
+              codeCtrl:  _codeCtrl,
+              cityCtrl:  _cityCtrl,
+              stateCtrl: _stateCtrl,
+              onNext:    () => _goPage(1),
+            ),
+            _Page2(
+              personCtrl: _personCtrl,
+              emailCtrl:  _emailCtrl,
+              mobileCtrl: _mobileCtrl,
+              onNext:     () => _goPage(2),
+            ),
+            _Page3(
+              totalWings: _totalWings,
+              totalFlats: _totalFlats,
+              onWingsChanged: (v) => setState(() => _totalWings = v),
+              onFlatsChanged: (v) => setState(() => _totalFlats = v),
+              error: state is OnboardingError ? state.message : null,
+              onSubmit: _submit,
             ),
           ],
         ),
@@ -161,14 +154,14 @@ class _StepIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      padding: EdgeInsets.zero,
       child: Row(
         children: List.generate(total, (i) {
           final active   = i == current;
           final done     = i < current;
           return Expanded(
             child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 3),
+              margin: EdgeInsets.only(right: i < total - 1 ? 6 : 0),
               height: 4,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(2),
@@ -202,7 +195,7 @@ class _Page1 extends StatelessWidget {
   Widget build(BuildContext context) {
     final formKey = GlobalKey<FormState>();
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(2, 8, 2, 24),
       child: Form(
         key: formKey,
         child: Column(
@@ -211,18 +204,16 @@ class _Page1 extends StatelessWidget {
             _SectionTitle('Society Details',
                 'Tell us about your residential society'),
             const SizedBox(height: 24),
-            AppTextField(
-              label: 'Society Name',
-              hint: 'e.g. Sunrise Heights',
+            FormFieldBox(label: 'Society Name', child: AppTextField(
+              label: '',hint: 'e.g. Sunrise Heights',
               controller: nameCtrl,
               validator: (v) => (v == null || v.trim().length < 3)
                   ? 'Enter a valid society name'
                   : null,
-            ),
+            )),
             const SizedBox(height: 16),
-            AppTextField(
-              label: 'Society Code',
-              hint: 'e.g. SRH001 (3-10 chars)',
+            FormFieldBox(label: 'Society Code', child: AppTextField(
+              label: '',hint: 'e.g. SRH001 (3-10 chars)',
               controller: codeCtrl,
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'Code is required';
@@ -231,23 +222,21 @@ class _Page1 extends StatelessWidget {
                 }
                 return null;
               },
-            ),
+            )),
             const SizedBox(height: 16),
-            AppTextField(
-              label: 'City',
-              hint: 'e.g. Mumbai',
+            FormFieldBox(label: 'City', child: AppTextField(
+              label: '',hint: 'e.g. Mumbai',
               controller: cityCtrl,
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'City is required' : null,
-            ),
+            )),
             const SizedBox(height: 16),
-            AppTextField(
-              label: 'State',
-              hint: 'e.g. Maharashtra',
+            FormFieldBox(label: 'State', child: AppTextField(
+              label: '',hint: 'e.g. Maharashtra',
               controller: stateCtrl,
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'State is required' : null,
-            ),
+            )),
             const SizedBox(height: 32),
             AppPrimaryButton(
               label: 'Continue',
@@ -280,7 +269,7 @@ class _Page2 extends StatelessWidget {
   Widget build(BuildContext context) {
     final formKey = GlobalKey<FormState>();
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(2, 8, 2, 24),
       child: Form(
         key: formKey,
         child: Column(
@@ -289,18 +278,16 @@ class _Page2 extends StatelessWidget {
             _SectionTitle(
                 'Contact Details', 'Who is the primary contact person?'),
             const SizedBox(height: 24),
-            AppTextField(
-              label: 'Contact Person Name',
-              hint: 'e.g. Rajesh Kumar',
+            FormFieldBox(label: 'Contact Person Name', child: AppTextField(
+              label: '',hint: 'e.g. Rajesh Kumar',
               controller: personCtrl,
               validator: (v) => (v == null || v.trim().isEmpty)
                   ? 'Contact name is required'
                   : null,
-            ),
+            )),
             const SizedBox(height: 16),
-            AppTextField(
-              label: 'Email Address',
-              hint: 'e.g. rajesh@example.com',
+            FormFieldBox(label: 'Email Address', child: AppTextField(
+              label: '',hint: 'e.g. rajesh@example.com',
               controller: emailCtrl,
               keyboardType: TextInputType.emailAddress,
               validator: (v) {
@@ -310,11 +297,10 @@ class _Page2 extends StatelessWidget {
                 }
                 return null;
               },
-            ),
+            )),
             const SizedBox(height: 16),
-            AppTextField(
-              label: 'Mobile Number',
-              hint: '10-digit number',
+            FormFieldBox(label: 'Mobile Number', child: AppTextField(
+              label: '',hint: '10-digit number',
               controller: mobileCtrl,
               keyboardType: TextInputType.phone,
               validator: (v) {
@@ -325,7 +311,7 @@ class _Page2 extends StatelessWidget {
                 }
                 return null;
               },
-            ),
+            )),
             const SizedBox(height: 32),
             AppPrimaryButton(
               label: 'Continue',
@@ -363,7 +349,7 @@ class _Page3 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(2, 8, 2, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
