@@ -156,8 +156,11 @@ class _FlatPreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String day(DateTime d) => '${d.day} ${const ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.month - 1]} ${d.year}';
     final meta = [
       if (flat.areaSqft != null) '${flat.areaSqft!.toStringAsFixed(0)} sq ft',
+      if (flat.periodStart != null && flat.periodEnd != null)
+        '${day(flat.periodStart!)} – ${day(flat.periodEnd!)}${flat.months != null ? ' (${flat.months} mo)' : ''}',
       if (flat.occupancy == 'tenant_occupied') 'Let out',
       if (amountOf(flat.previousDues) > 0) 'Arrears ${formatRupees(flat.previousDues)}',
     ];

@@ -4,6 +4,26 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-10 (q)
+
+### feat: billing from the possession date (a society sets the start date)
+
+New rule **Billing start date** (Maintenance Billing → Rules). When it is set, a bill covers the days from where the
+flat's last bill ended — or, for a flat with no bill yet, from its **possession date** (never earlier than the start
+date; a flat with no possession date starts on the start date) — to the **end of the cycle being billed**
+(`docs/BILLING_WORKFLOW.md`, "Billing from the possession date").
+- A cycle that was skipped is caught up in the next bill: it simply charges the months in between as well.
+- A part of a month is charged **by its days** (possession on the 12th of a 31-day month: 20/31 of that month).
+- A flat whose possession is after the cycle is not billed in it; a flat already billed to the end of the cycle is not
+  billed twice. A cancelled bill does not count as billed.
+- The bill records the days it charges for (`period_start`, `period_end`) and its PDF prints that period; the cycle
+  preview shows each flat's period and months, and warns how many flats are charged for more than the cycle.
+- With the start date **empty**, nothing changes: every cycle bills its own period, as before. Rates are today's rates
+  for every month in the period (the system keeps no rate history).
+
+Migration `e4c1324d5e6f` adds `maintenance_settings.billing_start_date` and `maintenance_bills.period_start/period_end`
+(nullable; older bills read the cycle's period).
+
 ## 2026-10-10 (p)
 
 ### feat: resident import also reads flat type, area and a purchase date

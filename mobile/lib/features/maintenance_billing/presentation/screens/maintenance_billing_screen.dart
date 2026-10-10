@@ -1246,6 +1246,7 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
   late final _gstRateCtrl = TextEditingController(text: _trim(widget.rules.gstRatePct));
   late final _gstThresholdCtrl = TextEditingController(text: _trim(widget.rules.gstThresholdMonthly));
   late bool _gst = widget.rules.gstEnabled;
+  late DateTime? _billingStart = widget.rules.billingStartDate;
   late final _accountNameCtrl = TextEditingController(text: widget.rules.bankAccountName ?? '');
   late final _bankNameCtrl = TextEditingController(text: widget.rules.bankName ?? '');
   late final _accountNoCtrl = TextEditingController(text: widget.rules.bankAccountNumber ?? '');
@@ -1290,6 +1291,10 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
         'gst_enabled': _gst,
         'gst_rate_pct': _gstRateCtrl.text.trim(),
         'gst_threshold_monthly': _gstThresholdCtrl.text.trim(),
+        // Empty clears the date: every cycle then bills its own period only.
+        'billing_start_date': _billingStart == null
+            ? null
+            : '${_billingStart!.year.toString().padLeft(4, '0')}-${_billingStart!.month.toString().padLeft(2, '0')}-${_billingStart!.day.toString().padLeft(2, '0')}',
         // Empty clears the field on the backend.
         'bank_account_name': _accountNameCtrl.text.trim(),
         'bank_name': _bankNameCtrl.text.trim(),
@@ -1332,6 +1337,44 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
+          _section(
+            'Billing start date',
+            'The date billing in this app starts. A flat that has no bill here yet is billed from its possession '
+                'date (never before this date); after that every bill runs from the day after the previous one to '
+                'the end of the cycle, so a missed cycle is caught up. A part of a month is charged by its days. '
+                'Leave empty to bill each cycle for its own period only.',
+            [
+              InkWell(
+                onTap: () async {
+                  final d = await showDatePicker(
+                    context: context,
+                    initialDate: _billingStart ?? DateTime.now(),
+                    firstDate: DateTime(1990),
+                    lastDate: DateTime.now().add(const Duration(days: 366)),
+                  );
+                  if (d != null) setState(() => _billingStart = d);
+                },
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: 'Billing in this app starts on',
+                    suffixIcon: _billingStart == null
+                        ? const Icon(Icons.calendar_today_rounded, size: 18)
+                        : IconButton(
+                            tooltip: 'Clear',
+                            icon: const Icon(Icons.close_rounded, size: 18),
+                            onPressed: () => setState(() => _billingStart = null),
+                          ),
+                  ),
+                  child: Text(
+                    _billingStart == null
+                        ? 'Not set — each cycle bills its own period'
+                        : '${_billingStart!.day.toString().padLeft(2, '0')}/${_billingStart!.month.toString().padLeft(2, '0')}/${_billingStart!.year}',
+                    style: TextStyle(color: _billingStart == null ? AppTheme.textSecondary : AppTheme.textPrimary),
+                  ),
+                ),
+              ),
+            ],
+          ),
           _section(
             'Construction cost',
             'Architect-certified construction cost per sq ft, excluding land. Used for '

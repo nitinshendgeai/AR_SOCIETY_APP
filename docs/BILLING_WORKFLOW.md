@@ -110,3 +110,21 @@ Applied to specific charge types or all.
 - PaymentReceipt.is_reversed → bounced cheque handling
 - InvoiceLineItem with tax_percent → GST integration ready
 - DueTracker.advance_balance → advance payment ready
+
+
+## Billing from the possession date
+
+Rules → **Billing start date** (optional). Set it to the day billing in the app starts (for example 1 Apr 2026).
+
+For each flat, when a cycle's bills are generated:
+- **First bill** (the flat has no live bill yet): from `max(start date, possession date)` — a flat with no possession
+  date starts on the start date. Possession dates older than the start date therefore never produce back-bills before it.
+- **Later bills**: from the day after the end of the flat's last live (not cancelled) bill.
+- Every bill runs to the **end of the cycle** being billed. A skipped cycle is caught up in the next bill.
+- Months = the whole months in the period, plus a part-month by its days (calendar days of that month). A bill that
+  starts with the cycle is charged exactly as before (the cycle's own length).
+- A flat whose period would start after the cycle ends (possession later) is skipped, with a note in the preview.
+- GST's monthly threshold is judged on the monthly amount (total ÷ months), so a catch-up bill is not pushed over it.
+
+The period is stored on the bill (`period_start`, `period_end`), printed on its PDF and shown in the cycle preview.
+Empty start date = every cycle bills its own period only. All months in a period use the current charge rates.
