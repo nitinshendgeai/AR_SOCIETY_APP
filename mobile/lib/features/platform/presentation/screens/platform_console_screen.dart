@@ -9,6 +9,7 @@ import 'package:ar_society_app/features/platform/data/platform_api.dart';
 import 'package:ar_society_app/features/platform/presentation/providers/platform_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 String platformSocietyRoute(String id) => AppRoutes.platformSociety.replaceFirst(':id', id);
 
@@ -35,11 +36,11 @@ class _PlatformConsoleScreenState extends ConsumerState<PlatformConsoleScreen> w
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppTheme.surface,
-        appBar: AppBar(title: const Text('Platform Console'), bottom: TabBar(controller: _tabs, tabs: const [Tab(text: 'Societies'), Tab(text: 'Activity')])),
-        body: TabBarView(controller: _tabs, children: [_societies(), const _ActivityTab()]),
-      );
+  Widget build(BuildContext context) => AppPage(
+    title: 'Platform Console',
+    bottom: TabBar(controller: _tabs, tabs: const [Tab(text: 'Societies'), Tab(text: 'Activity')]),
+    body: TabBarView(controller: _tabs, children: [_societies(), const _ActivityTab()]),
+  );
 
   Widget _societies() {
     final stats = ref.watch(platformStatsProvider).valueOrNull ?? const PlatformStats();

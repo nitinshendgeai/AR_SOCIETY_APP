@@ -9,6 +9,7 @@ import 'package:ar_society_app/features/users/data/models/user_admin_models.dart
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 class UserListScreen extends ConsumerStatefulWidget {
   const UserListScreen({super.key});
@@ -33,11 +34,9 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
     final usersAsync = ref.watch(usersListProvider);
     final desktop = isDesktopLayout(context);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Users & Roles'),
-        actions: [
+    return AppPage(
+      title: 'Users & Roles',
+      actions: [
           _ResetRequestsButton(onPressed: () => context.push(AppRoutes.passwordResetRequests)),
           if (desktop)
             HeaderActionButton(icon: Icons.person_add_rounded, label: 'Create User', onPressed: _createUser)
@@ -48,7 +47,6 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
               onPressed: _createUser,
             ),
         ],
-      ),
       body: desktop ? _table(usersAsync) : Column(
         children: [
           _SearchBar(controller: _searchCtrl, onChanged: (_) => setState(() {})),

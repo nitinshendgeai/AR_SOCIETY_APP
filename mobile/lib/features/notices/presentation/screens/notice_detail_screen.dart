@@ -13,6 +13,7 @@ import 'package:ar_society_app/features/notices/presentation/screens/notice_shee
 import 'package:ar_society_app/features/notices/presentation/screens/notices_screen.dart' show noticeDay;
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// One notice in full. The reader can confirm they have read it; the committee sees who has and has not, and
 /// can publish a draft, change it, delete it, or archive a published notice.
@@ -61,11 +62,9 @@ class _NoticeDetailScreenState extends ConsumerState<NoticeDetailScreen> {
     final async = ref.watch(noticeProvider(widget.noticeId));
     final api = ref.read(noticesApiProvider);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Notice'),
-        actions: [
+    return AppPage(
+      title: 'Notice',
+      actions: [
           if (writer && async.valueOrNull?.isDraft == true)
             IconButton(
               tooltip: 'Edit',
@@ -73,7 +72,6 @@ class _NoticeDetailScreenState extends ConsumerState<NoticeDetailScreen> {
               onPressed: () => showAppSheet(context: context, builder: (_) => NoticeFormSheet(draft: async.value)),
             ),
         ],
-      ),
       body: RefreshIndicator(
         onRefresh: () async => invalidateNotices(ref),
         child: async.when(

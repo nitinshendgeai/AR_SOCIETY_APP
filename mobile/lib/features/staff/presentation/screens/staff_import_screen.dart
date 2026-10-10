@@ -11,6 +11,7 @@ import 'package:ar_society_app/features/staff/data/repositories/staff_repository
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 const _templateHeader = [
   'Full Name', 'Mobile', 'Email', 'Department', 'Designation', 'Joining Date',
@@ -87,9 +88,8 @@ class _StaffImportScreenState extends ConsumerState<StaffImportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Import Staff')),
+    return AppPage(
+      title: 'Import Staff',
       body: ResponsiveBody(
         child: _rows == null ? _buildIntro(context) : _buildPreview(context),
       ),

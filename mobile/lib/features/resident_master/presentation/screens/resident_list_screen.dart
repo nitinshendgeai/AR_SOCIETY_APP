@@ -14,6 +14,7 @@ import 'package:ar_society_app/features/society_structure/presentation/providers
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Resident Master list — the canonical, searchable roster of every
 /// resident (owner / co-owner / family / dependent) across the society.
@@ -212,11 +213,9 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
       for (final f in flatsAsync.valueOrNull ?? <FlatModel>[]) f.id: f,
     };
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Text(widget.filterFlat != null ? 'Residents — ${widget.filterFlat!.displayName}' : 'Residents'),
-        actions: [
+    return AppPage(
+      title: widget.filterFlat != null ? 'Residents — ${widget.filterFlat!.displayName}' : 'Residents',
+      actions: [
           if (widget.filterFlat == null && (user?.isAdminOrCommittee ?? false))
             IconButton(
               icon: const Icon(Icons.upload_file_rounded),
@@ -230,7 +229,6 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
           if (desktop && (user?.isAdminOrCommittee ?? false))
             HeaderActionButton(icon: Icons.person_add_rounded, label: 'Add Resident', onPressed: _addResident),
         ],
-      ),
       floatingActionButton: !desktop && (user?.isAdminOrCommittee ?? false)
           ? FloatingActionButton.extended(
               onPressed: _addResident,

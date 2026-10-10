@@ -17,6 +17,7 @@ import 'package:ar_society_app/features/billing/presentation/screens/online_paym
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// FMC Manager/Admin/Committee: list of resident payment screenshots
 /// captured for bank reconciliation.
@@ -146,11 +147,9 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
     final paymentsAsync = ref.watch(onlinePaymentsProvider(societyId));
     final desktop = isDesktopLayout(context);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Payments'),
-        actions: [
+    return AppPage(
+      title: 'Payments',
+      actions: [
           IconButton(
             icon: _exporting
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
@@ -166,7 +165,6 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
           if (desktop)
             HeaderActionButton(icon: Icons.add_rounded, label: 'Record Payment', onPressed: _recordPayment),
         ],
-      ),
       floatingActionButton: desktop
           ? null
           : FloatingActionButton.extended(

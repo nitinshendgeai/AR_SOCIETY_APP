@@ -62,11 +62,16 @@ class _HandoverScreenState extends ConsumerState<HandoverScreen>
       }
     });
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Handover / Takeover'),
-        bottom: TabBar(
+    return AppPage(
+      title: 'Handover / Takeover',
+      actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () =>
+                ref.read(handoverProvider.notifier).loadHandovers(widget.staffId),
+          ),
+        ],
+      bottom: TabBar(
           controller: _tabController,
           tabs: const [
             Tab(text: 'Pending'),
@@ -74,14 +79,6 @@ class _HandoverScreenState extends ConsumerState<HandoverScreen>
             Tab(text: 'Create'),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () =>
-                ref.read(handoverProvider.notifier).loadHandovers(widget.staffId),
-          ),
-        ],
-      ),
       body: TabBarView(
         controller: _tabController,
         children: [

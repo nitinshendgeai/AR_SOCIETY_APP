@@ -10,6 +10,7 @@ import 'package:ar_society_app/features/platform/presentation/screens/platform_c
 import 'package:ar_society_app/features/platform/presentation/screens/platform_sheets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// One society as the platform sees it.
 class PlatformSocietyScreen extends ConsumerWidget {
@@ -19,9 +20,8 @@ class PlatformSocietyScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(platformSocietyProvider(societyId));
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text(async.valueOrNull?.name ?? 'Society')),
+    return AppPage(
+      title: async.valueOrNull?.name ?? 'Society',
       body: RefreshIndicator(
         onRefresh: () async => invalidatePlatform(ref),
         child: async.when(

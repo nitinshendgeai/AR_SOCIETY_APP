@@ -10,6 +10,7 @@ import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Staff master list — shows all staff with search, filter, add, and detail navigation.
 class StaffListScreen extends ConsumerStatefulWidget {
@@ -72,11 +73,9 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
     final societyId = user?.societyId;
     final desktop = isDesktopLayout(context);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Staff'),
-        actions: [
+    return AppPage(
+      title: 'Staff',
+      actions: [
           if ((user?.isAdminOrCommittee ?? false) || (user?.isManager ?? false))
             IconButton(
               icon: const Icon(Icons.upload_file_rounded),
@@ -94,7 +93,6 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
               onPressed: () => context.push('/staff/add'),
             ),
         ],
-      ),
       floatingActionButton: (!desktop && societyId != null && ((user?.isAdminOrCommittee ?? false) || (user?.isManager ?? false)))
           ? FloatingActionButton.extended(
               onPressed: () => context.push('/staff/add'),

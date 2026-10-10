@@ -1,4 +1,4 @@
-# Forms — one layout for every full-page form
+# Pages, forms and sheets — one layout for every screen
 
 A full-page form (Add Resident, Add Flat, Log Visitor…) is built with `AppFormPage`
 (`mobile/lib/shared/widgets/app_form.dart`). It gives every form the same:
@@ -46,6 +46,26 @@ AppFormPage(
 Rules: put the label in `FormFieldBox`, not `InputDecoration.labelText`; keep hints short; give a dropdown
 `isExpanded: true`; keep controllers, validation and API calls exactly as they were — only the layout changes.
 
+## Ordinary screens (`AppPage`)
+
+Every list, detail or card page uses `AppPage` (`mobile/lib/shared/widgets/app_form.dart`) instead of `Scaffold` + `AppBar`:
+
+```dart
+AppPage(
+  title: 'Residents',
+  subtitle: 'People who live in the society',   // optional
+  actions: [ ...buttons at the right... ],
+  bottom: TabBar(...),                          // optional; on a computer the tabs sit at the left
+  floatingActionButton: ...,                    // optional
+  body: ...,
+)
+```
+
+On a computer it draws the same header as the forms (back button when there is somewhere to go back to, a 24 px title, a line
+under it, buttons at the right) with the body on one centred content width (1280 px), so the header and the page line up. On a
+phone it is the normal app bar. `ResponsiveBody` does nothing inside an `AppPage` (the page already sets the width).
+Pass `maxWidth:` for a page of cards that reads better narrower.
+
 ## Forms in sheets and panels
 
 Forms that open over a list (a bottom sheet on a phone, a side panel on a computer, via `showAppSheet`) use
@@ -67,5 +87,5 @@ content width, with the save button at the end) give a settings screen with tabs
   renewal, move in/out, handover item, vendor bill, assign complaint…). About 150 fields now have their label above.
 
 Not changed on purpose: the sign-in, change-password and registration pages (they stand alone, outside the app shell),
-review lists with a small reason field (attendance corrections), the paper-sheet entry grid, and pick-from-a-list
-sheets (account pickers, bank-statement match candidates).
+the role dashboards (they have their own layout and phone drawer), and pick-from-a-list sheets (account pickers,
+bank-statement match candidates).

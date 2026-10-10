@@ -14,6 +14,7 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 String ledgerRoute(String accountId, {String? flatId, String? vendorId}) {
   final path = AppRoutes.accountsLedger.replaceFirst(':accountId', accountId);
@@ -91,9 +92,9 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
     final narrow = MediaQuery.sizeOf(context).width < 600;
     String money(num v) => narrow ? formatInrShort(v) : formatInr(v);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Accounts'), actions: [
+    return AppPage(
+      title: 'Accounts',
+      actions: [
         if (desktop) ...[
           TextButton.icon(
             onPressed: () => chooseNewVoucher(context),
@@ -103,7 +104,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
           HeaderActionButton(
               icon: Icons.add_rounded, label: 'Add Expense', onPressed: () => context.push(AppRoutes.accountsExpenseNew)),
         ],
-      ]),
+      ],
       floatingActionButton: desktop
           ? null
           : FloatingActionButton.extended(

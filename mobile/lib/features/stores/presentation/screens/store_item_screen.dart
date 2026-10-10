@@ -11,6 +11,7 @@ import 'package:ar_society_app/features/stores/presentation/screens/store_sheets
 import 'package:ar_society_app/features/stores/presentation/screens/stores_screen.dart' show IssueCard;
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// One item: how much is in stock, buttons to bring stock in, issue it, or correct the count, who has some of it
 /// now, and every movement of stock.
@@ -22,15 +23,12 @@ class StoreItemScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(storeItemProvider(itemId));
     final societyId = ref.watch(currentUserProvider)?.societyId ?? '';
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Text(async.valueOrNull?.name ?? 'Item'),
-        actions: [
+    return AppPage(
+      title: async.valueOrNull?.name ?? 'Item',
+      actions: [
           if (async.valueOrNull != null)
             IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit_outlined), onPressed: () => showAppSheet(context: context, builder: (_) => ItemFormSheet(item: async.value))),
         ],
-      ),
       body: RefreshIndicator(
         onRefresh: () async => invalidateStores(ref),
         child: async.when(

@@ -114,11 +114,9 @@ class _VendorBillsScreenState extends ConsumerState<VendorBillsScreen> {
     final invoicesAsync = ref.watch(vendorInvoicesProvider(societyId));
     final desktop = isDesktopLayout(context);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Vendor Bills'),
-        actions: [
+    return AppPage(
+      title: 'Vendor Bills',
+      actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh',
@@ -127,7 +125,6 @@ class _VendorBillsScreenState extends ConsumerState<VendorBillsScreen> {
           if (desktop)
             HeaderActionButton(icon: Icons.add_rounded, label: 'Add Bill', onPressed: () => _addBill(societyId)),
         ],
-      ),
       floatingActionButton: desktop
           ? null
           : FloatingActionButton.extended(

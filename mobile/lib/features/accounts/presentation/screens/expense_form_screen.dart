@@ -157,11 +157,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     final elementsAsync = ref.watch(maintenanceElementsProvider((societyId: societyId, includeInactive: false)));
 
     // Until the books and the element list have loaded there is nothing to fill in.
-    Widget waiting(Widget body) => Scaffold(
-          backgroundColor: AppTheme.surface,
-          appBar: AppBar(title: const Text('Add Expense')),
-          body: body,
-        );
+    Widget waiting(Widget body) => AppPage(
+      title: 'Add Expense',
+      body: body,
+    );
     return ledgersAsync.when(
       loading: () => waiting(const AppLoader()),
       error: (e, _) => waiting(ListView(padding: const EdgeInsets.all(20), children: [AppErrorBanner(message: friendlyErrorMessage(e))])),

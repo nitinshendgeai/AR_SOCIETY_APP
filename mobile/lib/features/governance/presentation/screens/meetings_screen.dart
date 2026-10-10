@@ -33,9 +33,8 @@ class MeetingsScreen extends ConsumerWidget {
     final sid = user?.societyId ?? '';
     final office = user?.isAdminOrCommittee == true;
     final async = ref.watch(meetingsProvider(sid));
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text(context.tr('Meetings'))),
+    return AppPage(
+      title: 'Meetings',
       floatingActionButton: office
           ? FloatingActionButton.extended(
               onPressed: () => showAppSheet(

@@ -13,6 +13,7 @@ import 'package:ar_society_app/features/assets/presentation/screens/asset_sheets
 import 'package:ar_society_app/features/vendor/presentation/screens/vendors_work_screen.dart' show contractRoute, workOrderRoute;
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// One asset: what it is, when it is next due, and everything that has been done to it.
 class AssetDetailScreen extends ConsumerWidget {
@@ -22,11 +23,9 @@ class AssetDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(assetHistoryProvider(assetId));
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Text(async.valueOrNull?.asset.name ?? 'Asset'),
-        actions: [
+    return AppPage(
+      title: async.valueOrNull?.asset.name ?? 'Asset',
+      actions: [
           if (async.valueOrNull != null) ...[
             IconButton(
               tooltip: 'Edit',
@@ -37,7 +36,6 @@ class AssetDetailScreen extends ConsumerWidget {
             _StatusMenu(asset: async.value!.asset),
           ],
         ],
-      ),
       body: RefreshIndicator(
         onRefresh: () async => invalidateAssets(ref),
         child: async.when(

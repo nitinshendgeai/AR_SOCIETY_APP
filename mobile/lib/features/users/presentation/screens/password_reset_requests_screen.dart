@@ -9,6 +9,7 @@ import 'package:ar_society_app/features/users/data/models/user_admin_models.dart
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart' show EmptyState;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Members who tapped "Forgot password?" on the login screen. The admin
 /// resets the password here and gives the member the temporary one (they
@@ -20,19 +21,16 @@ class PasswordResetRequestsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
       length: 2,
-      child: Scaffold(
-        backgroundColor: AppTheme.surface,
-        appBar: AppBar(
-          title: const Text('Password Reset Requests'),
-          bottom: const TabBar(tabs: [Tab(text: 'Pending'), Tab(text: 'Handled')]),
-          actions: [
+      child: AppPage(
+        title: 'Password Reset Requests',
+        actions: [
             IconButton(
               icon: const Icon(Icons.refresh_rounded),
               tooltip: 'Refresh',
               onPressed: () => ref.invalidate(passwordResetRequestsProvider),
             ),
           ],
-        ),
+        bottom: const TabBar(tabs: [Tab(text: 'Pending'), Tab(text: 'Handled')]),
         body: const TabBarView(children: [
           _RequestList(pending: true),
           _RequestList(pending: false),

@@ -259,11 +259,10 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
     final editing = _editing;
 
     final title = _isEdit ? 'Edit ${editing?.voucherNumber ?? 'voucher'}' : 'New ${voucherTypeLabel(_type)}';
-    Widget waiting(Widget body) => Scaffold(
-          backgroundColor: AppTheme.surface,
-          appBar: AppBar(title: Text(title)),
-          body: body,
-        );
+    Widget waiting(Widget body) => AppPage(
+      title: title,
+      body: body,
+    );
     if (loadError != null) {
       return waiting(Center(child: Text(friendlyErrorMessage(loadError), style: const TextStyle(color: AppTheme.error))));
     }

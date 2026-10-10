@@ -53,11 +53,9 @@ class _ChecklistTemplatesScreenState extends ConsumerState<ChecklistTemplatesScr
     final templatesAsync = ref.watch(checklistTemplatesProvider(societyId));
     final desktop = isDesktopLayout(context);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Checklist Templates'),
-        actions: [
+    return AppPage(
+      title: 'Checklist Templates',
+      actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () => ref.read(checklistTemplatesProvider(societyId).notifier).refresh(),
@@ -69,7 +67,6 @@ class _ChecklistTemplatesScreenState extends ConsumerState<ChecklistTemplatesScr
               onPressed: () => _openEditor(context, societyId: societyId),
             ),
         ],
-      ),
       floatingActionButton: desktop
           ? null
           : FloatingActionButton.extended(
@@ -326,9 +323,8 @@ class _TemplateEditorScreenState extends ConsumerState<_TemplateEditorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text(widget.existing == null ? 'New Template' : 'Edit Template')),
+    return AppPage(
+      title: widget.existing == null ? 'New Template' : 'Edit Template',
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [

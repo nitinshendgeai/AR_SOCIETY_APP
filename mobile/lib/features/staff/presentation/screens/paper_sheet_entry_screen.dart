@@ -206,9 +206,8 @@ class _PaperSheetEntryScreenState extends ConsumerState<PaperSheetEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Enter from sheet')),
+    return AppPage(
+      title: 'Enter from sheet',
       body: _loading
           ? const AppLoader()
           : _error != null

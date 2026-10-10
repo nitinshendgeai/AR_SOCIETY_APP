@@ -10,6 +10,7 @@ import 'package:ar_society_app/features/amenities/presentation/screens/amenity_s
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// One amenity: its hours and rules, who has it when on the day you pick, and a Book button. The committee also
 /// sets it up here: its details, rules, rates and closed dates.
@@ -39,11 +40,9 @@ class _AmenityDetailScreenState extends ConsumerState<AmenityDetailScreen> {
     final user = ref.watch(currentUserProvider);
     final setup = user?.isAdminOrCommittee ?? false;
     final async = ref.watch(amenityProvider(widget.amenityId));
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Text(async.valueOrNull?.name ?? 'Amenity'),
-        actions: [
+    return AppPage(
+      title: async.valueOrNull?.name ?? 'Amenity',
+      actions: [
           if (setup && async.valueOrNull != null)
             IconButton(
               tooltip: 'Edit',
@@ -51,7 +50,6 @@ class _AmenityDetailScreenState extends ConsumerState<AmenityDetailScreen> {
               onPressed: () => showAppSheet(context: context, builder: (_) => AmenityFormSheet(amenity: async.value)),
             ),
         ],
-      ),
       body: RefreshIndicator(
         onRefresh: () async => invalidateAmenities(ref),
         child: async.when(

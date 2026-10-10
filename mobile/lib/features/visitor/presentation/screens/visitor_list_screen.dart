@@ -10,6 +10,7 @@ import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 class VisitorListScreen extends ConsumerStatefulWidget {
   final bool isMy;
@@ -80,15 +81,9 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
       }
     });
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Text(widget.isMy ? 'My Visitors' : 'Visitor Log'),
-        bottom: TabBar(
-          controller: _tabs,
-          tabs: const [Tab(text: 'All Visitors'), Tab(text: 'Inside Now')],
-        ),
-        actions: [
+    return AppPage(
+      title: widget.isMy ? 'My Visitors' : 'Visitor Log',
+      actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh',
@@ -97,7 +92,10 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
           if (desktop && !widget.isMy)
             HeaderActionButton(icon: Icons.person_add_rounded, label: 'Log Visitor', onPressed: _logVisitor),
         ],
-      ),
+      bottom: TabBar(
+          controller: _tabs,
+          tabs: const [Tab(text: 'All Visitors'), Tab(text: 'Inside Now')],
+        ),
       floatingActionButton: widget.isMy || desktop
           ? null
           : FloatingActionButton.extended(

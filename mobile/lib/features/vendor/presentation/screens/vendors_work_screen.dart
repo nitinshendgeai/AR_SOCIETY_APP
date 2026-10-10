@@ -66,18 +66,15 @@ class _VendorsWorkScreenState extends ConsumerState<VendorsWorkScreen> with Sing
       2 when committee => ('Add Vendor', () => showAppSheet(context: context, builder: (_) => VendorSheet(societyId: societyId))),
       _ => (null, null),
     };
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Vendors & Work'),
-        actions: [if (desktop && add != null) HeaderActionButton(icon: Icons.add_rounded, label: label!, onPressed: add)],
-        bottom: TabBar(
+    return AppPage(
+      title: 'Vendors & Work',
+      actions: [if (desktop && add != null) HeaderActionButton(icon: Icons.add_rounded, label: label!, onPressed: add)],
+      bottom: TabBar(
           controller: _tabs,
           isScrollable: !desktop,
           tabAlignment: desktop ? null : TabAlignment.start,
           tabs: const [Tab(text: 'Work Orders'), Tab(text: 'Contracts'), Tab(text: 'Vendors'), Tab(text: 'Limits')],
         ),
-      ),
       floatingActionButton: desktop || add == null
           ? null
           : FloatingActionButton.extended(onPressed: add, icon: const Icon(Icons.add_rounded), label: Text(label!)),

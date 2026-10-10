@@ -44,9 +44,8 @@ class _FinancialStatementsScreenState extends ConsumerState<FinancialStatementsS
     final yearsAsync = ref.watch(financialYearsProvider(societyId));
     final canCloseBooks = user!.isAdminOrCommittee;
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Financial Statements')),
+    return AppPage(
+      title: 'Financial Statements',
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(financialYearsProvider(societyId)),
         child: yearsAsync.when(

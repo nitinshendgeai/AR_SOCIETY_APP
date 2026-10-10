@@ -37,9 +37,9 @@ class MaintenanceElementsScreen extends ConsumerWidget {
         );
 
     final desktop = isDesktopLayout(context);
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Maintenance Elements'), actions: [
+    return AppPage(
+      title: 'Maintenance Elements',
+      actions: [
         AppBarTextAction(
           onPressed: () => context.push(AppRoutes.accountsExpenseNew),
           icon: Icons.shopping_bag_outlined,
@@ -51,7 +51,7 @@ class MaintenanceElementsScreen extends ConsumerWidget {
           label: 'Spend by element',
         ),
         if (desktop) HeaderActionButton(icon: Icons.add_rounded, label: 'Add Element', onPressed: openSheet),
-      ]),
+      ],
       floatingActionButton: desktop
           ? null
           : FloatingActionButton.extended(

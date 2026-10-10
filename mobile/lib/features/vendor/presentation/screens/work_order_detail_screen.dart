@@ -137,16 +137,13 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     final committee = user?.isAdminOrCommittee ?? false;
     final async = ref.watch(workOrderProvider(widget.workOrderId));
     final wo = async.valueOrNull;
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Text(wo?.woNumber ?? 'Work Order'),
-        actions: [
+    return AppPage(
+      title: wo?.woNumber ?? 'Work Order',
+      actions: [
           if (wo != null && wo.canPrint)
             PdfActions(
                 load: () => _api.workOrderPdf(wo.id), fileName: '${wo.woNumber}.pdf', subject: 'Work order ${wo.woNumber}'),
         ],
-      ),
       body: async.when(
         loading: () => const AppLoader(),
         error: (e, _) => Center(child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),

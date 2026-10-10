@@ -13,6 +13,7 @@ import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_w
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 enum _Show { all, dues, advance }
 
@@ -36,9 +37,9 @@ class _MembersLedgerScreenState extends ConsumerState<MembersLedgerScreen> {
     final async = ref.watch(membersLedgerProvider(societyId));
     final desktop = isDesktopLayout(context);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text("Members' Ledger"), actions: [
+    return AppPage(
+      title: "Members' Ledger",
+      actions: [
         AppBarTextAction(
           onPressed: () => context.push(AppRoutes.defaulters),
           icon: Icons.warning_amber_rounded,
@@ -50,7 +51,7 @@ class _MembersLedgerScreenState extends ConsumerState<MembersLedgerScreen> {
           subject: "Members' Ledger",
         ),
         const SizedBox(width: 8),
-      ]),
+      ],
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(membersLedgerProvider(societyId)),
         child: async.when(

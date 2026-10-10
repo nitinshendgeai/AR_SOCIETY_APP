@@ -43,14 +43,11 @@ class RecurringExpensesScreen extends ConsumerWidget {
     final due = ref.watch(recurringDueProvider(societyId));
     final all = ref.watch(recurringListProvider(societyId));
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Monthly expenses'),
-        actions: [
+    return AppPage(
+      title: 'Monthly expenses',
+      actions: [
           if (desktop) HeaderActionButton(icon: Icons.add_rounded, label: 'Add monthly expense', onPressed: () => _add(context)),
         ],
-      ),
       floatingActionButton: desktop
           ? null
           : FloatingActionButton.extended(

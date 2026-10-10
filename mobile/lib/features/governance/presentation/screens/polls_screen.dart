@@ -25,9 +25,8 @@ class PollsScreen extends ConsumerWidget {
     final sid = user?.societyId ?? '';
     final office = user?.isAdminOrCommittee == true;
     final async = ref.watch(pollsProvider(sid));
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text(context.tr('Polls'))),
+    return AppPage(
+      title: 'Polls',
       floatingActionButton: office
           ? FloatingActionButton.extended(
               onPressed: () => showAppSheet(

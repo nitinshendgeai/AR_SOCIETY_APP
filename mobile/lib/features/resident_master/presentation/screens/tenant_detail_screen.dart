@@ -15,6 +15,7 @@ import 'package:ar_society_app/features/resident_master/presentation/widgets/agr
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Canonical Tenant Detail screen — the flat's tenancy at a glance: who the
 /// tenant is, what the current agreement says, and when it needs renewal.
@@ -30,8 +31,8 @@ class TenantDetailScreen extends ConsumerWidget {
 
     return detailAsync.when(
       loading: () => const Scaffold(body: const AppLoader()),
-      error: (e, _) => Scaffold(
-        appBar: AppBar(title: const Text('Tenant')),
+      error: (e, _) => AppPage(
+        title: 'Tenant',
         body: Center(child: Text(rmFriendlyError(e), style: const TextStyle(color: AppTheme.error))),
       ),
       data: (t) => _TenantDetailBody(tenant: t, canEdit: canEdit),
@@ -60,11 +61,9 @@ class _TenantDetailBody extends ConsumerWidget {
     final hasActiveAgreement = tenant.activeAgreementId != null && !tenant.hasMovedOut;
     final daysLeft = rmDaysUntil(tenant.agreementEndDate);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Text(tenant.fullName),
-        actions: [
+    return AppPage(
+      title: tenant.fullName,
+      actions: [
           if (canEdit)
             IconButton(
               icon: const Icon(Icons.edit_rounded),
@@ -72,7 +71,6 @@ class _TenantDetailBody extends ConsumerWidget {
               onPressed: () => context.push(AppRoutes.tenantForm, extra: {'tenant': tenant}),
             ),
         ],
-      ),
       body: ResponsiveBody(child: ListView(
         padding: const EdgeInsets.all(20),
         children: [

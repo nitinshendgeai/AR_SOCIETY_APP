@@ -101,17 +101,14 @@ class _PendingResidentChangesScreenState extends ConsumerState<PendingResidentCh
   Widget build(BuildContext context) {
     final requestsAsync = ref.watch(pendingEditRequestsProvider);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Pending Resident Changes'),
-        actions: [
+    return AppPage(
+      title: 'Pending Resident Changes',
+      actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () => ref.invalidate(pendingEditRequestsProvider),
           ),
         ],
-      ),
       body: requestsAsync.when(
         loading: () => const AppLoader(),
         error: (e, _) => Center(child: Text('Could not load requests: $e')),

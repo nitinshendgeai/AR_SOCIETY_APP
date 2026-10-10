@@ -59,11 +59,9 @@ class _MaintenanceBillingScreenState extends ConsumerState<MaintenanceBillingScr
         : _openSheet(onCycles ? _NewCycleSheet(societyId: societyId) : _ChargeHeadSheet(societyId: societyId));
     final addLabel = onCycles ? 'New Cycle' : (onFines ? 'Add Fine / Charge' : 'Add Charge Head');
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Maintenance Billing'),
-        actions: [
+    return AppPage(
+      title: 'Maintenance Billing',
+      actions: [
           if (desktop && !onRules)
             HeaderActionButton(
               icon: Icons.add_rounded,
@@ -71,13 +69,12 @@ class _MaintenanceBillingScreenState extends ConsumerState<MaintenanceBillingScr
               onPressed: add,
             ),
         ],
-        bottom: TabBar(controller: _tabs, isScrollable: !desktop, tabAlignment: desktop ? null : TabAlignment.start, tabs: const [
+      bottom: TabBar(controller: _tabs, isScrollable: !desktop, tabAlignment: desktop ? null : TabAlignment.start, tabs: const [
           Tab(text: 'Cycles'),
           Tab(text: 'Charge Heads'),
           Tab(text: 'Rules'),
           Tab(text: 'Fines & Charges'),
         ]),
-      ),
       floatingActionButton: onRules || desktop ? null : FloatingActionButton.extended(
         onPressed: add,
         icon: const Icon(Icons.add_rounded),

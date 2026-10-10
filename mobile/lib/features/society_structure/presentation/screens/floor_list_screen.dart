@@ -19,11 +19,9 @@ class FloorListScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(floorsByWingProvider(wing.id));
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Text('${wing.name} — Floors'),
-        actions: [
+    return AppPage(
+      title: '${wing.name} — Floors',
+      actions: [
           IconButton(
             icon: const Icon(Icons.add_rounded),
             tooltip: 'Add Floor',
@@ -33,7 +31,6 @@ class FloorListScreen extends ConsumerWidget {
             ),
           ),
         ],
-      ),
       body: ResponsiveBody(child: async.when(
         loading: () => const SkeletonList(),
         error: (e, _) => Center(

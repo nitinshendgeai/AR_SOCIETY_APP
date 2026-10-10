@@ -14,6 +14,7 @@ import 'package:ar_society_app/features/shops/presentation/providers/shops_provi
 import 'package:ar_society_app/features/shops/presentation/widgets/shop_sheet.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// The society's shops: who owns each, who runs it, when the owner took possession and which electricity meter it
 /// has. A master of its own, apart from the flats.
@@ -50,16 +51,13 @@ class _ShopsScreenState extends ConsumerState<ShopsScreen> {
     final desktop = isDesktopLayout(context);
     final async = ref.watch(shopsProvider(societyId));
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Shops'),
-        actions: [
+    return AppPage(
+      title: 'Shops',
+      actions: [
           AppBarTextAction(
               icon: Icons.upload_file_rounded, label: 'Import', onPressed: () => context.push(AppRoutes.shopsImport)),
           if (desktop) HeaderActionButton(icon: Icons.add_rounded, label: 'Add shop', onPressed: _open),
         ],
-      ),
       floatingActionButton: desktop
           ? null
           : FloatingActionButton.extended(

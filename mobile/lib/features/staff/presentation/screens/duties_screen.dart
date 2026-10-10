@@ -6,6 +6,7 @@ import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dar
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/duty_sheet_actions.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 class DutiesScreen extends ConsumerStatefulWidget {
   final String staffId;
@@ -54,11 +55,9 @@ class _DutiesScreenState extends ConsumerState<DutiesScreen> {
       }
     });
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('My Duties'),
-        actions: [
+    return AppPage(
+      title: 'My Duties',
+      actions: [
           PopupMenuButton<int>(
             icon: const Icon(Icons.print_rounded),
             tooltip: 'Print duty sheet',
@@ -78,7 +77,6 @@ class _DutiesScreenState extends ConsumerState<DutiesScreen> {
             onPressed: () => ref.read(dutyProvider.notifier).loadDuties(widget.staffId),
           ),
         ],
-      ),
       body: switch (state) {
         DutyLoading() => const AppLoader(),
         DutyError(:final message) => Center(

@@ -103,11 +103,9 @@ class _DutyOverviewScreenState extends ConsumerState<DutyOverviewScreen> {
       }
     });
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Duties'),
-        actions: [
+    return AppPage(
+      title: 'Duties',
+      actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.print_rounded),
             tooltip: 'Print duty sheets',
@@ -122,7 +120,6 @@ class _DutyOverviewScreenState extends ConsumerState<DutyOverviewScreen> {
           ),
           IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
         ],
-      ),
       body: Column(
         children: [
           _DateBar(

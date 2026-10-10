@@ -70,11 +70,9 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
       }
     });
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Parking Management'),
-        actions: [
+    return AppPage(
+      title: 'Parking Management',
+      actions: [
           if (isDesktopLayout(context))
             AnimatedBuilder(
               animation: _tab,
@@ -89,11 +87,10 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
               ),
             ),
         ],
-        bottom: TabBar(
+      bottom: TabBar(
           controller: _tab,
           tabs: const [Tab(text: 'Slots'), Tab(text: 'Allocations'), Tab(text: 'Vehicles')],
         ),
-      ),
       floatingActionButton: isDesktopLayout(context) ? null : AnimatedBuilder(
         animation: _tab,
         builder: (_, __) => FloatingActionButton.extended(

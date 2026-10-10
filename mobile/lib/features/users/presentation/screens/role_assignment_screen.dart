@@ -5,6 +5,7 @@ import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/users/data/models/user_admin_models.dart';
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 class RoleAssignmentScreen extends ConsumerWidget {
   final AdminUserModel user;
@@ -17,11 +18,8 @@ class RoleAssignmentScreen extends ConsumerWidget {
     final currentRoles =
         userAsync.valueOrNull?.roles ?? user.roles;
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Text('Roles — ${user.fullName.split(' ').first}'),
-      ),
+    return AppPage(
+      title: 'Roles — ${user.fullName.split(' ').first}',
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

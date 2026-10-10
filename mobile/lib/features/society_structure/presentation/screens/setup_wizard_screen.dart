@@ -6,6 +6,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_settings/presentation/providers/society_settings_providers.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 class SetupWizardScreen extends ConsumerStatefulWidget {
   const SetupWizardScreen({super.key});
@@ -73,9 +74,8 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
     final completedCount = completions.where((c) => c).length;
     final percent = (completedCount / _steps.length * 100).round();
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Society Setup Wizard')),
+    return AppPage(
+      title: 'Society Setup Wizard',
       body: ResponsiveBody(child: ListView(
         padding: const EdgeInsets.all(20),
         children: [
