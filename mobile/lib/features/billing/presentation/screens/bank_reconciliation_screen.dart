@@ -74,7 +74,7 @@ class _BankReconciliationScreenState extends ConsumerState<BankReconciliationScr
     }
     await showAppSheet(
       context: context,
-      builder: (_) => _MatchEntrySheet(entry: entry),
+      builder: (_) => BankMatchEntrySheet(entry: entry),
     );
   }
 
@@ -338,15 +338,15 @@ class _EntryCard extends StatelessWidget {
 /// Bottom sheet for one unmatched entry: shows suggested PENDING payment
 /// candidates (same amount, nearby date) to confirm, plus an ignore action
 /// for rows that aren't a resident payment at all (bank interest, charges).
-class _MatchEntrySheet extends ConsumerStatefulWidget {
+class BankMatchEntrySheet extends ConsumerStatefulWidget {
   final BankStatementEntryEntity entry;
-  const _MatchEntrySheet({required this.entry});
+  const BankMatchEntrySheet({super.key, required this.entry});
 
   @override
-  ConsumerState<_MatchEntrySheet> createState() => _MatchEntrySheetState();
+  ConsumerState<BankMatchEntrySheet> createState() => _BankMatchEntrySheetState();
 }
 
-class _MatchEntrySheetState extends ConsumerState<_MatchEntrySheet> {
+class _BankMatchEntrySheetState extends ConsumerState<BankMatchEntrySheet> {
   bool _busy = false;
 
   Future<void> _confirm(String submissionId, String societyId) async {
@@ -405,83 +405,60 @@ class _MatchEntrySheetState extends ConsumerState<_MatchEntrySheet> {
     final societyId = ref.watch(currentUserProvider)?.societyId ?? '';
     final candidatesAsync = ref.watch(bankMatchCandidatesProvider(widget.entry.id));
 
-    // Fills the side panel on desktop; a draggable part-height sheet on phones.
-    final panel = isDesktopLayout(context);
-    return DraggableScrollableSheet(
-      initialChildSize: panel ? 1 : 0.6,
-      minChildSize: 0.4,
-      maxChildSize: panel ? 1 : 0.9,
-      expand: false,
-      builder: (context, scrollController) => Container(
-        decoration: const BoxDecoration(
-          color: AppTheme.cardBg,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('₹${widget.entry.amount}',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 2),
-            Text(widget.entry.description, style: const TextStyle(color: AppTheme.textSecondary)),
-            Text(
-                '${widget.entry.txnDate.day}/${widget.entry.txnDate.month}/${widget.entry.txnDate.year}'
-                '${widget.entry.reference != null ? ' · Ref ${widget.entry.reference}' : ''}',
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-            const SizedBox(height: 16),
-            const Text('Suggested matches', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-            const SizedBox(height: 8),
-            Expanded(
-              child: candidatesAsync.when(
-                loading: () => const AppLoader(),
-                error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-                data: (candidates) {
-                  if (candidates.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        'No pending payment found with this amount within 5 days of this date.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
-                      ),
-                    );
-                  }
-                  return ListView.builder(
-                    controller: scrollController,
-                    itemCount: candidates.length,
-                    itemBuilder: (_, i) {
-                      final c = candidates[i];
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          title: Text('${c.receiptNumber} — ${c.wingName ?? ''} ${c.flatNumber ?? ''}'.trim()),
-                          subtitle: Text(
-                              '${paymentModeLabel(c.paymentMode)} · '
-                              '${c.paymentDate.day}/${c.paymentDate.month}/${c.paymentDate.year}'),
-                          trailing: ElevatedButton(
-                            onPressed: _busy ? null : () => _confirm(c.id, societyId),
-                            child: const Text('Confirm'),
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _busy ? null : () => _ignore(societyId),
-                icon: const Icon(Icons.block_rounded, size: 18),
-                label: const Text('Not a resident payment — ignore'),
-                style: OutlinedButton.styleFrom(foregroundColor: AppTheme.warning),
-              ),
-            ),
-          ],
+    final entry = widget.entry;
+    return AppSheetFrame(
+      title: '₹${entry.amount}',
+      subtitle: '${entry.description}\n'
+          '${entry.txnDate.day}/${entry.txnDate.month}/${entry.txnDate.year}'
+          '${entry.reference != null ? ' · Ref ${entry.reference}' : ''}',
+      footer: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: _busy ? null : () => _ignore(societyId),
+          icon: const Icon(Icons.block_rounded, size: 18),
+          label: const Text('Not a resident payment — ignore'),
+          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.warning),
         ),
       ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Suggested matches', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+        const SizedBox(height: 10),
+        candidatesAsync.when(
+          loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: AppLoader()),
+          error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+          data: (candidates) {
+            if (candidates.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: Text(
+                    'No pending payment found with this amount within 5 days of this date.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                  ),
+                ),
+              );
+            }
+            return Column(children: [
+              for (final c in candidates)
+                Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    title: Text('${c.receiptNumber} — ${c.wingName ?? ''} ${c.flatNumber ?? ''}'.trim()),
+                    subtitle: Text('${paymentModeLabel(c.paymentMode)} · '
+                        '${c.paymentDate.day}/${c.paymentDate.month}/${c.paymentDate.year}'),
+                    // The theme's buttons fill the width; a tile's trailing button must size itself.
+                    trailing: ElevatedButton(
+                      style: ElevatedButton.styleFrom(minimumSize: const Size(0, 40)),
+                      onPressed: _busy ? null : () => _confirm(c.id, societyId),
+                      child: const Text('Confirm'),
+                    ),
+                  ),
+                ),
+            ]);
+          },
+        ),
+      ]),
     );
   }
 }

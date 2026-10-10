@@ -21,6 +21,8 @@ Future<T?> showAppSheet<T>({
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      // The sheet bodies ([AppSheetFrame]) draw their own handle; the theme's would float above it as a second one.
+      showDragHandle: false,
       constraints: constraints,
       builder: builder,
     );

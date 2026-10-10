@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
+import 'package:ar_society_app/core/layout/app_sheet.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/features/notices/data/notices_api.dart';
@@ -88,7 +89,7 @@ class _NoticeFormSheetState extends ConsumerState<NoticeFormSheet> {
   }
 
   Future<void> _pickFlats() async {
-    final picked = await showDialog<Set<String>>(context: context, builder: (_) => _FlatPicker(initial: _flats));
+    final picked = await showAppSheet<Set<String>>(context: context, builder: (_) => _FlatPicker(initial: _flats));
     if (picked != null) setState(() => _flats = picked);
   }
 
@@ -210,42 +211,40 @@ class _FlatPickerState extends ConsumerState<_FlatPicker> {
   @override
   Widget build(BuildContext context) {
     final flats = ref.watch(flatsBySocietyProvider);
-    return AlertDialog(
-      title: const Text('Choose flats'),
-      content: SizedBox(
-        width: 420,
-        height: 420,
-        child: flats.when(
-          loading: () => const AppLoader(),
-          error: (e, _) => Text(friendlyErrorMessage(e)),
-          data: (all) {
-            final shown = all.where((f) => '${f.wingName ?? ''} ${f.flatNumber}'.toLowerCase().contains(_q)).toList()
-              ..sort((a, b) => '${a.wingName}${a.flatNumber}'.compareTo('${b.wingName}${b.flatNumber}'));
-            return Column(children: [
-              TextField(
-                decoration: const InputDecoration(hintText: 'Search, e.g. A 101', prefixIcon: Icon(Icons.search_rounded)),
-                onChanged: (v) => setState(() => _q = v.trim().toLowerCase()),
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: ListView(children: [
-                  for (final f in shown)
-                    CheckboxListTile(
-                      dense: true,
-                      value: _chosen.contains(f.id),
-                      title: Text('${f.wingName ?? ''} / ${f.flatNumber}'),
-                      onChanged: (on) => setState(() => on == true ? _chosen.add(f.id) : _chosen.remove(f.id)),
-                    ),
-                ]),
-              ),
-            ]);
-          },
-        ),
+    return AppSheetFrame(
+      title: 'Choose flats',
+      subtitle: 'Tick every flat that should get this notice',
+      pinned: SheetSearchField(
+        hint: 'Search, e.g. A 101',
+        onChanged: (v) => setState(() => _q = v.trim().toLowerCase()),
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.of(context).pop(_chosen), child: Text('Done (${_chosen.length})')),
-      ],
+      scrollBody: false,
+      footer: Row(children: [
+        OutlinedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        const SizedBox(width: 12),
+        Expanded(
+          child: FilledButton(onPressed: () => Navigator.of(context).pop(_chosen), child: Text('Done (${_chosen.length})')),
+        ),
+      ]),
+      child: flats.when(
+        loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 32), child: AppLoader()),
+        error: (e, _) => Text(friendlyErrorMessage(e)),
+        data: (all) {
+          final shown = all.where((f) => '${f.wingName ?? ''} ${f.flatNumber}'.toLowerCase().contains(_q)).toList()
+            ..sort((a, b) => '${a.wingName}${a.flatNumber}'.compareTo('${b.wingName}${b.flatNumber}'));
+          return ListView(shrinkWrap: true, children: [
+            for (final f in shown)
+              CheckboxListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                controlAffinity: ListTileControlAffinity.leading,
+                value: _chosen.contains(f.id),
+                title: Text('${f.wingName ?? ''} / ${f.flatNumber}'),
+                onChanged: (on) => setState(() => on == true ? _chosen.add(f.id) : _chosen.remove(f.id)),
+              ),
+          ]);
+        },
+      ),
     );
   }
 }

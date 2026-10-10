@@ -4,6 +4,19 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-10 (y)
+
+### feat: pick-from-a-list sheets and the last hand-built sheets on the shared sheet frame
+
+- **Pickers** (`AppSheetFrame` with `pinned` search + `PickerRow`): choose a ledger, choose a flat (accounts), the Status /
+  Role filters of Users & Roles, and "Choose flats" for a notice (was a small dialog; now a sheet with Cancel / Done).
+- **Bank reconciliation**: the sheet for an unmatched statement row (amount, description, suggested payments, ignore).
+  **Fix:** its Confirm button sat in a list tile at the theme's full width, which broke the tile's layout; it now sizes itself.
+- **Vendor bills**: the bill detail and the Record Payment sheets (labels above, a date field, the shared header).
+- **Frame fixes**: a phone sheet is a `Material`, so a tapped row shows its ink; the theme's drag handle no longer floats
+  above the sheet's own (every phone sheet had two).
+- Tests: `picker_sheet_test.dart`, `bank_match_sheet_test.dart`.
+
 ## 2026-10-10 (x)
 
 ### feat: dashboards and sign-in pages on the same frames

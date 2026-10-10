@@ -10,6 +10,7 @@ import 'package:ar_society_app/features/users/presentation/providers/user_provid
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 import 'package:ar_society_app/shared/widgets/app_form.dart';
+import 'package:ar_society_app/core/layout/app_sheet.dart';
 
 class UserListScreen extends ConsumerStatefulWidget {
   const UserListScreen({super.key});
@@ -290,7 +291,7 @@ class _FilterRow extends StatelessWidget {
   }
 
   void _showStatusPicker(BuildContext ctx) {
-    showModalBottomSheet(
+    showAppSheet(
       context: ctx,
       builder: (_) => _PickerSheet(
         title: 'Filter by Status',
@@ -302,9 +303,8 @@ class _FilterRow extends StatelessWidget {
   }
 
   void _showRolePicker(BuildContext ctx) {
-    showModalBottomSheet(
+    showAppSheet(
       context: ctx,
-      isScrollControlled: true,
       builder: (_) => _PickerSheet(
         title: 'Filter by Role',
         options: _roles,
@@ -375,49 +375,28 @@ class _PickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.5,
-      maxChildSize: 0.85,
-      builder: (_, ctrl) => Column(
+    return AppSheetFrame(
+      title: title,
+      scrollBody: false,
+      child: ListView(
+        shrinkWrap: true,
         children: [
-          const SizedBox(height: 8),
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppTheme.border,
-              borderRadius: BorderRadius.circular(2),
+          for (final o in options)
+            PickerRow(
+              title: o == 'All' ? 'All' : _label(o),
+              selected: selected == o,
+              onTap: () {
+                onSelect(o);
+                Navigator.pop(context);
+              },
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(title,
-                style: const TextStyle(
-                    fontWeight: FontWeight.w700, fontSize: 16)),
-          ),
-          Expanded(
-            child: ListView(
-              controller: ctrl,
-              children: options
-                  .map((o) => ListTile(
-                        title: Text(o),
-                        trailing: selected == o
-                            ? const Icon(Icons.check_rounded,
-                                color: AppTheme.primary)
-                            : null,
-                        onTap: () {
-                          onSelect(o);
-                          Navigator.pop(context);
-                        },
-                      ))
-                  .toList(),
-            ),
-          ),
         ],
       ),
     );
   }
+
+  // Statuses arrive lower-case ("active"); show them as words.
+  static String _label(String o) => o.isEmpty ? o : o[0].toUpperCase() + o.substring(1);
 }
 
 class _UserTile extends StatelessWidget {

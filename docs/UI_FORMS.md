@@ -93,6 +93,25 @@ Forms that open over a list (a bottom sheet on a phone, a side panel on a comput
 `AppSheetFrame` (`BillingSheetFrame` is the same thing under its older name): a header with the title and what the
 sheet is for, a rule, then the fields. Fields inside use `FormFieldBox` (label above), as on full pages.
 
+### Pick-from-a-list sheets
+
+Sheets that only ask you to choose (a ledger, a flat, a status filter, the flats a notice goes to) use the same
+`AppSheetFrame` with a search box pinned under the header and the rows scrolling below it:
+
+```dart
+AppSheetFrame(
+  title: 'Choose flat',
+  subtitle: 'Type a flat or a member name to search',
+  pinned: SheetSearchField(onChanged: (v) => setState(() => _q = v)),
+  scrollBody: false,                       // the list scrolls itself
+  child: ListView(shrinkWrap: true, children: [
+    PickerRow(title: 'A / 101', subtitle: 'Asha Kulkarni', onTap: () => Navigator.pop(context, flat)),
+  ]),
+)
+```
+
+`PickerRow` shows a tick on the current choice. A sheet that needs "Done" / "Cancel" puts them in `footer:`.
+
 ## Settings pages and tabs
 
 `AppPageHeader` (title, a line, buttons at the right) and `SettingsColumn` (a scrolling column of `FormSection`s on one
@@ -112,4 +131,5 @@ content width, with the save button at the end) give a settings screen with tabs
 - **Dashboards (`AppPage`)**: the role dashboards (Society Overview, Chairman, Security, Resident, Manager, Supervisor) and
   the staff portal, with the phone navigation drawer kept.
 
-Not changed on purpose: pick-from-a-list sheets (account pickers, bank-statement match candidates).
+Not changed on purpose: the language choice (a small dialog), the "More" menu of the phone bottom bar, and the
+yes/no confirmation dialogs.
