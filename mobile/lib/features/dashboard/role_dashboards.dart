@@ -15,6 +15,7 @@ import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dar
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/complaint/presentation/providers/complaint_providers.dart';
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart' show BillingCycle, amountOf, formatRupees;
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart' show billingCyclesProvider, myBillsProvider;
@@ -43,28 +44,17 @@ class _DashboardShell extends ConsumerWidget {
     // navigation and sign-out.
     final desktop = isDesktopLayout(context);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leading: desktop ? null : Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu_rounded),
-            tooltip: 'Open menu',
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
+    return AppPage(
+      title: title,
+      showBack: false,
+      actions: [
+        if (!desktop)
+          IconButton(
+            icon: const Icon(Icons.logout_rounded),
+            tooltip: 'Sign out',
+            onPressed: () => _confirmLogout(context, ref),
           ),
-        ),
-        title: Text(title),
-        centerTitle: false,
-        actions: [
-          if (!desktop)
-            IconButton(
-              icon: const Icon(Icons.logout_rounded),
-              tooltip: 'Sign out',
-              onPressed: () => _confirmLogout(context, ref),
-            ),
-        ],
-      ),
+      ],
       drawer: desktop ? null : Drawer(
         child: SafeArea(
           child: ListView(
@@ -103,15 +93,13 @@ class _DashboardShell extends ConsumerWidget {
           ),
         ),
       ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            const _BiometricEnrollTrigger(),
-            // Sections arrive one after another rather than all at once.
-            for (var i = 0; i < children.length; i++) AppReveal(index: i, child: children[i]),
-          ],
-        ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        children: [
+          const _BiometricEnrollTrigger(),
+          // Sections arrive one after another rather than all at once.
+          for (var i = 0; i < children.length; i++) AppReveal(index: i, child: children[i]),
+        ],
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/shared/widgets/auth_page.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/onboarding/domain/registration_result.dart';
@@ -62,44 +63,13 @@ class _TrialSuccessScreenState extends ConsumerState<TrialSuccessScreen> {
     final code       = result.societyCode.toLowerCase();
     final others     = result.credentials.where((c) => c.role != 'Society Admin').toList();
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
+    return AuthPage(
+      title: 'Society Created Successfully',
+      subtitle: result.societyName,
+      maxWidth: 520,
+      child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const SizedBox(height: 24),
-
-              // ── Success icon ──────────────────────────────────────────────
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: AppTheme.success.withOpacity(0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.check_circle_rounded,
-                    color: AppTheme.success, size: 40),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Society Created Successfully',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.textPrimary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                result.societyName,
-                style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-
               // ── Society code badge ────────────────────────────────────────
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
@@ -221,10 +191,7 @@ class _TrialSuccessScreenState extends ConsumerState<TrialSuccessScreen> {
                   onPressed: _signingIn ? null : _signInAsAdmin,
                 ),
               ),
-              const SizedBox(height: 32),
             ],
-          ),
-        ),
       ),
     );
   }

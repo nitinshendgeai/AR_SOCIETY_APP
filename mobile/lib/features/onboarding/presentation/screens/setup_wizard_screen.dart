@@ -4,10 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/shared/widgets/auth_page.dart';
 import 'package:ar_society_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/onboarding/presentation/providers/setup_wizard_provider.dart';
-import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 class SetupWizardScreen extends ConsumerStatefulWidget {
   const SetupWizardScreen({super.key});
@@ -97,107 +97,45 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      body: SafeArea(
-        child: Column(
-          children: [
-            ResponsiveBody(maxWidth: 560, child: _WizardHeader(step: _step, totalSteps: _totalSteps)),
-            Expanded(
-              child: ResponsiveBody(maxWidth: 560, child: PageView(
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _TermsStep(
-                    checked: _termsChecked,
-                    isLoading: _isLoading,
-                    error: _error,
-                    onChanged: (v) => setState(() {
-                      _termsChecked = v ?? false;
-                      _error = null;
-                    }),
-                    onNext: _onAcceptTerms,
-                  ),
-                  if (_showSocietyStep)
-                    _SocietyStep(
-                      societyId: _societyId!,
-                      onNext: _nextPage,
-                    ),
-                  _DoneStep(
-                    isLoading: _isLoading,
-                    onFinish: _onFinish,
-                  ),
-                ],
-              )),
-            ),
-          ],
+    const stepTitles = ['Terms & Conditions', 'Your Society', 'All Done!'];
+    const stepTitlesFallback = ['Terms & Conditions', 'All Done!'];
+    final titles = _totalSteps == 3 ? stepTitles : stepTitlesFallback;
+    return AuthPage(
+      title: _step < titles.length ? titles[_step] : titles.last,
+      subtitle: 'Setup Wizard · Step ${_step + 1} of $_totalSteps',
+      maxWidth: 560,
+      scrollable: false,
+      top: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: LinearProgressIndicator(
+          value: (_step + 1) / _totalSteps,
+          backgroundColor: AppTheme.border,
+          color: AppTheme.primary,
+          minHeight: 4,
         ),
       ),
-    );
-  }
-}
-
-// ── Wizard header with step progress ─────────────────────────────────────────
-
-class _WizardHeader extends StatelessWidget {
-  final int step;
-  final int totalSteps;
-
-  const _WizardHeader({required this.step, required this.totalSteps});
-
-  static const _stepTitles = ['Terms & Conditions', 'Your Society', 'All Done!'];
-  static const _stepTitlesFallback = ['Terms & Conditions', 'All Done!'];
-
-  @override
-  Widget build(BuildContext context) {
-    final titles = totalSteps == 3 ? _stepTitles : _stepTitlesFallback;
-    final title = step < titles.length ? titles[step] : titles.last;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
-      color: AppTheme.cardBg,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
         children: [
-          Row(
-            children: [
-              const Icon(Icons.apartment_rounded, color: AppTheme.primary, size: 22),
-              const SizedBox(width: 8),
-              Text(
-                'Setup Wizard',
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                'Step ${step + 1} of $totalSteps',
-                style: const TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-            ],
+          _TermsStep(
+            checked: _termsChecked,
+            isLoading: _isLoading,
+            error: _error,
+            onChanged: (v) => setState(() {
+              _termsChecked = v ?? false;
+              _error = null;
+            }),
+            onNext: _onAcceptTerms,
           ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textPrimary,
+          if (_showSocietyStep)
+            _SocietyStep(
+              societyId: _societyId!,
+              onNext: _nextPage,
             ),
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: (step + 1) / totalSteps,
-              backgroundColor: AppTheme.border,
-              color: AppTheme.primary,
-              minHeight: 4,
-            ),
+          _DoneStep(
+            isLoading: _isLoading,
+            onFinish: _onFinish,
           ),
         ],
       ),
@@ -225,7 +163,7 @@ class _TermsStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(2, 8, 2, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -466,7 +404,7 @@ class _SocietyStep extends ConsumerWidget {
     final societyAsync = ref.watch(societyDetailsProvider(societyId));
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(2, 8, 2, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -671,7 +609,7 @@ class _DoneStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(2, 8, 2, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
