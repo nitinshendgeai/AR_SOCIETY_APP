@@ -168,10 +168,12 @@ class _LedgerPickerSheetState extends State<_LedgerPickerSheet> {
     for (final l in rows) {
       byGroup.putIfAbsent(l.groupName ?? '', () => []).add(l);
     }
-    return _SheetScaffold(
+    return AppSheetFrame(
       title: widget.title,
-      search: (v) => setState(() => _q = v),
-      children: [
+      subtitle: 'Type to search by name, code or group',
+      pinned: SheetSearchField(onChanged: (v) => setState(() => _q = v)),
+      scrollBody: false,
+      child: ListView(shrinkWrap: true, children: [
         if (rows.isEmpty)
           const Padding(
             padding: EdgeInsets.all(24),
@@ -204,7 +206,7 @@ class _LedgerPickerSheetState extends State<_LedgerPickerSheet> {
               onTap: () => Navigator.pop(context, l),
             ),
         ],
-      ],
+      ]),
     );
   }
 }
@@ -230,10 +232,17 @@ class _FlatPickerSheetState extends State<_FlatPickerSheet> {
     final rows = widget.flats
         .where((f) => q.isEmpty || f.flatLabel.toLowerCase().contains(q) || f.memberName.toLowerCase().contains(q))
         .toList();
-    return _SheetScaffold(
+    return AppSheetFrame(
       title: 'Choose flat',
-      search: (v) => setState(() => _q = v),
-      children: [
+      subtitle: 'Type a flat or a member name to search',
+      pinned: SheetSearchField(onChanged: (v) => setState(() => _q = v)),
+      scrollBody: false,
+      child: ListView(shrinkWrap: true, children: [
+        if (rows.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(24),
+            child: Text('No flat matches', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
         for (final f in rows)
           ListTile(
             dense: true,
@@ -243,48 +252,9 @@ class _FlatPickerSheetState extends State<_FlatPickerSheet> {
             trailing: DrCrText(f.balance, fontSize: 12.5, weight: FontWeight.w500),
             onTap: () => Navigator.pop(context, f),
           ),
-      ],
+      ]),
     );
   }
-}
-
-class _SheetScaffold extends StatelessWidget {
-  final String title;
-  final ValueChanged<String> search;
-  final List<Widget> children;
-  const _SheetScaffold({required this.title, required this.search, required this.children});
-
-  @override
-  Widget build(BuildContext context) => Container(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-        decoration: const BoxDecoration(
-          color: AppTheme.cardBg,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: EdgeInsets.fromLTRB(16, 20, 16, MediaQuery.of(context).viewInsets.bottom + 12),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 12),
-              TextField(
-                autofocus: true,
-                onChanged: search,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search_rounded, size: 20),
-                  hintText: 'Search',
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Flexible(child: ListView(shrinkWrap: true, children: children)),
-            ],
-          ),
-        ),
-      );
 }
 
 /// Voucher detail: its lines, narration, where it came from, Print, its

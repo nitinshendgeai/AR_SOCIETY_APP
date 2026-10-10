@@ -463,49 +463,39 @@ class _BillDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppTheme.cardBg,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: const EdgeInsets.all(20),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(invoice.vendorName ?? 'Vendor', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 12),
-            _row('Invoice No', invoice.invoiceNumber),
-            _row('Invoice Date',
-                '${invoice.invoiceDate.day}/${invoice.invoiceDate.month}/${invoice.invoiceDate.year}'),
-            if (invoice.dueDate != null)
-              _row('Due Date', '${invoice.dueDate!.day}/${invoice.dueDate!.month}/${invoice.dueDate!.year}'),
-            _row('Total', '₹${invoice.totalAmount}'),
-            _row('Paid', '₹${invoice.paidAmount}'),
-            _row('Outstanding', '₹${invoice.outstanding}'),
-            if (invoice.paymentMode != null) _row('Last Mode', vendorPaymentModeLabel(invoice.paymentMode!)),
-            if (invoice.paymentRef != null) _row('Reference', invoice.paymentRef!),
-            if (invoice.description != null) _row('Notes', invoice.description!),
-            const SizedBox(height: 12),
-            if (!invoice.isPaid)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    showAppSheet(
-                      context: context,
-                      builder: (_) => _RecordPaymentSheet(invoice: invoice, societyId: societyId),
-                    );
-                  },
-                  icon: const Icon(Icons.payments_rounded),
-                  label: const Text('Record Payment'),
-                ),
+    return AppSheetFrame(
+      title: invoice.vendorName ?? 'Vendor',
+      subtitle: 'Bill details',
+      footer: invoice.isPaid
+          ? null
+          : SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  showAppSheet(
+                    context: context,
+                    builder: (_) => _RecordPaymentSheet(invoice: invoice, societyId: societyId),
+                  );
+                },
+                icon: const Icon(Icons.payments_rounded),
+                label: const Text('Record Payment'),
               ),
-          ],
-        ),
+            ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _row('Invoice No', invoice.invoiceNumber),
+          _row('Invoice Date', '${invoice.invoiceDate.day}/${invoice.invoiceDate.month}/${invoice.invoiceDate.year}'),
+          if (invoice.dueDate != null)
+            _row('Due Date', '${invoice.dueDate!.day}/${invoice.dueDate!.month}/${invoice.dueDate!.year}'),
+          _row('Total', '₹${invoice.totalAmount}'),
+          _row('Paid', '₹${invoice.paidAmount}'),
+          _row('Outstanding', '₹${invoice.outstanding}'),
+          if (invoice.paymentMode != null) _row('Last Mode', vendorPaymentModeLabel(invoice.paymentMode!)),
+          if (invoice.paymentRef != null) _row('Reference', invoice.paymentRef!),
+          if (invoice.description != null) _row('Notes', invoice.description!),
+        ],
       ),
     );
   }
@@ -569,31 +559,19 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppTheme.cardBg,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: EdgeInsets.only(
-        left: 20, right: 20, top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-      ),
+    return AppSheetFrame(
+      title: 'Pay ${widget.invoice.vendorName ?? 'Vendor'}',
+      subtitle: 'Outstanding: ₹${widget.invoice.outstanding}',
       child: Form(
         key: _formKey,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Pay ${widget.invoice.vendorName ?? 'Vendor'}',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            Text('Outstanding: ₹${widget.invoice.outstanding}',
-                style: const TextStyle(color: AppTheme.textSecondary)),
-            const SizedBox(height: 16),
-            FormFieldBox(label: 'Amount', child: TextFormField(
+            FormFieldBox(label: 'Amount', required: true, child: TextFormField(
               controller: _amountCtrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,10}(\.\d{0,2})?'))],
-              decoration: const InputDecoration(prefixText: '₹', border: OutlineInputBorder()),
+              decoration: const InputDecoration(prefixText: '₹'),
               validator: (v) {
                 final n = double.tryParse(v ?? '');
                 if (n == null || n <= 0) return 'Enter a valid amount';
@@ -602,43 +580,35 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
                 return null;
               },
             )),
-            const SizedBox(height: 12),
-            OutlinedButton(
-              onPressed: _pickDate,
-              child: Text('Paid On: ${_paidDate.day}/${_paidDate.month}/${_paidDate.year}'),
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
+            FormFieldBox(label: 'Paid On', child: FormDateField(
+              value: _paidDate,
+              hint: 'Pick a date',
+              format: (d) => '${d.day}/${d.month}/${d.year}',
+              onTap: _pickDate,
+            )),
+            const SizedBox(height: 14),
             FormFieldBox(label: 'Payment Mode', child: DropdownButtonFormField<String>(
               initialValue: _mode,
-              decoration: const InputDecoration(border: OutlineInputBorder()),
+              isExpanded: true,
+              decoration: const InputDecoration(),
               items: kVendorPaymentModes
                   .map((m) => DropdownMenuItem(value: m.$1, child: Text(m.$2)))
                   .toList(),
               onChanged: (v) => setState(() => _mode = v!),
             )),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             FormFieldBox(label: 'Reference (optional)', child: TextFormField(
               controller: _refCtrl,
               inputFormatters: [LengthLimitingTextInputFormatter(100)],
-              decoration: const InputDecoration(border: OutlineInputBorder()),
             )),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             FormFieldBox(label: 'Bank Name (optional)', child: TextFormField(
               controller: _bankCtrl,
               inputFormatters: [LengthLimitingTextInputFormatter(100)],
-              decoration: const InputDecoration(border: OutlineInputBorder()),
             )),
             const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _saving ? null : _save,
-                child: _saving
-                    ? const SizedBox(width: 18, height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Record Payment'),
-              ),
-            ),
+            AppPrimaryButton(label: 'Record Payment', isLoading: _saving, onPressed: _saving ? null : _save),
           ],
         ),
       ),

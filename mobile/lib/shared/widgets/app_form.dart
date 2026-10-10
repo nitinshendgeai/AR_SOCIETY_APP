@@ -452,7 +452,22 @@ class AppSheetFrame extends StatelessWidget {
   /// Buttons kept at the bottom of the panel while the fields scroll (optional; most sheets put theirs at the end
   /// of [child]).
   final Widget? footer;
-  const AppSheetFrame({super.key, required this.title, this.subtitle, required this.child, this.footer});
+
+  /// A search box (see [SheetSearchField]) or other control kept under the header while the list below it scrolls.
+  final Widget? pinned;
+
+  /// False when [child] scrolls itself (a `ListView(shrinkWrap: true)` of choices); it then gets the height left
+  /// under the header instead of being wrapped in a scroll view.
+  final bool scrollBody;
+  const AppSheetFrame({
+    super.key,
+    required this.title,
+    this.subtitle,
+    required this.child,
+    this.footer,
+    this.pinned,
+    this.scrollBody = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -470,16 +485,24 @@ class AppSheetFrame extends StatelessWidget {
       ]),
     );
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    final body = SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(desktop ? 28 : 20, 20, desktop ? 28 : 20, 24 + (desktop ? 0 : bottomInset)),
-      child: child,
-    );
+    final gutter = desktop ? 28.0 : 20.0;
+    final pinnedBar = pinned == null ? null : Padding(padding: EdgeInsets.fromLTRB(gutter, 14, gutter, 4), child: pinned);
+    final body = scrollBody
+        ? SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(gutter, 20, gutter, 24 + (desktop ? 0 : bottomInset)),
+            child: child,
+          )
+        : Padding(
+            padding: EdgeInsets.fromLTRB(gutter, 4, gutter, desktop ? 12 : 12 + bottomInset),
+            child: child,
+          );
 
     if (desktop) {
       return SizedBox.expand(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           header,
           const Divider(height: 1),
+          if (pinnedBar != null) pinnedBar,
           Expanded(child: body),
           if (footer != null) ...[
             const Divider(height: 1),
@@ -488,13 +511,14 @@ class AppSheetFrame extends StatelessWidget {
         ]),
       );
     }
-    return Container(
+    // A Material (not a coloured box) so the ink of a tapped row shows.
+    return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.92),
-      decoration: const BoxDecoration(
+      child: Material(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: SafeArea(
+        clipBehavior: Clip.antiAlias,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        child: SafeArea(
         top: false,
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const SizedBox(height: 8),
@@ -507,6 +531,7 @@ class AppSheetFrame extends StatelessWidget {
           ),
           header,
           const Divider(height: 1),
+          if (pinnedBar != null) pinnedBar,
           Flexible(child: body),
           if (footer != null) ...[
             const Divider(height: 1),
@@ -514,8 +539,55 @@ class AppSheetFrame extends StatelessWidget {
           ],
         ]),
       ),
+      ),
     );
   }
+}
+
+/// The search box that sits under the header of a pick-from-a-list sheet ([AppSheetFrame.pinned]).
+class SheetSearchField extends StatelessWidget {
+  final ValueChanged<String> onChanged;
+  final String hint;
+  final bool autofocus;
+  const SheetSearchField({super.key, required this.onChanged, this.hint = 'Search', this.autofocus = true});
+
+  @override
+  Widget build(BuildContext context) => TextField(
+        autofocus: autofocus,
+        onChanged: onChanged,
+        decoration: InputDecoration(prefixIcon: const Icon(Icons.search_rounded, size: 20), hintText: context.tr(hint)),
+      );
+}
+
+/// One row of a pick-from-a-list sheet: what it is, a line under it, something at the right, and a tick when it is
+/// the current choice. Tapping it picks it.
+class PickerRow extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final Widget? leading;
+  final Widget? trailing;
+  final bool selected;
+  final VoidCallback onTap;
+  const PickerRow({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.leading,
+    this.trailing,
+    this.selected = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+        minLeadingWidth: 24,
+        leading: leading,
+        title: Text(context.tr(title), style: TextStyle(fontSize: 14.5, fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
+        subtitle: subtitle == null ? null : Text(subtitle!, style: const TextStyle(fontSize: 12.5)),
+        trailing: selected ? const Icon(Icons.check_rounded, color: AppTheme.primary) : trailing,
+        onTap: onTap,
+      );
 }
 
 /// The title row of a page that is not a form (settings, a list): title, a line under it, buttons at the right.
