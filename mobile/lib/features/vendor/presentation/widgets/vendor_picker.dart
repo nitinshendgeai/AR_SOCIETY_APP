@@ -58,7 +58,7 @@ class VendorPicker extends ConsumerWidget {
               initialValue: known ? value : null,
               isExpanded: true,
               decoration: InputDecoration(
-                labelText: label,
+                labelText: label.isEmpty ? null : label,
                 helperText: value == null && (legacyName ?? '').isNotEmpty
                     ? 'Was typed as "$legacyName" — pick the vendor to link it'
                     : (list.isEmpty ? 'No vendors yet — add one with +' : null),

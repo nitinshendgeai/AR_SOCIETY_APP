@@ -875,11 +875,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // Read-only summary is shown...
-      expect(find.textContaining('Occupancy status: Owner Occupied'), findsOneWidget);
-      // ...but there is no "Occupancy Status" dropdown field to edit it.
-      expect(find.widgetWithText(DropdownButtonFormField<String>, 'Occupancy Status'), findsNothing);
-      expect(find.byWidgetPredicate((w) =>
-          w is InputDecorator && w.decoration.labelText == 'Occupancy Status'), findsNothing);
+      expect(find.text('Occupancy status'), findsOneWidget);
+      expect(find.text('Owner Occupied'), findsOneWidget);
+      // ...but there is no dropdown to edit it (the create form's status dropdown says "Select status").
+      expect(find.text('Select status (optional)'), findsNothing);
     });
 
     testWidgets('create mode still exposes the occupancy status dropdown (new flat, no history to bypass)',
@@ -887,7 +886,8 @@ void main() {
       await tester.pumpWidget(_wrap(const FlatFormScreen()));
       await tester.pumpAndSettle();
 
-      expect(find.text('Occupancy Status'), findsOneWidget);
+      expect(find.text('Occupancy status'), findsOneWidget);
+      expect(find.text('Select status (optional)'), findsOneWidget);
     });
   });
 

@@ -598,17 +598,19 @@ class NextVoucherNumber extends ConsumerWidget {
   final String societyId;
   final String type;
   final DateTime date;
-  const NextVoucherNumber({super.key, required this.societyId, required this.type, required this.date});
+  /// False when a form puts its own label above the field.
+  final bool showLabel;
+  const NextVoucherNumber({super.key, required this.societyId, required this.type, required this.date, this.showLabel = true});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final day = DateTime(date.year, date.month, date.day);
     final number = ref.watch(nextVoucherNumberProvider((societyId, type, day)));
     return InputDecorator(
-      decoration: const InputDecoration(
-        labelText: 'Voucher no.',
-        helperText: 'Given automatically when you save',
-        prefixIcon: Icon(Icons.tag_rounded, size: 18),
+      decoration: InputDecoration(
+        labelText: showLabel ? 'Voucher no.' : null,
+        helperText: showLabel ? 'Given automatically when you save' : null,
+        prefixIcon: const Icon(Icons.tag_rounded, size: 18),
       ),
       child: Text(
         number.when(data: (n) => n, loading: () => '…', error: (_, __) => 'Assigned on save'),

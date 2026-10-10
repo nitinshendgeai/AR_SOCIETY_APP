@@ -7,7 +7,7 @@ import 'package:ar_society_app/features/society_settings/presentation/providers/
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/domain/flat_numbering.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
-import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 class FloorFormScreen extends ConsumerStatefulWidget {
   final WingModel wing;
@@ -127,123 +127,66 @@ class _FloorFormScreenState extends ConsumerState<FloorFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return AppFormPage(
+      title: _isEdit ? 'Edit Floor' : 'Add Floor',
+      subtitle: widget.wing.displayName,
+      formKey: _formKey,
+      submitLabel: _isEdit ? 'Save Changes' : 'Add Floor',
+      submitIcon: _isEdit ? Icons.save_rounded : Icons.add_rounded,
+      saving: _saving,
+      onSubmit: _submit,
+      footerNote: _savingLabel == null ? null : Text(_savingLabel!),
+      children: [
+        FormSection(
+          title: 'Floor details',
+          description: 'Use 0 for the ground floor and a negative number for a basement.',
           children: [
-            Text(_isEdit ? 'Edit Floor' : 'Add Floor'),
-            Text(
-              widget.wing.name,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-      ),
-      body: ResponsiveBody(child: Form(
-        key: _formKey,
-        // A plain scroll view, not a lazy ListView: fields scrolled out of
-        // view stay mounted, so validate() checks every one of them.
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppTheme.primary.withOpacity(0.15)),
-              ),
-              child: Row(children: [
-                Icon(Icons.apartment_rounded,
-                    size: 16, color: AppTheme.primary),
-                const SizedBox(width: 8),
-                Text('Wing: ${widget.wing.displayName}',
-                    style: const TextStyle(
-                        fontSize: 13, color: AppTheme.textPrimary)),
-              ]),
-            ),
-            const SizedBox(height: 20),
-            TextFormField(
-              controller: _floorNumber,
-              keyboardType: TextInputType.numberWithOptions(signed: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^-?\d*')),
-              ],
-              decoration: const InputDecoration(
-                labelText: 'Floor Number *',
-                hintText: '0 = Ground, 1, 2, ... (negative for basement)',
-              ),
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Floor number is required';
-                final n = int.tryParse(v.trim());
-                if (n == null) return 'Must be a number';
-                if (n < -10 || n > 200) return 'Floor must be between -10 and 200';
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _floorName,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Floor Name',
-                hintText: 'e.g. Ground Floor, Mezzanine (optional)',
-              ),
-            ),
-            if (!_isEdit) ...[
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _unitsCtrl,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(
-                  labelText: 'Units on this Floor',
-                  hintText: 'e.g. 4 (optional — auto-creates that many flats)',
-                ),
+            FormFieldBox(
+              label: 'Floor number',
+              required: true,
+              child: TextFormField(
+                controller: _floorNumber,
+                keyboardType: const TextInputType.numberWithOptions(signed: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^-?\d*'))],
+                decoration: const InputDecoration(hintText: '0 = Ground, 1, 2, … (negative for basement)'),
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return null;
+                  if (v == null || v.trim().isEmpty) return 'Floor number is required';
                   final n = int.tryParse(v.trim());
-                  if (n == null || n <= 0) return 'Enter a valid number';
-                  if (n > 100) return 'Add up to 100 units at a time';
+                  if (n == null) return 'Must be a number';
+                  if (n < -10 || n > 200) return 'Floor must be between -10 and 200';
                   return null;
                 },
               ),
-              const SizedBox(height: 6),
-              const Text(
-                'Flats will be auto-numbered (e.g. 101, 102, …) and can be '
-                'renamed individually afterwards from the Flats list.',
-                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-              ),
-            ],
-            const SizedBox(height: 32),
-            if (_savingLabel != null) ...[
-              Text(_savingLabel!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      fontSize: 12, color: AppTheme.textSecondary)),
-              const SizedBox(height: 10),
-            ],
-            SizedBox(
-              height: 48,
-              child: ElevatedButton(
-                onPressed: _saving ? null : _submit,
-                child: _saving
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
-                    : Text(_isEdit ? 'Save Changes' : 'Add Floor'),
+            ),
+            FormFieldBox(
+              label: 'Floor name',
+              child: TextFormField(
+                controller: _floorName,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(hintText: 'e.g. Ground Floor, Mezzanine (optional)'),
               ),
             ),
+            if (!_isEdit)
+              FormFieldBox(
+                label: 'Units on this floor',
+                helper: 'Optional. Flats are numbered automatically (101, 102, …) and can be renamed from the Flats list.',
+                child: TextFormField(
+                  controller: _unitsCtrl,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(hintText: 'e.g. 4 — creates that many flats'),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return null;
+                    final n = int.tryParse(v.trim());
+                    if (n == null || n <= 0) return 'Enter a valid number';
+                    if (n > 100) return 'Add up to 100 units at a time';
+                    return null;
+                  },
+                ),
+              ),
           ],
-          ),
         ),
-      )),
+      ],
     );
   }
 }

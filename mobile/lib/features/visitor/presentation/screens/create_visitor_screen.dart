@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities.dart';
 import 'package:ar_society_app/features/visitor/data/repositories/visitor_repository.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
-import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart' show myResidentProvider;
 
@@ -59,113 +60,116 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Log Visitor')),
-      body: ResponsiveBody(child: Form(
-        key: _formKey,
-        // A plain scroll view, not a lazy ListView: fields scrolled out of
-        // view stay mounted, so validate() checks every one of them.
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return AppFormPage(
+      title: 'Log Visitor',
+      subtitle: 'The resident of the flat is asked to approve entry',
+      formKey: _formKey,
+      submitLabel: 'Log Visitor',
+      submitIcon: Icons.person_add_rounded,
+      saving: _isLoading,
+      onSubmit: _submit,
+      children: [
+        FormSection(
+          title: 'Visitor',
+          description: 'Who is at the gate.',
           children: [
-            AppTextField(
-              label: 'Visitor Name *',
-              hint: 'Full name of the visitor',
-              controller: _nameCtrl,
-              maxLength: 255,
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Name is required' : null,
+            FormFieldBox(
+              label: 'Visitor name',
+              required: true,
+              child: TextFormField(
+                controller: _nameCtrl,
+                inputFormatters: [LengthLimitingTextInputFormatter(255)],
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(hintText: 'Full name of the visitor'),
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Name is required' : null,
+              ),
             ),
-            const SizedBox(height: 14),
-            AppTextField(
-              label: 'Mobile Number *',
-              hint: '+91 9876543210',
-              controller: _mobileCtrl,
-              keyboardType: TextInputType.phone,
-              maxLength: 20,
-              validator: (v) {
-                final t = (v ?? '').trim();
-                if (t.isEmpty) return 'Mobile is required';
-                final digits = t.replaceAll(RegExp(r'[\s\-()]'), '');
-                return RegExp(r'^\+?\d{7,15}$').hasMatch(digits) ? null : 'Enter a valid mobile number';
-              },
+            FormFieldBox(
+              label: 'Mobile number',
+              required: true,
+              child: TextFormField(
+                controller: _mobileCtrl,
+                keyboardType: TextInputType.phone,
+                inputFormatters: [LengthLimitingTextInputFormatter(20)],
+                decoration: const InputDecoration(hintText: '+91 9876543210'),
+                validator: (v) {
+                  final t = (v ?? '').trim();
+                  if (t.isEmpty) return 'Mobile is required';
+                  final digits = t.replaceAll(RegExp(r'[\s\-()]'), '');
+                  return RegExp(r'^\+?\d{7,15}$').hasMatch(digits) ? null : 'Enter a valid mobile number';
+                },
+              ),
             ),
-            const SizedBox(height: 14),
-            // The flat being visited: its resident is asked to approve entry.
-            ref.watch(wingsProvider).when(
-                  loading: () => const LinearProgressIndicator(minHeight: 2),
-                  error: (_, __) => const Text('Could not load wings',
-                      style: TextStyle(color: AppTheme.error)),
-                  data: (wings) => DropdownButtonFormField<String>(
-                    value: _wingId,
-                    decoration: const InputDecoration(labelText: 'Wing *'),
-                    hint: const Text('Select wing'),
-                    items: wings
-                        .map((w) => DropdownMenuItem(value: w.id, child: Text(w.displayName)))
-                        .toList(),
-                    onChanged: (v) => setState(() {
-                      _wingId = v;
-                      _flatId = null;
-                    }),
-                    validator: (v) => v == null ? 'Wing is required' : null,
-                  ),
-                ),
-            const SizedBox(height: 14),
-            if (_wingId == null)
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(labelText: 'Flat Number *'),
-                hint: const Text('Select a wing first'),
-                items: const [],
-                onChanged: null,
-                validator: (_) => 'Flat is required',
-              )
-            else
-              ref.watch(flatsByWingProvider(_wingId!)).when(
-                    loading: () => const LinearProgressIndicator(minHeight: 2),
-                    error: (_, __) => const Text('Could not load flats',
-                        style: TextStyle(color: AppTheme.error)),
-                    data: (flats) => DropdownButtonFormField<String>(
-                      key: ValueKey(_wingId),
-                      value: _flatId,
-                      decoration: const InputDecoration(labelText: 'Flat Number *'),
-                      hint: Text(flats.isEmpty ? 'No flats in this wing' : 'Select flat'),
-                      items: flats
-                          .map((f) => DropdownMenuItem(value: f.id, child: Text(f.flatNumber)))
-                          .toList(),
-                      onChanged: (v) => setState(() => _flatId = v),
-                      validator: (v) => v == null ? 'Flat is required' : null,
-                    ),
-                  ),
-            const SizedBox(height: 14),
-            DropdownButtonFormField<VisitorType>(
-              value: _type,
-              decoration: const InputDecoration(labelText: 'Visitor Type'),
-              items: VisitorType.values
-                  .map((t) => DropdownMenuItem(value: t, child: Text(t.label)))
-                  .toList(),
-              onChanged: (v) => setState(() => _type = v!),
+            FormFieldBox(
+              label: 'Visitor type',
+              child: DropdownButtonFormField<VisitorType>(
+                isExpanded: true,
+                value: _type,
+                items: VisitorType.values.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
+                onChanged: (v) => setState(() => _type = v!),
+              ),
             ),
-            const SizedBox(height: 14),
-            AppTextField(
-              label: 'Purpose (optional)',
-              hint: 'e.g., Meeting, delivery, repair work',
-              controller: _purposeCtrl,
-              maxLength: 500,
-            ),
-            const SizedBox(height: 32),
-            AppPrimaryButton(
-              label: 'Log Visitor',
-              isLoading: _isLoading,
-              icon: Icons.person_add_rounded,
-              onPressed: _submit,
+            FormFieldBox(
+              label: 'Purpose',
+              child: TextFormField(
+                controller: _purposeCtrl,
+                inputFormatters: [LengthLimitingTextInputFormatter(500)],
+                decoration: const InputDecoration(hintText: 'e.g. Meeting, delivery, repair work (optional)'),
+              ),
             ),
           ],
-          ),
         ),
-      )),
+        FormSection(
+          title: 'Visiting',
+          description: 'The flat being visited. Its resident approves or refuses entry.',
+          children: [
+            FormFieldBox(
+              label: 'Wing',
+              required: true,
+              child: ref.watch(wingsProvider).when(
+                    loading: () => const LinearProgressIndicator(minHeight: 2),
+                    error: (_, __) => const Text('Could not load wings', style: TextStyle(color: AppTheme.error)),
+                    data: (wings) => DropdownButtonFormField<String>(
+                isExpanded: true,
+                      value: _wingId,
+                      hint: const Text('Select wing'),
+                      items: wings.map((w) => DropdownMenuItem(value: w.id, child: Text(w.displayName))).toList(),
+                      onChanged: (v) => setState(() {
+                        _wingId = v;
+                        _flatId = null;
+                      }),
+                      validator: (v) => v == null ? 'Wing is required' : null,
+                    ),
+                  ),
+            ),
+            FormFieldBox(
+              label: 'Flat number',
+              required: true,
+              child: _wingId == null
+                  ? DropdownButtonFormField<String>(
+                isExpanded: true,
+                      hint: const Text('Select a wing first'),
+                      items: const [],
+                      onChanged: null,
+                      validator: (_) => 'Flat is required',
+                    )
+                  : ref.watch(flatsByWingProvider(_wingId!)).when(
+                        loading: () => const LinearProgressIndicator(minHeight: 2),
+                        error: (_, __) => const Text('Could not load flats', style: TextStyle(color: AppTheme.error)),
+                        data: (flats) => DropdownButtonFormField<String>(
+                isExpanded: true,
+                          key: ValueKey(_wingId),
+                          value: _flatId,
+                          hint: Text(flats.isEmpty ? 'No flats in this wing' : 'Select flat'),
+                          items: flats.map((f) => DropdownMenuItem(value: f.id, child: Text(f.flatNumber))).toList(),
+                          onChanged: (v) => setState(() => _flatId = v),
+                          validator: (v) => v == null ? 'Flat is required' : null,
+                        ),
+                      ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
