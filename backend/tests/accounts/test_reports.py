@@ -17,11 +17,17 @@ def _ledgers(client, h, sid):
     return {a["system_key"] or a["name"]: a for a in r.json()}
 
 
-def _voucher(client, h, sid, vtype, d, entries, expect=201):
+def _voucher(client, h, sid, vtype, d, entries, expect=201, approver=None):
     r = client.post(f"{API}/vouchers", json={"society_id": sid, "voucher_type": vtype, "voucher_date": d,
                                               "entries": entries}, headers=h)
     assert r.status_code == expect, r.text
-    return r.json()
+    v = r.json()
+    if expect == 201 and v.get("approval_status") == "pending":
+        # Payments and journals count in the books only once approved (these tests act as the society admin).
+        ok = client.post(f"{API}/vouchers/{v['id']}/approve", json={"note": "Approved"},
+                         headers=approver["headers"] if approver else h)
+        assert ok.status_code == 200, ok.text
+    return v
 
 
 def _report(client, h, sid, report, fy):

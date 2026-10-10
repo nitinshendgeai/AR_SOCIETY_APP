@@ -129,7 +129,9 @@ class ComplaintService:
         duty — checked in today and not yet checked out — with a linked
         login account. Presence, not payroll: does not require the
         check-in to be supervisor-approved yet."""
-        today = date.today()
+        from app.models.society import Society
+        from app.utils.local_time import on_duty_clause, zone
+        society = self.db.query(Society).filter(Society.id == society_id).first()
         return (
             self.db.query(User)
             .join(Staff, Staff.user_id == User.id)
@@ -139,9 +141,7 @@ class ComplaintService:
                 Staff.department == department,
                 Staff.is_active == True,
                 User.is_active == True,
-                StaffAttendance.attendance_date == today,
-                StaffAttendance.check_in_time.isnot(None),
-                StaffAttendance.check_out_time.is_(None),
+                on_duty_clause(zone(society.timezone if society else None)),
             )
             .order_by(StaffAttendance.check_in_time.asc())
             .first()

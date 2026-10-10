@@ -1283,7 +1283,7 @@ class StaffService:
     def _find_on_duty_staff_user(self, society_id: UUID, department: StaffDepartment) -> Optional[User]:
         """First staff member in the department who is currently checked in
         and not yet checked out today, with a linked login account."""
-        today = date.today()
+        from app.utils.local_time import on_duty_clause
         return (
             self.db.query(User)
             .join(Staff, Staff.user_id == User.id)
@@ -1293,9 +1293,7 @@ class StaffService:
                 Staff.department == department,
                 Staff.is_active == True,
                 User.is_active == True,
-                StaffAttendance.attendance_date == today,
-                StaffAttendance.check_in_time.isnot(None),
-                StaffAttendance.check_out_time.is_(None),
+                on_duty_clause(self._tz(society_id)),
             )
             .order_by(StaffAttendance.check_in_time.asc())
             .first()

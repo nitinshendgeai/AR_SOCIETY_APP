@@ -255,3 +255,33 @@ def test_manual_department_assign_rejects_unknown_department(client, db):
                      json={"complaint_id": cid, "department": "not_a_real_dept"},
                      headers=manager["headers"])
     assert r2.status_code == 400
+
+
+def test_on_duty_is_judged_on_the_societys_date_and_covers_a_night_shift(db):
+    """Attendance is stored under the society's (IST) date. The lookup must use that date, not the server's, and a
+    shift that started yesterday evening and has not been closed is still on duty this morning."""
+    from datetime import datetime, timedelta
+    from app.modules.complaint.services.complaint_service import ComplaintService
+    from app.modules.staff.models.staff import StaffAttendance, AttendanceStatus, StaffDepartment
+    from app.utils.local_time import local_today, zone
+
+    society = make_society(db, "On-Duty Society Night")
+    today = local_today(zone(society.timezone))
+
+    def clock_in(email, attendance_date, hours_ago):
+        staff, login = _make_staff_with_login(db, society.id, email, StaffDepartment.SECURITY)
+        db.add(StaffAttendance(society_id=society.id, staff_id=staff.id, attendance_date=attendance_date,
+                               status=AttendanceStatus.PRESENT,
+                               check_in_time=datetime.utcnow() - timedelta(hours=hours_ago)))
+        db.commit()
+        return login["user"].id
+
+    find = lambda: ComplaintService(db)._find_on_duty_staff(society.id, StaffDepartment.SECURITY)
+
+    assert find() is None
+    stale = clock_in("night-stale@cmp.com", today - timedelta(days=1), hours_ago=30)      # never closed, long ago
+    assert find() is None
+    night = clock_in("night-guard@cmp.com", today - timedelta(days=1), hours_ago=8)       # still on the night shift
+    assert find().id == night
+    morning = clock_in("morning-guard@cmp.com", today, hours_ago=1)                       # today's date by the society's clock
+    assert find().id in (night, morning) and find().id != stale

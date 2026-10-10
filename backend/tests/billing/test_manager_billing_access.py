@@ -86,7 +86,7 @@ def test_manager_isolation_blocks_other_society_billing_and_receipts(client, db)
     # Build a real bill in Society B using B's manager.
     _charge(client, manager_b["headers"], society_b.id, amount="2500.00")
     cycle_b = _cycle(client, manager_b["headers"], society_b.id, name="Isolation Cycle")
-    assert cycle_b.status_code == 200, cycle_b.text
+    assert cycle_b.status_code == 201, cycle_b.text
     cycle_b_id = cycle_b.json()["id"]
     generated = client.post(
         f"/api/v1/billing/cycles/{cycle_b_id}/generate-bills",
@@ -105,7 +105,7 @@ def test_manager_isolation_blocks_other_society_billing_and_receipts(client, db)
         f"/api/v1/billing/bills/{bill_b.id}", headers=manager_a["headers"]
     ).status_code == 403
     assert client.get(
-        f"/api/v1/billing/receipts/flat/{b_flat1.id}", headers=manager_a["headers"]
+        f"/api/v1/billing/receipts/flat/{flat_b1.id}", headers=manager_a["headers"]
     ).status_code == 403
     assert client.post(
         f"/api/v1/billing/bills/{bill_b.id}/issue", headers=manager_a["headers"]

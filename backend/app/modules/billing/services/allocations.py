@@ -106,9 +106,11 @@ class PaymentAllocator:
     def allocate(self, sub: OnlinePaymentSubmission, bill: MaintenanceBill, amount: Decimal,
                  user: Optional[User]) -> PaymentAllocation:
         """Set `amount` of `sub` off against `bill` (validated by the caller)."""
-        alloc = PaymentAllocation(society_id=sub.society_id, flat_id=sub.flat_id, payment_id=sub.id,
-                                  bill_id=bill.id, amount=amount, allocated_by=user.id if user else None)
-        sub.allocations.append(alloc)
+        # Both sides are set as objects, not only as ids: the accounting posting that follows reads alloc.bill, and
+        # an allocation that has not been loaded back has no bill (the transfer from the member's advance was then
+        # silently skipped).
+        alloc = PaymentAllocation(society_id=sub.society_id, flat_id=sub.flat_id, payment=sub, bill=bill,
+                                  amount=amount, allocated_by=user.id if user else None)
         self.db.add(alloc)
         self.billing._apply_payment_to_bill(bill, amount, sub.payment_date, user)
         return alloc

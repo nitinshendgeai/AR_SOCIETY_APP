@@ -396,25 +396,14 @@ class VendorService_:  # trailing underscore avoids clash with model name
                 raise HTTPException(422, "Expense head not found in this society")
         # Tax is calculated before the invoice is posted. The calculation is
         # additive: zero-tax invoices retain the existing two-leg AP posting.
-        from app.modules.accounts.services.taxes import TaxCalculationService
-        tax = TaxCalculationService(self.db).calculate_vendor_invoice(
-            society_id,
-            amount=data["amount"],
-            invoice_date=data.get("invoice_date"),
-            gst_amount=data.get("gst_amount", 0),
-            cgst_amount=data.get("cgst_amount", 0),
-            sgst_amount=data.get("sgst_amount", 0),
-            igst_amount=data.get("igst_amount", 0),
-            gst_rate=data.get("gst_rate", 0),
-            gst_component=data.get("gst_component", "NONE"),
-            tds_applicable=data.get("tds_applicable", False),
-            tds_rate=data.get("tds_rate", 0),
-            tds_base=data.get("tds_base", "taxable_amount"),
-            tds_amount=data.get("tds_amount", 0),
-            gst_config_code=data.get("gst_config_code"),
-            tds_config_code=data.get("tds_config_code"),
-            gross_amount=data.get("total_amount"),
-        )
+        data["gst_component"] = data.get("gst_component") or "NONE"
+        if data["gst_component"] == "NONE" and (
+                Decimal(data.get("gst_amount") or 0) > 0 or Decimal(data.get("gst_rate") or 0) > 0):
+            data["gst_component"] = self._default_gst_component(vendor, society_id)
+        try:
+            tax = self._calculate_tax(society_id, data)
+        except ValueError as e:                 # a bill that does not add up is the caller's to correct, not a 500
+            raise HTTPException(422, str(e))
         data.update(
             gst_amount=tax.gst_amount,
             cgst_amount=tax.cgst_amount,
@@ -437,6 +426,37 @@ class VendorService_:  # trailing underscore avoids clash with model name
         self.db.commit()
         self.db.refresh(inv)
         return inv
+
+    def _default_gst_component(self, vendor, society_id: UUID) -> str:
+        """CGST_SGST for a vendor in the society's own state, IGST for another state. The state is the first two
+        digits of the GSTIN; when either GSTIN is missing the bill is treated as in-state."""
+        from app.models.society import Society
+        society = self.db.query(Society).filter(Society.id == society_id).first()
+        mine, theirs = ((society.gst_number if society else None) or "")[:2], (vendor.gst_number or "")[:2]
+        if mine.isdigit() and theirs.isdigit() and mine != theirs:
+            return "IGST"
+        return "CGST_SGST"
+
+    def _calculate_tax(self, society_id: UUID, data: dict):
+        from app.modules.accounts.services.taxes import TaxCalculationService
+        return TaxCalculationService(self.db).calculate_vendor_invoice(
+            society_id,
+            amount=data["amount"],
+            invoice_date=data.get("invoice_date"),
+            gst_amount=data.get("gst_amount", 0),
+            cgst_amount=data.get("cgst_amount", 0),
+            sgst_amount=data.get("sgst_amount", 0),
+            igst_amount=data.get("igst_amount", 0),
+            gst_rate=data.get("gst_rate", 0),
+            gst_component=data.get("gst_component", "NONE"),
+            tds_applicable=data.get("tds_applicable", False),
+            tds_rate=data.get("tds_rate", 0),
+            tds_base=data.get("tds_base", "taxable_amount"),
+            tds_amount=data.get("tds_amount", 0),
+            gst_config_code=data.get("gst_config_code"),
+            tds_config_code=data.get("tds_config_code"),
+            gross_amount=data.get("total_amount"),
+        )
 
     def record_vendor_payment(self, inv_id: UUID, amount: Decimal, paid_date: date,
                                payment_mode: VendorPaymentMode, transaction_ref: Optional[str],

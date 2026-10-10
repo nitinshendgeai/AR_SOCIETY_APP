@@ -48,3 +48,27 @@ def iso_utc(dt):
     if dt is None:
         return None
     return utc_naive(dt).replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+# A shift that began yesterday evening is still "on duty" this morning, so a check-in with no check-out counts if it was
+# made on the society's date today, or on yesterday's date and not longer ago than this.
+OVERNIGHT_SHIFT_HOURS = 16
+
+
+def on_duty_clause(tz: ZoneInfo, now_utc: datetime = None):
+    """SQLAlchemy condition on StaffAttendance for "checked in and not yet checked out", by the society's own date
+    (not the server's, which is a different day for a few hours every night)."""
+    from datetime import timedelta
+    from sqlalchemy import and_, or_
+    from app.modules.staff.models.staff import StaffAttendance
+    now_utc = now_utc or datetime.utcnow()
+    today = local_today(tz)
+    return and_(
+        StaffAttendance.check_in_time.isnot(None),
+        StaffAttendance.check_out_time.is_(None),
+        or_(
+            StaffAttendance.attendance_date == today,
+            and_(StaffAttendance.attendance_date == today - timedelta(days=1),
+                 StaffAttendance.check_in_time >= now_utc - timedelta(hours=OVERNIGHT_SHIFT_HOURS)),
+        ),
+    )

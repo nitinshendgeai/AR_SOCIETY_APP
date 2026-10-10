@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Literal, Optional
 from uuid import UUID
 from datetime import date
 from decimal import Decimal
@@ -98,6 +98,10 @@ def _invoice_out(i) -> dict:
         "due_date": i.due_date.isoformat() if i.due_date else None,
         "amount": str(i.amount),
         "gst_amount": str(i.gst_amount),
+        "gst_component": i.gst_component,
+        "cgst_amount": str(i.cgst_amount),
+        "sgst_amount": str(i.sgst_amount),
+        "igst_amount": str(i.igst_amount),
         "total_amount": str(i.total_amount),
         "paid_amount": str(i.paid_amount),
         "outstanding": str(i.total_amount - i.paid_amount),
@@ -322,6 +326,7 @@ class VendorInvoiceCreate(OrmBase):
     invoice_number: str = Field(max_length=50); invoice_date: date; due_date: Optional[date] = None
     amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
     gst_amount: Decimal = Field(default=Decimal(0), ge=0, max_digits=10, decimal_places=2)
+    gst_component: Optional[Literal["CGST_SGST", "IGST"]] = None   # left out: worked out from the GSTINs
     total_amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
     description: Optional[str] = None; doc_url: Optional[str] = None
     expense_account_id: Optional[UUID] = None  # accounts ledger; default by vendor category

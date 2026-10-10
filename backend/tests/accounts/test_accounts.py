@@ -187,8 +187,8 @@ def test_cancelled_voucher_drops_out_of_the_books(client, db):
         "entries": [{"account_id": L["depreciation"]["id"], "debit": "700"},
                     {"account_id": L["plant_machinery"]["id"], "credit": "700"}],
     }, headers=h).json()
-    assert _balance(client, h, sid, "depreciation") == 700
     assert v["approval_status"] == "pending"
+    assert _balance(client, h, sid, "depreciation") == 0          # a journal waits for approval before it counts
     assert client.post(f"{API}/vouchers/{v['id']}/approve", json={"note": "Approved"}, headers=approver["headers"]).status_code == 200
     assert _balance(client, h, sid, "depreciation") == 700
     r = client.post(f"{API}/vouchers/{v['id']}/cancel", json={"reason": "Wrong amount"}, headers=h)
@@ -276,7 +276,11 @@ def test_vendor_bill_and_payment_post_purchase_and_payment(client, db):
         "society_id": sid, "vendor_id": vendor_id, "invoice_number": "SS/112", "invoice_date": "2026-09-05",
         "amount": "40000", "gst_amount": "7200", "total_amount": "47200",
     }, headers=h).json()
-    assert _balance(client, h, sid, "security_charges") == Decimal("47200")
+    # The GST on the bill is input tax credit (split CGST + SGST, the vendor being in the society's state), so
+    # only the taxable amount is expense; the vendor is owed the whole 47,200.
+    assert _balance(client, h, sid, "security_charges") == Decimal("40000")
+    assert _balance(client, h, sid, "gst_input_cgst") == Decimal("3600")
+    assert _balance(client, h, sid, "gst_input_sgst") == Decimal("3600")
     assert _balance(client, h, sid, "sundry_creditors") == Decimal("-47200")
 
     r = client.post(f"/api/v1/vendors/invoices/{inv['id']}/payments", json={
@@ -381,4 +385,6 @@ def test_member_ar_statement_and_reconciliation(client, db):
     data = client.get(f"{API}/members/{sid}/{flat1.id}/ar-statement", headers=h).json()
     assert data["closing_ar"] == "0.00" and data["operational_outstanding"] == "0.00" and data["reconciled"] is True
     recon = client.get(f"{API}/members/{sid}/ar-reconciliation", headers=h).json()
-    assert recon["totals"]["gl_closing_ar"] == "0.00" and recon["totals"]["operational_outstanding"] == "0.00" and recon["totals"]["reconciled"] is True
+    # Flat 1 has paid in full; flat 2's bill is still open, and the ledger and the billing agree on it.
+    assert recon["totals"]["gl_closing_ar"] == "3354.00" and recon["totals"]["operational_outstanding"] == "3354.00"
+    assert recon["totals"]["reconciled"] is True
