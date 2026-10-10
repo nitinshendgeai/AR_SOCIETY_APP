@@ -10,6 +10,7 @@ import 'package:ar_society_app/features/society_structure/presentation/providers
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 class FlatDetailScreen extends ConsumerWidget {
   final FlatModel flat;
@@ -28,11 +29,9 @@ class FlatDetailScreen extends ConsumerWidget {
             .firstOrNull ??
         flat;
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Text('Flat ${current.flatNumber}'),
-        actions: [
+    return AppPage(
+      title: 'Flat ${current.flatNumber}',
+      actions: [
           IconButton(
             icon: const Icon(Icons.edit_rounded),
             tooltip: 'Edit',
@@ -48,7 +47,6 @@ class FlatDetailScreen extends ConsumerWidget {
             ],
           ),
         ],
-      ),
       body: ResponsiveBody(child: ListView(
         padding: const EdgeInsets.all(20),
         children: [

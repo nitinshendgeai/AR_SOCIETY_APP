@@ -57,11 +57,9 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> with SingleTicker
     void alert() => showAppSheet(context: context, builder: (_) => const AlertSheet());
 
     final board = _Board(societyId: societyId, raiser: raiser);
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Notices'),
-        actions: [
+    return AppPage(
+      title: 'Notices',
+      actions: [
           if (raiser)
             TextButton.icon(
               onPressed: alert,
@@ -70,8 +68,7 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> with SingleTicker
             ),
           if (writer && desktop) HeaderActionButton(icon: Icons.add_rounded, label: 'New notice', onPressed: newNotice),
         ],
-        bottom: writer ? TabBar(controller: _tabs, tabs: const [Tab(text: 'Notice board'), Tab(text: 'Manage')]) : null,
-      ),
+      bottom: writer ? TabBar(controller: _tabs, tabs: const [Tab(text: 'Notice board'), Tab(text: 'Manage')]) : null,
       floatingActionButton: writer && !desktop
           ? FloatingActionButton.extended(onPressed: newNotice, icon: const Icon(Icons.add_rounded), label: const Text('New notice'))
           : null,

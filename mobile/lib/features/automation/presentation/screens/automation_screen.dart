@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/automation/data/automation_api.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Reminders and alerts that run on their own: what each one does, whether it is on, what it did last, and a
 /// button to run it now.
@@ -70,9 +71,8 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
   Widget build(BuildContext context) {
     final sid = ref.watch(currentUserProvider)?.societyId ?? '';
     final async = ref.watch(automationProvider(sid));
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text(context.tr('Automatic tasks'))),
+    return AppPage(
+      title: 'Automatic tasks',
       body: async.when(
         loading: () => const AppLoader(),
         error: (e, _) => Center(

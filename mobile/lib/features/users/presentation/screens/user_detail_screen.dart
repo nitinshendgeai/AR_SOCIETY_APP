@@ -8,6 +8,7 @@ import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/features/users/data/models/user_admin_models.dart';
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
 import 'package:ar_society_app/features/users/presentation/widgets/temp_password_dialog.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 class UserDetailScreen extends ConsumerWidget {
   final String userId;
@@ -17,11 +18,9 @@ class UserDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(userDetailProvider(userId));
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('User Details'),
-        actions: [
+    return AppPage(
+      title: 'User Details',
+      actions: [
           userAsync.whenOrNull(
             data: (user) => PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert_rounded),
@@ -39,7 +38,6 @@ class UserDetailScreen extends ConsumerWidget {
             ),
           ) ?? const SizedBox.shrink(),
         ],
-      ),
       body: userAsync.when(
         loading: () => const AppLoader(),
         error: (e, _) => Center(

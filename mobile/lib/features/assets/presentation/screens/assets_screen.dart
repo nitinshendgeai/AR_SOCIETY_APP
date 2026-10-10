@@ -14,6 +14,7 @@ import 'package:ar_society_app/features/assets/presentation/screens/asset_sheets
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show HeaderActionButton, StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 String assetRoute(String id) => AppRoutes.assetDetail.replaceFirst(':id', id);
 
@@ -60,12 +61,9 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
     final summary = ref.watch(assetSummaryProvider(societyId)).valueOrNull ?? const AssetSummary();
     final list = ref.watch(assetListProvider(_key(societyId)));
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Assets'),
-        actions: [if (desktop) HeaderActionButton(icon: Icons.add_rounded, label: 'Add asset', onPressed: () => _add(societyId))],
-      ),
+    return AppPage(
+      title: 'Assets',
+      actions: [if (desktop) HeaderActionButton(icon: Icons.add_rounded, label: 'Add asset', onPressed: () => _add(societyId))],
       floatingActionButton: desktop
           ? null
           : FloatingActionButton.extended(

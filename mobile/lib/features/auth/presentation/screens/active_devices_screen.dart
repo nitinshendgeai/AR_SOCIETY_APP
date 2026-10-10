@@ -7,6 +7,7 @@ import 'package:ar_society_app/features/auth/domain/entities/device_session.dart
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart' show AppCard;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Account → Signed-in devices: every device that is signed in with this login, when it was last
 /// used, and a way to sign any of them out — for a lost phone, or a login that is being shared.
@@ -58,19 +59,16 @@ class _ActiveDevicesScreenState extends ConsumerState<ActiveDevicesScreen> {
     final sessions = ref.watch(deviceSessionsProvider);
     final repo = ref.read(authRepositoryProvider);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Signed-in devices'),
-        actions: [
+    return AppPage(
+title: 'Signed-in devices',
+actions: [
           IconButton(
             tooltip: 'Refresh',
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () => ref.invalidate(deviceSessionsProvider),
           ),
         ],
-      ),
-      body: ResponsiveBody(
+body: ResponsiveBody(
         child: sessions.when(
           loading: () => const AppLoader(),
           error: (e, _) => ListView(padding: const EdgeInsets.all(20), children: [
@@ -126,7 +124,7 @@ class _ActiveDevicesScreenState extends ConsumerState<ActiveDevicesScreen> {
           },
         ),
       ),
-    );
+);
   }
 }
 

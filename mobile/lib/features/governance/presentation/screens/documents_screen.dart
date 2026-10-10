@@ -95,9 +95,8 @@ class DocumentsScreen extends ConsumerWidget {
     final sid = user?.societyId ?? '';
     final office = user?.isAdminOrCommittee == true;
     final async = ref.watch(documentsProvider(sid));
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text(context.tr('Documents'))),
+    return AppPage(
+      title: 'Documents',
       floatingActionButton: office
           ? FloatingActionButton.extended(
               onPressed: () => _add(context),

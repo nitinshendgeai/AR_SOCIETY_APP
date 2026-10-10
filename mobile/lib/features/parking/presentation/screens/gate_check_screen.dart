@@ -6,6 +6,7 @@ import 'package:ar_society_app/features/parking/domain/entities/parking_entities
 import 'package:ar_society_app/features/parking/presentation/providers/parking_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Security gate screen: a guard types (or, once ANPR/RFID land, scans) a
 /// vehicle number, sees whether it's a registered resident/tenant vehicle,
@@ -51,9 +52,8 @@ class _GateCheckScreenState extends ConsumerState<GateCheckScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(gateCheckProvider);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Vehicle Gate Check')),
+    return AppPage(
+      title: 'Vehicle Gate Check',
       body: ResponsiveBody(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),

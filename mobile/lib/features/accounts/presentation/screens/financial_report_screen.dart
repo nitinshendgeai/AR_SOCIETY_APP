@@ -15,6 +15,7 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/shared/utils/file_saver.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// One financial statement for a year, as on paper: a two-sided statement
 /// (expenditure | income, liabilities | assets, receipts | payments) with
@@ -72,9 +73,9 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
     final async = ref.watch(financialReportProvider(key));
     final desktop = isDesktopLayout(context);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text('$_title · FY ${widget.fy}', overflow: TextOverflow.ellipsis), actions: [
+    return AppPage(
+      title: '$_title · FY ${widget.fy}',
+      actions: [
         IconButton(
           tooltip: 'Share PDF',
           onPressed: _busy || async.valueOrNull == null ? null : () => _pdf(societyId, share: true),
@@ -92,7 +93,7 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
             onPressed: _busy || async.valueOrNull == null ? null : () => _pdf(societyId, share: false),
             icon: const Icon(Icons.download_rounded),
           ),
-      ]),
+      ],
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(financialReportProvider(key)),
         child: async.when(

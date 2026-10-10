@@ -114,11 +114,10 @@ class _EditMyProfileScreenState extends ConsumerState<EditMyProfileScreen> {
     final requestsAsync = ref.watch(myEditRequestsProvider);
     final actionState = ref.watch(editRequestActionProvider);
 
-    Widget waiting(Widget body) => Scaffold(
-          backgroundColor: AppTheme.surface,
-          appBar: AppBar(title: const Text('Edit My Info')),
-          body: body,
-        );
+    Widget waiting(Widget body) => AppPage(
+      title: 'Edit My Info',
+      body: body,
+    );
 
     return residentAsync.when(
       loading: () => waiting(const AppLoader()),

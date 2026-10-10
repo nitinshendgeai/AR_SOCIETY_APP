@@ -14,6 +14,7 @@ import 'package:ar_society_app/features/maintenance_billing/data/maintenance_bil
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart' show AppCard, EmptyState;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -86,15 +87,15 @@ class _ExpensesByElementScreenState extends ConsumerState<ExpensesByElementScree
     final elements = ref.watch(maintenanceElementsProvider((societyId: societyId, includeInactive: false))).valueOrNull ??
         const <MaintenanceElement>[];
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Spend by element'), actions: [
+    return AppPage(
+      title: 'Spend by element',
+      actions: [
         AppBarTextAction(
           onPressed: () => context.push(AppRoutes.accountsExpenseNew),
           icon: Icons.add_rounded,
           label: 'Add expense',
         ),
-      ]),
+      ],
       body: ResponsiveBody(
         maxWidth: 900,
         child: RefreshIndicator(

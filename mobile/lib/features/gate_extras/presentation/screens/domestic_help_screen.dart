@@ -50,9 +50,8 @@ class _DomesticHelpScreenState extends ConsumerState<DomesticHelpScreen> {
     final gate = user != null && user.isSecurity;
     final office = user?.isAdminOrCommittee == true;
     final async = ref.watch(domesticHelpProvider(sid));
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text(context.tr('Domestic help'))),
+    return AppPage(
+      title: 'Domestic help',
       floatingActionButton: gate
           ? null
           : FloatingActionButton.extended(

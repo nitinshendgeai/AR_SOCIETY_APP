@@ -11,6 +11,7 @@ import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_w
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Every voucher, latest first, filtered by type and month: receipts,
 /// payments, contras and journals the society entered, and the member
@@ -46,9 +47,9 @@ class _DayBookScreenState extends ConsumerState<DayBookScreen> {
         (v.vendorName ?? '').toLowerCase().contains(q) ||
         v.entries.any((e) => e.title.toLowerCase().contains(q));
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Day Book'), actions: [
+    return AppPage(
+      title: 'Day Book',
+      actions: [
         PdfActions(
           load: () => ref.read(accountsApiProvider).dayBookPdf(societyId, type: _type, from: from, to: to),
           fileName: 'Day-Book-${_allDates ? 'all' : apiDate(_month).substring(0, 7)}.pdf',
@@ -56,7 +57,7 @@ class _DayBookScreenState extends ConsumerState<DayBookScreen> {
         ),
         if (desktop)
           HeaderActionButton(icon: Icons.add_rounded, label: 'New Voucher', onPressed: () => chooseNewVoucher(context)),
-      ]),
+      ],
       floatingActionButton: desktop
           ? null
           : FloatingActionButton.extended(

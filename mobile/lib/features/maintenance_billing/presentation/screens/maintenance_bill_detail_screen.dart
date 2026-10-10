@@ -140,11 +140,9 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
   @override
   Widget build(BuildContext context) {
     final billAsync = ref.watch(maintenanceBillProvider(widget.billId));
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Text(billAsync.valueOrNull?.invoiceNumber ?? 'Bill'),
-        actions: [
+    return AppPage(
+      title: billAsync.valueOrNull?.invoiceNumber ?? 'Bill',
+      actions: [
           if (billAsync.valueOrNull != null) ...[
             IconButton(
               tooltip: 'Download PDF',
@@ -158,7 +156,6 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
             ),
           ],
         ],
-      ),
       bottomNavigationBar: billAsync.valueOrNull == null ? null : _actions(billAsync.value!),
       body: billAsync.when(
         loading: () => const AppLoader(),

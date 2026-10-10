@@ -229,15 +229,13 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
     final state = ref.watch(complaintListProvider);
     final desktop = isDesktopLayout(context);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Text(widget.assignedToMe
+    return AppPage(
+      title: widget.assignedToMe
             ? 'Assigned to Me'
             : widget.isMy
                 ? 'My Complaints'
-                : 'Society Complaints'),
-        actions: [
+                : 'Society Complaints',
+      actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh',
@@ -246,7 +244,6 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
           if (desktop)
             HeaderActionButton(icon: Icons.add_rounded, label: 'New Complaint', onPressed: _newComplaint),
         ],
-      ),
       floatingActionButton: desktop
           ? null
           : FloatingActionButton.extended(

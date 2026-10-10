@@ -45,16 +45,16 @@ class _ChartOfAccountsScreenState extends ConsumerState<ChartOfAccountsScreen> {
     final desktop = isDesktopLayout(context);
     final groups = chartAsync.valueOrNull ?? const <AccountGroupRow>[];
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Chart of Accounts'), actions: [
+    return AppPage(
+      title: 'Chart of Accounts',
+      actions: [
         if (desktop)
           HeaderActionButton(
             icon: Icons.add_rounded,
             label: 'Add Ledger',
             onPressed: groups.isEmpty ? null : () => _openSheet(societyId, groups),
           ),
-      ]),
+      ],
       floatingActionButton: desktop || groups.isEmpty
           ? null
           : FloatingActionButton.extended(

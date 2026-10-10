@@ -59,14 +59,11 @@ class _AttendanceCorrectionScreenState
     final pending  = corrections.where((c) => c.status == CorrectionStatus.pending).toList();
     final resolved = corrections.where((c) => c.status != CorrectionStatus.pending).toList();
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Attendance Corrections'),
-        actions: [
+    return AppPage(
+      title: 'Attendance Corrections',
+      actions: [
           IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
         ],
-      ),
       body: switch (state) {
         CorrectionLoading() || CorrectionInitial() =>
           const AppLoader(),

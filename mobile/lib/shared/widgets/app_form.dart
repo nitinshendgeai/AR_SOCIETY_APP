@@ -576,3 +576,129 @@ class SettingsColumn extends StatelessWidget {
     );
   }
 }
+
+/// Tabs on a wide screen sit at the left, each only as wide as its name, not stretched across the page.
+PreferredSizeWidget _leftAligned(PreferredSizeWidget bar) => bar is TabBar
+    ? TabBar(
+        tabs: bar.tabs,
+        controller: bar.controller,
+        onTap: bar.onTap,
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
+      )
+    : bar;
+
+class _AppPageScope extends InheritedWidget {
+  const _AppPageScope({required super.child});
+  static bool inPage(BuildContext context) => context.getInheritedWidgetOfExactType<_AppPageScope>() != null;
+  @override
+  bool updateShouldNotify(_AppPageScope old) => false;
+}
+
+/// True when [context] is inside an [AppPage] (which already sets the content width), so a body does not need to
+/// cap its own.
+bool insideAppPage(BuildContext context) => _AppPageScope.inPage(context);
+
+/// The one frame for every ordinary screen (a list, a detail page, a dashboard of cards): on a computer a header
+/// (back button when there is somewhere to go back to, title, a line under it, buttons at the right, optional tabs)
+/// above a body on a centred content width; on a phone the standard app bar. Header and body share one left edge.
+class AppPage extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final List<Widget> actions;
+
+  /// A [TabBar] (or other bar) under the header; on a phone it goes in the app bar as before.
+  final PreferredSizeWidget? bottom;
+  final Widget body;
+  final Widget? floatingActionButton;
+  final FloatingActionButtonLocation? floatingActionButtonLocation;
+
+  /// A bar kept at the bottom of the screen (a total with a Pay button, say).
+  final Widget? bottomNavigationBar;
+  final double maxWidth;
+  final bool showBack;
+
+  const AppPage({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.actions = const [],
+    this.bottom,
+    required this.body,
+    this.floatingActionButton,
+    this.floatingActionButtonLocation,
+    this.bottomNavigationBar,
+    this.maxWidth = 1280,
+    this.showBack = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final desktop = MediaQuery.sizeOf(context).width >= kDesktopBreakpoint;
+    if (!desktop) {
+      return Scaffold(
+        backgroundColor: AppTheme.surface,
+        appBar: AppBar(title: Text(context.tr(title)), actions: actions, bottom: bottom),
+        body: _AppPageScope(child: body),
+        floatingActionButton: floatingActionButton,
+        floatingActionButtonLocation: floatingActionButtonLocation,
+        bottomNavigationBar: bottomNavigationBar,
+      );
+    }
+
+    final canGoBack = showBack && context.canPop();
+    Widget column(Widget child) => Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(constraints: BoxConstraints(maxWidth: maxWidth), child: child),
+        );
+    return Scaffold(
+      backgroundColor: AppTheme.surface,
+      floatingActionButton: floatingActionButton,
+      floatingActionButtonLocation: floatingActionButtonLocation,
+      bottomNavigationBar: bottomNavigationBar,
+      body: _AppPageScope(
+        child: Column(children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(32, 24, 32, bottom == null ? 12 : 4),
+            child: column(Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+              if (canGoBack) ...[
+                IconButton.outlined(
+                  tooltip: context.tr('Back'),
+                  onPressed: () => context.pop(),
+                  icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                  style: IconButton.styleFrom(
+                    backgroundColor: AppTheme.cardBg,
+                    side: const BorderSide(color: AppTheme.fieldBorder),
+                    fixedSize: const Size(40, 40),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+                const SizedBox(width: 16),
+              ],
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  Text(context.tr(title),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, height: 1.2, color: AppTheme.textPrimary)),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(context.tr(subtitle!), style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+                  ],
+                ]),
+              ),
+              for (final a in actions) ...[const SizedBox(width: 8), a],
+            ])),
+          ),
+          if (bottom != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: column(Align(alignment: Alignment.centerLeft, child: _leftAligned(bottom!))),
+            ),
+          // The body sits on the same content width, 16px in so that its own 16px padding lines up with the header.
+          Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: column(body))),
+        ]),
+      ),
+    );
+  }
+}

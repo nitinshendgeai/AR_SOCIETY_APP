@@ -14,6 +14,7 @@ import 'package:ar_society_app/features/society_structure/presentation/providers
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Tenant Master list — every tenant currently or previously on record,
 /// with agreement status/expiry surfaced so "who's renting and until when"
@@ -182,16 +183,13 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
       for (final f in flatsAsync.valueOrNull ?? <FlatModel>[]) f.id: f,
     };
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Text(widget.filterFlat != null ? 'Tenants — ${widget.filterFlat!.displayName}' : 'Tenants'),
-        actions: [
+    return AppPage(
+      title: widget.filterFlat != null ? 'Tenants — ${widget.filterFlat!.displayName}' : 'Tenants',
+      actions: [
           IconButton(icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh', onPressed: _load),
           if (desktop && (user?.isAdminOrCommittee ?? false))
             HeaderActionButton(icon: Icons.person_add_alt_1_rounded, label: 'Add Tenant', onPressed: _addTenant),
         ],
-      ),
       floatingActionButton: !desktop && (user?.isAdminOrCommittee ?? false)
           ? FloatingActionButton.extended(
               onPressed: _addTenant,

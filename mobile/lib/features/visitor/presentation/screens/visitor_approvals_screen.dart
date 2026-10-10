@@ -39,18 +39,15 @@ class VisitorApprovalsScreen extends ConsumerWidget {
       }
     });
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Pending Approvals'),
-        actions: [
+    return AppPage(
+      title: 'Pending Approvals',
+      actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh',
             onPressed: reload,
           ),
         ],
-      ),
       body: pending.when(
         loading: () => const SkeletonList(),
         error: (e, _) => Center(

@@ -9,6 +9,7 @@ import 'package:ar_society_app/features/accounts/presentation/providers/accounts
 import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 enum _Period { thisYear, lastYear, all, custom }
 
@@ -74,9 +75,9 @@ class _LedgerStatementScreenState extends ConsumerState<LedgerStatementScreen> {
     final account = async.valueOrNull?.account;
     final title = widget.title ?? account?.name ?? 'Ledger';
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text(title, overflow: TextOverflow.ellipsis), actions: [
+    return AppPage(
+      title: title,
+      actions: [
         PdfActions(
           load: async.valueOrNull == null
               ? null
@@ -87,7 +88,7 @@ class _LedgerStatementScreenState extends ConsumerState<LedgerStatementScreen> {
           subject: 'Ledger account — $title',
         ),
         const SizedBox(width: 8),
-      ]),
+      ],
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(ledgerStatementProvider(key)),
         child: ResponsiveBody(

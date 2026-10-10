@@ -13,6 +13,7 @@ import 'package:ar_society_app/features/amenities/presentation/screens/amenity_s
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show HeaderActionButton, StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 String amenityRoute(String id) => AppRoutes.amenityDetail.replaceFirst(':id', id);
 
@@ -51,12 +52,10 @@ class _AmenitiesScreenState extends ConsumerState<AmenitiesScreen> with TickerPr
     final desktop = isDesktopLayout(context);
     void add() => showAppSheet(context: context, builder: (_) => const AmenityFormSheet());
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Amenities'),
-        actions: [if (setup && desktop) HeaderActionButton(icon: Icons.add_rounded, label: 'Add amenity', onPressed: add)],
-        bottom: TabBar(
+    return AppPage(
+      title: 'Amenities',
+      actions: [if (setup && desktop) HeaderActionButton(icon: Icons.add_rounded, label: 'Add amenity', onPressed: add)],
+      bottom: TabBar(
           controller: _tabs,
           isScrollable: manager,
           tabs: [
@@ -66,7 +65,6 @@ class _AmenitiesScreenState extends ConsumerState<AmenitiesScreen> with TickerPr
             if (manager) const Tab(text: 'All bookings'),
           ],
         ),
-      ),
       floatingActionButton: setup && !desktop && _tabs!.index == 0
           ? FloatingActionButton.extended(onPressed: add, icon: const Icon(Icons.add_rounded), label: const Text('Add amenity'))
           : null,

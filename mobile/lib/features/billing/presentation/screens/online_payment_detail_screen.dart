@@ -104,9 +104,8 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
       return const Scaffold(body: const AppLoader());
     }
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text(payment.receiptNumber)),
+    return AppPage(
+      title: payment.receiptNumber,
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [

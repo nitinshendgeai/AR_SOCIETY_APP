@@ -10,6 +10,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 class WingListScreen extends ConsumerStatefulWidget {
   const WingListScreen({super.key});
@@ -43,11 +44,9 @@ class _WingListScreenState extends ConsumerState<WingListScreen> {
     final async = ref.watch(allWingsProvider);
     final desktop = isDesktopLayout(context);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Wings'),
-        actions: [
+    return AppPage(
+      title: 'Wings',
+      actions: [
           if (desktop)
             HeaderActionButton(
               icon: Icons.add_rounded,
@@ -55,7 +54,6 @@ class _WingListScreenState extends ConsumerState<WingListScreen> {
               onPressed: () => context.push(AppRoutes.wingForm),
             ),
         ],
-      ),
       floatingActionButton: desktop
           ? null
           : FloatingActionButton.extended(

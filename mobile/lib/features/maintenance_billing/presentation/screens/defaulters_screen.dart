@@ -15,6 +15,7 @@ import 'package:ar_society_app/shared/utils/csv_file.dart';
 import 'package:ar_society_app/shared/utils/file_saver.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 final defaultersApiProvider = Provider<DefaultersApi>((_) => DefaultersApi());
 
@@ -153,9 +154,9 @@ class _DefaultersScreenState extends ConsumerState<DefaultersScreen> {
     final desktop = isDesktopLayout(context);
     final report = async.valueOrNull;
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text(_includeAll ? "Members' Dues" : 'Defaulters'), actions: [
+    return AppPage(
+      title: _includeAll ? "Members' Dues" : 'Defaulters',
+      actions: [
         IconButton(
           tooltip: 'Export CSV',
           onPressed: report == null || _busy ? null : () => _csv(report),
@@ -178,7 +179,7 @@ class _DefaultersScreenState extends ConsumerState<DefaultersScreen> {
             onPressed: report == null || _busy ? null : () => _pdf(societyId, share: false),
             icon: const Icon(Icons.download_rounded),
           ),
-      ]),
+      ],
       floatingActionButton: report == null || report.flats.isEmpty
           ? null
           : FloatingActionButton.extended(

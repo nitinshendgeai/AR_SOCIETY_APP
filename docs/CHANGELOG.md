@@ -4,6 +4,17 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-10 (w)
+
+### feat: every remaining screen on one page frame (`AppPage`)
+
+About 85 screens (lists, detail pages, accounts, billing, staff, vendors, stores, assets, amenities, notices, platform…) used
+their own `Scaffold` + `AppBar`, so headers differed and some bodies were narrow phone-style columns in the middle of a wide
+screen. They now use `AppPage`: on a computer a header (back button when needed, title, subtitle, buttons at the right, tabs at
+the left) over a body on one centred width; on a phone the same app bar as before. `ResponsiveBody` no longer narrows a body
+inside it. Converted by script from `Scaffold(appBar: AppBar(...))`; no logic changed. Left alone: sign-in / change-password /
+registration pages and the role dashboards. `docs/UI_FORMS.md` describes the three layers (page, form, sheet).
+
 ## 2026-10-10 (v)
 
 ### feat: the rest of the forms and every sheet on the same layout

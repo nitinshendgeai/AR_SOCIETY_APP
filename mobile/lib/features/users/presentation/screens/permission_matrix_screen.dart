@@ -6,6 +6,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/users/data/models/user_admin_models.dart';
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
 import 'package:ar_society_app/shared/widgets/role_matrix.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Admin-only editor for the dynamic RBAC permission matrix: which of the
 /// fixed access tiers (Admin, Admin + Committee, ...) each role is granted.
@@ -19,18 +20,15 @@ class PermissionMatrixScreen extends ConsumerWidget {
     final permissionsAsync = ref.watch(permissionsListProvider);
     final matrixAsync = ref.watch(permissionMatrixProvider);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Permission Matrix'),
-        actions: [
+    return AppPage(
+      title: 'Permission Matrix',
+      actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh',
             onPressed: () => ref.read(permissionMatrixProvider.notifier).refresh(),
           ),
         ],
-      ),
       body: permissionsAsync.when(
         loading: () => const AppLoader(),
         error: (e, _) => Center(

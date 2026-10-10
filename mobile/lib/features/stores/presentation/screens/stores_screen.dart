@@ -14,6 +14,7 @@ import 'package:ar_society_app/features/stores/presentation/providers/stores_pro
 import 'package:ar_society_app/features/stores/presentation/screens/store_sheets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show HeaderActionButton, StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 String storeItemRoute(String id) => AppRoutes.storeItem.replaceFirst(':id', id);
 
@@ -49,13 +50,10 @@ class _StoresScreenState extends ConsumerState<StoresScreen> with SingleTickerPr
     final desktop = isDesktopLayout(context);
     void add() => showAppSheet(context: context, builder: (_) => const ItemFormSheet());
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Stores'),
-        actions: [if (desktop) HeaderActionButton(icon: Icons.add_rounded, label: 'Add item', onPressed: add)],
-        bottom: TabBar(controller: _tabs, tabs: const [Tab(text: 'Items'), Tab(text: 'Issued')]),
-      ),
+    return AppPage(
+      title: 'Stores',
+      actions: [if (desktop) HeaderActionButton(icon: Icons.add_rounded, label: 'Add item', onPressed: add)],
+      bottom: TabBar(controller: _tabs, tabs: const [Tab(text: 'Items'), Tab(text: 'Issued')]),
       floatingActionButton: desktop ? null : FloatingActionButton.extended(onPressed: add, icon: const Icon(Icons.add_rounded), label: const Text('Add item')),
       body: TabBarView(controller: _tabs, children: [_items(societyId), _IssuedTab(societyId: societyId)]),
     );

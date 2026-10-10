@@ -50,11 +50,9 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
       }
     });
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Attendance'),
-        actions: [
+    return AppPage(
+      title: 'Attendance',
+      actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () => ref
@@ -62,7 +60,6 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
                 .loadHistory(widget.staffId),
           )
         ],
-      ),
       body: _buildBody(state),
     );
   }

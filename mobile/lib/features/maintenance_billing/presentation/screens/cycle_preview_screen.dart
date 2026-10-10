@@ -6,6 +6,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Shows exactly what Generate Bills will create — every flat's lines as
 /// calculated from the charge heads and rules — before anything is saved.
@@ -55,9 +56,8 @@ class _CyclePreviewScreenState extends ConsumerState<CyclePreviewScreen> {
     final previewAsync = ref.watch(cyclePreviewProvider(widget.cycleId));
     final preview = previewAsync.valueOrNull;
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text('Preview · ${widget.cycleName}')),
+    return AppPage(
+      title: 'Preview · ${widget.cycleName}',
       bottomNavigationBar: preview == null || preview.flatsCount == 0
           ? null
           : SafeArea(

@@ -6,6 +6,7 @@ import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dar
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Supervisor/Manager attendance approval screen.
 /// Shows pending punch-in and punch-out records awaiting approval or rejection.
@@ -58,25 +59,22 @@ class _AttendanceApprovalScreenState extends ConsumerState<AttendanceApprovalScr
       }
     });
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Attendance Approvals'),
-        actions: [
+    return AppPage(
+      title: 'Attendance Approvals',
+      actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () => ref.read(approvalProvider.notifier)
                 .load(widget.societyId, department: widget.department),
           ),
         ],
-        bottom: TabBar(
+      bottom: TabBar(
           controller: _tab,
           tabs: const [
             Tab(text: 'Punch In'),
             Tab(text: 'Punch Out'),
           ],
         ),
-      ),
       body: widget.societyId.isEmpty
           ? _ErrorView(
               message: 'Society context is missing. Please go back and reopen this screen.',

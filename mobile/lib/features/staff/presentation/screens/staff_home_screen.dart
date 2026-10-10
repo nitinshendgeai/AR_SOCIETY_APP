@@ -7,6 +7,7 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Staff home screen — navigation hub for all operational staff modules.
 /// Handles async staff-profile resolution: shows loading/error/retry banners
@@ -53,11 +54,9 @@ class StaffHomeScreen extends ConsumerWidget {
     // profile notice for them.
     final managerOnly = showManagement && !staffAsync.isLoading && staffAsync.valueOrNull == null;
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Text(managerOnly ? 'Staff Management' : 'Staff Portal'),
-        actions: [
+    return AppPage(
+      title: managerOnly ? 'Staff Management' : 'Staff Portal',
+      actions: [
           // On desktop the account menu in the top bar handles sign-out.
           if (!isDesktopLayout(context))
             IconButton(
@@ -66,7 +65,6 @@ class StaffHomeScreen extends ConsumerWidget {
               onPressed: () => _logout(context, ref),
             ),
         ],
-      ),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async => ref.invalidate(currentStaffProvider),

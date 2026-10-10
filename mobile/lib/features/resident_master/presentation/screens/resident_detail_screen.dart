@@ -13,6 +13,7 @@ import 'package:ar_society_app/features/resident_master/presentation/widgets/veh
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Canonical Resident Detail screen — answers "who is this person, where do
 /// they live, who else lives there, is it rented, and what vehicles do they
@@ -29,8 +30,8 @@ class ResidentDetailScreen extends ConsumerWidget {
 
     return detailAsync.when(
       loading: () => const Scaffold(body: const AppLoader()),
-      error: (e, _) => Scaffold(
-        appBar: AppBar(title: const Text('Resident')),
+      error: (e, _) => AppPage(
+        title: 'Resident',
         body: Center(child: Text(rmFriendlyError(e), style: const TextStyle(color: AppTheme.error))),
       ),
       data: (r) => _ResidentDetailBody(resident: r, canEdit: canEdit),
@@ -59,11 +60,9 @@ class _ResidentDetailBody extends ConsumerWidget {
     final canMoveIn = resident.isActive && resident.moveInDate == null;
     final canMoveOut = resident.isActive && resident.moveInDate != null && resident.moveOutDate == null;
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Text(resident.fullName),
-        actions: [
+    return AppPage(
+      title: resident.fullName,
+      actions: [
           if (canEdit)
             IconButton(
               icon: const Icon(Icons.edit_rounded),
@@ -71,7 +70,6 @@ class _ResidentDetailBody extends ConsumerWidget {
               onPressed: () => context.push(AppRoutes.residentForm, extra: {'resident': resident}),
             ),
         ],
-      ),
       body: ResponsiveBody(child: ListView(
         padding: const EdgeInsets.all(20),
         children: [

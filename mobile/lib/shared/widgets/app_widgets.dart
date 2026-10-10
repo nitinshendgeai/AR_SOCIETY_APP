@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/motion/motion.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart' show insideAppPage;
 import 'package:ar_society_app/core/theme/app_theme.dart';
 
 // ── Responsive body wrapper ───────────────────────────────────────────────
@@ -30,7 +31,8 @@ class ResponsiveBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    if (width < breakpoint) return child;
+    // An AppPage has already put its body on the page's content width.
+    if (width < breakpoint || insideAppPage(context)) return child;
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(

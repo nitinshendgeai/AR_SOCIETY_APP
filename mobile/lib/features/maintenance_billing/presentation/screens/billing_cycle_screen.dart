@@ -10,6 +10,7 @@ import 'package:ar_society_app/features/maintenance_billing/presentation/screens
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 enum _BillFilter { all, unpaid, overdue, paid, notIssued }
 
@@ -111,16 +112,13 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
     final cycle = cycleAsync.valueOrNull;
     final desktop = isDesktopLayout(context);
     final action = cycle == null ? null : _action(cycle);
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Text(cycle?.name ?? 'Billing Cycle'),
-        actions: [
+    return AppPage(
+      title: cycle?.name ?? 'Billing Cycle',
+      actions: [
           IconButton(icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh', onPressed: _refresh),
           if (desktop && action != null)
             HeaderActionButton(icon: action.$2, label: action.$1, onPressed: _busy ? null : action.$3),
         ],
-      ),
       bottomNavigationBar: desktop || action == null ? null : _bar(action.$1, action.$2, action.$3),
       body: cycleAsync.when(
         loading: () => const AppLoader(),

@@ -11,6 +11,7 @@ import 'package:ar_society_app/features/vendor/presentation/providers/vendors_wo
 import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// An annual maintenance contract: quotations, the sanction, then it starts.
 class ContractDetailScreen extends ConsumerStatefulWidget {
@@ -67,9 +68,8 @@ class _ContractDetailScreenState extends ConsumerState<ContractDetailScreen> {
     final societyId = user?.societyId ?? '';
     final committee = user?.isAdminOrCommittee ?? false;
     final async = ref.watch(contractProvider(widget.contractId));
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text(async.valueOrNull?.contractNumber ?? 'Contract')),
+    return AppPage(
+      title: async.valueOrNull?.contractNumber ?? 'Contract',
       body: async.when(
         loading: () => const AppLoader(),
         error: (e, _) => Center(child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),

@@ -171,9 +171,8 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
     final allAdvance = _target == _PaymentTarget.openBills && _flatId != null && billsAsync?.hasValue == true &&
         openBills.isEmpty;
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Record Payment')),
+    return AppPage(
+      title: 'Record Payment',
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [

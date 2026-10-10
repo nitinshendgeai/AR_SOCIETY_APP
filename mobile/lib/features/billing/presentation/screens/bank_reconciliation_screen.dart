@@ -167,11 +167,9 @@ class _BankReconciliationScreenState extends ConsumerState<BankReconciliationScr
     final entriesAsync = ref.watch(bankStatementEntriesProvider(societyId));
     final desktop = isDesktopLayout(context);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Bank Reconciliation'),
-        actions: [
+    return AppPage(
+      title: 'Bank Reconciliation',
+      actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh',
@@ -184,7 +182,6 @@ class _BankReconciliationScreenState extends ConsumerState<BankReconciliationScr
               onPressed: _importing ? null : () => _importStatement(societyId),
             ),
         ],
-      ),
       floatingActionButton: desktop ? null : FloatingActionButton.extended(
         onPressed: _importing ? null : () => _importStatement(societyId),
         icon: _importing

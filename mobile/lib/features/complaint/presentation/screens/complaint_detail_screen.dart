@@ -225,11 +225,9 @@ class _ComplaintDetailScreenState
       }
     });
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Complaint Detail'),
-        actions: [
+    return AppPage(
+      title: 'Complaint Detail',
+      actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () => ref
@@ -237,7 +235,6 @@ class _ComplaintDetailScreenState
                 .load(widget.complaintId),
           ),
         ],
-      ),
       body: _buildBody(state),
     );
   }

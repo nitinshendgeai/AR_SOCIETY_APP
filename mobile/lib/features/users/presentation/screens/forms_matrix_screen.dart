@@ -7,6 +7,7 @@ import 'package:ar_society_app/features/users/data/models/user_admin_models.dart
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
 import 'package:ar_society_app/core/navigation/app_menu.dart';
 import 'package:ar_society_app/shared/widgets/role_matrix.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Admin-only editor for the forms matrix: which top-level navigation
 /// screens each role sees. Independent of the Permission Matrix (which
@@ -21,18 +22,15 @@ class FormsMatrixScreen extends ConsumerWidget {
     final formsAsync = ref.watch(formsListProvider);
     final matrixAsync = ref.watch(formMatrixProvider);
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Forms Matrix'),
-        actions: [
+    return AppPage(
+      title: 'Forms Matrix',
+      actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh',
             onPressed: () => ref.read(formMatrixProvider.notifier).refresh(),
           ),
         ],
-      ),
       body: formsAsync.when(
         loading: () => const AppLoader(),
         error: (e, _) => Center(

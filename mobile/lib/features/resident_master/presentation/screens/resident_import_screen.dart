@@ -16,6 +16,7 @@ import 'package:ar_society_app/features/society_structure/data/models/structure_
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/utils/csv_file.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 const _templateHeader = importTemplateHeader;
 
@@ -72,9 +73,8 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Import Residents')),
+    return AppPage(
+      title: 'Import Residents',
       body: ResponsiveBody(
         child: _rows == null ? _buildIntro(context) : _buildPreview(context),
       ),

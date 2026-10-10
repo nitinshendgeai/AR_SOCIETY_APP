@@ -33,9 +33,8 @@ class ParcelsScreen extends ConsumerWidget {
     final gate = user != null &&
         (user.isSecurity || user.isAdminOrCommittee || user.isManager);
     final async = ref.watch(parcelsProvider(sid));
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: Text(context.tr('Parcels'))),
+    return AppPage(
+      title: 'Parcels',
       floatingActionButton: gate
           ? FloatingActionButton.extended(
               onPressed: () => showAppSheet(

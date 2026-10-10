@@ -13,6 +13,7 @@ import 'package:ar_society_app/features/shops/data/shops_api.dart';
 import 'package:ar_society_app/features/shops/presentation/providers/shops_providers.dart';
 import 'package:ar_society_app/shared/utils/csv_file.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 enum _Status { ready, error, created, updated }
 
@@ -182,9 +183,8 @@ class _ShopsImportScreenState extends ConsumerState<ShopsImportScreen> {
   @override
   Widget build(BuildContext context) {
     ref.watch(currentUserProvider);
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('Import Shops')),
+    return AppPage(
+      title: 'Import Shops',
       body: ResponsiveBody(child: _rows == null ? _intro() : _preview()),
     );
   }

@@ -10,6 +10,7 @@ import 'package:ar_society_app/features/society_structure/presentation/providers
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 class FlatListScreen extends ConsumerStatefulWidget {
   final WingModel? filterWing;
@@ -153,15 +154,12 @@ class _FlatListScreenState extends ConsumerState<FlatListScreen> {
             ? '${widget.filterWing!.name} Flats'
             : 'All Flats';
 
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Text(title),
-        actions: [
+    return AppPage(
+      title: title,
+      actions: [
           if (desktop)
             HeaderActionButton(icon: Icons.add_rounded, label: 'Add Flat', onPressed: _addFlat),
         ],
-      ),
       floatingActionButton: desktop
           ? null
           : FloatingActionButton.extended(

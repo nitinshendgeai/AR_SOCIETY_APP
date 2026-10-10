@@ -11,6 +11,7 @@ import 'package:ar_society_app/features/maintenance_billing/presentation/screens
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Resident view: every issued bill for the flat(s) they live in.
 class MyBillsScreen extends ConsumerWidget {
@@ -19,9 +20,8 @@ class MyBillsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final billsAsync = ref.watch(myBillsProvider);
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(title: const Text('My Bills')),
+    return AppPage(
+      title: 'My Bills',
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(myBillsProvider),
         child: billsAsync.when(

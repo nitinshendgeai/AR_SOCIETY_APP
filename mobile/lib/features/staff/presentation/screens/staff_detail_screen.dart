@@ -7,6 +7,7 @@ import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dar
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Read-only view of a single staff member's master record.
 /// Receives a [StaffEntity] via GoRouter extra.
@@ -16,11 +17,9 @@ class StaffDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: Text(staff.fullName),
-        actions: [
+    return AppPage(
+      title: staff.fullName,
+      actions: [
           IconButton(
             icon: const Icon(Icons.edit_rounded),
             tooltip: 'Edit',
@@ -30,7 +29,6 @@ class StaffDetailScreen extends ConsumerWidget {
             ),
           ),
         ],
-      ),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
