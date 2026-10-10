@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show kDesktopBreakpoint;
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:ar_society_app/core/motion/motion.dart';
 import 'package:intl/intl.dart';
@@ -411,7 +412,8 @@ class HeaderActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(left: 8, right: 24),
+        // 24 clears the edge of a phone app bar; on a computer the page header already lines it up.
+        padding: EdgeInsets.only(left: 8, right: MediaQuery.sizeOf(context).width >= kDesktopBreakpoint ? 0 : 24),
         child: FilledButton.icon(onPressed: onPressed, icon: Icon(icon, size: 18), label: Text(label)),
       );
 }

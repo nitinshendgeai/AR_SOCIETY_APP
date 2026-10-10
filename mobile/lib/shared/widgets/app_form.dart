@@ -750,9 +750,11 @@ class AppPage extends StatelessWidget {
       bottomNavigationBar: bottomNavigationBar,
       body: _AppPageScope(
         child: Column(children: [
+          // The header, the tabs and the body all inset 16 + 16 from the content column, so on a very wide screen
+          // (where the column is centred) they still share one left and one right edge.
           Padding(
-            padding: EdgeInsets.fromLTRB(32, 24, 32, bottom == null ? 12 : 4),
-            child: column(Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+            padding: EdgeInsets.fromLTRB(16, 24, 16, bottom == null ? 12 : 4),
+            child: column(Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
               if (canGoBack) ...[
                 IconButton.outlined(
                   tooltip: context.tr('Back'),
@@ -779,13 +781,17 @@ class AppPage extends StatelessWidget {
                   ],
                 ]),
               ),
-              for (final a in actions) ...[const SizedBox(width: 8), a],
-            ])),
+              // Buttons written for a phone app bar often end with a spacer; here it would push them off the edge.
+              for (final a in actions.where((a) => !(a is SizedBox && a.child == null))) ...[const SizedBox(width: 8), a],
+            ]))),
           ),
           if (bottom != null)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: column(Align(alignment: Alignment.centerLeft, child: _leftAligned(bottom!))),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: column(Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Align(alignment: Alignment.centerLeft, child: _leftAligned(bottom!)),
+              )),
             ),
           // The body sits on the same content width, 16px in so that its own 16px padding lines up with the header.
           Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: column(body))),

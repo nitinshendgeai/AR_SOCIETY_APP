@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/shared/widgets/app_data_table.dart' show HeaderActionButton;
 import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 Widget _page({required VoidCallback onSubmit, bool saving = false, GlobalKey<FormState>? key}) => MaterialApp(
@@ -28,6 +29,7 @@ Widget _page({required VoidCallback onSubmit, bool saving = false, GlobalKey<For
     );
 
 void main() {
+  appPageEdgeTests();
   testWidgets('a wide screen shows the header, the sections in two columns and the action bar', (tester) async {
     tester.view.physicalSize = const Size(1440, 900);
     tester.view.devicePixelRatio = 1;
@@ -92,4 +94,44 @@ void main() {
     expect(saved, 0);
     expect(tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, 'Cancel')).onPressed, isNull);
   });
+}
+
+// ── AppPage: header, buttons and body on one set of edges ────────────────────
+
+Widget _appPage() => MaterialApp(
+      theme: AppTheme.lightTheme,
+      home: AppPage(
+        title: 'Cash in Hand',
+        showBack: false,
+        actions: [
+          HeaderActionButton(icon: Icons.download_rounded, label: 'Download PDF', onPressed: () {}),
+          // A leftover from a phone app bar: it must not push the button off the edge.
+          const SizedBox(width: 8),
+        ],
+        bottom: const TabBar(tabs: [Tab(text: 'One'), Tab(text: 'Two')], controller: null),
+        body: ListView(padding: const EdgeInsets.all(16), children: const [
+          Card(child: SizedBox(height: 80, child: Center(child: Text('the card')))),
+        ]),
+      ),
+    );
+
+void _appPageEdgesTest(String name, Size size) {
+  testWidgets('AppPage keeps the title, the button and the card on the same edges ($name)', (tester) async {
+    tester.view.physicalSize = size;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(DefaultTabController(length: 2, child: _appPage()));
+    await tester.pumpAndSettle();
+
+    final title = tester.getTopLeft(find.text('Cash in Hand')).dx;
+    final cardRect = tester.getRect(find.byType(Card));
+    expect(title, cardRect.left, reason: 'the title lines up with the card at its left');
+    final buttonRight = tester.getRect(find.byType(FilledButton)).right;
+    expect(buttonRight, cardRect.right, reason: 'the button ends where the card ends');
+  });
+}
+
+void appPageEdgeTests() {
+  _appPageEdgesTest('1280 wide', const Size(1280, 800));
+  _appPageEdgesTest('2560 wide, content column centred', const Size(2560, 1300));
 }
