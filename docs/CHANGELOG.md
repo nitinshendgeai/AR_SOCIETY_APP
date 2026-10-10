@@ -4,6 +4,16 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-10 (r)
+
+### docs: the help guide covers everything built since it was written
+
+`docs/user-guide/DUX_OS_Help_Guide.html` (and its PDF, now 24 pages) gains: choosing English / हिन्दी / मराठी;
+meetings, polls and documents; asking for a NOC or certificate; parcels; domestic help register and passes (resident,
+guard and committee views); a new **Community life** section for the office; **Automatic tasks**; importing residents
+with the flat type, area and possession / purchase date columns; and billing from the possession date. New quick
+answers, and the "Not in the app yet" list brought up to date. Pick a role at the top of the page to see only your part.
+
 ## 2026-10-10 (q)
 
 ### feat: billing from the possession date (a society sets the start date)
