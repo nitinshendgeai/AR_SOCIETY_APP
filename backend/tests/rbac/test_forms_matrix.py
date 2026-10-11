@@ -47,7 +47,7 @@ def test_gaps_in_old_dashboard_logic_are_preserved_by_default():
     vendor bills, runs maintenance billing, manages the staff and keeps the
     books, so "online_payments", "bank_reconciliation", "vendor_bills",
     "maintenance_billing", "maintenance_elements", "staff",
-    "checklist_templates", "accounts", "defaulters" and "vendors" (they prepare work orders
+    "checklist_templates", "accounts", "defaulters", "manager_checklist" and "vendors" (they prepare work orders
     and collect quotations for the committee to sanction) were added to Manager's default grants (see
     FORM_ROLE_GRANTS)."""
     codes_by_role = default_role_form_codes()
@@ -59,7 +59,7 @@ def test_gaps_in_old_dashboard_logic_are_preserved_by_default():
     assert set(codes_by_role.get("Manager", [])) == {
         "visitors", "complaints", "notices", "online_payments", "bank_reconciliation", "vendor_bills",
         "maintenance_billing", "maintenance_elements", "staff", "checklist_templates", "accounts", "defaulters",
-        "vendors", "assets", "inventory", "amenities", "meetings", "polls", "documents", "certificates", "parcels", "domestic_help",
+        "vendors", "assets", "inventory", "manager_checklist", "amenities", "meetings", "polls", "documents", "certificates", "parcels", "domestic_help",
     }
 
 
@@ -113,7 +113,7 @@ def test_my_forms_returns_default_grants_for_own_role(client, db):
     assert set(r.json()["form_codes"]) == {
         "visitors", "complaints", "notices", "online_payments", "bank_reconciliation", "vendor_bills",
         "maintenance_billing", "maintenance_elements", "staff", "checklist_templates", "accounts", "defaulters",
-        "vendors", "assets", "inventory", "amenities", "meetings", "polls", "documents", "certificates", "parcels", "domestic_help",
+        "vendors", "assets", "inventory", "manager_checklist", "amenities", "meetings", "polls", "documents", "certificates", "parcels", "domestic_help",
     }
 
     resident = make_user(db, "formsres4@rbac.com", role="Resident")
