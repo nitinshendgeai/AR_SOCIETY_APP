@@ -508,6 +508,51 @@ class FlatCharge(Base, TimestampMixin):
         return f"<FlatCharge {self.kind} {self.title} ₹{self.amount}>"
 
 
+# ── InterestWaiver ───────────────────────────────────────────────────────────
+
+class InterestWaiver(Base, TimestampMixin):
+    """
+    A concession on the interest charged on one flat's arrears: no interest at
+    all (`waive`), or a lower rate than the society's (`rate`), for the days
+    from `from_date` to `to_date` (open-ended when empty). The committee gives
+    it with a reason; the maintenance calculator applies it when it works out
+    the interest on the flat's next bill, and bills already issued are never
+    changed. Where several cover the same day, the newest one wins.
+    """
+    __tablename__ = "interest_waivers"
+
+    society_id   = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    flat_id      = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    cancelled_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    mode          = Column(String(10), nullable=False, default="waive")     # waive | rate
+    rate_pct      = Column(Numeric(5, 2), nullable=True)                    # for mode "rate": the % p.a. charged instead
+    from_date     = Column(Date, nullable=False)
+    to_date       = Column(Date, nullable=True)
+    reason        = Column(Text, nullable=False)
+    status        = Column(String(10), nullable=False, default="active", index=True)   # active | cancelled
+    cancelled_at  = Column(DateTime, nullable=True)
+    cancel_reason = Column(Text, nullable=True)
+
+    society = relationship("Society")
+    flat    = relationship("Flat")
+
+    @property
+    def flat_number(self):
+        return self.flat.flat_number if self.flat else None
+
+    @property
+    def wing_name(self):
+        return self.flat.wing.name if self.flat and self.flat.wing else None
+
+    def covers(self, day) -> bool:
+        return self.from_date <= day and (self.to_date is None or day <= self.to_date)
+
+    def __repr__(self):
+        return f"<InterestWaiver {self.mode} {self.from_date}..{self.to_date}>"
+
+
 # ── OnlinePaymentSubmission ──────────────────────────────────────────────────
 
 class OnlinePaymentSubmission(Base, TimestampMixin):

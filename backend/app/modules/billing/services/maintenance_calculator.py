@@ -41,7 +41,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.models.flat import Flat, OccupancyStatus
 from app.modules.billing.models.billing import (
     BillingCycle, BillStatus, ChargeBasis, ChargeType, CycleFrequency,
-    FlatCharge, FlatChargeKind, FlatChargeStatus,
+    FlatCharge, FlatChargeKind, FlatChargeStatus, InterestWaiver,
     MaintenanceBill, MaintenanceChargeConfig, MaintenanceSettings,
 )
 
@@ -131,6 +131,7 @@ class FlatBillDraft:
     lines: List[LineDraft] = field(default_factory=list)
     previous_dues: Decimal = ZERO
     interest_bills: List[MaintenanceBill] = field(default_factory=list)
+    interest_adjusted: bool = False          # a waiver changed the interest on this bill
 
     @property
     def subtotal(self) -> Decimal:
@@ -164,6 +165,7 @@ class MaintenanceCalculator:
         self.warnings: List[str] = []
         self._auto_rate: Dict[UUID, Decimal] = {}
         self.flat_charges = self._flat_charges_by_flat()
+        self.waivers = self._waivers_by_flat()
 
     def _flat_charges_by_flat(self) -> Dict[UUID, List[FlatCharge]]:
         rows = self.db.query(FlatCharge).filter(
@@ -174,6 +176,18 @@ class MaintenanceCalculator:
         by_flat: Dict[UUID, List[FlatCharge]] = defaultdict(list)
         for c in rows:
             by_flat[c.flat_id].append(c)
+        return by_flat
+
+    def _waivers_by_flat(self) -> Dict[UUID, List[InterestWaiver]]:
+        """Each flat's interest concessions, newest first (the newest wins where they overlap)."""
+        rows = self.db.query(InterestWaiver).filter(
+            InterestWaiver.society_id == self.society_id,
+            InterestWaiver.status == "active",
+            InterestWaiver.is_active == True,  # noqa: E712
+        ).order_by(InterestWaiver.created_at.desc()).all()
+        by_flat: Dict[UUID, List[InterestWaiver]] = defaultdict(list)
+        for w in rows:
+            by_flat[w.flat_id].append(w)
         return by_flat
 
     def _apply_expense_budgets(self, bill_date: date) -> None:
@@ -383,7 +397,7 @@ class MaintenanceCalculator:
                             l.tax_percent = s.gst_rate_pct
                             l.tax_amount = money(l.amount * s.gst_rate_pct / 100)
 
-            self._add_arrears(draft, open_bills.get(flat.id, []), bill_date)
+            self._add_arrears(draft, open_bills.get(flat.id, []), bill_date, self.waivers.get(flat.id, []))
 
             if draft.total > 0:
                 drafts.append(draft)
@@ -411,7 +425,32 @@ class MaintenanceCalculator:
             return False
         return True
 
-    def _add_arrears(self, draft: FlatBillDraft, earlier: List[MaintenanceBill], bill_date: date) -> None:
+    def _rate_days(self, start: date, end: date, waivers: List[InterestWaiver]) -> Tuple[Decimal, bool]:
+        """Rate-days (the % p.a. summed over each day) for the days start..end-1, with each day at the society's
+        rate unless a waiver covers it: no interest for `waive`, the waiver's own rate for `rate`. Also says
+        whether any waiver touched these days."""
+        base = self.settings.interest_rate_pct
+        if not waivers:
+            return base * (end - start).days, False
+        cuts = {start, end}
+        for w in waivers:
+            for d in (w.from_date, w.to_date + timedelta(days=1) if w.to_date else None):
+                if d is not None and start < d < end:
+                    cuts.add(d)
+        points = sorted(cuts)
+        total, touched = ZERO, False
+        for a, b in zip(points, points[1:]):
+            rule = next((w for w in waivers if w.covers(a)), None)
+            if rule is None:
+                rate = base
+            else:
+                touched = True
+                rate = ZERO if rule.mode == "waive" else Decimal(rule.rate_pct or 0)
+            total += rate * (b - a).days
+        return total, touched
+
+    def _add_arrears(self, draft: FlatBillDraft, earlier: List[MaintenanceBill], bill_date: date,
+                     waivers: Optional[List[InterestWaiver]] = None) -> None:
         s = self.settings
         draft.previous_dues = money(sum((b.outstanding for b in earlier), ZERO))
         if not s.interest_rate_pct:
@@ -431,12 +470,15 @@ class MaintenanceCalculator:
             principal = max(ZERO, b.outstanding - billed_interest)
             if principal <= 0:
                 continue
-            interest += principal * s.interest_rate_pct / 100 * days / 365
+            rate_days, touched = self._rate_days(start, bill_date, waivers or [])
+            draft.interest_adjusted = draft.interest_adjusted or touched
+            interest += principal * rate_days / 100 / 365
             draft.interest_bills.append(b)
         interest = money(interest)
         if interest > 0:
             draft.lines.append(LineDraft(
                 charge_type=ChargeType.PENALTY,
-                description=f"Interest on arrears @ {s.interest_rate_pct.normalize():f}% p.a.",
+                description=f"Interest on arrears @ {s.interest_rate_pct.normalize():f}% p.a."
+                            + (" (adjusted as approved by the committee)" if draft.interest_adjusted else ""),
                 amount=interest,
             ))

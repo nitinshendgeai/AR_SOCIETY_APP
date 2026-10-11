@@ -4,6 +4,25 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-11 (ff)
+
+### feat: interest waiver / lower interest rate for one flat
+
+The last gap from the Tally housing-society comparison.
+
+- The committee or admin can waive the interest on one flat's arrears (`waive`) or charge a lower rate (`rate`, 0–21%
+  p.a.) for a date range (open-ended when no end date), with a required reason. It is applied by the maintenance
+  calculator when it works out the flat's next bill: each day of the interest window is charged at the society's rate
+  unless a waiver covers it (the newest wins where they overlap). Issued bills never change; the interest line reads
+  "(adjusted as approved by the committee)" when a waiver applied. Days that were billed at nil stay billed — cancelling a
+  waiver later doesn't bring them back.
+- `POST /billing/interest-waivers` and `POST /billing/interest-waivers/{id}/cancel` are committee/admin only;
+  `GET /billing/interest-waivers/society/{id}` is for managers and above. Both create and cancel are audit-logged.
+- Migration `d9a3b7c5e2f1` creates `interest_waivers`.
+- App: **Interest concessions** section at the foot of *Maintenance Billing → Fines & Charges* (list, *Waive interest*
+  sheet, cancel with reason). Help guide updated.
+- Tests: `tests/billing/test_interest_waivers.py`, `mobile/test/interest_waiver_test.dart`.
+
 ## 2026-10-11 (ee)
 
 ### feat: separate two-wheeler parking rate, and warnings for a negative cash/bank balance

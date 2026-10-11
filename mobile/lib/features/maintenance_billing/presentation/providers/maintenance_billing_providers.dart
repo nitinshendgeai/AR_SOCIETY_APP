@@ -61,6 +61,10 @@ final flatChargesProvider = FutureProvider.autoDispose.family<List<FlatCharge>, 
   (ref, societyId) => ref.watch(maintenanceBillingApiProvider).listFlatCharges(societyId),
 );
 
+final interestWaiversProvider = FutureProvider.autoDispose.family<List<InterestWaiver>, String>(
+  (ref, societyId) => ref.watch(maintenanceBillingApiProvider).listInterestWaivers(societyId),
+);
+
 final flatChargesOfFlatProvider = FutureProvider.autoDispose.family<List<FlatCharge>, String>(
   (ref, flatId) => ref.watch(maintenanceBillingApiProvider).flatChargesOfFlat(flatId),
 );
