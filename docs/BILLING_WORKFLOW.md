@@ -59,6 +59,8 @@ page:
 `BillingService._bill_print_context` supplies each charge head's element,
 the unpaid interest inside the arrears and the flat's previous bill.
 
+Interest on arrears is simple interest at the society rate on the unpaid principal. A committee-approved `InterestWaiver` (no interest, or a lower rate, for a date range on one flat) is applied by `MaintenanceCalculator._rate_days`.
+
 ## Payment receipt (`GET /billing/receipts/{receipt_no}/pdf`)
 Every amount received gets a receipt of its own (model bye-laws), built by
 `receipt_pdf.generate_payment_receipt_pdf` — A5 landscape, same letterhead as

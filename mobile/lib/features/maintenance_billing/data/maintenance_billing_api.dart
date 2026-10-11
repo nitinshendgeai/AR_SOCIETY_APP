@@ -908,4 +908,86 @@ class MaintenanceBillingApi {
     final r = await _dio.post('/billing/flat-charges/$id/cancel', data: {'reason': reason});
     return FlatCharge.fromJson(r.data as Map<String, dynamic>);
   }
+
+  Future<List<InterestWaiver>> listInterestWaivers(String societyId, {String status = 'active'}) async => _list(
+        (await _dio.get('/billing/interest-waivers/society/$societyId', queryParameters: {'status': status})).data,
+        InterestWaiver.fromJson,
+      );
+
+  Future<InterestWaiver> createInterestWaiver({
+    required String societyId,
+    required String flatId,
+    required String mode,
+    String? ratePct,
+    required DateTime from,
+    DateTime? to,
+    required String reason,
+  }) async {
+    final fmt = DateFormat('yyyy-MM-dd');
+    final r = await _dio.post('/billing/interest-waivers', data: {
+      'society_id': societyId,
+      'flat_id': flatId,
+      'mode': mode,
+      if (mode == 'rate' && ratePct != null) 'rate_pct': ratePct,
+      'from_date': fmt.format(from),
+      if (to != null) 'to_date': fmt.format(to),
+      'reason': reason,
+    });
+    return InterestWaiver.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<InterestWaiver> cancelInterestWaiver(String id, String reason) async {
+    final r = await _dio.post('/billing/interest-waivers/$id/cancel', data: {'reason': reason});
+    return InterestWaiver.fromJson(r.data as Map<String, dynamic>);
+  }
+}
+
+/// A concession on the interest charged on one flat's arrears: none at all
+/// (`waive`) or a lower rate (`rate`), for the days from [from] to [to].
+class InterestWaiver {
+  final String id;
+  final String flatId;
+  final String flatNumber;
+  final String? wingName;
+  final String mode; // waive | rate
+  final String? ratePct;
+  final DateTime from;
+  final DateTime? to;
+  final String reason;
+  final String status; // active | cancelled
+
+  const InterestWaiver({
+    required this.id,
+    required this.flatId,
+    required this.flatNumber,
+    this.wingName,
+    required this.mode,
+    this.ratePct,
+    required this.from,
+    this.to,
+    required this.reason,
+    this.status = 'active',
+  });
+
+  String get flatLabel => wingName == null || wingName!.isEmpty ? flatNumber : '$wingName / $flatNumber';
+
+  String get title => mode == 'waive' ? 'No interest' : 'Interest at ${_trimRate(ratePct ?? '0')}% a year';
+
+  static String _trimRate(String v) {
+    final n = double.tryParse(v);
+    return n == null ? v : (n == n.roundToDouble() ? n.toStringAsFixed(0) : n.toString());
+  }
+
+  factory InterestWaiver.fromJson(Map<String, dynamic> j) => InterestWaiver(
+        id: j['id'] as String,
+        flatId: j['flat_id'] as String,
+        flatNumber: j['flat_number'] as String? ?? '',
+        wingName: j['wing_name'] as String?,
+        mode: j['mode'] as String? ?? 'waive',
+        ratePct: j['rate_pct'] as String?,
+        from: DateTime.parse(j['from_date'] as String),
+        to: j['to_date'] == null ? null : DateTime.parse(j['to_date'] as String),
+        reason: j['reason'] as String? ?? '',
+        status: j['status'] as String? ?? 'active',
+      );
 }

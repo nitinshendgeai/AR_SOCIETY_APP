@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.core.dependencies import (
     get_current_user, require_roles, _user_has_permission,
-    require_any_member, require_manager_above,
+    require_any_member, require_manager_above, require_admin_committee,
 )
 from app.models.user import User
 from app.models.flat import Flat
@@ -26,6 +26,7 @@ from app.modules.billing.services.maintenance_calculator import cycle_months, mo
 from app.modules.billing.services.billing_service import BillingService, RESIDENT_VISIBLE_BILL_STATUSES
 from app.modules.billing.services.budget_suggestions import suggest_budgets
 from app.modules.billing.services.flat_charges import FlatChargeService
+from app.modules.billing.services.interest_waivers import InterestWaiverService
 from app.modules.billing.services.allocations import PaymentAllocator, allocated, payment_counts, unapplied
 from app.schemas.common import OrmBase, TimestampSchema
 from typing import Optional
@@ -1086,3 +1087,60 @@ def flat_flat_charges(flat_id: UUID, db: Session = Depends(get_db), user: User =
 def cancel_flat_charge(charge_id: UUID, data: FlatChargeCancel, request: Request, db: Session = Depends(get_db),
                        user: User = Depends(manager_above)):
     return _flat_charge_out(FlatChargeService(db).cancel(charge_id, data.reason, user, request))
+
+
+# ── Interest waivers ──────────────────────────────────────────────────────────
+
+class InterestWaiverCreate(OrmBase):
+    society_id: UUID
+    flat_id: UUID
+    mode: str = Field(pattern="^(waive|rate)$")
+    rate_pct: Optional[Decimal] = Field(default=None, ge=0, le=21)
+    from_date: date
+    to_date: Optional[date] = None
+    reason: str
+
+    _reason = field_validator("reason", mode="before")(val.note_max(1000, required=True))
+    _dates = field_validator("from_date", "to_date")(val.sane_date)
+
+    @model_validator(mode="after")
+    def _check(self):
+        if self.mode == "rate" and self.rate_pct is None:
+            raise ValueError("Enter the interest rate to charge instead")
+        if self.to_date and self.to_date < self.from_date:
+            raise ValueError("The end date can't be before the start date")
+        return self
+
+
+def _waiver_out(w) -> dict:
+    return {
+        "id": str(w.id), "society_id": str(w.society_id), "flat_id": str(w.flat_id),
+        "flat_number": w.flat_number, "wing_name": w.wing_name, "mode": w.mode,
+        "rate_pct": str(w.rate_pct) if w.rate_pct is not None else None,
+        "from_date": w.from_date.isoformat(), "to_date": w.to_date.isoformat() if w.to_date else None,
+        "reason": w.reason, "status": w.status, "cancel_reason": w.cancel_reason,
+        "created_at": w.created_at.isoformat() + "Z" if w.created_at else None,
+    }
+
+
+@router.post("/interest-waivers", status_code=201)
+def create_interest_waiver(data: InterestWaiverCreate, request: Request, db: Session = Depends(get_db),
+                           user: User = Depends(require_admin_committee)):
+    """Waive the interest on one flat's arrears, or charge a lower rate, for a stretch of days. Applies from the
+    flat's next bill; committee or admin only, with a reason."""
+    assert_society_access(user, data.society_id)
+    return _waiver_out(InterestWaiverService(db).create(data.model_dump(), user, request))
+
+
+@router.get("/interest-waivers/society/{society_id}")
+def list_interest_waivers(society_id: UUID, status: Optional[str] = Query(None, pattern="^(active|cancelled)$"),
+                          flat_id: Optional[UUID] = None, db: Session = Depends(get_db),
+                          user: User = Depends(manager_above)):
+    assert_society_access(user, society_id)
+    return [_waiver_out(w) for w in InterestWaiverService(db).list_for_society(society_id, status, flat_id)]
+
+
+@router.post("/interest-waivers/{waiver_id}/cancel")
+def cancel_interest_waiver(waiver_id: UUID, data: FlatChargeCancel, request: Request, db: Session = Depends(get_db),
+                           user: User = Depends(require_admin_committee)):
+    return _waiver_out(InterestWaiverService(db).cancel(waiver_id, data.reason, user, request))

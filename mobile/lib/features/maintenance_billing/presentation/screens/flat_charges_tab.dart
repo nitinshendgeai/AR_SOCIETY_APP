@@ -7,6 +7,7 @@ import 'package:ar_society_app/core/layout/app_sheet.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
+import 'package:ar_society_app/features/maintenance_billing/presentation/screens/interest_waivers_section.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
@@ -77,7 +78,10 @@ class FlatChargesTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(flatChargesProvider(societyId));
     return RefreshIndicator(
-      onRefresh: () async => ref.invalidate(flatChargesProvider(societyId)),
+      onRefresh: () async {
+        ref.invalidate(flatChargesProvider(societyId));
+        ref.invalidate(interestWaiversProvider(societyId));
+      },
       child: async.when(
         loading: () => const AppLoader(),
         error: (e, _) => ListView(children: [
@@ -131,6 +135,7 @@ class FlatChargesTab extends ConsumerWidget {
                           : null,
                     ),
                   ),
+                InterestWaiversSection(societyId: societyId),
               ],
             ),
           );
