@@ -160,6 +160,12 @@ class _DayBookScreenState extends ConsumerState<DayBookScreen> {
                             cell: (v) => TwoLineCell(_particulars(v), v.narration),
                           ),
                           AppDataColumn(
+                              label: 'Entered by',
+                              flex: 2,
+                              sortKey: (v) => v.createdByName ?? '',
+                              cell: (v) => TwoLineCell(v.createdByName ?? (v.isAuto ? 'System' : '—'),
+                                  v.approvedByName == null ? null : 'Approved by ${v.approvedByName}')),
+                          AppDataColumn(
                             label: 'Amount',
                             numeric: true,
                             width: 150,
@@ -173,6 +179,8 @@ class _DayBookScreenState extends ConsumerState<DayBookScreen> {
                                       decoration: v.isCancelled ? TextDecoration.lineThrough : null,
                                       color: v.isCancelled ? AppTheme.textTertiary : AppTheme.textPrimary)),
                               if (v.isCancelled) const StatusPill('Cancelled', AppTheme.error),
+                              if (v.isPending && !v.isCancelled) const StatusPill('Waiting approval', AppTheme.warning),
+                              if (v.isRejected && !v.isCancelled) const StatusPill('Rejected', AppTheme.error),
                             ]),
                           ),
                         ],
@@ -241,6 +249,8 @@ class _VoucherTile extends StatelessWidget {
                   Text(v.narration!,
                       maxLines: 1, overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                Text('Entered by ${v.createdByName ?? (v.isAuto ? 'System' : '—')}',
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
               ]),
             ),
             const SizedBox(width: 10),
@@ -253,8 +263,21 @@ class _VoucherTile extends StatelessWidget {
                       decoration: v.isCancelled ? TextDecoration.lineThrough : null,
                       color: v.isCancelled ? AppTheme.textTertiary : AppTheme.textPrimary)),
               const SizedBox(height: 2),
-              Text(v.isCancelled ? 'Cancelled' : formatAccountsDate(v.voucherDate),
-                  style: TextStyle(fontSize: 11.5, color: v.isCancelled ? AppTheme.error : AppTheme.textSecondary)),
+              Text(
+                  v.isCancelled
+                      ? 'Cancelled'
+                      : v.isPending
+                          ? 'Waiting approval'
+                          : v.isRejected
+                              ? 'Rejected'
+                              : formatAccountsDate(v.voucherDate),
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      color: v.isCancelled || v.isRejected
+                          ? AppTheme.error
+                          : v.isPending
+                              ? AppTheme.warning
+                              : AppTheme.textSecondary)),
             ]),
           ]),
         ),

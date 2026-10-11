@@ -135,6 +135,10 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                   ),
                   const SizedBox(height: 14),
                 ],
+                if (s.pendingApprovals > 0) ...[
+                  _ApprovalBanner(count: s.pendingApprovals, onTap: () => context.push(AppRoutes.accountsApprovals)),
+                  const SizedBox(height: 14),
+                ],
                 if (ref.watch(recurringDueProvider(societyId)).valueOrNull case final due? when due.isNotEmpty) ...[
                   _RecurringDueBanner(count: due.length, onTap: () => context.push(AppRoutes.accountsRecurring)),
                   const SizedBox(height: 14),
@@ -188,8 +192,19 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                 const SizedBox(height: 22),
                 const _SectionTitle('Books'),
                 _BooksGrid(items: [
+                  _BookItem(Icons.menu_book_rounded, 'Cash & Bank Book',
+                      'Every receipt and payment, with who entered it',
+                      () => context.push(AppRoutes.accountsCashBook)),
                   _BookItem(Icons.receipt_long_rounded, 'Day Book', 'Every voucher, date-wise',
                       () => context.push(AppRoutes.accountsDayBook)),
+                  _BookItem(Icons.request_quote_rounded, 'Invoice Register',
+                      'Maintenance invoices raised on members',
+                      () => context.push(AppRoutes.accountsInvoices)),
+                  _BookItem(Icons.inventory_2_rounded, 'Bills Register', 'Bills received from vendors',
+                      () => context.push(AppRoutes.accountsBills)),
+                  _BookItem(Icons.fact_check_rounded, 'Approvals',
+                      s.pendingApprovals > 0 ? '${s.pendingApprovals} waiting' : 'Payments and journals to approve',
+                      () => context.push(AppRoutes.accountsApprovals)),
                   _BookItem(Icons.event_repeat_rounded, 'Monthly Expenses',
                       'Security, lift, electricity: recorded each month as they fall due',
                       () => context.push(AppRoutes.accountsRecurring)),
@@ -269,6 +284,39 @@ class _RecurringDueBanner extends StatelessWidget {
                 ),
               ),
               const Text('Record', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600)),
+              const Icon(Icons.chevron_right_rounded, color: AppTheme.primary),
+            ]),
+          ),
+        ),
+      );
+}
+
+class _ApprovalBanner extends StatelessWidget {
+  final int count;
+  final VoidCallback onTap;
+  const _ApprovalBanner({required this.count, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: AppTheme.warningSoft,
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppTheme.radiusM),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+            child: Row(children: [
+              const Icon(Icons.fact_check_rounded, color: AppTheme.warning),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  count == 1
+                      ? '1 payment or journal is waiting for approval and is not in the books yet'
+                      : '$count payments or journals are waiting for approval and are not in the books yet',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                ),
+              ),
+              const Text('Review', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600)),
               const Icon(Icons.chevron_right_rounded, color: AppTheme.primary),
             ]),
           ),

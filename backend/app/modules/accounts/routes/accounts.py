@@ -5,6 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.dependencies import get_current_user, require_admin_committee, require_manager_above
@@ -26,6 +27,10 @@ from app.modules.accounts.services.documents_pdf import (
     render_day_book_pdf, render_ledger_pdf, render_members_ledger_pdf, render_voucher_pdf,
 )
 from app.modules.accounts.services.reports_pdf import render_report_pdf
+from app.modules.accounts.services.registers import RegistersService
+from app.modules.accounts.services.registers_pdf import (
+    render_bills_register_pdf, render_cash_bank_pdf, render_invoice_register_pdf,
+)
 from app.modules.billing.services.bill_pdf import flat_label, member_name
 
 # The society's books are kept by those who run it: Admin, the committee
@@ -323,6 +328,56 @@ def _statement_out(st: dict, date_from: Optional[date], date_to: Optional[date])
     }
 
 
+# ── Registers ─────────────────────────────────────────────────────────────────
+
+def _span(date_from: Optional[date], date_to: Optional[date]) -> str:
+    return "-".join(d.isoformat() for d in (date_from, date_to) if d) or "all"
+
+
+@router.get("/registers/cash-bank/{society_id}")
+def cash_bank_book(society_id: UUID, date_from: Optional[date] = None, date_to: Optional[date] = None,
+                   account_id: Optional[UUID] = None, format: str = Query("json", pattern="^(json|pdf)$"),
+                   db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """The cash and bank book: each cash and bank account's receipts and payments with the running balance and
+    who entered and who approved each. ?format=pdf: the printed book."""
+    assert_society_access(user, society_id)
+    book = RegistersService(db).cash_bank_book(society_id, date_from, date_to, account_id)
+    db.commit()
+    if format == "pdf":
+        return _pdf(render_cash_bank_pdf(book, _society(db, society_id)),
+                    f"Cash-Bank-Book-{_span(date_from, date_to)}.pdf")
+    return book
+
+
+@router.get("/registers/invoices/{society_id}")
+def invoice_register(society_id: UUID, date_from: Optional[date] = None, date_to: Optional[date] = None,
+                     status: Optional[str] = Query(None, pattern="^(generated|issued|partially_paid|paid|overdue|cancelled)$"),
+                     q: Optional[str] = None, format: str = Query("json", pattern="^(json|pdf)$"),
+                     db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Maintenance invoices raised on members, with who generated each. ?format=pdf: the printed register."""
+    assert_society_access(user, society_id)
+    reg = RegistersService(db).invoice_register(society_id, date_from, date_to, status, q)
+    if format == "pdf":
+        return _pdf(render_invoice_register_pdf(reg, _society(db, society_id)),
+                    f"Invoice-Register-{_span(date_from, date_to)}.pdf")
+    return reg
+
+
+@router.get("/registers/bills/{society_id}")
+def bills_register(society_id: UUID, date_from: Optional[date] = None, date_to: Optional[date] = None,
+                   vendor_id: Optional[UUID] = None,
+                   status: Optional[str] = Query(None, pattern="^(unpaid|part_paid|paid)$"),
+                   q: Optional[str] = None, format: str = Query("json", pattern="^(json|pdf)$"),
+                   db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Bills received from vendors, with who entered each. ?format=pdf: the printed register."""
+    assert_society_access(user, society_id)
+    reg = RegistersService(db).bills_register(society_id, date_from, date_to, vendor_id, status, q)
+    if format == "pdf":
+        return _pdf(render_bills_register_pdf(reg, _society(db, society_id)),
+                    f"Bills-Register-{_span(date_from, date_to)}.pdf")
+    return reg
+
+
 # ── Members' ledger ───────────────────────────────────────────────────────────
 
 @router.get("/members/{society_id}")
@@ -432,13 +487,16 @@ def create_voucher(data: VoucherCreate, request: Request, db: Session = Depends(
 
 @router.get("/vouchers/{society_id}/pending-approvals")
 def pending_voucher_approvals(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Vouchers waiting for approval, oldest first. `can_approve` is false for the caller's own entries when
+    another admin or committee member could approve them instead."""
     assert_society_access(user, society_id)
-    rows = db.query(Voucher).filter(
-        Voucher.society_id == society_id,
-        Voucher.approval_status == "pending",
-        Voucher.is_cancelled == False,
-    ).order_by(Voucher.voucher_date, Voucher.created_at).all()
-    return [_voucher_out(v) for v in rows]
+    svc = AccountsService(db)
+    rows = (db.query(Voucher).options(*svc._voucher_loads(), joinedload(Voucher.approver), joinedload(Voucher.submitter))
+            .filter(Voucher.society_id == society_id, Voucher.approval_status == "pending",
+                    Voucher.is_cancelled == False)  # noqa: E712
+            .order_by(Voucher.voucher_date, Voucher.created_at).all())
+    others = svc.other_approver_exists(society_id, user.id) if rows else False
+    return [{**_voucher_out(v), "can_approve": svc.can_approve(v, user, others)} for v in rows]
 
 
 @router.post("/vouchers/{voucher_id}/approve", dependencies=[Depends(require_admin_committee)])
@@ -537,6 +595,9 @@ def accounts_summary(society_id: UUID, db: Session = Depends(get_db), user: User
     svc = AccountsService(db)
     s = svc.summary(society_id)
     pending = AccountPostings(db, svc).pending_count(society_id)
+    waiting = (db.query(func.count(Voucher.id))
+               .filter(Voucher.society_id == society_id, Voucher.approval_status == "pending",
+                       Voucher.is_cancelled == False).scalar() or 0)  # noqa: E712
     db.commit()
     return {
         "fy": s["fy"],
@@ -547,6 +608,7 @@ def accounts_summary(society_id: UUID, db: Session = Depends(get_db), user: User
         "fy_surplus": _amount(s["fy_income"] - s["fy_expense"]),
         "cash_bank_accounts": [_account_out(a, bal) for a, bal in s["cash_bank_accounts"]],
         "pending_postings": pending,
+        "pending_approvals": waiting,         # payments and journals waiting for the committee or admin
     }
 
 
