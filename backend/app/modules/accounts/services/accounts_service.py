@@ -38,6 +38,7 @@ from app.modules.accounts.models.entities import EntityAccount
 from app.modules.accounts.services.entities import AccountingEntityService
 from app.modules.billing.models.billing import MaintenanceElement, MaintenanceSettings
 from app.services.audit_service import AuditService
+from app.modules.vendor.services.work_orders import inr
 from app.utils.auto_code import next_number_code
 
 ZERO = Decimal("0.00")
@@ -839,4 +840,27 @@ class AccountsService:
             "creditors": -balances.get(chart["sundry_creditors"].id, ZERO),
             "fy": fiscal_year(date.today()), "fy_income": income, "fy_expense": expense,
             "cash_bank_accounts": [(a, balances.get(a.id, ZERO)) for a in accounts if a.is_cash_or_bank],
+            "warnings": self.book_warnings(accounts, balances),
         }
+
+    def book_warnings(self, accounts: List[Account], balances: Dict[UUID, Decimal]) -> List[dict]:
+        """Things in the books that are almost certainly a mistake, shown on the Accounts page the way Tally
+        flags a negative cash balance: cash or a bank ledger in credit (more paid out than ever came in, so an
+        opening balance or a receipt is missing), and opening balances that don't agree."""
+        out: List[dict] = []
+        for a in accounts:
+            bal = balances.get(a.id, ZERO)
+            if a.is_cash_or_bank and bal < 0:
+                out.append({
+                    "code": "negative_cash" if a.is_cash else "negative_bank", "account_id": a.id,
+                    "message": f"{a.name} is {inr(-bal)} in credit (negative). More has been paid out than was "
+                               f"ever received — enter its opening balance or the missing receipt.",
+                })
+        opening = sum((signed_opening(a) for a in accounts), ZERO)
+        if opening:
+            out.append({
+                "code": "opening_unbalanced", "account_id": None,
+                "message": f"Opening balances don't agree — debits and credits differ by {inr(abs(opening))}. "
+                           f"Check the opening balance of each ledger in the Chart of Accounts.",
+            })
+        return out

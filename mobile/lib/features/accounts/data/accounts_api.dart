@@ -522,6 +522,10 @@ class AccountsSummary {
   /// Payments and journals waiting for the committee or admin to approve.
   final int pendingApprovals;
 
+  /// Likely mistakes in the books: cash or bank in credit, opening balances
+  /// that don't agree.
+  final List<BookWarning> warnings;
+
   const AccountsSummary({
     required this.fy,
     required this.cash,
@@ -534,6 +538,7 @@ class AccountsSummary {
     required this.cashBankAccounts,
     required this.pendingPostings,
     this.pendingApprovals = 0,
+    this.warnings = const [],
   });
 
   factory AccountsSummary.fromJson(Map<String, dynamic> j) => AccountsSummary(
@@ -550,6 +555,24 @@ class AccountsSummary {
             .toList(),
         pendingPostings: (j['pending_postings'] as num?)?.toInt() ?? 0,
         pendingApprovals: (j['pending_approvals'] as num?)?.toInt() ?? 0,
+        warnings: (j['warnings'] as List? ?? const [])
+            .map((e) => BookWarning.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+/// Something in the books that is almost certainly a mistake. [accountId]
+/// is the ledger to open and fix, or null for the whole chart.
+class BookWarning {
+  final String code;
+  final String message;
+  final String? accountId;
+  const BookWarning({required this.code, required this.message, this.accountId});
+
+  factory BookWarning.fromJson(Map<String, dynamic> j) => BookWarning(
+        code: j['code'] as String? ?? '',
+        message: j['message'] as String? ?? '',
+        accountId: j['account_id'] as String?,
       );
 }
 

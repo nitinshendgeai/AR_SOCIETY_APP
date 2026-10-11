@@ -4,6 +4,24 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-11 (ee)
+
+### feat: separate two-wheeler parking rate, and warnings for a negative cash/bank balance
+
+Two more gaps found when comparing with the Tally housing-society module.
+
+- **Parking rate for two-wheelers.** A parking charge head can carry a *Two-wheeler rate per slot per month*. A slot
+  whose vehicle is a motorcycle, scooter or bicycle pays it; every other slot (and a slot with no vehicle recorded)
+  pays the head's rate. A slot's own monthly charge still wins. When the rate is set and a flat holds a two-wheeler
+  slot, the bill splits into "Parking — cars" and "Parking — two-wheelers" lines; with no rate set nothing changes.
+  Only a parking head may have it (422 otherwise); changing a head's basis clears it. Migration `c8f2a6d4b1e9`
+  adds `maintenance_charge_configs.two_wheeler_rate` (nullable). Tests: `tests/billing/test_two_wheeler_parking.py`.
+- **Book warnings.** `GET /accounts/summary/{society}` returns `warnings`: a cash or bank ledger in credit
+  (`negative_cash` / `negative_bank`, with the ledger id) and opening balances that don't agree (`opening_unbalanced`).
+  The Accounts page shows each as a red bar with a **Fix** link to the ledger or the Chart of Accounts. Tests:
+  `tests/accounts/test_book_warnings.py`, `mobile/test/parking_rate_and_warnings_test.dart`.
+- Help guide: parking and Accounts sections updated.
+
 ## 2026-10-11 (dd)
 
 ### feat: keyboard-first voucher and expense entry, and "Print all bills" for a cycle

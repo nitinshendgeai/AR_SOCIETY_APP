@@ -43,7 +43,7 @@ String chargeBasisHint(String basis) => switch (basis) {
         'Area × construction cost/sq ft (set in Rules) × % ÷ 12. Bye-laws: sinking fund min 0.25%, repair fund 0.75%.',
       'budget_equal' => 'Yearly cost ÷ number of flats ÷ 12 — e.g. security, housekeeping staff.',
       'budget_area' => 'Yearly cost shared in proportion to each flat\'s area ÷ 12 — e.g. water, electricity.',
-      'parking' => 'Charged per active parking allotment. A slot\'s own monthly charge overrides this rate.',
+      'parking' => 'Charged per active parking allotment (car rate). A slot\'s own monthly charge overrides this rate.',
       _ => 'Service charges, lift and common electricity are shared equally under the bye-laws.',
     };
 
@@ -129,6 +129,10 @@ class ChargeHead {
   /// last [expenseMonths] months, rather than the typed amount.
   final bool autoFromExpenses;
   final int expenseMonths;
+
+  /// Parking head only: rate for a motorcycle/scooter/cycle slot. Empty
+  /// means two-wheelers pay the same as a car.
+  final String? twoWheelerRate;
   final bool isActive;
 
   const ChargeHead({
@@ -145,10 +149,15 @@ class ChargeHead {
     this.elementName,
     this.autoFromExpenses = false,
     this.expenseMonths = 12,
+    this.twoWheelerRate,
     this.isActive = true,
   });
 
-  String get rateLabel => basisRateLabel(basis, defaultAmount ?? '0');
+  String get rateLabel {
+    final base = basisRateLabel(basis, defaultAmount ?? '0');
+    if (basis != 'parking' || twoWheelerRate == null) return base;
+    return '$base (2-wheeler ${formatRupees(twoWheelerRate!)})';
+  }
 
   factory ChargeHead.fromJson(Map<String, dynamic> j) => ChargeHead(
         id: j['id'] as String,
@@ -164,6 +173,7 @@ class ChargeHead {
         elementName: j['element_name'] as String?,
         autoFromExpenses: j['auto_from_expenses'] as bool? ?? false,
         expenseMonths: j['expense_months'] as int? ?? 12,
+        twoWheelerRate: j['two_wheeler_rate'] as String?,
         isActive: j['is_active'] as bool? ?? true,
       );
 }
@@ -691,6 +701,7 @@ class MaintenanceBillingApi {
     String taxPercent = '0',
     bool autoFromExpenses = false,
     int expenseMonths = 12,
+    String? twoWheelerRate,
   }) async {
     final r = await _dio.post('/billing/charges', data: {
       'society_id': societyId,
@@ -704,6 +715,7 @@ class MaintenanceBillingApi {
       'tax_percent': taxPercent,
       'auto_from_expenses': autoFromExpenses,
       'expense_months': expenseMonths,
+      if (twoWheelerRate != null) 'two_wheeler_rate': twoWheelerRate,
     });
     return ChargeHead.fromJson(r.data as Map<String, dynamic>);
   }

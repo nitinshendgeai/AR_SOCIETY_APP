@@ -55,6 +55,7 @@ class ChargeConfigCreate(OrmBase):
     description: Optional[str] = None; effective_from: Optional[date] = None
     auto_from_expenses: bool = False
     expense_months: int = Field(default=12, ge=1, le=36)
+    two_wheeler_rate: Optional[Decimal] = Field(default=None, ge=0)
 
 class CycleCreate(OrmBase):
     society_id: UUID; name: str; cycle_start: date; cycle_end: date
@@ -165,6 +166,7 @@ class ChargeConfigUpdate(OrmBase):
     is_active: Optional[bool] = None
     auto_from_expenses: Optional[bool] = None
     expense_months: Optional[int] = Field(default=None, ge=1, le=36)
+    two_wheeler_rate: Optional[Decimal] = Field(default=None, ge=0)     # null clears it
 
 
 def _charge_out(c) -> dict:
@@ -185,6 +187,7 @@ def _charge_out(c) -> dict:
         "element_name": c.element.name if c.element else None,
         "auto_from_expenses": bool(c.auto_from_expenses),
         "expense_months": c.expense_months or 12,
+        "two_wheeler_rate": str(c.two_wheeler_rate) if c.two_wheeler_rate is not None else None,
         "is_active": c.is_active,
     }
 
