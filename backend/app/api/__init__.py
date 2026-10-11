@@ -15,6 +15,7 @@ from app.modules.shops.routes.shop          import router as shops_router
 from app.modules.dashboard.routes.dashboard import router as dashboard_router
 from app.modules.automation.routes.automation import router as automation_router
 from app.modules.governance.routes.governance import router as governance_router
+from app.modules.checklist.routes.checklist import router as manager_checklist_router
 from app.modules.certificates.routes.certificates import router as certificates_router
 from app.modules.gate.routes.gate import router as gate_router
 from app.modules.staff.routes.staff         import router as staff_router
@@ -50,6 +51,7 @@ api_router.include_router(shops_router)
 api_router.include_router(dashboard_router)
 api_router.include_router(automation_router)
 api_router.include_router(governance_router)
+api_router.include_router(manager_checklist_router)
 api_router.include_router(certificates_router)
 api_router.include_router(gate_router)
 api_router.include_router(staff_router)

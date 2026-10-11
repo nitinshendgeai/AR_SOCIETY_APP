@@ -33,6 +33,7 @@ const Map<String, Map<String, String>> kTranslations = {
   'Forms Matrix': {'hi': 'फ़ॉर्म मैट्रिक्स', 'mr': 'फॉर्म मॅट्रिक्स'},
   'Maintenance Billing': {'hi': 'मेंटेनेंस बिलिंग', 'mr': 'देखभाल बिलिंग'},
   'Maintenance Elements': {'hi': 'मेंटेनेंस मद', 'mr': 'देखभाल घटक'},
+  "Manager's Checklist": {'hi': 'प्रबंधक की चेकलिस्ट', 'mr': 'व्यवस्थापकाची चेकलिस्ट'},
   'Meetings': {'hi': 'बैठकें', 'mr': 'सभा'},
   'My Bills': {'hi': 'मेरे बिल', 'mr': 'माझी बिले'},
   'Notices': {'hi': 'सूचनाएँ', 'mr': 'सूचना'},

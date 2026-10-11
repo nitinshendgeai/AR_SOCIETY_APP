@@ -59,6 +59,7 @@ const appMenuCategories = [
     AppMenuItem('pending_resident_changes', 'Pending Resident Changes', Icons.fact_check_outlined, AppRoutes.pendingResidentChanges),
   ]),
   AppMenuCategory('Operations', Icons.build_rounded, [
+    AppMenuItem('manager_checklist', "Manager's Checklist", Icons.fact_check_rounded, AppRoutes.managerChecklist),
     AppMenuItem('staff', 'Staff', Icons.badge_rounded, AppRoutes.staffHome),
     AppMenuItem('checklist_templates', 'Checklist Templates', Icons.checklist_rtl_rounded, AppRoutes.checklistTemplates),
     AppMenuItem('parking_management', 'Parking Management', Icons.local_parking_rounded, AppRoutes.parkingManagement),
