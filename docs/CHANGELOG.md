@@ -4,6 +4,14 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-11 (cc)
+
+### docs: in-app Help guide covers the manager's daily checklist
+
+New section **The manager's daily checklist** (Today, tick/skip/undo, assets-and-staff dependence, closing the day and the
+printed sheet, the Compliance tab and its legal caveat, the list and own items), two Quick answers, the Manager row in
+*Who does what*, and the date. HTML and PDF rebuilt and copied to `mobile/web/help/`.
+
 ## 2026-10-11 (bb)
 
 ### feat: the manager's daily checklist (Operations → Manager's Checklist)

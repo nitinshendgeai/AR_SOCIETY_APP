@@ -219,7 +219,7 @@ details>div p{color:var(--fg)}
       <tr><td><b>Security guard</b></td><td>Log visitors, check them in and out, check a vehicle number at the gate, punch in and out.</td></tr>
       <tr><td><b>Housekeeping, technical staff, gym trainer</b></td><td>Punch in and out, see the day's duties and tick them off, hand over to the next shift.</td></tr>
       <tr><td><b>Supervisor</b></td><td>Approve the team's punches, give duties, print and enter the duty sheets, correct attendance.</td></tr>
-      <tr><td><b>Manager</b></td><td>Everything a supervisor does for all departments, plus complaints, vendor bills, billing cycles, payments and the asset register.</td></tr>
+      <tr><td><b>Manager</b></td><td>Everything a supervisor does for all departments, plus complaints, vendor bills, billing cycles, payments, the asset register and the daily checklist.</td></tr>
       <tr><td><b>Committee (Chairman, Secretary, Treasurer, Member)</b></td><td>Billing rules, work order sanctions, accounts, defaulters, approving resident changes.</td></tr>
       <tr><td><b>Society admin</b></td><td>Everything in the society: structure, users and roles, settings, billing, accounts.</td></tr>
     </tbody>
@@ -398,6 +398,52 @@ details>div p{color:var(--fg)}
   <h3>Complaints</h3>
   <p>The manager opens <span class="btn">Complaints</span>, assigns each one to a department or person, and follows it to <i>Resolved</i> and <i>Closed</i>.</p>
 </section>
+
+<!-- manager checklist -->
+<section class="sec" id="checklist" data-roles="committee manager" data-title="The manager's daily checklist">
+  <header><h2>The manager's daily checklist</h2><span class="for">manager · committee · admin</span></header>
+  <p class="lede"><span class="path">Operations → Manager's Checklist</span> is the manager's working day on one screen: what to do today, what the records say needs attention, and the legal dates coming up. The manager's dashboard also has a <b>Today's checklist</b> card with the progress so far.</p>
+
+  <h3>Today</h3>
+  <p>The top shows how many items are done (for example <b>4 of 26 done</b>), how many are overdue, and how many are flagged from the records. Below it:</p>
+  <ul>
+    <li><b>Needs your attention</b> lists what the society's own records say needs doing now: assets overdue for service or without an AMC, contracts and work orders running out or late, staff on duty who have not checked in, staff with no duty, leave and punch approvals waiting, open and week-old complaints, overdue bills, vouchers waiting for approval, low stock, expiring rent agreements, NOC requests, parcels left at the gate. Press a line to open the screen where the work is done. A line goes away by itself once the work is done, so there is nothing to tick.</li>
+    <li><b>Daily routine</b>, <b>Due this week or month</b> and <b>Statutory and compliance dates</b> are the items to tick off.</li>
+  </ul>
+
+  <h3>Tick, skip and undo</h3>
+  <ol class="steps">
+    <li><div>Press the box beside an item to mark it done. It shows who did it and when. Press it again to undo.</div></li>
+    <li><div>Press the item's name to open it. You see its details, the law it comes from, and an <span class="btn">Open the screen</span> shortcut.</div></li>
+    <li><div>If an item does not apply today, open it and press <span class="btn">Skip with a reason</span>. The reason is kept.</div></li>
+  </ol>
+
+  <h3>The list depends on your assets and staff</h3>
+  <p>Items about a thing the society has appear only while it has it. Register a lift and the daily lift check appears; register a generator and the generator checks appear; retire the last lift and they go. In the same way the gate-register and guard checks appear only when you have security staff, and the cleaning checks only when you have housekeeping staff. Each item says why it is there, for example <i>2 lifts in your assets</i>. So keep <span class="path">Assets</span> and <span class="path">Staff</span> up to date.</p>
+
+  <h3>Close the day</h3>
+  <p>Press <span class="btn">Close the day</span>, add remarks (what was left, anything to tell the committee) and press <span class="btn">Sign off</span>. Pressing it again the same day updates the sign-off. <span class="btn">Download PDF</span> (the top right) prints the day's sheet with a box beside each line, the things flagged from the records, a place for remarks and signatures.</p>
+
+  <h3>Compliance: the legal dates</h3>
+  <p>The <b>Compliance</b> tab lists every statutory date and licence, each with the law it comes from and one of these states: <span class="pill r">Overdue</span>, <span class="pill a">Due in 20 days</span>, <span class="pill g">Valid until 12 Mar 2027</span> or <span class="pill a">Not recorded yet</span>.</p>
+  <ol class="steps">
+    <li><div>Press an item and enter the <b>date done</b> and a <b>reference</b> (certificate, challan or policy number).</div></li>
+    <li><div>For a licence or certificate (lift licence, insurance, pollution-control consent…) also enter <b>Valid until</b>. That sets when it needs renewing, and it shows on the checklist as the date comes near.</div></li>
+    <li><div>If it does not apply to your society, press <span class="btn">Does not apply — skip</span> and give the reason in the note.</div></li>
+  </ol>
+  <p>A date that had already passed when the item first appeared is not shown as overdue. It waits under <b>To confirm</b> for you to say whether it was met, or to record it.</p>
+  <div class="note"><b>Check the legal items yourselves</b>The built-in legal items are a starting list, not legal advice. Dates, forms and limits change by notification, and your registration and bye-laws decide what applies to you. Have the committee or your auditor go through them once, switch off what does not apply and change what differs. All societies get the all-India items (income-tax, GST, wages, PF and ESIC, fire drills, electrical safety and so on). A society whose state is set to <b>Maharashtra</b> in <span class="path">Society Settings</span> also gets the Maharashtra items (annual general meeting, audit, committee meetings, fire inspection, lift licence, committee election). For another state the screen says its rules are not built in: add them as your own items.</div>
+
+  <h3>The list: switch items off and add your own</h3>
+  <ul>
+    <li>The <b>The list</b> tab shows every item with a switch. Switch off what you do not need. Press an item to reword it or move its day. Built-in items are switched off, not deleted.</li>
+    <li>Press <span class="btn">Add item</span> to make your own: say what is to be done, how often (every day, week or month, on fixed months, or when a licence runs out), how many days before it should show, and, if you want, that it applies only when you have a certain kind of asset or staff. Tick <b>A statutory or legal requirement</b> to put it in the Compliance tab. Your own items can be deleted.</li>
+    <li>Only the admin or a committee member can change or switch off a statutory built-in item.</li>
+  </ul>
+  <div class="note tip"><b>A good first week</b>Open the Compliance tab and record the dates you know: insurance, lift licence, last audit, last AGM. Then open <b>The list</b>, switch off anything that does not apply, and from then on work from <b>Today</b>.</div>
+  <div class="note"><b>Limits</b>The checklist does not send reminders; it shows what is due when you open it. Ticks and sign-offs are kept with the name of who made them, but there is no history screen for them yet.</div>
+</section>
+
 
 <!-- 7 -->
 <section class="sec" id="setup" data-roles="committee" data-title="Setting up the society">
@@ -751,6 +797,8 @@ details>div p{color:var(--fg)}
   <details><summary>Where do I enter the monthly security, electricity or lift bill?</summary><div><p>Set it up once under <span class="path">Accounts → Monthly Expenses</span>. Each month it comes up as due and you press <b>Record</b> with that month's amount. If the bill comes from a vendor you have a work order or contract with, enter it as a <b>Vendor Bill</b> instead.</p></div></details>
   <details><summary>How do I see what we spent on each element?</summary><div><p><span class="path">Accounts → Spend by Element</span>, for a month or the year so far.</p></div></details>
   <details><summary>A bill did not change after we spent more. Why?</summary><div><p>The charge head is not on <b>Budget from expenses</b>, the expense head is not linked to its element, or the bill was already generated. Bills already generated are never recalculated.</p></div></details>
+  <details><summary>Why is a lift (or generator) check not on my checklist?</summary><div><p>Checklist items about an asset appear only while the society has an active asset of that kind. Add it under <span class="path">Operations → Assets</span>. Staff checks work the same way: add the staff under <span class="path">Staff</span>.</p></div></details>
+  <details><summary>Where do I record the lift licence, insurance or fire inspection?</summary><div><p><span class="path">Operations → Manager's Checklist → Compliance</span>. Press the item, enter the date, a reference and, for a licence, the date it runs to.</p></div></details>
   <details><summary>I cannot see a screen my colleague sees.</summary><div><p>Screens depend on role. Ask the admin to check <span class="path">Administration → Forms Matrix</span>.</p></div></details>
   <details><summary>The guard says my vehicle is “Registered, no parking”.</summary><div><p>Your vehicle is on the list but has no slot. Ask the committee to give it one under <span class="path">Parking Management → Vehicles</span>.</p></div></details>
   <details><summary>How do I change the language?</summary><div><p>Phone: <b>More → Language</b>. Computer: your name at the top right → <b>Language</b>. Choose English, हिन्दी or मराठी. It is remembered on that device.</p></div></details>
@@ -775,7 +823,7 @@ details>div p{color:var(--fg)}
 <div class="none" id="none">Nothing matches that. Try a shorter word, such as “bill” or “visitor”.</div>
 </main>
 </div>
-<p class="foot">DUX OS Society ERP · This guide describes the app as of 10 October 2026.</p>
+<p class="foot">DUX OS Society ERP · This guide describes the app as of 11 October 2026.</p>
 </div>
 
 <script>
