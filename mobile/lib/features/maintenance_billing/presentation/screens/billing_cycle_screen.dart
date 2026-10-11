@@ -3,6 +3,7 @@ import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart' show PdfActions;
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/maintenance_bill_detail_screen.dart';
@@ -115,6 +116,14 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
     return AppPage(
       title: cycle?.name ?? 'Billing Cycle',
       actions: [
+          // Print or share every bill of the cycle as one PDF, flat by flat.
+          if (cycle != null && cycle.isFinalized)
+            PdfActions(
+              load: () => ref.read(maintenanceBillingApiProvider).cycleBillsPdf(widget.cycleId),
+              fileName: 'Bills-${cycle.name.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')}.pdf',
+              subject: 'Maintenance bills — ${cycle.name}',
+              downloadLabel: 'Print all bills',
+            ),
           IconButton(icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh', onPressed: _refresh),
           if (desktop && action != null)
             HeaderActionButton(icon: action.$2, label: action.$1, onPressed: _busy ? null : action.$3),

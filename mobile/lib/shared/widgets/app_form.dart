@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show kDesktopBreakpoint;
@@ -34,6 +35,10 @@ class AppFormPage extends StatelessWidget {
   final String submitLabel;
   final IconData? submitIcon;
   final VoidCallback? onSubmit;
+
+  /// What Ctrl+Enter does: save and start the next entry ("Save and add another"). Ctrl+S (or Cmd+S) always runs
+  /// [onSubmit].
+  final VoidCallback? onSubmitAndNew;
   final bool saving;
 
   /// Defaults to going back.
@@ -58,6 +63,7 @@ class AppFormPage extends StatelessWidget {
     required this.submitLabel,
     this.submitIcon,
     this.onSubmit,
+    this.onSubmitAndNew,
     this.saving = false,
     this.onCancel,
     this.status,
@@ -90,6 +96,34 @@ class AppFormPage extends StatelessWidget {
       ])),
     );
 
+    void save() {
+      if (!saving) onSubmit?.call();
+    }
+
+    void saveAndNew() {
+      if (!saving) onSubmitAndNew?.call();
+    }
+
+    return _ShortcutScope(
+      bindings: {
+        if (onSubmit != null) ...{
+          const SingleActivator(LogicalKeyboardKey.keyS, control: true): save,
+          const SingleActivator(LogicalKeyboardKey.keyS, meta: true): save,
+        },
+        if (onSubmitAndNew != null) ...{
+          const SingleActivator(LogicalKeyboardKey.enter, control: true): saveAndNew,
+          const SingleActivator(LogicalKeyboardKey.enter, meta: true): saveAndNew,
+        },
+      },
+      child: _scaffold(context, desktop, gutter, back, body),
+    );
+  }
+
+  Widget _scaffold(BuildContext context, bool desktop, double gutter, VoidCallback back, Widget body) {
+    Widget column(Widget child) => Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(constraints: BoxConstraints(maxWidth: maxWidth), child: child),
+        );
     return Scaffold(
       backgroundColor: AppTheme.surface,
       // Phones keep the standard app bar (its back button is where people expect it); the desktop page gets the
@@ -117,6 +151,45 @@ class AppFormPage extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// Keyboard shortcuts for a whole page. Keys reach shortcuts only from inside the page, so when nothing in it
+/// takes the focus on its own (no field with autofocus) the page itself takes it — never from a field that does.
+class _ShortcutScope extends StatefulWidget {
+  final Map<ShortcutActivator, VoidCallback> bindings;
+  final Widget child;
+  const _ShortcutScope({required this.bindings, required this.child});
+
+  @override
+  State<_ShortcutScope> createState() => _ShortcutScopeState();
+}
+
+class _ShortcutScopeState extends State<_ShortcutScope> {
+  final _node = FocusNode(debugLabel: 'page shortcuts', skipTraversal: true);
+
+  @override
+  void initState() {
+    super.initState();
+    // A field's autofocus is applied after the first frame; look only once that has had its chance.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final primary = FocusManager.instance.primaryFocus;
+        if (primary == null || primary is FocusScopeNode) _node.requestFocus();
+      });
+      WidgetsBinding.instance.scheduleFrame();
+    });
+  }
+
+  @override
+  void dispose() {
+    _node.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      CallbackShortcuts(bindings: widget.bindings, child: Focus(focusNode: _node, child: widget.child));
 }
 
 class _Header extends StatelessWidget {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:ar_society_app/features/vendor/presentation/widgets/vendor_picker.dart';
 import 'package:flutter/services.dart';
@@ -20,12 +21,18 @@ class _Line {
   MemberBalance? flat;
   String side; // dr | cr (journal only)
   final amount = TextEditingController();
+  final ledgerFocus = FocusNode();
   // Kept as they were when an existing voucher is edited.
   String? vendorId;
   String? narration;
   _Line({this.side = 'dr'});
 
   double get value => double.tryParse(amount.text.trim()) ?? 0;
+
+  void dispose() {
+    amount.dispose();
+    ledgerFocus.dispose();
+  }
 }
 
 /// Enter a Receipt, Payment, Contra or Journal voucher. Receipts and
@@ -97,7 +104,7 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
         _vendorId = v.vendorId;
         _narration.text = v.narration ?? '';
         for (final l in _lines) {
-          l.amount.dispose();
+          l.dispose();
         }
         switch (v.voucherType) {
           case 'contra':
@@ -123,7 +130,7 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
   @override
   void dispose() {
     for (final l in _lines) {
-      l.amount.dispose();
+      l.dispose();
     }
     _reference.dispose();
     _narration.dispose();
@@ -136,7 +143,7 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
         _type = t;
         _contraTo = null;
         for (final l in _lines) {
-          l.amount.dispose();
+          l.dispose();
         }
         _lines = t == 'journal' ? [_Line(side: 'dr'), _Line(side: 'cr')] : [_Line()];
       });
@@ -195,7 +202,7 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
     return lines;
   }
 
-  Future<void> _save(String societyId) async {
+  Future<void> _save(String societyId, {bool another = false}) async {
     final problem = _validate();
     if (problem != null) {
       AppToast.warning(context, problem);
@@ -229,14 +236,47 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
             context,
             '${_isEdit ? '${v.voucherNumber} updated' : '${v.voucherNumber} saved'}'
             '${v.isPending ? ' — it counts in the books once the admin or committee approves it' : ''}');
-        // Opened from a link rather than from within the app: land on the day book.
-        context.canPop() ? context.pop() : context.go(AppRoutes.accountsDayBook);
+        if (another && !_isEdit) {
+          _startNext();
+        } else {
+          // Opened from a link rather than from within the app: land on the day book.
+          context.canPop() ? context.pop() : context.go(AppRoutes.accountsDayBook);
+        }
       }
     } catch (e) {
       if (mounted) showErrorToast(context, e);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  /// After "Save and add another": a clean voucher of the same kind, same day, same cash or bank account.
+  void _startNext() {
+    setState(() {
+      for (final l in _lines) {
+        l.dispose();
+      }
+      _lines = _type == 'journal' ? [_Line(side: 'dr'), _Line(side: 'cr')] : [_Line()];
+      _reference.clear();
+      _narration.clear();
+      _vendorId = null;
+      _contraAmount.clear();
+      _contraTo = null;
+    });
+    _focusFirstLine();
+  }
+
+  void _focusFirstLine() => WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _lines.isNotEmpty) _lines.first.ledgerFocus.requestFocus();
+      });
+
+  void _addLine() {
+    if (_type == 'contra') return;
+    final line = _Line(side: _type == 'journal' && _drTotal > _crTotal ? 'cr' : 'dr');
+    setState(() => _lines.add(line));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) line.ledgerFocus.requestFocus();
+    });
   }
 
   Future<void> _pickDate() async {
@@ -285,6 +325,17 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
     }
 
     final needsCashBank = _type == 'receipt' || _type == 'payment' || _type == 'contra';
+    final desktop = isDesktopLayout(context);
+    return CallbackShortcuts(
+      bindings: {
+        if (!_isEdit && _type != 'contra') const SingleActivator(LogicalKeyboardKey.keyL, alt: true): _addLine,
+      },
+      child: _page(societyId, title, editing, needsCashBank, cashBank, others, desktop),
+    );
+  }
+
+  Widget _page(String societyId, String title, Voucher? editing, bool needsCashBank, List<LedgerAccount> cashBank,
+      List<LedgerAccount> others, bool desktop) {
     return AppFormPage(
       title: title,
       subtitle: editing != null
@@ -295,6 +346,20 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
       submitIcon: Icons.check_rounded,
       saving: _saving,
       onSubmit: () => _save(societyId),
+      onSubmitAndNew: _isEdit ? null : () => _save(societyId, another: true),
+      extraActions: [
+        if (!_isEdit)
+          OutlinedButton(
+            onPressed: _saving ? null : () => _save(societyId, another: true),
+            style: OutlinedButton.styleFrom(minimumSize: const Size(150, 44)),
+            child: const Text('Save and add another'),
+          ),
+      ],
+      footerNote: desktop
+          ? Text(_isEdit
+              ? 'Enter moves to the next field · Ctrl+S saves'
+              : 'Enter: next field · Ctrl+S: save · Ctrl+Enter: save and add another · Alt+L: add a line')
+          : null,
       children: [
         if (editing == null)
           Align(
@@ -326,30 +391,30 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
               label: 'Cheque / UTR no.',
               child: TextField(
                 controller: _reference,
+                textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(hintText: 'Cheque, UTR or supplier\'s bill no.'),
               ),
             ),
             if (needsCashBank)
-              _LedgerField(
+              LedgerChooser(
                 label: switch (_type) {
                   'receipt' => 'Received into',
                   'payment' => 'Paid from',
                   _ => 'From (cash / bank)',
                 },
                 value: _cashBank,
-                onTap: () async {
-                  final l = await pickLedger(context, cashBank, title: 'Cash or bank account');
-                  if (l != null) setState(() => _cashBank = l);
-                },
+                options: cashBank,
+                sheetTitle: 'Cash or bank account',
+                onChanged: (l) => setState(() => _cashBank = l),
               ),
             if (_type == 'contra')
-              _LedgerField(
+              LedgerChooser(
                 label: 'To (cash / bank)',
                 value: _contraTo,
-                onTap: () async {
-                  final l = await pickLedger(context, cashBank, title: 'Cash or bank account');
-                  if (l != null) setState(() => _contraTo = l);
-                },
+                options: cashBank,
+                sheetTitle: 'Cash or bank account',
+                autofocus: !_isEdit,
+                onChanged: (l) => setState(() => _contraTo = l),
               ),
             if (_type == 'contra') _AmountField(controller: _contraAmount, onChanged: () => setState(() {})),
             if (_type == 'payment')
@@ -388,21 +453,28 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
                   journal: _type == 'journal',
                   ledgers: others,
                   societyId: societyId,
+                  autofocus: i == 0 && !_isEdit,
                   onChanged: () => setState(() {}),
+                  // Enter on the last amount of an unbalanced journal opens the next line.
+                  onAmountEnter: () {
+                    if (_type == 'journal' && i == _lines.length - 1 && (_drTotal - _crTotal).abs() > 0.001) _addLine();
+                  },
                   onRemove: _lines.length > (_type == 'journal' ? 2 : 1)
                       ? () => setState(() {
                             _lines.removeAt(i);
-                            l.amount.dispose();
+                            l.dispose();
                           })
                       : null,
                 ),
               Align(
                 alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () =>
-                      setState(() => _lines.add(_Line(side: _type == 'journal' && _drTotal > _crTotal ? 'cr' : 'dr'))),
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Add line'),
+                // Out of the Enter-key path (the keyboard adds a line with Alt+L); the mouse still clicks it.
+                child: ExcludeFocus(
+                  child: TextButton.icon(
+                    onPressed: _addLine,
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('Add line'),
+                  ),
                 ),
               ),
               _Totals(journal: _type == 'journal', total: _linesTotal, dr: _drTotal, cr: _crTotal),
@@ -436,34 +508,18 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
 }
 
 
-class _LedgerField extends StatelessWidget {
-  final String label;
-  final LedgerAccount? value;
-  final VoidCallback onTap;
-  const _LedgerField({required this.label, required this.value, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTheme.radiusS),
-        child: FormFieldBox(label: label, child: InputDecorator(
-          decoration: InputDecoration(suffixIcon: const Icon(Icons.arrow_drop_down_rounded)),
-          child: Text(value?.name ?? 'Choose ledger',
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: value == null ? AppTheme.textTertiary : AppTheme.textPrimary)),
-        )),
-      );
-}
-
 class _AmountField extends StatelessWidget {
   final TextEditingController controller;
   final VoidCallback onChanged;
-  const _AmountField({required this.controller, required this.onChanged});
+  final VoidCallback? onEnter;
+  const _AmountField({required this.controller, required this.onChanged, this.onEnter});
 
   @override
   Widget build(BuildContext context) => FormFieldBox(label: 'Amount (₹)', child: TextField(
         controller: controller,
         onChanged: (_) => onChanged(),
+        onSubmitted: (_) => onEnter?.call(),
+        textInputAction: TextInputAction.next,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
         textAlign: TextAlign.right,
@@ -476,7 +532,9 @@ class _LineCard extends ConsumerWidget {
   final bool journal;
   final List<LedgerAccount> ledgers;
   final String societyId;
+  final bool autofocus;
   final VoidCallback onChanged;
+  final VoidCallback? onAmountEnter;
   final VoidCallback? onRemove;
   const _LineCard({
     super.key,
@@ -484,7 +542,9 @@ class _LineCard extends ConsumerWidget {
     required this.journal,
     required this.ledgers,
     required this.societyId,
+    this.autofocus = false,
     required this.onChanged,
+    this.onAmountEnter,
     this.onRemove,
   });
 
@@ -517,19 +577,19 @@ class _LineCard extends ConsumerWidget {
               const SizedBox(height: 10),
             ],
             LayoutBuilder(builder: (context, c) {
-              final ledgerField = _LedgerField(
+              final ledgerField = LedgerChooser(
                 label: 'Ledger',
                 value: line.account,
-                onTap: () async {
-                  final l = await pickLedger(context, ledgers);
-                  if (l != null) {
-                    line.account = l;
-                    if (!l.isMembersDues) line.flat = null;
-                    onChanged();
-                  }
+                options: ledgers,
+                focusNode: line.ledgerFocus,
+                autofocus: autofocus,
+                onChanged: (l) {
+                  line.account = l;
+                  if (!l.isMembersDues) line.flat = null;
+                  onChanged();
                 },
               );
-              final amount = _AmountField(controller: line.amount, onChanged: onChanged);
+              final amount = _AmountField(controller: line.amount, onChanged: onChanged, onEnter: onAmountEnter);
               if (c.maxWidth < 460) {
                 return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   ledgerField,
@@ -545,29 +605,23 @@ class _LineCard extends ConsumerWidget {
             }),
             if (needsFlat) ...[
               const SizedBox(height: 10),
-              InkWell(
-                onTap: () async {
-                  final members = await ref.read(membersLedgerProvider(societyId).future);
-                  if (!context.mounted) return;
-                  final f = await pickFlat(context, members.members);
-                  if (f != null) {
-                    line.flat = f;
-                    onChanged();
-                  }
+              FlatChooser(
+                value: line.flat,
+                options: ref.watch(membersLedgerProvider(societyId)).valueOrNull?.members ?? const [],
+                onChanged: (f) {
+                  line.flat = f;
+                  onChanged();
                 },
-                child: FormFieldBox(label: 'Flat', child: InputDecorator(
-                  decoration: const InputDecoration(suffixIcon: Icon(Icons.arrow_drop_down_rounded)),
-                  child: Text(line.flat == null ? 'Choose flat' : '${line.flat!.flatLabel} · ${line.flat!.memberName}',
-                      style: TextStyle(color: line.flat == null ? AppTheme.textTertiary : AppTheme.textPrimary)),
-                )),
               ),
             ],
           ]),
         ),
-        IconButton(
-          tooltip: 'Remove line',
-          onPressed: onRemove,
-          icon: const Icon(Icons.close_rounded, size: 18),
+        ExcludeFocus(
+          child: IconButton(
+            tooltip: 'Remove line',
+            onPressed: onRemove,
+            icon: const Icon(Icons.close_rounded, size: 18),
+          ),
         ),
       ]),
     );

@@ -29,7 +29,7 @@ from app.modules.billing.repositories.billing_repo import (
 from app.models.flat import Flat
 from app.models.wing import Wing
 from app.models.resident import Resident
-from app.modules.billing.services.bill_pdf import generate_maintenance_bill_pdf
+from app.modules.billing.services.bill_pdf import generate_bills_pdf, generate_maintenance_bill_pdf
 from app.modules.billing.services.receipt_pdf import generate_payment_receipt_pdf
 from app.modules.billing.services.maintenance_calculator import MaintenanceCalculator, default_settings
 from app.modules.billing.services.standard_elements import seed_standard_elements
@@ -46,6 +46,12 @@ MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024  # 8 MB
 RESIDENT_VISIBLE_BILL_STATUSES = (
     BillStatus.ISSUED, BillStatus.PARTIALLY_PAID, BillStatus.PAID, BillStatus.OVERDUE,
 )
+
+
+def _flat_sort_key(number: str) -> tuple:
+    """101 before 1001, 2A before 10: digits compare as numbers."""
+    parts = re.findall(r"\d+|\D+", str(number or ""))
+    return tuple((0, int(p), "") if p.isdigit() else (1, 0, p.lower()) for p in parts)
 
 
 class BillingService:
@@ -578,17 +584,51 @@ class BillingService:
         return generate_maintenance_bill_pdf(bill, self.get_maintenance_settings(bill.society_id),
                                              **self._bill_print_context(bill))
 
-    def _bill_print_context(self, bill: MaintenanceBill) -> dict:
+    def generate_cycle_bills_pdf(self, cycle_id: UUID, wing_id: Optional[UUID] = None,
+                                 status: Optional[str] = None) -> tuple:
+        """Every bill of a cycle in one PDF, a bill to a page (more where a bill runs on), flat by flat in wing
+        order — what a society prints and hands round. Cancelled bills are left out unless asked for with `status`.
+        Returns (pdf bytes, number of bills)."""
+        cycle = self.get_cycle(cycle_id)
+        bills = self.list_cycle_bills(cycle_id)
+        if status:
+            try:
+                wanted = BillStatus(status)
+            except ValueError:
+                raise HTTPException(400, "Unknown bill status")
+            bills = [b for b in bills if b.bill_status == wanted]
+        else:
+            bills = [b for b in bills if b.bill_status != BillStatus.CANCELLED]
+        if wing_id:
+            bills = [b for b in bills if b.flat is not None and b.flat.wing_id == wing_id]
+        if not bills:
+            raise HTTPException(404, "There are no bills to print for this selection")
+        bills.sort(key=lambda b: (b.flat.wing.name if b.flat and b.flat.wing else "",
+                                  _flat_sort_key(b.flat.flat_number if b.flat else "")))
+        settings = self.get_maintenance_settings(cycle.society_id)
+        heads = self._element_heads(cycle.society_id)
+        items = [{"bill": b, "settings": settings, **self._bill_print_context(b, heads)} for b in bills]
+        society = bills[0].society
+        author = (society.name if society else None) or "Society"
+        return generate_bills_pdf(items, title=f"Maintenance bills — {cycle.name}", author=author), len(bills)
+
+    def _element_heads(self, society_id: UUID) -> dict:
+        """{charge head name: standard element code} for a society."""
+        rows = (
+            self.db.query(MaintenanceChargeConfig.name, MaintenanceElement.code)
+            .join(MaintenanceElement, MaintenanceElement.id == MaintenanceChargeConfig.element_id)
+            .filter(MaintenanceChargeConfig.society_id == society_id)
+            .all()
+        )
+        return {name: code for name, code in rows}
+
+    def _bill_print_context(self, bill: MaintenanceBill, heads: Optional[dict] = None) -> dict:
         """What the printed bill needs beyond the bill itself: which standard
         element each charge head came from (decides the bill head it's shown
         under), the unpaid interest inside the arrears, and the flat's
         previous bill (its receipts are listed at the foot)."""
-        heads = (
-            self.db.query(MaintenanceChargeConfig.name, MaintenanceElement.code)
-            .join(MaintenanceElement, MaintenanceElement.id == MaintenanceChargeConfig.element_id)
-            .filter(MaintenanceChargeConfig.society_id == bill.society_id)
-            .all()
-        )
+        if heads is None:
+            heads = self._element_heads(bill.society_id)
         earlier = (
             self.db.query(MaintenanceBill)
             .filter(MaintenanceBill.flat_id == bill.flat_id, MaintenanceBill.id != bill.id,
@@ -606,7 +646,7 @@ class BillingService:
                                              if li.charge_type == ChargeType.PENALTY), Decimal(0)))
             for b in earlier if b.outstanding and b.outstanding > 0), Decimal(0))
         return {
-            "element_codes": {name: code for name, code in heads},
+            "element_codes": heads,
             "accumulated_interest": interest,
             "previous_bill": earlier[0] if earlier else None,
         }
