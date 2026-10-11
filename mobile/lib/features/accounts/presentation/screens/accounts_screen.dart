@@ -127,6 +127,13 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
               children: [
+                for (final w in s.warnings) ...[
+                  _WarningBanner(
+                    message: w.message,
+                    onTap: () => context.push(w.accountId != null ? ledgerRoute(w.accountId!) : AppRoutes.accountsChart),
+                  ),
+                  const SizedBox(height: 14),
+                ],
                 if (s.pendingPostings > 0) ...[
                   _PendingBanner(
                     count: s.pendingPostings,
@@ -284,6 +291,36 @@ class _RecurringDueBanner extends StatelessWidget {
                 ),
               ),
               const Text('Record', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600)),
+              const Icon(Icons.chevron_right_rounded, color: AppTheme.primary),
+            ]),
+          ),
+        ),
+      );
+}
+
+/// A likely mistake in the books (cash in credit, opening balances that
+/// don't agree); tapping opens the ledger or the chart to fix it.
+class _WarningBanner extends StatelessWidget {
+  final String message;
+  final VoidCallback onTap;
+  const _WarningBanner({required this.message, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: AppTheme.errorSoft,
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppTheme.radiusM),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+            child: Row(children: [
+              const Icon(Icons.warning_amber_rounded, color: AppTheme.error),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(message, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+              ),
+              const Text('Fix', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600)),
               const Icon(Icons.chevron_right_rounded, color: AppTheme.primary),
             ]),
           ),

@@ -609,6 +609,9 @@ def accounts_summary(society_id: UUID, db: Session = Depends(get_db), user: User
         "cash_bank_accounts": [_account_out(a, bal) for a, bal in s["cash_bank_accounts"]],
         "pending_postings": pending,
         "pending_approvals": waiting,         # payments and journals waiting for the committee or admin
+        "warnings": [{"code": w["code"], "message": w["message"],
+                      "account_id": str(w["account_id"]) if w["account_id"] else None}
+                     for w in s["warnings"]],
     }
 
 

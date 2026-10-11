@@ -138,12 +138,19 @@ class BillingService:
             raise HTTPException(422, "Pick an element, or give the charge head a type and name")
         data = self._sync_basis(data)
         self._check_auto_budget(data.get("auto_from_expenses"), data.get("element_id"), data.get("basis"))
+        self._check_two_wheeler(data.get("two_wheeler_rate"), data.get("basis"))
         config = MaintenanceChargeConfig(**data)
         self.charge_repo.create(config)
         self._audit(AuditAction.CREATE, config, "ChargeConfig", user,
                     new_values={"name": data.get("name"), "amount": str(data.get("default_amount"))})
         self.db.refresh(config)
         return config
+
+    @staticmethod
+    def _check_two_wheeler(rate, basis):
+        """A separate two-wheeler rate belongs to a parking head, which charges per allotted slot."""
+        if rate is not None and (basis or ChargeBasis.FIXED) != ChargeBasis.PARKING:
+            raise HTTPException(422, "A two-wheeler rate is only for a parking charge head")
 
     @staticmethod
     def _check_auto_budget(auto, element_id, basis):
@@ -171,6 +178,10 @@ class BillingService:
         data = self._sync_basis(dict(data))
         self._check_auto_budget(data.get("auto_from_expenses", config.auto_from_expenses),
                                 config.element_id, data.get("basis", config.basis))
+        new_basis = data.get("basis", config.basis) or ChargeBasis.FIXED
+        self._check_two_wheeler(data.get("two_wheeler_rate"), new_basis)
+        if new_basis != ChargeBasis.PARKING:
+            data["two_wheeler_rate"] = None                # a head that leaves parking drops its two-wheeler rate
         for field, value in data.items():
             setattr(config, field, value)
         self._audit(AuditAction.UPDATE, config, "ChargeConfig", user, old_values=old,

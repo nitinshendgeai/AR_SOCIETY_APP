@@ -32,11 +32,11 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.flat import Flat, OccupancyStatus
 from app.modules.billing.models.billing import (
@@ -47,6 +47,8 @@ from app.modules.billing.models.billing import (
 
 CENT = Decimal("0.01")
 ZERO = Decimal(0)
+# The vehicle kinds that pay a parking head's two-wheeler rate (VehicleType values).
+TWO_WHEELER_TYPES = {"motorcycle", "scooter", "bicycle"}
 FREQUENCY_MONTHS = {
     CycleFrequency.MONTHLY: 1,
     CycleFrequency.QUARTERLY: 3,
@@ -191,13 +193,14 @@ class MaintenanceCalculator:
                 else:
                     self._auto_rate[c.id] = rate
 
-    def _parking_by_flat(self) -> Dict[UUID, List[Optional[int]]]:
-        """The monthly charge of each slot a flat holds today (None: the charge head's rate applies). A slot
-        whose allotment hasn't begun or whose end date has passed isn't billed, even before the sweep that
-        marks it expired has run."""
+    def _parking_by_flat(self) -> Dict[UUID, List[Tuple[Optional[int], bool]]]:
+        """The slots each flat holds today, as (the slot's own monthly charge, held for a two-wheeler). A charge of
+        None means the charge head's rate applies. A slot whose allotment hasn't begun or whose end date has passed
+        isn't billed, even before the sweep that marks it expired has run. A slot is a two-wheeler's when the
+        vehicle it was allotted to is a motorcycle, scooter or bicycle; with no vehicle on it, it is a car's."""
         from app.modules.parking.models.parking import ParkingAllocation, AllocationStatus
         today = date.today()
-        rows = self.db.query(ParkingAllocation).filter(
+        rows = self.db.query(ParkingAllocation).options(joinedload(ParkingAllocation.vehicle)).filter(
             ParkingAllocation.society_id == self.society_id,
             ParkingAllocation.status == AllocationStatus.ACTIVE,
             ParkingAllocation.flat_id.isnot(None),
@@ -205,9 +208,10 @@ class MaintenanceCalculator:
             ParkingAllocation.start_date <= today,
             or_(ParkingAllocation.end_date.is_(None), ParkingAllocation.end_date >= today),
         ).all()
-        by_flat: Dict[UUID, List[Optional[int]]] = defaultdict(list)
+        by_flat: Dict[UUID, List[Tuple[Optional[int], bool]]] = defaultdict(list)
         for a in rows:
-            by_flat[a.flat_id].append(a.monthly_charge)
+            vtype = getattr(a.vehicle.vehicle_type, "value", a.vehicle.vehicle_type) if a.vehicle else None
+            by_flat[a.flat_id].append((a.monthly_charge, vtype in TWO_WHEELER_TYPES))
         return by_flat
 
     def _open_bills_by_flat(self, exclude_cycle_id: UUID) -> Dict[UUID, List[MaintenanceBill]]:
@@ -256,6 +260,16 @@ class MaintenanceCalculator:
 
     # ── Charge heads ─────────────────────────────────────────────────────────
 
+    def _charge_lines(self, charge: MaintenanceChargeConfig, flat: Flat, months: Decimal) -> List[Tuple[str, Decimal]]:
+        """The (description, amount) lines a charge head puts on a flat's bill: one, except that a parking head with
+        a two-wheeler rate bills a flat's cars and two-wheelers on lines of their own."""
+        if (charge.basis == ChargeBasis.PARKING and charge.two_wheeler_rate is not None
+                and any(is_tw for _own, is_tw in self.parking.get(flat.id, []))):
+            cars, two_wheelers = self._parking_split(charge, flat)
+            return [(f"{charge.name} — cars", money(cars * months)),
+                    (f"{charge.name} — two-wheelers", money(two_wheelers * months))]
+        return [(charge.name, money(self._charge_amount(charge, flat, months)))]
+
     def _charge_amount(self, charge: MaintenanceChargeConfig, flat: Flat, months: Decimal) -> Decimal:
         rate = self._auto_rate.get(charge.id, charge.default_amount or ZERO)
         area = Decimal(str(flat.area_sqft)) if flat.area_sqft else ZERO
@@ -275,9 +289,23 @@ class MaintenanceCalculator:
         if basis == ChargeBasis.BUDGET_AREA:
             return rate * area / self.total_area / 12 * months if self.total_area else ZERO
         if basis == ChargeBasis.PARKING:
-            slots = self.parking.get(flat.id, [])
-            return sum((Decimal(c) if c is not None else rate for c in slots), ZERO) * months
+            cars, two_wheelers = self._parking_split(charge, flat)
+            return (cars + two_wheelers) * months
         return ZERO
+
+    def _parking_split(self, charge: MaintenanceChargeConfig, flat: Flat) -> Tuple[Decimal, Decimal]:
+        """A flat's parking per month, as (cars, two-wheelers). A slot's own charge wins; otherwise a two-wheeler
+        pays the head's two-wheeler rate when it has one, and every other slot the head's rate."""
+        rate = self._auto_rate.get(charge.id, charge.default_amount or ZERO)
+        tw_rate = charge.two_wheeler_rate if charge.two_wheeler_rate is not None else rate
+        cars = two_wheelers = ZERO
+        for own, is_two_wheeler in self.parking.get(flat.id, []):
+            amount = Decimal(own) if own is not None else (tw_rate if is_two_wheeler else rate)
+            if is_two_wheeler and charge.two_wheeler_rate is not None:
+                two_wheelers += amount
+            else:
+                cars += amount
+        return cars, two_wheelers
 
     def _collect_warnings(self, flats_skipped: int) -> None:
         bases = {c.basis for c in self.charges}
@@ -315,17 +343,17 @@ class MaintenanceCalculator:
             draft = FlatBillDraft(flat=flat, period_start=start, period_end=end, months=months)
 
             for charge in self.charges:
-                amount = money(self._charge_amount(charge, flat, months))
-                if amount <= 0:
-                    continue
-                line = LineDraft(
-                    charge_type=charge.charge_type, description=charge.name, amount=amount,
-                    gst_applicable=charge.gst_applicable, is_service=charge.is_service_charge,
-                )
-                if not s.gst_enabled and charge.tax_percent:
-                    line.tax_percent = charge.tax_percent
-                    line.tax_amount = money(amount * charge.tax_percent / 100)
-                draft.lines.append(line)
+                for description, amount in self._charge_lines(charge, flat, months):
+                    if amount <= 0:
+                        continue
+                    line = LineDraft(
+                        charge_type=charge.charge_type, description=description, amount=amount,
+                        gst_applicable=charge.gst_applicable, is_service=charge.is_service_charge,
+                    )
+                    if not s.gst_enabled and charge.tax_percent:
+                        line.tax_percent = charge.tax_percent
+                        line.tax_amount = money(amount * charge.tax_percent / 100)
+                    draft.lines.append(line)
 
             if s.non_occupancy_pct and flat.occupancy_status == OccupancyStatus.TENANT_OCCUPIED:
                 service_total = sum((l.amount for l in draft.lines if l.is_service), ZERO)

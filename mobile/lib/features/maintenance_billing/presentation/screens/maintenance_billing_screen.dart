@@ -580,6 +580,7 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
   late String? _elementId = widget.existing?.elementId;
   late bool _auto = widget.existing?.autoFromExpenses ?? false;
   late final _monthsCtrl = TextEditingController(text: '${widget.existing?.expenseMonths ?? 12}');
+  late final _twoWheelerCtrl = TextEditingController(text: widget.existing?.twoWheelerRate ?? '');
   bool _saving = false;
 
   bool get _editing => widget.existing != null;
@@ -604,6 +605,7 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
     _amountCtrl.dispose();
     _taxCtrl.dispose();
     _monthsCtrl.dispose();
+    _twoWheelerCtrl.dispose();
     super.dispose();
   }
 
@@ -659,18 +661,24 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
     final tax = _taxCtrl.text.trim().isEmpty ? '0' : _taxCtrl.text.trim();
     final auto = _auto && _canAuto;
     final months = int.tryParse(_monthsCtrl.text.trim()) ?? 12;
+    // Only a parking head has a two-wheeler rate; empty clears it.
+    final twoWheeler = _basis == 'parking' && _twoWheelerCtrl.text.trim().isNotEmpty
+        ? _twoWheelerCtrl.text.trim()
+        : null;
     await _run(
       () => _editing
           ? api.updateChargeHead(widget.existing!.id, {
               'name': name, 'charge_type': _type, 'default_amount': amount, 'basis': _basis,
               'is_service_charge': _service, 'gst_applicable': _gst, 'tax_percent': tax,
               'auto_from_expenses': auto, 'expense_months': months,
+              'two_wheeler_rate': twoWheeler,
             })
           : api.createChargeHead(
               societyId: widget.societyId, elementId: _elementId,
               chargeType: _type, name: name, amount: amount,
               basis: _basis, isServiceCharge: _service, gstApplicable: _gst, taxPercent: tax,
               autoFromExpenses: auto, expenseMonths: months,
+              twoWheelerRate: twoWheeler,
             ),
       _editing ? 'Charge head updated' : 'Charge head added',
     );
@@ -767,6 +775,17 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
             decoration: InputDecoration(),
             validator: _number,
           )),
+          if (_basis == 'parking') ...[
+            const SizedBox(height: 14),
+            FormFieldBox(label: 'Two-wheeler rate per slot per month (₹)', child: TextFormField(
+              controller: _twoWheelerCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                helperText: 'Empty: two-wheelers pay the car rate',
+              ),
+              validator: (v) => _number(v, required: false),
+            )),
+          ],
           if (_canAuto) ...[
             const SizedBox(height: 4),
             SwitchListTile(

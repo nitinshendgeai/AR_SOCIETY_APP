@@ -194,6 +194,9 @@ class MaintenanceChargeConfig(Base, TimestampMixin):
     # element (over the last `expense_months`), instead of the typed amount.
     auto_from_expenses = Column(Boolean, default=False, nullable=False)
     expense_months     = Column(Integer, default=12, nullable=False)
+    # A parking head only: ₹ a month for a slot held for a two-wheeler (motorcycle, scooter, bicycle). Empty: a
+    # two-wheeler pays the head's own rate, the same as a car.
+    two_wheeler_rate   = Column(Numeric(10, 2), nullable=True)
 
     society      = relationship("Society")
     element      = relationship("MaintenanceElement")
