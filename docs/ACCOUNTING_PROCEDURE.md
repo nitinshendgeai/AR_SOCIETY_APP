@@ -43,3 +43,9 @@ The registers only read what is already posted; they change nothing.
 `/registers/bills/{society_id}` (query: `date_from`, `date_to`, plus `account_id`, `status`, `vendor_id`, `q`;
 `format=pdf` for the printed register). `GET /accounts/vouchers/{society_id}/pending-approvals` returns the waiting
 vouchers with `can_approve`; `POST /accounts/vouchers/{id}/approve` and `/reject` act on them.
+
+## Entering vouchers fast (computer)
+
+Add Expense and New Voucher work from the keyboard: type to find a ledger, head or flat, **Enter** to take it and move on,
+**Ctrl+S** to save, **Ctrl+Enter** to save and start the next voucher, **Alt+L** to add a line. See the help guide
+("Entering many vouchers: the keyboard").

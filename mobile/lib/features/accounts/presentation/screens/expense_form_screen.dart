@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:flutter/services.dart';
@@ -17,9 +18,17 @@ import 'package:ar_society_app/features/maintenance_billing/data/maintenance_bil
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/typeahead_field.dart';
 
 /// "Other": an expense that is not recovered through the monthly maintenance bill.
 const _otherElement = '__other__';
+
+/// One choice in the "What is it for?" list: a maintenance element, or "Other".
+class _ElementOption {
+  final String key;
+  final String name;
+  const _ElementOption(this.key, this.name);
+}
 
 /// Record an expense the way a treasurer thinks of it: what it was for (the maintenance element),
 /// which expense head, how much, and whether it was paid from cash or the bank. It becomes a Payment
@@ -48,9 +57,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   late final _note = TextEditingController(text: widget.initialNote);
   bool _saving = false;
   String? _lastSaved;
+  final _elementFocus = FocusNode();
 
   @override
   void dispose() {
+    _elementFocus.dispose();
     _amount.dispose();
     _reference.dispose();
     _note.dispose();
@@ -141,6 +152,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           _reference.clear();
           _note.clear();
         });
+        // Straight on to the next one: back to the first field.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _elementFocus.requestFocus();
+        });
       } else {
         context.canPop() ? context.pop() : context.go(AppRoutes.accounts);
       }
@@ -189,6 +204,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     final heads = _headsFor(expense);
     final element = elements.where((e) => e.id == _elementKey).firstOrNull;
     final head = heads.contains(_head) ? _head : null;
+    final desktop = isDesktopLayout(context);
+    final elementOptions = [
+      for (final e in elements) _ElementOption(e.id, e.name),
+      const _ElementOption(_otherElement, 'Other — not billed through maintenance'),
+    ];
 
     return AppFormPage(
       title: 'Add Expense',
@@ -197,6 +217,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       submitIcon: Icons.save_rounded,
       saving: _saving,
       onSubmit: _saving ? null : () => _save(societyId, another: false),
+      onSubmitAndNew: _saving ? null : () => _save(societyId, another: true),
+      footerNote: desktop ? const Text('Enter: next field · Ctrl+S: save · Ctrl+Enter: save and add another') : null,
       actions: [
         AppBarTextAction(
           onPressed: () => context.push(AppRoutes.accountsExpenses),
@@ -234,16 +256,26 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             ),
             FormFieldBox(
               label: 'Maintenance element',
-              child: DropdownButtonFormField<String>(
-                value: _elementKey,
-                isExpanded: true,
-                hint: const Text('What is it for?'),
-                items: [
-                  for (final e in elements) DropdownMenuItem(value: e.id, child: Text(e.name, overflow: TextOverflow.ellipsis)),
-                  const DropdownMenuItem(value: _otherElement, child: Text('Other — not billed through maintenance')),
-                ],
-                onChanged: (v) => _chooseElement(v, expense),
-              ),
+              child: desktop
+                  ? TypeaheadField<_ElementOption>(
+                      options: elementOptions,
+                      value: elementOptions.where((o) => o.key == _elementKey).firstOrNull,
+                      focusNode: _elementFocus,
+                      autofocus: true,
+                      hint: 'What is it for? Type to search',
+                      label: (o) => o.name,
+                      onSelected: (o) => _chooseElement(o.key, expense),
+                    )
+                  : DropdownButtonFormField<String>(
+                      value: _elementKey,
+                      isExpanded: true,
+                      hint: const Text('What is it for?'),
+                      items: [
+                        for (final o in elementOptions)
+                          DropdownMenuItem(value: o.key, child: Text(o.name, overflow: TextOverflow.ellipsis)),
+                      ],
+                      onChanged: (v) => _chooseElement(v, expense),
+                    ),
             ),
             FormFull(
               child: FormFieldBox(
@@ -255,13 +287,24 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                         : head?.maintenanceElementName != null
                             ? 'Counts towards ${head!.maintenanceElementName}'
                             : null,
-                child: DropdownButtonFormField<LedgerAccount>(
-                  key: ValueKey('head/$_elementKey/${heads.length}'),
-                  value: head,
-                  isExpanded: true,
-                  items: [for (final l in heads) DropdownMenuItem(value: l, child: Text(l.name, overflow: TextOverflow.ellipsis))],
-                  onChanged: _elementKey == null ? null : (v) => setState(() => _head = v),
-                ),
+                child: desktop
+                    ? TypeaheadField<LedgerAccount>(
+                        key: ValueKey('head/$_elementKey/${heads.length}'),
+                        options: heads,
+                        value: head,
+                        enabled: _elementKey != null,
+                        hint: _elementKey == null ? 'Choose what it is for first' : 'Type to search expense heads',
+                        label: (l) => l.name,
+                        searchText: (l) => l.code ?? '',
+                        onSelected: (v) => setState(() => _head = v),
+                      )
+                    : DropdownButtonFormField<LedgerAccount>(
+                        key: ValueKey('head/$_elementKey/${heads.length}'),
+                        value: head,
+                        isExpanded: true,
+                        items: [for (final l in heads) DropdownMenuItem(value: l, child: Text(l.name, overflow: TextOverflow.ellipsis))],
+                        onChanged: _elementKey == null ? null : (v) => setState(() => _head = v),
+                      ),
               ),
             ),
             if (_elementKey != null && heads.isEmpty)
@@ -285,6 +328,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               label: 'Amount (₹)',
               child: TextField(
                 controller: _amount,
+                textInputAction: TextInputAction.next,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
                 decoration: const InputDecoration(prefixText: '₹ ', hintText: '0.00'),
@@ -307,7 +351,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             FormFieldBox(
               label: "Supplier's bill / cheque no.",
               helper: 'Optional. The number on their bill or your cheque — ours is given automatically.',
-              child: TextField(controller: _reference),
+              child: TextField(controller: _reference, textInputAction: TextInputAction.next),
             ),
             FormFieldBox(
               label: 'Voucher no.',

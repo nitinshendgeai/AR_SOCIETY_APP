@@ -17,6 +17,7 @@ import 'package:ar_society_app/shared/utils/file_saver.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show HeaderActionButton;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
+import 'package:ar_society_app/shared/widgets/typeahead_field.dart';
 
 String editVoucherRoute(String voucherId) => AppRoutes.accountsVoucherEdit.replaceFirst(':voucherId', voucherId);
 
@@ -42,7 +43,11 @@ class PdfActions extends StatefulWidget {
   final Future<Uint8List> Function()? load;
   final String fileName;
   final String? subject;
-  const PdfActions({super.key, required this.load, required this.fileName, this.subject});
+
+  /// What the desktop button says (the phone shows icons with tooltips).
+  final String downloadLabel;
+  const PdfActions(
+      {super.key, required this.load, required this.fileName, this.subject, this.downloadLabel = 'Download PDF'});
 
   @override
   State<PdfActions> createState() => _PdfActionsState();
@@ -73,7 +78,7 @@ class _PdfActionsState extends State<PdfActions> {
       ),
       if (isDesktopLayout(context))
         HeaderActionButton(
-            icon: Icons.download_rounded, label: 'Download PDF', onPressed: enabled ? () => _run(false) : null)
+            icon: Icons.download_rounded, label: widget.downloadLabel, onPressed: enabled ? () => _run(false) : null)
       else
         IconButton(
           tooltip: 'Download PDF',
@@ -607,6 +612,112 @@ class NextVoucherNumber extends ConsumerWidget {
       child: Text(
         number.when(data: (n) => n, loading: () => '…', error: (_, __) => 'Assigned on save'),
         style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+
+/// Choose a ledger: on a computer, a field to type into (the list narrows as you type, Enter takes the highlighted
+/// one and moves on); on a phone, a tap that opens the searchable sheet.
+class LedgerChooser extends StatelessWidget {
+  final String label;
+  final LedgerAccount? value;
+  final List<LedgerAccount> options;
+  final ValueChanged<LedgerAccount> onChanged;
+  final String sheetTitle;
+  final FocusNode? focusNode;
+  final bool autofocus;
+  final String? helper;
+  const LedgerChooser({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+    this.sheetTitle = 'Choose ledger',
+    this.focusNode,
+    this.autofocus = false,
+    this.helper,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isDesktopLayout(context)) {
+      return FormFieldBox(
+        label: label,
+        helper: helper,
+        child: TypeaheadField<LedgerAccount>(
+          options: options,
+          value: value,
+          focusNode: focusNode,
+          autofocus: autofocus,
+          hint: 'Type to search ledgers',
+          label: (l) => l.name,
+          detail: (l) => l.groupName,
+          searchText: (l) => '${l.code ?? ''} ${l.groupName ?? ''}',
+          onSelected: onChanged,
+        ),
+      );
+    }
+    return InkWell(
+      onTap: () async {
+        final l = await pickLedger(context, options, title: sheetTitle);
+        if (l != null) onChanged(l);
+      },
+      borderRadius: BorderRadius.circular(AppTheme.radiusS),
+      child: FormFieldBox(
+        label: label,
+        helper: helper,
+        child: InputDecorator(
+          decoration: const InputDecoration(suffixIcon: Icon(Icons.arrow_drop_down_rounded)),
+          child: Text(value?.name ?? 'Choose ledger',
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: value == null ? AppTheme.textTertiary : AppTheme.textPrimary)),
+        ),
+      ),
+    );
+  }
+}
+
+/// Choose a flat (a member) the same way: typing on a computer, a sheet on a phone.
+class FlatChooser extends StatelessWidget {
+  final MemberBalance? value;
+  final List<MemberBalance> options;
+  final ValueChanged<MemberBalance> onChanged;
+  final FocusNode? focusNode;
+  const FlatChooser({super.key, required this.value, required this.options, required this.onChanged, this.focusNode});
+
+  static String _name(MemberBalance f) => '${f.flatLabel} · ${f.memberName}';
+
+  @override
+  Widget build(BuildContext context) {
+    if (isDesktopLayout(context)) {
+      return FormFieldBox(
+        label: 'Flat',
+        child: TypeaheadField<MemberBalance>(
+          options: options,
+          value: value,
+          focusNode: focusNode,
+          hint: 'Type a flat or a member name',
+          label: _name,
+          searchText: (f) => '${f.flatLabel} ${f.memberName}',
+          onSelected: onChanged,
+        ),
+      );
+    }
+    return InkWell(
+      onTap: () async {
+        final f = await pickFlat(context, options);
+        if (f != null) onChanged(f);
+      },
+      child: FormFieldBox(
+        label: 'Flat',
+        child: InputDecorator(
+          decoration: const InputDecoration(suffixIcon: Icon(Icons.arrow_drop_down_rounded)),
+          child: Text(value == null ? 'Choose flat' : _name(value!),
+              style: TextStyle(color: value == null ? AppTheme.textTertiary : AppTheme.textPrimary)),
+        ),
       ),
     );
   }

@@ -35,7 +35,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import (
-    HRFlowable, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
+    HRFlowable, KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
 )
 from xml.sax.saxutils import escape
 
@@ -318,6 +318,9 @@ def _kv(rows, widths) -> Table:
 
 # ── The bill ──────────────────────────────────────────────────────────────────
 
+PAGE_MARGINS = dict(leftMargin=12 * mm, rightMargin=12 * mm, topMargin=8 * mm, bottomMargin=10 * mm)
+
+
 def generate_maintenance_bill_pdf(
     bill: MaintenanceBill,
     settings: Optional[MaintenanceSettings] = None,
@@ -332,17 +335,51 @@ def generate_maintenance_bill_pdf(
     interest inside the bill's arrears (Previous Interest/Late Fees).
     `previous_bill`: the flat's bill before this one, whose receipts are
     listed at the foot."""
+    society = bill.society
+    society_name = society.name if society else "Society"
+    buf = BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4, title=f"Maintenance Bill {bill.invoice_number}",
+        author=society_name, pageCompression=1 if compress else 0, **PAGE_MARGINS,
+    )
+    doc.build(bill_story(bill, settings, doc.width, element_codes=element_codes,
+                         accumulated_interest=accumulated_interest, previous_bill=previous_bill))
+    return buf.getvalue()
+
+
+def generate_bills_pdf(bills: List[dict], *, title: str, author: str, compress: bool = True) -> bytes:
+    """Many bills in one PDF, each on its own page(s), in the order given. Each item is the keyword arguments of
+    `bill_story` plus `bill` and `settings`: {"bill", "settings", "element_codes", "accumulated_interest",
+    "previous_bill"}."""
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, title=title, author=author, pageCompression=1 if compress else 0,
+                            **PAGE_MARGINS)
+    story: List = []
+    for i, item in enumerate(bills):
+        if i:
+            story.append(PageBreak())
+        story += bill_story(item["bill"], item.get("settings"), doc.width,
+                            element_codes=item.get("element_codes"),
+                            accumulated_interest=item.get("accumulated_interest", ZERO),
+                            previous_bill=item.get("previous_bill"))
+    doc.build(story)
+    return buf.getvalue()
+
+
+def bill_story(
+    bill: MaintenanceBill,
+    settings: Optional[MaintenanceSettings],
+    width: float,
+    *,
+    element_codes: Optional[Dict[str, str]] = None,
+    accumulated_interest: Decimal = ZERO,
+    previous_bill: Optional[MaintenanceBill] = None,
+) -> List:
+    """The flowables of one printed bill (the letterhead down to the receipts towards the previous bill)."""
     element_codes = element_codes or {}
     society = bill.society
     society_name = society.name if society else "Society"
     flat = bill.flat
-    buf = BytesIO()
-    doc = SimpleDocTemplate(
-        buf, pagesize=A4, leftMargin=12 * mm, rightMargin=12 * mm, topMargin=8 * mm,
-        bottomMargin=10 * mm, title=f"Maintenance Bill {bill.invoice_number}",
-        author=society_name, pageCompression=1 if compress else 0,
-    )
-    width = doc.width
     story: List = []
     story += society_header(society, width)
     story.append(Spacer(1, 4 * mm))
@@ -502,8 +539,7 @@ def generate_maintenance_bill_pdf(
         block += [Spacer(1, 3 * mm), _receipts_table(previous_bill, width)]
     story.append(KeepTogether(block))
 
-    doc.build(story)
-    return buf.getvalue()
+    return story
 
 
 def _receipts_table(prev: MaintenanceBill, width) -> Table:

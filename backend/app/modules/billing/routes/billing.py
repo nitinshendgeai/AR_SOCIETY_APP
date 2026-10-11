@@ -487,6 +487,22 @@ def cycle_bills(cycle_id: UUID, db: Session = Depends(get_db), user: User = Depe
     return [_bill_out(b) for b in bills]
 
 
+@router.get("/cycles/{cycle_id}/bills.pdf", dependencies=[Depends(manager_above)])
+def cycle_bills_pdf(cycle_id: UUID, wing_id: Optional[UUID] = None, status: Optional[str] = None,
+                    db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """All the cycle's bills in one PDF to print or share, flat by flat. Optional: only one wing, or only bills
+    with one status (cancelled bills are left out otherwise)."""
+    svc = BillingService(db)
+    cycle = svc.get_cycle(cycle_id)
+    assert_society_access(user, cycle.society_id)
+    pdf_bytes, count = svc.generate_cycle_bills_pdf(cycle_id, wing_id, status)
+    safe = "".join(c if c.isalnum() or c in "-_" else "-" for c in cycle.name).strip("-") or "cycle"
+    return Response(
+        content=pdf_bytes, media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename=Bills-{safe}.pdf", "X-Bill-Count": str(count)},
+    )
+
+
 # ── Bills ─────────────────────────────────────────────────────────────────────
 def _is_overdue(b, today: date) -> bool:
     return (b.outstanding > 0 and b.due_date < today

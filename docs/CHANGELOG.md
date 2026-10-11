@@ -4,6 +4,25 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-11 (dd)
+
+### feat: keyboard-first voucher and expense entry, and "Print all bills" for a cycle
+
+Prompted by a comparison with the Tally housing-society module's day-to-day ease of use.
+
+- **Keyboard entry** (computer only; phones keep the pick-from-a-list sheets): in **Add Expense** and **New Voucher** the
+  ledger, expense head, maintenance element and flat fields are type-to-search (`TypeaheadField`: the list narrows as you
+  type, name matches first; Up/Down; **Enter** takes the highlighted one and moves on; Enter on a field that already has a
+  value just moves on). Enter moves between the other fields. **Ctrl+S / Cmd+S** saves any `AppFormPage` form; where a
+  form has "Save and add another", **Ctrl+Enter** does it and the cursor returns to the first ledger. **Alt+L** adds a
+  voucher line; Enter on the last amount of an unbalanced journal opens the next line. **New Voucher** gains *Save and add
+  another*. The form's foot shows the keys.
+- **Print all bills** (Maintenance Billing → a cycle): every bill of the cycle in one PDF, a bill to a page, flat by flat
+  (cancelled bills left out), to print or share. `GET /billing/cycles/{id}/bills.pdf` (optional `wing_id`, `status`; header
+  `X-Bill-Count`); bill printing was split into `bill_story` / `generate_bills_pdf` so one bill and many share the layout.
+- Tests: `tests/billing/test_cycle_bills_pdf.py`, `test/keyboard_entry_test.dart`. Help guide updated (billing and
+  accounts sections).
+
 ## 2026-10-11 (cc)
 
 ### docs: in-app Help guide covers the manager's daily checklist

@@ -595,6 +595,7 @@ details>div p{color:var(--fg)}
     <li><div><span class="path">Maintenance Billing → Cycles</span> → <span class="btn">New cycle</span> for the period, for example “October 2026”.</div></li>
     <li><div><span class="btn">Preview</span> shows every flat's bill with warnings (a flat with no area, no construction cost). Fix those first.</div></li>
     <li><div><span class="btn">Generate</span> creates the bills, then <span class="btn">Issue</span> sends them to the members.</div></li>
+    <li><div>To print or share them, open the cycle and press <span class="btn">Print all bills</span> (the share icon beside it sends the file). You get every bill in one PDF, a bill to a page, flat by flat. Cancelled bills are left out. For a large society it can take a little while to prepare.</div></li>
   </ol>
 
   <h3>Billing from the possession date</h3>
@@ -651,6 +652,16 @@ details>div p{color:var(--fg)}
   </ol>
   <div class="note tip"><b>It links itself</b>Saving adds a payment voucher to the books and links the expense head to the element you chose, so the spend counts towards that element from then on. You do not link anything by hand.</div>
   <p>If the expense head you need does not exist, add it first under <span class="path">Accounts → Chart of Accounts</span>.</p>
+
+  <h3>Entering many vouchers: the keyboard (computer)</h3>
+  <p>On a computer, <span class="btn">Add Expense</span> and <span class="btn">New Voucher</span> (receipt, payment, contra, journal) can be filled without the mouse, the way accountants work in Tally:</p>
+  <ul>
+    <li>The cursor starts in the first ledger (or in <i>What is it for?</i>). <b>Type a few letters</b> of the name — a ledger, a head, a flat or a member — and the list narrows. <b>Up and Down</b> move through it and <b>Enter</b> takes the highlighted one and moves to the next field.</li>
+    <li><b>Enter</b> moves from field to field; Enter on a field that already has a value just moves on. <b>Tab</b> also moves on, and <b>Shift+Tab</b> goes back.</li>
+    <li><b>Ctrl+S</b> (Cmd+S on a Mac) saves. <b>Ctrl+Enter</b> saves and opens a clean voucher of the same kind and date, with the cursor back in the first ledger, ready for the next one.</li>
+    <li>In a journal, pressing Enter on the last amount while debits and credits differ opens the next line. <b>Alt+L</b> adds a line to any voucher.</li>
+  </ul>
+  <p>The hints are shown at the foot of the form. On a phone nothing changes: tap a field to pick from a list.</p>
 
   <h3>Monthly expenses</h3>
   <p>For what you pay every month, set it up once under <span class="path">Accounts → Monthly Expenses</span> with <span class="btn">Add monthly expense</span>: the name, the expense head, the amount (leave it blank for a bill that changes, like electricity), the day it falls due and who is paid. Each month it appears under <b>Due now</b>, and the Accounts page shows a banner while any are waiting.</p>

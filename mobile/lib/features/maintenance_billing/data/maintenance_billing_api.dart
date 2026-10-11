@@ -823,6 +823,15 @@ class MaintenanceBillingApi {
     return MaintenanceBill.fromJson(r.data as Map<String, dynamic>);
   }
 
+  /// Every bill of a cycle in one PDF, flat by flat (cancelled bills left out).
+  Future<Uint8List> cycleBillsPdf(String cycleId) async {
+    final r = await _dio.get<List<int>>(
+      '/billing/cycles/$cycleId/bills.pdf',
+      options: Options(responseType: ResponseType.bytes),
+    );
+    return Uint8List.fromList(r.data!);
+  }
+
   Future<Uint8List> billPdf(String billId) async {
     final r = await _dio.get<List<int>>(
       '/billing/bills/$billId/pdf',
