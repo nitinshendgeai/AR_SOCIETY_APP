@@ -174,6 +174,10 @@ class DashboardService:
 
     # ── Public ───────────────────────────────────────────────────────────────
 
+    def attention(self, society_id: UUID, today: date) -> list:
+        """What needs the office's attention today, most urgent first (the same list the dashboard shows)."""
+        return self._attention(society_id, today)
+
     def society(self, society_id: UUID) -> dict:
         society = self.db.query(Society).filter(Society.id == society_id).first()
         tz = zone(getattr(society, "timezone", None))

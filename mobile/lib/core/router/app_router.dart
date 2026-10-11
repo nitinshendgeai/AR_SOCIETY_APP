@@ -5,6 +5,7 @@ import 'package:ar_society_app/features/gate_extras/presentation/screens/domesti
 import 'package:ar_society_app/features/gate_extras/presentation/screens/parcels_screen.dart';
 import 'package:ar_society_app/features/governance/presentation/screens/documents_screen.dart';
 import 'package:ar_society_app/features/governance/presentation/screens/meetings_screen.dart';
+import 'package:ar_society_app/features/manager_checklist/presentation/screens/manager_checklist_screen.dart';
 import 'package:ar_society_app/features/governance/presentation/screens/polls_screen.dart';
 import 'package:ar_society_app/features/shops/presentation/screens/shops_screen.dart';
 import 'package:ar_society_app/features/shops/presentation/screens/shops_import_screen.dart';
@@ -228,6 +229,7 @@ class AppRoutes {
   static const shopsImport        = '/shops/import';
   static const automation         = '/automation';
   static const meetings           = '/meetings';
+  static const managerChecklist   = '/manager-checklist';
   static const polls              = '/polls';
   static const documents          = '/documents';
   static const certificates       = '/certificates';
@@ -613,6 +615,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: AppRoutes.shops, builder: (_, __) => const ShopsScreen()),
           GoRoute(path: AppRoutes.automation, builder: (_, __) => const AutomationScreen()),
           GoRoute(path: AppRoutes.meetings, builder: (_, __) => const MeetingsScreen()),
+          GoRoute(path: AppRoutes.managerChecklist, builder: (_, __) => const ManagerChecklistScreen()),
           GoRoute(path: AppRoutes.polls, builder: (_, __) => const PollsScreen()),
           GoRoute(path: AppRoutes.documents, builder: (_, __) => const DocumentsScreen()),
           GoRoute(path: AppRoutes.certificates, builder: (_, __) => const CertificatesScreen()),

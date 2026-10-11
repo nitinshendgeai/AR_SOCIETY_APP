@@ -7,6 +7,7 @@ import 'package:ar_society_app/core/motion/motion.dart';
 import 'package:ar_society_app/core/navigation/app_menu.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/features/manager_checklist/presentation/widgets/checklist_widgets.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/biometric_provider.dart';
@@ -965,6 +966,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
       title: 'Manager Dashboard',
       children: [
         _GreetingCard(user: user, subtitle: 'Manager · Operations & Approvals'),
+        if (societyId != null) ...[const SizedBox(height: 14), ChecklistTodayCard(societyId: societyId)],
         const SizedBox(height: 18),
         const _SectionLabel('Today\'s Attendance'),
         const SizedBox(height: 10),

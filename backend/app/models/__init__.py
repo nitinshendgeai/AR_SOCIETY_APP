@@ -38,6 +38,9 @@ from app.modules.shops.models.shop import Shop
 # Automatic tasks
 from app.modules.automation.models.automation import SocietyAutomation, ScheduledJobRun
 
+# Manager checklist
+from app.modules.checklist.models.checklist import ChecklistItem, ChecklistLog, ChecklistSignoff
+
 # Governance
 from app.modules.governance.models.governance import (
     Meeting, MeetingAttendee, MeetingResolution, Poll, PollOption, PollVote, SocietyDocument,

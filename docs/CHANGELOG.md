@@ -4,6 +4,39 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-11 (bb)
+
+### feat: the manager's daily checklist (Operations → Manager's Checklist)
+
+- **What it is:** the society manager's day in one screen, with three tabs.
+  - **Today:** a progress count, *Needs your attention* (counts read live from the society's own records: assets
+    overdue for service or without AMC cover, vendor contracts and work orders running out or late, staff on duty who
+    have not checked in, staff with no duty, leave and punch approvals, open and old complaints, overdue bills,
+    vouchers awaiting approval, low stock, expiring agreements, parcels left at the gate…), then the day's routine by
+    group — daily rounds, what falls due this week or month, and statutory dates. Each line has a box to tick (or
+    "skip with a reason"), who ticked it and when, its details and its legal basis, and a link to the screen where the
+    work is done. **Close the day** records a sign-off with remarks. A printable A4 sheet with tick boxes is available.
+  - **Compliance:** every statutory date and licence with its state (overdue, falling due, up to date, not recorded),
+    its legal basis, and the last time it was recorded (date, reference, valid-until).
+  - **The list:** every item with a switch; add the society's own items (daily, weekly, monthly, fixed months, or
+    renewal-by-licence), tied if wanted to an asset kind or a staff department.
+- **Depends on assets and staff:** an item tied to an asset (lift, generator, fire safety, CCTV, STP, pumps, tanks,
+  solar, gym…) or to a staff department (security, housekeeping, gardening, technical, or any staff) shows only while
+  the society has an active asset of that kind or active staff in that department, and says why ("2 lifts in your
+  assets"). About 70 built-in items.
+- **Law:** built-in legal items come in packs — **All-India** rules (TDS, advance tax, income-tax and GST returns,
+  wages, PF/ESIC, security-agency and contract-labour licences, electrical safety, STP consent, fire drills…) for every
+  society, and **Maharashtra** (AGM and audit under the Co-operative Societies Act, committee meetings, registers,
+  Professional Tax, fire Form B, lift licence, committee elections) for a society whose state is Maharashtra. Each
+  carries its legal basis. **These are a starting list, not legal advice**; other states get the All-India pack and a
+  note to add their state's rules as their own items. Only the admin or committee may switch off a statutory item.
+- **Dates:** a statutory date that passed before the item was on the list is asked about once ("confirm if it was
+  met") in the Compliance tab, not shown as overdue on the day's list.
+- Backend: `modules/checklist` (models `manager_checklist_items` / `_logs` / `_signoffs`, migration `b7e3d1c9a4f2` which
+  also grants the `manager_checklist` screen to admin, committee and manager), `GET/POST /manager-checklist/…`.
+  App: `features/manager_checklist`, a card on the Manager dashboard. Tests: `tests/checklist`,
+  `test/manager_checklist_test.dart`. Guide: `docs/MANAGER_CHECKLIST.md`.
+
 ## 2026-10-11 (aa)
 
 ### feat: registers with the name of whoever made each entry, and approvals that can actually be used
