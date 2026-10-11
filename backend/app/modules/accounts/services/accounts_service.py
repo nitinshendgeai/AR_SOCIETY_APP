@@ -472,11 +472,37 @@ class AccountsService:
         self.db.refresh(voucher)
         return voucher
 
+    def other_approver_exists(self, society_id: UUID, user_id: UUID) -> bool:
+        """Is there an active admin or committee member besides `user_id` who could approve a voucher?"""
+        from app.models.permission import Permission, RolePermission
+        from app.models.user import UserRole
+        return (self.db.query(User.id)
+                .join(UserRole, UserRole.user_id == User.id)
+                .join(RolePermission, RolePermission.role_id == UserRole.role_id)
+                .join(Permission, Permission.id == RolePermission.permission_id)
+                .filter(User.society_id == society_id, User.is_active == True,  # noqa: E712
+                        Permission.code == "admin_committee", User.id != user_id)
+                .first()) is not None
+
+    def can_approve(self, voucher: Voucher, user: User, others_exist: Optional[bool] = None) -> bool:
+        """Maker and checker are two people: whoever entered a voucher does not approve it, unless nobody else in
+        the society can (then the approval says so)."""
+        if voucher.created_by != user.id:
+            return True
+        if others_exist is None:
+            others_exist = self.other_approver_exists(voucher.society_id, user.id)
+        return not others_exist
+
     def approve_manual_voucher(self, voucher_id: UUID, user: User, note: Optional[str] = None) -> Voucher:
         voucher = self.get_voucher(voucher_id)
         self._assert_manual(voucher, "approve")
         if voucher.approval_status != "pending":
             raise HTTPException(409, "Voucher is not pending approval")
+        if not self.can_approve(voucher, user):
+            raise HTTPException(403, "The person who entered a voucher can't approve it: another admin or "
+                                     "committee member must")
+        if voucher.created_by == user.id:
+            note = ((note + " · ") if note else "") + "Approved by the person who entered it: no other approver in the society"
         voucher.approval_status = "approved"
         voucher.approved_at = datetime.utcnow()
         voucher.approved_by = user.id
@@ -740,10 +766,14 @@ class AccountsService:
             opening += self._movements(account.society_id, before=date_from, group_by=VoucherEntry.account_id,
                                        **filters).get(account.id, ZERO)
 
+        # Only approved vouchers count (the opening balance above and every report use the same rule), so a
+        # payment still waiting for approval is not in the account yet.
         q = (self.db.query(VoucherEntry, Voucher)
              .join(Voucher, Voucher.id == VoucherEntry.voucher_id)
-             .options(selectinload(Voucher.entries).joinedload(VoucherEntry.account))
-             .filter(Voucher.society_id == account.society_id, Voucher.is_cancelled == False))
+             .options(selectinload(Voucher.entries).joinedload(VoucherEntry.account),
+                      joinedload(Voucher.creator), joinedload(Voucher.approver))
+             .filter(Voucher.society_id == account.society_id, Voucher.is_cancelled == False,
+                     Voucher.approval_status == "approved"))
         for column, value in filters.items():
             q = q.filter(getattr(VoucherEntry, column) == value)
         if date_from:
@@ -765,6 +795,10 @@ class AccountsService:
                 "particulars": ", ".join(dict.fromkeys(others)) or account.name,
                 "narration": entry.narration or voucher.narration,
                 "debit": money(entry.debit), "credit": money(entry.credit), "balance": running,
+                "reference": voucher.reference,
+                "entered_by": voucher.creator.full_name if voucher.creator else None,
+                "approved_by": voucher.approver.full_name if voucher.approver else None,
+                "is_auto": voucher.source_type is not None,
             })
         return {"account": account, "opening": opening, "lines": lines,
                 "total_debit": total_dr, "total_credit": total_cr, "closing": running}

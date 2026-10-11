@@ -257,6 +257,13 @@ class Voucher {
   final String? reversalOfId;
   final String? cancelReason;
   final String? createdByName;
+  final String? approvedByName;
+  final DateTime? approvedAt;
+  final String? approvalNote;
+
+  /// Only on the list of vouchers waiting for approval: may the signed-in person approve this one? (Not their own
+  /// entry, unless nobody else could.)
+  final bool canApprove;
   final DateTime? editedAt;
   final String? editedByName;
 
@@ -285,6 +292,10 @@ class Voucher {
     this.reversalOfId,
     this.cancelReason,
     this.createdByName,
+    this.approvedByName,
+    this.approvedAt,
+    this.approvalNote,
+    this.canApprove = true,
     this.editedAt,
     this.editedByName,
     this.revisions = const [],
@@ -312,6 +323,10 @@ class Voucher {
         reversalOfId: j['reversal_of_id'] as String?,
         cancelReason: j['cancel_reason'] as String?,
         createdByName: j['created_by_name'] as String?,
+        approvedByName: j['approved_by_name'] as String?,
+        approvedAt: parseStampOrNull(j['approved_at']),
+        approvalNote: j['approval_note'] as String?,
+        canApprove: j['can_approve'] as bool? ?? true,
         editedAt: parseStampOrNull(j['edited_at']),
         editedByName: j['edited_by_name'] as String?,
         revisions: (j['revisions'] as List? ?? const [])
@@ -323,6 +338,10 @@ class Voucher {
 
   /// Entered by the society, not cancelled, in an open year.
   bool get canEdit => !isAuto && !isCancelled && !isLocked;
+
+  /// A payment or journal waits for the committee/admin before it counts in the books.
+  bool get isPending => approvalStatus == 'pending';
+  bool get isRejected => approvalStatus == 'rejected';
 
   List<VoucherEntry> get debits => entries.where((e) => e.debit > 0).toList();
   List<VoucherEntry> get credits => entries.where((e) => e.credit > 0).toList();
@@ -393,6 +412,9 @@ class StatementLine {
   final double debit;
   final double credit;
   final DrCr balance;
+  final String? enteredBy;
+  final String? approvedBy;
+  final bool isAuto;
 
   const StatementLine({
     required this.voucherId,
@@ -404,7 +426,13 @@ class StatementLine {
     required this.debit,
     required this.credit,
     required this.balance,
+    this.enteredBy,
+    this.approvedBy,
+    this.isAuto = false,
   });
+
+  /// Who approved it; for what the app posted itself, that it posted it.
+  String get approvedLabel => approvedBy ?? (isAuto ? 'Auto-posted' : '—');
 
   factory StatementLine.fromJson(Map<String, dynamic> j) => StatementLine(
         voucherId: j['voucher_id'] as String,
@@ -416,6 +444,9 @@ class StatementLine {
         debit: _num(j['debit']),
         credit: _num(j['credit']),
         balance: DrCr.fromJson(j['balance_dr_cr'] as Map<String, dynamic>?),
+        enteredBy: j['entered_by'] as String?,
+        approvedBy: j['approved_by'] as String?,
+        isAuto: j['is_auto'] as bool? ?? false,
       );
 }
 
@@ -488,6 +519,9 @@ class AccountsSummary {
   final List<LedgerAccount> cashBankAccounts;
   final int pendingPostings;
 
+  /// Payments and journals waiting for the committee or admin to approve.
+  final int pendingApprovals;
+
   const AccountsSummary({
     required this.fy,
     required this.cash,
@@ -499,6 +533,7 @@ class AccountsSummary {
     required this.fySurplus,
     required this.cashBankAccounts,
     required this.pendingPostings,
+    this.pendingApprovals = 0,
   });
 
   factory AccountsSummary.fromJson(Map<String, dynamic> j) => AccountsSummary(
@@ -514,6 +549,7 @@ class AccountsSummary {
             .map((e) => LedgerAccount.fromJson(e as Map<String, dynamic>))
             .toList(),
         pendingPostings: (j['pending_postings'] as num?)?.toInt() ?? 0,
+        pendingApprovals: (j['pending_approvals'] as num?)?.toInt() ?? 0,
       );
 }
 
@@ -924,6 +960,19 @@ class AccountsApi {
       });
 
   Future<Uint8List> membersLedgerPdf(String societyId) => _pdf('/accounts/members/$societyId', {'format': 'pdf'});
+
+  /// Vouchers waiting for approval, oldest first.
+  Future<List<Voucher>> pendingApprovals(String societyId) async =>
+      ((await _dio.get('/accounts/vouchers/$societyId/pending-approvals')).data as List)
+          .map((e) => Voucher.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+  Future<Voucher> approveVoucher(String id, {String? note}) async => Voucher.fromJson(
+      (await _dio.post('/accounts/vouchers/$id/approve', data: {if (note != null && note.isNotEmpty) 'note': note}))
+          .data as Map<String, dynamic>);
+
+  Future<Voucher> rejectVoucher(String id, String reason) async => Voucher.fromJson(
+      (await _dio.post('/accounts/vouchers/$id/reject', data: {'reason': reason})).data as Map<String, dynamic>);
 
   Future<Voucher> cancelVoucher(String id, String reason) async => Voucher.fromJson(
       (await _dio.post('/accounts/vouchers/$id/cancel', data: {'reason': reason})).data as Map<String, dynamic>);

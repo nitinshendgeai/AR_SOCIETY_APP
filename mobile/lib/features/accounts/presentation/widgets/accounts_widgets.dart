@@ -361,6 +361,24 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
                   style: const TextStyle(fontSize: 13, color: AppTheme.error, fontWeight: FontWeight.w600)),
             ),
           ],
+          if (v.isPending) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: AppTheme.warningSoft, borderRadius: BorderRadius.circular(10)),
+              child: const Text('Waiting for approval by the admin or committee. It is not in the books until then.',
+                  style: TextStyle(fontSize: 13, color: AppTheme.warning, fontWeight: FontWeight.w600)),
+            ),
+          ],
+          if (v.isRejected) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: AppTheme.errorSoft, borderRadius: BorderRadius.circular(10)),
+              child: Text('Rejected${(v.approvalNote ?? '').isEmpty ? '' : ': ${v.approvalNote}'}',
+                  style: const TextStyle(fontSize: 13, color: AppTheme.error, fontWeight: FontWeight.w600)),
+            ),
+          ],
           if (v.isReversed) ...[
             const SizedBox(height: 10),
             Container(
@@ -384,6 +402,9 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
             if ((v.reference ?? '').isNotEmpty) _meta('Reference', v.reference!),
             _meta('Financial year', v.fiscalYear),
             if (v.createdByName != null) _meta('Entered by', v.createdByName!),
+            if (v.approvedByName != null)
+              _meta('Approved by',
+                  '${v.approvedByName}${v.approvedAt == null ? '' : ' on ${formatAccountsDate(v.approvedAt!.toLocal())}'}'),
             if (v.editedAt != null)
               _meta(
                   'Edited',

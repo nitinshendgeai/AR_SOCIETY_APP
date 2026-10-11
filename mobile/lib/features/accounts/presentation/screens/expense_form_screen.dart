@@ -128,7 +128,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       invalidateBooks(ref);
       if (!mounted) return;
       final where = counted == null ? '' : ' — counts towards $counted';
-      AppToast.success(context, '${formatInr(amount)} saved as ${v.voucherNumber}$where');
+      AppToast.success(
+          context,
+          '${formatInr(amount)} saved as ${v.voucherNumber}$where'
+          '${v.isPending ? ' — it counts in the books once the admin or committee approves it' : ''}');
       if (another) {
         setState(() {
           _saving = false;

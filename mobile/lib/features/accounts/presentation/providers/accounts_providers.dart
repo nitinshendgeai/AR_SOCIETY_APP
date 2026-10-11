@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart';
 import 'package:ar_society_app/features/accounts/data/recurring_api.dart';
+import 'package:ar_society_app/features/accounts/data/registers_api.dart';
 
 final accountsApiProvider = Provider<AccountsApi>((_) => AccountsApi());
 
@@ -55,8 +56,38 @@ final financialReportProvider = FutureProvider.autoDispose.family<FinancialRepor
   (ref, k) => ref.watch(accountsApiProvider).report(k.societyId, k.report, k.fy),
 );
 
+final registersApiProvider = Provider<RegistersApi>((_) => RegistersApi());
+
+typedef BookKey = ({String societyId, DateTime? from, DateTime? to, String? accountId});
+
+/// The cash and bank book: every cash and bank account's receipts and payments, with who entered each.
+final cashBankBookProvider = FutureProvider.autoDispose.family<CashBankBook, BookKey>(
+  (ref, k) => ref.watch(registersApiProvider).cashBankBook(k.societyId, from: k.from, to: k.to, accountId: k.accountId),
+);
+
+typedef RegisterKey = ({String societyId, DateTime? from, DateTime? to, String? status, String search});
+
+/// Maintenance invoices raised on members.
+final invoiceRegisterProvider = FutureProvider.autoDispose.family<Register<InvoiceRow>, RegisterKey>(
+  (ref, k) => ref.watch(registersApiProvider).invoices(k.societyId, from: k.from, to: k.to, status: k.status, search: k.search),
+);
+
+/// Bills received from vendors.
+final billsRegisterProvider = FutureProvider.autoDispose.family<Register<BillRow>, RegisterKey>(
+  (ref, k) => ref.watch(registersApiProvider).bills(k.societyId, from: k.from, to: k.to, status: k.status, search: k.search),
+);
+
+/// Payments and journals waiting for approval.
+final pendingApprovalsProvider = FutureProvider.autoDispose.family<List<Voucher>, String>(
+  (ref, societyId) => ref.watch(accountsApiProvider).pendingApprovals(societyId),
+);
+
 /// Everything a new or cancelled voucher can change.
 void invalidateBooks(WidgetRef ref) {
+  ref.invalidate(cashBankBookProvider);
+  ref.invalidate(invoiceRegisterProvider);
+  ref.invalidate(billsRegisterProvider);
+  ref.invalidate(pendingApprovalsProvider);
   ref.invalidate(accountsSummaryProvider);
   ref.invalidate(chartOfAccountsProvider);
   ref.invalidate(membersLedgerProvider);

@@ -73,6 +73,9 @@ import 'package:ar_society_app/features/maintenance_billing/presentation/screens
 import 'package:ar_society_app/features/accounts/presentation/screens/financial_report_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/financial_statements_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/ledger_statement_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/approvals_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/cash_bank_book_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/invoice_bill_registers_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/members_ledger_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/expense_form_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/recurring_expenses_screen.dart';
@@ -192,6 +195,10 @@ class AppRoutes {
   static const accountsExpenses   = '/accounts/expenses';
   static const accountsRecurring  = '/accounts/recurring';
   static const accountsMembers    = '/accounts/members';
+  static const accountsCashBook   = '/accounts/registers/cash-bank';
+  static const accountsInvoices   = '/accounts/registers/invoices';
+  static const accountsBills      = '/accounts/registers/bills';
+  static const accountsApprovals  = '/accounts/approvals';
   static const accountsVoucherNew = '/accounts/vouchers/new';
   static const accountsVoucherEdit = '/accounts/vouchers/:voucherId/edit';
   static const accountsLedger     = '/accounts/ledger/:accountId';
@@ -790,6 +797,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             (AppRoutes.accountsExpenses, (_) => const ExpensesByElementScreen()),
             (AppRoutes.accountsRecurring, (_) => const RecurringExpensesScreen()),
             (AppRoutes.accountsMembers, (_) => const MembersLedgerScreen()),
+            (AppRoutes.accountsCashBook, (_) => const CashBankBookScreen()),
+            (AppRoutes.accountsInvoices, (_) => const InvoiceRegisterScreen()),
+            (AppRoutes.accountsBills, (_) => const BillsRegisterScreen()),
+            (AppRoutes.accountsApprovals, (_) => const ApprovalsScreen()),
             (AppRoutes.accountsVoucherNew, (s) {
               final type = s.uri.queryParameters['type'] ?? 'receipt';
               return VoucherFormScreen(key: ValueKey(type), type: type);

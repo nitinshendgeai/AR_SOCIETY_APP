@@ -253,6 +253,8 @@ def render_ledger_pdf(st: dict, society, *, title: Optional[str] = None, compres
         cell = [_p(l["particulars"], "td")]
         if l.get("narration"):
             cell.append(_p(l["narration"], "td_small"))
+        if l.get("entered_by"):
+            cell.append(_p(f"Entered by {l['entered_by']}" + (f" · Approved by {l['approved_by']}" if l.get("approved_by") else ""), "td_small"))
         rows.append([_p(_date(l["date"])), _p(l["voucher_number"]), cell, _p(_amt(l["debit"]), "td_r"),
                      _p(_amt(l["credit"]), "td_r"), _p(_drcr(l["balance"]), "td_r")])
     if not st["lines"]:
@@ -294,7 +296,8 @@ def render_day_book_pdf(vouchers: List[dict], society, date_from: Optional[date]
             dr = Decimal(e["debit"] or 0) > 0
             rows.append([
                 _p(_date(v["voucher_date"])) if i == 0 else "",
-                [_p(v["voucher_number"]), _p(v["voucher_type_label"], "td_small")] if i == 0 else "",
+                [_p(v["voucher_number"]), _p(v["voucher_type_label"], "td_small"),
+                 *( [_p(f"by {v['created_by_name']}", "td_small")] if v.get("created_by_name") else [] )] if i == 0 else "",
                 Paragraph(f"{'' if dr else '&nbsp;&nbsp;&nbsp;To '}{escape(_line_particulars(e))}"
                           f"{' &nbsp;Dr' if dr else ''}", P["td"]),
                 _p(_amt(e["debit"]), "td_r"), _p(_amt(e["credit"]), "td_r"),

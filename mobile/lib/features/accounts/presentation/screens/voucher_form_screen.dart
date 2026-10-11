@@ -225,7 +225,10 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
             );
       invalidateBooks(ref);
       if (mounted) {
-        AppToast.success(context, _isEdit ? '${v.voucherNumber} updated' : '${v.voucherNumber} saved');
+        AppToast.success(
+            context,
+            '${_isEdit ? '${v.voucherNumber} updated' : '${v.voucherNumber} saved'}'
+            '${v.isPending ? ' — it counts in the books once the admin or committee approves it' : ''}');
         // Opened from a link rather than from within the app: land on the day book.
         context.canPop() ? context.pop() : context.go(AppRoutes.accountsDayBook);
       }

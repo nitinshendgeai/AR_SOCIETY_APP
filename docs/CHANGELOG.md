@@ -4,6 +4,25 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-11 (aa)
+
+### feat: registers with the name of whoever made each entry, and approvals that can actually be used
+
+- **Why:** a Payment or Journal voucher (and so every "Add Expense") was saved as *pending approval*, but the app had no
+  screen to approve it, and pending vouchers are left out of every balance and report. Entered expenses therefore seemed
+  to vanish. Ledger statements also listed pending vouchers while their balances left them out.
+- **Approvals** (Accounts → Approvals, with a banner and a count on the Accounts page): the admin or a committee member
+  approves or rejects (reason required). The person who entered a voucher can't approve it while someone else could.
+  The Day Book and the voucher sheet show "Waiting for approval" / "Rejected", who entered it and who approved it. After
+  saving an expense or voucher that needs approval, the message says so.
+- **Registers** (Accounts → Books): **Cash & Bank Book**, **Invoice Register** (invoices raised on members) and **Bills
+  Register** (bills from vendors), each filterable by period and printable as PDF, each with an *Entered by* column.
+  Day Book and ledger statements (and their PDFs) show *Entered by* too.
+- **Fix:** ledger statements and the cash book now leave out vouchers that are not approved, like every balance does.
+- Backend: `accounts/services/registers.py`, `registers_pdf.py`, `GET /accounts/registers/*`, `pending_approvals` in the
+  summary, `can_approve` on the pending list. Tests: `tests/accounts/test_registers.py`, `test/registers_test.dart`.
+  Procedure: `docs/ACCOUNTING_PROCEDURE.md`.
+
 ## 2026-10-10 (z)
 
 ### fix: page header lines up with the page on wide screens (accounts ledger and every `AppPage` screen)
