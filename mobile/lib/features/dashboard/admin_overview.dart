@@ -148,7 +148,8 @@ Color _severityColor(String s) => switch (s) {
 /// society today. One request; each block shows only what the server could work out.
 class AdminOverview extends ConsumerWidget {
   final String societyId;
-  final String activeStaff;
+  /// The active-staff count, or null when the Staff service is switched off for this society.
+  final String? activeStaff;
   const AdminOverview({super.key, required this.societyId, required this.activeStaff});
 
   @override
@@ -177,7 +178,7 @@ class AdminOverview extends ConsumerWidget {
 class _Body extends StatelessWidget {
   final DashboardOverview o;
   final String societyId;
-  final String activeStaff;
+  final String? activeStaff;
   const _Body({required this.o, required this.societyId, required this.activeStaff});
 
   @override
@@ -531,7 +532,7 @@ class _MoneyRow extends StatelessWidget {
 
 class _Glance extends StatelessWidget {
   final DashboardOverview o;
-  final String activeStaff;
+  final String? activeStaff;
   const _Glance({required this.o, required this.activeStaff});
 
   @override
@@ -565,7 +566,8 @@ class _Glance extends StatelessWidget {
             _Stat(Icons.meeting_room_rounded, '${o.visitorsToday}', 'Visitors today', null),
             _Stat(Icons.login_rounded, '${o.visitorsInside}', 'Inside now', null),
           ],
-          _Stat(Icons.badge_rounded, activeStaff, 'Active staff', () => context.go(AppRoutes.staffList)),
+          if (activeStaff != null)
+            _Stat(Icons.badge_rounded, activeStaff!, 'Active staff', () => context.go(AppRoutes.staffList)),
         ]),
       ]),
     );

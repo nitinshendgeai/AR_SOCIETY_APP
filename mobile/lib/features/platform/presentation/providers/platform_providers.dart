@@ -15,6 +15,10 @@ final platformSocietyProvider = FutureProvider.autoDispose.family<PlatformSociet
   (ref, id) => ref.watch(platformApiProvider).society(id),
 );
 
+final platformServicesProvider = FutureProvider.autoDispose.family<List<SocietyServiceSwitch>, String>(
+  (ref, id) => ref.watch(platformApiProvider).societyServices(id),
+);
+
 final platformActivityProvider = FutureProvider.autoDispose<List<PlatformEvent>>((ref) => ref.watch(platformApiProvider).activity());
 
 /// After anything about a society changes.
@@ -23,4 +27,5 @@ void invalidatePlatform(WidgetRef ref) {
   ref.invalidate(platformSocietiesProvider);
   ref.invalidate(platformSocietyProvider);
   ref.invalidate(platformActivityProvider);
+  ref.invalidate(platformServicesProvider);
 }

@@ -232,7 +232,8 @@ class _Sidebar extends ConsumerWidget {
     final collapsed = ref.watch(sidebarCollapsedProvider);
     final onHome = activeRoute == null && location == homeRoute;
     // Residents: how many visitors are waiting at the gate for their approval.
-    final waitingVisitors = ref.watch(currentUserProvider)?.isResident == true
+    final me = ref.watch(currentUserProvider);
+    final waitingVisitors = me?.isResident == true && me!.hasService('visitors')
         ? ref.watch(pendingVisitorApprovalsProvider).valueOrNull?.length ?? 0
         : 0;
 

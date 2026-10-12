@@ -46,6 +46,9 @@ class PlatformSocietyScreen extends ConsumerWidget {
               _Usage(label: 'Flats', used: s.flats, allowed: s.allowedFlats),
               Text('${s.wings} wing${s.wings == 1 ? '' : 's'} · setup ${s.setupPct}% done · last sign-in ${ago(s.lastLogin)}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12.5)),
               const SizedBox(height: 18),
+              _section('Services'),
+              _Services(societyId: s.id),
+              const SizedBox(height: 18),
               _section('Who runs it'),
               if (s.admins.isEmpty) const Text('No society admin yet.', style: TextStyle(color: AppTheme.textSecondary)),
               for (final a in s.admins)
@@ -72,6 +75,72 @@ class PlatformSocietyScreen extends ConsumerWidget {
   }
 
   Widget _section(String t) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(t, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)));
+}
+
+/// The optional services of this society: switch one off and its screens disappear for the society and its API
+/// calls are refused; switch it on again and it returns. Billing, residents and the rest of the core are always on.
+class _Services extends ConsumerStatefulWidget {
+  final String societyId;
+  const _Services({required this.societyId});
+
+  @override
+  ConsumerState<_Services> createState() => _ServicesState();
+}
+
+class _ServicesState extends ConsumerState<_Services> {
+  String? _busy;
+
+  Future<void> _set(SocietyServiceSwitch sv, bool on) async {
+    if (!on) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Switch off ${sv.label}?'),
+          content: const Text('The society\'s people will no longer see it or be able to use it. Their records are kept, and '
+              'switching it back on brings everything back.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep it on')),
+            TextButton(onPressed: () => Navigator.pop(ctx, true), style: TextButton.styleFrom(foregroundColor: AppTheme.error), child: const Text('Switch off')),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+    setState(() => _busy = sv.key);
+    try {
+      await ref.read(platformApiProvider).switchService(widget.societyId, sv.key, on);
+      invalidatePlatform(ref);
+      if (mounted) AppToast.success(context, '${sv.label} is now ${on ? 'on' : 'off'}');
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(platformServicesProvider(widget.societyId));
+    return async.when(
+      loading: () => const Padding(padding: EdgeInsets.all(12), child: LinearProgressIndicator()),
+      error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
+      data: (list) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Switch a service off for this society and it disappears from their app. Sign-in, flats and residents, '
+            'and maintenance billing are always on.',
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 12.5)),
+        const SizedBox(height: 6),
+        for (final sv in list)
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: Text(sv.label, style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text(sv.description, style: const TextStyle(fontSize: 12)),
+            value: sv.enabled,
+            onChanged: _busy != null ? null : (v) => _set(sv, v),
+          ),
+      ]),
+    );
+  }
 }
 
 class _Usage extends StatelessWidget {

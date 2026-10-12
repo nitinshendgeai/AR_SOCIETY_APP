@@ -72,9 +72,13 @@ def get_current_user(
         user.current_session_id = session.id      # not a column: which device is making this request
 
     # A suspended society is shut: only the calls that tell the app why, and sign out, still work.
-    from app.core.society_gate import path_is_allowed, society_block_reason
+    from app.core.society_gate import path_is_allowed, service_block_reason, society_block_reason
     reason = society_block_reason(db, user)
     if reason and not path_is_allowed(request.url.path):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=reason)
+    # A service the platform owner has switched off for this society is closed too.
+    reason = service_block_reason(db, user, request.url.path)
+    if reason:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=reason)
     return user
 

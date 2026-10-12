@@ -43,6 +43,8 @@ admins' Forms Matrix, and only a platform admin can change the Platform Admin ro
 | Suspend (a reason is required) | `POST /api/v1/platform-admin/societies/{id}/suspend` |
 | Activate on a plan, optional `expires_on` | `POST /api/v1/platform-admin/societies/{id}/activate` |
 | Set limits (users, flats, storage; not below current use) | `PUT /api/v1/platform-admin/societies/{id}/limits` |
+| Every optional service and whether it is on for a society | `GET /api/v1/platform-admin/societies/{id}/services` |
+| Switch one service on or off for a society | `PUT /api/v1/platform-admin/societies/{id}/services/{key}` body `{"enabled": false}` |
 | What platform admins have done | `GET /api/v1/platform-admin/activity` |
 | Platform-wide counts | `GET /api/v1/platform-admin/stats` |
 
@@ -57,6 +59,27 @@ An **ended trial is not blocked.** It is flagged (*Trial ended* on the society, 
 extend it, activate it or suspend it, but the society keeps working. `docs/TRIAL_MANAGEMENT.md` describes a read-only mode
 for expired trials; that is not built, and the status only flips to EXPIRED when someone opens the trial-status call.
 **Limits are recorded, not enforced:** a society can go over its user or flat allowance.
+
+## Switching services on and off for a society
+Only the platform admin does this, by hand, one society at a time: open the society in the Platform Console and use the
+**Services** switches (each asks for confirmation when turning one off). Every society has every service until one is
+switched off. The catalogue is `app/core/services_catalog.py`: visitors, complaints, notices, amenities, parking,
+staff & duty, vendors & work orders, stores & assets, meetings/polls/documents, certificates & NOC, parcels & domestic
+help, shops, the manager's checklist and accounts (books). Everything else (sign-in, wings/floors/flats, residents,
+tenants, vehicles, users and roles, maintenance billing and payments, notifications, the dashboard) is core and always on.
+
+A service that is off is closed in three places:
+- **The API** refuses its calls for that society's people with `403 "<Service> is not enabled for your society. Please
+  contact support."` (checked in `get_current_user` via `society_gate.service_block_reason`, by the first path segment
+  under `/api/v1`). A platform admin is never refused, and a suspended society still gets the suspended message first.
+- **The menu**: its form codes are dropped from `/roles/forms/mine`, so it leaves the sidebar, drawer and phone bar.
+- **The dashboards**: `/auth/me` carries `enabled_services`, and the role dashboards leave out that service's cards, quick
+  actions and banners. The admin overview's *Needs attention* list, *Money* row and *Visitors today* are omitted
+  server-side for a service that is off.
+
+Records are kept; switching a service back on restores it at once. Only switched-off services are stored
+(`society_services`, migration `e1b4c8d6f3a2`), and each switch is recorded in the society's history. Internal links
+still work: for example the books keep receiving postings from billing even if *Accounts* is off.
 
 ## Creating a Platform Admin User
 

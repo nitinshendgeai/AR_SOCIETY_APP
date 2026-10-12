@@ -45,7 +45,7 @@ class PhoneBottomBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final active = activePhoneTab(tabs, location);
-    final waiting = user.isResident ? ref.watch(pendingVisitorApprovalsProvider).valueOrNull?.length ?? 0 : 0;
+    final waiting = user.isResident && user.hasService('visitors') ? ref.watch(pendingVisitorApprovalsProvider).valueOrNull?.length ?? 0 : 0;
 
     Widget icon(PhoneTab t, {required bool selected}) {
       final base = Icon(t.icon);

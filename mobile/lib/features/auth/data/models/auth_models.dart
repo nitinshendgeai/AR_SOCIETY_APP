@@ -33,6 +33,7 @@ class UserModel {
   final bool setupCompleted;
   final String? societyId;
   final List<String> roles;
+  final List<String>? enabledServices;
 
   const UserModel({
     required this.id,
@@ -46,6 +47,7 @@ class UserModel {
     this.setupCompleted = false,
     this.societyId,
     required this.roles,
+    this.enabledServices,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -59,6 +61,7 @@ class UserModel {
         termsAccepted: json['terms_accepted'] as bool? ?? false,
         setupCompleted: json['setup_completed'] as bool? ?? false,
         societyId: json['society_id'] as String?,
+        enabledServices: (json['enabled_services'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
         roles: (json['roles'] as List<dynamic>?)
                 ?.map((e) => e.toString())
                 .toList() ??
@@ -76,5 +79,6 @@ class UserModel {
         termsAccepted: termsAccepted,
         setupCompleted: setupCompleted,
         societyId: societyId,
+        enabledServices: enabledServices,
       );
 }

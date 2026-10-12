@@ -31,5 +31,20 @@ def society_block_reason(db: Session, user) -> Optional[str]:
     return None
 
 
+def service_block_reason(db: Session, user, path: str) -> Optional[str]:
+    """Why this call is refused because the platform owner has switched the service off for the user's society, or
+    None. Core calls, platform admins and users who belong to no society are never refused."""
+    from app.core.services_catalog import effective_services, service_for_path
+    society_id = getattr(user, "society_id", None)
+    if society_id is None or getattr(user, "is_superadmin", False):
+        return None
+    service = service_for_path(path)
+    if service is None:
+        return None
+    if service.key in effective_services(db, society_id):
+        return None
+    return f"{service.label} is not enabled for your society. Please contact support."
+
+
 def path_is_allowed(path: str) -> bool:
     return path.rstrip("/").endswith(ALLOWED_SUFFIXES)

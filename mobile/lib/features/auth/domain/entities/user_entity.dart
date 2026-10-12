@@ -14,6 +14,10 @@ class UserEntity {
   final bool setupCompleted;
   final String? societyId;
 
+  /// The optional services this user's society can use (the platform owner may switch some off); null means
+  /// not limited, e.g. the platform admin or a session from before this was sent.
+  final List<String>? enabledServices;
+
   const UserEntity({
     required this.id,
     required this.email,
@@ -25,6 +29,7 @@ class UserEntity {
     this.termsAccepted = false,
     this.setupCompleted = false,
     this.societyId,
+    this.enabledServices,
   });
 
   // ── Role helpers ───────────────────────────────────────────────────────────
@@ -49,6 +54,9 @@ class UserEntity {
   bool get isPlatformAdmin => roles.contains('Platform Admin');
 
   bool get isAdminOrCommittee => isAdmin || isCommittee;
+
+  /// Whether the society has this optional service switched on (see backend services_catalog keys).
+  bool hasService(String key) => enabledServices == null || enabledServices!.contains(key);
 
   /// Returns the primary role for routing decisions.
   /// Priority: Admin > Committee > Security > Staff > Resident
@@ -87,6 +95,7 @@ class UserEntity {
     bool? termsAccepted,
     bool? setupCompleted,
     String? societyId,
+    List<String>? enabledServices,
   }) {
     return UserEntity(
       id: id ?? this.id,
@@ -99,6 +108,7 @@ class UserEntity {
       termsAccepted: termsAccepted ?? this.termsAccepted,
       setupCompleted: setupCompleted ?? this.setupCompleted,
       societyId: societyId ?? this.societyId,
+      enabledServices: enabledServices ?? this.enabledServices,
     );
   }
 
