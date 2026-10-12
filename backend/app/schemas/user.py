@@ -66,6 +66,8 @@ class UserOut(TimestampSchema):
     roles:                List[str] = []
     # Only on /auth/me: the optional services this user's society can use (None = not limited, e.g. platform admin)
     enabled_services:     Optional[List[str]] = None
+    # Only on /auth/me: the societies this person can switch between (empty or None: just the one)
+    societies:            Optional[List[dict]] = None
 
     @classmethod
     def from_orm_with_roles(cls, user) -> "UserOut":

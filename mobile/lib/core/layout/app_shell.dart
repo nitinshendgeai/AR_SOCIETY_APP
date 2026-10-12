@@ -12,6 +12,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
+import 'package:ar_society_app/features/auth/presentation/widgets/society_switcher.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart' show pendingVisitorApprovalsProvider;
 
 /// Width from which the app switches to the desktop ERP layout: persistent
@@ -479,6 +480,7 @@ class _UserMenu extends ConsumerWidget {
       onSelected: (v) {
         if (v == 'logout') _signOut(context, ref);
         if (v == 'devices') context.go(AppRoutes.activeDevices);
+        if (v == 'society') showSocietySwitcher(context, ref);
         if (v == 'language') showLanguagePicker(context, ref);
         if (v == 'help') openHelp(user);
       },
@@ -492,6 +494,15 @@ class _UserMenu extends ConsumerWidget {
           ]),
         ),
         const PopupMenuDivider(),
+        if (user.societies.length > 1)
+          PopupMenuItem<String>(
+            value: 'society',
+            child: Row(children: [
+              const Icon(Icons.swap_horiz_rounded, size: 18, color: AppTheme.textSecondary),
+              const SizedBox(width: 10),
+              Text(context.tr('Switch society')),
+            ]),
+          ),
         PopupMenuItem<String>(
           value: 'language',
           child: Row(children: [

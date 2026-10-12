@@ -32,9 +32,9 @@ def create_access_token(subject: Union[str, int], extra: dict = {}, session_id: 
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-def create_refresh_token(subject: Union[str, int], session_id: Optional[str] = None) -> str:
+def create_refresh_token(subject: Union[str, int], session_id: Optional[str] = None, extra: Optional[dict] = None) -> str:
     expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    payload = {"sub": str(subject), "exp": expire, "type": "refresh"}
+    payload = {"sub": str(subject), "exp": expire, "type": "refresh", **(extra or {})}
     if session_id:
         payload["sid"] = str(session_id)
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)

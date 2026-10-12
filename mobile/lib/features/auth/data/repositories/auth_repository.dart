@@ -4,6 +4,7 @@ import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/auth/token_storage.dart';
 import 'package:ar_society_app/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:ar_society_app/features/auth/domain/entities/device_session.dart';
+import 'package:ar_society_app/features/auth/domain/entities/society_choice.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 
 sealed class AuthResult<T> {}
@@ -18,6 +19,13 @@ class AuthFailure<T> extends AuthResult<T> {
   AuthFailure(this.message);
 }
 
+/// The login belongs to several societies: ask which one (then call login again with the choice). A kind of
+/// failure so code that only handles success/failure treats it as "not signed in yet".
+class AuthNeedsChoice<T> extends AuthFailure<T> {
+  final List<SocietyChoice> choices;
+  AuthNeedsChoice(this.choices) : super('Choose a society');
+}
+
 /// Auth repository: coordinates remote API + local token storage.
 class AuthRepository {
   final AuthRemoteDataSource _remote;
@@ -29,9 +37,12 @@ class AuthRepository {
   Future<AuthResult<UserEntity>> login({
     required String email,
     required String password,
+    String? societyId,
   }) async {
     try {
-      final tokens = await _remote.login(email: email, password: password);
+      final outcome = await _remote.login(email: email, password: password, societyId: societyId);
+      if (outcome.choices != null) return AuthNeedsChoice(outcome.choices!);
+      final tokens = outcome.tokens!;
       await TokenStorage.saveTokens(
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
@@ -49,6 +60,19 @@ class AuthRepository {
     } catch (e) {
       debugPrint('[LOGIN_ERROR] Unexpected: $e');
       return AuthFailure('Unexpected error: $e');
+    }
+  }
+
+  /// Switch to this person's login in another society (new tokens, same device).
+  Future<AuthResult<UserEntity>> switchSociety(String societyId) async {
+    try {
+      final tokens = await _remote.switchSociety(societyId);
+      await TokenStorage.saveTokens(accessToken: tokens.accessToken, refreshToken: tokens.refreshToken);
+      return AuthSuccess((await _remote.getMe()).toEntity());
+    } on DioException catch (e) {
+      return AuthFailure(parseApiError(e));
+    } catch (e) {
+      return AuthFailure('Could not switch society: $e');
     }
   }
 

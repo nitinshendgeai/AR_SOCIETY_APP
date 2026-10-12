@@ -117,15 +117,26 @@ class ResidentService:
 
     # ── Read ─────────────────────────────────────────────────────────────────
 
-    def get_me(self, current_user: User) -> ResidentOut:
-        resident = (
+    def _mine(self, current_user: User):
+        return (
             self.db.query(Resident)
             .filter(Resident.user_id == current_user.id, Resident.is_active == True)  # noqa: E712
-            .first()
+            .order_by(Resident.created_at, Resident.id)
+            .all()
         )
-        if not resident:
+
+    def get_me(self, current_user: User, flat_id: Optional[UUID] = None) -> ResidentOut:
+        """The caller's own resident record: the one for `flat_id` when they have several flats, else the first."""
+        rows = self._mine(current_user)
+        if flat_id is not None:
+            rows = [r for r in rows if r.flat_id == flat_id]
+        if not rows:
             raise HTTPException(status_code=404, detail="No resident profile linked to this account")
-        return self._enrich(resident)
+        return self._enrich(rows[0])
+
+    def list_mine(self, current_user: User) -> List[ResidentOut]:
+        """Every flat the caller is an active resident of (one record each)."""
+        return [self._enrich(r) for r in self._mine(current_user)]
 
     def get_or_404(self, id: UUID, current_user: User) -> ResidentOut:
         # get_any(), not get(): a moved-out resident (is_active=False) must

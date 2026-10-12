@@ -862,8 +862,8 @@ class MaintenanceBillingApi {
     return Uint8List.fromList(r.data!);
   }
 
-  Future<MyBillsSummary> myBills() async {
-    final r = await _dio.get('/billing/bills/me');
+  Future<MyBillsSummary> myBills({String? flatId}) async {
+    final r = await _dio.get('/billing/bills/me', queryParameters: {if (flatId != null) 'flat_id': flatId});
     return MyBillsSummary.fromJson(r.data as Map<String, dynamic>);
   }
 

@@ -41,9 +41,16 @@ def list_residents(
 
 
 @router.get("/me", response_model=ResidentOut)
-def get_my_resident_profile(db: Session = Depends(get_db),
+def get_my_resident_profile(flat_id: Optional[UUID] = None, db: Session = Depends(get_db),
                              current_user: User = Depends(get_current_user)):
-    return ResidentService(db).get_me(current_user)
+    """My resident record; with several flats, `flat_id` picks which (default: the first)."""
+    return ResidentService(db).get_me(current_user, flat_id)
+
+
+@router.get("/mine", response_model=List[ResidentOut])
+def list_my_flats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Every flat I am an active resident of, one record each."""
+    return ResidentService(db).list_mine(current_user)
 
 
 @router.get("/{resident_id}", response_model=ResidentOut)

@@ -4,6 +4,31 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-12 (hh)
+
+### feat: one person, several societies and several flats
+
+Asked: what happens when the same mobile number or email is used for flats in different societies?
+
+- **Before:** a mobile number or email was unique across the whole platform and a login belonged to one society. A second
+  society entering the same mobile was quietly linked to the first society's login, so the person could only ever see the
+  first society (My Bills even listed the second society's bills, which then wouldn't open).
+- **Now:** a login per society. Mobile number and email are unique **within a society among active users**; a disabled or
+  removed user doesn't hold them, and a suspended society doesn't either (onboarding's duplicate check ignores them too).
+  Migration `f2c5d9e7a1b3` replaces the platform-wide unique indexes with per-society partial ones and gives any resident or
+  tenant that was linked across societies a login of their own in their own society (same mobile, email and password).
+- **Sign-in:** the logins whose password matches are considered; only active users of active societies can be signed in to.
+  One match signs in; several return `{"requires_society_choice": true, "choices": [...]}` and the app sends the same
+  credentials again with `society_id`. The token carries the ids of the logins the password was proved for (`peers`), so
+  `POST /auth/switch-society` can move between them without a password — and only between them. `/auth/me` returns
+  `societies` for the switcher. Failed-attempt lock-out and "forgot password" cover all of a person's societies.
+- **Several flats in one society** (already one login): `GET /residents/mine`, `GET /residents/me?flat_id=`,
+  `GET /billing/bills/me?flat_id=`; the dashboard's *My Flat* card switches flats and *My Bills* has per-flat chips.
+- App: *Choose your society* after sign-in, *Switch society* in the account menu (phone: More); switching restarts the app
+  with fresh data. Help guide updated. Tests: `tests/auth/test_multi_society_login.py` (17), `mobile/test/multi_society_login_test.dart`.
+- Not changed: a person who signs up a second society through self-registration with an email already used by an active
+  society is still told it is registered.
+
 ## 2026-10-12 (gg)
 
 ### feat: platform owner can switch services on or off for one society

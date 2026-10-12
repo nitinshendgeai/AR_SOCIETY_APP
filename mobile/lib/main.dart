@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
+import 'package:ar_society_app/core/app_reset.dart';
 import 'package:ar_society_app/core/config/env.dart';
 import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
@@ -41,10 +42,45 @@ Future<void> main() async {
   }
 
   final language = await loadSavedLanguage();
-  runApp(ProviderScope(
-    overrides: [initialLanguageProvider.overrideWithValue(language)],
-    child: const ArSocietyApp(),
-  ));
+  runApp(ResettableScope(language: language));
+}
+
+/// The app's provider scope, rebuilt from scratch whenever [AppReset.restart] is called (after switching society),
+/// so nothing from the previous society stays in memory. The stored sign-in is kept, so it comes back up signed in.
+class ResettableScope extends StatefulWidget {
+  final String language;
+  const ResettableScope({super.key, required this.language});
+
+  @override
+  State<ResettableScope> createState() => _ResettableScopeState();
+}
+
+class _ResettableScopeState extends State<ResettableScope> {
+  late String _language = widget.language;
+
+  @override
+  void initState() {
+    super.initState();
+    AppReset.epoch.addListener(_onReset);
+  }
+
+  @override
+  void dispose() {
+    AppReset.epoch.removeListener(_onReset);
+    super.dispose();
+  }
+
+  Future<void> _onReset() async {
+    final language = await loadSavedLanguage();      // keep a language chosen during this session
+    if (mounted) setState(() => _language = language);
+  }
+
+  @override
+  Widget build(BuildContext context) => ProviderScope(
+        key: ValueKey(AppReset.epoch.value),
+        overrides: [initialLanguageProvider.overrideWithValue(_language)],
+        child: const ArSocietyApp(),
+      );
 }
 
 /// Flutter's default scroll behaviour on desktop browsers ignores mouse dragging, so a horizontal

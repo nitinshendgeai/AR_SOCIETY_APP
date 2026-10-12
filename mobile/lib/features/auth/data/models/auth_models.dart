@@ -1,3 +1,4 @@
+import 'package:ar_society_app/features/auth/domain/entities/society_choice.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 
 /// Maps to FastAPI TokenResponse schema.
@@ -34,6 +35,7 @@ class UserModel {
   final String? societyId;
   final List<String> roles;
   final List<String>? enabledServices;
+  final List<SocietyChoice> societies;
 
   const UserModel({
     required this.id,
@@ -48,6 +50,7 @@ class UserModel {
     this.societyId,
     required this.roles,
     this.enabledServices,
+    this.societies = const [],
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -62,6 +65,9 @@ class UserModel {
         setupCompleted: json['setup_completed'] as bool? ?? false,
         societyId: json['society_id'] as String?,
         enabledServices: (json['enabled_services'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
+        societies: (json['societies'] as List<dynamic>? ?? const [])
+            .map((e) => SocietyChoice.fromJson(e as Map<String, dynamic>))
+            .toList(),
         roles: (json['roles'] as List<dynamic>?)
                 ?.map((e) => e.toString())
                 .toList() ??
@@ -80,5 +86,6 @@ class UserModel {
         setupCompleted: setupCompleted,
         societyId: societyId,
         enabledServices: enabledServices,
+        societies: societies,
       );
 }

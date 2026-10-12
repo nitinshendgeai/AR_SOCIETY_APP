@@ -52,11 +52,16 @@ class PasswordResetService:
         tell the society's admins. Silent when there's no such active account.
         A request already pending isn't duplicated (and admins aren't
         notified again) — asking twice just refreshes it."""
-        user = UserRepository(self.db).get_by_email_or_phone(identifier)
-        if not user or not user.is_active or user.status != UserStatus.ACTIVE:
+        # One request per society the person has a login in: each society's admin resets their own login.
+        users = [u for u in UserRepository(self.db).candidates(identifier)[:10]
+                 if u.is_active and u.status == UserStatus.ACTIVE]
+        if not users:
             logger.info("[password-reset] request for unknown/inactive account")
             return
+        for user in users:
+            self._request_for(user, identifier)
 
+    def _request_for(self, user: User, identifier: str) -> None:
         pending = self.db.query(PasswordResetRequest).filter(
             PasswordResetRequest.user_id == user.id,
             PasswordResetRequest.status == PasswordResetStatus.PENDING,

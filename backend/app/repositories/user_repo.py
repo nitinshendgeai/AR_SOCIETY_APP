@@ -2,8 +2,9 @@ import re
 from typing import Optional, List
 from uuid import UUID
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
-from app.models.user import User, UserRole
+from sqlalchemy import and_, func, or_
+from app.models.society import AccountStatus, Society
+from app.models.user import User, UserRole, UserStatus
 from app.models.role import Role
 from app.repositories.base import BaseRepository
 
@@ -59,29 +60,49 @@ class UserRepository(BaseRepository[User]):
 
     # ── Lookup helpers (global — used for auth / uniqueness) ──────────────────
 
-    def get_by_email(self, email: str) -> Optional[User]:
-        return self.db.query(User).filter(User.email == email).first()
+    # Scope for the duplicate checks: any active society (the default), the platform (None), or one society.
+    ANY = object()
 
-    def get_by_phone(self, phone: str) -> Optional[User]:
-        return self.db.query(User).filter(User.phone == phone).first()
+    def _active_users(self, scope=ANY):
+        """Users that count when checking whether a mobile number or email is taken: active users (not disabled or
+        removed) of an active society (not suspended, closed or removed). A person in a disabled society or a
+        disabled user doesn't hold their number or email, so someone else may use it."""
+        q = (self.db.query(User).outerjoin(Society, Society.id == User.society_id)
+             .filter(User.is_active == True, User.status == UserStatus.ACTIVE))  # noqa: E712
+        if scope is UserRepository.ANY:
+            q = q.filter(or_(User.society_id.is_(None), and_(
+                Society.is_active == True,  # noqa: E712
+                Society.account_status.notin_([AccountStatus.SUSPENDED, AccountStatus.CANCELLED]))))
+        elif scope is None:
+            q = q.filter(User.society_id.is_(None))
+        else:
+            q = q.filter(User.society_id == scope)
+        return q
+
+    def get_by_email(self, email: str, society_id=ANY) -> Optional[User]:
+        """The active user with this email (in `society_id`, or in any active society)."""
+        return self._active_users(society_id).filter(func.lower(User.email) == email.strip().lower()).first()
+
+    def get_by_phone(self, phone: str, society_id=ANY) -> Optional[User]:
+        """The active user with this mobile number (in `society_id`, or in any active society)."""
+        digits = login_mobile(phone)
+        return self._active_users(society_id).filter(or_(User.phone == phone, User.phone == digits)).first()
+
+    def candidates(self, identifier: str) -> List[User]:
+        """Every login this email or mobile number could be: one per society the person belongs to, oldest first.
+        Includes disabled users and societies (the caller decides which can be signed in to and says why not)."""
+        identifier = identifier.strip()
+        q = self.db.query(User).filter(User.is_active == True)  # noqa: E712
+        if "@" in identifier:
+            q = q.filter(func.lower(User.email) == identifier.lower())
+        else:
+            q = q.filter(or_(User.phone == identifier, User.phone == login_mobile(identifier)))
+        return q.order_by(User.created_at, User.id).all()
 
     def get_by_email_or_phone(self, identifier: str) -> Optional[User]:
-        """Login lookup: residents/tenants sign in with their mobile number,
-        admin/committee/staff accounts sign in with email — accept either in
-        the same field rather than making the client classify it first.
-
-        Forgiving about how it's typed, like the login form's validation:
-        emails match regardless of case (phone keyboards capitalise the first
-        letter), and a mobile number may carry spaces, dashes, +91/91/0 —
-        it's compared as the 10 digits it's stored as."""
-        identifier = identifier.strip()
-        if "@" in identifier:
-            return self.db.query(User).filter(
-                func.lower(User.email) == identifier.lower()
-            ).first()
-        return self.db.query(User).filter(
-            or_(User.phone == identifier, User.phone == login_mobile(identifier))
-        ).first()
+        """The first login for this email or mobile number (see `candidates`)."""
+        found = self.candidates(identifier)
+        return found[0] if found else None
 
     # ── Role management ───────────────────────────────────────────────────────
 

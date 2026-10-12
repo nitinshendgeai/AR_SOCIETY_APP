@@ -1,5 +1,5 @@
 import uuid
-from typing import List
+from typing import List, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.schemas.auth import (
     RegisterRequest, LoginRequest, TokenResponse, RefreshRequest, ChangePasswordRequest, SessionOut,
+    LoginChoiceResponse, SwitchSocietyRequest,
 )
 from app.schemas.user import UserOut
 from app.services.auth_service import AuthService
@@ -27,7 +28,7 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     return UserOut.from_orm_with_roles(user)
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=Union[TokenResponse, LoginChoiceResponse])
 def login(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
     """Authenticate and receive JWT tokens. Each sign-in is a device session the user can see and end."""
     service = AuthService(db)
@@ -45,10 +46,18 @@ def refresh(data: RefreshRequest, request: Request, db: Session = Depends(get_db
 def me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Return the currently authenticated user, with the optional services their society can use."""
     out = UserOut.from_orm_with_roles(current_user)
+    out.societies = AuthService(db).societies_for(current_user)
     if current_user.society_id is not None and not current_user.is_superadmin:
         from app.core.services_catalog import effective_services
         out.enabled_services = sorted(effective_services(db, current_user.society_id))
     return out
+
+
+@router.post("/switch-society", response_model=TokenResponse)
+def switch_society(data: SwitchSocietyRequest, request: Request, current_user: User = Depends(get_current_user),
+                   db: Session = Depends(get_db)):
+    """Move to your login in another society you signed in to together (same password), without typing it again."""
+    return AuthService(db).switch_society(current_user, data.society_id, request)
 
 
 @router.post("/change-password", status_code=204)

@@ -51,6 +51,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final isLoading = authState is AuthLoading;
     final errorMsg  = authState is AuthError ? authState.message : null;
 
+    // Signing in found a login in more than one society: pick which to open.
+    if (authState is AuthChoosingSociety) {
+      return AuthPage(
+        title: 'Choose your society',
+        subtitle: 'These details are in more than one society',
+        footer: TextButton(
+          onPressed: () => ref.read(authProvider.notifier).cancelChoice(),
+          child: const Text('Back'),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          for (final c in authState.choices)
+            Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                leading: const Icon(Icons.apartment_rounded, color: AppTheme.primary),
+                title: Text(c.societyName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: c.roleLabel.isEmpty ? null : Text(c.roleLabel),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => ref.read(authProvider.notifier).chooseSociety(c),
+              ),
+            ),
+        ]),
+      );
+    }
+
     return AuthPage(
       title: 'Welcome back',
       subtitle: 'Sign in to ${Env.appName}',

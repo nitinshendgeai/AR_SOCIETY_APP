@@ -24,7 +24,9 @@ import 'package:ar_society_app/features/dashboard/admin_overview.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart' show pendingVisitorApprovalsProvider;
 import 'package:ar_society_app/features/visitor/presentation/widgets/pending_visitors_banner.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart' show flatByIdProvider;
-import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart' show myResidentProvider;
+import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart' show ResidentModel;
+import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart' show myResidentProvider, myFlatsProvider, selectedFlatIdProvider;
+import 'package:ar_society_app/core/layout/app_sheet.dart';
 
 /// Whether this society has the optional service switched on (the platform owner may switch some off).
 bool _on(UserEntity? u, String key) => u == null || u.hasService(key);
@@ -752,6 +754,7 @@ class ResidentDashboardScreen extends ConsumerWidget {
     final myFlatId = ref.watch(myResidentProvider).valueOrNull?.flatId;
     final myFlat = myFlatId == null ? null : ref.watch(flatByIdProvider(myFlatId)).valueOrNull;
     final residentLoaded = ref.watch(myResidentProvider).hasValue;
+    final myFlats = ref.watch(myFlatsProvider).valueOrNull ?? const <ResidentModel>[];
     return _DashboardShell(
       title: 'Resident Dashboard',
       children: [
@@ -823,9 +826,10 @@ class ResidentDashboardScreen extends ConsumerWidget {
             ),
             _SummaryCard(
               icon: Icons.home_rounded,
-              label: 'My Flat',
+              label: myFlats.length > 1 ? 'My Flat · tap to switch' : 'My Flat',
               value: myFlat?.displayName ?? (residentLoaded && myFlatId == null ? 'Not linked' : '…'),
               color: AppTheme.success,
+              onTap: myFlats.length > 1 ? () => _pickFlat(context, myFlats) : null,
             ),
           ],
         ),
@@ -879,6 +883,40 @@ class ResidentDashboardScreen extends ConsumerWidget {
       ],
     );
   }
+}
+
+/// A resident with several flats picks which one the dashboard shows.
+void _pickFlat(BuildContext context, List<ResidentModel> flats) {
+  showAppSheet(
+    context: context,
+    builder: (_) => SafeArea(
+      child: Consumer(
+        builder: (context, ref, _) {
+          final current = ref.watch(myResidentProvider).valueOrNull?.flatId;
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              const Text('Your flats', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 10),
+              for (final f in flats)
+                Consumer(builder: (context, ref, _) {
+                  final flat = ref.watch(flatByIdProvider(f.flatId)).valueOrNull;
+                  return ListTile(
+                    leading: Icon(f.flatId == current ? Icons.check_circle_rounded : Icons.home_outlined,
+                        color: f.flatId == current ? AppTheme.success : AppTheme.textSecondary),
+                    title: Text(flat?.displayName ?? 'Flat'),
+                    onTap: () {
+                      ref.read(selectedFlatIdProvider.notifier).state = f.flatId;
+                      Navigator.of(context).pop();
+                    },
+                  );
+                }),
+            ]),
+          );
+        },
+      ),
+    ),
+  );
 }
 
 class _DeptRow extends StatelessWidget {

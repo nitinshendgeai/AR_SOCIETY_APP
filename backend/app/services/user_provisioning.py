@@ -36,11 +36,13 @@ def provision_login_by_phone(
     to the admin who triggered this (e.g. via a response 'warnings' list)
     since it's the only place the initial password is ever shown."""
     repo = UserRepository(db)
-    existing = repo.get_by_phone(phone)
+    # The login in *this* society (a person in another society has a login there; this one is separate). A
+    # disabled user doesn't hold the number, so a new login is made.
+    existing = repo.get_by_phone(phone, society_id=society_id)
     if existing:
         repo.assign_role(existing, role_name)
         return existing, (
-            f"A login account already exists for mobile number {phone} — "
+            f"A login account already exists for mobile number {phone} in this society — "
             "linked to the existing account."
         )
 

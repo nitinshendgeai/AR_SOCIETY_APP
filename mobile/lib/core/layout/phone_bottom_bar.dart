@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/navigation/app_menu.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
+import 'package:ar_society_app/features/auth/presentation/widgets/society_switcher.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart'
     show pendingVisitorApprovalsProvider;
 
@@ -108,6 +109,16 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
               },
             ),
           ),
+          if (user.societies.length > 1)
+            ListTile(
+              leading: const Icon(Icons.swap_horiz_rounded, color: AppTheme.textSecondary),
+              title: Text(ctx.tr('Switch society')),
+              subtitle: Text(user.societies.firstWhere((c) => c.current, orElse: () => user.societies.first).societyName),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                showSocietySwitcher(context, ref);
+              },
+            ),
           if (helpAvailable)
             ListTile(
               leading: const Icon(Icons.help_outline_rounded, color: AppTheme.textSecondary),

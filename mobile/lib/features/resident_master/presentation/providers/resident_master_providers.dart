@@ -133,11 +133,23 @@ final residentFormProvider = StateNotifierProvider<ResidentFormNotifier, Residen
 
 // ── Resident self-service edit requests ─────────────────────────────────────
 
+/// Which of my flats the dashboard is showing (null: the first). A person with several flats in a society picks one.
+final selectedFlatIdProvider = StateProvider<String?>((ref) => null);
+
+/// Every flat I am a resident of (one record each).
+final myFlatsProvider = FutureProvider<List<ResidentModel>>((ref) async {
+  final result = await ref.read(residentMasterRepositoryProvider).listMyFlats();
+  return switch (result) {
+    RmSuccess(:final data) => data,
+    RmFailure() => const <ResidentModel>[],
+  };
+});
+
 /// The logged-in user's own resident profile — null if this account has no
 /// linked resident record (e.g. Admin/Committee/Staff accounts).
 final myResidentProvider = FutureProvider<ResidentModel?>((ref) async {
   final repo = ref.read(residentMasterRepositoryProvider);
-  final result = await repo.getMyResident();
+  final result = await repo.getMyResident(flatId: ref.watch(selectedFlatIdProvider));
   return switch (result) {
     RmSuccess(:final data) => data,
     RmFailure() => null,

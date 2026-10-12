@@ -51,9 +51,15 @@ class ResidentMasterRemoteDataSource {
   }
 
   /// GET /residents/me
-  Future<ResidentModel> getMyResident() async {
-    final r = await _dio.get('/residents/me');
+  Future<ResidentModel> getMyResident({String? flatId}) async {
+    final r = await _dio.get('/residents/me', queryParameters: {if (flatId != null) 'flat_id': flatId});
     return ResidentModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// GET /residents/mine — every flat I am a resident of.
+  Future<List<ResidentModel>> listMyFlats() async {
+    final r = await _dio.get('/residents/mine');
+    return (r.data as List).map((e) => ResidentModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   // ── Resident self-service edit requests ───────────────────────────────
