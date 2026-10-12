@@ -48,6 +48,7 @@ String eventLabel(String? e) => switch (e) {
       'society_activated' => 'Activated',
       'trial_extended' => 'Trial extended',
       'limits_changed' => 'Limits changed',
+      'service_switched' => 'Service switched',
       'society_self_registered' => 'Registered',
       _ => e ?? 'Changed',
     };
@@ -57,6 +58,7 @@ String eventDetail(String? e, Map<String, dynamic> d) => switch (e) {
       'society_suspended' => 'Reason: ${d['reason'] ?? '—'}',
       'society_activated' => 'On the ${planLabel(d['plan']?.toString())} plan${d['expires_on'] == null ? '' : ' until ${dayText(_dt(d['expires_on']))}'}',
       'trial_extended' => '${d['extend_days']} more days, now ends ${dayText(_dt(d['new_end_date']))}',
+      'service_switched' => '${(d['service'] ?? '').toString().replaceAll('_', ' ')} turned ${d['enabled'] == true ? 'on' : 'off'}',
       'limits_changed' => 'Users ${(d['old'] as Map?)?['users']} → ${(d['new'] as Map?)?['users']}, flats ${(d['old'] as Map?)?['flats']} → ${(d['new'] as Map?)?['flats']}',
       _ => '',
     };
@@ -223,6 +225,22 @@ class PlatformSociety {
   }
 }
 
+/// One optional service of a society and whether the platform owner has it on.
+class SocietyServiceSwitch {
+  final String key;
+  final String label;
+  final String description;
+  final bool enabled;
+  const SocietyServiceSwitch({required this.key, required this.label, required this.description, required this.enabled});
+
+  factory SocietyServiceSwitch.fromJson(Map<String, dynamic> j) => SocietyServiceSwitch(
+        key: j['key'] as String,
+        label: j['label'] as String? ?? j['key'] as String,
+        description: j['description'] as String? ?? '',
+        enabled: j['enabled'] as bool? ?? true,
+      );
+}
+
 class PlatformApi {
   final Dio _dio;
   PlatformApi({Dio? dio}) : _dio = dio ?? ApiClient.instance;
@@ -245,4 +263,12 @@ class PlatformApi {
       _dio.post('/platform-admin/societies/$id/activate', data: {'plan': plan, if (expiresOn != null) 'expires_on': apiDay(expiresOn)});
   Future<void> setLimits(String id, int users, int flats, int storageMb) =>
       _dio.put('/platform-admin/societies/$id/limits', data: {'allowed_users': users, 'allowed_flats': flats, 'allowed_storage_mb': storageMb});
+
+  Future<List<SocietyServiceSwitch>> societyServices(String id) async =>
+      ((await _dio.get('/platform-admin/societies/$id/services')).data['services'] as List)
+          .map((e) => SocietyServiceSwitch.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+  Future<void> switchService(String id, String key, bool enabled) =>
+      _dio.put('/platform-admin/societies/$id/services/$key', data: {'enabled': enabled});
 }

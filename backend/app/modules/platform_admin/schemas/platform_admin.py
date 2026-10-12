@@ -50,6 +50,10 @@ class ActivateSocietyRequest(BaseModel):
         return v
 
 
+class ServiceSwitchRequest(BaseModel):
+    enabled: bool
+
+
 class SocietyAdminSummary(BaseModel):
     id:              str
     name:            str

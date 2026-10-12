@@ -26,6 +26,18 @@ import 'package:ar_society_app/features/visitor/presentation/widgets/pending_vis
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart' show flatByIdProvider;
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart' show myResidentProvider;
 
+/// Whether this society has the optional service switched on (the platform owner may switch some off).
+bool _on(UserEntity? u, String key) => u == null || u.hasService(key);
+
+/// A row of quick actions that leaves out the null ones (services switched off for this society).
+Widget _chipRow(List<Widget?> chips) {
+  final shown = chips.whereType<Widget>().toList();
+  if (shown.isEmpty) return const SizedBox.shrink();
+  return Row(children: [
+    for (var i = 0; i < shown.length; i++) ...[if (i > 0) const SizedBox(width: 8), shown[i]],
+  ]);
+}
+
 // ── Shared scaffold wrapper ───────────────────────────────────────────────────
 
 class _DashboardShell extends ConsumerWidget {
@@ -512,12 +524,12 @@ class AdminDashboardScreen extends ConsumerWidget {
     // The overview numbers come from one server call (AdminOverview); only the
     // active-staff count is read here.
     final staffListState = ref.watch(staffListProvider);
-    if (societyId != null && staffListState is StaffListInitial) {
+    if (societyId != null && _on(user, 'staff') && staffListState is StaffListInitial) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(staffListProvider.notifier).load(societyId);
       });
     }
-    final activeStaff = staffListState is StaffListLoaded ? '${staffListState.staff.length}' : '--';
+    final activeStaff = !_on(user, 'staff') ? null : (staffListState is StaffListLoaded ? '${staffListState.staff.length}' : '--');
     final societyComplaints = societyId == null ? AppRoutes.complaints : AppRoutes.complaintsSociety.replaceFirst(':societyId', societyId);
 
     return _DashboardShell(
@@ -530,19 +542,20 @@ class AdminDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 18),
         const _SectionLabel('Quick Actions'),
         const SizedBox(height: 10),
-        Row(children: [
-          _QuickActionChip(
-            icon: Icons.person_add_rounded, label: 'Add Visitor',
-            onTap: societyId != null
-                ? () => context.push(AppRoutes.visitorsCreate, extra: societyId)
-                : null,
-          ),
-          const SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: societyComplaints),
-          const SizedBox(width: 8),
-          const _QuickActionChip(icon: Icons.person_add_alt_1_rounded, label: 'Add Staff', route: AppRoutes.staffAdd),
-          const SizedBox(width: 8),
-          const _QuickActionChip(icon: Icons.badge_rounded, label: 'Staff List', route: AppRoutes.staffList),
+        _chipRow([
+          if (_on(user, 'visitors'))
+            _QuickActionChip(
+              icon: Icons.person_add_rounded, label: 'Add Visitor',
+              onTap: societyId != null
+                  ? () => context.push(AppRoutes.visitorsCreate, extra: societyId)
+                  : null,
+            ),
+          if (_on(user, 'complaints'))
+            _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: societyComplaints),
+          if (_on(user, 'staff')) ...const [
+            _QuickActionChip(icon: Icons.person_add_alt_1_rounded, label: 'Add Staff', route: AppRoutes.staffAdd),
+            _QuickActionChip(icon: Icons.badge_rounded, label: 'Staff List', route: AppRoutes.staffList),
+          ],
         ]),
         const SizedBox(height: 18),
       ],
@@ -561,14 +574,14 @@ class CommitteeDashboardScreen extends ConsumerWidget {
     final societyId = user?.societyId;
 
     final staffListState = ref.watch(staffListProvider);
-    if (societyId != null && staffListState is StaffListInitial) {
+    if (societyId != null && _on(user, 'staff') && staffListState is StaffListInitial) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(staffListProvider.notifier).load(societyId);
       });
     }
     final staffCount = staffListState is StaffListLoaded ? '${staffListState.staff.length}' : '--';
 
-    final committeeComplaintsAsync = societyId != null
+    final committeeComplaintsAsync = societyId != null && _on(user, 'complaints')
         ? ref.watch(openComplaintsCountProvider(societyId))
         : const AsyncValue<int>.data(0);
     final committeeComplaints = committeeComplaintsAsync.valueOrNull != null
@@ -576,7 +589,7 @@ class CommitteeDashboardScreen extends ConsumerWidget {
         : '--';
 
     final committeeApprovalState = ref.watch(approvalProvider);
-    if (societyId != null && committeeApprovalState is ApprovalInitial) {
+    if (societyId != null && _on(user, 'staff') && committeeApprovalState is ApprovalInitial) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(approvalProvider.notifier).load(societyId);
       });
@@ -607,41 +620,46 @@ class CommitteeDashboardScreen extends ConsumerWidget {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           children: [
-            _SummaryCard(icon: Icons.report_problem_rounded, label: 'Complaints', value: committeeComplaints, color: AppTheme.error),
+            if (_on(user, 'complaints'))
+              _SummaryCard(icon: Icons.report_problem_rounded, label: 'Complaints', value: committeeComplaints, color: AppTheme.error),
             _SummaryCard(icon: Icons.account_balance_wallet_rounded, label: 'Maintenance Dues',
                 value: committeeDues, color: AppTheme.warning,
                 onTap: () => context.go(AppRoutes.maintenanceBilling)),
-            _SummaryCard(icon: Icons.approval_rounded, label: 'Approvals', value: committeeApprovals, color: AppTheme.warning),
-            _SummaryCard(icon: Icons.people_rounded, label: 'Staff', value: staffCount, color: AppTheme.secondary),
+            if (_on(user, 'staff')) ...[
+              _SummaryCard(icon: Icons.approval_rounded, label: 'Approvals', value: committeeApprovals, color: AppTheme.warning),
+              _SummaryCard(icon: Icons.people_rounded, label: 'Staff', value: staffCount, color: AppTheme.secondary),
+            ],
           ],
         ),
         const SizedBox(height: 18),
         const _SectionLabel('Quick Actions'),
         const SizedBox(height: 10),
         // The committee runs the society, so these open the society-wide lists, as the menu does.
-        Row(children: [
-          _QuickActionChip(
-            icon: Icons.report_problem_rounded,
-            label: 'Complaints',
-            route: societyId == null ? AppRoutes.complaints : AppRoutes.complaintsSociety.replaceFirst(':societyId', societyId),
-          ),
-          const SizedBox(width: 8),
+        _chipRow([
+          if (_on(user, 'complaints'))
+            _QuickActionChip(
+              icon: Icons.report_problem_rounded,
+              label: 'Complaints',
+              route: societyId == null ? AppRoutes.complaints : AppRoutes.complaintsSociety.replaceFirst(':societyId', societyId),
+            ),
           const _QuickActionChip(icon: Icons.settings_outlined, label: 'Society Info', route: AppRoutes.societySettings),
-          const SizedBox(width: 8),
-          const _QuickActionChip(icon: Icons.people_rounded, label: 'Staff', route: AppRoutes.staffList),
-          const SizedBox(width: 8),
-          _QuickActionChip(
-            icon: Icons.meeting_room_rounded,
-            label: 'Visitors',
-            route: societyId == null ? AppRoutes.visitorsMy : AppRoutes.visitorsSociety.replaceFirst(':societyId', societyId),
-          ),
+          if (_on(user, 'staff'))
+            const _QuickActionChip(icon: Icons.people_rounded, label: 'Staff', route: AppRoutes.staffList),
+          if (_on(user, 'visitors'))
+            _QuickActionChip(
+              icon: Icons.meeting_room_rounded,
+              label: 'Visitors',
+              route: societyId == null ? AppRoutes.visitorsMy : AppRoutes.visitorsSociety.replaceFirst(':societyId', societyId),
+            ),
         ]),
-        const SizedBox(height: 18),
-        _OperationalPanel(title: 'Open actions', children: const [
-          _InfoTile(icon: Icons.pending_actions_rounded, title: 'Pending approvals', value: 'See Staff → Approvals', color: AppTheme.warning),
-          SizedBox(height: 8),
-          _InfoTile(icon: Icons.gpp_good_rounded, title: 'Society status', value: 'Staff module operational', color: AppTheme.success),
-        ]),
+        if (_on(user, 'staff')) ...[
+          const SizedBox(height: 18),
+          _OperationalPanel(title: 'Open actions', children: const [
+            _InfoTile(icon: Icons.pending_actions_rounded, title: 'Pending approvals', value: 'See Staff → Approvals', color: AppTheme.warning),
+            SizedBox(height: 8),
+            _InfoTile(icon: Icons.gpp_good_rounded, title: 'Society status', value: 'Staff module operational', color: AppTheme.success),
+          ]),
+        ],
         const SizedBox(height: 18),
       ],
     );
@@ -678,33 +696,36 @@ class SecurityDashboardScreen extends ConsumerWidget {
           ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          children: const [
-            _SummaryCard(icon: Icons.people_rounded, label: 'Visitors Today', value: '--', color: AppTheme.primary),
-            _SummaryCard(icon: Icons.login_rounded, label: 'Check-ins', value: '--', color: AppTheme.success),
-            _SummaryCard(icon: Icons.local_parking_rounded, label: 'Parking Entries', value: '--', color: AppTheme.secondary),
-            _SummaryCard(icon: Icons.shield_rounded, label: 'Duty Status', value: 'Active', color: AppTheme.warning),
+          children: [
+            if (_on(user, 'visitors')) ...const [
+              _SummaryCard(icon: Icons.people_rounded, label: 'Visitors Today', value: '--', color: AppTheme.primary),
+              _SummaryCard(icon: Icons.login_rounded, label: 'Check-ins', value: '--', color: AppTheme.success),
+            ],
+            if (_on(user, 'parking'))
+              const _SummaryCard(icon: Icons.local_parking_rounded, label: 'Parking Entries', value: '--', color: AppTheme.secondary),
+            const _SummaryCard(icon: Icons.shield_rounded, label: 'Duty Status', value: 'Active', color: AppTheme.warning),
           ],
         ),
         const SizedBox(height: 18),
         const _SectionLabel('Quick Actions'),
         const SizedBox(height: 10),
-        Row(children: [
-          _QuickActionChip(
-            icon: Icons.person_add_rounded, label: 'Log Visitor',
-            onTap: societyId != null
-                ? () => context.push(AppRoutes.visitorsCreate, extra: societyId)
-                : null,
-          ),
-          const SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.login_rounded, label: 'Check In', route: visitorLog),
-          const SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.logout_rounded, label: 'Check Out', route: '$visitorLog?tab=inside'),
-        ]),
-        const SizedBox(height: 8),
-        Row(children: [
-          _QuickActionChip(icon: Icons.list_alt_rounded, label: 'Visitor Log', route: visitorLog),
-          const SizedBox(width: 8),
-          const _QuickActionChip(icon: Icons.local_parking_rounded, label: 'Vehicle Gate', route: AppRoutes.parkingGateCheck),
+        if (_on(user, 'visitors')) ...[
+          _chipRow([
+            _QuickActionChip(
+              icon: Icons.person_add_rounded, label: 'Log Visitor',
+              onTap: societyId != null
+                  ? () => context.push(AppRoutes.visitorsCreate, extra: societyId)
+                  : null,
+            ),
+            _QuickActionChip(icon: Icons.login_rounded, label: 'Check In', route: visitorLog),
+            _QuickActionChip(icon: Icons.logout_rounded, label: 'Check Out', route: '$visitorLog?tab=inside'),
+          ]),
+          const SizedBox(height: 8),
+        ],
+        _chipRow([
+          if (_on(user, 'visitors')) _QuickActionChip(icon: Icons.list_alt_rounded, label: 'Visitor Log', route: visitorLog),
+          if (_on(user, 'parking'))
+            const _QuickActionChip(icon: Icons.local_parking_rounded, label: 'Vehicle Gate', route: AppRoutes.parkingGateCheck),
         ]),
         const SizedBox(height: 18),
         _OperationalPanel(title: 'Shift Notes', children: const [
@@ -726,8 +747,8 @@ class ResidentDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
-    final waiting = ref.watch(pendingVisitorApprovalsProvider).valueOrNull?.length ?? 0;
-    final openComplaints = ref.watch(myOpenComplaintsCountProvider);
+    final waiting = _on(user, 'visitors') ? (ref.watch(pendingVisitorApprovalsProvider).valueOrNull?.length ?? 0) : 0;
+    final openComplaints = _on(user, 'complaints') ? ref.watch(myOpenComplaintsCountProvider) : const AsyncValue<int>.data(0);
     final myFlatId = ref.watch(myResidentProvider).valueOrNull?.flatId;
     final myFlat = myFlatId == null ? null : ref.watch(flatByIdProvider(myFlatId)).valueOrNull;
     final residentLoaded = ref.watch(myResidentProvider).hasValue;
@@ -757,7 +778,7 @@ class ResidentDashboardScreen extends ConsumerWidget {
             ]),
           ),
         ],
-        const PendingVisitorsBanner(padding: EdgeInsets.only(top: 14)),
+        if (_on(user, 'visitors')) const PendingVisitorsBanner(padding: EdgeInsets.only(top: 14)),
         const SizedBox(height: 18),
         const _SectionLabel('Summary'),
         const SizedBox(height: 10),
@@ -771,20 +792,22 @@ class ResidentDashboardScreen extends ConsumerWidget {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           children: [
-            _SummaryCard(
-              icon: Icons.report_problem_rounded,
-              label: 'Open Complaints',
-              value: openComplaints.when(data: (n) => '$n', loading: () => '…', error: (_, __) => '0'),
-              color: AppTheme.error,
-              onTap: () => context.push(AppRoutes.complaints),
-            ),
-            _SummaryCard(
-              icon: Icons.how_to_reg_rounded,
-              label: 'Visitors Waiting',
-              value: '$waiting',
-              color: AppTheme.primary,
-              onTap: () => context.push(AppRoutes.visitorsPending),
-            ),
+            if (_on(user, 'complaints'))
+              _SummaryCard(
+                icon: Icons.report_problem_rounded,
+                label: 'Open Complaints',
+                value: openComplaints.when(data: (n) => '$n', loading: () => '…', error: (_, __) => '0'),
+                color: AppTheme.error,
+                onTap: () => context.push(AppRoutes.complaints),
+              ),
+            if (_on(user, 'visitors'))
+              _SummaryCard(
+                icon: Icons.how_to_reg_rounded,
+                label: 'Visitors Waiting',
+                value: '$waiting',
+                color: AppTheme.primary,
+                onTap: () => context.push(AppRoutes.visitorsPending),
+              ),
             _SummaryCard(
               icon: Icons.receipt_long_rounded,
               label: 'Bills Due',
@@ -809,12 +832,12 @@ class ResidentDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 18),
         const _SectionLabel('Quick Actions'),
         const SizedBox(height: 10),
-        Row(children: const [
-          _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaint', route: AppRoutes.complaints),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.edit_note_rounded, label: 'Edit My Info', route: AppRoutes.editMyProfile),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.person_rounded, label: 'Visitors', route: AppRoutes.visitorsMy),
+        _chipRow([
+          if (_on(user, 'complaints'))
+            const _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaint', route: AppRoutes.complaints),
+          const _QuickActionChip(icon: Icons.edit_note_rounded, label: 'Edit My Info', route: AppRoutes.editMyProfile),
+          if (_on(user, 'visitors'))
+            const _QuickActionChip(icon: Icons.person_rounded, label: 'Visitors', route: AppRoutes.visitorsMy),
         ]),
         const SizedBox(height: 8),
         // "Society Info" was deliberately removed here — Society Settings is
@@ -823,9 +846,9 @@ class ResidentDashboardScreen extends ConsumerWidget {
         // fully-editable settings screen with no read-only mode, so a
         // Resident could see (and be shown Save controls for) fields they
         // aren't allowed to change, only failing with a 403 on tapping Save.
-        Row(children: [
-          _QuickActionChip(icon: Icons.pending_actions_rounded, label: 'Approvals', route: AppRoutes.visitorsPending, badge: waiting),
-          const SizedBox(width: 8),
+        _chipRow([
+          if (_on(user, 'visitors'))
+            _QuickActionChip(icon: Icons.pending_actions_rounded, label: 'Approvals', route: AppRoutes.visitorsPending, badge: waiting),
           const _QuickActionChip(icon: Icons.receipt_long_rounded, label: 'My Bills', route: AppRoutes.myBills),
         ]),
         const SizedBox(height: 18),
@@ -842,13 +865,15 @@ class ResidentDashboardScreen extends ConsumerWidget {
                 ),
             color: AppTheme.primary,
           ),
-          const SizedBox(height: 8),
-          _InfoTile(
-            icon: Icons.pending_actions_rounded,
-            title: 'Visitor approvals',
-            value: waiting == 0 ? 'No one waiting' : '$waiting waiting at the gate',
-            color: AppTheme.warning,
-          ),
+          if (_on(user, 'visitors')) ...[
+            const SizedBox(height: 8),
+            _InfoTile(
+              icon: Icons.pending_actions_rounded,
+              title: 'Visitor approvals',
+              value: waiting == 0 ? 'No one waiting' : '$waiting waiting at the gate',
+              color: AppTheme.warning,
+            ),
+          ],
         ]),
         const SizedBox(height: 18),
       ],
@@ -910,14 +935,14 @@ class ManagerDashboardScreen extends ConsumerWidget {
     final societyId = user?.societyId;
 
     final approvalState = ref.watch(approvalProvider);
-    if (societyId != null && approvalState is ApprovalInitial) {
+    if (societyId != null && _on(user, 'staff') && approvalState is ApprovalInitial) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(approvalProvider.notifier).load(societyId);
       });
     }
 
     final staffListState = ref.watch(staffListProvider);
-    if (societyId != null && staffListState is StaffListInitial) {
+    if (societyId != null && _on(user, 'staff') && staffListState is StaffListInitial) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(staffListProvider.notifier).load(societyId);
       });
@@ -928,7 +953,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
     final totalStaff      = staffListState is StaffListLoaded ? '${staffListState.staff.length}' : '--';
 
     // Attendance summary for absent + late
-    final summaryAsync = societyId != null
+    final summaryAsync = societyId != null && _on(user, 'staff')
         ? ref.watch(attendanceSummaryProvider(societyId))
         : const AsyncValue<Map<String, dynamic>>.data({});
     final summary     = summaryAsync.valueOrNull ?? {};
@@ -936,7 +961,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
     final lateCount   = summary['late']   != null ? '${summary['late']}'   : '--';
 
     // Open complaints count
-    final complaintsAsync = societyId != null
+    final complaintsAsync = societyId != null && _on(user, 'complaints')
         ? ref.watch(openComplaintsCountProvider(societyId))
         : const AsyncValue<int>.data(0);
     final openComplaints = complaintsAsync.valueOrNull != null
@@ -944,7 +969,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
         : '--';
 
     // Duty assignment queue
-    final dutiesAsync = societyId != null
+    final dutiesAsync = societyId != null && _on(user, 'staff')
         ? ref.watch(societyDutiesProvider(societyId))
         : const AsyncValue<List<DutyEntity>>.data([]);
     final duties         = dutiesAsync.valueOrNull ?? [];
@@ -966,8 +991,9 @@ class ManagerDashboardScreen extends ConsumerWidget {
       title: 'Manager Dashboard',
       children: [
         _GreetingCard(user: user, subtitle: 'Manager · Operations & Approvals'),
-        if (societyId != null) ...[const SizedBox(height: 14), ChecklistTodayCard(societyId: societyId)],
+        if (societyId != null && _on(user, 'checklist')) ...[const SizedBox(height: 14), ChecklistTodayCard(societyId: societyId)],
         const SizedBox(height: 18),
+        if (_on(user, 'staff') || _on(user, 'complaints')) ...[
         const _SectionLabel('Today\'s Attendance'),
         const SizedBox(height: 10),
         GridView(
@@ -980,6 +1006,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           children: [
+            if (_on(user, 'staff')) ...[
             _SummaryCard(
               icon: Icons.login_rounded,
               label: 'Pending Check-in',
@@ -1005,24 +1032,28 @@ class ManagerDashboardScreen extends ConsumerWidget {
               color: AppTheme.warning,
             ),
             _SummaryCard(icon: Icons.badge_rounded, label: 'Total Staff', value: totalStaff, color: AppTheme.primary),
-            _SummaryCard(
-              icon: Icons.assignment_rounded,
-              label: 'Open Complaints',
-              value: openComplaints,
-              color: openComplaints != '0' && openComplaints != '--' ? AppTheme.error : AppTheme.success,
-              onTap: () => context.push(AppRoutes.complaintsAssigned),
-            ),
-            _SummaryCard(
-              icon: Icons.assignment_late_rounded,
-              label: 'Duty Queue',
-              value: dutiesAsync.isLoading ? '--' : '$pendingDuties',
-              color: pendingDuties > 0 ? AppTheme.warning : AppTheme.success,
-              onTap: societyId != null
-                  ? () => context.push(AppRoutes.staffDutyOverview, extra: societyId)
-                  : null,
-            ),
+            ],
+            if (_on(user, 'complaints'))
+              _SummaryCard(
+                icon: Icons.assignment_rounded,
+                label: 'Open Complaints',
+                value: openComplaints,
+                color: openComplaints != '0' && openComplaints != '--' ? AppTheme.error : AppTheme.success,
+                onTap: () => context.push(AppRoutes.complaintsAssigned),
+              ),
+            if (_on(user, 'staff'))
+              _SummaryCard(
+                icon: Icons.assignment_late_rounded,
+                label: 'Duty Queue',
+                value: dutiesAsync.isLoading ? '--' : '$pendingDuties',
+                color: pendingDuties > 0 ? AppTheme.warning : AppTheme.success,
+                onTap: societyId != null
+                    ? () => context.push(AppRoutes.staffDutyOverview, extra: societyId)
+                    : null,
+              ),
           ],
         ),
+        ],
         if (deptBreakdown.isNotEmpty) ...[
           const SizedBox(height: 18),
           const _SectionLabel('Department Summary'),
@@ -1045,22 +1076,22 @@ class ManagerDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 18),
         const _SectionLabel('Quick Actions'),
         const SizedBox(height: 10),
-        Row(children: [
-          _QuickActionChip(
-            icon: Icons.approval_rounded, label: 'Approvals',
-            onTap: societyId != null ? () => context.push(AppRoutes.staffApprovals, extra: societyId) : null,
-          ),
-          const SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.badge_rounded, label: 'Staff', route: AppRoutes.staffList),
-          const SizedBox(width: 8),
-          _QuickActionChip(
-            icon: Icons.assignment_turned_in_rounded, label: 'Assign Duty',
-            onTap: societyId != null
-                ? () => context.push(AppRoutes.staffAssignDuty, extra: {'societyId': societyId})
-                : null,
-          ),
-          const SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: AppRoutes.complaintsAssigned),
+        _chipRow([
+          if (_on(user, 'staff')) ...[
+            _QuickActionChip(
+              icon: Icons.approval_rounded, label: 'Approvals',
+              onTap: societyId != null ? () => context.push(AppRoutes.staffApprovals, extra: societyId) : null,
+            ),
+            _QuickActionChip(icon: Icons.badge_rounded, label: 'Staff', route: AppRoutes.staffList),
+            _QuickActionChip(
+              icon: Icons.assignment_turned_in_rounded, label: 'Assign Duty',
+              onTap: societyId != null
+                  ? () => context.push(AppRoutes.staffAssignDuty, extra: {'societyId': societyId})
+                  : null,
+            ),
+          ],
+          if (_on(user, 'complaints'))
+            _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: AppRoutes.complaintsAssigned),
         ]),
         const SizedBox(height: 18),
         const _SectionLabel('Maintenance'),
@@ -1092,12 +1123,11 @@ class ManagerDashboardScreen extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 10),
-        Row(children: const [
-          _QuickActionChip(icon: Icons.receipt_long_rounded, label: 'Maintenance Billing', route: AppRoutes.maintenanceBilling),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.payments_rounded, label: 'Payments', route: AppRoutes.onlinePayments),
-          SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.request_quote_rounded, label: 'Vendor Bills', route: AppRoutes.vendorBills),
+        _chipRow([
+          const _QuickActionChip(icon: Icons.receipt_long_rounded, label: 'Maintenance Billing', route: AppRoutes.maintenanceBilling),
+          const _QuickActionChip(icon: Icons.payments_rounded, label: 'Payments', route: AppRoutes.onlinePayments),
+          if (_on(user, 'vendors'))
+            const _QuickActionChip(icon: Icons.request_quote_rounded, label: 'Vendor Bills', route: AppRoutes.vendorBills),
         ]),
         const SizedBox(height: 18),
       ],

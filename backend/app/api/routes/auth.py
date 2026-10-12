@@ -42,9 +42,13 @@ def refresh(data: RefreshRequest, request: Request, db: Session = Depends(get_db
 
 
 @router.get("/me", response_model=UserOut)
-def me(current_user: User = Depends(get_current_user)):
-    """Return the currently authenticated user."""
-    return UserOut.from_orm_with_roles(current_user)
+def me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Return the currently authenticated user, with the optional services their society can use."""
+    out = UserOut.from_orm_with_roles(current_user)
+    if current_user.society_id is not None and not current_user.is_superadmin:
+        from app.core.services_catalog import effective_services
+        out.enabled_services = sorted(effective_services(db, current_user.society_id))
+    return out
 
 
 @router.post("/change-password", status_code=204)

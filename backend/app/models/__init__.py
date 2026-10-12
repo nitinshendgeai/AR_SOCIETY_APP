@@ -5,6 +5,7 @@ from app.models.flat         import Flat, FlatType, OccupancyStatus, Maintenance
 from app.models.role         import Role
 from app.models.permission   import Permission, RolePermission
 from app.models.form         import Form, RoleForm
+from app.models.society_service import SocietyService
 import app.core.rbac_seed  # noqa — registers the Role after_insert auto-grant listeners
 from app.models.user         import User, UserRole, UserStatus
 from app.models.resident     import Resident, ResidentType, CommunicationPreference

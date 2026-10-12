@@ -4,6 +4,23 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-12 (gg)
+
+### feat: platform owner can switch services on or off for one society
+
+- Platform Console → a society → **Services**: a switch per optional service (visitors, complaints, notices, amenities,
+  parking, staff & duty, vendors, stores & assets, meetings/polls/documents, certificates, parcels & domestic help, shops,
+  manager's checklist, accounts). All on by default. Platform admin only; manual, per society; each change is recorded in
+  the society's history. Core (sign-in, structure, residents, billing, users, dashboard) can't be switched.
+- An off service is closed in the API (`403 "<Service> is not enabled for your society"`), its menu items are dropped from
+  `/roles/forms/mine`, `/auth/me` returns `enabled_services`, and the role dashboards plus the admin overview's attention
+  list, money row and visitors-today leave it out. Records are kept; switching back on restores it.
+- Endpoints: `GET /platform-admin/societies/{id}/services`, `PUT /platform-admin/societies/{id}/services/{key}`.
+  Migration `e1b4c8d6f3a2` creates `society_services`.
+- Tests: `tests/platform_admin/test_service_switches.py`, `mobile/test/service_switch_test.dart`. Docs: `PLATFORM_ADMIN.md`.
+- Checked while here: suspend, activate, extend trial and limits work (27 existing tests + browser). **Limits are recorded
+  but not enforced** (a society can add users or flats past its allowance) — documented in `PLATFORM_ADMIN.md`, unchanged.
+
 ## 2026-10-11 (ff)
 
 ### feat: interest waiver / lower interest rate for one flat

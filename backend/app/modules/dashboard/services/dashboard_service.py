@@ -45,6 +45,14 @@ def _money(v) -> str:
     return str(Decimal(v or 0))
 
 
+# The optional service each "needs attention" item belongs to (items not listed are core).
+ATTENTION_SERVICE = {
+    "vendor_bills_overdue": "vendors", "recurring_due": "accounts",
+    "complaints_old": "complaints", "complaints_open": "complaints", "amenity_requests": "amenities",
+    "punch_approvals": "staff", "leave_requests": "staff", "low_stock": "inventory",
+}
+
+
 class DashboardService:
     def __init__(self, db: Session):
         self.db = db
@@ -168,6 +176,10 @@ class DashboardService:
         # Stores
         add("low_stock", len(InventoryService(db).get_low_stock_items(society_id)), "medium")
 
+        # Nothing is raised about a service the platform owner has switched off for this society.
+        from app.core.services_catalog import off_services
+        off = off_services(db, society_id)
+        items = [i for i in items if ATTENTION_SERVICE.get(i["key"]) not in off]
         order = {"high": 0, "medium": 1, "info": 2}
         items.sort(key=lambda i: (order[i["severity"]], -i["count"]))
         return items
@@ -179,14 +191,16 @@ class DashboardService:
         return self._attention(society_id, today)
 
     def society(self, society_id: UUID) -> dict:
+        from app.core.services_catalog import off_services
+        off = off_services(self.db, society_id)
         society = self.db.query(Society).filter(Society.id == society_id).first()
         tz = zone(getattr(society, "timezone", None))
         today = local_today(tz)
         return {
             "as_of": today.isoformat(),
             "collection": self._block("collection", lambda: self._collection(society_id)),
-            "money": self._block("money", lambda: self._money_block(society_id)),
+            "money": None if "accounts" in off else self._block("money", lambda: self._money_block(society_id)),
             "occupancy": self._block("occupancy", lambda: self._occupancy(society_id)),
-            "today": self._block("today", lambda: self._today(society_id, tz)),
+            "today": None if "visitors" in off else self._block("today", lambda: self._today(society_id, tz)),
             "attention": self._block("attention", lambda: self._attention(society_id, today), []),
         }

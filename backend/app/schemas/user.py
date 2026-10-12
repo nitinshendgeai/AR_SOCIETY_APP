@@ -64,6 +64,8 @@ class UserOut(TimestampSchema):
     society_id:           Optional[UUID] = None
     last_login:           Optional[datetime] = None
     roles:                List[str] = []
+    # Only on /auth/me: the optional services this user's society can use (None = not limited, e.g. platform admin)
+    enabled_services:     Optional[List[str]] = None
 
     @classmethod
     def from_orm_with_roles(cls, user) -> "UserOut":

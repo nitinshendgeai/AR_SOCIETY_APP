@@ -11,6 +11,7 @@ from app.modules.platform_admin.schemas.platform_admin import (
     SuspendSocietyRequest,
     ActivateSocietyRequest,
     LimitsRequest,
+    ServiceSwitchRequest,
 )
 from app.modules.platform_admin.services.platform_admin_service import PlatformAdminService
 
@@ -102,3 +103,18 @@ def activate_society(
 ):
     """Activate a society on a paid subscription plan."""
     return PlatformAdminService(db).activate_society(str(society_id), data.plan, admin, data.expires_on)
+
+
+# ── Services ──────────────────────────────────────────────────────────────────
+
+@router.get("/societies/{society_id}/services")
+def society_services(society_id: UUID, db: Session = Depends(get_db), admin: User = Depends(require_platform_admin)):
+    """Every optional service and whether it is on for this society."""
+    return PlatformAdminService(db).society_services(str(society_id))
+
+
+@router.put("/societies/{society_id}/services/{service_key}")
+def switch_service(society_id: UUID, service_key: str, data: ServiceSwitchRequest, db: Session = Depends(get_db),
+                   admin: User = Depends(require_platform_admin)):
+    """Switch one service on or off for this society. Off closes its API calls and hides its menu items."""
+    return PlatformAdminService(db).set_service(str(society_id), service_key, data.enabled, admin)

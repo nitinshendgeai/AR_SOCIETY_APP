@@ -127,6 +127,13 @@ def get_my_forms(
         for rf in role.role_forms:
             if rf.form:
                 codes.add(rf.form.code)
+    # Menu items of a service the platform owner has switched off for this society are not offered.
+    if current_user.society_id is not None and not getattr(current_user, "is_superadmin", False):
+        from app.core.services_catalog import SERVICES, effective_services
+        on = effective_services(db, current_user.society_id)
+        for service in SERVICES:
+            if service.key not in on:
+                codes.difference_update(service.form_codes)
     return MyFormsResponse(form_codes=sorted(codes))
 
 

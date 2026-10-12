@@ -6,7 +6,9 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
+from app.core import services_catalog as catalog
 from app.models.society import Society, AccountStatus, ACCOUNT_STATUS_TRANSITIONS
+from app.models.society_service import SocietyService
 from app.models.audit_log import AuditAction, AuditLog
 from app.models.flat import Flat
 from app.models.role import Role
@@ -288,6 +290,41 @@ class PlatformAdminService:
             "subscription_plan": society.subscription_plan,
             "message":           f"Society activated on {plan} plan.",
         }
+
+    # ── Services ──────────────────────────────────────────────────────────────
+
+    def society_services(self, society_id: str) -> dict:
+        """Every optional service and whether it is on for this society."""
+        society = self._get_society(society_id)
+        off = catalog.off_services(self.db, society.id)
+        return {
+            "society_id": str(society.id),
+            "services": [{"key": x.key, "label": x.label, "description": x.description, "enabled": x.key not in off}
+                         for x in catalog.SERVICES],
+        }
+
+    def set_service(self, society_id: str, key: str, enabled: bool, admin: User) -> dict:
+        """Switch one service on or off for this society. Off closes its API calls and hides its menu items."""
+        society = self._get_society(society_id)
+        if key not in catalog.BY_KEY:
+            raise HTTPException(status_code=404, detail="Unknown service")
+        row = self.db.query(SocietyService).filter(SocietyService.society_id == society.id,
+                                                   SocietyService.service_key == key).first()
+        was_on = row is None or row.enabled
+        if enabled and row is not None:
+            self.db.delete(row)
+        elif not enabled and row is None:
+            self.db.add(SocietyService(society_id=society.id, service_key=key, enabled=False, changed_by=admin.id))
+        elif not enabled:
+            row.enabled, row.changed_by = False, admin.id
+        if was_on != enabled:
+            AuditService.log(
+                db=self.db, action=AuditAction.UPDATE, module="platform_admin", entity_id=str(society.id),
+                entity_type="Society", user=admin,
+                new_values={"event": "service_switched", "service": key, "enabled": enabled},
+            )
+        self.db.commit()
+        return self.society_services(society_id)
 
     # ── Internal ──────────────────────────────────────────────────────────────
 
