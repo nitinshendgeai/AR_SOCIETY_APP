@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/features/auth/data/models/auth_models.dart';
 import 'package:ar_society_app/features/auth/domain/entities/device_session.dart';
+import 'package:ar_society_app/features/auth/domain/entities/society_choice.dart';
 
 /// Calls FastAPI auth endpoints.
 class AuthRemoteDataSource {
@@ -10,22 +11,37 @@ class AuthRemoteDataSource {
 
   AuthRemoteDataSource({Dio? dio}) : _dio = dio ?? ApiClient.instance;
 
-  /// POST /auth/login
-  Future<TokenModel> login({
+  /// POST /auth/login — either the tokens, or (when this login belongs to several societies) the societies to
+  /// choose from; send the same credentials again with [societyId].
+  Future<({TokenModel? tokens, List<SocietyChoice>? choices})> login({
     required String email,
     required String password,
+    String? societyId,
   }) async {
     debugPrint('[LOGIN_REQUEST] POST /auth/login  email=$email');
     final response = await _dio.post('/auth/login', data: {
       'email': email,
       'password': password,
+      if (societyId != null) 'society_id': societyId,
     });
     debugPrint('[LOGIN_RESPONSE] status=${response.statusCode}  '
         'keys=${(response.data as Map?)?.keys.toList()}');
-    final token = TokenModel.fromJson(response.data as Map<String, dynamic>);
-    debugPrint('[ACCESS_TOKEN_RECEIVED] ${token.accessToken.substring(0, 20)}...');
-    debugPrint('[REFRESH_TOKEN_RECEIVED] ${token.refreshToken.substring(0, 20)}...');
-    return token;
+    final data = response.data as Map<String, dynamic>;
+    if (data['requires_society_choice'] == true) {
+      return (
+        tokens: null,
+        choices: (data['choices'] as List<dynamic>)
+            .map((e) => SocietyChoice.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+    }
+    return (tokens: TokenModel.fromJson(data), choices: null);
+  }
+
+  /// POST /auth/switch-society — move to this person's login in another society, no password needed.
+  Future<TokenModel> switchSociety(String societyId) async {
+    final response = await _dio.post('/auth/switch-society', data: {'society_id': societyId});
+    return TokenModel.fromJson(response.data as Map<String, dynamic>);
   }
 
   /// GET /auth/me

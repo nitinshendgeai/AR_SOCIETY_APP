@@ -27,7 +27,8 @@ from app.modules.staff.repositories.staff_repo import (
     DutyRepository, AttendanceRepository, TaskRepository, LeaveRepository,
     ChecklistTemplateRepo,
 )
-from app.models.user import User, UserRole, UserStatus
+from app.models.user import User
+from app.repositories.user_repo import UserRepository, UserRole, UserStatus
 from app.models.society import Society
 from app.utils.local_time import zone, local_today, local_to_utc_naive, to_local, utc_naive
 from app.models.role import Role
@@ -256,8 +257,7 @@ class StaffService:
         self._assert_staff_links(society_id, data.designation_id, data.shift_id,
                                  data.reporting_manager_id, data.user_id)
         self._assert_mobile_free(society_id, data.mobile)
-        if data.email and not data.user_id and self.db.query(User).filter(
-                func.lower(User.email) == data.email.lower()).first():
+        if data.email and not data.user_id and UserRepository(self.db).get_by_email(data.email, society_id=society_id):
             raise HTTPException(status_code=409,
                 detail=f"A login with the email {data.email} already exists — use another email or link that user")
         code  = self.repo.next_employee_code(society_id)

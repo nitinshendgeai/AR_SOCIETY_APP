@@ -56,8 +56,12 @@ class UserService:
 
     def create(self, data: AdminUserCreate, society_id) -> tuple[User, str]:
         """Create a user in the caller's society. Returns (user, plain_temp_password)."""
-        if self.repo.get_by_email(data.email):
+        # Only active users of this society count: the same email or mobile may be a login in another society,
+        # and a disabled user no longer holds theirs.
+        if self.repo.get_by_email(data.email, society_id=society_id):
             raise HTTPException(status_code=409, detail="Email already registered")
+        if data.phone and self.repo.get_by_phone(data.phone, society_id=society_id):
+            raise HTTPException(status_code=409, detail="Mobile number already registered")
         if data.role_name:
             self._assert_assignable(data.role_name, society_id)
             # A role the society knows, not a typo that would quietly make a new one
@@ -85,7 +89,21 @@ class UserService:
 
     def update(self, id: UUID, data: UserUpdate, society_id) -> User:
         user = self.get_or_404(id, society_id)
-        return self.repo.update(user, data.model_dump(exclude_none=True))
+        changes = data.model_dump(exclude_none=True)
+        # A number or email is held by active users only: changing the mobile, or turning a user back on, must not
+        # leave two active users in this society with the same one.
+        becomes_active = (changes.get("status") or user.status) == UserStatus.ACTIVE
+        phone = changes.get("phone", user.phone)
+        if becomes_active and phone and (
+                "phone" in changes or user.status != UserStatus.ACTIVE):
+            other = self.repo.get_by_phone(phone, society_id=user.society_id)
+            if other is not None and other.id != user.id:
+                raise HTTPException(status_code=409, detail="Mobile number already registered")
+        if becomes_active and user.status != UserStatus.ACTIVE:
+            other = self.repo.get_by_email(user.email, society_id=user.society_id)
+            if other is not None and other.id != user.id:
+                raise HTTPException(status_code=409, detail="Email already registered")
+        return self.repo.update(user, changes)
 
     def assign_role(self, user_id: UUID, role_name: str, society_id) -> User:
         self._assert_assignable(role_name, society_id)

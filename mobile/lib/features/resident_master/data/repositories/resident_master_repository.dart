@@ -81,9 +81,17 @@ class ResidentMasterRepository {
     }
   }
 
-  Future<RmResult<ResidentModel>> getMyResident() async {
+  Future<RmResult<ResidentModel>> getMyResident({String? flatId}) async {
     try {
-      return RmSuccess(await _ds.getMyResident());
+      return RmSuccess(await _ds.getMyResident(flatId: flatId));
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  Future<RmResult<List<ResidentModel>>> listMyFlats() async {
+    try {
+      return RmSuccess(await _ds.listMyFlats());
     } catch (e) {
       return _handle(e);
     }

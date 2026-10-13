@@ -17,6 +17,7 @@ from datetime import time as dt_time
 from app.models.society import Society, AccountStatus
 from app.models.role import Role
 from app.models.user import User, UserRole, UserStatus
+from app.repositories.user_repo import UserRepository
 from app.models.audit_log import AuditAction
 from app.core.config import settings
 from app.core.security import hash_password
@@ -238,11 +239,16 @@ class OnboardingService:
             errors.append("Society name is already registered")
         if self.db.query(Society).filter(Society.society_code == data.society_code).first():
             errors.append("Society code is already taken")
-        if (self.db.query(User).filter(User.email == data.contact_email).first()
-                or self.db.query(Society).filter(Society.contact_email == data.contact_email).first()):
+        # Only active users and active societies count: a disabled user or a suspended society no longer holds
+        # its email or mobile number.
+        live_society = (Society.is_active == True,  # noqa: E712
+                        Society.account_status.notin_([AccountStatus.SUSPENDED, AccountStatus.CANCELLED]))
+        users = UserRepository(self.db)
+        if (users.get_by_email(data.contact_email)
+                or self.db.query(Society).filter(Society.contact_email == data.contact_email, *live_society).first()):
             errors.append("Email address is already registered")
-        if (self.db.query(User).filter(User.phone == data.contact_mobile).first()
-                or self.db.query(Society).filter(Society.contact_phone == data.contact_mobile).first()):
+        if (users.get_by_phone(data.contact_mobile)
+                or self.db.query(Society).filter(Society.contact_phone == data.contact_mobile, *live_society).first()):
             errors.append("Mobile number is already registered")
         if errors:
             raise HTTPException(status_code=409, detail="; ".join(errors))

@@ -12,6 +12,9 @@ import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 import 'package:ar_society_app/shared/widgets/app_form.dart';
+import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
+import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart' show myFlatsProvider;
+import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart' show flatByIdProvider;
 
 /// Resident view: every issued bill for the flat(s) they live in.
 class MyBillsScreen extends ConsumerWidget {
@@ -19,11 +22,16 @@ class MyBillsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final billsAsync = ref.watch(myBillsProvider);
+    final flatFilter = ref.watch(myBillsFlatFilterProvider);
+    final billsAsync = flatFilter == null ? ref.watch(myBillsProvider) : ref.watch(myBillsForFlatProvider(flatFilter));
+    final myFlats = ref.watch(myFlatsProvider).valueOrNull ?? const [];
     return AppPage(
       title: 'My Bills',
       body: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(myBillsProvider),
+        onRefresh: () async {
+          ref.invalidate(myBillsProvider);
+          ref.invalidate(myBillsForFlatProvider);
+        },
         child: billsAsync.when(
           loading: () => const SkeletonList(),
           error: (e, _) => ListView(children: [
@@ -38,6 +46,11 @@ class MyBillsScreen extends ConsumerWidget {
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                // A resident with several flats can look at all of them together or one at a time.
+                if (myFlats.length > 1) ...[
+                  _FlatFilter(flats: myFlats, selected: flatFilter),
+                  const SizedBox(height: 14),
+                ],
                 KpiGrid(cards: [
                   KpiCard(
                     icon: Icons.account_balance_wallet_rounded,
@@ -126,4 +139,28 @@ class _Heading extends StatelessWidget {
         child: Text(text,
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
       );
+}
+
+/// "All flats" / one chip per flat the resident lives in.
+class _FlatFilter extends ConsumerWidget {
+  final List<ResidentModel> flats;
+  final String? selected;
+  const _FlatFilter({required this.flats, required this.selected});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    void pick(String? id) => ref.read(myBillsFlatFilterProvider.notifier).state = id;
+    return Wrap(spacing: 8, runSpacing: 8, children: [
+      ChoiceChip(label: const Text('All my flats'), selected: selected == null, onSelected: (_) => pick(null)),
+      for (final f in flats)
+        Consumer(builder: (context, ref, _) {
+          final flat = ref.watch(flatByIdProvider(f.flatId)).valueOrNull;
+          return ChoiceChip(
+            label: Text(flat?.displayName ?? 'Flat'),
+            selected: selected == f.flatId,
+            onSelected: (_) => pick(f.flatId),
+          );
+        }),
+    ]);
+  }
 }

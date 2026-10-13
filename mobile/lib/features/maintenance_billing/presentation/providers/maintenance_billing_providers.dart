@@ -44,6 +44,14 @@ final myBillsProvider = FutureProvider.autoDispose<MyBillsSummary>(
   (ref) => ref.watch(maintenanceBillingApiProvider).myBills(),
 );
 
+/// My bills for one of my flats (a resident with several flats can narrow My Bills to one).
+final myBillsForFlatProvider = FutureProvider.autoDispose.family<MyBillsSummary, String>(
+  (ref, flatId) => ref.watch(maintenanceBillingApiProvider).myBills(flatId: flatId),
+);
+
+/// The flat My Bills is narrowed to; null shows every flat.
+final myBillsFlatFilterProvider = StateProvider<String?>((ref) => null);
+
 /// Refreshes everything a change to one cycle's bills can affect: the
 /// cycle's totals, its bill list, and the society-wide cycle list.
 void invalidateCycle(WidgetRef ref, String societyId, String cycleId) {

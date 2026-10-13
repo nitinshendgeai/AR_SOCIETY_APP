@@ -71,6 +71,9 @@ def get_current_user(
         sessions.touch(session)
         user.current_session_id = session.id      # not a column: which device is making this request
 
+    # The other logins (one per society) this person proved the password for when signing in; see AuthService.
+    user.peer_ids = payload.get("peers") or []
+
     # A suspended society is shut: only the calls that tell the app why, and sign out, still work.
     from app.core.society_gate import path_is_allowed, service_block_reason, society_block_reason
     reason = society_block_reason(db, user)

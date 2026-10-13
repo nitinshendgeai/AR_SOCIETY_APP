@@ -1,4 +1,5 @@
 import 'package:ar_society_app/core/config/constants.dart';
+import 'package:ar_society_app/features/auth/domain/entities/society_choice.dart';
 
 /// Domain entity for authenticated user.
 /// Roles come from the JWT payload and /auth/me response.
@@ -18,6 +19,9 @@ class UserEntity {
   /// not limited, e.g. the platform admin or a session from before this was sent.
   final List<String>? enabledServices;
 
+  /// The societies this person can switch between (empty when they have just the one).
+  final List<SocietyChoice> societies;
+
   const UserEntity({
     required this.id,
     required this.email,
@@ -30,6 +34,7 @@ class UserEntity {
     this.setupCompleted = false,
     this.societyId,
     this.enabledServices,
+    this.societies = const [],
   });
 
   // ── Role helpers ───────────────────────────────────────────────────────────
@@ -96,6 +101,7 @@ class UserEntity {
     bool? setupCompleted,
     String? societyId,
     List<String>? enabledServices,
+    List<SocietyChoice>? societies,
   }) {
     return UserEntity(
       id: id ?? this.id,
@@ -109,6 +115,7 @@ class UserEntity {
       setupCompleted: setupCompleted ?? this.setupCompleted,
       societyId: societyId ?? this.societyId,
       enabledServices: enabledServices ?? this.enabledServices,
+      societies: societies ?? this.societies,
     );
   }
 

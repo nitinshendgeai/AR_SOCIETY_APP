@@ -5,6 +5,8 @@ import 'package:ar_society_app/core/push/push_notifications.dart';
 import 'package:ar_society_app/core/auth/biometric_preference.dart';
 import 'package:ar_society_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:ar_society_app/features/auth/domain/entities/device_session.dart';
+import 'package:ar_society_app/features/auth/domain/entities/society_choice.dart';
+import 'package:ar_society_app/core/app_reset.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/biometric_provider.dart';
 
@@ -22,6 +24,14 @@ class AuthAuthenticated extends AuthState {
 }
 
 class AuthUnauthenticated extends AuthState {}
+
+/// Signing in found logins in several societies: the person picks one (the credentials are kept to send again).
+class AuthChoosingSociety extends AuthState {
+  final String email;
+  final String password;
+  final List<SocietyChoice> choices;
+  AuthChoosingSociety(this.email, this.password, this.choices);
+}
 
 class AuthError extends AuthState {
   final String message;
@@ -71,10 +81,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   /// Called from login screen.
-  Future<void> login({required String email, required String password}) async {
+  Future<void> login({required String email, required String password, String? societyId}) async {
     debugPrint('[AUTH_STATE] login($email) → AuthLoading');
     state = AuthLoading();
-    final result = await _repo.login(email: email, password: password);
+    final result = await _repo.login(email: email, password: password, societyId: societyId);
+    if (result is AuthNeedsChoice<UserEntity>) {
+      state = AuthChoosingSociety(email, password, result.choices);
+      return;
+    }
     switch (result) {
       case AuthSuccess(:final data):
         debugPrint('[AUTH_STATE] login → AuthAuthenticated(${data.email}) '
@@ -83,6 +97,30 @@ class AuthNotifier extends StateNotifier<AuthState> {
       case AuthFailure(:final message):
         debugPrint('[AUTH_STATE] login → AuthError($message)');
         state = AuthError(message);
+    }
+  }
+
+  /// Back from the "choose a society" step to the sign-in form.
+  void cancelChoice() {
+    if (state is AuthChoosingSociety) state = AuthUnauthenticated();
+  }
+
+  /// Sign in to the society picked on the "choose a society" step.
+  Future<void> chooseSociety(SocietyChoice choice) async {
+    final s = state;
+    if (s is! AuthChoosingSociety) return;
+    await login(email: s.email, password: s.password, societyId: choice.societyId);
+  }
+
+  /// Switch to another society this person belongs to; the app then starts over with fresh data.
+  Future<String?> switchSociety(String societyId) async {
+    final result = await _repo.switchSociety(societyId);
+    switch (result) {
+      case AuthSuccess():
+        AppReset.restart();
+        return null;
+      case AuthFailure(:final message):
+        return message;
     }
   }
 

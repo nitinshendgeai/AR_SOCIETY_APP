@@ -592,8 +592,14 @@ def _get_viewable_bill(db: Session, user: User, bill_id: UUID):
     return bill
 
 @router.get("/bills/me", dependencies=[Depends(any_member)])
-def my_bills(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    bills = BillingService(db).get_my_bills(user)
+def my_bills(flat_id: Optional[UUID] = None, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """My bills for every flat I live in, or for one of them with `flat_id`."""
+    svc = BillingService(db)
+    if flat_id is not None and flat_id not in svc.resident_flat_ids(user):
+        raise HTTPException(404, "Flat not found")
+    bills = svc.get_my_bills(user)
+    if flat_id is not None:
+        bills = [b for b in bills if b.flat_id == flat_id]
     today = date.today()
     open_bills = [b for b in bills if b.outstanding > 0]
     return {
