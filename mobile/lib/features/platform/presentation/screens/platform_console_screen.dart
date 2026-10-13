@@ -3,6 +3,9 @@ import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
+import 'package:ar_society_app/core/l10n/language_picker.dart';
+import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/platform/data/platform_api.dart';
@@ -38,6 +41,8 @@ class _PlatformConsoleScreenState extends ConsumerState<PlatformConsoleScreen> w
   @override
   Widget build(BuildContext context) => AppPage(
     title: 'Platform Console',
+    // On a computer the top bar's account menu has Sign out; a phone has no top bar, so the console carries it.
+    actions: [if (!isDesktopLayout(context)) const _PlatformAccountMenu()],
     bottom: TabBar(controller: _tabs, tabs: const [Tab(text: 'Societies'), Tab(text: 'Activity')]),
     body: TabBarView(controller: _tabs, children: [_societies(), const _ActivityTab()]),
   );
@@ -174,6 +179,79 @@ class EventTile extends StatelessWidget {
       title: Text(showSociety && e.societyName != null ? '${eventLabel(e.event)}: ${e.societyName}' : eventLabel(e.event), style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text([if (detail.isNotEmpty) detail, '${e.by ?? 'Someone'}, ${dayTimeText(e.at)}'].join('\n')),
       isThreeLine: detail.isNotEmpty,
+    );
+  }
+}
+
+/// Account menu for a platform admin on a phone: who is signed in, language, devices and Sign out.
+class _PlatformAccountMenu extends ConsumerWidget {
+  const _PlatformAccountMenu();
+
+  Future<void> _signOut(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text('You will be returned to the login screen.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) ref.read(authProvider.notifier).logout();
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
+    return PopupMenuButton<String>(
+      tooltip: 'Account',
+      icon: const Icon(Icons.account_circle_outlined),
+      onSelected: (v) {
+        if (v == 'logout') _signOut(context, ref);
+        if (v == 'devices') context.go(AppRoutes.activeDevices);
+        if (v == 'language') showLanguagePicker(context, ref);
+      },
+      itemBuilder: (_) => [
+        if (user != null)
+          PopupMenuItem<String>(
+            enabled: false,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(user.fullName, style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+              Text(user.email, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            ]),
+          ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'language',
+          child: Row(children: [
+            Icon(Icons.translate_rounded, size: 18, color: AppTheme.textSecondary),
+            SizedBox(width: 10),
+            Text('Language'),
+          ]),
+        ),
+        const PopupMenuItem<String>(
+          value: 'devices',
+          child: Row(children: [
+            Icon(Icons.devices_rounded, size: 18, color: AppTheme.textSecondary),
+            SizedBox(width: 10),
+            Text('Signed-in devices'),
+          ]),
+        ),
+        const PopupMenuItem<String>(
+          value: 'logout',
+          child: Row(children: [
+            Icon(Icons.logout_rounded, size: 18, color: AppTheme.error),
+            SizedBox(width: 10),
+            Text('Sign out', style: TextStyle(color: AppTheme.error)),
+          ]),
+        ),
+      ],
     );
   }
 }

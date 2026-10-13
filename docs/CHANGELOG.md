@@ -4,6 +4,14 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-13 (ii)
+
+### fix: platform admin had no way to sign out on a phone
+
+On a computer the top bar's account menu (Language, Help, Signed-in devices, Sign out) was there, but on a phone the Platform
+Console has no top bar or bottom bar, so there was nowhere to sign out. The console now carries an account icon on phones
+with the same menu (name and email, Language, Signed-in devices, Sign out with a confirmation).
+
 ## 2026-10-12 (hh)
 
 ### feat: one person, several societies and several flats
