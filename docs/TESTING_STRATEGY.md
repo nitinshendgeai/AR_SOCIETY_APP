@@ -62,7 +62,7 @@ Three workflows in `.github/workflows/` run on every pull request and every push
 |---|---|---|
 | **Backend CI → Backend tests** (Python 3.12) | hash-enforced install, import check, the security regression tests, then the full suite, then a guard against a false-green run | `cd backend && pip install --require-hashes -r requirements-dev.txt && make lint test-security && python -m pytest -q -o log_cli=false` |
 | **Backend CI → Migrations** (PostgreSQL 16) | one unbroken migration chain; empty database → head; last migration reversible; earlier revision → head; no missing/extra tables or columns; `/health/ready` 200 at head and 503 one revision behind | `make check-migrations` (no database) or `make check-migrations-db ADMIN_DB_URL=postgresql://user:password@localhost:5432/postgres` (a **disposable** server) |
-| **Flutter CI → analyze and tests** | `flutter pub get --enforce-lockfile`, `flutter analyze --no-fatal-infos` (errors and warnings fail), `flutter test` | `cd mobile && cp .env.example .env && flutter pub get --enforce-lockfile && flutter analyze --no-fatal-infos && flutter test` |
+| **Flutter CI → analyze and tests** | `flutter pub get`, `flutter analyze --no-fatal-infos` (errors and warnings fail), `flutter test` | `cd mobile && cp .env.example .env && flutter pub get && flutter analyze --no-fatal-infos && flutter test` |
 | **Flutter CI → web release build** | the production web build compiles | `cd mobile && flutter build web --release --dart-define=API_BASE_URL=https://ci.invalid/api/v1 --no-tree-shake-icons` |
 | **Secret Scan** (gitleaks) | no credential-shaped value in the working tree | see `docs/audit/PHASE_2_CI_AUDIT.md` (currently reports two Firebase web-key findings) |
 | **Build Android APK** (main only) | the release APK builds | needs the Android SDK |
@@ -74,6 +74,7 @@ Notes for contributors:
   (`pip-compile --generate-hashes -c requirements.txt --no-header -o requirements-dev.txt requirements-dev.in`).
 - Run `alembic` through its console script (as the docs do), not `python -m alembic`: the migrations folder is
   itself called `alembic` and shadows the library when you run from `backend/`.
+- `mobile/pubspec.lock` is git-ignored, so Flutter dependencies resolve fresh within the ranges in `pubspec.yaml` on every run (CI cannot use `--enforce-lockfile`). Committing the lock file is recommended.
 - Dart formatting is **not** enforced (278 of 300 files differ from `dart format`); do not reformat unrelated files.
 
 ## Key Fixtures (conftest.py)

@@ -52,9 +52,11 @@ jobs:
       - name: Create .env from the example
         run: cp .env.example .env
 
-      # --enforce-lockfile fails if pubspec.lock is out of step with pubspec.yaml (reproducible dependencies).
-      - name: Resolve dependencies from the lock file
-        run: flutter pub get --enforce-lockfile
+      # NOTE: mobile/.gitignore ignores *.lock, so pubspec.lock is NOT committed and dependencies are resolved fresh
+      # on every run (within the version ranges in pubspec.yaml). `--enforce-lockfile` cannot be used until the lock
+      # file is committed; doing so is recommended (see docs/audit/PHASE_2_CI_AUDIT.md).
+      - name: Resolve dependencies
+        run: flutter pub get
 
       # Errors AND warnings fail the job. The 437 style/deprecation "infos" that existed when this check was added
       # are tolerated (--no-fatal-infos) until they are cleaned up; new errors or warnings cannot be added.
@@ -87,8 +89,8 @@ jobs:
       - name: Create .env from the example
         run: cp .env.example .env
 
-      - name: Resolve dependencies from the lock file
-        run: flutter pub get --enforce-lockfile
+      - name: Resolve dependencies
+        run: flutter pub get
 
       # The same flags as mobile/Dockerfile (the production web build), with a placeholder API address so nothing in
       # this build can reach, or be mistaken for, production. The artifact is discarded; this only proves it compiles.

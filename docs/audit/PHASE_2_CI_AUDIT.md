@@ -86,7 +86,7 @@ Two heads, missing parent, duplicate id, empty/missing history, CLI exit codes, 
 
 | Job | Steps |
 |---|---|
-| `Flutter analyze and tests` | Flutter **3.47.5** (pinned: the version verified here), `cp .env.example .env` (public placeholders only), `flutter pub get --enforce-lockfile`, `flutter analyze --no-fatal-infos`, `flutter test` |
+| `Flutter analyze and tests` | Flutter **3.47.5** (pinned: the version verified here), `cp .env.example .env` (public placeholders only), `flutter pub get`, `flutter analyze --no-fatal-infos`, `flutter test`. (`--enforce-lockfile` was tried first and failed on GitHub: `mobile/pubspec.lock` is git-ignored, so it does not exist on a fresh checkout. My local run had passed only because of an untracked local lock file.) |
 | `Flutter web release build` | the production web flags with a placeholder API address (`https://ci.invalid/api/v1`), then confirms `main.dart.js` and `index.html` exist. Output discarded. No production secret or URL. |
 
 Dart cleanup needed to make the analyzer a gate: 12 files, +1/−19 lines, only unused imports/fields/one dead method and one pattern fix (`StaffListError(:final statusCode) when statusCode == 403`). No behaviour change; `flutter analyze` exit 0 and 232 tests pass after the change.
@@ -181,7 +181,7 @@ Environment: Python 3.12 virtualenv from a clean hash-enforced install of the ne
 | `make lint` (compileall + import) | PASS — `app imports, 513 routes` |
 | Migration graph on the real history | PASS — `migration graph ok` |
 | Full migration check on PostgreSQL 16 | PASS (section 4) |
-| `flutter pub get --enforce-lockfile` | PASS |
+| `flutter pub get` (clean clone, no lock file) | PASS (see section 8 for the unlocked-dependency risk) |
 | `flutter analyze --no-fatal-infos` | exit 0 (was 452 issues = 15 warnings + 437 infos; now 437 issues, all infos, tolerated) |
 | `flutter test` | **232 passed, 0 failed** |
 | `flutter build web --release` with the CI flags | PASS, `main.dart.js` and `index.html` produced |
@@ -235,6 +235,7 @@ Also recommended in the same branch-protection change: require a pull request, r
 | Workflows have never run on GitHub's runners | **NOT VERIFIED.** Everything was run locally with the same commands, versions and a local PostgreSQL, and `actionlint` passes. Possible first-run surprises: runner image differences, the Postgres service container health timing, the pip cache. Expect one fix-up round. |
 | Full backend suite takes ~17 minutes locally (timeout set to 45 min in CI) | If it is slow on the runners, splitting by `pytest-xdist` is possible but the suite shares one SQLite file today, so it needs its own change. |
 | APK build | **NOT VERIFIED here** (no Android SDK). The workflow only gained pinning and permissions; it still runs only on push to `main`, so a break would show after merge, not on the PR. |
+| Flutter dependencies are not locked | **OPEN**: `mobile/.gitignore` ignores `*.lock`, so `pubspec.lock` is not committed; CI and production web builds (`mobile/Dockerfile`) resolve the newest allowed versions each time, so a new upstream release can change what builds or passes. Recommend removing `*.lock` from `mobile/.gitignore` and committing `pubspec.lock` (then `--enforce-lockfile` can be turned on). Not done here: it changes what the repository tracks. |
 | Dart formatting gate | **BLOCKED**: 278 of 300 files would change. Needs a dedicated format-only PR. |
 | Backend linter/formatter/type checker | **BLOCKED** by design: none is configured; adding one is a project decision. |
 | Flutter integration tests (`integration_test/`) | **BLOCKED**: none exist in the repository. |
