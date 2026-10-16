@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from app.db.session import get_db
-from app.core.dependencies import get_current_user, require_roles, require_admin_committee, require_any_member
+from app.core.dependencies import get_current_user, require_roles, require_admin_committee, require_any_member, require_manager_above
 from app.models.user import User
 from app.services.occupancy_service import OccupancyService
 from app.schemas.common import OrmBase, TimestampSchema
@@ -65,7 +65,7 @@ def tenant_move_out(data: TenantMoveOutRequest, db: Session = Depends(get_db),
 
 @router.get("/flat/{flat_id}/history", response_model=List[OccupancyLogOut])
 def flat_history(flat_id: UUID, db: Session = Depends(get_db),
-                  user: User = Depends(any_member)):
+                  user: User = Depends(require_manager_above)):   # who lived in a flat is not for every member
     return OccupancyService(db).get_flat_history(flat_id, user)
 
 

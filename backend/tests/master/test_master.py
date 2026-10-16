@@ -22,7 +22,11 @@ def test_duplicate_society_name(client, db):
 
 
 def test_get_society_not_found(client, db):
-    res = make_user(db, "res@master.com", role="Resident")
+    # Someone allowed to look at any society (a platform admin) gets a plain 404 for an id that doesn't exist; a
+    # society's own member is refused (403) without learning whether it exists.
+    res = make_user(db, "res@master.com", role="Platform Admin")
+    res["user"].is_superadmin = True
+    db.commit()
     import uuid
     r = client.get(f"/api/v1/societies/{uuid.uuid4()}", headers=res["headers"])
     assert r.status_code == 404

@@ -17,7 +17,9 @@ from app.modules.staff.models.payroll_readiness import (
     StaffSalaryStructure, AttendanceCorrection, MonthlyAttendanceSummary,
     AttendanceCorrectionStatus,
 )
-from app.modules.staff.models.staff import StaffAttendance, AttendanceStatus
+from app.modules.staff.models.staff import Staff, StaffAttendance, AttendanceStatus
+from app.core.dependencies import _user_has_permission
+from app.core.tenant_scope import assert_society_access, resolve_create_society_id
 from app.models.user import User
 from app.models.audit_log import AuditAction
 from app.services.audit_service import AuditService
@@ -30,9 +32,42 @@ class PayrollService:
     def __init__(self, db: Session):
         self.db = db
 
+    # ── Society scope ─────────────────────────────────────────────────────────
+    #
+    # Every payroll record belongs to a society through its staff member. A caller confined to one society
+    # (user.society_id set) can only reach their own society's staff and records; another society's read as "not
+    # found" so ids can't be probed. Platform admins (no society) keep access to every society.
+
+    @staticmethod
+    def _in_scope(user: User, society_id) -> bool:
+        return user.society_id is None or str(user.society_id) == str(society_id)
+
+    def _staff_or_404(self, staff_id, user: User) -> Staff:
+        staff = self.db.get(Staff, staff_id)
+        if staff is None or not self._in_scope(user, staff.society_id):
+            raise HTTPException(status_code=404, detail="Staff not found")
+        return staff
+
+    def _correction_or_404(self, correction_id, user: User) -> AttendanceCorrection:
+        c = self.db.query(AttendanceCorrection).filter(AttendanceCorrection.id == correction_id).first()
+        if c is None or not self._in_scope(user, c.society_id):
+            raise HTTPException(status_code=404, detail="Correction request not found")
+        return c
+
+    def _assert_own_or_supervisor(self, user: User, staff: Staff) -> None:
+        """Supervisors and above deal with any staff member of their society; other staff only with their own record."""
+        if _user_has_permission(user, "supervisor_above"):
+            return
+        if staff.user_id is None or str(staff.user_id) != str(user.id):
+            raise HTTPException(status_code=403, detail="You can only act on your own attendance record")
+
     # ── Salary Structure ──────────────────────────────────────────────────────
 
     def set_salary_structure(self, data: dict, user: User) -> StaffSalaryStructure:
+        staff = self._staff_or_404(data["staff_id"], user)
+        data["society_id"] = society_id = resolve_create_society_id(user, data.get("society_id"))
+        if str(staff.society_id) != str(society_id):
+            raise HTTPException(status_code=422, detail="Staff member does not belong to this society")
         # Expire any current active structure
         existing = self.db.query(StaffSalaryStructure).filter(
             StaffSalaryStructure.staff_id      == data["staff_id"],
@@ -54,7 +89,8 @@ class PayrollService:
         self.db.refresh(struct)
         return struct
 
-    def get_salary_structure(self, staff_id: UUID) -> Optional[StaffSalaryStructure]:
+    def get_salary_structure(self, staff_id: UUID, user: User) -> Optional[StaffSalaryStructure]:
+        self._staff_or_404(staff_id, user)
         return self.db.query(StaffSalaryStructure).filter(
             StaffSalaryStructure.staff_id     == staff_id,
             StaffSalaryStructure.effective_to == None,
@@ -64,14 +100,18 @@ class PayrollService:
     # ── Attendance Correction ─────────────────────────────────────────────────
 
     def request_correction(self, data: dict, requester: User) -> AttendanceCorrection:
+        staff = self._staff_or_404(data["staff_id"], requester)
+        self._assert_own_or_supervisor(requester, staff)
         att = self.db.query(StaffAttendance).filter(
             StaffAttendance.id == data["attendance_id"]
         ).first()
-        if not att:
+        if not att or not self._in_scope(requester, att.society_id):
             raise HTTPException(status_code=404, detail="Attendance record not found")
         if str(att.staff_id) != str(data["staff_id"]):
             raise HTTPException(status_code=400,
                 detail="Attendance record does not belong to this staff member")
+        # The correction belongs to the staff member's society, whatever the request body says.
+        data["society_id"] = staff.society_id
 
         correction = AttendanceCorrection(
             **data, requested_by=requester.id,
@@ -85,8 +125,7 @@ class PayrollService:
         return correction
 
     def approve_correction(self, correction_id: UUID, approver: User) -> AttendanceCorrection:
-        c = self.db.query(AttendanceCorrection).filter(AttendanceCorrection.id == correction_id).first()
-        if not c: raise HTTPException(status_code=404, detail="Correction request not found")
+        c = self._correction_or_404(correction_id, approver)
         if c.status != AttendanceCorrectionStatus.PENDING:
             raise HTTPException(status_code=409, detail=f"Correction already {c.status.value}")
 
@@ -117,8 +156,7 @@ class PayrollService:
         return c
 
     def reject_correction(self, correction_id: UUID, reason: str, rejector: User) -> AttendanceCorrection:
-        c = self.db.query(AttendanceCorrection).filter(AttendanceCorrection.id == correction_id).first()
-        if not c: raise HTTPException(status_code=404, detail="Correction request not found")
+        c = self._correction_or_404(correction_id, rejector)
         if c.status != AttendanceCorrectionStatus.PENDING:
             raise HTTPException(status_code=409, detail=f"Correction already {c.status.value}")
         c.status           = AttendanceCorrectionStatus.REJECTED
@@ -128,12 +166,15 @@ class PayrollService:
         self.db.refresh(c)
         return c
 
-    def list_corrections(self, society_id: UUID, status: Optional[str] = None) -> list:
+    def list_corrections(self, society_id: UUID, user: User, status: Optional[str] = None) -> list:
+        assert_society_access(user, society_id)
         q = self.db.query(AttendanceCorrection).filter(AttendanceCorrection.society_id == society_id)
         if status: q = q.filter(AttendanceCorrection.status == status)
         return q.order_by(AttendanceCorrection.correction_date.desc()).limit(100).all()
 
-    def list_by_staff(self, staff_id: UUID) -> list:
+    def list_by_staff(self, staff_id: UUID, user: User) -> list:
+        staff = self._staff_or_404(staff_id, user)
+        self._assert_own_or_supervisor(user, staff)
         return self.db.query(AttendanceCorrection).filter(
             AttendanceCorrection.staff_id == staff_id
         ).order_by(AttendanceCorrection.correction_date.desc()).limit(100).all()
@@ -149,6 +190,11 @@ class PayrollService:
         """
         from datetime import date as dt
         import calendar
+
+        assert_society_access(user, society_id)
+        staff = self._staff_or_404(staff_id, user)
+        if str(staff.society_id) != str(society_id):
+            raise HTTPException(status_code=404, detail="Staff not found")
 
         # Check if already finalized
         existing = self.db.query(MonthlyAttendanceSummary).filter(
@@ -214,7 +260,8 @@ class PayrollService:
 
     def finalize_monthly_attendance(self, summary_id: UUID, user: User) -> MonthlyAttendanceSummary:
         s = self.db.query(MonthlyAttendanceSummary).filter(MonthlyAttendanceSummary.id == summary_id).first()
-        if not s: raise HTTPException(status_code=404, detail="Summary not found")
+        if not s or not self._in_scope(user, s.society_id):
+            raise HTTPException(status_code=404, detail="Summary not found")
         if s.is_finalized: raise HTTPException(status_code=409, detail="Already finalized")
         s.is_finalized  = True
         s.finalized_by  = user.id
@@ -222,7 +269,8 @@ class PayrollService:
         self.db.refresh(s)
         return s
 
-    def get_monthly_summary(self, staff_id: UUID, year: int, month: int) -> Optional[MonthlyAttendanceSummary]:
+    def get_monthly_summary(self, staff_id: UUID, year: int, month: int, user: User) -> Optional[MonthlyAttendanceSummary]:
+        self._staff_or_404(staff_id, user)
         return self.db.query(MonthlyAttendanceSummary).filter(
             MonthlyAttendanceSummary.staff_id == staff_id,
             MonthlyAttendanceSummary.year     == year,

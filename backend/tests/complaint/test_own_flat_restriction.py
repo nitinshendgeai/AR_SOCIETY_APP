@@ -2,7 +2,7 @@
 the backend forces flat_id/society_id from their actual Resident/Tenant
 record and ignores whatever the client sends, closing the gap where any
 authenticated member could pick any flat in the society."""
-from tests.conftest import make_user, make_society, make_wing, make_flat
+from tests.conftest import make_user, make_society, make_wing, make_flat, place_in
 
 
 def _link_resident(db, user, flat_id, full_name="Res"):
@@ -48,6 +48,7 @@ def _payload(society_id, flat_id=None, **overrides):
 def test_resident_complaint_forced_to_own_flat(client, db):
     society, own_flat, other_flat = _rig(db)
     resident = make_user(db, "res-own@cmp.com", role="Resident")
+    place_in(db, resident, society)
     _link_resident(db, resident["user"], own_flat.id)
 
     r = client.post("/api/v1/complaints/",
@@ -63,6 +64,8 @@ def test_resident_cannot_spoof_society_id(client, db):
     society, own_flat, other_flat = _rig(db)
     other_society = make_society(db, "Other Society")
     resident = make_user(db, "res-spoof@cmp.com", role="Resident")
+    place_in(db, resident, society)
+    place_in(db, resident, other_society)
     _link_resident(db, resident["user"], own_flat.id)
 
     r = client.post("/api/v1/complaints/",
@@ -75,6 +78,7 @@ def test_resident_cannot_spoof_society_id(client, db):
 def test_tenant_complaint_forced_to_own_flat(client, db):
     society, own_flat, other_flat = _rig(db)
     tenant = make_user(db, "ten-own@cmp.com", role="Tenant")
+    place_in(db, tenant, society)
     _link_tenant(db, tenant["user"], own_flat.id)
 
     r = client.post("/api/v1/complaints/",
@@ -89,6 +93,7 @@ def test_resident_with_no_linked_flat_unaffected(client, db):
     complaints today) keeps existing behavior — no flat required."""
     society, own_flat, other_flat = _rig(db)
     resident = make_user(db, "res-unlinked@cmp.com", role="Resident")
+    place_in(db, resident, society)
 
     r = client.post("/api/v1/complaints/", json=_payload(society.id),
                     headers=resident["headers"])

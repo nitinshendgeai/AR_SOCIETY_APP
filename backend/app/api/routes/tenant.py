@@ -9,7 +9,8 @@ from app.schemas.tenant import (
 )
 from app.schemas.agreement import AgreementOut
 from app.services.tenant_service import TenantService
-from app.core.dependencies import require_admin_committee, get_current_user
+from app.core.dependencies import require_admin_committee, require_manager_above, get_current_user
+from app.core.privacy import TENANT_PRIVATE_FIELDS, hide_private
 from app.models.user import User
 
 router = APIRouter(prefix="/tenants", tags=["Tenants"])
@@ -31,15 +32,16 @@ def list_tenants(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return TenantService(db).list(
+    rows = TenantService(db).list(
         current_user, flat_id=flat_id, is_active=is_active, search=search, skip=skip, limit=limit,
     )
+    return [hide_private(t, current_user, TENANT_PRIVATE_FIELDS) for t in rows]
 
 
 @router.get("/{tenant_id}", response_model=TenantOut)
 def get_tenant(tenant_id: UUID, db: Session = Depends(get_db),
                 current_user: User = Depends(get_current_user)):
-    return TenantService(db).get_or_404(tenant_id, current_user)
+    return hide_private(TenantService(db).get_or_404(tenant_id, current_user), current_user, TENANT_PRIVATE_FIELDS)
 
 
 @router.patch("/{tenant_id}", response_model=TenantOut)
@@ -50,7 +52,7 @@ def update_tenant(tenant_id: UUID, data: TenantUpdate, db: Session = Depends(get
 
 @router.get("/{tenant_id}/agreements", response_model=List[AgreementOut])
 def list_tenant_agreements(tenant_id: UUID, db: Session = Depends(get_db),
-                            current_user: User = Depends(get_current_user)):
+                            current_user: User = Depends(require_manager_above)):
     """Phase M1.4-R — full agreement history for a tenant (current +
     historical), newest start_date first. Read access mirrors get_tenant/
     list_tenants (any authenticated same-society member), not admin-gated."""

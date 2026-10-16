@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import IntegrityError
 
-from app.core.config import settings
+from app.core.config import Settings, settings
 from app.api import api_router
 from app.utils.utc_response import UtcJSONResponse
 from app.utils.exceptions import (
@@ -32,6 +32,17 @@ try:
     run_migrations()
 except Exception as e:
     logger.warning(f"[startup] Migration runner error: {e}")
+
+# ── Unsafe configuration is said loudly (never printing the value) ───────────
+def _warn_insecure_config() -> None:
+    if settings.SECRET_KEY == Settings.model_fields["SECRET_KEY"].default or len(settings.SECRET_KEY) < 32:
+        logger.critical("[security] SECRET_KEY is the built-in default or shorter than 32 characters: anyone can "
+                        "forge login tokens. Set a long random SECRET_KEY in the environment.")
+    if "*" in settings.ALLOWED_ORIGINS and settings.APP_ENV == "production":
+        logger.warning("[security] ALLOWED_ORIGINS allows every origin in production; list the app's origin instead.")
+
+
+_warn_insecure_config()
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 app = FastAPI(
@@ -81,6 +92,9 @@ app.include_router(api_router, prefix="/api/v1")
 # ── System endpoints ──────────────────────────────────────────────────────────
 @app.get("/health", tags=["System"])
 def health():
+    """Liveness: the process is up. Always HTTP 200 (the deploy's health check relies on that). It says whether the
+    database answers and the schema is current, but never where the database is: use /health/ready to refuse traffic
+    on a database that is down or behind."""
     from app.db.session import check_db_connection
     db_status = check_db_connection()
     return JSONResponse({
@@ -89,9 +103,36 @@ def health():
         "version":  settings.APP_VERSION,
         "env":      settings.APP_ENV,
         "time":     int(time.time()),
-        "database": db_status,
-        "migrations": migration_status(),
+        "database": {"status": db_status["status"]},
+        "migrations": _public_migration_status(),
     })
+
+
+def _public_migration_status() -> dict:
+    status_ = migration_status()
+    if "error" in status_:                     # the detail is for the log, not for whoever asks
+        return {"status": "unknown"}
+    return status_
+
+
+@app.get("/health/ready", tags=["System"])
+def ready():
+    """Readiness: 200 only when the database answers, the schema is at the code's head and this start-up's own
+    migration run (if one was asked for) did not fail. Otherwise 503, so a half-migrated release is not served."""
+    from app.db.migrate import startup_result
+    from app.db.session import check_db_connection
+    db_ok = check_db_connection()["status"] == "connected"
+    migrations = _public_migration_status()
+    schema_ok = migrations.get("up_to_date") is True
+    startup_ok = startup_result["ok"] is not False
+    is_ready = db_ok and schema_ok and startup_ok
+    body = {
+        "status": "ready" if is_ready else "not_ready",
+        "database": "connected" if db_ok else "unavailable",
+        "migrations": migrations,
+        "startup_migration": {"attempted": startup_result["attempted"], "ok": startup_result["ok"]},
+    }
+    return JSONResponse(body, status_code=200 if is_ready else 503)
 
 
 def migration_status() -> dict:
@@ -111,7 +152,9 @@ def migration_status() -> dict:
             current = {r[0] for r in conn.execute(text("SELECT version_num FROM alembic_version"))}
         return {"current": sorted(current), "head": sorted(heads), "up_to_date": current == heads}
     except Exception as e:  # noqa: BLE001
-        return {"status": "unknown", "error": str(e)[:120]}
+        from app.db.migrate import redact
+        logger.warning(f"[health] could not read the migration status: {redact(e)[:200]}")
+        return {"status": "unknown", "error": redact(e)[:120]}
 
 
 @app.get("/", tags=["System"])

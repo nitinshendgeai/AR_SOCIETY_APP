@@ -668,7 +668,7 @@ def invoice_payments(inv_id: UUID, db: Session = Depends(get_db),
     return _invoice_out(inv)["payments"]
 
 
-@router.post("/payments/{payment_id}/reverse")
+@router.post("/payments/{payment_id}/reverse", dependencies=[Depends(manager_above)])
 def reverse_payment(payment_id: UUID, data: ReversePaymentRequest,
                     db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     inv = VendorService_(db).reverse_vendor_payment(payment_id, data.reason, user)

@@ -119,7 +119,7 @@ def get_staff_by_user(
     if not is_privileged and str(current_user.id) != str(user_id):
         from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="You can only fetch your own staff record")
-    return StaffService(db).get_staff_by_user(user_id)
+    return StaffService(db).get_staff_by_user(user_id, current_user)
 
 @router.get("/society/{society_id}", response_model=List[StaffOut])
 def list_staff(

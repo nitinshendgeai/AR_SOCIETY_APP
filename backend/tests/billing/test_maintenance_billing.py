@@ -3,7 +3,7 @@ bill detail/PDF, and the resident's own-bills view."""
 from datetime import date, timedelta
 from app.models.resident import Resident
 from app.models.notification import Notification
-from tests.conftest import make_user, make_society, make_wing, make_flat
+from tests.conftest import make_user, make_society, make_wing, make_flat, place_in
 
 
 def _rig(db, tag):
@@ -14,6 +14,7 @@ def _rig(db, tag):
     manager = make_user(db, f"mgr@mb{tag}.com", role="Manager")
     resident = make_user(db, f"res@mb{tag}.com", role="Resident")
     other_resident = make_user(db, f"res2@mb{tag}.com", role="Resident")
+    place_in(db, resident, society); place_in(db, other_resident, society)
     db.add(Resident(full_name="Asha Rao", flat_id=flat1.id, user_id=resident["user"].id, is_primary=True))
     db.add(Resident(full_name="Vik Mehta", flat_id=flat2.id, user_id=other_resident["user"].id, is_primary=True))
     db.commit()

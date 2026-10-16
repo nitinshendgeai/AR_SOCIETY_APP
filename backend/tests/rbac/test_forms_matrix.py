@@ -10,7 +10,7 @@ cannot edit the matrix (but can read their own granted forms).
 """
 from app.core.rbac_seed import FORM_ROLE_GRANTS, default_role_form_codes
 from app.models.role import Role
-from tests.conftest import make_user
+from tests.conftest import make_society, make_user, place_in
 
 
 def test_default_grants_match_dashboard_logic(client, db):
@@ -117,6 +117,7 @@ def test_my_forms_returns_default_grants_for_own_role(client, db):
     }
 
     resident = make_user(db, "formsres4@rbac.com", role="Resident")
+    place_in(db, resident, make_society(db, "Forms Matrix Society"))
     r2 = client.get("/api/v1/roles/forms/mine", headers=resident["headers"])
     assert r2.status_code == 200
     assert set(r2.json()["form_codes"]) == {"visitors", "complaints", "notices", "amenities", "edit_my_info", "my_bills", "meetings", "polls", "documents", "certificates", "parcels", "domestic_help"}

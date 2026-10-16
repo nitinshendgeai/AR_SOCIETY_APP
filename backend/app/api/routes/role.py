@@ -9,6 +9,8 @@ from app.models.user import User, UserRole
 from app.models.permission import Permission, RolePermission
 from app.models.form import Form, RoleForm
 from app.core.dependencies import get_current_user, require_admin
+from app.models.audit_log import AuditAction
+from app.services.audit_service import AuditService
 from app.core.rbac_seed import PERMISSION_DEFINITIONS, FORM_DEFINITIONS
 
 PLATFORM_FORM = "platform_admin"
@@ -198,6 +200,7 @@ def update_role_forms(
             detail=f"Unknown form code(s): {', '.join(sorted(unknown))}",
         )
 
+    old_codes = sorted(rf.form.code for rf in role.role_forms if rf.form)
     db.query(RoleForm).filter(RoleForm.role_id == role.id).delete()
     db.flush()
 
@@ -209,6 +212,10 @@ def update_role_forms(
     db.commit()
 
     codes = sorted(payload.form_codes)
+    # Roles are shared by every society, so a matrix change reaches them all: leave a trail of who changed what.
+    AuditService.log(db=db, action=AuditAction.UPDATE, module="rbac", entity_id=str(role.id), entity_type="Role",
+                     old_values={"form_codes": old_codes}, new_values={"form_codes": codes},
+                     notes=f"Forms matrix changed for role '{role.name}'", user=current_user)
     return RoleFormMatrixRow(role_id=str(role.id), role_name=role.name, form_codes=codes)
 
 
@@ -271,6 +278,7 @@ def update_role_permissions(
             detail=f"Unknown permission code(s): {', '.join(sorted(unknown))}",
         )
 
+    old_codes = sorted(rp.permission.code for rp in role.role_permissions if rp.permission)
     db.query(RolePermission).filter(RolePermission.role_id == role.id).delete()
     db.flush()
 
@@ -282,4 +290,7 @@ def update_role_permissions(
     db.commit()
 
     codes = sorted(payload.permission_codes)
+    AuditService.log(db=db, action=AuditAction.UPDATE, module="rbac", entity_id=str(role.id), entity_type="Role",
+                     old_values={"permission_codes": old_codes}, new_values={"permission_codes": codes},
+                     notes=f"Permission matrix changed for role '{role.name}'", user=current_user)
     return RolePermissionMatrixRow(role_id=str(role.id), role_name=role.name, permission_codes=codes)

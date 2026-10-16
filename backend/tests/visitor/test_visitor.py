@@ -1,6 +1,6 @@
 """Visitor & gate management tests — entry/exit workflow, RBAC."""
 import pytest
-from tests.conftest import make_user, make_society, make_wing, make_flat
+from tests.conftest import make_user, make_society, make_wing, make_flat, place_in
 
 
 def _visitor_payload(society_id, flat_id=None):
@@ -213,6 +213,7 @@ def test_pending_approvals_for_resident(client, db):
     security = make_user(db, "sec9@vis.com", role="Security Staff")
     resident = make_user(db, "res4@vis.com", role="Resident")
     society  = make_society(db, "Visitor Society 12")
+    place_in(db, resident, society)
     wing     = make_wing(db, society.id, "V Wing")
     flat     = make_flat(db, wing.id, "V101")
 
@@ -238,6 +239,8 @@ def _flat_with_people(db, tag, occupancy="owner_occupied"):
     owner   = make_user(db, f"owner@vf{tag}.com")
     family  = make_user(db, f"family@vf{tag}.com")
     tenant  = make_user(db, f"tenant@vf{tag}.com")
+    for member in (owner, family, tenant):
+        place_in(db, member, society)
     db.add_all([
         Resident(flat_id=flat.id, user_id=family["user"].id, full_name="Family", resident_type="family"),
         Resident(flat_id=flat.id, user_id=owner["user"].id, full_name="Owner", is_primary=True),

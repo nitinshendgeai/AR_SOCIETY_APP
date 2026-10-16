@@ -17,7 +17,7 @@ app/utils/seed.py's create_user() (see conftest.make_user).
 import pytest
 from app.utils.seed import ROLES as SEED_ROLES
 from app.modules.onboarding.services.onboarding_service import EXTENDED_DEFAULT_ROLES
-from tests.conftest import make_user, make_society, make_wing, make_flat
+from tests.conftest import make_user, make_society, make_wing, make_flat, place_in
 
 _CANONICAL_ROLE_NAMES = {name for name, _ in EXTENDED_DEFAULT_ROLES}
 
@@ -117,6 +117,7 @@ def test_normal_resident_member_retains_read_access_only(client, db, rig):
     NOT gain write access (POST) — the seed-role fix must not elevate
     ordinary member permissions."""
     member = make_user(db, "seedmember@test.com", role="Resident")
+    place_in(db, member, rig["society"])
 
     read = client.get("/api/v1/residents/", headers=member["headers"])
     assert read.status_code == 200

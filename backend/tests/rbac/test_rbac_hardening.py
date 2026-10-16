@@ -3,7 +3,7 @@ RBAC hardening tests — permission boundary validation, role consistency,
 cross-role scenarios, privilege escalation prevention.
 """
 import pytest
-from tests.conftest import make_user, make_society
+from tests.conftest import make_user, make_society, place_in
 
 
 # ── All roles blocked from admin endpoints ────────────────────────────────────
@@ -123,6 +123,7 @@ def test_user_with_wrong_role_claim_blocked(client, db):
 def test_resident_can_get_pending_approvals(client, db):
     """Residents can view their visitor pending approvals."""
     res = make_user(db, "resvis@priv.com", role="Resident")
+    place_in(db, res, make_society(db, "Priv Society"))
     r = client.get("/api/v1/visitors/me/pending-approvals", headers=res["headers"])
     assert r.status_code == 200
 

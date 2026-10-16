@@ -1,7 +1,7 @@
 """Amenity management tests — CRUD, booking workflow, RBAC."""
 import pytest
 from datetime import date, timedelta
-from tests.conftest import make_user, make_society
+from tests.conftest import make_user, make_society, place_in
 
 
 def _future_date(days: int) -> str:
@@ -55,6 +55,7 @@ def test_book_amenity_no_approval_required(client, db):
     admin    = make_user(db, "adm3@amen.com", role="Society Admin")
     resident = make_user(db, "res2@amen.com", role="Resident")
     society  = make_society(db, "Amenity Society 4")
+    place_in(db, resident, society)
     cr = _create_amenity(client, admin["headers"], society.id, "Tennis Court")
     assert cr.status_code == 201
     amenity_id = cr.json()["id"]
@@ -78,6 +79,7 @@ def test_approve_booking_with_approval_required(client, db):
     admin    = make_user(db, "adm4@amen.com", role="Society Admin")
     resident = make_user(db, "res3@amen.com", role="Resident")
     society  = make_society(db, "Amenity Society 5")
+    place_in(db, resident, society)
     # Create amenity that requires explicit approval
     cr = client.post(
         "/api/v1/amenities/",
@@ -119,6 +121,7 @@ def test_cancel_booking(client, db):
     admin    = make_user(db, "adm5@amen.com", role="Society Admin")
     resident = make_user(db, "res4@amen.com", role="Resident")
     society  = make_society(db, "Amenity Society 6")
+    place_in(db, resident, society)
     # approval_required=True keeps status as pending (cancellable)
     cr = client.post(
         "/api/v1/amenities/",
