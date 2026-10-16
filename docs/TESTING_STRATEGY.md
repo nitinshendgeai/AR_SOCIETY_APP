@@ -1,7 +1,7 @@
 # Testing Strategy — AR Society ERP
 
 ## Stack
-- **pytest** with SQLite in-memory (no external DB needed)
+- **pytest** with a throw-away SQLite file (no external DB needed for the test suite)
 - JSONB → JSON patched in conftest for SQLite compat
 - Per-test transaction rollback — full isolation
 - `TestClient` with dependency injection override
@@ -41,7 +41,7 @@ backend/tests/
 └── vendor/
     └── test_vendor.py       # vendor CRUD, service requests (7 tests)
 ```
-**Total: 171 tests, 0 failures**
+**Total: 1,300 backend tests (1,223 before Phase 1) and 232 Flutter tests, 0 failures** — the tree above is the original layout; see `backend/tests/` for the current one, including `security/` (Phase 1) and `ci/` (Phase 2).
 
 ## Running Tests
 ```bash
@@ -53,6 +53,30 @@ DATABASE_URL="sqlite:///./test_ar_society.db" SECRET_KEY="test-secret" \
 python -m pytest tests/ -q
 ```
 
+## Continuous integration
+
+Three workflows in `.github/workflows/` run on every pull request and every push to `main`
+(details and findings: `docs/audit/PHASE_2_CI_AUDIT.md`):
+
+| Workflow / job | What it checks | Run the same thing locally |
+|---|---|---|
+| **Backend CI → Backend tests** (Python 3.12) | hash-enforced install, import check, the security regression tests, then the full suite, then a guard against a false-green run | `cd backend && pip install --require-hashes -r requirements-dev.txt && make lint test-security && python -m pytest -q -o log_cli=false` |
+| **Backend CI → Migrations** (PostgreSQL 16) | one unbroken migration chain; empty database → head; last migration reversible; earlier revision → head; no missing/extra tables or columns; `/health/ready` 200 at head and 503 one revision behind | `make check-migrations` (no database) or `make check-migrations-db ADMIN_DB_URL=postgresql://user:password@localhost:5432/postgres` (a **disposable** server) |
+| **Flutter CI → analyze and tests** | `flutter pub get`, `flutter analyze --no-fatal-infos` (errors and warnings fail), `flutter test` | `cd mobile && cp .env.example .env && flutter pub get && flutter analyze --no-fatal-infos && flutter test` |
+| **Flutter CI → web release build** | the production web build compiles | `cd mobile && flutter build web --release --dart-define=API_BASE_URL=https://ci.invalid/api/v1 --no-tree-shake-icons` |
+| **Secret Scan** (gitleaks) | no credential-shaped value in the working tree | see `docs/audit/PHASE_2_CI_AUDIT.md` (currently reports two Firebase web-key findings) |
+| **Build Android APK** (main only) | the release APK builds | needs the Android SDK |
+
+Notes for contributors:
+- The backend dependency locks are `backend/requirements.txt` (production, installed by Railway) and
+  `backend/requirements-dev.txt` (production lock + test tools). After changing `requirements.in` or
+  `requirements-dev.in`, regenerate **both** with `pip-compile --generate-hashes` and keep them in step
+  (`pip-compile --generate-hashes -c requirements.txt --no-header -o requirements-dev.txt requirements-dev.in`).
+- Run `alembic` through its console script (as the docs do), not `python -m alembic`: the migrations folder is
+  itself called `alembic` and shadows the library when you run from `backend/`.
+- `mobile/pubspec.lock` is git-ignored, so Flutter dependencies resolve fresh within the ranges in `pubspec.yaml` on every run (CI cannot use `--enforce-lockfile`). Committing the lock file is recommended.
+- Dart formatting is **not** enforced (278 of 300 files differ from `dart format`); do not reformat unrelated files.
+
 ## Key Fixtures (conftest.py)
 ```python
 db      # SQLite session with rollback per test
@@ -62,6 +86,7 @@ make_user(db, email, password, role)    # → {user, token, headers}
 make_society(db, name)                  # → Society
 make_wing(db, society_id, name)         # → Wing
 make_flat(db, wing_id, flat_number)     # → Flat
+place_in(db, login, society)            # make a login a member of a society (a Resident/Tenant needs one)
 ```
 
 ## Seed Data

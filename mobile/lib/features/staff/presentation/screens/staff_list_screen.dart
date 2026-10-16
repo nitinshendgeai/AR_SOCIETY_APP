@@ -115,7 +115,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
           Expanded(
             child: switch (state) {
               StaffListLoading() => const SkeletonList(),
-              StaffListError(:final message, :final statusCode) when statusCode == 403 =>
+              StaffListError(:final statusCode) when statusCode == 403 =>
                 _AccessDeniedWidget(onRetry: _load),
               StaffListError(:final message) => Center(
                   child: Column(

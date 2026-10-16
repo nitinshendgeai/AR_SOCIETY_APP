@@ -6,7 +6,6 @@ import 'package:ar_society_app/features/staff/data/repositories/staff_repository
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
-import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Read-only view of a single staff member's master record.

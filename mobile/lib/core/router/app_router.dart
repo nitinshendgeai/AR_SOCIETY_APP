@@ -40,7 +40,6 @@ import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dar
 import 'package:ar_society_app/features/auth/presentation/screens/change_password_screen.dart';
 import 'package:ar_society_app/features/auth/presentation/screens/biometric_lock_screen.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/biometric_provider.dart';
-import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/visitor/presentation/screens/visitor_list_screen.dart';
 import 'package:ar_society_app/features/visitor/presentation/screens/create_visitor_screen.dart';
 import 'package:ar_society_app/features/visitor/presentation/screens/visitor_approvals_screen.dart';

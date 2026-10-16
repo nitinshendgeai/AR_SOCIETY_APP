@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart';
-import 'package:ar_society_app/features/accounts/data/recurring_api.dart';
 import 'package:ar_society_app/features/vendor/data/vendors_work_api.dart';
 import 'package:ar_society_app/features/vendor/presentation/providers/vendors_work_providers.dart';
 import 'package:ar_society_app/features/vendor/presentation/widgets/vendor_picker.dart';
