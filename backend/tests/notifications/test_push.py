@@ -11,7 +11,7 @@ from jose import jwt
 from app.core.config import settings
 from app.models.device_token import DeviceToken
 from app.services.push_service import PushService
-from tests.conftest import make_user
+from tests.conftest import make_society, make_user, place_in
 from tests.visitor.test_visitor import _flat_with_people, _visitor_payload
 
 _key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -51,6 +51,8 @@ def _register(client, headers, token, platform="android"):
 def test_device_registration_moves_a_token_to_whoever_signs_in_last(client, db):
     alice = make_user(db, "alice@push1.com")
     bob   = make_user(db, "bob@push1.com")
+    home = make_society(db, "Push Society 1")
+    place_in(db, alice, home); place_in(db, bob, home)
     assert _register(client, alice["headers"], "shared-browser-token-1", "web") == \
         {"registered": True, "push_enabled": False}
     _register(client, bob["headers"], "shared-browser-token-1", "web")
@@ -71,6 +73,7 @@ def test_device_registration_moves_a_token_to_whoever_signs_in_last(client, db):
 
 def test_device_platform_is_validated(client, db):
     user = make_user(db, "carol@push2.com")
+    place_in(db, user, make_society(db, "Push Society 2"))
     r = client.post("/api/v1/notifications/devices",
                     json={"token": "some-device-token", "platform": "fridge"}, headers=user["headers"])
     assert r.status_code == 422

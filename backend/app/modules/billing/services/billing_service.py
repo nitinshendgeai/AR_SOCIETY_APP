@@ -34,7 +34,7 @@ from app.modules.billing.services.receipt_pdf import generate_payment_receipt_pd
 from app.modules.billing.services.maintenance_calculator import MaintenanceCalculator, default_settings
 from app.modules.billing.services.standard_elements import seed_standard_elements
 from app.models.user import User
-from app.core.tenant_scope import assert_society_access
+from app.core.tenant_scope import assert_society_access, resolve_create_society_id
 from app.models.audit_log import AuditAction
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
@@ -680,6 +680,8 @@ class BillingService:
     # ── Penalty Rules ─────────────────────────────────────────────────────────
 
     def create_penalty_rule(self, data: dict, user: User) -> PenaltyRule:
+        # The rule belongs to the caller's own society; a society named in the request is checked, never trusted.
+        data["society_id"] = resolve_create_society_id(user, data.get("society_id"))
         rule = PenaltyRule(**data)
         return self.penalty_repo.create(rule)
 
@@ -1001,12 +1003,16 @@ class BillingService:
     def generate_online_payment_receipt_pdf(self, submission_id: UUID) -> bytes:
         return generate_payment_receipt_pdf(self.get_online_payment_submission(submission_id))
 
-    def get_payment_by_receipt_number(self, receipt_number: str):
+    def get_payment_by_receipt_number(self, receipt_number: str, society_id: Optional[UUID] = None):
         """The payment a receipt number belongs to — a PaymentReceipt, or an
-        OnlinePaymentSubmission from the Record Payment form."""
-        payment = (self.db.query(PaymentReceipt).filter(PaymentReceipt.receipt_number == receipt_number).first()
-                   or self.db.query(OnlinePaymentSubmission)
-                   .filter(OnlinePaymentSubmission.receipt_number == receipt_number).first())
+        OnlinePaymentSubmission from the Record Payment form. Receipt numbers run per society (every society has an
+        RCP-2026-00001), so a society-confined caller's lookup is confined to their own society."""
+        r = self.db.query(PaymentReceipt).filter(PaymentReceipt.receipt_number == receipt_number)
+        o = self.db.query(OnlinePaymentSubmission).filter(OnlinePaymentSubmission.receipt_number == receipt_number)
+        if society_id is not None:
+            r = r.filter(PaymentReceipt.society_id == society_id)
+            o = o.filter(OnlinePaymentSubmission.society_id == society_id)
+        payment = r.first() or o.first()
         if not payment:
             raise HTTPException(404, "Receipt not found")
         return payment

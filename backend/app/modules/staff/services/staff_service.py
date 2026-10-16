@@ -324,11 +324,12 @@ class StaffService:
     def get_staff(self, staff_id: UUID, user: Optional[User] = None) -> Staff:
         return self._staff_or_404(staff_id, user)
 
-    def get_staff_by_user(self, user_id: UUID) -> Staff:
+    def get_staff_by_user(self, user_id: UUID, user: Optional[User] = None) -> Staff:
         staff = self.repo.get_by_user(user_id)
         if not staff:
             raise HTTPException(status_code=404, detail="No staff profile linked to this user")
-        return staff
+        # Another society's staff record reads as not found, like every other staff lookup.
+        return self._scoped(user, staff, "Staff")
 
     def list_staff(self, society_id: UUID, skip=0, limit=50,
                    department: Optional[str] = None) -> List[Staff]:

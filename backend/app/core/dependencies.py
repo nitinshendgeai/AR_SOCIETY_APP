@@ -75,7 +75,13 @@ def get_current_user(
     user.peer_ids = payload.get("peers") or []
 
     # A suspended society is shut: only the calls that tell the app why, and sign out, still work.
-    from app.core.society_gate import path_is_allowed, service_block_reason, society_block_reason
+    from app.core.society_gate import (
+        no_society_block_reason, path_is_allowed, service_block_reason, society_block_reason,
+    )
+    # No society and not a platform admin: nothing to see beyond one's own sign-in (see no_society_block_reason).
+    reason = no_society_block_reason(user, request.url.path)
+    if reason:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=reason)
     reason = society_block_reason(db, user)
     if reason and not path_is_allowed(request.url.path):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=reason)

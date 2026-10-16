@@ -4,12 +4,14 @@ Aggregates staff task, attendance, and leave data for dashboards.
 """
 from uuid import UUID
 from datetime import date, timedelta
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.db.session import get_db
-from app.core.dependencies import require_roles, require_admin_committee
+from app.core.dependencies import get_current_user, require_roles, require_admin_committee
+from app.core.tenant_scope import assert_society_access
+from app.models.user import User
 from app.modules.staff.models.staff import (
     Staff, StaffTask, StaffAttendance, StaffLeave,
     TaskStatus, AttendanceStatus, LeaveStatus, StaffStatus,
@@ -22,7 +24,9 @@ admin_or_committee = require_admin_committee
 
 @router.get("/society/{society_id}/summary",
             dependencies=[Depends(admin_or_committee)])
-def society_workload_summary(society_id: UUID, db: Session = Depends(get_db)):
+def society_workload_summary(society_id: UUID, db: Session = Depends(get_db),
+                             user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
     today = date.today()
     week_start = today - timedelta(days=today.weekday())
 
@@ -77,7 +81,11 @@ def society_workload_summary(society_id: UUID, db: Session = Depends(get_db)):
 
 @router.get("/staff/{staff_id}/summary",
             dependencies=[Depends(admin_or_committee)])
-def staff_workload_summary(staff_id: UUID, db: Session = Depends(get_db)):
+def staff_workload_summary(staff_id: UUID, db: Session = Depends(get_db),
+                           user: User = Depends(get_current_user)):
+    staff = db.query(Staff).filter(Staff.id == staff_id).first()
+    if staff is None or (user.society_id is not None and staff.society_id != user.society_id):
+        raise HTTPException(status_code=404, detail="Staff not found")
     today      = date.today()
     month_start = today.replace(day=1)
 

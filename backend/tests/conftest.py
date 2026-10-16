@@ -127,6 +127,14 @@ def make_user(db: Session, email: str, password: str = "Test@1234",
     return {"user": user, "token": token, "headers": {"Authorization": f"Bearer {token}"}}
 
 
+def place_in(db: Session, login: dict, society) -> dict:
+    """Make `login` a member of `society`. Every real resident and tenant belongs to a society; a Resident or Tenant
+    with none is refused everywhere except their own sign-in (see app.core.society_gate.no_society_block_reason)."""
+    login["user"].society_id = society.id
+    db.commit()
+    return login
+
+
 def make_society(db: Session, name: str = "Test Society"):
     from app.models.society import Society
     s = Society(name=name, city="Mumbai", state="Maharashtra")

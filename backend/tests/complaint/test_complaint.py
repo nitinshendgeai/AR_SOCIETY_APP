@@ -1,6 +1,6 @@
 """Complaint module tests — lifecycle FSM, validation, RBAC."""
 import pytest
-from tests.conftest import make_user, make_society, make_wing, make_flat
+from tests.conftest import make_user, make_society, make_wing, make_flat, place_in
 
 
 def _complaint_payload(society_id):
@@ -18,6 +18,7 @@ def _complaint_payload(society_id):
 def test_create_complaint_success(client, db):
     resident = make_user(db, "res@cmp.com", role="Resident")
     society  = make_society(db, "Complaint Society 1")
+    place_in(db, resident, society)
     r = client.post("/api/v1/complaints/",
                     json=_complaint_payload(society.id),
                     headers=resident["headers"])
@@ -31,6 +32,7 @@ def test_create_complaint_success(client, db):
 def test_complaint_includes_flat_and_wing_details(client, db):
     resident = make_user(db, "res-flat@cmp.com", role="Resident")
     society  = make_society(db, "Complaint Society Flat")
+    place_in(db, resident, society)
     wing     = make_wing(db, society.id, "B Wing")
     flat     = make_flat(db, wing.id, "B-204")
 
@@ -53,6 +55,7 @@ def test_complaint_includes_flat_and_wing_details(client, db):
 def test_complaint_without_flat_has_null_flat_details(client, db):
     resident = make_user(db, "res-noflat@cmp.com", role="Resident")
     society  = make_society(db, "Complaint Society No Flat")
+    place_in(db, resident, society)
     r = client.post("/api/v1/complaints/",
                     json=_complaint_payload(society.id),
                     headers=resident["headers"])
@@ -78,6 +81,7 @@ def test_unauthenticated_cannot_create_complaint(client, db):
 def test_create_complaint_empty_title_rejected(client, db):
     resident = make_user(db, "res2@cmp.com", role="Resident")
     society  = make_society(db, "Complaint Society 2")
+    place_in(db, resident, society)
     payload  = _complaint_payload(society.id)
     payload["title"] = "   "
     r = client.post("/api/v1/complaints/", json=payload, headers=resident["headers"])
@@ -109,6 +113,7 @@ def test_resident_cannot_assign_complaint(client, db):
     resident = make_user(db, "res3@cmp.com", role="Resident")
     staff    = make_user(db, "stf2@cmp.com", role="Security Staff")
     society  = make_society(db, "Complaint Society 4")
+    place_in(db, resident, society)
 
     r = client.post("/api/v1/complaints/",
                     json=_complaint_payload(society.id),
@@ -254,6 +259,7 @@ def test_cannot_modify_closed_complaint(client, db):
 def test_add_comment_success(client, db):
     resident = make_user(db, "res4@cmp.com", role="Resident")
     society  = make_society(db, "Complaint Society 10")
+    place_in(db, resident, society)
 
     r = client.post("/api/v1/complaints/",
                     json=_complaint_payload(society.id),
@@ -317,6 +323,7 @@ def test_list_society_complaints(client, db):
 def test_list_my_complaints(client, db):
     resident = make_user(db, "res5@cmp.com", role="Resident")
     society  = make_society(db, "Complaint Society 13")
+    place_in(db, resident, society)
 
     for i in range(2):
         p = _complaint_payload(society.id)
@@ -333,6 +340,7 @@ def test_list_my_complaints(client, db):
 def test_auto_assign_to_fmc_manager_on_create(client, db):
     resident = make_user(db, "res6@cmp.com", role="Resident")
     society  = make_society(db, "Complaint Society 15")
+    place_in(db, resident, society)
     manager  = make_user(db, "mgr1@cmp.com", role="Manager")
     manager["user"].society_id = society.id
     db.commit()
@@ -350,6 +358,7 @@ def test_auto_assign_to_fmc_manager_on_create(client, db):
 def test_manager_can_reassign_to_staff(client, db):
     resident = make_user(db, "res7@cmp.com", role="Resident")
     society  = make_society(db, "Complaint Society 16")
+    place_in(db, resident, society)
     manager  = make_user(db, "mgr2@cmp.com", role="Manager")
     manager["user"].society_id = society.id
     db.commit()
@@ -374,6 +383,7 @@ def test_manager_can_reassign_to_staff(client, db):
 def test_no_auto_assign_when_no_manager_in_society(client, db):
     resident = make_user(db, "res8@cmp.com", role="Resident")
     society  = make_society(db, "Complaint Society 17")
+    place_in(db, resident, society)
 
     r = client.post("/api/v1/complaints/",
                     json=_complaint_payload(society.id),

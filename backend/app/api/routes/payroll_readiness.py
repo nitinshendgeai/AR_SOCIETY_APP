@@ -59,8 +59,8 @@ def set_salary_structure(data: SalaryStructureCreate, db: Session = Depends(get_
 
 @router.get("/salary-structure/{staff_id}", response_model=Optional[SalaryStructureOut],
             dependencies=[Depends(committee_or_admin)])
-def get_salary_structure(staff_id: UUID, db: Session = Depends(get_db)):
-    result = PayrollService(db).get_salary_structure(staff_id)
+def get_salary_structure(staff_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    result = PayrollService(db).get_salary_structure(staff_id, user)
     if not result: raise HTTPException(status_code=404, detail="No salary structure found")
     return result
 
@@ -110,14 +110,14 @@ def reject_correction(correction_id: UUID, data: RejectCorrectionRequest,
 @router.get("/attendance-correction/society/{society_id}", response_model=List[CorrectionOut],
             dependencies=[Depends(manager_or_above)])
 def list_corrections(society_id: UUID, status: Optional[str] = None,
-                     db: Session = Depends(get_db)):
-    return PayrollService(db).list_corrections(society_id, status)
+                     db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return PayrollService(db).list_corrections(society_id, user, status)
 
 
 @router.get("/attendance-correction/staff/{staff_id}", response_model=List[CorrectionOut],
             dependencies=[Depends(any_staff)])
-def list_my_corrections(staff_id: UUID, db: Session = Depends(get_db)):
-    return PayrollService(db).list_by_staff(staff_id)
+def list_my_corrections(staff_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return PayrollService(db).list_by_staff(staff_id, user)
 
 
 # ── Monthly Attendance Summary ────────────────────────────────────────────────
@@ -147,7 +147,8 @@ def finalize_monthly(summary_id: UUID, db: Session = Depends(get_db),
 @router.get("/monthly-summary/{staff_id}/{year}/{month}",
             response_model=Optional[MonthlySummaryOut],
             dependencies=[Depends(committee_or_admin)])
-def get_monthly_summary(staff_id: UUID, year: int, month: int, db: Session = Depends(get_db)):
-    result = PayrollService(db).get_monthly_summary(staff_id, year, month)
+def get_monthly_summary(staff_id: UUID, year: int, month: int, db: Session = Depends(get_db),
+                        user: User = Depends(get_current_user)):
+    result = PayrollService(db).get_monthly_summary(staff_id, year, month, user)
     if not result: raise HTTPException(status_code=404, detail="Summary not found")
     return result

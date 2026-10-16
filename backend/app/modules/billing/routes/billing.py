@@ -672,7 +672,7 @@ def get_receipt_pdf(receipt_number: str, db: Session = Depends(get_db),
     document (receipts are never printed on the maintenance bill). Members
     get the receipts of their own flats."""
     svc = BillingService(db)
-    payment = svc.get_payment_by_receipt_number(receipt_number)
+    payment = svc.get_payment_by_receipt_number(receipt_number, user.society_id)
     try:
         _ensure_can_view_flat(db, user, payment.flat_id)
     except HTTPException:

@@ -12,6 +12,7 @@ from app.schemas.resident_edit_request import (
 from app.services.resident_service import ResidentService
 from app.services.resident_edit_request_service import ResidentEditRequestService
 from app.core.dependencies import require_admin_committee, get_current_user
+from app.core.privacy import RESIDENT_PRIVATE_FIELDS, hide_private
 from app.models.user import User
 
 router = APIRouter(prefix="/residents", tags=["Residents"])
@@ -34,10 +35,11 @@ def list_residents(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return ResidentService(db).list(
+    rows = ResidentService(db).list(
         current_user, flat_id=flat_id, resident_type=resident_type,
         is_active=is_active, search=search, skip=skip, limit=limit,
     )
+    return [hide_private(r, current_user, RESIDENT_PRIVATE_FIELDS) for r in rows]
 
 
 @router.get("/me", response_model=ResidentOut)
@@ -56,7 +58,7 @@ def list_my_flats(db: Session = Depends(get_db), current_user: User = Depends(ge
 @router.get("/{resident_id}", response_model=ResidentOut)
 def get_resident(resident_id: UUID, db: Session = Depends(get_db),
                   current_user: User = Depends(get_current_user)):
-    return ResidentService(db).get_or_404(resident_id, current_user)
+    return hide_private(ResidentService(db).get_or_404(resident_id, current_user), current_user, RESIDENT_PRIVATE_FIELDS)
 
 
 @router.patch("/{resident_id}", response_model=ResidentOut)

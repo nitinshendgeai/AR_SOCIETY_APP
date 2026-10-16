@@ -8,7 +8,7 @@ the Manager when nobody in the matching department is on duty, or when the
 category has no department mapping (OTHER).
 """
 import pytest
-from tests.conftest import make_user, make_society
+from tests.conftest import make_user, make_society, place_in
 
 
 def _make_staff_with_login(db, society_id, email, department, name="Staffer"):
@@ -60,6 +60,7 @@ def test_complaint_routes_to_on_duty_department_staff(client, db):
 
     resident = make_user(db, "res-ondty1@cmp.com", role="Resident")
     society  = make_society(db, "On-Duty Society 1")
+    place_in(db, resident, society)
     manager  = make_user(db, "mgr-ondty1@cmp.com", role="Manager")
     manager["user"].society_id = society.id
     db.commit()
@@ -81,6 +82,7 @@ def test_complaint_routes_to_on_duty_department_staff(client, db):
 def test_complaint_falls_back_to_manager_when_nobody_on_duty(client, db):
     resident = make_user(db, "res-ondty2@cmp.com", role="Resident")
     society  = make_society(db, "On-Duty Society 2")
+    place_in(db, resident, society)
     manager  = make_user(db, "mgr-ondty2@cmp.com", role="Manager")
     manager["user"].society_id = society.id
     db.commit()
@@ -103,6 +105,7 @@ def test_checked_out_staff_not_picked(client, db):
 
     resident = make_user(db, "res-ondty3@cmp.com", role="Resident")
     society  = make_society(db, "On-Duty Society 3")
+    place_in(db, resident, society)
     manager  = make_user(db, "mgr-ondty3@cmp.com", role="Manager")
     manager["user"].society_id = society.id
     db.commit()
@@ -129,6 +132,7 @@ def test_wrong_department_staff_not_picked(client, db):
 
     resident = make_user(db, "res-ondty4@cmp.com", role="Resident")
     society  = make_society(db, "On-Duty Society 4")
+    place_in(db, resident, society)
     manager  = make_user(db, "mgr-ondty4@cmp.com", role="Manager")
     manager["user"].society_id = society.id
     db.commit()
@@ -151,6 +155,7 @@ def test_other_category_has_no_department_mapping_goes_to_manager(client, db):
 
     resident = make_user(db, "res-ondty5@cmp.com", role="Resident")
     society  = make_society(db, "On-Duty Society 5")
+    place_in(db, resident, society)
     manager  = make_user(db, "mgr-ondty5@cmp.com", role="Manager")
     manager["user"].society_id = society.id
     db.commit()
@@ -173,6 +178,7 @@ def test_assigned_department_set_on_department_routed_complaint(client, db):
 
     resident = make_user(db, "res-ondty6@cmp.com", role="Resident")
     society  = make_society(db, "On-Duty Society 6")
+    place_in(db, resident, society)
 
     guard, guard_login = _make_staff_with_login(
         db, society.id, "guard-ondty6@cmp.com", StaffDepartment.SECURITY)
@@ -192,6 +198,7 @@ def test_manual_department_assign_picks_on_duty_staff(client, db):
 
     resident = make_user(db, "res-ondty7@cmp.com", role="Resident")
     society  = make_society(db, "On-Duty Society 7")
+    place_in(db, resident, society)
     manager  = make_user(db, "mgr-ondty7@cmp.com", role="Manager")
     manager["user"].society_id = society.id
     db.commit()
@@ -221,6 +228,7 @@ def test_manual_department_assign_picks_on_duty_staff(client, db):
 def test_manual_department_assign_no_one_on_duty_tags_department_only(client, db):
     resident = make_user(db, "res-ondty8@cmp.com", role="Resident")
     society  = make_society(db, "On-Duty Society 8")
+    place_in(db, resident, society)
     manager  = make_user(db, "mgr-ondty8@cmp.com", role="Manager")
     manager["user"].society_id = society.id
     db.commit()
@@ -242,6 +250,7 @@ def test_manual_department_assign_no_one_on_duty_tags_department_only(client, db
 def test_manual_department_assign_rejects_unknown_department(client, db):
     resident = make_user(db, "res-ondty9@cmp.com", role="Resident")
     society  = make_society(db, "On-Duty Society 9")
+    place_in(db, resident, society)
     manager  = make_user(db, "mgr-ondty9@cmp.com", role="Manager")
     manager["user"].society_id = society.id
     db.commit()

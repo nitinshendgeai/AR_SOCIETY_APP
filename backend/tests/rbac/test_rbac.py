@@ -1,6 +1,6 @@
 """RBAC tests — role-based access control enforcement."""
 import pytest
-from tests.conftest import make_user, make_society
+from tests.conftest import make_user, make_society, place_in
 
 
 def test_admin_can_create_society(client, db):
@@ -58,6 +58,7 @@ def test_resident_cannot_list_users(client, db):
 def test_any_authenticated_can_view_society(client, db):
     res     = make_user(db, "res3@rbac.com", role="Resident")
     society = make_society(db, "View Society")
+    place_in(db, res, society)
     r = client.get(f"/api/v1/societies/{society.id}", headers=res["headers"])
     assert r.status_code == 200
 

@@ -6,7 +6,7 @@ import re
 import zlib
 import pytest
 from datetime import date
-from tests.conftest import make_user, make_society, make_wing, make_flat
+from tests.conftest import make_user, make_society, make_wing, make_flat, place_in
 
 
 def _pdf_text_stream(pdf_bytes: bytes) -> bytes:
@@ -261,6 +261,7 @@ def test_online_payments_form_granted_to_manager_and_admin(client, db):
     manager = make_user(db, "mgr2@pay.com", role="Manager")
     admin = make_user(db, "adm2@pay.com", role="Society Admin")
     resident = make_user(db, "res2@pay.com", role="Resident")
+    place_in(db, resident, make_society(db, "Pay Forms Society"))
     r_mgr = client.get("/api/v1/roles/forms/mine", headers=manager["headers"])
     r_adm = client.get("/api/v1/roles/forms/mine", headers=admin["headers"])
     r_res = client.get("/api/v1/roles/forms/mine", headers=resident["headers"])

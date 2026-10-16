@@ -48,3 +48,30 @@ def service_block_reason(db: Session, user, path: str) -> Optional[str]:
 
 def path_is_allowed(path: str) -> bool:
     return path.rstrip("/").endswith(ALLOWED_SUFFIXES)
+
+
+# A login that belongs to no society and is not a platform admin (for example one made through the public
+# POST /auth/register) has no society's data to see. The code treats "no society" as "platform admin, no tenant
+# filter", so such a login must never reach it: it may only manage its own sign-in.
+NO_SOCIETY_MESSAGE = "Your account is not linked to a society yet. Please contact your society office."
+_OWN_ACCOUNT_PREFIXES = ("/auth/me", "/auth/logout", "/auth/change-password", "/auth/accept-terms",
+                         "/auth/sessions")
+
+
+RESIDENT_LEVEL_ROLES = frozenset({"Resident", "Tenant"})
+
+
+def no_society_block_reason(user, path: str) -> Optional[str]:
+    """Why this call is refused because the login belongs to no society, or None. Platform admins (is_superadmin),
+    logins of a society and logins that hold any role above resident level are never refused here: a resident or
+    tenant must belong to a society, so one that doesn't (the public registration's result) has no business with
+    society data."""
+    if getattr(user, "society_id", None) is not None or getattr(user, "is_superadmin", False):
+        return None
+    role_names = {ur.role.name for ur in (getattr(user, "user_roles", None) or []) if ur.role}
+    if role_names - RESIDENT_LEVEL_ROLES:
+        return None
+    tail = path.split("/api/v1", 1)[-1].rstrip("/")
+    if tail.startswith(_OWN_ACCOUNT_PREFIXES):
+        return None
+    return NO_SOCIETY_MESSAGE
