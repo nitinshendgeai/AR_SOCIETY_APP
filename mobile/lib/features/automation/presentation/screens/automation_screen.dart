@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/material.dart';
-import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';

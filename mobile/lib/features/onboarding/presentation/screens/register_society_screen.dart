@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/features/onboarding/presentation/providers/onboarding_providers.dart';
-import 'package:ar_society_app/features/onboarding/domain/registration_result.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/auth_page.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
@@ -19,7 +18,6 @@ class RegisterSocietyScreen extends ConsumerStatefulWidget {
 
 class _RegisterSocietyScreenState
     extends ConsumerState<RegisterSocietyScreen> {
-  final _formKey   = GlobalKey<FormState>();
   final _pageCtrl  = PageController();
   int _page = 0;
 

@@ -99,11 +99,6 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
     if (state is AttendanceLoaded) return state.history;
     return [];
   }
-
-  AttendanceLoaded? _getLoaded(AttendanceState state) {
-    if (state is AttendanceLoaded) return state;
-    return null;
-  }
 }
 
 class _Body extends ConsumerWidget {

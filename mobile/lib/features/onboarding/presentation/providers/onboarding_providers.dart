@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
-import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/features/onboarding/data/onboarding_remote_datasource.dart';
 import 'package:ar_society_app/features/onboarding/domain/registration_result.dart';
 

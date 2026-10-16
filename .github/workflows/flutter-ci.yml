@@ -1,0 +1,103 @@
+name: Flutter CI
+
+# Every pull request and every push to main; no paths filter, so the check can be "required" without ever being
+# skipped (see backend-ci.yml).
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # The version the project was verified with (analysis clean, 232 tests passing, web release build). It is pinned
+  # so a new Flutter release cannot turn a green PR red. NOTE: mobile/Dockerfile (the production web image) uses the
+  # unpinned `cirruslabs/flutter:stable`, and build-apk.yml uses `channel: stable`, so production can still move
+  # ahead of this pin; bump FLUTTER_VERSION deliberately when you upgrade.
+  FLUTTER_VERSION: "3.47.5"
+
+jobs:
+  analyze-and-test:
+    name: Flutter analyze and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Flutter version
+        run: flutter --version
+
+      # pubspec.yaml lists `.env` as an asset but the real file is not committed. .env.example holds only public
+      # placeholders (an API URL and app name); no secret is involved.
+      - name: Create .env from the example
+        run: cp .env.example .env
+
+      # --enforce-lockfile fails if pubspec.lock is out of step with pubspec.yaml (reproducible dependencies).
+      - name: Resolve dependencies from the lock file
+        run: flutter pub get --enforce-lockfile
+
+      # Errors AND warnings fail the job. The 437 style/deprecation "infos" that existed when this check was added
+      # are tolerated (--no-fatal-infos) until they are cleaned up; new errors or warnings cannot be added.
+      - name: Static analysis
+        run: flutter analyze --no-fatal-infos
+
+      - name: Unit and widget tests
+        run: flutter test
+
+  web-release-build:
+    name: Flutter web release build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Create .env from the example
+        run: cp .env.example .env
+
+      - name: Resolve dependencies from the lock file
+        run: flutter pub get --enforce-lockfile
+
+      # The same flags as mobile/Dockerfile (the production web build), with a placeholder API address so nothing in
+      # this build can reach, or be mistaken for, production. The artifact is discarded; this only proves it compiles.
+      - name: Build the web release
+        run: |
+          flutter build web --release \
+            --dart-define=API_BASE_URL=https://ci.invalid/api/v1 \
+            --dart-define=APP_ENV=ci \
+            --no-tree-shake-icons
+
+      - name: Confirm the build produced the app
+        run: test -s build/web/main.dart.js && test -s build/web/index.html && echo "web build output present"

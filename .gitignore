@@ -56,3 +56,6 @@ backend/*.db
 
 # SQLite journal left by a running test session
 backend/*.db-journal
+
+# pytest JUnit reports written by CI / `make`
+backend/test-results/

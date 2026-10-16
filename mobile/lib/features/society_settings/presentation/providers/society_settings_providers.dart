@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/features/society_settings/data/models/society_settings_model.dart';
 import 'package:ar_society_app/features/society_settings/data/repositories/society_settings_repository.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
-import 'package:dio/dio.dart';
 
 final societySettingsRepoProvider = Provider<SocietySettingsRepository>(
   (_) => SocietySettingsRepository(),
