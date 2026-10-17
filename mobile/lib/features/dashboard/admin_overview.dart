@@ -74,6 +74,11 @@ class DashboardOverview {
   final bool hasOccupancy, hasToday;
   final List<AttentionItem> attention;
 
+  /// Blocks the server could not work out (`collection`, `money`, `occupancy`, `today`, `attention`). Their
+  /// absence or emptiness is a failure to load, not a real "nothing here" - the screen says so and offers a retry.
+  final Set<String> errors;
+  bool failed(String block) => errors.contains(block);
+
   DashboardOverview.fromJson(Map<String, dynamic> j)
       : collection = j['collection'] == null ? null : CollectionBlock(j['collection'] as Map<String, dynamic>),
         money = j['money'] == null ? null : MoneyBlock(j['money'] as Map<String, dynamic>),
@@ -85,7 +90,8 @@ class DashboardOverview {
         hasToday = j['today'] != null,
         visitorsToday = ((j['today'] as Map?)?['visitors_today'] as num?)?.toInt() ?? 0,
         visitorsInside = ((j['today'] as Map?)?['visitors_inside'] as num?)?.toInt() ?? 0,
-        attention = [for (final a in (j['attention'] as List? ?? const [])) AttentionItem(a as Map<String, dynamic>)];
+        attention = [for (final a in (j['attention'] as List? ?? const [])) AttentionItem(a as Map<String, dynamic>)],
+        errors = {for (final e in (j['errors'] as List? ?? const [])) '$e'};
 }
 
 final dashboardOverviewProvider = FutureProvider.autoDispose.family<DashboardOverview, String>((ref, societyId) async {
@@ -170,7 +176,11 @@ class AdminOverview extends ConsumerWidget {
               label: const Text('Try again')),
         ]),
       ),
-      data: (o) => _Body(o: o, societyId: societyId, activeStaff: activeStaff),
+      data: (o) => _Body(
+          o: o,
+          societyId: societyId,
+          activeStaff: activeStaff,
+          onRetry: () => ref.invalidate(dashboardOverviewProvider(societyId))),
     );
   }
 }
@@ -179,12 +189,18 @@ class _Body extends StatelessWidget {
   final DashboardOverview o;
   final String societyId;
   final String? activeStaff;
-  const _Body({required this.o, required this.societyId, required this.activeStaff});
+  final VoidCallback onRetry;
+  const _Body({required this.o, required this.societyId, required this.activeStaff, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
-    final collection = _CollectionCard(c: o.collection);
-    final attention = _AttentionCard(items: o.attention, societyId: societyId);
+    // A block the server failed to compute is reported as such - never drawn as "no billing cycle yet" or "all clear".
+    final Widget collection = o.failed('collection')
+        ? _SectionError(title: 'Maintenance collection', onRetry: onRetry)
+        : _CollectionCard(c: o.collection);
+    final Widget attention = o.failed('attention')
+        ? _SectionError(title: 'Needs attention', onRetry: onRetry)
+        : _AttentionCard(items: o.attention, societyId: societyId);
     return LayoutBuilder(builder: (context, box) {
       final wide = box.maxWidth >= 860;
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -199,7 +215,10 @@ class _Body extends StatelessWidget {
           const SizedBox(height: 16),
           attention,
         ],
-        if (o.money != null) ...[
+        if (o.failed('money')) ...[
+          const SizedBox(height: 20),
+          _SectionError(title: 'Money', onRetry: onRetry),
+        ] else if (o.money != null) ...[
           const SizedBox(height: 20),
           const _Label('Money'),
           const SizedBox(height: 10),
@@ -208,7 +227,7 @@ class _Body extends StatelessWidget {
         const SizedBox(height: 20),
         const _Label('Society today'),
         const SizedBox(height: 10),
-        _Glance(o: o, activeStaff: activeStaff),
+        _Glance(o: o, activeStaff: activeStaff, onRetry: onRetry),
       ]);
     });
   }
@@ -220,6 +239,30 @@ class _Label extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(text,
       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary));
+}
+
+/// A section the server could not load: says so plainly (a screen reader announces it) and offers a retry.
+class _SectionError extends StatelessWidget {
+  final String title;
+  final VoidCallback onRetry;
+  const _SectionError({required this.title, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        liveRegion: true,
+        child: _Frame(
+          title: title,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('This could not be loaded just now.', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            const Text('The figures are not shown rather than shown wrong. Try again in a moment.',
+                style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+                onPressed: onRetry, icon: const Icon(Icons.refresh_rounded, size: 18), label: const Text('Try again')),
+          ]),
+        ),
+      );
 }
 
 class _Frame extends StatelessWidget {
@@ -533,13 +576,34 @@ class _MoneyRow extends StatelessWidget {
 class _Glance extends StatelessWidget {
   final DashboardOverview o;
   final String? activeStaff;
-  const _Glance({required this.o, required this.activeStaff});
+  final VoidCallback onRetry;
+  const _Glance({required this.o, required this.activeStaff, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
     final fraction = o.flats == 0 ? 0.0 : o.occupied / o.flats;
+    final partial = o.failed('occupancy') || o.failed('today');
     return _Frame(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (partial) ...[
+          Semantics(
+            liveRegion: true,
+            child: Row(children: [
+              const Icon(Icons.error_outline_rounded, size: 18, color: AppTheme.warning),
+              const SizedBox(width: 8),
+              Expanded(
+                  child: Text(
+                      o.failed('occupancy') && o.failed('today')
+                          ? 'Occupancy and visitor figures could not be loaded.'
+                          : o.failed('occupancy')
+                              ? 'Occupancy and resident figures could not be loaded.'
+                              : 'Visitor figures could not be loaded.',
+                      style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
+              TextButton(onPressed: onRetry, child: const Text('Try again')),
+            ]),
+          ),
+          const SizedBox(height: 12),
+        ],
         if (o.hasOccupancy) ...[
           Row(children: [
             Expanded(

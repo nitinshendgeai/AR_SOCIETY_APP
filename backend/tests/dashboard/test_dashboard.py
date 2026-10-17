@@ -26,7 +26,7 @@ def test_empty_society_has_every_block_and_nothing_to_attend_to(client, db):
     r = _get(client, _admin(db, "dash.empty@t.com", society), society)
     assert r.status_code == 200, r.text
     body = r.json()
-    assert set(body) == {"as_of", "collection", "money", "occupancy", "today", "attention"}
+    assert set(body) == {"as_of", "collection", "money", "occupancy", "today", "attention", "errors"}
     assert body["collection"] is None                      # no billing cycle yet
     assert body["occupancy"] == {"flats": 0, "occupied": 0, "vacant": 0, "residents": 0}
     assert body["today"] == {"visitors_today": 0, "visitors_inside": 0}
@@ -104,3 +104,32 @@ def test_a_failing_block_does_not_blank_the_page(client, db, monkeypatch):
     assert r.status_code == 200
     assert r.json()["money"] is None
     assert r.json()["occupancy"] is not None
+    assert r.json()["errors"] == ["money"]      # the app is told this is a failure, not "no data"
+
+
+def test_a_failing_attention_block_is_reported_not_shown_as_all_clear(client, db, monkeypatch):
+    from app.modules.dashboard.services import dashboard_service as ds
+    society = make_society(db, "Dash Attn Fail")
+    admin = _admin(db, "dash.attn@t.com", society)
+    monkeypatch.setattr(ds.DashboardService, "_attention", lambda self, sid, today: 1 / 0)
+    body = _get(client, admin, society).json()
+    assert body["attention"] == []
+    assert "attention" in body["errors"]
+
+
+def test_a_failing_collection_block_is_reported(client, db, monkeypatch):
+    from app.modules.dashboard.services import dashboard_service as ds
+    society = make_society(db, "Dash Coll Fail")
+    admin = _admin(db, "dash.coll@t.com", society)
+    monkeypatch.setattr(ds.DashboardService, "_collection", lambda self, sid: 1 / 0)
+    body = _get(client, admin, society).json()
+    assert body["collection"] is None
+    # The service rolls back after a failed block; in this test's single outer transaction that also drops the
+    # society row, so later blocks may fail too. What matters here is that the failure is named.
+    assert "collection" in body["errors"]
+
+
+def test_no_errors_when_every_block_loads(client, db):
+    society = make_society(db, "Dash No Err")
+    admin = _admin(db, "dash.noerr@t.com", society)
+    assert _get(client, admin, society).json()["errors"] == []

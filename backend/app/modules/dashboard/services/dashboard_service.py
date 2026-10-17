@@ -3,7 +3,9 @@ what needs the office's attention. Everything is read from the existing
 modules; nothing is stored here.
 
 Each block is computed on its own and falls back to `None` (or an empty list)
-if it fails, so one broken report never blanks the whole dashboard.
+if it fails, so one broken report never blanks the whole dashboard. A block that
+failed is named in the response's `errors` list, so the app can say "could not
+load" instead of showing the fallback as if it were a real empty result.
 """
 import logging
 from datetime import date, datetime, timedelta
@@ -56,6 +58,7 @@ ATTENTION_SERVICE = {
 class DashboardService:
     def __init__(self, db: Session):
         self.db = db
+        self.errors: list = []      # names of the blocks that failed in this call
 
     # ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -65,6 +68,7 @@ class DashboardService:
         except Exception:  # noqa: BLE001 - one block failing must not blank the page
             logger.exception("[dashboard] %s failed", name)
             self.db.rollback()
+            self.errors.append(name)
             return default
 
     def _flats(self, society_id: UUID):
@@ -196,7 +200,7 @@ class DashboardService:
         society = self.db.query(Society).filter(Society.id == society_id).first()
         tz = zone(getattr(society, "timezone", None))
         today = local_today(tz)
-        return {
+        body = {
             "as_of": today.isoformat(),
             "collection": self._block("collection", lambda: self._collection(society_id)),
             "money": None if "accounts" in off else self._block("money", lambda: self._money_block(society_id)),
@@ -204,3 +208,5 @@ class DashboardService:
             "today": None if "visitors" in off else self._block("today", lambda: self._today(society_id, tz)),
             "attention": self._block("attention", lambda: self._attention(society_id, today), []),
         }
+        body["errors"] = list(self.errors)      # [] when every block loaded
+        return body
