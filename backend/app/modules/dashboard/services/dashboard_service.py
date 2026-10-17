@@ -125,6 +125,16 @@ class DashboardService:
             "visitors_inside": int(base.filter(Visitor.status == VisitorStatus.CHECKED_IN).scalar() or 0),
         }
 
+    def _gate_today(self, society_id: UUID, tz) -> dict:
+        """What the gate needs: visitors logged today, how many were let in today, and who is inside now."""
+        start = utc_naive(datetime.combine(local_today(tz), datetime.min.time(), tzinfo=tz))
+        base = self.db.query(func.count(Visitor.id)).filter(Visitor.society_id == society_id)
+        return {
+            "visitors_today": int(base.filter(Visitor.created_at >= start).scalar() or 0),
+            "checked_in_today": int(base.filter(Visitor.checked_in_at >= start).scalar() or 0),
+            "visitors_inside": int(base.filter(Visitor.status == VisitorStatus.CHECKED_IN).scalar() or 0),
+        }
+
     def _attention(self, society_id: UUID, today: date) -> list:
         db = self.db
         items = []
@@ -193,6 +203,19 @@ class DashboardService:
     def attention(self, society_id: UUID, today: date) -> list:
         """What needs the office's attention today, most urgent first (the same list the dashboard shows)."""
         return self._attention(society_id, today)
+
+    def security(self, society_id: UUID) -> dict:
+        """The gate's own summary (security roles): today's visitor figures only, nothing about money or people."""
+        from app.core.services_catalog import off_services
+        off = off_services(self.db, society_id)
+        society = self.db.query(Society).filter(Society.id == society_id).first()
+        tz = zone(getattr(society, "timezone", None))
+        body = {
+            "as_of": local_today(tz).isoformat(),
+            "today": None if "visitors" in off else self._block("today", lambda: self._gate_today(society_id, tz)),
+        }
+        body["errors"] = list(self.errors)
+        return body
 
     def society(self, society_id: UUID) -> dict:
         from app.core.services_catalog import off_services

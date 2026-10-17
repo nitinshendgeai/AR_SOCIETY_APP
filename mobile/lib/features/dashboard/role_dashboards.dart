@@ -21,6 +21,7 @@ import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart' show BillingCycle, amountOf, formatRupees;
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart' show billingCyclesProvider, myBillsProvider;
 import 'package:ar_society_app/features/dashboard/admin_overview.dart';
+import 'package:ar_society_app/features/dashboard/gate_summary.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart' show pendingVisitorApprovalsProvider;
 import 'package:ar_society_app/features/visitor/presentation/widgets/pending_visitors_banner.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart' show flatByIdProvider;
@@ -729,32 +730,60 @@ class SecurityDashboardScreen extends ConsumerWidget {
         : AppRoutes.visitorsSociety.replaceFirst(':societyId', societyId);
     // A Security Supervisor lands here (see userRoleHome) and also runs a team, so the team shortcuts are here too.
     final isSupervisor = (user?.roles ?? const <String>[]).any((r) => r.contains('Supervisor'));
+
+    // Today's figures come from the server (visitors only: there is no source for parking entries or duty status,
+    // so those are not shown). A figure the server could not work out is shown as unavailable, never as 0.
+    final gate = societyId == null || !_on(user, 'visitors')
+        ? AsyncValue<GateSummary>.error(Exception('no society'), StackTrace.empty)
+        : ref.watch(gateSummaryProvider(societyId));
+    AsyncValue<int> gateCount(int? Function(GateSummary g) pick) => gate.when(
+          data: (g) {
+            final v = g.failed ? null : pick(g);
+            return v == null
+                ? AsyncValue<int>.error(Exception('unavailable'), StackTrace.empty)
+                : AsyncValue<int>.data(v);
+          },
+          loading: () => const AsyncValue<int>.loading(),
+          error: (e, st) => AsyncValue<int>.error(e, st),
+        );
+    void retryGate() { if (societyId != null) ref.invalidate(gateSummaryProvider(societyId)); }
     return _DashboardShell(
       title: 'Security Supervisor',
       children: [
         _GreetingCard(user: user, subtitle: 'Security Supervisor · Gate and visitor operations'),
         const SizedBox(height: 18),
-        const _SectionLabel('Today'),
-        const SizedBox(height: 10),
-        GridView(
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 280,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            mainAxisExtent: 148,
-          ),
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            if (_on(user, 'visitors')) ...const [
-              _SummaryCard(icon: Icons.people_rounded, label: 'Visitors Today', value: '--', color: AppTheme.primary),
-              _SummaryCard(icon: Icons.login_rounded, label: 'Check-ins', value: '--', color: AppTheme.success),
+        if (_on(user, 'visitors')) ...[
+          const _SectionLabel('Today'),
+          const SizedBox(height: 10),
+          GridView(
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 280,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              mainAxisExtent: 148,
+            ),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _countCard(
+                icon: Icons.people_rounded, label: 'Visitors Today',
+                count: gateCount((g) => g.visitorsToday), color: (_) => AppTheme.primary, retry: retryGate,
+                onTap: () => context.push(visitorLog),
+              ),
+              _countCard(
+                icon: Icons.login_rounded, label: 'Let In Today',
+                count: gateCount((g) => g.checkedInToday), color: (_) => AppTheme.success, retry: retryGate,
+                onTap: () => context.push(visitorLog),
+              ),
+              _countCard(
+                icon: Icons.meeting_room_rounded, label: 'Inside Now',
+                count: gateCount((g) => g.inside), color: (n) => n > 0 ? AppTheme.warning : AppTheme.success,
+                retry: retryGate,
+                onTap: () => context.push('$visitorLog?tab=inside'),
+              ),
             ],
-            if (_on(user, 'parking'))
-              const _SummaryCard(icon: Icons.local_parking_rounded, label: 'Parking Entries', value: '--', color: AppTheme.secondary),
-            const _SummaryCard(icon: Icons.shield_rounded, label: 'Duty Status', value: 'Active', color: AppTheme.warning),
-          ],
-        ),
+          ),
+        ],
         const SizedBox(height: 18),
         const _SectionLabel('Quick Actions'),
         const SizedBox(height: 10),

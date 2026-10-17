@@ -133,3 +133,98 @@ def test_no_errors_when_every_block_loads(client, db):
     society = make_society(db, "Dash No Err")
     admin = _admin(db, "dash.noerr@t.com", society)
     assert _get(client, admin, society).json()["errors"] == []
+
+
+# ── The gate's own summary: GET /dashboard/security/{society_id} ─────────────────
+
+def _sec(db, email, society, role="Security Staff"):
+    u = make_user(db, email, role=role)
+    u["user"].society_id = society.id
+    db.commit()
+    return u
+
+
+def _gate(client, who, society):
+    return client.get(f"/api/v1/dashboard/security/{society.id}", headers=who["headers"])
+
+
+def _visitor(db, society, name, status="pending", created=None, checked_in=None):
+    from app.modules.visitor.models.visitor import Visitor, VisitorStatus
+    v = Visitor(name=name, mobile="9000000000", society_id=society.id, status=VisitorStatus(status))
+    if created:
+        v.created_at = created
+    if checked_in:
+        v.checked_in_at = checked_in
+    db.add(v)
+    db.commit()
+    return v
+
+
+def test_security_staff_see_todays_gate_figures(client, db):
+    society = make_society(db, "Gate Counts")
+    guard = _sec(db, "gate.guard@t.com", society)
+    now = datetime.utcnow()
+    _visitor(db, society, "In now", status="checked_in", checked_in=now)
+    _visitor(db, society, "Came and left", status="checked_out", checked_in=now)
+    _visitor(db, society, "Waiting", status="pending")
+    _visitor(db, society, "Yesterday", status="checked_out", created=now - timedelta(days=2),
+             checked_in=now - timedelta(days=2))
+    r = _gate(client, guard, society)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["today"] == {"visitors_today": 3, "checked_in_today": 2, "visitors_inside": 1}
+    assert body["errors"] == []
+    assert set(body) == {"as_of", "today", "errors"}      # nothing about money, people or other modules
+
+
+def test_a_quiet_gate_is_zero_not_missing(client, db):
+    society = make_society(db, "Gate Quiet")
+    guard = _sec(db, "gate.quiet@t.com", society)
+    assert _gate(client, guard, society).json()["today"] == {
+        "visitors_today": 0, "checked_in_today": 0, "visitors_inside": 0}
+
+
+def test_gate_summary_roles(client, db):
+    """The same people who can read the visitor log; nobody else."""
+    society = make_society(db, "Gate Roles")
+    allowed = ["Society Admin", "Committee Member", "Manager", "Security Supervisor", "Security Staff"]
+    for i, role in enumerate(allowed):
+        assert _gate(client, _sec(db, f"gate.ok{i}@t.com", society, role), society).status_code == 200, role
+    refused = ["Resident", "Tenant", "Housekeeping Staff", "Technical Supervisor"]
+    for i, role in enumerate(refused):
+        who = _sec(db, f"gate.no{i}@t.com", society, role)
+        assert _gate(client, who, society).status_code == 403, role
+
+
+def test_gate_summary_needs_a_login(client, db):
+    society = make_society(db, "Gate Anon")
+    assert client.get(f"/api/v1/dashboard/security/{society.id}").status_code in (401, 403)
+
+
+def test_gate_summary_is_scoped_to_the_callers_society(client, db):
+    mine = make_society(db, "Gate Mine")
+    other = make_society(db, "Gate Other")
+    guard = _sec(db, "gate.scope@t.com", mine)
+    _visitor(db, other, "Not mine", status="checked_in", checked_in=datetime.utcnow())
+    assert _gate(client, guard, other).status_code == 403             # another society's gate is refused
+    assert _gate(client, guard, mine).json()["today"]["visitors_inside"] == 0   # and its visitors never counted
+
+
+def test_gate_summary_follows_the_visitors_switch(client, db):
+    from app.models.society_service import SocietyService
+    society = make_society(db, "Gate Switch")
+    guard = _sec(db, "gate.switch@t.com", society)
+    db.add(SocietyService(society_id=society.id, service_key="visitors", enabled=False))
+    db.commit()
+    body = _gate(client, guard, society).json()
+    assert body["today"] is None and body["errors"] == []
+
+
+def test_a_failing_gate_block_is_reported(client, db, monkeypatch):
+    from app.modules.dashboard.services import dashboard_service as ds
+    society = make_society(db, "Gate Fail")
+    guard = _sec(db, "gate.fail@t.com", society)
+    monkeypatch.setattr(ds.DashboardService, "_gate_today", lambda self, sid, tz: 1 / 0)
+    body = _gate(client, guard, society).json()
+    assert body["today"] is None
+    assert body["errors"] == ["today"]

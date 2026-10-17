@@ -6,6 +6,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/complaint/presentation/providers/complaint_providers.dart';
+import 'package:ar_society_app/features/dashboard/gate_summary.dart';
 import 'package:ar_society_app/features/dashboard/role_dashboards.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
 import 'package:ar_society_app/features/platform/data/platform_api.dart';
@@ -232,6 +233,91 @@ void main() {
       expect(find.text(_retryNote), findsNothing);
       expect(find.text('3'), findsOneWidget);
       expect(find.text('0'), findsOneWidget);          // suspended
+    });
+  });
+
+  group('Security dashboard', () {
+    GateSummary summary(Map<String, dynamic> j) => GateSummary.fromJson(j);
+
+    testWidgets('shows the server\'s figures for today, and nothing invented', (t) async {
+      _tall(t);
+      await t.pumpWidget(_app(const SecurityDashboardScreen(), _user('Security Staff'), [
+        gateSummaryProvider('s1').overrideWith((ref) async => summary({
+              'today': {'visitors_today': 12, 'checked_in_today': 9, 'visitors_inside': 4}, 'errors': <String>[]})),
+      ]));
+      await _settle(t);
+
+      expect(find.text('12'), findsOneWidget);
+      expect(find.text('9'), findsOneWidget);
+      expect(find.text('4'), findsOneWidget);
+      expect(find.text('Visitors Today'), findsOneWidget);
+      expect(find.text('Let In Today'), findsOneWidget);
+      expect(find.text('Inside Now'), findsOneWidget);
+      // the old placeholders are gone
+      expect(find.text('Parking Entries'), findsNothing);
+      expect(find.text('Duty Status'), findsNothing);
+      expect(find.text('Check-ins'), findsNothing);
+    });
+
+    testWidgets('a quiet gate is a real 0', (t) async {
+      _tall(t);
+      await t.pumpWidget(_app(const SecurityDashboardScreen(), _user('Security Staff'), [
+        gateSummaryProvider('s1').overrideWith((ref) async => summary({
+              'today': {'visitors_today': 0, 'checked_in_today': 0, 'visitors_inside': 0}, 'errors': <String>[]})),
+      ]));
+      await _settle(t);
+
+      expect(find.text('0'), findsNWidgets(3));
+      expect(find.text(_retryNote), findsNothing);
+    });
+
+    testWidgets('a request that failed says so and offers a retry, never 0', (t) async {
+      _tall(t);
+      var calls = 0;
+      await t.pumpWidget(_app(const SecurityDashboardScreen(), _user('Security Staff'), [
+        gateSummaryProvider('s1').overrideWith((ref) async {
+          calls++;
+          if (calls == 1) throw Exception('offline');
+          return summary({'today': {'visitors_today': 5, 'checked_in_today': 3, 'visitors_inside': 1}, 'errors': <String>[]});
+        }),
+      ]));
+      await _settle(t);
+      expect(find.text(_retryNote), findsNWidgets(3));
+      expect(find.text('0'), findsNothing);
+
+      await t.tap(find.text(_retryNote).first);
+      await _settle(t);
+      expect(calls, 2);
+      expect(find.text('5'), findsOneWidget);
+      expect(find.text(_retryNote), findsNothing);
+    });
+
+    testWidgets('a figure the server could not work out is unavailable, not 0', (t) async {
+      _tall(t);
+      await t.pumpWidget(_app(const SecurityDashboardScreen(), _user('Security Staff'), [
+        gateSummaryProvider('s1').overrideWith((ref) async => summary({'today': null, 'errors': ['today']})),
+      ]));
+      await _settle(t);
+
+      expect(find.text(_retryNote), findsNWidgets(3));
+      expect(find.text('0'), findsNothing);
+    });
+
+    testWidgets('with the Visitors service switched off the gate figures are not shown at all', (t) async {
+      _tall(t);
+      final user = UserEntity(id: 'u1', email: 'g@x.in', fullName: 'G', roles: const ['Security Staff'],
+          societyId: 's1', enabledServices: const ['staff']);
+      await t.pumpWidget(_app(const SecurityDashboardScreen(), user, const []));
+      await _settle(t);
+
+      expect(find.text('Visitors Today'), findsNothing);
+      expect(find.text(_retryNote), findsNothing);
+    });
+
+    test('a reply without figures reads as unavailable, not zero', () {
+      final g = GateSummary.fromJson({'today': null, 'errors': <String>[]});
+      expect(g.visitorsToday, isNull);
+      expect(g.failed, isFalse);
     });
   });
 }
