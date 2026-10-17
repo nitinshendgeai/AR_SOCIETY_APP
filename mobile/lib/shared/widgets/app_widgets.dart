@@ -376,7 +376,14 @@ class KpiCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Shadow sits on an outer box *behind* the white card: painted on a
     // transparent box above the Material it tinted the whole card gray.
-    return PressableScale(
+    // One announcement for the whole card ("Open Complaints: 3, ..."), and a button when it can be opened.
+    return Semantics(
+      container: true,
+      button: onTap != null,
+      onTap: onTap,
+      label: '$label: $value${note == null ? '' : ', $note'}',
+      excludeSemantics: true,
+      child: PressableScale(
       enabled: onTap != null,
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -444,9 +451,11 @@ class KpiCard extends StatelessWidget {
                       note!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      // textSecondary, not textTertiary: the note can say something the person needs to act on
+                      // (for example "Could not load. Tap to retry") and the lighter grey is below readable contrast.
                       style: const TextStyle(
                         fontSize: 11,
-                        color: AppTheme.textTertiary,
+                        color: AppTheme.textSecondary,
                       ),
                     ),
                   ],
@@ -455,6 +464,7 @@ class KpiCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }

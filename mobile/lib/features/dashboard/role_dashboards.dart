@@ -41,6 +41,9 @@ Widget _chipRow(List<Widget?> chips) {
   ]);
 }
 
+/// Height of a summary tile. It grows with the text size the person has chosen, so large text is not cut off.
+double _cardExtent(BuildContext context) => 148 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0);
+
 /// What a count card shows: the number once loaded, '…' while loading, and '--' if the request failed.
 /// A failed request is never drawn as 0.
 String _countText(AsyncValue<int> a) => a.when(data: (n) => '$n', loading: () => '…', error: (_, __) => '--');
@@ -357,26 +360,42 @@ class _QuickActionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final action = onTap ?? (route == null ? null : () => context.push(route!));
+    final enabled = action != null;
+    // A chip with nowhere to go (for example no society yet) looks and reads as unavailable instead of
+    // looking like a button that does nothing.
     return Expanded(
-      child: PressableScale(
-        child: InkWell(
-        onTap: onTap ?? (route == null ? null : () => context.push(route!)),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.border)),
-          child: Column(children: [
-            Badge(
-              isLabelVisible: badge > 0,
-              label: Text('$badge'),
-              backgroundColor: AppTheme.error,
-              child: Icon(icon, color: AppTheme.primary),
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        label: badge > 0 ? '$label, $badge waiting' : label,
+        excludeSemantics: true,
+        onTap: action,
+        child: Opacity(
+          opacity: enabled ? 1 : 0.45,
+          child: PressableScale(
+            enabled: enabled,
+            child: InkWell(
+              onTap: action,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 56),
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.border)),
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Badge(
+                    isLabelVisible: badge > 0,
+                    label: Text('$badge'),
+                    backgroundColor: AppTheme.error,
+                    child: Icon(icon, color: AppTheme.primary),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                ]),
+              ),
             ),
-            const SizedBox(height: 6),
-            Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-          ]),
+          ),
         ),
-      ),
       ),
     );
   }
@@ -714,11 +733,11 @@ class SecurityDashboardScreen extends ConsumerWidget {
           const _SectionLabel('Today'),
           const SizedBox(height: 10),
           GridView(
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
               maxCrossAxisExtent: 280,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              mainAxisExtent: 148,
+              mainAxisExtent: _cardExtent(context),
             ),
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -840,11 +859,11 @@ class ResidentDashboardScreen extends ConsumerWidget {
         const _SectionLabel('Summary'),
         const SizedBox(height: 10),
         GridView(
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
             maxCrossAxisExtent: 280,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            mainAxisExtent: 148,
+            mainAxisExtent: _cardExtent(context),
           ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -1095,11 +1114,11 @@ class ManagerDashboardScreen extends ConsumerWidget {
         const _SectionLabel('Today\'s Attendance'),
         const SizedBox(height: 10),
         GridView(
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
             maxCrossAxisExtent: 280,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            mainAxisExtent: 148,
+            mainAxisExtent: _cardExtent(context),
           ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -1201,11 +1220,11 @@ class ManagerDashboardScreen extends ConsumerWidget {
         const _SectionLabel('Maintenance'),
         const SizedBox(height: 10),
         GridView(
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
             maxCrossAxisExtent: 280,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            mainAxisExtent: 148,
+            mainAxisExtent: _cardExtent(context),
           ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -1289,11 +1308,11 @@ class SupervisorDashboardScreen extends ConsumerWidget {
         const _SectionLabel('Team Status'),
         const SizedBox(height: 10),
         GridView(
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
             maxCrossAxisExtent: 280,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            mainAxisExtent: 148,
+            mainAxisExtent: _cardExtent(context),
           ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),

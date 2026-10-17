@@ -306,8 +306,8 @@ void main() {
 
     testWidgets('with the Visitors service switched off the gate figures are not shown at all', (t) async {
       _tall(t);
-      final user = UserEntity(id: 'u1', email: 'g@x.in', fullName: 'G', roles: const ['Security Staff'],
-          societyId: 's1', enabledServices: const ['staff']);
+      final user = const UserEntity(id: 'u1', email: 'g@x.in', fullName: 'G', roles: ['Security Staff'],
+          societyId: 's1', enabledServices: ['staff']);
       await t.pumpWidget(_app(const SecurityDashboardScreen(), user, const []));
       await _settle(t);
 
