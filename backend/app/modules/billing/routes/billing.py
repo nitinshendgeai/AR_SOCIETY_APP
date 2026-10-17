@@ -1,5 +1,5 @@
 import re
-from typing import List, Optional
+from typing import List, Literal, Optional
 from uuid import UUID
 from datetime import date, timedelta
 from decimal import Decimal
@@ -56,6 +56,7 @@ class ChargeConfigCreate(OrmBase):
     description: Optional[str] = None; effective_from: Optional[date] = None
     auto_from_expenses: bool = False
     expense_months: int = Field(default=12, ge=1, le=36)
+    expense_mode: Literal["trailing", "period"] = "trailing"
     two_wheeler_rate: Optional[Decimal] = Field(default=None, ge=0)
 
 class CycleCreate(OrmBase):
@@ -167,6 +168,7 @@ class ChargeConfigUpdate(OrmBase):
     is_active: Optional[bool] = None
     auto_from_expenses: Optional[bool] = None
     expense_months: Optional[int] = Field(default=None, ge=1, le=36)
+    expense_mode: Optional[Literal["trailing", "period"]] = None
     two_wheeler_rate: Optional[Decimal] = Field(default=None, ge=0)     # null clears it
 
 
@@ -188,6 +190,7 @@ def _charge_out(c) -> dict:
         "element_name": c.element.name if c.element else None,
         "auto_from_expenses": bool(c.auto_from_expenses),
         "expense_months": c.expense_months or 12,
+        "expense_mode": c.expense_mode or "trailing",
         "two_wheeler_rate": str(c.two_wheeler_rate) if c.two_wheeler_rate is not None else None,
         "is_active": c.is_active,
     }
@@ -215,7 +218,7 @@ def budget_suggestions(society_id: UUID, months: int = Query(12, ge=1, le=36),
 def update_charge(config_id: UUID, data: ChargeConfigUpdate, db: Session = Depends(get_db),
                   user: User = Depends(get_current_user)):
     changes = data.model_dump(exclude_unset=True)
-    for key in ("auto_from_expenses", "expense_months"):
+    for key in ("auto_from_expenses", "expense_months", "expense_mode"):
         if key in changes and changes[key] is None:
             del changes[key]
     return _charge_out(BillingService(db).update_charge_config(config_id, changes, user))
@@ -464,6 +467,24 @@ def preview_cycle(cycle_id: UUID, db: Session = Depends(get_db), user: User = De
         "flats_count": len(flats),
         "total": str(money(sum((d.total for d in calc.drafts), Decimal(0)))),
         "warnings": calc.warnings,
+        "expense_allocations": [{
+            "charge_id": str(a.charge.id),
+            "charge_name": a.charge.name,
+            "element_name": a.element_name,
+            "method": a.method,
+            "period_start": a.period_start.isoformat(),
+            "period_end": a.period_end.isoformat(),
+            "pool_amount": str(a.pool),
+            "allocated_amount": str(a.allocated),
+            "eligible_flats": a.eligible_flats,
+            "total_weight": str(a.total_weight.quantize(Decimal("0.0001"))),
+            "rate": str(a.rate.quantize(Decimal("0.0001"))),
+            "pending_amount": str(a.pending),
+            "sources": [{
+                "voucher_number": s.voucher_number, "voucher_date": s.voucher_date.isoformat(),
+                "ledger_name": s.ledger_name, "amount": str(s.amount),
+            } for s in a.sources],
+        } for a in calc.allocations.values()],
         "flats": flats,
     }
 

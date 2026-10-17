@@ -18,8 +18,10 @@ cover RWAs elsewhere):
   but only once the flat's monthly contribution exceeds ₹7,500 — and then
   on the whole amount, not just the excess.
 - Budget from expenses: a charge head can take its amount from what was
-  actually spent on the expense ledgers linked to its element (see
-  budget_suggestions.py) instead of its typed amount.
+  actually spent on the expense ledgers linked to its element instead of its
+  typed amount - either as a trailing, annualised average (budget_suggestions.py)
+  or, in period mode, as the approved expenses of the cycle's own period shared
+  out exactly over the flats billed (period_expenses.py).
 - Fines and additional charges on one flat (FlatCharge): every active one
   goes on the flat's bill — fines as non-interest-bearing penalty lines,
   additional charges as their own lines.
@@ -43,6 +45,9 @@ from app.modules.billing.models.billing import (
     BillingCycle, BillStatus, ChargeBasis, ChargeType, CycleFrequency,
     FlatCharge, FlatChargeKind, FlatChargeStatus, InterestWaiver,
     MaintenanceBill, MaintenanceChargeConfig, MaintenanceSettings,
+)
+from app.modules.billing.services.period_expenses import (
+    AREA_BASES, AllocationResult, allocate_exact, is_period_head, method_for, period_spend,
 )
 
 CENT = Decimal("0.01")
@@ -116,6 +121,7 @@ class LineDraft:
     tax_percent: Decimal = ZERO
     tax_amount: Decimal = ZERO
     flat_charge_id: Optional[UUID] = None   # set when the line is a fine / additional charge on this flat
+    allocation_charge_id: Optional[UUID] = None   # set when the line is a flat's share of a period-expense pool
 
     @property
     def total(self) -> Decimal:
@@ -164,6 +170,7 @@ class MaintenanceCalculator:
         self.parking = self._parking_by_flat()
         self.warnings: List[str] = []
         self._auto_rate: Dict[UUID, Decimal] = {}
+        self.allocations: Dict[UUID, AllocationResult] = {}      # charge id -> its period-expense allocation
         self.flat_charges = self._flat_charges_by_flat()
         self.waivers = self._waivers_by_flat()
 
@@ -195,7 +202,7 @@ class MaintenanceCalculator:
         the linked expense ledgers (heads with no expenses keep the typed amount)."""
         from app.modules.billing.services.budget_suggestions import ExpenseBudgets
         self._auto_rate = {}
-        auto = [c for c in self.charges if c.auto_from_expenses and c.element_id]
+        auto = [c for c in self.charges if c.auto_from_expenses and c.element_id and not is_period_head(c)]
         for months in sorted({c.expense_months or 12 for c in auto}):
             budgets = ExpenseBudgets(self.db, self.society_id, months, bill_date)
             for c in (c for c in auto if (c.expense_months or 12) == months):
@@ -206,6 +213,65 @@ class MaintenanceCalculator:
                         f"{months} month(s) — billed at the typed amount.")
                 else:
                     self._auto_rate[c.id] = rate
+
+    def _apply_period_allocations(self, cycle: BillingCycle,
+                                  periods: Dict[UUID, Tuple[date, date, Decimal]]) -> None:
+        """Period-mode heads: share each head's pool of approved expenses (dated inside the cycle) over the flats that
+        are billed in this run. A flat's weight is its area (area bases) or one (equal bases), times the share of the
+        cycle it is billed for. A head with nothing spent in the period puts no line on any bill."""
+        self.allocations = {}
+        heads = [c for c in self.charges if is_period_head(c)]
+        if not heads:
+            return
+        spend = period_spend(self.db, self.society_id, cycle.cycle_start, cycle.cycle_end)
+        whole = Decimal(cycle_months(cycle))
+        for charge in heads:
+            area_based = (charge.basis or ChargeBasis.FIXED) in AREA_BASES
+            sources = spend.pools.get(charge.element_id, [])
+            pool = spend.total(charge.element_id)
+            weights: Dict[UUID, Decimal] = {}
+            no_area = 0
+            for flat in self.flats:
+                period = periods.get(flat.id)
+                if period is None:
+                    continue
+                share = min(Decimal(1), period[2] / whole) if whole else Decimal(1)
+                if area_based:
+                    area = Decimal(str(flat.area_sqft)) if flat.area_sqft else ZERO
+                    if area <= 0:
+                        no_area += 1
+                    weights[flat.id] = area * share
+                else:
+                    weights[flat.id] = share
+            pending = spend.pending.get(charge.element_id, ZERO)
+            label = f"{charge.name}: "
+            window = f"{cycle.cycle_start:%d %b %Y} – {cycle.cycle_end:%d %b %Y}"
+            if pending > 0:
+                self.warnings.append(
+                    f"{label}₹{pending:,.2f} of expenses in {window} are still waiting for approval and are not "
+                    f"included — approve them first if they should be billed.")
+            if no_area:
+                self.warnings.append(f"{label}{no_area} flat(s) have no area set and carry none of this head.")
+            if pool <= 0:
+                self.warnings.append(
+                    f"{label}no approved expenses are recorded on its linked expense ledgers in {window} — "
+                    f"nothing is billed for this head.")
+                continue
+            amounts = allocate_exact(pool, weights)
+            total_weight = sum((w for w in weights.values() if w > 0), ZERO)
+            if not amounts:
+                self.warnings.append(f"{label}there is no flat to share ₹{pool:,.2f} over — nothing is billed.")
+                continue
+            self.allocations[charge.id] = AllocationResult(
+                charge=charge, element_name=charge.element.name if charge.element else None,
+                method=method_for(charge.basis), period_start=cycle.cycle_start, period_end=cycle.cycle_end,
+                pool=pool, total_weight=total_weight, rate=pool / total_weight, sources=list(sources),
+                amounts=amounts, pending=pending)
+        if spend.unlinked:
+            names = ", ".join(f"{n} (₹{v:,.2f})" for n, v in sorted(spend.unlinked.items()))
+            self.warnings.append(
+                f"Approved expenses in the period on ledgers no maintenance element covers are not recovered by any "
+                f"charge head: {names}.")
 
     def _parking_by_flat(self) -> Dict[UUID, List[Tuple[Optional[int], bool]]]:
         """The slots each flat holds today, as (the slot's own monthly charge, held for a two-wheeler). A charge of
@@ -276,7 +342,11 @@ class MaintenanceCalculator:
 
     def _charge_lines(self, charge: MaintenanceChargeConfig, flat: Flat, months: Decimal) -> List[Tuple[str, Decimal]]:
         """The (description, amount) lines a charge head puts on a flat's bill: one, except that a parking head with
-        a two-wheeler rate bills a flat's cars and two-wheelers on lines of their own."""
+        a two-wheeler rate bills a flat's cars and two-wheelers on lines of their own. A period-expense head bills the
+        flat's exact share of its pool (nothing when the flat carries none)."""
+        if is_period_head(charge):
+            alloc = self.allocations.get(charge.id)
+            return [(charge.name, alloc.amounts.get(flat.id, ZERO))] if alloc else []
         if (charge.basis == ChargeBasis.PARKING and charge.two_wheeler_rate is not None
                 and any(is_tw for _own, is_tw in self.parking.get(flat.id, []))):
             cars, two_wheelers = self._parking_split(charge, flat)
@@ -346,8 +416,15 @@ class MaintenanceCalculator:
         skipped = 0
         catch_up = not_yet = 0
 
+        periods: Dict[UUID, Tuple[date, date, Decimal]] = {}
         for flat in self.flats:
             period = self._period_for(flat, cycle, through)
+            if period is not None:
+                periods[flat.id] = period
+        self._apply_period_allocations(cycle, periods)
+
+        for flat in self.flats:
+            period = periods.get(flat.id)
             if period is None:
                 not_yet += 1
                 continue
@@ -363,6 +440,7 @@ class MaintenanceCalculator:
                     line = LineDraft(
                         charge_type=charge.charge_type, description=description, amount=amount,
                         gst_applicable=charge.gst_applicable, is_service=charge.is_service_charge,
+                        allocation_charge_id=charge.id if charge.id in self.allocations else None,
                     )
                     if not s.gst_enabled and charge.tax_percent:
                         line.tax_percent = charge.tax_percent

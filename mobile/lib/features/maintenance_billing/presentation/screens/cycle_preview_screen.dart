@@ -105,6 +105,10 @@ class _CyclePreviewScreenState extends ConsumerState<CyclePreviewScreen> {
                     note: 'avg ${formatRupees('$avg')}',
                   ),
                 ]),
+                for (final a in p.expenseAllocations) ...[
+                  const SizedBox(height: 10),
+                  _ExpenseAllocationCard(a),
+                ],
                 for (final w in p.warnings) ...[
                   const SizedBox(height: 10),
                   Container(
@@ -195,6 +199,65 @@ class _FlatPreviewCard extends StatelessWidget {
             Text(formatRupees(flat.total), style: const TextStyle(fontWeight: FontWeight.w700)),
           ]),
         ],
+      ),
+    );
+  }
+}
+
+
+/// The working of a head that bills the cycle's actual expenses: the pool,
+/// how it is shared and that the shares add up to it.
+class _ExpenseAllocationCard extends StatelessWidget {
+  final ExpenseAllocation a;
+  const _ExpenseAllocationCard(this.a);
+
+  String _day(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  @override
+  Widget build(BuildContext context) {
+    final how = a.byArea
+        ? 'by flat area at ${a.rate} per sq ft'
+        : 'equally at ${a.rate} per flat';
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: ValueKey('allocation-${a.chargeName}'),
+          leading: const Icon(Icons.receipt_long_rounded, color: AppTheme.primary),
+          title: Text('${a.chargeName}: ${formatRupees(a.poolAmount)} actual expenses',
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          subtitle: Text('${_day(a.periodStart)} – ${_day(a.periodEnd)} · shared $how over ${a.eligibleFlats} flat(s)',
+              style: const TextStyle(fontSize: 12.5)),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          children: [
+            Row(children: [
+              Icon(a.reconciled ? Icons.check_circle_rounded : Icons.error_rounded,
+                  size: 18, color: a.reconciled ? AppTheme.success : AppTheme.error),
+              const SizedBox(width: 8),
+              Expanded(child: Text(
+                  a.reconciled
+                      ? 'Shares add up to the expenses exactly (${formatRupees(a.allocatedAmount)}).'
+                      : 'Shares (${formatRupees(a.allocatedAmount)}) do not match the expenses.',
+                  style: const TextStyle(fontSize: 13))),
+            ]),
+            if (amountOf(a.pendingAmount) > 0) ...[
+              const SizedBox(height: 6),
+              Text('${formatRupees(a.pendingAmount)} is waiting for approval and is not included.',
+                  style: const TextStyle(fontSize: 13, color: AppTheme.warning)),
+            ],
+            const SizedBox(height: 8),
+            for (final s in a.sources)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(children: [
+                  Expanded(child: Text('${s.voucherNumber} · ${_day(s.voucherDate)} · ${s.ledgerName}',
+                      style: const TextStyle(fontSize: 12.5), overflow: TextOverflow.ellipsis)),
+                  Text(formatRupees(s.amount), style: const TextStyle(fontSize: 12.5)),
+                ]),
+              ),
+          ],
+        ),
       ),
     );
   }

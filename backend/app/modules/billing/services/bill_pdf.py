@@ -321,6 +321,30 @@ def _kv(rows, widths) -> Table:
 PAGE_MARGINS = dict(leftMargin=12 * mm, rightMargin=12 * mm, topMargin=8 * mm, bottomMargin=10 * mm)
 
 
+def _expense_statements(bill: MaintenanceBill) -> List[str]:
+    """One note for each head on this bill that was worked out from the society's actual expenses of a period: what
+    was spent, how it was shared and the flat's share. Only for lines tied to a recorded allocation (the snapshot made
+    when the bills were generated) - the printed working is the stored one, never a recomputation."""
+    seen, out = set(), []
+    for li in bill.line_items:
+        alloc = getattr(li, "allocation", None)
+        if alloc is None or alloc.id in seen:
+            continue
+        seen.add(alloc.id)
+        mine = sum((Decimal(l.amount or 0) for l in bill.line_items if l.allocation_id == alloc.id), ZERO)
+        if alloc.method == "area":
+            how = f"in proportion to flat area (Rs. {Decimal(alloc.rate):,.4f} per sq ft for the full period)"
+        else:
+            how = f"equally between flats (Rs. {Decimal(alloc.rate):,.4f} per flat for the full period)"
+        what = f" on {escape(alloc.element_name)}" if alloc.element_name else ""
+        out.append(
+            f"<b>{escape(alloc.charge_name)}</b> is the society's actual expenses{what} from "
+            f"{alloc.period_start:%d %b %Y} to {alloc.period_end:%d %b %Y}: Rs. {_inr(alloc.pool_amount)} in all, "
+            f"shared {how} over {alloc.eligible_flats} flat(s). Your share: Rs. {_inr(mine)}. Shares are rounded to the "
+            f"paisa so that all bills together add up to exactly Rs. {_inr(alloc.pool_amount)}.")
+    return out
+
+
 def generate_maintenance_bill_pdf(
     bill: MaintenanceBill,
     settings: Optional[MaintenanceSettings] = None,
@@ -505,6 +529,7 @@ def bill_story(
         grace = settings.interest_grace_days or 0
         notes.append(f"Interest @ {rate.normalize():f}% p.a. will be charged on dues not paid by the due date"
                      + (f" (grace period {grace} days)." if grace else "."))
+    notes += _expense_statements(bill)
     notes.append("Any queries related to the bill should be raised within 7 days of bill issuance "
                  "to the society office.")
     notes.append("Outstanding dues are subject to final audit.")
