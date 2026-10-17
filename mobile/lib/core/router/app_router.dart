@@ -1037,6 +1037,10 @@ String userRoleHome(UserEntity user) {
   final roles = user.roles;
   // Specific staff hierarchy roles — checked before generic contains() guards
   if (roles.any((r) => r == 'Manager')) return AppRoutes.managerHome;
+  // The Security Supervisor runs the gate, so lands on the Security dashboard (which also carries the team shortcuts).
+  // This must come before the generic Supervisor check: every canonical security role contains "Supervisor" or
+  // "Staff", so the isSecurity fallback below is only ever reached by a custom role named like "Security".
+  if (roles.any((r) => r.contains('Security') && r.contains('Supervisor'))) return AppRoutes.securityHome;
   if (roles.any((r) => r.contains('Supervisor'))) return AppRoutes.supervisorHome;
   if (roles.any((r) => r.contains('Staff') || r == 'Gym Trainer' || r.contains('Trainer'))) {
     return AppRoutes.staffHome;

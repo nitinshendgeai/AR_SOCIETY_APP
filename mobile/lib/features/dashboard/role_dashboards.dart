@@ -727,6 +727,8 @@ class SecurityDashboardScreen extends ConsumerWidget {
     final visitorLog = societyId == null
         ? AppRoutes.visitorsMy
         : AppRoutes.visitorsSociety.replaceFirst(':societyId', societyId);
+    // A Security Supervisor lands here (see userRoleHome) and also runs a team, so the team shortcuts are here too.
+    final isSupervisor = (user?.roles ?? const <String>[]).any((r) => r.contains('Supervisor'));
     return _DashboardShell(
       title: 'Security Supervisor',
       children: [
@@ -774,6 +776,23 @@ class SecurityDashboardScreen extends ConsumerWidget {
           if (_on(user, 'parking'))
             const _QuickActionChip(icon: Icons.local_parking_rounded, label: 'Vehicle Gate', route: AppRoutes.parkingGateCheck),
         ]),
+        if (isSupervisor && societyId != null && _on(user, 'staff')) ...[
+          const SizedBox(height: 18),
+          const _SectionLabel('My Team'),
+          const SizedBox(height: 10),
+          _chipRow([
+            _QuickActionChip(
+              icon: Icons.approval_rounded, label: 'Approvals',
+              onTap: () => context.push(AppRoutes.staffApprovals,
+                  extra: {'societyId': societyId, 'department': 'security'}),
+            ),
+            const _QuickActionChip(icon: Icons.badge_rounded, label: 'My Team', route: AppRoutes.staffList),
+            _QuickActionChip(
+              icon: Icons.assignment_turned_in_rounded, label: 'Assign Duty',
+              onTap: () => context.push(AppRoutes.staffAssignDuty, extra: {'societyId': societyId}),
+            ),
+          ]),
+        ],
         const SizedBox(height: 18),
         _OperationalPanel(title: 'Shift Notes', children: const [
           _InfoTile(icon: Icons.swap_horiz_rounded, title: 'Handover', value: 'Use Staff → Handover to log shift notes', color: AppTheme.warning),
