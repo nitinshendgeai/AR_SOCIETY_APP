@@ -48,7 +48,13 @@ class _PlatformConsoleScreenState extends ConsumerState<PlatformConsoleScreen> w
   );
 
   Widget _societies() {
-    final stats = ref.watch(platformStatsProvider).valueOrNull ?? const PlatformStats();
+    final statsAsync = ref.watch(platformStatsProvider);
+    final stats = statsAsync.valueOrNull ?? const PlatformStats();
+    // Until the figures have loaded they are not shown as 0: '…' while loading, '--' (tap to retry) if they failed.
+    final statsFailed = statsAsync.hasError && !statsAsync.hasValue;
+    String n(int v) => statsAsync.hasValue ? '$v' : (statsFailed ? '--' : '…');
+    String? failNote = statsFailed ? 'Could not load. Tap to retry' : null;
+    void retryStats() => ref.invalidate(platformStatsProvider);
     final list = ref.watch(platformSocietiesProvider((q: _q, status: _status)));
     return RefreshIndicator(
       onRefresh: () async => invalidatePlatform(ref),
@@ -56,17 +62,17 @@ class _PlatformConsoleScreenState extends ConsumerState<PlatformConsoleScreen> w
         maxWidth: 960,
         child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 40), children: [
           KpiGrid(cards: [
-            KpiCard(icon: Icons.apartment_rounded, label: 'Societies', value: '${stats.societies}', color: AppTheme.primary, note: '${stats.users} people, ${stats.flats} flats', onTap: () => setState(() => _status = null)),
+            KpiCard(icon: Icons.apartment_rounded, label: 'Societies', value: n(stats.societies), color: AppTheme.primary, note: statsAsync.hasValue ? '${stats.users} people, ${stats.flats} flats' : failNote, onTap: statsFailed ? retryStats : () => setState(() => _status = null)),
             KpiCard(
               icon: Icons.hourglass_bottom_rounded,
               label: 'On trial',
-              value: '${stats.trial}',
+              value: n(stats.trial),
               color: stats.endedNotMarked > 0 ? AppTheme.warning : AppTheme.secondary,
-              note: stats.endedNotMarked > 0 ? '${stats.endedNotMarked} past their end date' : (stats.expiringSoon > 0 ? '${stats.expiringSoon} ending within a week' : 'none ending soon'),
-              onTap: () => setState(() => _status = 'TRIAL'),
+              note: !statsAsync.hasValue ? failNote : (stats.endedNotMarked > 0 ? '${stats.endedNotMarked} past their end date' : (stats.expiringSoon > 0 ? '${stats.expiringSoon} ending within a week' : 'none ending soon')),
+              onTap: statsFailed ? retryStats : () => setState(() => _status = 'TRIAL'),
             ),
-            KpiCard(icon: Icons.verified_rounded, label: 'Paid', value: '${stats.active}', color: AppTheme.success, note: stats.expired > 0 ? '${stats.expired} expired' : null, onTap: () => setState(() => _status = 'ACTIVE')),
-            KpiCard(icon: Icons.block_rounded, label: 'Suspended', value: '${stats.suspended}', color: stats.suspended > 0 ? AppTheme.error : AppTheme.textSecondary, onTap: () => setState(() => _status = 'SUSPENDED')),
+            KpiCard(icon: Icons.verified_rounded, label: 'Paid', value: n(stats.active), color: AppTheme.success, note: !statsAsync.hasValue ? failNote : (stats.expired > 0 ? '${stats.expired} expired' : null), onTap: statsFailed ? retryStats : () => setState(() => _status = 'ACTIVE')),
+            KpiCard(icon: Icons.block_rounded, label: 'Suspended', value: n(stats.suspended), color: stats.suspended > 0 ? AppTheme.error : AppTheme.textSecondary, note: !statsAsync.hasValue ? failNote : null, onTap: statsFailed ? retryStats : () => setState(() => _status = 'SUSPENDED')),
           ]),
           const SizedBox(height: 16),
           TextField(
