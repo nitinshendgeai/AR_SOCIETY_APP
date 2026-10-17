@@ -616,69 +616,35 @@ class AdminDashboardScreen extends ConsumerWidget {
 class CommitteeDashboardScreen extends ConsumerWidget {
   const CommitteeDashboardScreen({super.key});
 
+  /// "Committee Chairman" -> "Chairman"; a plain "Committee" or "Committee Member" -> "Committee".
+  static String _titleFor(UserEntity? user) {
+    final role = (user?.roles ?? const <String>[]).firstWhere((r) => r.startsWith('Committee'), orElse: () => 'Committee');
+    final rest = role.replaceFirst('Committee', '').trim();
+    return rest.isEmpty || rest == 'Member' ? 'Committee' : rest;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
     final societyId = user?.societyId;
+    final who = _titleFor(user);
 
+    // The committee sees the same overview as the admin: one request to the same endpoint (which already allows
+    // committee), so the money, collection and "needs attention" figures are the server's, and identical.
     final staffListState = ref.watch(staffListProvider);
     if (societyId != null && _on(user, 'staff') && staffListState is StaffListInitial) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(staffListProvider.notifier).load(societyId);
       });
     }
-    final staffCount = staffListState is StaffListLoaded ? '${staffListState.staff.length}' : '--';
-
-    final committeeComplaintsAsync = societyId != null && _on(user, 'complaints')
-        ? ref.watch(openComplaintsCountProvider(societyId))
-        : const AsyncValue<int>.data(0);
-    final committeeComplaints = committeeComplaintsAsync.valueOrNull != null
-        ? '${committeeComplaintsAsync.valueOrNull}'
-        : '--';
-
-    final committeeApprovalState = ref.watch(approvalProvider);
-    if (societyId != null && _on(user, 'staff') && committeeApprovalState is ApprovalInitial) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(approvalProvider.notifier).load(societyId);
-      });
-    }
-    final committeeApprovals = committeeApprovalState is ApprovalLoaded
-        ? '${committeeApprovalState.pendingCheckin.length + committeeApprovalState.pendingCheckout.length}'
-        : '--';
-
-    final committeeCycles = societyId == null ? null : ref.watch(billingCyclesProvider(societyId)).valueOrNull;
-    final committeeDues = committeeCycles == null
-        ? '--'
-        : formatRupees('${committeeCycles.fold<double>(0, (sum, c) => sum + amountOf(c.totalOutstanding))}');
+    final activeStaff = !_on(user, 'staff') ? null : (staffListState is StaffListLoaded ? '${staffListState.staff.length}' : '--');
 
     return _DashboardShell(
-      title: 'Chairman Dashboard',
+      title: '$who Dashboard',
       children: [
-        _GreetingCard(user: user, subtitle: 'Committee Chairman · Governance overview'),
+        _GreetingCard(user: user, subtitle: '${who == 'Committee' ? 'Committee Member' : 'Committee $who'} · Governance overview'),
         const SizedBox(height: 18),
-        const _SectionLabel('Overview'),
-        const SizedBox(height: 10),
-        GridView(
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 280,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            mainAxisExtent: 148,
-          ),
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            if (_on(user, 'complaints'))
-              _SummaryCard(icon: Icons.report_problem_rounded, label: 'Complaints', value: committeeComplaints, color: AppTheme.error),
-            _SummaryCard(icon: Icons.account_balance_wallet_rounded, label: 'Maintenance Dues',
-                value: committeeDues, color: AppTheme.warning,
-                onTap: () => context.go(AppRoutes.maintenanceBilling)),
-            if (_on(user, 'staff')) ...[
-              _SummaryCard(icon: Icons.approval_rounded, label: 'Approvals', value: committeeApprovals, color: AppTheme.warning),
-              _SummaryCard(icon: Icons.people_rounded, label: 'Staff', value: staffCount, color: AppTheme.secondary),
-            ],
-          ],
-        ),
+        if (societyId != null) AdminOverview(societyId: societyId, activeStaff: activeStaff),
         const SizedBox(height: 18),
         const _SectionLabel('Quick Actions'),
         const SizedBox(height: 10),
@@ -700,14 +666,6 @@ class CommitteeDashboardScreen extends ConsumerWidget {
               route: societyId == null ? AppRoutes.visitorsMy : AppRoutes.visitorsSociety.replaceFirst(':societyId', societyId),
             ),
         ]),
-        if (_on(user, 'staff')) ...[
-          const SizedBox(height: 18),
-          _OperationalPanel(title: 'Open actions', children: const [
-            _InfoTile(icon: Icons.pending_actions_rounded, title: 'Pending approvals', value: 'See Staff → Approvals', color: AppTheme.warning),
-            SizedBox(height: 8),
-            _InfoTile(icon: Icons.gpp_good_rounded, title: 'Society status', value: 'Staff module operational', color: AppTheme.success),
-          ]),
-        ],
         const SizedBox(height: 18),
       ],
     );

@@ -6,6 +6,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/complaint/presentation/providers/complaint_providers.dart';
+import 'package:ar_society_app/features/dashboard/admin_overview.dart';
 import 'package:ar_society_app/features/dashboard/gate_summary.dart';
 import 'package:ar_society_app/features/dashboard/role_dashboards.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
@@ -318,6 +319,76 @@ void main() {
       final g = GateSummary.fromJson({'today': null, 'errors': <String>[]});
       expect(g.visitorsToday, isNull);
       expect(g.failed, isFalse);
+    });
+  });
+
+  group('Committee dashboard', () {
+    Map<String, dynamic> overview({List<String> errors = const []}) => {
+          'as_of': '2026-10-09',
+          'collection': {
+            'cycle_name': 'October 2026', 'due_date': '2026-10-20', 'billed': '58500.00', 'collected': '13025.00',
+            'outstanding': '45475.00', 'percent': 22, 'bills': 5, 'paid_bills': 1, 'overdue_bills': 0,
+            'trend': <Map<String, dynamic>>[],
+          },
+          'money': {'cash': '1000', 'bank': '5000', 'members_dues': '200', 'creditors': '0', 'fy': '2026-27',
+            'fy_income': '9000', 'fy_expense': '4000'},
+          'occupancy': {'flats': 5, 'occupied': 3, 'vacant': 2, 'residents': 4},
+          'today': {'visitors_today': 1, 'visitors_inside': 1},
+          'attention': [
+            {'key': 'complaints_open', 'count': 2, 'severity': 'info'},
+          ],
+          'errors': errors,
+        };
+
+    List<Override> loaded({List<String> errors = const []}) => [
+          staffListProvider.overrideWith((ref) => _FakeStaffList()),
+          dashboardOverviewProvider('s1').overrideWith((ref) async => DashboardOverview.fromJson(overview(errors: errors))),
+        ];
+
+    testWidgets('shows the same server figures as the admin overview', (t) async {
+      _tall(t);
+      await t.pumpWidget(_app(const CommitteeDashboardScreen(), _user('Committee Treasurer'), loaded()));
+      await _settle(t);
+
+      expect(find.text('Maintenance collection'), findsOneWidget);
+      expect(find.text('₹13,025'), findsOneWidget);
+      expect(find.text('2 open complaints'), findsOneWidget);
+      expect(find.text('3 of 5 flats occupied'), findsOneWidget);
+    });
+
+    testWidgets('has no static status text and no figure worked out in the app', (t) async {
+      _tall(t);
+      await t.pumpWidget(_app(const CommitteeDashboardScreen(), _user('Committee Secretary'), loaded()));
+      await _settle(t);
+
+      expect(find.text('Staff module operational'), findsNothing);
+      expect(find.text('See Staff → Approvals'), findsNothing);
+      expect(find.text('Maintenance Dues'), findsNothing);
+    });
+
+    testWidgets('is titled for the role held, not always Chairman', (t) async {
+      _tall(t);
+      for (final (role, title) in [
+        ('Committee Chairman', 'Chairman Dashboard'),
+        ('Committee Secretary', 'Secretary Dashboard'),
+        ('Committee Treasurer', 'Treasurer Dashboard'),
+        ('Committee Member', 'Committee Dashboard'),
+      ]) {
+        await t.pumpWidget(_app(const CommitteeDashboardScreen(), _user(role), loaded()));
+        await _settle(t);
+        expect(find.text(title), findsOneWidget, reason: role);
+        expect(find.text('Chairman Dashboard'), role == 'Committee Chairman' ? findsOneWidget : findsNothing, reason: role);
+      }
+    });
+
+    testWidgets('a block the server failed on is reported, not drawn as all clear', (t) async {
+      _tall(t);
+      await t.pumpWidget(_app(const CommitteeDashboardScreen(), _user('Committee Member'),
+          loaded(errors: ['attention'])));
+      await _settle(t);
+
+      expect(find.textContaining('All clear'), findsNothing);
+      expect(find.text('This could not be loaded just now.'), findsOneWidget);
     });
   });
 }
