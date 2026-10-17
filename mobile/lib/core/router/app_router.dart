@@ -16,6 +16,8 @@ import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:ar_society_app/features/splash/presentation/screens/splash_screen.dart';
+import 'package:ar_society_app/core/navigation/route_access.dart';
+import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart' show myFormCodesProvider;
 import 'package:ar_society_app/features/dashboard/role_dashboards.dart'
     show AdminDashboardScreen, CommitteeDashboardScreen, ResidentDashboardScreen,
          SecurityDashboardScreen, ManagerDashboardScreen, SupervisorDashboardScreen;
@@ -262,13 +264,35 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   var authState = ref.read(authProvider);
   var isBiometricLocked = ref.read(biometricLockProvider);
   final refresh = ValueNotifier(0);   // bumped to make GoRouter re-run redirects
+
+  // The signed-in person's server-granted form codes (the ones the menu is built from), as a snapshot the redirect
+  // can read. It is null - "unknown", which blocks nothing - until they have loaded for THIS user: while a new
+  // user's codes are loading the provider still holds the previous value, so that must not be used.
+  String? grantsUserId;
+  Set<String>? grantedForms;
+  void takeGrants() {
+    // Always read the provider afresh: when the signed-in user has just changed it is already reloading, and a copy
+    // taken earlier would still hold the previous user's codes.
+    final forms = ref.read(myFormCodesProvider);
+    final auth = authState;
+    final ready = auth is AuthAuthenticated && forms.hasValue && !forms.isLoading;
+    grantsUserId = ready ? auth.user.id : null;
+    grantedForms = ready ? forms.requireValue.toSet() : null;
+  }
+  takeGrants();
+
   ref.listen<AuthState>(authProvider, (_, next) {
     authState = next;
+    takeGrants();
     refresh.value++;
   });
   ref.listen<bool>(biometricLockProvider, (_, next) {
     isBiometricLocked = next;
     refresh.value++;
+  });
+  ref.listen<AsyncValue<List<String>>>(myFormCodesProvider, (_, __) {
+    takeGrants();
+    refresh.value++;                      // re-check the screen the person is on against the codes just loaded
   });
 
   // Screens scoped to a society normally get its id from the screen that
@@ -352,6 +376,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return AppRoutes.setupWizard;
         }
 
+        // 3a. A management screen this person has no grant for (typed address, bookmark, refresh) or another
+        // role's dashboard goes to their own home. See core/navigation/route_access.dart.
+        if (!user.mustChangePassword && user.termsAccepted && !isOnLogin && !isOnSplash &&
+            !isOnChangePassword && !isOnSetupWizard && !isOnBiometricLock) {
+          final denial = routeDenial(
+            path: path,
+            home: userRoleHome(user),
+            platformAdmin: user.isPlatformAdmin,
+            granted: grantsUserId == user.id ? grantedForms : null,
+          );
+          if (denial != null) {
+            debugPrint('[ROUTE_REDIRECT] → no grant for $path, → ${denial.location}');
+            if (denial.notify) routeDeniedSignal.value++;
+            return denial.location;
+          }
+        }
+
         // 3. Once setup is complete, redirect away from auth/setup screens —
         // restoring a pending deep link (see _pendingDeepLink) if one was
         // captured, instead of always landing on the generic role home.
@@ -406,7 +447,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // desktop sidebar and top bar on wide screens (web ERP layout) and is
       // a pass-through on phones.
       ShellRoute(
-        builder: (_, state, child) => AppShell(location: state.uri.path, child: child),
+        builder: (_, state, child) => RouteDeniedListener(child: AppShell(location: state.uri.path, child: child)),
         routes: [
           GoRoute(path: AppRoutes.home, redirect: (_, __) {
             if (authState is AuthAuthenticated) {
