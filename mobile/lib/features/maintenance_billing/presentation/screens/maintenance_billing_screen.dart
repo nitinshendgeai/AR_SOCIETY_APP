@@ -544,7 +544,7 @@ class _ChargeHeadsTab extends ConsumerWidget {
                       subtitle: Text([
                         c.rateLabel,
                         if (c.isServiceCharge) 'Service charge',
-                        if (c.autoFromExpenses) 'Budget from expenses',
+                        if (c.isPeriodExpense) 'Actual expenses of each cycle' else if (c.autoFromExpenses) 'Budget from expenses',
                         if (!c.gstApplicable) 'No GST',
                       ].join(' · ')),
                       trailing: const Icon(Icons.chevron_right_rounded),
@@ -579,6 +579,7 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
   late bool _gst = widget.existing?.gstApplicable ?? true;
   late String? _elementId = widget.existing?.elementId;
   late bool _auto = widget.existing?.autoFromExpenses ?? false;
+  late String _expenseMode = widget.existing?.expenseMode ?? 'trailing';
   late final _monthsCtrl = TextEditingController(text: '${widget.existing?.expenseMonths ?? 12}');
   late final _twoWheelerCtrl = TextEditingController(text: widget.existing?.twoWheelerRate ?? '');
   bool _saving = false;
@@ -661,6 +662,7 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
     final tax = _taxCtrl.text.trim().isEmpty ? '0' : _taxCtrl.text.trim();
     final auto = _auto && _canAuto;
     final months = int.tryParse(_monthsCtrl.text.trim()) ?? 12;
+    final mode = auto ? _expenseMode : 'trailing';
     // Only a parking head has a two-wheeler rate; empty clears it.
     final twoWheeler = _basis == 'parking' && _twoWheelerCtrl.text.trim().isNotEmpty
         ? _twoWheelerCtrl.text.trim()
@@ -670,14 +672,14 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
           ? api.updateChargeHead(widget.existing!.id, {
               'name': name, 'charge_type': _type, 'default_amount': amount, 'basis': _basis,
               'is_service_charge': _service, 'gst_applicable': _gst, 'tax_percent': tax,
-              'auto_from_expenses': auto, 'expense_months': months,
+              'auto_from_expenses': auto, 'expense_months': months, 'expense_mode': mode,
               'two_wheeler_rate': twoWheeler,
             })
           : api.createChargeHead(
               societyId: widget.societyId, elementId: _elementId,
               chargeType: _type, name: name, amount: amount,
               basis: _basis, isServiceCharge: _service, gstApplicable: _gst, taxPercent: tax,
-              autoFromExpenses: auto, expenseMonths: months,
+              autoFromExpenses: auto, expenseMonths: months, expenseMode: mode,
               twoWheelerRate: twoWheeler,
             ),
       _editing ? 'Charge head updated' : 'Charge head added',
@@ -796,7 +798,28 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
               value: _auto,
               onChanged: (v) => setState(() => _auto = v),
             ),
-            if (_auto)
+            if (_auto) ...[
+              FormFieldBox(label: 'Which expenses', child: DropdownButtonFormField<String>(
+                key: const ValueKey('expense-mode'),
+                initialValue: _expenseMode,
+                isExpanded: true,
+                items: const [
+                  DropdownMenuItem(value: 'trailing', child: Text('Recent average (last few months, scaled to a year)')),
+                  DropdownMenuItem(value: 'period', child: Text('Actual expenses of each billing cycle')),
+                ],
+                onChanged: (v) => setState(() => _expenseMode = v ?? 'trailing'),
+                decoration: InputDecoration(
+                  helperText: _expenseMode == 'period'
+                      ? 'Bills exactly the approved expenses dated inside the cycle, shared '
+                          '${_basis == 'per_sqft' || _basis == 'budget_area' ? 'by flat area' : 'equally'}. '
+                          'Nothing is billed when nothing was spent; the typed amount is not used.'
+                      : 'Bills an estimate from recent spend; the amount above is used when nothing has been spent.',
+                  helperMaxLines: 4,
+                ),
+              )),
+              const SizedBox(height: 10),
+            ],
+            if (_auto && _expenseMode == 'trailing')
               FormFieldBox(label: 'Months of expenses to look back', required: true, child: TextFormField(
                 controller: _monthsCtrl,
                 keyboardType: TextInputType.number,

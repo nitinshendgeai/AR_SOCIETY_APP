@@ -134,9 +134,36 @@ apply a figure.
 
 ### 4.4 Budget from expenses (automatic)
 
-On a charge head, switch on **Budget from expenses** and choose the months (1–36). Every preview and bill generation
-then uses the spend-based figure instead of the typed amount. If nothing was spent in the window, the typed amount is
-used and the preview says so. **Bills already generated are never recalculated.**
+On a charge head made from an element, switch on **Budget from expenses** and choose **which expenses**:
+
+**Recent average** (the original behaviour). The head bills an *estimate*: what the element's linked expense ledgers
+cost over the last N months (1–36), scaled to a year and turned into the head's rate. If nothing was spent, the typed
+amount is used and the preview says so. Only approved expenses count (not ones waiting for approval, rejected,
+cancelled or reversed).
+
+**Actual expenses of each billing cycle.** The head bills *exactly what was spent* in the cycle's own dates, to the
+paisa:
+
+1. The pool is every approved, live expense dated from the cycle's first to its last day (both included) on the
+   expense ledgers linked to the head's element. Vouchers waiting for approval, rejected, cancelled or reversed are
+   left out (the preview names the amount still waiting for approval), and so is spend on ledgers no element covers
+   (the preview lists them).
+2. The pool is shared over the flats billed in that run: **by flat area** for per-sq-ft and area-budget heads,
+   **equally** for fixed and equal-budget heads. A flat billed for part of the cycle carries a proportionate share.
+3. Shares are rounded down to the paisa and the left-over paise go one each to the largest fractions, so the lines on
+   all the bills add up to the pool **exactly**. Generation refuses to write bills if they would not.
+4. If nothing was spent in the period, the head puts no line on any bill (the typed amount is not used) and the
+   preview says so.
+
+When the bills are generated the working is saved with them: the pool, the vouchers in it, the method, the rate and
+the flats shared over. Each bill line points to it, and the printed bill carries a note stating the period, the total
+spent, how it was shared and the flat's share. The working is never recomputed, so later expenses, edits or head
+changes do not alter bills already generated.
+
+Two safeguards: only one **Budget from expenses** head is allowed per element (two would bill the same spend twice),
+and the same dates of an element cannot be billed twice — generating a cycle whose dates overlap an earlier cycle's
+(whose bills still stand) is refused. Cancel the earlier cycle's bills to free its dates. **Bills already generated are
+never recalculated.**
 
 ---
 
