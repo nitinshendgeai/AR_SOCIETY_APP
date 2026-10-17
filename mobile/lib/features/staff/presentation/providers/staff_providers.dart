@@ -549,9 +549,10 @@ final attendanceSummaryProvider = FutureProvider.family<Map<String, dynamic>, St
     final dateStr =
         '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
     final result = await repo.getAttendanceSummary(societyId, dateStr);
+    // A failed request is an error the dashboard can show and retry, not an empty summary.
     return switch (result) {
       StaffSuccess(:final data) => data,
-      StaffFailure() => <String, dynamic>{},
+      StaffFailure(:final message) => throw Exception(message),
     };
   },
 );
@@ -622,7 +623,7 @@ final societyDutiesProvider = FutureProvider.family<List<DutyEntity>, String>(
     final result = await repo.getDailyDuties(societyId, dateStr);
     return switch (result) {
       StaffSuccess(:final data) => data,
-      StaffFailure() => <DutyEntity>[],
+      StaffFailure(:final message) => throw Exception(message),
     };
   },
 );

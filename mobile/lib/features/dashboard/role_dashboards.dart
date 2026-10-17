@@ -40,6 +40,47 @@ Widget _chipRow(List<Widget?> chips) {
   ]);
 }
 
+/// What a count card shows: the number once loaded, '…' while loading, and '--' if the request failed.
+/// A failed request is never drawn as 0.
+String _countText(AsyncValue<int> a) => a.when(data: (n) => '$n', loading: () => '…', error: (_, __) => '--');
+
+/// A summary card for a number the server provides. While the request has not succeeded the card is neutral;
+/// if it failed, the card says so and tapping it asks again.
+Widget _countCard({
+  required IconData icon,
+  required String label,
+  required AsyncValue<int> count,
+  required Color Function(int n) color,
+  required VoidCallback retry,
+  VoidCallback? onTap,
+}) {
+  final failed = count.hasError && !count.hasValue;
+  return _SummaryCard(
+    icon: icon,
+    label: label,
+    value: _countText(count),
+    color: count.valueOrNull == null ? AppTheme.textSecondary : color(count.value!),
+    note: failed ? 'Could not load. Tap to retry' : null,
+    onTap: failed ? retry : onTap,
+  );
+}
+
+/// One number out of the attendance summary: loaded, failed (including a reply that lacks the number), or loading.
+AsyncValue<int> _summaryCount(AsyncValue<Map<String, dynamic>> a, String key) => a.when(
+      data: (m) => m[key] is num
+          ? AsyncValue.data((m[key] as num).toInt())
+          : AsyncValue.error(Exception('missing $key'), StackTrace.empty),
+      loading: () => const AsyncValue.loading(),
+      error: (e, st) => AsyncValue.error(e, st),
+    );
+
+/// Pending-approvals state as a count: loaded, failed, or still loading (including between actions).
+AsyncValue<int> _approvalCount(ApprovalState s, int Function(ApprovalLoaded) pick) => switch (s) {
+      ApprovalLoaded() => AsyncValue.data(pick(s)),
+      ApprovalError(:final message) => AsyncValue.error(Exception(message), StackTrace.empty),
+      _ => const AsyncValue.loading(),
+    };
+
 // ── Shared scaffold wrapper ───────────────────────────────────────────────────
 
 class _DashboardShell extends ConsumerWidget {
@@ -292,15 +333,16 @@ class _SummaryCard extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
+  final String? note;
   final VoidCallback? onTap;
 
   const _SummaryCard({
-    required this.icon, required this.label, required this.value, required this.color, this.onTap,
+    required this.icon, required this.label, required this.value, required this.color, this.note, this.onTap,
   });
 
   @override
   Widget build(BuildContext context) =>
-      KpiCard(icon: icon, label: label, value: value, color: color, onTap: onTap);
+      KpiCard(icon: icon, label: label, value: value, color: color, note: note, onTap: onTap);
 }
 
 class _QuickActionChip extends StatelessWidget {
@@ -391,19 +433,22 @@ class _InfoTile extends StatelessWidget {
             child: Icon(icon, color: color, size: 18),
           ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 11, color: AppTheme.textSecondary)),
-              const SizedBox(height: 2),
-              Text(value,
-                  style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary)),
-            ],
+          // Expanded so a long message wraps instead of running off the tile.
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textSecondary)),
+                const SizedBox(height: 2),
+                Text(value,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary)),
+              ],
+            ),
           ),
         ],
       ),
@@ -617,7 +662,7 @@ class CommitteeDashboardScreen extends ConsumerWidget {
             maxCrossAxisExtent: 280,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            mainAxisExtent: 130,
+            mainAxisExtent: 148,
           ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -694,7 +739,7 @@ class SecurityDashboardScreen extends ConsumerWidget {
             maxCrossAxisExtent: 280,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            mainAxisExtent: 130,
+            mainAxisExtent: 148,
           ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -749,7 +794,10 @@ class ResidentDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
-    final waiting = _on(user, 'visitors') ? (ref.watch(pendingVisitorApprovalsProvider).valueOrNull?.length ?? 0) : 0;
+    final waitingAsync = _on(user, 'visitors')
+        ? ref.watch(pendingVisitorApprovalsProvider).whenData((v) => v.length)
+        : const AsyncValue<int>.data(0);
+    final waiting = waitingAsync.valueOrNull ?? 0;     // for the badge and text below; a failure shows no badge
     final openComplaints = _on(user, 'complaints') ? ref.watch(myOpenComplaintsCountProvider) : const AsyncValue<int>.data(0);
     final myFlatId = ref.watch(myResidentProvider).valueOrNull?.flatId;
     final myFlat = myFlatId == null ? null : ref.watch(flatByIdProvider(myFlatId)).valueOrNull;
@@ -790,25 +838,27 @@ class ResidentDashboardScreen extends ConsumerWidget {
             maxCrossAxisExtent: 280,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            mainAxisExtent: 130,
+            mainAxisExtent: 148,
           ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           children: [
             if (_on(user, 'complaints'))
-              _SummaryCard(
+              _countCard(
                 icon: Icons.report_problem_rounded,
                 label: 'Open Complaints',
-                value: openComplaints.when(data: (n) => '$n', loading: () => '…', error: (_, __) => '0'),
-                color: AppTheme.error,
+                count: openComplaints,
+                color: (_) => AppTheme.error,
+                retry: () => ref.invalidate(myOpenComplaintsCountProvider),
                 onTap: () => context.push(AppRoutes.complaints),
               ),
             if (_on(user, 'visitors'))
-              _SummaryCard(
+              _countCard(
                 icon: Icons.how_to_reg_rounded,
                 label: 'Visitors Waiting',
-                value: '$waiting',
-                color: AppTheme.primary,
+                count: waitingAsync,
+                color: (_) => AppTheme.primary,
+                retry: () => ref.invalidate(pendingVisitorApprovalsProvider),
                 onTap: () => context.push(AppRoutes.visitorsPending),
               ),
             _SummaryCard(
@@ -874,7 +924,11 @@ class ResidentDashboardScreen extends ConsumerWidget {
             _InfoTile(
               icon: Icons.pending_actions_rounded,
               title: 'Visitor approvals',
-              value: waiting == 0 ? 'No one waiting' : '$waiting waiting at the gate',
+              value: waitingAsync.when(
+                data: (n) => n == 0 ? 'No one waiting' : '$n waiting at the gate',
+                loading: () => '…',
+                error: (_, __) => 'Could not check. Open Approvals',
+              ),
               color: AppTheme.warning,
             ),
           ],
@@ -986,32 +1040,32 @@ class ManagerDashboardScreen extends ConsumerWidget {
       });
     }
 
-    final pendingCheckin  = approvalState is ApprovalLoaded ? approvalState.pendingCheckin.length  : 0;
-    final pendingCheckout = approvalState is ApprovalLoaded ? approvalState.pendingCheckout.length : 0;
-    final totalStaff      = staffListState is StaffListLoaded ? '${staffListState.staff.length}' : '--';
+    final totalStaff = staffListState is StaffListLoaded ? '${staffListState.staff.length}' : '--';
+
+    // Every number below comes from the server. While a request is loading or has failed the card says so
+    // (and a failed one can be tapped to try again); it is never shown as 0.
+    final noSociety = AsyncValue<int>.error(Exception('no society'), StackTrace.empty);
+    final pendingCheckin  = _approvalCount(approvalState, (l) => l.pendingCheckin.length);
+    final pendingCheckout = _approvalCount(approvalState, (l) => l.pendingCheckout.length);
+    void retryApprovals() { if (societyId != null) ref.read(approvalProvider.notifier).load(societyId); }
 
     // Attendance summary for absent + late
     final summaryAsync = societyId != null && _on(user, 'staff')
         ? ref.watch(attendanceSummaryProvider(societyId))
-        : const AsyncValue<Map<String, dynamic>>.data({});
-    final summary     = summaryAsync.valueOrNull ?? {};
-    final absentCount = summary['absent'] != null ? '${summary['absent']}' : '--';
-    final lateCount   = summary['late']   != null ? '${summary['late']}'   : '--';
+        : AsyncValue<Map<String, dynamic>>.error(Exception('no society'), StackTrace.empty);
+    final summary = summaryAsync.valueOrNull ?? const <String, dynamic>{};
+    void retrySummary() { if (societyId != null) ref.invalidate(attendanceSummaryProvider(societyId)); }
 
     // Open complaints count
-    final complaintsAsync = societyId != null && _on(user, 'complaints')
+    final openComplaints = societyId != null && _on(user, 'complaints')
         ? ref.watch(openComplaintsCountProvider(societyId))
-        : const AsyncValue<int>.data(0);
-    final openComplaints = complaintsAsync.valueOrNull != null
-        ? '${complaintsAsync.valueOrNull}'
-        : '--';
+        : noSociety;
 
     // Duty assignment queue
     final dutiesAsync = societyId != null && _on(user, 'staff')
         ? ref.watch(societyDutiesProvider(societyId))
-        : const AsyncValue<List<DutyEntity>>.data([]);
-    final duties         = dutiesAsync.valueOrNull ?? [];
-    final pendingDuties  = duties.where((d) => !d.isCompleted).length;
+        : AsyncValue<List<DutyEntity>>.error(Exception('no society'), StackTrace.empty);
+    final pendingDuties = dutiesAsync.whenData((d) => d.where((x) => !x.isCompleted).length);
 
     // Department breakdown from summary
     final deptBreakdown = (summary['department_breakdown'] as Map?)
@@ -1039,52 +1093,58 @@ class ManagerDashboardScreen extends ConsumerWidget {
             maxCrossAxisExtent: 280,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            mainAxisExtent: 130,
+            mainAxisExtent: 148,
           ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           children: [
             if (_on(user, 'staff')) ...[
-            _SummaryCard(
+            _countCard(
               icon: Icons.login_rounded,
               label: 'Pending Check-in',
-              value: '$pendingCheckin',
-              color: pendingCheckin > 0 ? AppTheme.warning : AppTheme.success,
+              count: pendingCheckin,
+              color: (n) => n > 0 ? AppTheme.warning : AppTheme.success,
+              retry: retryApprovals,
             ),
-            _SummaryCard(
+            _countCard(
               icon: Icons.logout_rounded,
               label: 'Pending Punch-out',
-              value: '$pendingCheckout',
-              color: pendingCheckout > 0 ? AppTheme.error : AppTheme.success,
+              count: pendingCheckout,
+              color: (n) => n > 0 ? AppTheme.error : AppTheme.success,
+              retry: retryApprovals,
             ),
-            _SummaryCard(
+            _countCard(
               icon: Icons.person_off_rounded,
               label: 'Absent Staff',
-              value: absentCount,
-              color: AppTheme.error,
+              count: _summaryCount(summaryAsync, 'absent'),
+              color: (_) => AppTheme.error,
+              retry: retrySummary,
             ),
-            _SummaryCard(
+            _countCard(
               icon: Icons.schedule_rounded,
               label: 'Late Staff',
-              value: lateCount,
-              color: AppTheme.warning,
+              count: _summaryCount(summaryAsync, 'late'),
+              color: (_) => AppTheme.warning,
+              retry: retrySummary,
             ),
             _SummaryCard(icon: Icons.badge_rounded, label: 'Total Staff', value: totalStaff, color: AppTheme.primary),
             ],
             if (_on(user, 'complaints'))
-              _SummaryCard(
+              _countCard(
                 icon: Icons.assignment_rounded,
                 label: 'Open Complaints',
-                value: openComplaints,
-                color: openComplaints != '0' && openComplaints != '--' ? AppTheme.error : AppTheme.success,
+                count: openComplaints,
+                color: (n) => n > 0 ? AppTheme.error : AppTheme.success,
+                retry: () { if (societyId != null) ref.invalidate(openComplaintsCountProvider(societyId)); },
                 onTap: () => context.push(AppRoutes.complaintsAssigned),
               ),
             if (_on(user, 'staff'))
-              _SummaryCard(
+              _countCard(
                 icon: Icons.assignment_late_rounded,
                 label: 'Duty Queue',
-                value: dutiesAsync.isLoading ? '--' : '$pendingDuties',
-                color: pendingDuties > 0 ? AppTheme.warning : AppTheme.success,
+                count: pendingDuties,
+                color: (n) => n > 0 ? AppTheme.warning : AppTheme.success,
+                retry: () { if (societyId != null) ref.invalidate(societyDutiesProvider(societyId)); },
                 onTap: societyId != null
                     ? () => context.push(AppRoutes.staffDutyOverview, extra: societyId)
                     : null,
@@ -1139,7 +1199,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
             maxCrossAxisExtent: 280,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            mainAxisExtent: 130,
+            mainAxisExtent: 148,
           ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -1200,20 +1260,20 @@ class SupervisorDashboardScreen extends ConsumerWidget {
 
     final summaryAsync = societyId != null
         ? ref.watch(attendanceSummaryProvider(societyId))
-        : const AsyncValue<Map<String, dynamic>>.data({});
+        : AsyncValue<Map<String, dynamic>>.error(Exception('no society'), StackTrace.empty);
 
     final dutiesAsync = societyId != null
         ? ref.watch(societyDutiesProvider(societyId))
-        : const AsyncValue<List<DutyEntity>>.data([]);
+        : AsyncValue<List<DutyEntity>>.error(Exception('no society'), StackTrace.empty);
 
-    final pendingCheckin  = approvalState is ApprovalLoaded ? approvalState.pendingCheckin.length  : 0;
-    final pendingCheckout = approvalState is ApprovalLoaded ? approvalState.pendingCheckout.length : 0;
-    final summary         = summaryAsync.valueOrNull ?? {};
-    final presentCount    = summary['present'] != null ? '${summary['present']}' : '--';
-    final absentCount     = summary['absent']  != null ? '${summary['absent']}'  : '--';
-    final duties          = dutiesAsync.valueOrNull ?? [];
-    final pendingDuties   = duties.where((d) => !d.isCompleted).length;
-    final completedDuties = duties.where((d) => d.isCompleted).length;
+    // Numbers come from the server: loading or failed is shown as such, never as 0.
+    final pendingCheckin  = _approvalCount(approvalState, (l) => l.pendingCheckin.length);
+    final pendingCheckout = _approvalCount(approvalState, (l) => l.pendingCheckout.length);
+    final pendingDuties   = dutiesAsync.whenData((d) => d.where((x) => !x.isCompleted).length);
+    final completedDuties = dutiesAsync.whenData((d) => d.where((x) => x.isCompleted).length);
+    void retryApprovals() { if (societyId != null) ref.read(approvalProvider.notifier).load(societyId, department: department); }
+    void retrySummary() { if (societyId != null) ref.invalidate(attendanceSummaryProvider(societyId)); }
+    void retryDuties() { if (societyId != null) ref.invalidate(societyDutiesProvider(societyId)); }
 
     return _DashboardShell(
       title: '$deptLabel Supervisor',
@@ -1227,39 +1287,47 @@ class SupervisorDashboardScreen extends ConsumerWidget {
             maxCrossAxisExtent: 280,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            mainAxisExtent: 130,
+            mainAxisExtent: 148,
           ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           children: [
-            _SummaryCard(icon: Icons.people_rounded, label: 'Staff Present', value: presentCount, color: AppTheme.success),
-            _SummaryCard(icon: Icons.person_off_rounded, label: 'Staff Absent', value: absentCount, color: AppTheme.error),
-            _SummaryCard(
+            _countCard(
+                icon: Icons.people_rounded, label: 'Staff Present', count: _summaryCount(summaryAsync, 'present'),
+                color: (_) => AppTheme.success, retry: retrySummary),
+            _countCard(
+                icon: Icons.person_off_rounded, label: 'Staff Absent', count: _summaryCount(summaryAsync, 'absent'),
+                color: (_) => AppTheme.error, retry: retrySummary),
+            _countCard(
               icon: Icons.login_rounded,
               label: 'Pending Check-in',
-              value: pendingCheckin > 0 ? '$pendingCheckin' : '0',
-              color: pendingCheckin > 0 ? AppTheme.warning : AppTheme.success,
+              count: pendingCheckin,
+              color: (n) => n > 0 ? AppTheme.warning : AppTheme.success,
+              retry: retryApprovals,
             ),
-            _SummaryCard(
+            _countCard(
               icon: Icons.logout_rounded,
               label: 'Pending Check-out',
-              value: pendingCheckout > 0 ? '$pendingCheckout' : '0',
-              color: pendingCheckout > 0 ? AppTheme.error : AppTheme.success,
+              count: pendingCheckout,
+              color: (n) => n > 0 ? AppTheme.error : AppTheme.success,
+              retry: retryApprovals,
             ),
-            _SummaryCard(
+            _countCard(
               icon: Icons.assignment_late_rounded,
               label: 'Duties Pending',
-              value: dutiesAsync.isLoading ? '--' : '$pendingDuties',
-              color: pendingDuties > 0 ? AppTheme.warning : AppTheme.success,
+              count: pendingDuties,
+              color: (n) => n > 0 ? AppTheme.warning : AppTheme.success,
+              retry: retryDuties,
               onTap: societyId != null
                   ? () => context.push(AppRoutes.staffDutyOverview, extra: societyId)
                   : null,
             ),
-            _SummaryCard(
+            _countCard(
               icon: Icons.assignment_turned_in_rounded,
               label: 'Duties Done',
-              value: dutiesAsync.isLoading ? '--' : '$completedDuties',
-              color: AppTheme.success,
+              count: completedDuties,
+              color: (_) => AppTheme.success,
+              retry: retryDuties,
               onTap: societyId != null
                   ? () => context.push(AppRoutes.staffDutyOverview, extra: societyId)
                   : null,
@@ -1300,8 +1368,12 @@ class SupervisorDashboardScreen extends ConsumerWidget {
             _InfoTile(
               icon: Icons.fitness_center_rounded,
               title: '$deptLabel Staff',
-              value: pendingCheckin > 0 ? '$pendingCheckin pending approval' : 'All approved',
-              color: pendingCheckin > 0 ? AppTheme.warning : AppTheme.success,
+              value: pendingCheckin.when(
+                data: (n) => n > 0 ? '$n pending approval' : 'All approved',
+                loading: () => '…',
+                error: (_, __) => 'Could not load',
+              ),
+              color: (pendingCheckin.valueOrNull ?? 0) > 0 ? AppTheme.warning : AppTheme.success,
             ),
           ]),
           const SizedBox(height: 18),

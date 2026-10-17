@@ -306,6 +306,12 @@ void main() {
   group('SecurityDashboardScreen', () {
     testWidgets('renders gate operation modules', (tester) async {
       final user = _makeUser(role: 'Security');
+      // The summary tiles are taller than before (room for a "could not load" note), so the quick actions sit lower;
+      // use a taller screen so the list builds them.
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(_wrapWithUser(const SecurityDashboardScreen(), user));
       await tester.pump();

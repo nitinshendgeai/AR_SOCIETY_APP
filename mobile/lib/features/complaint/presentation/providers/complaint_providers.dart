@@ -192,9 +192,10 @@ final openComplaintsCountProvider =
     FutureProvider.family<int, String>((ref, societyId) async {
   final repo = ref.read(complaintRepositoryProvider);
   final result = await repo.openComplaintsCount(societyId);
+  // A failed request is an error the dashboard can show and retry - never a count of 0.
   return switch (result) {
     ComplaintSuccess(:final data) => data,
-    ComplaintFailure() => 0,
+    ComplaintFailure(:final message) => throw Exception(message),
   };
 });
 
@@ -205,6 +206,6 @@ final myOpenComplaintsCountProvider = FutureProvider.autoDispose<int>((ref) asyn
   final result = await ref.read(complaintRepositoryProvider).listMyComplaints();
   return switch (result) {
     ComplaintSuccess(:final data) => data.where((c) => !done.contains(c.status)).length,
-    ComplaintFailure() => 0,
+    ComplaintFailure(:final message) => throw Exception(message),
   };
 });
