@@ -30,6 +30,7 @@ from sqlalchemy.orm import Session
 from app.modules.accounts.models.accounts import Account, AccountGroup, Voucher, VoucherEntry
 from app.modules.billing.models.billing import (
     BillingCycle, BillingExpenseAllocation, BillStatus, ChargeBasis, MaintenanceBill, MaintenanceChargeConfig,
+    MaintenanceElement,
 )
 
 ZERO = Decimal(0)
@@ -73,6 +74,9 @@ class PeriodSpend:
     pools: Dict[UUID, List[PoolSource]] = field(default_factory=dict)   # element id -> approved sources
     pending: Dict[UUID, Decimal] = field(default_factory=dict)          # element id -> spend waiting for approval
     unlinked: Dict[str, Decimal] = field(default_factory=dict)          # ledger name -> approved spend no element covers
+    unlinked_accounts: Dict[UUID, tuple] = field(default_factory=dict)  # ledger id -> (name, approved spend no element covers)
+    pending_vouchers: set = field(default_factory=set)                  # every expense voucher waiting for approval
+    pending_total: Decimal = ZERO                                       # ...and what they add up to, on any ledger
 
     def total(self, element_id: UUID) -> Decimal:
         return money(sum((s.amount for s in self.pools.get(element_id, [])), ZERO))
@@ -103,6 +107,8 @@ def period_spend(db: Session, society_id: UUID, start: date, end: date) -> Perio
         if net == 0:
             continue
         if status == "pending":
+            out.pending_vouchers.add(vid)
+            out.pending_total += net
             if element_id is not None:
                 out.pending[element_id] = out.pending.get(element_id, ZERO) + net
             continue
@@ -110,9 +116,12 @@ def period_spend(db: Session, society_id: UUID, start: date, end: date) -> Perio
             continue                                            # rejected: not an expense
         if element_id is None:
             out.unlinked[acc_name] = out.unlinked.get(acc_name, ZERO) + net
+            prev = out.unlinked_accounts.get(acc_id, (acc_name, ZERO))[1]
+            out.unlinked_accounts[acc_id] = (acc_name, prev + net)
             continue
         out.pools.setdefault(element_id, []).append(PoolSource(vid, number, vdate, acc_id, acc_name, net))
     out.unlinked = {k: v for k, v in out.unlinked.items() if v > 0}
+    out.unlinked_accounts = {k: v for k, v in out.unlinked_accounts.items() if v[1] > 0}
     return out
 
 
@@ -182,3 +191,34 @@ def overlapping_allocations(db: Session, society_id: UUID, element_id: UUID, sta
 def cycle_label(db: Session, cycle_id: UUID) -> str:
     cycle = db.get(BillingCycle, cycle_id)
     return f"“{cycle.name}”" if cycle else "another cycle"
+
+
+def cycle_readiness(db: Session, society_id: UUID, cycle: BillingCycle, charges: List[MaintenanceChargeConfig],
+                    allocations: Dict[UUID, AllocationResult]) -> dict:
+    """The month-end checklist for a cycle: what in the books would leave the bills short of what was spent. Each
+    list is empty when that check is clear. Nothing here blocks generating the bills; it says what to look at first.
+    `applies` is false when no head bills actual expenses, so the checklist has nothing to say."""
+    period_heads = [c for c in charges if is_period_head(c)]
+    out = {"applies": bool(period_heads), "pending_count": 0, "pending_amount": "0.00",
+           "unlinked_ledgers": [], "uncovered_elements": [], "heads_without_spend": [], "ready": True}
+    if not period_heads:
+        return out
+    spend = period_spend(db, society_id, cycle.cycle_start, cycle.cycle_end)
+    out["pending_count"] = len(spend.pending_vouchers)
+    out["pending_amount"] = str(money(spend.pending_total))
+    out["unlinked_ledgers"] = [
+        {"account_id": str(acc_id), "name": name, "amount": str(money(amount))}
+        for acc_id, (name, amount) in sorted(spend.unlinked_accounts.items(), key=lambda kv: kv[1][0])]
+    covered = {c.element_id for c in period_heads}
+    missing = {eid: spend.total(eid) for eid in spend.pools if eid not in covered and spend.total(eid) > 0}
+    if missing:
+        names = dict(db.query(MaintenanceElement.id, MaintenanceElement.name)
+                     .filter(MaintenanceElement.id.in_(list(missing))).all())
+        out["uncovered_elements"] = [
+            {"element_id": str(eid), "element_name": names.get(eid, "Element"), "amount": str(amount),
+             "has_head": any(c.element_id == eid for c in charges)}
+            for eid, amount in sorted(missing.items(), key=lambda kv: names.get(kv[0], ""))]
+    out["heads_without_spend"] = [c.name for c in period_heads if c.id not in allocations]
+    out["ready"] = not (out["pending_count"] or out["unlinked_ledgers"] or out["uncovered_elements"]
+                        or out["heads_without_spend"])
+    return out

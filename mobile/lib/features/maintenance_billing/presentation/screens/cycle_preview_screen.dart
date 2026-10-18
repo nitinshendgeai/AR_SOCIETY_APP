@@ -5,6 +5,7 @@ import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
+import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/month_end_checklist.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
 
@@ -105,6 +106,8 @@ class _CyclePreviewScreenState extends ConsumerState<CyclePreviewScreen> {
                     note: 'avg ${formatRupees('$avg')}',
                   ),
                 ]),
+                const SizedBox(height: 10),
+                MonthEndChecklist(cycleId: widget.cycleId, preview: p),
                 for (final a in p.expenseAllocations) ...[
                   const SizedBox(height: 10),
                   _ExpenseAllocationCard(a),

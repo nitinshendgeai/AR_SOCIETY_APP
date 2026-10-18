@@ -207,6 +207,9 @@ class MaintenanceRules {
   /// date) or from the end of its last bill, to the end of the cycle.
   final DateTime? billingStartDate;
 
+  /// A payment entered by an admin / committee member is posted as approved at once (no second approver).
+  final bool autoApproveAdminExpenses;
+
   const MaintenanceRules({
     this.constructionCostPerSqft,
     this.interestRatePct = '12',
@@ -222,6 +225,7 @@ class MaintenanceRules {
     this.upiId,
     this.billNotes,
     this.billingStartDate,
+    this.autoApproveAdminExpenses = false,
   });
 
   factory MaintenanceRules.fromJson(Map<String, dynamic> j) => MaintenanceRules(
@@ -240,6 +244,7 @@ class MaintenanceRules {
         billNotes: j['bill_notes'] as String?,
         billingStartDate:
             j['billing_start_date'] == null ? null : DateTime.parse(j['billing_start_date'] as String),
+        autoApproveAdminExpenses: j['auto_approve_admin_expenses'] as bool? ?? false,
       );
 }
 
@@ -362,16 +367,101 @@ class ExpenseAllocation {
       );
 }
 
+/// A ledger holding approved spend in the cycle that no maintenance element covers.
+class UnlinkedLedger {
+  final String accountId;
+  final String name;
+  final String amount;
+  const UnlinkedLedger({required this.accountId, required this.name, required this.amount});
+  factory UnlinkedLedger.fromJson(Map<String, dynamic> j) => UnlinkedLedger(
+        accountId: j['account_id'] as String,
+        name: j['name'] as String? ?? '',
+        amount: _str(j['amount']),
+      );
+}
+
+/// An element with approved spend in the cycle that no head bills as actual expenses.
+class UncoveredElement {
+  final String elementId;
+  final String elementName;
+  final String amount;
+
+  /// A charge head exists for the element (billing a typed rate or an estimate) – false means none does.
+  final bool hasHead;
+  const UncoveredElement(
+      {required this.elementId, required this.elementName, required this.amount, this.hasHead = false});
+  factory UncoveredElement.fromJson(Map<String, dynamic> j) => UncoveredElement(
+        elementId: j['element_id'] as String,
+        elementName: j['element_name'] as String? ?? '',
+        amount: _str(j['amount']),
+        hasHead: j['has_head'] as bool? ?? false,
+      );
+}
+
+/// The month-end checklist for a cycle: what in the books would leave the bills short of what was spent.
+class CycleReadiness {
+  final bool applies;
+  final bool ready;
+  final int pendingCount;
+  final String pendingAmount;
+  final List<UnlinkedLedger> unlinkedLedgers;
+  final List<UncoveredElement> uncoveredElements;
+  final List<String> headsWithoutSpend;
+
+  const CycleReadiness({
+    this.applies = false,
+    this.ready = true,
+    this.pendingCount = 0,
+    this.pendingAmount = '0',
+    this.unlinkedLedgers = const [],
+    this.uncoveredElements = const [],
+    this.headsWithoutSpend = const [],
+  });
+
+  factory CycleReadiness.fromJson(Map<String, dynamic> j) => CycleReadiness(
+        applies: j['applies'] as bool? ?? false,
+        ready: j['ready'] as bool? ?? true,
+        pendingCount: j['pending_count'] as int? ?? 0,
+        pendingAmount: _str(j['pending_amount']),
+        unlinkedLedgers: [
+          for (final e in (j['unlinked_ledgers'] as List? ?? const [])) UnlinkedLedger.fromJson(e as Map<String, dynamic>)
+        ],
+        uncoveredElements: [
+          for (final e in (j['uncovered_elements'] as List? ?? const []))
+            UncoveredElement.fromJson(e as Map<String, dynamic>)
+        ],
+        headsWithoutSpend: [for (final e in (j['heads_without_spend'] as List? ?? const [])) e as String],
+      );
+}
+
+/// What changed when charge heads were switched to actual expenses in one step.
+class BillActualResult {
+  final List<ChargeHead> changed;
+  final List<({String name, String reason})> skipped;
+  const BillActualResult({required this.changed, required this.skipped});
+  factory BillActualResult.fromJson(Map<String, dynamic> j) => BillActualResult(
+        changed: [for (final e in (j['changed'] as List? ?? const [])) ChargeHead.fromJson(e as Map<String, dynamic>)],
+        skipped: [
+          for (final e in (j['skipped'] as List? ?? const []))
+            (name: (e as Map)['name'] as String? ?? '', reason: e['reason'] as String? ?? '')
+        ],
+      );
+}
+
 class CyclePreview {
   final int months;
   final int flatsCount;
   final String total;
   final List<String> warnings;
   final List<ExpenseAllocation> expenseAllocations;
+  final CycleReadiness readiness;
+  final DateTime? cycleStart;
+  final DateTime? cycleEnd;
   final List<FlatPreview> flats;
 
   const CyclePreview({required this.months, required this.flatsCount, required this.total,
-      required this.warnings, this.expenseAllocations = const [], required this.flats});
+      required this.warnings, this.expenseAllocations = const [], this.readiness = const CycleReadiness(),
+      this.cycleStart, this.cycleEnd, required this.flats});
 
   factory CyclePreview.fromJson(Map<String, dynamic> j) => CyclePreview(
         months: j['months'] as int? ?? 1,
@@ -382,6 +472,11 @@ class CyclePreview {
           for (final e in (j['expense_allocations'] as List? ?? const []))
             ExpenseAllocation.fromJson(e as Map<String, dynamic>)
         ],
+        cycleStart: j['cycle_start'] == null ? null : _date(j['cycle_start']),
+        cycleEnd: j['cycle_end'] == null ? null : _date(j['cycle_end']),
+        readiness: j['readiness'] == null
+            ? const CycleReadiness()
+            : CycleReadiness.fromJson(j['readiness'] as Map<String, dynamic>),
         flats: [for (final e in (j['flats'] as List)) FlatPreview.fromJson(e as Map<String, dynamic>)],
       );
 }
@@ -809,6 +904,26 @@ class MaintenanceBillingApi {
     final r = await _dio.get('/billing/charges/$societyId/budget-suggestions',
         queryParameters: {'months': months});
     return BudgetSuggestions.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// Put the chosen heads on "actual expenses of each billing cycle"; the ones that cannot say why.
+  /// [elementIds] are elements with spend but no head: one is made for each (or its head switched).
+  Future<BillActualResult> billActualExpenses(String societyId, List<String> chargeIds,
+      {List<String> elementIds = const []}) async {
+    final r = await _dio.post('/billing/charges/$societyId/bill-actual-expenses',
+        data: {'charge_ids': chargeIds, 'element_ids': elementIds});
+    return BillActualResult.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// Approve every payment waiting for approval (the caller's own wait for another approver when there is one).
+  /// Returns (approved, left for another approver).
+  Future<({int approved, int leftForAnother})> approvePendingPayments(String societyId,
+      {DateTime? from, DateTime? to}) async {
+    String d(DateTime x) => '${x.year.toString().padLeft(4, '0')}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';
+    final r = await _dio.post('/accounts/vouchers/$societyId/approve-pending',
+        data: {if (from != null) 'date_from': d(from), if (to != null) 'date_to': d(to)});
+    final m = r.data as Map<String, dynamic>;
+    return (approved: m['approved'] as int? ?? 0, leftForAnother: m['left_for_another_approver'] as int? ?? 0);
   }
 
   Future<ChargeHead> updateChargeHead(String id, Map<String, dynamic> changes) async {

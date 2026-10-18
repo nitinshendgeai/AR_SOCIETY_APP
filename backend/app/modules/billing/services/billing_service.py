@@ -192,6 +192,80 @@ class BillingService:
             raise HTTPException(422, f"“{other.name}” already bills this element's expenses. Turn that one off first - "
                                      "two heads would charge the same spend twice.")
 
+    def bill_actual_expenses(self, society_id: UUID, charge_ids: List[UUID], user: User,
+                             element_ids: Optional[List[UUID]] = None):
+        """Put the chosen heads on 'actual expenses of each billing cycle'. Returns (changed heads, skipped as
+        [{id, name, reason}]). `element_ids` names elements that have spend but no head: an element with no active
+        head gets one made from its standard calculation; one that has a head has that head switched. One head per
+        element: a head is skipped when another head already bills that element's expenses (or was chosen earlier
+        in this same request)."""
+        assert_society_access(user, society_id)
+        charge_ids = list(charge_ids)
+        skipped = []
+        for eid in (element_ids or []):
+            el = self.get_element(eid)
+            if el.society_id != society_id or not el.is_active:
+                skipped.append({"id": str(eid), "name": "", "reason": "Not an active element of this society"})
+                continue
+            existing = self.db.query(MaintenanceChargeConfig).filter(
+                MaintenanceChargeConfig.society_id == society_id, MaintenanceChargeConfig.element_id == el.id,
+                MaintenanceChargeConfig.is_active == True).order_by(  # noqa: E712
+                MaintenanceChargeConfig.auto_from_expenses.desc(), MaintenanceChargeConfig.created_at).first()
+            if existing is not None:
+                charge_ids.append(existing.id)
+                continue
+            if (el.default_basis or ChargeBasis.FIXED) not in PERIOD_BASES:
+                skipped.append({"id": str(el.id), "name": el.name,
+                                "reason": "Its standard calculation is not spend-based (percentage of construction "
+                                          "cost or parking), so a head for it cannot follow expenses"})
+                continue
+            data = self._sync_basis({**self._element_defaults(el), "auto_from_expenses": True,
+                                     "expense_mode": MODE_PERIOD})
+            head = MaintenanceChargeConfig(**data, society_id=society_id, element_id=el.id)
+            self.db.add(head)
+            self.db.flush()
+            self._audit(AuditAction.CREATE, head, "ChargeConfig", user,
+                        new_values={"name": head.name, "expense_mode": MODE_PERIOD})
+            charge_ids.append(head.id)
+        heads = {c.id: c for c in self.db.query(MaintenanceChargeConfig).filter(
+            MaintenanceChargeConfig.society_id == society_id, MaintenanceChargeConfig.id.in_(charge_ids))}
+        taken = {}                                         # element id -> head already billing its expenses
+        for c in self.db.query(MaintenanceChargeConfig).filter(
+                MaintenanceChargeConfig.society_id == society_id, MaintenanceChargeConfig.is_active == True,  # noqa: E712
+                MaintenanceChargeConfig.auto_from_expenses == True):  # noqa: E712
+            taken[c.element_id] = c
+        changed, seen = [], set()
+        for cid in charge_ids:
+            if cid in seen:
+                continue
+            seen.add(cid)
+            c = heads.get(cid)
+            if c is None:
+                skipped.append({"id": str(cid), "name": "", "reason": "Not a charge head of this society"})
+                continue
+            reason = None
+            if not c.is_active:
+                reason = "This head is switched off"
+            elif not c.element_id:
+                reason = "Not made from a maintenance element, so there are no expenses to follow"
+            elif (c.basis or ChargeBasis.FIXED) not in PERIOD_BASES:
+                reason = "Its basis is not spend-based (percentage of construction cost or parking)"
+            elif taken.get(c.element_id) is not None and taken[c.element_id].id != c.id:
+                reason = f"“{taken[c.element_id].name}” already bills this element's expenses"
+            if reason:
+                skipped.append({"id": str(c.id), "name": c.name, "reason": reason})
+                continue
+            if not (c.auto_from_expenses and c.expense_mode == MODE_PERIOD):
+                c.auto_from_expenses, c.expense_mode = True, MODE_PERIOD
+                self._audit(AuditAction.UPDATE, c, "ChargeConfig", user,
+                            new_values={"auto_from_expenses": "True", "expense_mode": MODE_PERIOD})
+            taken[c.element_id] = c
+            changed.append(c)
+        self.db.commit()
+        for c in changed:
+            self.db.refresh(c)
+        return changed, skipped
+
     def list_charge_configs(self, society_id: UUID) -> List[MaintenanceChargeConfig]:
         return self.charge_repo.get_by_society(society_id)
 
@@ -537,6 +611,10 @@ class BillingService:
 
     def update_maintenance_settings(self, society_id: UUID, data: dict, user: User) -> MaintenanceSettings:
         assert_society_access(user, society_id)
+        if "auto_approve_admin_expenses" in data:
+            from app.core.dependencies import _user_has_permission
+            if not _user_has_permission(user, "admin_committee"):
+                raise HTTPException(403, "Only an admin or committee member can change who approves payments")
         settings = self.db.query(MaintenanceSettings).filter(
             MaintenanceSettings.society_id == society_id).first()
         if not settings:

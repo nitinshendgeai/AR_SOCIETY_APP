@@ -13,6 +13,7 @@ import 'package:ar_society_app/features/maintenance_billing/presentation/provide
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/billing_cycle_screen.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/flat_charges_tab.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
+import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/bill_actual_expenses_sheet.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
@@ -477,6 +478,12 @@ class _ChargeHeadsTab extends ConsumerWidget {
               icon: const Icon(Icons.auto_graph_rounded, size: 18),
               label: const Text('Suggest from expenses'),
             ),
+            OutlinedButton.icon(
+              key: const ValueKey('bill-actual-expenses'),
+              onPressed: () => showBillActualExpensesSheet(context, societyId),
+              icon: const Icon(Icons.fact_check_rounded, size: 18),
+              label: const Text('Bill actual expenses'),
+            ),
             if (canManageElements)
               TextButton.icon(
                 onPressed: () => context.push(AppRoutes.maintenanceElements),
@@ -598,6 +605,14 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
     _amountCtrl.text = el.defaultAmount ?? '';
     _service = el.isServiceCharge;
     _gst = el.gstApplicable;
+    // A new head for an element whose amount is a yearly budget starts on "actual expenses of each billing cycle",
+    // unless another head already bills that element's expenses (only one may).
+    if (!_editing && (_basis == 'budget_equal' || _basis == 'budget_area')) {
+      final heads = ref.read(chargeHeadsProvider(widget.societyId)).valueOrNull ?? const <ChargeHead>[];
+      final taken = heads.any((c) => c.isActive && c.elementId == el.id && c.autoFromExpenses);
+      _auto = !taken;
+      _expenseMode = 'period';
+    }
   }
 
   @override
@@ -1285,6 +1300,7 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
   late final _gstThresholdCtrl = TextEditingController(text: _trim(widget.rules.gstThresholdMonthly));
   late bool _gst = widget.rules.gstEnabled;
   late DateTime? _billingStart = widget.rules.billingStartDate;
+  late bool _autoApprove = widget.rules.autoApproveAdminExpenses;
   late final _accountNameCtrl = TextEditingController(text: widget.rules.bankAccountName ?? '');
   late final _bankNameCtrl = TextEditingController(text: widget.rules.bankName ?? '');
   late final _accountNoCtrl = TextEditingController(text: widget.rules.bankAccountNumber ?? '');
@@ -1340,6 +1356,8 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
         'bank_ifsc': _ifscCtrl.text.trim().toUpperCase(),
         'upi_id': _upiCtrl.text.trim(),
         'bill_notes': _billNotesCtrl.text.trim(),
+        // Only sent when changed: it is the admin's call alone, and a manager saving other rules must not trip it.
+        if (_autoApprove != widget.rules.autoApproveAdminExpenses) 'auto_approve_admin_expenses': _autoApprove,
       });
       ref.invalidate(maintenanceRulesProvider(widget.societyId));
       if (mounted) AppToast.success(context, 'Rules saved — they apply to bills generated from now on');
@@ -1409,6 +1427,22 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
                     style: TextStyle(color: _billingStart == null ? AppTheme.textSecondary : AppTheme.textPrimary),
                   ),
                 )),
+              ),
+            ],
+          ),
+          _section(
+            'Who approves payments',
+            'By default a payment or expense waits for a second admin or committee member to approve it, and only '
+                'approved expenses reach the books and the bills. If your treasurer is also the admin and there is '
+                'no one else to approve, you can let payments entered by an admin or committee member post at once.',
+            [
+              SwitchListTile(
+                key: const ValueKey('auto-approve-admin-expenses'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Post admin and committee payments without a second approver'),
+                subtitle: const Text('Payments entered by a manager or others still wait for approval.'),
+                value: _autoApprove,
+                onChanged: (v) => setState(() => _autoApprove = v),
               ),
             ],
           ),

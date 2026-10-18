@@ -160,6 +160,30 @@ the flats shared over. Each bill line points to it, and the printed bill carries
 spent, how it was shared and the flat's share. The working is never recomputed, so later expenses, edits or head
 changes do not alter bills already generated.
 
+**Setting it up once.** On the **Charge heads** tab, **Bill actual expenses** lists the heads that can follow spend with a
+tick box for each. Heads whose amount is a yearly budget start ticked; heads with a typed monthly rate start unticked,
+so a rate the committee chose is only replaced if you tick it. A new head made from a yearly-budget element starts on
+actual expenses by itself (unless another head already bills that element).
+
+**Month-end check.** The top of every cycle **Preview** lists what in the books would leave the bills short of what was
+spent, each with the one tap that fixes it:
+
+- *expenses waiting for approval* – **Approve all** approves those dated in the cycle (a payment you entered yourself
+  waits for another admin or committee member, when there is one);
+- *a ledger with spend that no element covers* – **Link** asks what it is for and links it;
+- *an element with spend but no head billing it as actual expenses* – **Add head** makes a head for it that bills actual
+  expenses (or **Switch head** when it already has a head billing a typed rate or an estimate);
+- *a head with no spend in the period* – for information: nothing is billed for it.
+
+What the checklist shows is not repeated in the warnings below it. Nothing here blocks **Generate**; it only says
+what to look at first.
+
+**Who approves payments.** By default a payment or expense waits for a second admin or committee member (maker and
+checker), and only approved expenses reach the books and the bills. A society whose treasurer is also the admin can
+turn on **Rules → Who approves payments → Post admin and committee payments without a second approver**. Then a payment
+entered by an admin or committee member is approved at once (the voucher says so); payments entered by anyone else still
+wait. Only an admin or committee member can change this setting.
+
 Two safeguards: only one **Budget from expenses** head is allowed per element (two would bill the same spend twice),
 and the same dates of an element cannot be billed twice — generating a cycle whose dates overlap an earlier cycle's
 (whose bills still stand) is refused. Cancel the earlier cycle's bills to free its dates. **Bills already generated are

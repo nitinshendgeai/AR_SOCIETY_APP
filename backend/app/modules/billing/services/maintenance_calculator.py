@@ -169,6 +169,9 @@ class MaintenanceCalculator:
         self.total_area = sum((Decimal(str(f.area_sqft)) for f in self.flats if f.area_sqft), ZERO)
         self.parking = self._parking_by_flat()
         self.warnings: List[str] = []
+        # Warnings the month-end checklist already shows (as rows with their own fix), so the preview can leave
+        # them out of the plain warning list
+        self.checklist_warnings: List[str] = []
         self._auto_rate: Dict[UUID, Decimal] = {}
         self.allocations: Dict[UUID, AllocationResult] = {}      # charge id -> its period-expense allocation
         self.flat_charges = self._flat_charges_by_flat()
@@ -214,6 +217,10 @@ class MaintenanceCalculator:
                 else:
                     self._auto_rate[c.id] = rate
 
+    def _checklist_note(self, message: str) -> None:
+        self.warnings.append(message)
+        self.checklist_warnings.append(message)
+
     def _apply_period_allocations(self, cycle: BillingCycle,
                                   periods: Dict[UUID, Tuple[date, date, Decimal]]) -> None:
         """Period-mode heads: share each head's pool of approved expenses (dated inside the cycle) over the flats that
@@ -247,13 +254,13 @@ class MaintenanceCalculator:
             label = f"{charge.name}: "
             window = f"{cycle.cycle_start:%d %b %Y} – {cycle.cycle_end:%d %b %Y}"
             if pending > 0:
-                self.warnings.append(
+                self._checklist_note(
                     f"{label}₹{pending:,.2f} of expenses in {window} are still waiting for approval and are not "
                     f"included — approve them first if they should be billed.")
             if no_area:
                 self.warnings.append(f"{label}{no_area} flat(s) have no area set and carry none of this head.")
             if pool <= 0:
-                self.warnings.append(
+                self._checklist_note(
                     f"{label}no approved expenses are recorded on its linked expense ledgers in {window} — "
                     f"nothing is billed for this head.")
                 continue
@@ -269,7 +276,7 @@ class MaintenanceCalculator:
                 amounts=amounts, pending=pending)
         if spend.unlinked:
             names = ", ".join(f"{n} (₹{v:,.2f})" for n, v in sorted(spend.unlinked.items()))
-            self.warnings.append(
+            self._checklist_note(
                 f"Approved expenses in the period on ledgers no maintenance element covers are not recovered by any "
                 f"charge head: {names}.")
 

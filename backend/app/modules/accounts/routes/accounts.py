@@ -499,6 +499,20 @@ def pending_voucher_approvals(society_id: UUID, db: Session = Depends(get_db), u
     return [{**_voucher_out(v), "can_approve": svc.can_approve(v, user, others)} for v in rows]
 
 
+class ApprovePendingIn(BaseModel):
+    date_from: Optional[date] = None
+    date_to: Optional[date] = None
+
+
+@router.post("/vouchers/{society_id}/approve-pending", dependencies=[Depends(require_admin_committee)])
+def approve_pending_vouchers(society_id: UUID, data: ApprovePendingIn, db: Session = Depends(get_db),
+                             user: User = Depends(get_current_user)):
+    """Approve every payment waiting for approval (optionally only those dated within a range), skipping the
+    caller's own entries when another admin or committee member could approve them."""
+    assert_society_access(user, society_id)
+    return AccountsService(db).approve_pending_payments(society_id, user, data.date_from, data.date_to)
+
+
 @router.post("/vouchers/{voucher_id}/approve", dependencies=[Depends(require_admin_committee)])
 def approve_voucher(voucher_id: UUID, data: ApprovalNote, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     svc = AccountsService(db)

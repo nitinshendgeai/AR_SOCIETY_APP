@@ -244,6 +244,11 @@ class MaintenanceSettings(Base, TimestampMixin):
     # the end of the cycle being billed. Empty: every cycle bills its own period only, as before.
     billing_start_date  = Column(Date, nullable=True)
 
+    # Off (the default): a payment voucher, including an expense, waits for a second admin / committee member to
+    # approve it (maker and checker). On: a payment entered by someone who could approve it themselves is posted
+    # as approved straight away - for a society whose treasurer is also the admin and has no one else to approve.
+    auto_approve_admin_expenses = Column(Boolean, default=False, server_default="false", nullable=False)
+
     society = relationship("Society")
 
 

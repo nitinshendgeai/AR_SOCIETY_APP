@@ -123,7 +123,8 @@ def test_only_approved_live_spend_inside_the_period_counts(client, db):
     alloc = pv["expense_allocations"][0]
     assert alloc["pool_amount"] == "5700.00"                                                      # 4000 + 1000 + 700
     assert alloc["pending_amount"] == "300.00"
-    assert any("waiting for approval" in w and "300.00" in w for w in pv["warnings"])
+    assert pv["readiness"]["pending_count"] == 1 and pv["readiness"]["pending_amount"] == "300.00"
+    assert not any("waiting for approval" in w for w in pv["warnings"])        # the checklist says it, once
 
 
 def test_a_mirror_reversal_journal_does_not_add_to_the_pool(client, db):
@@ -141,7 +142,7 @@ def test_a_mirror_reversal_journal_does_not_add_to_the_pool(client, db):
     db.commit()
     pv = _preview(client, manager, cycle_id)
     assert pv["expense_allocations"] == []                                  # the void nets to nothing
-    assert any("no approved expenses" in w for w in pv["warnings"])
+    assert pv["readiness"]["heads_without_spend"] == [head["name"]]
 
 
 def test_a_head_with_no_spend_in_the_period_bills_nothing_and_says_why(client, db):
@@ -149,7 +150,7 @@ def test_a_head_with_no_spend_in_the_period_bills_nothing_and_says_why(client, d
     _bill(client, admin, society.id, "housekeeping", "5000.00", date.today() - timedelta(days=400))   # a year ago
     pv = _preview(client, manager, cycle_id)
     assert pv["flats"] == [] and pv["expense_allocations"] == []
-    assert any(head["name"] in w and "nothing is billed" in w for w in pv["warnings"])
+    assert pv["readiness"]["heads_without_spend"] == [head["name"]]
 
 
 def test_spend_on_ledgers_no_element_covers_is_reported_not_billed(client, db):
@@ -158,7 +159,7 @@ def test_spend_on_ledgers_no_element_covers_is_reported_not_billed(client, db):
     _bill(client, admin, society.id, "plumbing", "800.00", date.today())          # a ledger linked to no element
     pv = _preview(client, manager, cycle_id)
     assert pv["expense_allocations"][0]["pool_amount"] == "3000.00"
-    assert any("no maintenance element covers" in w and "800.00" in w for w in pv["warnings"])
+    assert [u["amount"] for u in pv["readiness"]["unlinked_ledgers"]] == ["800.00"]
 
 
 def test_another_societys_spend_never_enters_the_pool(client, db):
