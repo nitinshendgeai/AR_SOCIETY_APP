@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
+import 'package:ar_society_app/core/router/app_router.dart' show AppRoutes;
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
@@ -167,6 +168,26 @@ class StaffHomeScreen extends ConsumerWidget {
                           )
                         : null,
                   ),
+                  // Security staff work the gate: the visitor log and vehicle check are a tap away here, since
+                  // this portal is their home.
+                  if (user != null && user.isSecurity && societyId != null) ...[
+                    if (user.hasService('visitors'))
+                      _ModuleCard(
+                        icon: Icons.meeting_room_rounded,
+                        label: 'Visitor Log',
+                        subtitle: 'Check in / out',
+                        color: AppTheme.primary,
+                        onTap: () => context.push(AppRoutes.visitorsSociety.replaceFirst(':societyId', societyId)),
+                      ),
+                    if (user.hasService('parking'))
+                      _ModuleCard(
+                        icon: Icons.local_parking_rounded,
+                        label: 'Vehicle Gate',
+                        subtitle: 'Check a vehicle',
+                        color: AppTheme.secondary,
+                        onTap: () => context.push(AppRoutes.parkingGateCheck),
+                      ),
+                  ],
                   const _ModuleCard(
                     icon: Icons.task_alt_rounded,
                     label: 'Tasks',
