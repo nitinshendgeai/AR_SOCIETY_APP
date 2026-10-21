@@ -10,6 +10,7 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/duty_sheet_actions.dart';
+import 'package:ar_society_app/features/staff/presentation/widgets/standard_checklists_sheet.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart' show EmptyState;
 import 'package:ar_society_app/shared/widgets/app_form.dart';
 
@@ -56,6 +57,12 @@ class _ChecklistTemplatesScreenState extends ConsumerState<ChecklistTemplatesScr
     return AppPage(
       title: 'Checklist Templates',
       actions: [
+          IconButton(
+            key: const Key('standard-checklists'),
+            icon: const Icon(Icons.library_add_outlined),
+            tooltip: 'Add standard checklists (plumber, electrician)',
+            onPressed: () => showStandardChecklistsSheet(context, societyId),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () => ref.read(checklistTemplatesProvider(societyId).notifier).refresh(),
@@ -105,11 +112,20 @@ class _ChecklistTemplatesScreenState extends ConsumerState<ChecklistTemplatesScr
                     ? templates
                     : templates.where((t) => t.department == _departmentFilter).toList();
                 if (filtered.isEmpty) {
-                  return const EmptyState(
-                    icon: Icons.checklist_rtl_rounded,
-                    title: 'No checklist templates yet',
-                    subtitle: 'Tap "New Template" to create one',
-                  );
+                  return Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    const EmptyState(
+                      icon: Icons.checklist_rtl_rounded,
+                      title: 'No checklist templates yet',
+                      subtitle: 'Tap "New Template" to create one, or start from a ready-made round',
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      key: const Key('standard-checklists-empty'),
+                      onPressed: () => showStandardChecklistsSheet(context, societyId),
+                      icon: const Icon(Icons.library_add_outlined),
+                      label: const Text('Add plumber / electrician checklists'),
+                    ),
+                  ]);
                 }
                 return ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),

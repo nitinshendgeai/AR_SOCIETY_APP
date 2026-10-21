@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/features/staff/data/models/staff_models.dart';
+import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart' show StandardChecklistEntity;
 
 /// Calls FastAPI /staff/* and /handovers/* endpoints.
 /// API prefix: /api/v1/staff and /api/v1/handovers
@@ -491,6 +492,23 @@ class StaffRemoteDataSource {
       String societyId, {String? department}) async {
     final r = await _dio.get('/staff/checklist-templates/society/$societyId',
         queryParameters: {if (department != null) 'department': department});
+    return (r.data as List)
+        .map((e) => ChecklistTemplateModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// GET /staff/checklist-templates/standard/{society_id}
+  Future<List<StandardChecklistEntity>> standardChecklists(String societyId) async {
+    final r = await _dio.get('/staff/checklist-templates/standard/$societyId');
+    return (r.data as List)
+        .map((e) => StandardChecklistEntity.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// POST /staff/checklist-templates/standard/{society_id}
+  Future<List<ChecklistTemplateModel>> addStandardChecklists(
+      String societyId, List<String> codes) async {
+    final r = await _dio.post('/staff/checklist-templates/standard/$societyId', data: {'codes': codes});
     return (r.data as List)
         .map((e) => ChecklistTemplateModel.fromJson(e as Map<String, dynamic>))
         .toList();

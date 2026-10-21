@@ -380,6 +380,20 @@ class StaffRepository {
     } catch (e) { return _handle(e); }
   }
 
+  Future<StaffResult<List<StandardChecklistEntity>>> standardChecklists(String societyId) async {
+    try {
+      return StaffSuccess(await _ds.standardChecklists(societyId));
+    } catch (e) { return _handle(e); }
+  }
+
+  Future<StaffResult<List<ChecklistTemplateEntity>>> addStandardChecklists(
+      String societyId, List<String> codes) async {
+    try {
+      final list = await _ds.addStandardChecklists(societyId, codes);
+      return StaffSuccess(list.map((m) => m.toEntity()).toList());
+    } catch (e) { return _handle(e); }
+  }
+
   Future<StaffResult<ChecklistTemplateEntity>> updateChecklistTemplate(
     String templateId, {
     String? name,

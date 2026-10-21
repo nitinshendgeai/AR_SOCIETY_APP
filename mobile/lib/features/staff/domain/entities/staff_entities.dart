@@ -409,6 +409,53 @@ class ChecklistTemplateEntity {
   });
 }
 
+/// A ready-made checklist the society can add to its own templates (plumber, electrician, both).
+class StandardChecklistEntity {
+  final String code;
+  final String department;
+  final String name;
+  final String description;
+  final int itemCount;
+  final int requiredCount;
+  final bool alreadyAdded;
+  final List<ChecklistTemplateItemEntity> items;
+
+  const StandardChecklistEntity({
+    required this.code,
+    required this.department,
+    required this.name,
+    this.description = '',
+    this.itemCount = 0,
+    this.requiredCount = 0,
+    this.alreadyAdded = false,
+    this.items = const [],
+  });
+
+  factory StandardChecklistEntity.fromJson(Map<String, dynamic> j) {
+    final rows = (j['items'] as List<dynamic>? ?? const []);
+    return StandardChecklistEntity(
+      code: j['code'] as String,
+      department: j['department'] as String,
+      name: j['name'] as String,
+      description: (j['description'] as String?) ?? '',
+      itemCount: (j['item_count'] as num?)?.toInt() ?? rows.length,
+      requiredCount: (j['required_count'] as num?)?.toInt() ?? 0,
+      alreadyAdded: (j['already_added'] as bool?) ?? false,
+      items: [
+        for (var i = 0; i < rows.length; i++)
+          ChecklistTemplateItemEntity(
+            id: '$i',
+            templateId: j['code'] as String,
+            sequence: i,
+            title: (rows[i] as Map<String, dynamic>)['title'] as String,
+            description: (rows[i] as Map<String, dynamic>)['description'] as String?,
+            isRequired: ((rows[i] as Map<String, dynamic>)['is_required'] as bool?) ?? true,
+          ),
+      ],
+    );
+  }
+}
+
 // ── Handover status ───────────────────────────────────────────────────────────
 
 enum HandoverStatus {

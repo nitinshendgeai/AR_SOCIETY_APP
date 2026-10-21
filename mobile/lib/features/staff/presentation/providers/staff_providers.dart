@@ -688,6 +688,16 @@ final checklistTemplatesProvider = AsyncNotifierProviderFamily<
   ChecklistTemplatesNotifier.new,
 );
 
+/// The ready-made checklists, each marked with whether this society already has it.
+final standardChecklistsProvider =
+    FutureProvider.autoDispose.family<List<StandardChecklistEntity>, String>((ref, societyId) async {
+  final result = await ref.read(staffRepositoryProvider).standardChecklists(societyId);
+  return switch (result) {
+    StaffSuccess(:final data) => data,
+    StaffFailure(:final message) => throw Exception(message),
+  };
+});
+
 class ChecklistTemplatesNotifier
     extends FamilyAsyncNotifier<List<ChecklistTemplateEntity>, String> {
   Future<List<ChecklistTemplateEntity>> _fetch(String societyId) async {
@@ -719,6 +729,19 @@ class ChecklistTemplatesNotifier
     switch (result) {
       case StaffSuccess(:final data):
         state = AsyncData([...(state.valueOrNull ?? []), data]);
+      case StaffFailure(:final message):
+        throw Exception(message);
+    }
+  }
+
+  /// Adds the chosen standard checklists; returns how many were new (the rest the society already had).
+  Future<int> addStandard(List<String> codes) async {
+    final result = await ref.read(staffRepositoryProvider).addStandardChecklists(arg, codes);
+    switch (result) {
+      case StaffSuccess(:final data):
+        state = AsyncData([...(state.valueOrNull ?? []), ...data]);
+        ref.invalidate(standardChecklistsProvider(arg));
+        return data.length;
       case StaffFailure(:final message):
         throw Exception(message);
     }
