@@ -92,4 +92,57 @@ void main() {
     expect(find.text('The overview could not be loaded.'), findsOneWidget);
     expect(find.text('Try again'), findsOneWidget);
   });
+
+  testWidgets('a block the server could not compute is never drawn as "all clear" or "no billing cycle"', (t) async {
+    phone(t);
+    final j = _json(collection: false)
+      ..['attention'] = <Map<String, dynamic>>[]
+      ..['money'] = null
+      ..['errors'] = ['collection', 'attention', 'money'];
+    await t.pumpWidget(_wrap(() async => DashboardOverview.fromJson(j)));
+    await t.pumpAndSettle();
+
+    expect(find.textContaining('All clear'), findsNothing);
+    expect(find.text('No billing cycle yet.'), findsNothing);
+    expect(find.text('This could not be loaded just now.'), findsNWidgets(3));
+    expect(find.text('Try again'), findsNWidgets(3));
+  });
+
+  testWidgets('occupancy or visitor figures that failed are announced, not shown as zero', (t) async {
+    phone(t);
+    final j = _json()
+      ..['occupancy'] = null
+      ..['today'] = null
+      ..['errors'] = ['occupancy', 'today'];
+    await t.pumpWidget(_wrap(() async => DashboardOverview.fromJson(j)));
+    await t.pumpAndSettle();
+
+    expect(find.text('Occupancy and visitor figures could not be loaded.'), findsOneWidget);
+    expect(find.textContaining('0 of 0 flats'), findsNothing);
+    expect(find.text('Visitors today'), findsNothing);
+  });
+
+  testWidgets('Try again on a failed section asks the server again', (t) async {
+    phone(t);
+    var calls = 0;
+    await t.pumpWidget(_wrap(() async {
+      calls++;
+      final j = _json()..['errors'] = calls == 1 ? ['attention'] : <String>[];
+      if (calls == 1) j['attention'] = <Map<String, dynamic>>[];
+      return DashboardOverview.fromJson(j);
+    }));
+    await t.pumpAndSettle();
+    expect(find.text('This could not be loaded just now.'), findsOneWidget);
+
+    await t.tap(find.text('Try again'));
+    await t.pumpAndSettle();
+    expect(calls, 2);
+    expect(find.text('This could not be loaded just now.'), findsNothing);
+    expect(find.textContaining('All clear'), findsOneWidget);       // now a genuine result
+  });
+
+  test('an older server that sends no errors list is read as "nothing failed"', () {
+    final j = _json()..remove('errors');
+    expect(DashboardOverview.fromJson(j).errors, isEmpty);
+  });
 }

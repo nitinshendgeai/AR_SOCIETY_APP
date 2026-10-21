@@ -156,16 +156,24 @@ final visitorActionProvider =
 /// re-checked every 15 seconds while anything on screen watches it (the
 /// resident dashboard, the sidebar badge, the approvals screen). There's no
 /// push channel yet, so this is how a resident with the app open learns a
-/// visitor has arrived. A failed poll keeps the last list.
+/// visitor has arrived. A failed poll keeps the last list (and a failure before the first list is an error).
 final pendingVisitorApprovalsProvider =
     StreamProvider.autoDispose<List<VisitorEntity>>((ref) {
   final repo = ref.read(visitorRepositoryProvider);
   final controller = StreamController<List<VisitorEntity>>();
+  var hasList = false;
 
   Future<void> poll() async {
     final result = await repo.getPendingApprovals();
     if (controller.isClosed) return;
-    if (result case VisitorSuccess(:final data)) controller.add(data);
+    if (result case VisitorSuccess(:final data)) {
+      hasList = true;
+      controller.add(data);
+    } else if (!hasList && result is VisitorFailure) {
+      // Nothing to show yet: report the failure so the screen can say so and retry, instead of waiting forever
+      // or counting zero visitors. Once a list has arrived a failed poll keeps it.
+      controller.addError(Exception((result as VisitorFailure).message));
+    }
   }
 
   poll();
