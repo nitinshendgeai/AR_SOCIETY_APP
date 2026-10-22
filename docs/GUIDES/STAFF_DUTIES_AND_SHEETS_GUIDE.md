@@ -31,6 +31,12 @@ A named list for a department, e.g. *Night gate round* — Check main gate lock 
 the register\*, Inspect CCTV feed. `*` = required: the duty can't be completed until required items are ticked.
 Duties **copy** the items when assigned, so editing a template later never changes a duty already given.
 
+**Ready-made rounds.** The library icon on the Checklist Templates screen (or the button on the empty screen) offers
+three daily rounds to add as your own: **Plumber** (plumbing), **Electrician** (electrical) and **Plumber and
+electrician** (maintenance) for one person who does both. Each has 12 lines; the ones that must be ticked are marked
+required. Adding is safe to repeat — one you already have is skipped. After adding, reword it freely; each prints on one
+page. Assign the round to the staff member's duty like any other template.
+
 **Print a blank sheet** from the template's printer icon: the checklist with name, date and times left to fill in by
 hand, for a department that fills it in every day without assigning in the app.
 

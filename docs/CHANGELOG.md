@@ -4,6 +4,15 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-21
+
+### feat: ready-made daily checklists for plumber and electrician
+
+- **Before:** every society had to type its own checklists from a blank page.
+- **Now:** Operations → Checklist Templates → library icon offers three daily rounds to add: Plumber, Electrician, and
+  Plumber and electrician (one person doing both). Required lines block completing the duty; each round prints on one
+  page. Adding twice is harmless (existing ones are skipped). `GET/POST /staff/checklist-templates/standard/{society_id}`.
+
 ## 2026-10-13 (ii)
 
 ### fix: platform admin had no way to sign out on a phone

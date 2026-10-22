@@ -2,6 +2,7 @@ from typing import List, Optional
 from uuid import UUID
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, Query, Response
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -277,6 +278,24 @@ def checklist_template_sheet(template_id: UUID, layout: str = LAYOUT, wing_id: O
 def create_checklist_template(data: ChecklistTemplateCreate, db: Session = Depends(get_db),
                               user: User = Depends(get_current_user)):
     return StaffService(db).create_checklist_template(data, user)
+
+class StandardChecklistsIn(BaseModel):
+    codes: List[str] = Field(min_length=1, max_length=20)
+
+@router.get("/checklist-templates/standard/{society_id}")
+def standard_checklists(society_id: UUID, db: Session = Depends(get_db),
+                        user: User = Depends(manager_or_above)):
+    """Ready-made checklists (plumber, electrician, both) the society can add as its own."""
+    assert_society_access(user, society_id)
+    return StaffService(db).standard_checklists(society_id)
+
+@router.post("/checklist-templates/standard/{society_id}", response_model=List[ChecklistTemplateOut],
+             status_code=201)
+def load_standard_checklists(society_id: UUID, data: StandardChecklistsIn, db: Session = Depends(get_db),
+                             user: User = Depends(manager_or_above)):
+    """Add the chosen standard checklists; ones the society already has are skipped."""
+    assert_society_access(user, society_id)
+    return StaffService(db).load_standard_checklists(society_id, data.codes, user)
 
 @router.get("/checklist-templates/society/{society_id}", response_model=List[ChecklistTemplateOut])
 def list_checklist_templates(society_id: UUID,

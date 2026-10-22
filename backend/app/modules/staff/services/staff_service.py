@@ -794,6 +794,45 @@ class StaffService:
                 raise HTTPException(status_code=400, detail=f"Unknown department: {department}")
         return self.checklist_repo.get_by_society(society_id, dept_enum)
 
+    def standard_checklists(self, society_id: UUID) -> List[dict]:
+        """The ready-made checklists, each marked with whether the society already has one by that name."""
+        from app.modules.staff.services.standard_checklists import STANDARD_CHECKLISTS
+        have = {(t.department.value, t.name.lower()) for t in self.checklist_repo.get_by_society(society_id)}
+        return [{
+            "code": c["code"], "department": c["department"], "name": c["name"], "description": c["description"],
+            "item_count": len(c["items"]), "required_count": sum(1 for i in c["items"] if i[2]),
+            "items": [{"title": t, "description": d, "is_required": r} for t, d, r in c["items"]],
+            "already_added": (c["department"], c["name"].lower()) in have,
+        } for c in STANDARD_CHECKLISTS]
+
+    def load_standard_checklists(self, society_id: UUID, codes: List[str], user: User) -> List[ChecklistTemplate]:
+        """Copy the chosen standard checklists into the society's templates, skipping any it already has."""
+        from app.modules.staff.services.standard_checklists import BY_CODE
+        society_id = resolve_create_society_id(user, society_id)
+        unknown = [c for c in codes if c not in BY_CODE]
+        if unknown:
+            raise HTTPException(status_code=422, detail=f"Unknown standard checklist: {', '.join(unknown)}")
+        have = {(t.department.value, t.name.lower()) for t in self.checklist_repo.get_by_society(society_id)}
+        added: List[ChecklistTemplate] = []
+        for code in dict.fromkeys(codes):
+            c = BY_CODE[code]
+            if (c["department"], c["name"].lower()) in have:
+                continue
+            template = ChecklistTemplate(
+                society_id=society_id, department=StaffDepartment(c["department"]),
+                name=c["name"], description=c["description"], created_by=user.id)
+            self.db.add(template)
+            self.db.flush()
+            for idx, (title, description, required) in enumerate(c["items"]):
+                self.db.add(ChecklistTemplateItem(
+                    template_id=template.id, sequence=idx, title=title,
+                    description=description, is_required=required))
+            added.append(template)
+        self.db.commit()
+        for t in added:
+            self.db.refresh(t)
+        return added
+
     def get_checklist_template(self, template_id: UUID, user: Optional[User] = None) -> ChecklistTemplate:
         template = self.checklist_repo.get(template_id)
         if not template:
