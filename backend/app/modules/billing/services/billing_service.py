@@ -19,7 +19,7 @@ from app.modules.billing.models.billing import (
     OnlinePaymentSubmission, ReconciliationStatus,
     BankStatementEntry, BankStatementMatchStatus,
     BillStatus, ChargeType, PaymentMode, ChargeBasis, MaintenanceSettings,
-    MaintenanceElement,
+    MaintenanceElement, BillingExpenseAllocation, BillingExpenseSource,
 )
 from app.modules.billing.repositories.billing_repo import (
     FinancialPeriodRepo, ChargeConfigRepo, BillingCycleRepo,
@@ -32,6 +32,9 @@ from app.models.resident import Resident
 from app.modules.billing.services.bill_pdf import generate_bills_pdf, generate_maintenance_bill_pdf
 from app.modules.billing.services.receipt_pdf import generate_payment_receipt_pdf
 from app.modules.billing.services.maintenance_calculator import MaintenanceCalculator, default_settings
+from app.modules.billing.services.period_expenses import (
+    EXPENSE_MODES, MODE_PERIOD, PERIOD_BASES, is_period_head, overlapping_allocations,
+)
 from app.modules.billing.services.standard_elements import seed_standard_elements
 from app.models.user import User
 from app.core.tenant_scope import assert_society_access, resolve_create_society_id
@@ -137,7 +140,9 @@ class BillingService:
         if not data.get("charge_type") or not data.get("name"):
             raise HTTPException(422, "Pick an element, or give the charge head a type and name")
         data = self._sync_basis(data)
-        self._check_auto_budget(data.get("auto_from_expenses"), data.get("element_id"), data.get("basis"))
+        self._check_auto_budget(data.get("auto_from_expenses"), data.get("element_id"), data.get("basis"),
+                                data.get("expense_mode"))
+        self._check_one_auto_head(data["society_id"], data.get("auto_from_expenses"), data.get("element_id"))
         self._check_two_wheeler(data.get("two_wheeler_rate"), data.get("basis"))
         config = MaintenanceChargeConfig(**data)
         self.charge_repo.create(config)
@@ -153,9 +158,13 @@ class BillingService:
             raise HTTPException(422, "A two-wheeler rate is only for a parking charge head")
 
     @staticmethod
-    def _check_auto_budget(auto, element_id, basis):
+    def _check_auto_budget(auto, element_id, basis, mode=None):
         """"Budget from expenses" needs an element whose linked ledgers supply
-        the spend, and a basis that can be worked out from spend."""
+        the spend, and a basis that can be worked out from spend. The mode is "trailing" (the last N months,
+        annualised) or "period" (the cycle's own approved expenses, shared out exactly - fixed, per sq ft and the
+        two budget bases only)."""
+        if mode is not None and mode not in EXPENSE_MODES:
+            raise HTTPException(422, "Expense mode must be 'trailing' or 'period'")
         if not auto:
             return
         from app.modules.billing.services.budget_suggestions import SUGGESTIBLE_BASES
@@ -163,6 +172,99 @@ class BillingService:
             raise HTTPException(422, "Budget from expenses needs a charge head made from a maintenance element")
         if (basis or ChargeBasis.FIXED) not in SUGGESTIBLE_BASES:
             raise HTTPException(422, "Budget from expenses works for fixed, per sq ft and budget-based charge heads")
+        if mode == MODE_PERIOD and (basis or ChargeBasis.FIXED) not in PERIOD_BASES:
+            raise HTTPException(422, "Actual expenses of the period work for fixed, per sq ft and budget-based "
+                                     "charge heads")
+
+    def _check_one_auto_head(self, society_id, auto, element_id, exclude_id=None):
+        """Two heads that both take an element's expenses would each bill the whole spend - the members would pay it
+        twice. One 'budget from expenses' head per element."""
+        if not auto or not element_id:
+            return
+        q = self.db.query(MaintenanceChargeConfig).filter(
+            MaintenanceChargeConfig.society_id == society_id, MaintenanceChargeConfig.element_id == element_id,
+            MaintenanceChargeConfig.auto_from_expenses == True,  # noqa: E712
+            MaintenanceChargeConfig.is_active == True)  # noqa: E712
+        if exclude_id:
+            q = q.filter(MaintenanceChargeConfig.id != exclude_id)
+        other = q.first()
+        if other is not None:
+            raise HTTPException(422, f"“{other.name}” already bills this element's expenses. Turn that one off first - "
+                                     "two heads would charge the same spend twice.")
+
+    def bill_actual_expenses(self, society_id: UUID, charge_ids: List[UUID], user: User,
+                             element_ids: Optional[List[UUID]] = None):
+        """Put the chosen heads on 'actual expenses of each billing cycle'. Returns (changed heads, skipped as
+        [{id, name, reason}]). `element_ids` names elements that have spend but no head: an element with no active
+        head gets one made from its standard calculation; one that has a head has that head switched. One head per
+        element: a head is skipped when another head already bills that element's expenses (or was chosen earlier
+        in this same request)."""
+        assert_society_access(user, society_id)
+        charge_ids = list(charge_ids)
+        skipped = []
+        for eid in (element_ids or []):
+            el = self.get_element(eid)
+            if el.society_id != society_id or not el.is_active:
+                skipped.append({"id": str(eid), "name": "", "reason": "Not an active element of this society"})
+                continue
+            existing = self.db.query(MaintenanceChargeConfig).filter(
+                MaintenanceChargeConfig.society_id == society_id, MaintenanceChargeConfig.element_id == el.id,
+                MaintenanceChargeConfig.is_active == True).order_by(  # noqa: E712
+                MaintenanceChargeConfig.auto_from_expenses.desc(), MaintenanceChargeConfig.created_at).first()
+            if existing is not None:
+                charge_ids.append(existing.id)
+                continue
+            if (el.default_basis or ChargeBasis.FIXED) not in PERIOD_BASES:
+                skipped.append({"id": str(el.id), "name": el.name,
+                                "reason": "Its standard calculation is not spend-based (percentage of construction "
+                                          "cost or parking), so a head for it cannot follow expenses"})
+                continue
+            data = self._sync_basis({**self._element_defaults(el), "auto_from_expenses": True,
+                                     "expense_mode": MODE_PERIOD})
+            head = MaintenanceChargeConfig(**data, society_id=society_id, element_id=el.id)
+            self.db.add(head)
+            self.db.flush()
+            self._audit(AuditAction.CREATE, head, "ChargeConfig", user,
+                        new_values={"name": head.name, "expense_mode": MODE_PERIOD})
+            charge_ids.append(head.id)
+        heads = {c.id: c for c in self.db.query(MaintenanceChargeConfig).filter(
+            MaintenanceChargeConfig.society_id == society_id, MaintenanceChargeConfig.id.in_(charge_ids))}
+        taken = {}                                         # element id -> head already billing its expenses
+        for c in self.db.query(MaintenanceChargeConfig).filter(
+                MaintenanceChargeConfig.society_id == society_id, MaintenanceChargeConfig.is_active == True,  # noqa: E712
+                MaintenanceChargeConfig.auto_from_expenses == True):  # noqa: E712
+            taken[c.element_id] = c
+        changed, seen = [], set()
+        for cid in charge_ids:
+            if cid in seen:
+                continue
+            seen.add(cid)
+            c = heads.get(cid)
+            if c is None:
+                skipped.append({"id": str(cid), "name": "", "reason": "Not a charge head of this society"})
+                continue
+            reason = None
+            if not c.is_active:
+                reason = "This head is switched off"
+            elif not c.element_id:
+                reason = "Not made from a maintenance element, so there are no expenses to follow"
+            elif (c.basis or ChargeBasis.FIXED) not in PERIOD_BASES:
+                reason = "Its basis is not spend-based (percentage of construction cost or parking)"
+            elif taken.get(c.element_id) is not None and taken[c.element_id].id != c.id:
+                reason = f"“{taken[c.element_id].name}” already bills this element's expenses"
+            if reason:
+                skipped.append({"id": str(c.id), "name": c.name, "reason": reason})
+                continue
+            if not (c.auto_from_expenses and c.expense_mode == MODE_PERIOD):
+                c.auto_from_expenses, c.expense_mode = True, MODE_PERIOD
+                self._audit(AuditAction.UPDATE, c, "ChargeConfig", user,
+                            new_values={"auto_from_expenses": "True", "expense_mode": MODE_PERIOD})
+            taken[c.element_id] = c
+            changed.append(c)
+        self.db.commit()
+        for c in changed:
+            self.db.refresh(c)
+        return changed, skipped
 
     def list_charge_configs(self, society_id: UUID) -> List[MaintenanceChargeConfig]:
         return self.charge_repo.get_by_society(society_id)
@@ -176,8 +278,11 @@ class BillingService:
         assert_society_access(user, config.society_id)
         old = {"name": config.name, "amount": str(config.default_amount), "active": config.is_active}
         data = self._sync_basis(dict(data))
-        self._check_auto_budget(data.get("auto_from_expenses", config.auto_from_expenses),
-                                config.element_id, data.get("basis", config.basis))
+        auto_after = data.get("auto_from_expenses", config.auto_from_expenses)
+        self._check_auto_budget(auto_after, config.element_id, data.get("basis", config.basis),
+                                data.get("expense_mode", config.expense_mode))
+        if "auto_from_expenses" in data or "expense_mode" in data:
+            self._check_one_auto_head(config.society_id, auto_after, config.element_id, exclude_id=config.id)
         new_basis = data.get("basis", config.basis) or ChargeBasis.FIXED
         self._check_two_wheeler(data.get("two_wheeler_rate"), new_basis)
         if new_basis != ChargeBasis.PARKING:
@@ -299,6 +404,20 @@ class BillingService:
 
     # ── Bill Generation ───────────────────────────────────────────────────────
 
+    def _period_overlaps(self, calc: MaintenanceCalculator, cycle: BillingCycle) -> List[str]:
+        """Period-expense heads whose dates overlap a period another cycle has already billed (its bills still
+        stand): the same days' expenses would be charged twice. Checked on the dates alone, so it holds whether or
+        not anything has been spent in the overlap yet."""
+        out = []
+        for charge in (c for c in calc.charges if is_period_head(c)):
+            for prior in overlapping_allocations(self.db, cycle.society_id, charge.element_id,
+                                                 cycle.cycle_start, cycle.cycle_end, cycle.id):
+                prior_cycle = self.db.get(BillingCycle, prior.cycle_id)
+                out.append(
+                    f"{charge.name}: the expenses of {prior.period_start:%d %b %Y} – {prior.period_end:%d %b %Y} "
+                    f"were already billed in “{prior_cycle.name if prior_cycle else 'another cycle'}”.")
+        return out
+
     def generate_bills_for_cycle(self, cycle_id: UUID, user: User,
                                   request=None) -> List[MaintenanceBill]:
         """
@@ -325,8 +444,15 @@ class BillingService:
 
         today = date.today()
         drafts = calc.calculate(cycle, today)
+        overlaps = self._period_overlaps(calc, cycle)
+        if overlaps:
+            raise HTTPException(409, "These expenses are already billed - " + " ".join(overlaps))
         if not drafts:
             raise HTTPException(422, "Nothing to bill: " + " ".join(calc.warnings))
+
+        # The working of each period-expense head is kept with the bills: what was in the pool, how it was shared and
+        # the rate, so a line on a bill can always be traced back and re-added.
+        allocation_rows = self._record_allocations(calc, cycle, drafts)
 
         bills = []
         for draft in drafts:
@@ -355,10 +481,12 @@ class BillingService:
                     if fc is not None and not fc.recurring:
                         fc.status = FlatChargeStatus.BILLED
                         fc.bill_id = bill.id
+                alloc_row = allocation_rows.get(l.allocation_charge_id) if l.allocation_charge_id else None
                 self.db.add(InvoiceLineItem(
                     bill_id=bill.id, charge_type=l.charge_type, description=l.description,
                     quantity=1.0, unit_rate=l.amount, amount=l.amount,
                     tax_percent=l.tax_percent, tax_amount=l.tax_amount, total=l.total,
+                    allocation_id=alloc_row.id if alloc_row is not None else None,
                 ))
             for earlier in draft.interest_bills:
                 earlier.arrears_interest_upto = today
@@ -378,6 +506,32 @@ class BillingService:
                                 "total": str(cycle.total_amount_generated)})
         self.db.commit()
         return bills
+
+    def _record_allocations(self, calc: MaintenanceCalculator, cycle: BillingCycle, drafts) -> dict:
+        """Write the snapshot of every period-expense head (the pool, its vouchers, the method, the rate) and prove
+        that the lines on the bills add up to the pool to the paisa; if they do not, nothing is written."""
+        rows = {}
+        for charge_id, alloc in calc.allocations.items():
+            lines = [l.amount for d in drafts for l in d.lines if l.allocation_charge_id == charge_id]
+            allocated = sum(lines, Decimal(0))
+            if allocated != alloc.pool:
+                raise HTTPException(500, f"{alloc.charge.name}: the shares (₹{allocated}) do not add up to the "
+                                         f"expenses (₹{alloc.pool}); nothing was generated.")
+            row = BillingExpenseAllocation(
+                society_id=cycle.society_id, cycle_id=cycle.id, charge_id=charge_id,
+                element_id=alloc.charge.element_id, charge_name=alloc.charge.name, element_name=alloc.element_name,
+                method=alloc.method, period_start=alloc.period_start, period_end=alloc.period_end,
+                pool_amount=alloc.pool, allocated_amount=allocated, eligible_flats=len(lines),
+                total_weight=alloc.total_weight, rate=alloc.rate,
+            )
+            row.sources = [BillingExpenseSource(
+                voucher_id=s.voucher_id, account_id=s.account_id, voucher_number=s.voucher_number,
+                voucher_date=s.voucher_date, ledger_name=s.ledger_name, amount=s.amount) for s in alloc.sources]
+            self.db.add(row)
+            rows[charge_id] = row
+        if rows:
+            self.db.flush()
+        return rows
 
     def _issue(self, bill: MaintenanceBill, user: User, request=None) -> None:
         bill.bill_status = BillStatus.ISSUED
@@ -446,6 +600,7 @@ class BillingService:
         calc = MaintenanceCalculator(self.db, cycle.society_id)
         calc.drafts = calc.calculate(cycle, date.today())
         calc.cycle = cycle
+        calc.warnings.extend(self._period_overlaps(calc, cycle))
         return calc
 
     # ── Maintenance rules ─────────────────────────────────────────────────────
@@ -456,6 +611,10 @@ class BillingService:
 
     def update_maintenance_settings(self, society_id: UUID, data: dict, user: User) -> MaintenanceSettings:
         assert_society_access(user, society_id)
+        if "auto_approve_admin_expenses" in data:
+            from app.core.dependencies import _user_has_permission
+            if not _user_has_permission(user, "admin_committee"):
+                raise HTTPException(403, "Only an admin or committee member can change who approves payments")
         settings = self.db.query(MaintenanceSettings).filter(
             MaintenanceSettings.society_id == society_id).first()
         if not settings:

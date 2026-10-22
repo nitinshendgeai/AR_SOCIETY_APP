@@ -460,18 +460,34 @@ class AccountsService:
         if vendor and vtype != "payment":
             raise HTTPException(422, "Only a payment can be made to a vendor")
         requires_approval = vtype in ("payment", "journal")
+        posts_directly = requires_approval and vtype == "payment" and self._posts_without_second_approver(society_id, user)
         voucher = self.build_voucher(
             society_id, vtype, data["voucher_date"], lines,
             narration=data.get("narration"), reference=data.get("reference"),
             vendor_id=vendor.id if vendor else None, user=user,
-            approval_status="pending" if requires_approval else "approved",
-            approval_note="Manual voucher submitted for committee/admin approval" if requires_approval else None,
+            approval_status="pending" if requires_approval and not posts_directly else "approved",
+            approval_note=("Posted directly: this society lets admin / committee payments skip the second approval"
+                           if posts_directly else
+                           "Manual voucher submitted for committee/admin approval" if requires_approval else None),
         )
+        if posts_directly:
+            voucher.approved_at, voucher.approved_by = datetime.utcnow(), user.id
         self._audit(AuditAction.CREATE, voucher, user, request,
                     new_values={"number": voucher.voucher_number, "amount": str(voucher.amount)})
         self.db.commit()
         self.db.refresh(voucher)
         return voucher
+
+    def _posts_without_second_approver(self, society_id: UUID, user: User) -> bool:
+        """The society has chosen (Maintenance rules) that a payment entered by someone who could approve it
+        themselves is posted as approved at once."""
+        from app.core.dependencies import _user_has_permission
+        from app.modules.billing.models.billing import MaintenanceSettings
+        if user is None or not _user_has_permission(user, "admin_committee"):
+            return False
+        st = self.db.query(MaintenanceSettings.auto_approve_admin_expenses).filter(
+            MaintenanceSettings.society_id == society_id).first()
+        return bool(st and st[0])
 
     def other_approver_exists(self, society_id: UUID, user_id: UUID) -> bool:
         """Is there an active admin or committee member besides `user_id` who could approve a voucher?"""
@@ -512,6 +528,35 @@ class AccountsService:
         self.db.commit()
         self.db.refresh(voucher)
         return voucher
+
+    def approve_pending_payments(self, society_id: UUID, user: User, date_from: Optional[date] = None,
+                                 date_to: Optional[date] = None) -> dict:
+        """Approve, in one go, every payment voucher waiting for approval (optionally only those dated within
+        date_from..date_to). The same rule as approving one by one applies: a voucher the caller entered is left
+        for another admin or committee member when there is one. Returns what was approved and what was left."""
+        q = (self.db.query(Voucher).filter(
+            Voucher.society_id == society_id, Voucher.approval_status == "pending",
+            Voucher.is_cancelled == False,  # noqa: E712
+            Voucher.source_type.is_(None), Voucher.reversal_of_id.is_(None), Voucher.voucher_type == "payment"))
+        if date_from:
+            q = q.filter(Voucher.voucher_date >= date_from)
+        if date_to:
+            q = q.filter(Voucher.voucher_date <= date_to)
+        rows = q.order_by(Voucher.voucher_date, Voucher.created_at).all()
+        others = self.other_approver_exists(society_id, user.id) if rows else False
+        approved, left_own, amount = 0, 0, ZERO
+        for v in rows:
+            if not self.can_approve(v, user, others):
+                left_own += 1
+                continue
+            note = "Approved in bulk" + ("" if v.created_by != user.id else
+                                         " by the person who entered it: no other approver in the society")
+            v.approval_status, v.approved_at, v.approved_by, v.approval_note = "approved", datetime.utcnow(), user.id, note
+            self._audit(AuditAction.UPDATE, v, user, new_values={"approval_status": "approved", "approval_note": note})
+            approved += 1
+            amount += money(v.amount or 0)
+        self.db.commit()
+        return {"approved": approved, "left_for_another_approver": left_own, "amount": str(amount)}
 
     def reject_manual_voucher(self, voucher_id: UUID, user: User, reason: str) -> Voucher:
         voucher = self.get_voucher(voucher_id)

@@ -47,7 +47,9 @@ def _months_between(start: date, end: date) -> int:
 
 def _window_spend(db: Session, society_id: UUID, start: date, end: date):
     """Net spend (debits less credits) per linked expense ledger in the
-    window, and the date of the earliest posting: ({account: amount}, first)."""
+    window, and the date of the earliest posting: ({account: amount}, first).
+    Only approved vouchers count - not ones waiting for approval, rejected, cancelled or reversed (nor the journal
+    that reverses one)."""
     rows = (
         db.query(Account.id, Account.maintenance_element_id,
                  func.coalesce(func.sum(VoucherEntry.debit), 0) - func.coalesce(func.sum(VoucherEntry.credit), 0),
@@ -57,6 +59,8 @@ def _window_spend(db: Session, society_id: UUID, start: date, end: date):
         .join(AccountGroup, AccountGroup.id == Account.group_id)
         .filter(Account.society_id == society_id, AccountGroup.nature == "expense",
                 Voucher.is_cancelled == False,  # noqa: E712
+                Voucher.approval_status == "approved",
+                Voucher.reversed_at.is_(None), Voucher.reversal_of_id.is_(None),
                 Voucher.voucher_date >= start, Voucher.voucher_date <= end)
         .group_by(Account.id, Account.maintenance_element_id)
         .all()
