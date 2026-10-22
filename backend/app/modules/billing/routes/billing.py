@@ -1,5 +1,5 @@
 import re
-from typing import List, Optional
+from typing import List, Literal, Optional
 from uuid import UUID
 from datetime import date, timedelta
 from decimal import Decimal
@@ -25,6 +25,7 @@ from app.modules.billing.models.billing import (
 from app.modules.billing.services.maintenance_calculator import cycle_months, money
 from app.modules.billing.services.billing_service import BillingService, RESIDENT_VISIBLE_BILL_STATUSES
 from app.modules.billing.services.budget_suggestions import suggest_budgets
+from app.modules.billing.services.period_expenses import cycle_readiness
 from app.modules.billing.services.flat_charges import FlatChargeService
 from app.modules.billing.services.interest_waivers import InterestWaiverService
 from app.modules.billing.services.allocations import PaymentAllocator, allocated, payment_counts, unapplied
@@ -56,6 +57,7 @@ class ChargeConfigCreate(OrmBase):
     description: Optional[str] = None; effective_from: Optional[date] = None
     auto_from_expenses: bool = False
     expense_months: int = Field(default=12, ge=1, le=36)
+    expense_mode: Literal["trailing", "period"] = "trailing"
     two_wheeler_rate: Optional[Decimal] = Field(default=None, ge=0)
 
 class CycleCreate(OrmBase):
@@ -167,6 +169,7 @@ class ChargeConfigUpdate(OrmBase):
     is_active: Optional[bool] = None
     auto_from_expenses: Optional[bool] = None
     expense_months: Optional[int] = Field(default=None, ge=1, le=36)
+    expense_mode: Optional[Literal["trailing", "period"]] = None
     two_wheeler_rate: Optional[Decimal] = Field(default=None, ge=0)     # null clears it
 
 
@@ -188,6 +191,7 @@ def _charge_out(c) -> dict:
         "element_name": c.element.name if c.element else None,
         "auto_from_expenses": bool(c.auto_from_expenses),
         "expense_months": c.expense_months or 12,
+        "expense_mode": c.expense_mode or "trailing",
         "two_wheeler_rate": str(c.two_wheeler_rate) if c.two_wheeler_rate is not None else None,
         "is_active": c.is_active,
     }
@@ -211,11 +215,34 @@ def budget_suggestions(society_id: UUID, months: int = Query(12, ge=1, le=36),
     assert_society_access(user, society_id)
     return suggest_budgets(db, society_id, months)
 
+class BillActualExpensesIn(OrmBase):
+    charge_ids: List[UUID] = Field(default_factory=list, max_length=100)
+    # Elements with spend but no head: one is made (or the existing one switched)
+    element_ids: List[UUID] = Field(default_factory=list, max_length=100)
+
+    @model_validator(mode="after")
+    def _something_chosen(self):
+        if not (self.charge_ids or self.element_ids):
+            raise ValueError("Choose at least one charge head or element")
+        return self
+
+
+@router.post("/charges/{society_id}/bill-actual-expenses", dependencies=[Depends(manager_above)])
+def bill_actual_expenses(society_id: UUID, data: BillActualExpensesIn, db: Session = Depends(get_db),
+                         user: User = Depends(get_current_user)):
+    """Switch the chosen charge heads to bill the actual expenses of each billing cycle, in one step. A head that
+    cannot (no element, a basis that is not spend-based, or another head already bills that element) is skipped
+    with the reason; the rest are changed."""
+    assert_society_access(user, society_id)
+    changed, skipped = BillingService(db).bill_actual_expenses(society_id, data.charge_ids, user, data.element_ids)
+    return {"changed": [_charge_out(c) for c in changed], "skipped": skipped}
+
+
 @router.patch("/charges/{config_id}", dependencies=[Depends(manager_above)])
 def update_charge(config_id: UUID, data: ChargeConfigUpdate, db: Session = Depends(get_db),
                   user: User = Depends(get_current_user)):
     changes = data.model_dump(exclude_unset=True)
-    for key in ("auto_from_expenses", "expense_months"):
+    for key in ("auto_from_expenses", "expense_months", "expense_mode"):
         if key in changes and changes[key] is None:
             del changes[key]
     return _charge_out(BillingService(db).update_charge_config(config_id, changes, user))
@@ -321,6 +348,8 @@ class MaintenanceSettingsUpdate(OrmBase):
     bill_notes: Optional[str] = Field(None, max_length=1000)
     # Billing in this app starts on (empty clears it: every cycle then bills its own period only)
     billing_start_date: Optional[date] = None
+    # Post a payment entered by an admin / committee member as approved at once (no second approver)
+    auto_approve_admin_expenses: Optional[bool] = None
 
     @field_validator("billing_start_date")
     @classmethod
@@ -374,6 +403,7 @@ def _settings_out(st) -> dict:
         "upi_id": st.upi_id,
         "bill_notes": st.bill_notes,
         "billing_start_date": st.billing_start_date.isoformat() if st.billing_start_date else None,
+        "auto_approve_admin_expenses": bool(st.auto_approve_admin_expenses),
     }
 
 @router.get("/maintenance-settings/{society_id}", dependencies=[Depends(manager_above)])
@@ -458,12 +488,37 @@ def preview_cycle(cycle_id: UUID, db: Session = Depends(get_db), user: User = De
             "tax": str(d.tax),
             "total": str(d.total),
         })
+    readiness = cycle_readiness(db, cycle.society_id, cycle, calc.charges, calc.allocations)
+    # What the checklist shows as rows is not repeated in the plain warnings
+    warnings = ([w for w in calc.warnings if w not in calc.checklist_warnings] if readiness["applies"]
+                else calc.warnings)
     return {
         "cycle_id": str(cycle_id),
+        "cycle_start": calc.cycle.cycle_start.isoformat(),
+        "cycle_end": calc.cycle.cycle_end.isoformat(),
         "months": cycle_months(calc.cycle),
         "flats_count": len(flats),
         "total": str(money(sum((d.total for d in calc.drafts), Decimal(0)))),
-        "warnings": calc.warnings,
+        "warnings": warnings,
+        "readiness": readiness,
+        "expense_allocations": [{
+            "charge_id": str(a.charge.id),
+            "charge_name": a.charge.name,
+            "element_name": a.element_name,
+            "method": a.method,
+            "period_start": a.period_start.isoformat(),
+            "period_end": a.period_end.isoformat(),
+            "pool_amount": str(a.pool),
+            "allocated_amount": str(a.allocated),
+            "eligible_flats": a.eligible_flats,
+            "total_weight": str(a.total_weight.quantize(Decimal("0.0001"))),
+            "rate": str(a.rate.quantize(Decimal("0.0001"))),
+            "pending_amount": str(a.pending),
+            "sources": [{
+                "voucher_number": s.voucher_number, "voucher_date": s.voucher_date.isoformat(),
+                "ledger_name": s.ledger_name, "amount": str(s.amount),
+            } for s in a.sources],
+        } for a in calc.allocations.values()],
         "flats": flats,
     }
 

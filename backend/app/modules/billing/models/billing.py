@@ -194,6 +194,11 @@ class MaintenanceChargeConfig(Base, TimestampMixin):
     # element (over the last `expense_months`), instead of the typed amount.
     auto_from_expenses = Column(Boolean, default=False, nullable=False)
     expense_months     = Column(Integer, default=12, nullable=False)
+    # How "budget from expenses" reads the books. "trailing": the last `expense_months` months up to the day the bills
+    # are made, annualised (the original behaviour). "period": the approved expenses dated inside the billing cycle's
+    # own period, shared out exactly - by flat area for the per-sq-ft / area-budget bases, equally for the others -
+    # and recorded as a snapshot (BillingExpenseAllocation) when the bills are generated.
+    expense_mode       = Column(String(10), default="trailing", server_default="trailing", nullable=False)
     # A parking head only: ₹ a month for a slot held for a two-wheeler (motorcycle, scooter, bicycle). Empty: a
     # two-wheeler pays the head's own rate, the same as a car.
     two_wheeler_rate   = Column(Numeric(10, 2), nullable=True)
@@ -238,6 +243,11 @@ class MaintenanceSettings(Base, TimestampMixin):
     # billed for — or, for a flat never billed here, from its possession date (never earlier than this date) — up to
     # the end of the cycle being billed. Empty: every cycle bills its own period only, as before.
     billing_start_date  = Column(Date, nullable=True)
+
+    # Off (the default): a payment voucher, including an expense, waits for a second admin / committee member to
+    # approve it (maker and checker). On: a payment entered by someone who could approve it themselves is posted
+    # as approved straight away - for a society whose treasurer is also the admin and has no one else to approve.
+    auto_approve_admin_expenses = Column(Boolean, default=False, server_default="false", nullable=False)
 
     society = relationship("Society")
 
@@ -351,8 +361,13 @@ class InvoiceLineItem(Base, TimestampMixin):
     tax_percent = Column(Numeric(5, 2), default=0, nullable=False)
     tax_amount  = Column(Numeric(10, 2), default=0, nullable=False)
     total       = Column(Numeric(12, 2), nullable=False)
+    # Set on a line that shares out actual expenses: the snapshot of how the pool was worked out (see
+    # BillingExpenseAllocation). Empty on every other line.
+    allocation_id = Column(UUID(as_uuid=True), ForeignKey("billing_expense_allocations.id", ondelete="SET NULL"),
+                           nullable=True, index=True)
 
     bill = relationship("MaintenanceBill", back_populates="line_items")
+    allocation = relationship("BillingExpenseAllocation")
 
 
 # ── PaymentReceipt ────────────────────────────────────────────────────────────
@@ -699,3 +714,54 @@ class BankStatementEntry(Base, TimestampMixin):
 
     def __repr__(self):
         return f"<BankStatementEntry {self.txn_date} ₹{self.amount} [{self.match_status}]>"
+
+
+
+# ── Actual-expense allocation snapshot ────────────────────────────────────────
+
+class BillingExpenseAllocation(Base, TimestampMixin):
+    """How one charge head's actual expenses for one billing cycle were shared out, written in the same transaction
+    that generates the bills and never changed afterwards. It is the audit record behind every bill line that
+    carries its id: the period, the pool (the approved expenses dated in the period on the ledgers linked to the
+    head's element), how it was shared (by area or equally), the total of the weights it was shared over and the
+    rate that gives, and the expense entries that made up the pool (BillingExpenseSource)."""
+    __tablename__ = "billing_expense_allocations"
+
+    society_id   = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    cycle_id     = Column(UUID(as_uuid=True), ForeignKey("billing_cycles.id", ondelete="CASCADE"), nullable=False, index=True)
+    charge_id    = Column(UUID(as_uuid=True), ForeignKey("maintenance_charge_configs.id", ondelete="SET NULL"),
+                          nullable=True, index=True)
+    element_id   = Column(UUID(as_uuid=True), ForeignKey("maintenance_elements.id", ondelete="SET NULL"),
+                          nullable=True, index=True)
+    charge_name  = Column(String(150), nullable=False)            # kept as it was when the bills were made
+    element_name = Column(String(150), nullable=True)
+    method       = Column(String(10), nullable=False)             # "area" | "equal"
+    period_start = Column(Date, nullable=False)
+    period_end   = Column(Date, nullable=False)
+    pool_amount  = Column(Numeric(14, 2), nullable=False)         # the expenses shared out
+    allocated_amount = Column(Numeric(14, 2), nullable=False)     # what the bill lines add up to (= pool by construction)
+    eligible_flats = Column(Integer, nullable=False)              # flats that carry a share
+    total_weight = Column(Numeric(18, 4), nullable=False)         # sq ft x share of the cycle (area), or share of the cycle (equal)
+    rate         = Column(Numeric(18, 8), nullable=False)         # pool / total_weight: Rs per sq ft (area) or per flat (equal)
+
+    sources = relationship("BillingExpenseSource", back_populates="allocation", cascade="all, delete-orphan",
+                           order_by="BillingExpenseSource.voucher_date")
+
+    def __repr__(self):
+        return f"<BillingExpenseAllocation {self.charge_name} {self.period_start}..{self.period_end} ₹{self.pool_amount}>"
+
+
+class BillingExpenseSource(Base, TimestampMixin):
+    """One voucher's net spend inside an allocation's pool."""
+    __tablename__ = "billing_expense_sources"
+
+    allocation_id  = Column(UUID(as_uuid=True), ForeignKey("billing_expense_allocations.id", ondelete="CASCADE"),
+                            nullable=False, index=True)
+    voucher_id     = Column(UUID(as_uuid=True), ForeignKey("vouchers.id", ondelete="SET NULL"), nullable=True, index=True)
+    account_id     = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+    voucher_number = Column(String(40), nullable=False)
+    voucher_date   = Column(Date, nullable=False)
+    ledger_name    = Column(String(150), nullable=False)
+    amount         = Column(Numeric(14, 2), nullable=False)       # debits less credits on that ledger in that voucher
+
+    allocation = relationship("BillingExpenseAllocation", back_populates="sources")
