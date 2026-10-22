@@ -392,6 +392,10 @@ class StaffRemoteDataSource {
   Future<Uint8List> templateSheetPdf(String templateId, {bool floors = false}) =>
       _pdf('/staff/checklist-templates/$templateId/sheet', {if (floors) 'layout': 'floors'});
 
+  /// A standard checklist (plumber, electrician, both) as a blank sheet, in Hindi ('hi') or English ('en').
+  Future<Uint8List> standardSheetPdf(String societyId, String code, String lang) =>
+      _pdf('/staff/checklist-templates/standard/$societyId/$code/sheet', {'lang': lang});
+
   /// GET /staff/duties/society/{society_id}?duty_date=
   Future<List<DutyModel>> getDailyDuties(String societyId, String date) async {
     final r = await _dio.get(

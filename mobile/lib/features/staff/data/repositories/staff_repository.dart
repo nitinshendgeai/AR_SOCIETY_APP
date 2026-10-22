@@ -337,6 +337,12 @@ class StaffRepository {
     } catch (e) { return _handle(e); }
   }
 
+  Future<StaffResult<Uint8List>> standardSheetPdf(String societyId, String code, String lang) async {
+    try {
+      return StaffSuccess(await _ds.standardSheetPdf(societyId, code, lang));
+    } catch (e) { return _handle(e); }
+  }
+
   // ── Duty checklist ───────────────────────────────────────────────────────────
 
   Future<StaffResult<List<DutyChecklistItemEntity>>> getDutyChecklist(String dutyId) async {

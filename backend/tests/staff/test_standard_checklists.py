@@ -114,3 +114,41 @@ def test_catalog_is_well_formed():
         titles = [t for t, _, _ in c["items"]]
         assert len(titles) == len(set(titles)) and all(len(t) <= 255 for t in titles)
         assert any(r for _, _, r in c["items"])
+
+
+# ── Printing a standard round in Hindi or English ────────────────────────────
+
+def _pages(content: bytes) -> int:
+    return len(re.findall(rb"/Type\s*/Page\b", content))
+
+
+def test_every_standard_round_prints_in_hindi_on_one_page(client, rig):
+    for c in STANDARD_CHECKLISTS:
+        r = client.get(f"{STD}/{rig['sid']}/{c['code']}/sheet", headers=rig["admin"])
+        assert r.status_code == 200, r.text
+        assert r.headers["content-type"] == "application/pdf" and r.content.startswith(b"%PDF")
+        assert _pages(r.content) == 1, f"{c['code']} prints on {_pages(r.content)} pages"
+
+
+def test_english_sheet_is_available_for_a_standard_round_before_it_is_added(client, rig):
+    r = client.get(f"{STD}/{rig['sid']}/plumber_daily/sheet?lang=en", headers=rig["admin"])
+    assert r.status_code == 200 and r.content.startswith(b"%PDF") and _pages(r.content) == 1
+    listed = client.get(f"{STD}/{rig['sid']}", headers=rig["admin"]).json()
+    assert all(c["already_added"] is False for c in listed)  # printing does not add it
+
+
+def test_sheet_refuses_unknown_round_bad_language_and_non_managers(client, db, rig):
+    assert client.get(f"{STD}/{rig['sid']}/nope/sheet", headers=rig["admin"]).status_code == 404
+    assert client.get(f"{STD}/{rig['sid']}/plumber_daily/sheet?lang=fr", headers=rig["admin"]).status_code == 422
+    resident = place_in(db, make_user(db, "std-res2@chk.io", role="Resident"), rig["society"])
+    assert client.get(f"{STD}/{rig['sid']}/plumber_daily/sheet", headers=resident["headers"]).status_code == 403
+
+
+def test_hindi_text_matches_the_english_rounds_line_for_line():
+    from app.modules.staff.services.standard_checklists_hi import HINDI
+    assert set(HINDI) == set(BY_CODE)
+    for code, c in BY_CODE.items():
+        hi = HINDI[code]
+        assert len(hi["items"]) == len(c["items"]), code
+        assert all(title.strip() and note.strip() for title, note in hi["items"])
+        assert hi["name"].strip() and hi["description"].strip()

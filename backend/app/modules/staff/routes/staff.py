@@ -289,6 +289,19 @@ def standard_checklists(society_id: UUID, db: Session = Depends(get_db),
     assert_society_access(user, society_id)
     return StaffService(db).standard_checklists(society_id)
 
+@router.get("/checklist-templates/standard/{society_id}/{code}/sheet")
+def standard_checklist_sheet(society_id: UUID, code: str, lang: str = Query("hi", pattern="^(hi|en)$"),
+                             db: Session = Depends(get_db), user: User = Depends(manager_or_above)):
+    """A standard checklist as a blank printable sheet, in Hindi or English, whether or not the society has added it."""
+    from app.modules.staff.services import standard_sheet_pdf as sheet
+    from app.modules.staff.services.standard_checklists import BY_CODE
+    assert_society_access(user, society_id)
+    if code not in BY_CODE:
+        raise HTTPException(status_code=404, detail="Unknown standard checklist")
+    svc = StaffService(db)
+    content = sheet.render(svc.society_for_print(society_id), svc.zone_for(society_id), code, lang)
+    return _pdf(content, f"{code.replace('_', '-')}-{lang}.pdf")
+
 @router.post("/checklist-templates/standard/{society_id}", response_model=List[ChecklistTemplateOut],
              status_code=201)
 def load_standard_checklists(society_id: UUID, data: StandardChecklistsIn, db: Session = Depends(get_db),
