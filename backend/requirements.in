@@ -33,3 +33,6 @@ python-dotenv
 # Devanagari (Hindi / Marathi) PDFs need text shaping
 fpdf2
 uharfbuzz
+
+# Asset register import from Excel (.xlsx)
+openpyxl

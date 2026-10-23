@@ -4,7 +4,25 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
-## 2026-10-23 (ii)
+## 2026-10-23
+
+### feat: import the asset register from Excel or CSV
+
+- Assets page → upload icon. Pick an `.xlsx` or `.csv`; every column is read, the ones matching an asset field are
+  imported (by their headings, in any order, a title row above is fine) and the rest are shown as not imported. A column
+  can be pointed at another field. Every row is checked first and nothing is saved until Import.
+- Asset code blank = numbered automatically; an asset whose code or serial number exists is skipped, so importing the same
+  file twice is safe; bad rows are left out and listed with the reason. Unknown categories import as Other.
+- `POST /inventory/assets/import/{society_id}` (multipart; `dry_run`, optional `mapping`), `GET /inventory/assets/import-template`.
+  Manager and above. New dependency: `openpyxl` (reads .xlsx).
+
+### feat: a visitor at the gate now rings the resident's phone
+
+- **Before:** a visitor push made the phone's ordinary notification chime; with the app open nothing showed or sounded
+  until the 15-second refresh.
+- **Now:** Android gets a ring-style notification channel (double ring, vibration, shown on the lock screen) for the
+  visitor push. With the app open it rings and shows a "Visitor at Gate" alert with Review / Later. Android 13+
+  notification permission is now declared in the manifest. See `docs/PUSH_NOTIFICATIONS.md`.
 
 ### feat: vendor type and TDS deducted automatically when a vendor is paid
 

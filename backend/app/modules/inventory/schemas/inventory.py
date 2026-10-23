@@ -379,3 +379,37 @@ class AssetHistoryOut(OrmBase):
     work_orders: List[LinkedWorkOrderOut]   # work orders raised for this asset
     log: List[UsageLogOut]
     total_service_cost: Decimal             # completed services
+
+
+# ── Asset import (Excel / CSV) ────────────────────────────────────────────────
+
+class AssetImportColumn(BaseModel):
+    index: int
+    heading: str
+    field: Optional[str] = None            # the asset field it holds, or None when it is not imported
+    field_label: Optional[str] = None
+    sample: Optional[str] = None           # the first value in the column, to recognise it by
+
+
+class AssetImportRow(BaseModel):
+    line: int                              # the row's number in the file
+    status: str                            # ready | duplicate | error (preview); created | duplicate | error (import)
+    asset_code: Optional[str] = None
+    name: Optional[str] = None
+    category: Optional[str] = None
+    message: Optional[str] = None
+
+
+class AssetImportOut(BaseModel):
+    dry_run: bool
+    file_name: str
+    sheet: str
+    total_rows: int
+    columns: List[AssetImportColumn]
+    fields: List[dict]                     # [{field, label}] every field a column can be pointed at
+    ready: int = 0                         # preview: rows that will be added
+    created: int = 0                       # import: rows added
+    duplicates: int = 0
+    errors: int = 0
+    message: Optional[str] = None          # something to fix before rows can be read (no Name column)
+    rows: List[AssetImportRow]

@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <!-- Payment screenshot capture: photograph a screen when picking a screenshot -->
     <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Android 13+: ask the user before showing notifications (visitor at the gate) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
     <application
         android:label="DUX OS"

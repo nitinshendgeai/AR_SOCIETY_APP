@@ -34,6 +34,25 @@ refreshed every 15 seconds).
 4. Tokens FCM reports as unregistered (app uninstalled, browser data cleared)
    are switched off. Signing out unregisters the device.
 
+## The visitor ring
+
+A visitor at the gate is an **urgent** push (`NotificationService.send(..., urgent=True)`), which the app answers
+differently from the ordinary chime:
+
+- **App closed or in the background (Android):** the push goes to the `visitor_alerts` notification channel at top
+  priority with a ring sound (`mobile/android/app/src/main/res/raw/visitor_ring.wav`, a double ring, about 3.4 s),
+  vibration and lock-screen visibility. The channel is created in `MainActivity.kt` when the app starts; Android takes
+  sound and importance from the channel, so the id (`URGENT_CHANNEL_ID` in `push_service.py`) must match. The user's own
+  channel settings win once it exists (Settings → Apps → DUX OS → Notifications → Visitor at the gate), so changing the
+  sound later needs a new channel id. A phone on silent or Do Not Disturb stays quiet; that is the phone's setting.
+- **App open:** Android shows nothing for a push in the foreground, so the app rings itself (the same sound, repeated
+  up to 3 times, plus a buzz) and puts a blocking alert on screen with **Review** (opens the approvals) and **Later**.
+  A browser tab shows the alert without sound.
+- It is not a full-screen incoming-call screen over a locked phone; that needs more Android permissions and is a
+  separate piece of work.
+
+Other pushes (the guard hearing a decision) keep the ordinary default sound.
+
 ## Setup
 
 ### 1. Backend (Railway service `AR_SOCIETY_APP`) — required

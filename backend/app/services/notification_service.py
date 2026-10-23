@@ -5,7 +5,7 @@ Channels supported (foundation only, no external provider yet):
 - in_app  : stored in DB, polled by frontend
 - email   : stub — ready for SendGrid / SES integration
 - sms     : stub — ready for Twilio / MSG91 integration
-- push    : pass push=True to also alert the user's phones/browsers through
+- push    : pass push=True (urgent=True for someone waiting right now) to also alert the user's phones/browsers through
             Firebase Cloud Messaging (PushService); action_url is the app
             screen a tap opens
 
@@ -47,6 +47,7 @@ class NotificationService:
         action_url: Optional[str]       = None,
         metadata:   Optional[dict]      = None,
         push:       bool                = False,
+        urgent:     bool                = False,
     ) -> Optional[Notification]:
         """Create and dispatch a notification. Never raises."""
         try:
@@ -71,7 +72,7 @@ class NotificationService:
             db.commit()
             if push:
                 PushService.send_to_user(db, user_id, title, body, route=action_url,
-                                         data={"module": module, "entity_id": notif.entity_id})
+                                         data={"module": module, "entity_id": notif.entity_id}, urgent=urgent)
             return notif
         except Exception as e:
             logger.error(f"[notify] Failed to send notification: {e}")

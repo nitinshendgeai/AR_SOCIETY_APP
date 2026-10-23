@@ -63,7 +63,15 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
 
     return AppPage(
       title: 'Assets',
-      actions: [if (desktop) HeaderActionButton(icon: Icons.add_rounded, label: 'Add asset', onPressed: () => _add(societyId))],
+      actions: [
+        IconButton(
+          key: const Key('assets-import'),
+          icon: const Icon(Icons.upload_file_rounded),
+          tooltip: 'Import from Excel / CSV',
+          onPressed: () => context.push(AppRoutes.assetsImport),
+        ),
+        if (desktop) HeaderActionButton(icon: Icons.add_rounded, label: 'Add asset', onPressed: () => _add(societyId)),
+      ],
       floatingActionButton: desktop
           ? null
           : FloatingActionButton.extended(

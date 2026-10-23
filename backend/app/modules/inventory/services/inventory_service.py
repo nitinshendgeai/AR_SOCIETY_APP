@@ -451,6 +451,118 @@ class InventoryService:
         self.db.refresh(asset)
         return asset
 
+    def import_assets(self, society_id: UUID, data: bytes, filename: str, mapping: Optional[dict],
+                      dry_run: bool, user: User, request=None) -> dict:
+        """Add assets from an Excel / CSV register. With `dry_run` nothing is saved: every row is checked and the
+        result says what would happen. Rows with a problem are left out (and listed); an asset whose code, or serial
+        number, the society already has is skipped, so the same file can be imported again safely."""
+        from app.modules.inventory.services import asset_import as ai
+        from app.modules.inventory.repositories.inventory_repo import _highest
+        society_id = resolve_create_society_id(user, society_id)
+        try:
+            header, body, sheet = ai.read_table(data, filename)
+            field_map = ai.apply_override(ai.auto_map(header), header, mapping)
+        except ai.ImportFileError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        labels = ai.column_labels(header)
+        if "name" not in field_map:
+            message = ("No Name column was found. Name each asset in a column headed Name (or Asset Name), "
+                       "or choose which column holds the name.")
+            if not dry_run:
+                raise HTTPException(status_code=422, detail=message)
+            # a preview still answers, so the person can see the columns and choose the Name one
+            sample = {i: ai._text(c) for i, c in enumerate(body[0][1])} if body else {}
+            return {
+                "dry_run": True, "file_name": filename or "", "sheet": sheet, "total_rows": len(body),
+                "message": message, "rows": [],
+                "columns": [{"index": i, "heading": labels[i], "field": f, "field_label": ai.FIELD_LABELS.get(f),
+                             "sample": sample.get(i) or None} for i, f in enumerate(field_map)],
+                "fields": [{"field": k, "label": v} for k, v in ai.FIELD_LABELS.items()],
+            }
+
+        existing_codes = {c.lower() for (c,) in self.db.query(Asset.asset_code).filter(Asset.society_id == society_id)}
+        existing_serials = {(sn or "").strip().lower(): code for sn, code in self.db.query(
+            Asset.serial_number, Asset.asset_code).filter(Asset.society_id == society_id, Asset.serial_number.isnot(None))}
+        parsed = []
+        file_codes = set()
+        for line, raw in body:
+            values, errors, notes = ai.parse_row(raw, field_map)
+            parsed.append((line, values, errors, notes))
+            if values.get("asset_code"):
+                file_codes.add(values["asset_code"].lower())
+        taken = existing_codes | file_codes
+        counter = _highest(self.db, Asset.asset_code, Asset.society_id, society_id)
+
+        rows, to_add = [], []
+        seen_codes, seen_serials = set(), {}
+        for line, values, errors, notes in parsed:
+            row = {"line": line, "name": values.get("name"), "category": values["asset_category"].value}
+            code, serial = values.get("asset_code"), (values.get("serial_number") or "").lower()
+            if errors:
+                rows.append({**row, "status": "error", "asset_code": code, "message": "; ".join(errors)})
+                continue
+            if code and code.lower() in existing_codes:
+                rows.append({**row, "status": "duplicate", "asset_code": code,
+                             "message": f"Asset code {code} already exists in this society; skipped"})
+                continue
+            if code and code.lower() in seen_codes:
+                rows.append({**row, "status": "duplicate", "asset_code": code,
+                             "message": f"Asset code {code} appears more than once in the file; skipped"})
+                continue
+            if serial and (serial in existing_serials or serial in seen_serials):
+                other = existing_serials.get(serial) or seen_serials[serial]
+                rows.append({**row, "status": "duplicate", "asset_code": code,
+                             "message": f"Serial number {values['serial_number']} is already registered ({other}); skipped"})
+                continue
+            if not code:
+                while True:
+                    counter += 1
+                    code = f"AST-{str(counter).zfill(4)}"
+                    if code.lower() not in taken:
+                        break
+                taken.add(code.lower())
+            seen_codes.add(code.lower())
+            if serial:
+                seen_serials[serial] = code
+            values["asset_code"] = code
+            if values.get("next_service_due") is None:
+                values["next_service_due"] = self._next_service(
+                    values.get("service_interval_months"), values.get("last_serviced_on"), values.get("purchase_date"))
+            to_add.append(values)
+            rows.append({**row, "status": "ready", "asset_code": code, "message": "; ".join(notes) or None})
+
+        created = 0
+        if not dry_run and to_add:
+            first = None
+            for values in to_add:
+                asset = Asset(society_id=society_id, **values)
+                self.db.add(asset)
+                self.db.flush()
+                first = first or asset
+                self.db.add(AssetUsageLog(asset_id=asset.id, society_id=society_id, logged_by=user.id,
+                                          action="REGISTERED", notes=f"Imported from {filename or 'a file'} by {user.email}"))
+            self._audit(AuditAction.CREATE, first, "Asset", user, request,
+                        new_values={"imported": len(to_add), "file": filename, "first_code": first.asset_code})
+            self.db.commit()
+            created = len(to_add)
+            for r in rows:
+                if r["status"] == "ready":
+                    r["status"] = "created"
+
+        first_values = {}
+        for _, raw in body[:1]:
+            first_values = {i: ai._text(c) for i, c in enumerate(raw)}
+        return {
+            "dry_run": dry_run, "file_name": filename or "", "sheet": sheet, "total_rows": len(body),
+            "columns": [{"index": i, "heading": labels[i], "field": f, "field_label": ai.FIELD_LABELS.get(f),
+                         "sample": first_values.get(i) or None} for i, f in enumerate(field_map)],
+            "fields": [{"field": k, "label": v} for k, v in ai.FIELD_LABELS.items()],
+            "ready": sum(1 for r in rows if r["status"] == "ready"), "created": created,
+            "duplicates": sum(1 for r in rows if r["status"] == "duplicate"),
+            "errors": sum(1 for r in rows if r["status"] == "error"),
+            "rows": rows,
+        }
+
     def update_asset(self, asset_id: UUID, data: AssetUpdate, user: User, request=None) -> Asset:
         asset = self._asset_or_404(asset_id, user)
         changes = data.model_dump(exclude_unset=True)
