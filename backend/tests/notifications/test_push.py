@@ -95,8 +95,39 @@ def test_visitor_at_the_gate_is_pushed_to_the_flat_residents_devices(client, db,
     assert m["auth"] == "Bearer access-token"
     assert m["notification"]["title"] == "Visitor at Gate"
     assert "John Visitor (guest) is at the gate for Tower B-302" in m["notification"]["body"]
-    assert m["data"] == {"module": "visitor", "entity_id": r.json()["id"], "route": "/visitors/pending"}
+    assert m["data"] == {"module": "visitor", "entity_id": r.json()["id"], "route": "/visitors/pending",
+                         "urgent": "1"}
+    # Android: the ring-style channel at top priority, not the default chime
+    assert m["android"]["priority"] == "high"
+    assert m["android"]["notification"]["channel_id"] == "visitor_alerts"
+    assert m["android"]["notification"]["notification_priority"] == "PRIORITY_MAX"
     assert m["webpush"]["fcm_options"]["link"] == "https://society.duxos.in/#/visitors/pending"
+
+
+def test_other_pushes_keep_the_default_chime(client, db, fcm):
+    sent, _ = fcm
+    security = make_user(db, "sec@push3b.com", role="Security Staff")
+    society, flat, owner, _ = _flat_with_people(db, "push3b")
+    _register(client, security["headers"], "gate-tablet-token")
+    visitor = client.post("/api/v1/visitors/", json=_visitor_payload(society.id, flat.id),
+                          headers=security["headers"]).json()
+    sent.clear()
+    assert client.post(f"/api/v1/visitors/{visitor['id']}/approve", json={}, headers=owner["headers"]).status_code == 200
+    m = sent[0]
+    assert "urgent" not in m["data"]
+    assert m["android"]["notification"] == {"sound": "default"}
+
+
+def test_the_ring_channel_and_sound_exist_in_the_android_app():
+    """The channel id the server names must be created by the app, with the ring sound it ships."""
+    from pathlib import Path
+    from app.services.push_service import URGENT_CHANNEL_ID
+    android = Path(__file__).resolve().parents[3] / "mobile" / "android" / "app" / "src" / "main"
+    activity = (android / "kotlin" / "com" / "arsociety" / "app" / "MainActivity.kt").read_text()
+    assert f'"{URGENT_CHANNEL_ID}"' in activity
+    assert "R.raw.visitor_ring" in activity
+    sound = android / "res" / "raw" / "visitor_ring.wav"
+    assert sound.read_bytes()[:4] == b"RIFF" and 20_000 < sound.stat().st_size < 600_000
 
 
 def test_guard_is_pushed_the_residents_decision(client, db, fcm):
