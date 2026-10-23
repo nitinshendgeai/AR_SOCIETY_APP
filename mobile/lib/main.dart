@@ -13,6 +13,7 @@ import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/push/push_notifications.dart';
+import 'package:ar_society_app/core/push/visitor_alert.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart' show pendingVisitorApprovalsProvider;
 
@@ -113,7 +114,22 @@ class ArSocietyApp extends ConsumerWidget {
           openRoute: (route) => router.push(route),
           // A visitor logged while the app is open: show them right away
           // rather than on the next 15-second poll.
-          onForegroundMessage: (_) => ref.invalidate(pendingVisitorApprovalsProvider),
+          onForegroundMessage: (message) {
+            ref.invalidate(pendingVisitorApprovalsProvider);
+            // Someone is waiting at the gate: the OS shows nothing while the app is open, so ring and ask.
+            if (message.data['urgent'] == '1') {
+              final context = router.routerDelegate.navigatorKey.currentContext;
+              final route = message.data['route'];
+              if (context != null) {
+                showVisitorAlert(
+                  context,
+                  title: message.notification?.title ?? 'Visitor at the gate',
+                  body: message.notification?.body ?? '',
+                  onReview: () => router.push(route is String && route.startsWith('/') ? route : '/visitors/pending'),
+                );
+              }
+            }
+          },
         );
       }
     });

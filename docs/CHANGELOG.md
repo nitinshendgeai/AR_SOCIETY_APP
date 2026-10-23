@@ -16,6 +16,14 @@ Format: `[YYYY-MM-DD] type: description`
 - `POST /inventory/assets/import/{society_id}` (multipart; `dry_run`, optional `mapping`), `GET /inventory/assets/import-template`.
   Manager and above. New dependency: `openpyxl` (reads .xlsx).
 
+### feat: a visitor at the gate now rings the resident's phone
+
+- **Before:** a visitor push made the phone's ordinary notification chime; with the app open nothing showed or sounded
+  until the 15-second refresh.
+- **Now:** Android gets a ring-style notification channel (double ring, vibration, shown on the lock screen) for the
+  visitor push. With the app open it rings and shows a "Visitor at Gate" alert with Review / Later. Android 13+
+  notification permission is now declared in the manifest. See `docs/PUSH_NOTIFICATIONS.md`.
+
 ## 2026-10-22
 
 ### feat: print the ready-made plumber / electrician checklists in Hindi
