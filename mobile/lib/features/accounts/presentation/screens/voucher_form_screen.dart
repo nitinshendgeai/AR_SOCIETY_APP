@@ -11,6 +11,8 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart';
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
 import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart';
+import 'package:ar_society_app/features/accounts/presentation/widgets/quick_ledger_sheet.dart';
+import 'package:ar_society_app/features/accounts/presentation/widgets/voucher_hotkeys.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
@@ -328,6 +330,11 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
     return CallbackShortcuts(
       bindings: {
         if (!_isEdit && _type != 'contra') const SingleActivator(LogicalKeyboardKey.keyL, alt: true): _addLine,
+        // F4 Contra, F5 Payment, F6 Receipt, F7 Journal: switch what is being entered (a voucher being corrected keeps its type).
+        if (!_isEdit)
+          ...voucherHotkeyBindings((t) {
+            if (t != _type) _setType(t);
+          }),
       },
       child: _page(societyId, title, editing, needsCashBank, cashBank, others, desktop),
     );
@@ -357,7 +364,8 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
       footerNote: desktop
           ? Text(_isEdit
               ? 'Enter moves to the next field · Ctrl+S saves'
-              : 'Enter: next field · Ctrl+S: save · Ctrl+Enter: save and add another · Alt+L: add a line')
+              : 'Enter: next field · Ctrl+S: save · Ctrl+Enter: save and add another · Alt+L: add a line · '
+                  'Alt+C: create a ledger · F4 Contra · F5 Payment · F6 Receipt · F7 Journal')
           : null,
       children: [
         if (editing == null)
@@ -452,6 +460,7 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
                   journal: _type == 'journal',
                   ledgers: others,
                   societyId: societyId,
+                  preferNature: switch (_type) { 'receipt' => 'income', 'payment' => 'expense', _ => null },
                   autofocus: i == 0 && !_isEdit,
                   onChanged: () => setState(() {}),
                   // Enter on the last amount of an unbalanced journal opens the next line.
@@ -531,6 +540,7 @@ class _LineCard extends ConsumerWidget {
   final bool journal;
   final List<LedgerAccount> ledgers;
   final String societyId;
+  final String? preferNature;
   final bool autofocus;
   final VoidCallback onChanged;
   final VoidCallback? onAmountEnter;
@@ -541,6 +551,7 @@ class _LineCard extends ConsumerWidget {
     required this.journal,
     required this.ledgers,
     required this.societyId,
+    this.preferNature,
     this.autofocus = false,
     required this.onChanged,
     this.onAmountEnter,
@@ -582,6 +593,8 @@ class _LineCard extends ConsumerWidget {
                 options: ledgers,
                 focusNode: line.ledgerFocus,
                 autofocus: autofocus,
+                // A ledger that does not exist yet can be made here (Alt+C), without leaving the voucher.
+                onCreate: (name) => showQuickLedger(context, societyId: societyId, name: name, preferNature: preferNature),
                 onChanged: (l) {
                   line.account = l;
                   if (!l.isMembersDues) line.flat = null;

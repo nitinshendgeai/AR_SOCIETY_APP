@@ -8,6 +8,7 @@ import 'package:ar_society_app/features/accounts/data/accounts_api.dart';
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/accounts_screen.dart' show chooseNewVoucher;
 import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart';
+import 'package:ar_society_app/features/accounts/presentation/widgets/voucher_hotkeys.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
@@ -47,7 +48,7 @@ class _DayBookScreenState extends ConsumerState<DayBookScreen> {
         (v.vendorName ?? '').toLowerCase().contains(q) ||
         v.entries.any((e) => e.title.toLowerCase().contains(q));
 
-    return AppPage(
+    return VoucherHotkeys(child: AppPage(
       title: 'Day Book',
       actions: [
         PdfActions(
@@ -203,7 +204,7 @@ class _DayBookScreenState extends ConsumerState<DayBookScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 
   static const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

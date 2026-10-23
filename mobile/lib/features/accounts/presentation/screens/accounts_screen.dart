@@ -10,6 +10,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart';
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
 import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart';
+import 'package:ar_society_app/features/accounts/presentation/widgets/voucher_hotkeys.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
@@ -41,6 +42,9 @@ Future<void> chooseNewVoucher(BuildContext context) async {
             ),
             title: Text(voucherTypeLabel(t), style: const TextStyle(fontWeight: FontWeight.w600)),
             subtitle: Text(voucherTypeHint(t), style: const TextStyle(fontSize: 12)),
+            trailing: voucherHotkeyLabel(t) == null
+                ? null
+                : Text(voucherHotkeyLabel(t)!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             onTap: () => Navigator.pop(ctx, t),
           ),
       ]),
@@ -92,7 +96,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
     final narrow = MediaQuery.sizeOf(context).width < 600;
     String money(num v) => narrow ? formatInrShort(v) : formatInr(v);
 
-    return AppPage(
+    return VoucherHotkeys(child: AppPage(
       title: 'Accounts',
       actions: [
         if (desktop) ...[
@@ -257,7 +261,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 
   LedgerAccount? _bankLedger(AccountsSummary s) =>

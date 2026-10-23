@@ -141,16 +141,18 @@ Future<LedgerAccount?> pickLedger(
   BuildContext context,
   List<LedgerAccount> ledgers, {
   String title = 'Choose ledger',
+  Future<LedgerAccount?> Function(String name)? onCreate,
 }) =>
     showAppSheet<LedgerAccount>(
       context: context,
-      builder: (_) => _LedgerPickerSheet(ledgers: ledgers, title: title),
+      builder: (_) => _LedgerPickerSheet(ledgers: ledgers, title: title, onCreate: onCreate),
     );
 
 class _LedgerPickerSheet extends StatefulWidget {
   final List<LedgerAccount> ledgers;
   final String title;
-  const _LedgerPickerSheet({required this.ledgers, required this.title});
+  final Future<LedgerAccount?> Function(String name)? onCreate;
+  const _LedgerPickerSheet({required this.ledgers, required this.title, this.onCreate});
 
   @override
   State<_LedgerPickerSheet> createState() => _LedgerPickerSheetState();
@@ -179,6 +181,21 @@ class _LedgerPickerSheetState extends State<_LedgerPickerSheet> {
       pinned: SheetSearchField(onChanged: (v) => setState(() => _q = v)),
       scrollBody: false,
       child: ListView(shrinkWrap: true, children: [
+        if (widget.onCreate != null &&
+            _q.trim().isNotEmpty &&
+            !widget.ledgers.any((l) => l.name.toLowerCase() == _q.trim().toLowerCase()))
+          ListTile(
+            key: const Key('ledger-picker-create'),
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            leading: const Icon(Icons.add_circle_outline_rounded, size: 20, color: AppTheme.primary),
+            title: Text('Create ledger "${_q.trim()}"',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.primary)),
+            onTap: () async {
+              final made = await widget.onCreate!(_q.trim());
+              if (made != null && context.mounted) Navigator.pop(context, made);
+            },
+          ),
         if (rows.isEmpty)
           const Padding(
             padding: EdgeInsets.all(24),
@@ -629,6 +646,9 @@ class LedgerChooser extends StatelessWidget {
   final FocusNode? focusNode;
   final bool autofocus;
   final String? helper;
+
+  /// Makes a ledger from a name typed here that is not in the list (Alt+C), returning it; see [QuickLedgerSheet].
+  final Future<LedgerAccount?> Function(String name)? onCreate;
   const LedgerChooser({
     super.key,
     required this.label,
@@ -639,6 +659,7 @@ class LedgerChooser extends StatelessWidget {
     this.focusNode,
     this.autofocus = false,
     this.helper,
+    this.onCreate,
   });
 
   @override
@@ -657,12 +678,13 @@ class LedgerChooser extends StatelessWidget {
           detail: (l) => l.groupName,
           searchText: (l) => '${l.code ?? ''} ${l.groupName ?? ''}',
           onSelected: onChanged,
+          onCreate: onCreate,
         ),
       );
     }
     return InkWell(
       onTap: () async {
-        final l = await pickLedger(context, options, title: sheetTitle);
+        final l = await pickLedger(context, options, title: sheetTitle, onCreate: onCreate);
         if (l != null) onChanged(l);
       },
       borderRadius: BorderRadius.circular(AppTheme.radiusS),
