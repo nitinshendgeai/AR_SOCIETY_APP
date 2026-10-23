@@ -33,7 +33,7 @@ import calendar
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_FLOOR, ROUND_HALF_UP
 from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 
@@ -128,6 +128,24 @@ class LineDraft:
         return self.amount + self.tax_amount
 
 
+def _split_interest(rows: List[dict], total: Decimal) -> List[dict]:
+    """Give each earlier bill its share of the interest charged, in whole paise that add up to exactly `total` (the
+    largest remainders get the odd paise), so the working on the bill agrees with the Interest line."""
+    if not rows or total <= 0:
+        return []
+    cents = [int((r["raw"] * 100).to_integral_value(rounding=ROUND_FLOOR)) for r in rows]
+    short = int(total * 100) - sum(cents)
+    order = sorted(range(len(rows)), key=lambda i: rows[i]["raw"] * 100 - cents[i], reverse=True)
+    for i in order[:max(short, 0)]:
+        cents[i] += 1
+    out = []
+    for r, c in zip(rows, cents):
+        item = {k: v for k, v in r.items() if k != "raw"}
+        item["interest"] = str((Decimal(c) / 100).quantize(CENT))
+        out.append(item)
+    return out
+
+
 @dataclass
 class FlatBillDraft:
     flat: Flat
@@ -138,6 +156,7 @@ class FlatBillDraft:
     previous_dues: Decimal = ZERO
     interest_bills: List[MaintenanceBill] = field(default_factory=list)
     interest_adjusted: bool = False          # a waiver changed the interest on this bill
+    interest_working: List[dict] = field(default_factory=list)   # interest per earlier bill, printed on the bill
 
     @property
     def subtotal(self) -> Decimal:
@@ -541,6 +560,7 @@ class MaintenanceCalculator:
         if not s.interest_rate_pct:
             return
         interest = ZERO
+        working: List[dict] = []
         for b in earlier:
             start = b.due_date + timedelta(days=s.interest_grace_days or 0)
             if b.arrears_interest_upto and b.arrears_interest_upto > start:
@@ -557,9 +577,16 @@ class MaintenanceCalculator:
                 continue
             rate_days, touched = self._rate_days(start, bill_date, waivers or [])
             draft.interest_adjusted = draft.interest_adjusted or touched
-            interest += principal * rate_days / 100 / 365
+            raw = principal * rate_days / 100 / 365
+            interest += raw
             draft.interest_bills.append(b)
+            working.append({
+                "bill": b.invoice_number, "principal": str(money(principal)),
+                "from": start.isoformat(), "to": bill_date.isoformat(), "days": days,
+                "rate": str((rate_days / days).quantize(Decimal("0.01"))), "raw": raw,
+            })
         interest = money(interest)
+        draft.interest_working = _split_interest(working, interest)
         if interest > 0:
             draft.lines.append(LineDraft(
                 charge_type=ChargeType.PENALTY,

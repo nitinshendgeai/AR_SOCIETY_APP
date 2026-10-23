@@ -6,6 +6,16 @@ Format: `[YYYY-MM-DD] type: description`
 
 ## 2026-10-24
 
+### feat: Interest working on the bill, and print with or without the previous receipts
+
+- A bill that carries interest on arrears now shows an **Interest working** table: for each earlier bill the interest was
+  charged on, the unpaid amount, the dates and days, the rate and the interest, adding up to the Interest line (the odd
+  paise are shared so the rows total exactly the amount billed). Stored on the bill (`maintenance_bills.interest_working`,
+  additive migration `d6a0e4c8f3b9`); bills made before this print no working.
+- A receipt-icon toggle on the bill and on the billing cycle screen prints with or without the receipts towards the
+  flat's previous bill (`?with_receipts=false` on the bill and cycle PDF endpoints). Default is unchanged: with.
+- Tests: `tests/billing/test_interest_working.py`.
+
 ### feat: Tally-style keys for vouchers: F4-F7, and creating a ledger while entering
 
 - **F4 Contra, F5 Payment, F6 Receipt, F7 Journal** open a new voucher from the Accounts page, Day Book, Cash & Bank Book

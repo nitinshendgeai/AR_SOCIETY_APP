@@ -55,6 +55,9 @@ page:
    for <month>": receipt no., date, amount, transaction type, reference,
    cheque bank, narration. (Each payment's receipt is still its own
    document, below.)
+   Printed with `?with_receipts=false` (the receipt toggle in the app) this block is left out.
+7. **Interest working** (between the totals and the notes, only when the bill has interest) — per earlier bill: unpaid
+   amount, from/to, days, rate and interest, saved on the bill as `interest_working` when it is generated.
 
 `BillingService._bill_print_context` supplies each charge head's element,
 the unpaid interest inside the arrears and the flat's previous bill.

@@ -548,13 +548,14 @@ def cycle_bills(cycle_id: UUID, db: Session = Depends(get_db), user: User = Depe
 
 @router.get("/cycles/{cycle_id}/bills.pdf", dependencies=[Depends(manager_above)])
 def cycle_bills_pdf(cycle_id: UUID, wing_id: Optional[UUID] = None, status: Optional[str] = None,
-                    db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+                    with_receipts: bool = True, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """All the cycle's bills in one PDF to print or share, flat by flat. Optional: only one wing, or only bills
-    with one status (cancelled bills are left out otherwise)."""
+    with one status (cancelled bills are left out otherwise). `with_receipts=false` leaves out the receipts towards
+    each flat's previous bill."""
     svc = BillingService(db)
     cycle = svc.get_cycle(cycle_id)
     assert_society_access(user, cycle.society_id)
-    pdf_bytes, count = svc.generate_cycle_bills_pdf(cycle_id, wing_id, status)
+    pdf_bytes, count = svc.generate_cycle_bills_pdf(cycle_id, wing_id, status, with_receipts)
     safe = "".join(c if c.isalnum() or c in "-_" else "-" for c in cycle.name).strip("-") or "cycle"
     return Response(
         content=pdf_bytes, media_type="application/pdf",
@@ -669,9 +670,10 @@ def get_bill(bill_id: UUID, db: Session = Depends(get_db), user: User = Depends(
     return _bill_detail_out(_get_viewable_bill(db, user, bill_id))
 
 @router.get("/bills/{bill_id}/pdf", dependencies=[Depends(any_member)])
-def get_bill_pdf(bill_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def get_bill_pdf(bill_id: UUID, with_receipts: bool = True, db: Session = Depends(get_db),
+                 user: User = Depends(get_current_user)):
     bill = _get_viewable_bill(db, user, bill_id)
-    pdf_bytes = BillingService(db).generate_bill_pdf(bill.id)
+    pdf_bytes = BillingService(db).generate_bill_pdf(bill.id, with_receipts)
     return Response(
         content=pdf_bytes, media_type="application/pdf",
         headers={"Content-Disposition": f"inline; filename={bill.invoice_number}.pdf"},

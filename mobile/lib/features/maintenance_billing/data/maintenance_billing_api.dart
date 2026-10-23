@@ -1034,17 +1034,20 @@ class MaintenanceBillingApi {
   }
 
   /// Every bill of a cycle in one PDF, flat by flat (cancelled bills left out).
-  Future<Uint8List> cycleBillsPdf(String cycleId) async {
+  /// [withReceipts] false leaves out the receipts towards each flat's previous bill.
+  Future<Uint8List> cycleBillsPdf(String cycleId, {bool withReceipts = true}) async {
     final r = await _dio.get<List<int>>(
       '/billing/cycles/$cycleId/bills.pdf',
+      queryParameters: {if (!withReceipts) 'with_receipts': false},
       options: Options(responseType: ResponseType.bytes),
     );
     return Uint8List.fromList(r.data!);
   }
 
-  Future<Uint8List> billPdf(String billId) async {
+  Future<Uint8List> billPdf(String billId, {bool withReceipts = true}) async {
     final r = await _dio.get<List<int>>(
       '/billing/bills/$billId/pdf',
+      queryParameters: {if (!withReceipts) 'with_receipts': false},
       options: Options(responseType: ResponseType.bytes),
     );
     return Uint8List.fromList(r.data!);
