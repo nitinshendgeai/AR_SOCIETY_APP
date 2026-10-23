@@ -37,10 +37,16 @@ electrician** (maintenance) for one person who does both. Each has 12 lines; the
 required. Adding is safe to repeat — one you already have is skipped. After adding, reword it freely; each prints on one
 page. Assign the round to the staff member's duty like any other template.
 
+**Print the ready-made rounds in Hindi.** Open the library icon, expand a round and tap **Print in Hindi** (or **Print in
+English**). One A4 page with the letterhead, name/date, in and out times, the checks with a tick box and remarks, and
+signature lines. It works before you add the round, and printing does not add it. Hindi is printed only for these three
+rounds (your own templates print in English); the Hindi follows the standard wording, so if you reword a round, edit the
+printed sheet by hand or print it in English.
+
 **Print a blank sheet** from the template's printer icon: the checklist with name, date and times left to fill in by
 hand, for a department that fills it in every day without assigning in the app.
 
-> Write checklist items in English / Latin letters — the printed sheet cannot show Marathi or Hindi characters.
+> Write checklist items in English / Latin letters — the printed sheet cannot show Marathi or Hindi characters — except the three ready-made rounds, which print in Hindi too (below).
 
 ---
 

@@ -52,6 +52,18 @@ void main() {
       expect(find.text('For Plumbing staff · 2 checks, 1 must be ticked'), findsOneWidget);
     });
 
+    testWidgets('each round offers a Hindi and an English print', (tester) async {
+      await tester.pumpWidget(_sheet([
+        StandardChecklistEntity.fromJson(_json('plumber_daily', 'plumbing', 'Plumber: daily round')),
+      ]));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Plumber: daily round'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('print-hi-plumber_daily')), findsOneWidget);
+      expect(find.byKey(const ValueKey('print-en-plumber_daily')), findsOneWidget);
+      expect(find.text('Print in Hindi (हिंदी)'), findsOneWidget);
+    });
+
     testWidgets('add is disabled until one is picked, and a round already added cannot be picked', (tester) async {
       await tester.pumpWidget(_sheet([
         StandardChecklistEntity.fromJson(_json('plumber_daily', 'plumbing', 'Plumber: daily round')),

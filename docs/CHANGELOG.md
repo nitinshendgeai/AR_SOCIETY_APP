@@ -4,6 +4,15 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-22
+
+### feat: print the ready-made plumber / electrician checklists in Hindi
+
+- Operations → Checklist Templates → library icon → expand a round → **Print in Hindi** or **Print in English**: a one-page
+  blank sheet. `GET /staff/checklist-templates/standard/{society_id}/{code}/sheet?lang=hi|en` (manager and above).
+- Hindi is drawn with HarfBuzz text shaping and the bundled Noto Sans Devanagari so conjuncts and vowel signs are correct
+  (the English sheet engine cannot shape Devanagari). Only the three standard rounds have Hindi wording.
+
 ## 2026-10-21
 
 ### feat: ready-made daily checklists for plumber and electrician

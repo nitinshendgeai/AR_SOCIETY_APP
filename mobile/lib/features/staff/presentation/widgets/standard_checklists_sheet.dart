@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
+import 'package:ar_society_app/features/staff/presentation/widgets/duty_sheet_actions.dart';
 
 String _department(String value) => value.isEmpty ? value : value[0].toUpperCase() + value.substring(1);
 
@@ -49,6 +51,12 @@ class _StandardChecklistsSheetState extends ConsumerState<StandardChecklistsShee
       }
     }
   }
+
+  Future<void> _print(StandardChecklistEntity c, String lang) => deliverSheet(
+        context,
+        ref.read(staffRepositoryProvider).standardSheetPdf(widget.societyId, c.code, lang),
+        '${c.code.replaceAll('_', '-')}-$lang.pdf',
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -97,6 +105,23 @@ class _StandardChecklistsSheetState extends ConsumerState<StandardChecklistsShee
                     style: const TextStyle(fontSize: 12),
                   ),
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                      child: Wrap(spacing: 8, children: [
+                        OutlinedButton.icon(
+                          key: ValueKey('print-hi-${c.code}'),
+                          icon: const Icon(Icons.print_outlined, size: 18),
+                          label: const Text('Print in Hindi (हिंदी)'),
+                          onPressed: () => _print(c, 'hi'),
+                        ),
+                        OutlinedButton.icon(
+                          key: ValueKey('print-en-${c.code}'),
+                          icon: const Icon(Icons.print_outlined, size: 18),
+                          label: const Text('Print in English'),
+                          onPressed: () => _print(c, 'en'),
+                        ),
+                      ]),
+                    ),
                     for (final i in c.items)
                       ListTile(
                         dense: true,
