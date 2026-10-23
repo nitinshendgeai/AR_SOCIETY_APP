@@ -1,7 +1,7 @@
 from typing import List
 from uuid import UUID
 from typing import Optional
-from fastapi import APIRouter, Depends, Request, Query
+from fastapi import APIRouter, Depends, File, Form, Request, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -16,7 +16,7 @@ from app.modules.inventory.schemas.inventory import (
     IssueCreate, IssueOut, ReturnCreate,
     AssetCreate, AssetUpdate, AssetOut, AssetAssignRequest,
     MaintenanceCreate, MaintenanceCompleteRequest, MaintenanceOut,
-    AMCCreate, AMCOut, AssetSummaryOut, AssetHistoryOut,
+    AMCCreate, AMCOut, AssetSummaryOut, AssetHistoryOut, AssetImportOut,
 )
 from app.modules.inventory.services.inventory_service import InventoryService
 
@@ -126,6 +126,34 @@ def list_issues(society_id: UUID, skip: int = Query(0, ge=0), limit: int = Query
 def create_asset(data: AssetCreate, request: Request, db: Session = Depends(get_db),
                  user: User = Depends(admin_or_committee)):
     return InventoryService(db).create_asset(data, user, request)
+
+@router.get("/assets/import-template", dependencies=[Depends(admin_or_committee)])
+def asset_import_template():
+    """A CSV with every column the asset import understands, and two example rows."""
+    from fastapi.responses import Response
+    from app.modules.inventory.services.asset_import import template_csv
+    return Response(content=template_csv().encode("utf-8-sig"), media_type="text/csv",
+                    headers={"Content-Disposition": 'attachment; filename="assets_import_template.csv"'})
+
+@router.post("/assets/import/{society_id}", response_model=AssetImportOut)
+async def import_assets(society_id: UUID, request: Request, file: UploadFile = File(...),
+                        dry_run: bool = Form(True), mapping: Optional[str] = Form(None),
+                        db: Session = Depends(get_db), user: User = Depends(admin_or_committee)):
+    """Add assets from an Excel (.xlsx) or CSV register. `dry_run=true` (the default) only checks the file and says
+    what would be imported; send `dry_run=false` to add them. Columns are matched by their headings; `mapping` is an
+    optional JSON object {heading: field or null} that overrides the match for a column."""
+    import json
+    from fastapi import HTTPException
+    from app.modules.inventory.services.asset_import import MAX_BYTES
+    chosen = None
+    if mapping:
+        try:
+            chosen = json.loads(mapping)
+            assert isinstance(chosen, dict)
+        except Exception:
+            raise HTTPException(status_code=422, detail="mapping must be a JSON object of heading to field")
+    data = await file.read(MAX_BYTES + 1)
+    return InventoryService(db).import_assets(society_id, data, file.filename or "", chosen, dry_run, user, request)
 
 @router.get("/assets/summary/{society_id}", response_model=AssetSummaryOut,
             dependencies=[Depends(any_auth)])

@@ -31,3 +31,13 @@ AMC Added → AssetAMC with start/end dates
 ## Auto-codes
 - Inventory items: `INV-00001`, `INV-00002`
 - Assets: `AST-0001`, `AST-0002`
+
+## Importing the asset register (Excel / CSV)
+
+`POST /inventory/assets/import/{society_id}` takes an `.xlsx` or `.csv` upload (max 5 MB, 5000 rows). `dry_run=true` (the
+default) checks every row and saves nothing; `dry_run=false` adds the good rows. Parsing lives in
+`modules/inventory/services/asset_import.py`: headings are matched to fields by name (`FIELDS`), a column can be
+overridden with `mapping` (`{heading: field|null}`), dates are read day first, categories and statuses are matched by
+keyword (unknown category becomes Other with a note). A blank asset code is numbered `AST-nnnn` skipping codes in use or
+in the file; a code or serial number already registered is skipped as a duplicate. `GET /inventory/assets/import-template`
+returns a CSV with every column. Each created asset gets a REGISTERED usage log ("Imported from <file>") and one audit entry.
