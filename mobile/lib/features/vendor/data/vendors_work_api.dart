@@ -47,6 +47,14 @@ class VendorRecord {
   final String status;
   final String? gstNumber;
   final String? panNumber;
+  final String? constitution;
+  final String? constitutionLabel;
+  final String? tdsSection;
+  final String? tdsSectionLabel;
+  final String? tdsLowerRate;
+  final String? tdsLowerCertNo;
+  final String? tdsLowerValidFrom;
+  final String? tdsLowerValidTo;
   final String? bankAccount;
   final String? bankName;
   final String? bankIfsc;
@@ -67,6 +75,14 @@ class VendorRecord {
         status = j['status'] as String,
         gstNumber = j['gst_number'] as String?,
         panNumber = j['pan_number'] as String?,
+        constitution = j['constitution'] as String?,
+        constitutionLabel = j['constitution_label'] as String?,
+        tdsSection = j['tds_section'] as String?,
+        tdsSectionLabel = j['tds_section_label'] as String?,
+        tdsLowerRate = j['tds_lower_rate']?.toString(),
+        tdsLowerCertNo = j['tds_lower_cert_no'] as String?,
+        tdsLowerValidFrom = j['tds_lower_valid_from'] as String?,
+        tdsLowerValidTo = j['tds_lower_valid_to'] as String?,
         bankAccount = j['bank_account'] as String?,
         bankName = j['bank_name'] as String?,
         bankIfsc = j['bank_ifsc'] as String?,
@@ -84,6 +100,65 @@ class VendorRecord {
         'under_review' => 'Under review',
         _ => status,
       };
+}
+
+/// The vendor types and TDS sections the vendor form offers, and the usual section for each kind of vendor.
+class TdsOptions {
+  final List<(String, String)> constitutions; // (value, label)
+  final List<(String, String)> sections;
+  final Map<String, String?> categoryDefaultSection;
+  const TdsOptions({this.constitutions = const [], this.sections = const [], this.categoryDefaultSection = const {}});
+
+  factory TdsOptions.fromJson(Map<String, dynamic> j) => TdsOptions(
+        constitutions: [
+          for (final c in (j['constitutions'] as List? ?? const []))
+            ((c as Map<String, dynamic>)['value'] as String, c['label'] as String),
+        ],
+        sections: [
+          for (final s in (j['sections'] as List? ?? const []))
+            ((s as Map<String, dynamic>)['value'] as String, s['label'] as String),
+        ],
+        categoryDefaultSection: {
+          for (final e in ((j['category_default_section'] as Map<String, dynamic>?) ?? const {}).entries)
+            e.key: e.value as String?,
+        },
+      );
+}
+
+/// What paying a bill would carry: the TDS worked out from the vendor's type and section, and what the vendor receives.
+class PaymentTdsPreview {
+  final bool applies;
+  final String amount;
+  final String taxableValue;
+  final String tdsBase;
+  final String tdsAmount;
+  final String netPayable;
+  final String rate;
+  final String? sectionLabel;
+  final String note;
+  const PaymentTdsPreview({
+    required this.applies,
+    required this.amount,
+    required this.taxableValue,
+    required this.tdsBase,
+    required this.tdsAmount,
+    required this.netPayable,
+    required this.rate,
+    this.sectionLabel,
+    this.note = '',
+  });
+
+  factory PaymentTdsPreview.fromJson(Map<String, dynamic> j) => PaymentTdsPreview(
+        applies: j['applies'] as bool? ?? false,
+        amount: j['amount']?.toString() ?? '0',
+        taxableValue: j['taxable_value']?.toString() ?? '0',
+        tdsBase: j['tds_base']?.toString() ?? '0',
+        tdsAmount: j['tds_amount']?.toString() ?? '0',
+        netPayable: j['net_payable']?.toString() ?? '0',
+        rate: j['rate']?.toString() ?? '0',
+        sectionLabel: j['section_label'] as String?,
+        note: j['note'] as String? ?? '',
+      );
 }
 
 class Quotation {
@@ -398,6 +473,16 @@ class VendorsWorkApi {
   Future<List<VendorRecord>> vendors(String societyId) async {
     final r = await _dio.get('/vendors/society/$societyId', queryParameters: {'limit': 500});
     return [for (final v in r.data as List) VendorRecord.fromJson(v as Map<String, dynamic>)];
+  }
+
+  Future<TdsOptions> tdsOptions() async =>
+      TdsOptions.fromJson((await _dio.get('/vendors/tds/options')).data as Map<String, dynamic>);
+
+  /// The TDS a payment of [amount] on [paidDate] would carry (nothing is saved).
+  Future<PaymentTdsPreview> paymentPreview(String invoiceId, double amount, DateTime paidDate) async {
+    final r = await _dio.get('/vendors/invoices/$invoiceId/payment-preview',
+        queryParameters: {'amount': amount.toStringAsFixed(2), 'paid_date': _iso(paidDate)});
+    return PaymentTdsPreview.fromJson(r.data as Map<String, dynamic>);
   }
 
   Future<VendorRecord> createVendor(Map<String, dynamic> body) async =>

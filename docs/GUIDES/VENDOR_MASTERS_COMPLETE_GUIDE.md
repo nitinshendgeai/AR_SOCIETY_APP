@@ -36,6 +36,23 @@ Name, category, mobile, contact person, email, address, city, pincode, GSTIN, PA
 The name and GSTIN must be unique in the society; GSTIN, PAN and IFSC are checked and upper-cased. The vendor gets a
 code (VND-0001).
 
+### TDS: the vendor's type and section
+
+Set these when the vendor first sends a bill, in the **TDS** part of the form. The rate we deduct comes from them.
+
+| Field | What to choose |
+|---|---|
+| **Type of vendor** | Individual / Proprietorship (self business), HUF, Partnership firm, LLP / LLC, Private Limited, Public Limited, AOP / BOI, Co-operative society, Trust, Government, Other. Left unset, no TDS is deducted from that vendor. |
+| **Usually paid under** | Contract or work (194C: security, housekeeping, repairs, AMC), professional fees (194J: CA, architect, lawyer), technical services (194J), rent (194I), commission (194H). It starts from the vendor's kind of work and can be changed. |
+| **PAN** | Must match the type: the 4th letter is P for an individual, H for a HUF, F for a firm or LLP, C for a company. A mismatch is refused, because the rate depends on it. No PAN means 20%. |
+| **Lower-deduction certificate** | Optional: rate (0 to 30%), certificate number and the dates it is valid. Used only while valid. |
+
+Starting rates (a society can correct them; confirm with your chartered accountant): **194C** 1% for individual / HUF, 2%
+for others, nothing until a payment passes ₹30,000 or the year's total passes ₹1,00,000; **194J** 10% professional, 2%
+technical, above ₹50,000 in the year; **194I** 2% machinery, 10% property, above ₹6,00,000 in the year; **194H** 2% above
+₹20,000. The year is April to March. Once a vendor crosses the yearly limit, TDS is taken on everything paid so far that
+was not taxed. TDS is on the bill's value **without GST**, rounded to the rupee.
+
 - **Edit:** tap the vendor. Status: Active, Inactive, Under review.
 - **Blacklist:** the block icon; a reason is required. A blacklisted vendor can't quote or be given work. Setting the
   status back to Active clears the blacklisting.
@@ -100,6 +117,12 @@ Pay from **Vendor Bills**. What can be paid depends on the stage:
 | Completed, retention held | Bills less the retention (e.g. 10% of ₹61,000 = ₹6,100 held) |
 | Retention released | Everything billed |
 
+When you record a payment, the app shows the **TDS to deduct** and **what the vendor receives** before you save. The
+entry is posted for you: Dr Sundry creditors (the bill, settled), Cr Bank (what the vendor receives), Cr TDS payable (what
+the society owes the government until it is deposited). Every deduction, with its deposit due date (the 7th of the next
+month; 30 April for March), is listed by the server's TDS register (`GET /vendors/tds/register/{society}`); there is no
+screen for it yet.
+
 The work order shows **Billed**, **Paid**, **Retention held … until …** and **Can be paid now**.
 
 ### Step 7 — Certify completion (committee)
@@ -150,8 +173,12 @@ Society of 12 flats → committee limit and tender limit ₹25,000; 3 quotations
 
 ## 6. Not covered by the app yet
 
-- **TDS on contractor payments** (Income-tax Act s.194C — a co-operative society deducts 1% / 2% above ₹30,000 per
-  payment or ₹1,00,000 in a year): deduct and record it outside the app for now.
+- **Depositing the TDS and the quarterly return** (challan, Form 26Q): the app calculates and posts the deduction and lists
+  it with its due date, but does not record the deposit or file the return. Pay the challan and clear **TDS payable** with
+  a payment voucher.
+- **TDS on bills booked with TDS already taken** (an older way of entering): left as it was, and not deducted again at payment.
+- **Editing the TDS rates** from a screen: the rules can be changed through the server (`PATCH /vendors/tds/rules/{id}`, admin or
+  committee); there is no screen for it yet.
 - **Two signatories** on payments: follow your bank mandate.
 - **Contract expiry reminders** by notification: the Contracts tab shows contracts ending within 60 days, but no
   reminder is sent.

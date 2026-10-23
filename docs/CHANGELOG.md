@@ -4,6 +4,41 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-23
+
+### feat: import the asset register from Excel or CSV
+
+- Assets page → upload icon. Pick an `.xlsx` or `.csv`; every column is read, the ones matching an asset field are
+  imported (by their headings, in any order, a title row above is fine) and the rest are shown as not imported. A column
+  can be pointed at another field. Every row is checked first and nothing is saved until Import.
+- Asset code blank = numbered automatically; an asset whose code or serial number exists is skipped, so importing the same
+  file twice is safe; bad rows are left out and listed with the reason. Unknown categories import as Other.
+- `POST /inventory/assets/import/{society_id}` (multipart; `dry_run`, optional `mapping`), `GET /inventory/assets/import-template`.
+  Manager and above. New dependency: `openpyxl` (reads .xlsx).
+
+### feat: a visitor at the gate now rings the resident's phone
+
+- **Before:** a visitor push made the phone's ordinary notification chime; with the app open nothing showed or sounded
+  until the 15-second refresh.
+- **Now:** Android gets a ring-style notification channel (double ring, vibration, shown on the lock screen) for the
+  visitor push. With the app open it rings and shows a "Visitor at Gate" alert with Review / Later. Android 13+
+  notification permission is now declared in the manifest. See `docs/PUSH_NOTIFICATIONS.md`.
+
+### feat: vendor type and TDS deducted automatically when a vendor is paid
+
+- **Vendor master:** type of vendor (individual / proprietor, HUF, partnership firm, LLP, private or public company, AOP,
+  trust, co-operative society, government), the usual TDS section (194C contract, 194J professional or technical, 194I rent,
+  194H commission, started from the kind of work), and an optional lower-deduction certificate. The PAN's 4th letter must match the type.
+- **At payment:** the TDS is worked out from the type, section and PAN (no PAN: 20%), applying the single-payment and
+  yearly limits (crossing the yearly limit taxes everything not yet taxed), on the bill's value without GST. The payment form
+  shows the TDS and what the vendor receives first. It is posted: Dr creditors, Cr bank, Cr TDS payable. Reversing the payment
+  reverses it.
+- Rates and limits are data per society (`accounting_tax_configurations`, filled with starting values on first use): confirm
+  with the society's chartered accountant. Vendors with no type set are paid in full as before; bills that already carry TDS
+  from booking are not deducted again.
+- `GET /vendors/tds/options`, `GET /vendors/invoices/{id}/payment-preview`, `GET|PATCH /vendors/tds/rules`, `GET /vendors/tds/register/{society}`.
+  Migration `c5f9d3b7e2a8` (additive).
+
 ## 2026-10-22
 
 ### feat: print the ready-made plumber / electrician checklists in Hindi

@@ -792,6 +792,16 @@ details>div p{color:var(--fg)}
   </ol>
   <p>The app works out the <b>next service due</b> from the interval. Each asset shows <span class="pill g">Service on schedule</span>, <span class="pill a">Service in 12 days</span> or <span class="pill r">Overdue by 7 days</span>, and the top of the page counts assets, services due, warranties ending and the value at cost. Use <b>Needs service</b> to see only what is due.</p>
 
+  <h3>Import the asset register from Excel or CSV</h3>
+  <ol class="steps">
+    <li><div>On the Assets page press the <b>upload</b> icon (<span class="path">Import from Excel / CSV</span>). You can <span class="btn">Download Template</span> to see every column, or use your own register as it is.</div></li>
+    <li><div>Press <span class="btn">Choose Excel or CSV File</span> and pick an <b>.xlsx</b> or <b>.csv</b> file. Columns are found by their headings (Asset Name, Category, Location, Purchase Date, Cost, Serial No…) in any order, and a title above the headings is fine.</div></li>
+    <li><div>Every column is read. Open <b>Columns</b> to see which ones will be imported; the rest say <i>Not imported</i>, and you can point any column at a different field.</div></li>
+    <li><div>Check the list: <span class="pill g">ready</span> rows will be added, <span class="pill a">already registered</span> rows are skipped (same asset code or serial number), and rows that <span class="pill r">need fixing</span> say why. Nothing is saved yet.</div></li>
+    <li><div>Press <span class="btn">Import</span>. Only the name is needed; a blank asset code is numbered automatically (AST-0001…). Importing the same file twice does not duplicate anything.</div></li>
+  </ol>
+  <p>A category the app does not recognise is imported as <b>Other</b>. Dates are read day first (12/03/2021). Old <b>.xls</b> files must be saved as .xlsx or .csv first. Up to 5000 rows and 5 MB per file.</p>
+
   <h3>Log a service</h3>
   <ol class="steps">
     <li><div>Open the asset and press <span class="btn">Log a service</span>.</div></li>

@@ -31,6 +31,10 @@ logger = logging.getLogger(__name__)
 FCM_SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
 # FCM answers these for a token that will never work again.
 DEAD_TOKEN_ERRORS = {"UNREGISTERED", "NOT_FOUND"}
+# The Android notification channel an urgent push (a visitor at the gate) goes to. The app creates it, with a
+# ring-style sound, at start-up (MainActivity.kt); Android reads sound and importance from the channel, not from
+# the message. A test keeps this name and the one in MainActivity.kt the same.
+URGENT_CHANNEL_ID = "visitor_alerts"
 
 
 class PushService:
@@ -69,10 +73,14 @@ class PushService:
 
     @classmethod
     def send_to_user(cls, db: Session, user_id: UUID, title: str, body: str,
-                     route: Optional[str] = None, data: Optional[Dict[str, str]] = None) -> int:
+                     route: Optional[str] = None, data: Optional[Dict[str, str]] = None,
+                     urgent: bool = False) -> int:
         """Push to every active device of `user_id`. `route` is the app
-        screen a tap opens (e.g. "/visitors/pending"). Returns how many
-        devices it was sent to. Never raises."""
+        screen a tap opens (e.g. "/visitors/pending"). `urgent` is for
+        someone waiting right now (a visitor at the gate): on Android it uses
+        the ring-style channel at top priority, and the app, if open, shows
+        an alert and rings instead of waiting for the user to notice.
+        Returns how many devices it was sent to. Never raises."""
         try:
             if not cls.enabled():
                 return 0
@@ -83,7 +91,9 @@ class PushService:
             payload = {k: str(v) for k, v in (data or {}).items() if v is not None}
             if route:
                 payload["route"] = route
-            messages = [cls._message(t, title, body, route, payload) for t in tokens]
+            if urgent:
+                payload["urgent"] = "1"
+            messages = [cls._message(t, title, body, route, payload, urgent) for t in tokens]
             if cls.run_in_background:
                 threading.Thread(target=cls._deliver, args=(messages,), daemon=True).start()
             else:
@@ -94,12 +104,17 @@ class PushService:
             return 0
 
     @staticmethod
-    def _message(token: str, title: str, body: str, route: Optional[str], data: Dict[str, str]) -> dict:
+    def _message(token: str, title: str, body: str, route: Optional[str], data: Dict[str, str],
+                 urgent: bool = False) -> dict:
+        android_notification = {"sound": "default"}
+        if urgent:
+            android_notification = {"channel_id": URGENT_CHANNEL_ID, "notification_priority": "PRIORITY_MAX",
+                                    "visibility": "PUBLIC", "default_vibrate_timings": True}
         message = {
             "token": token,
             "notification": {"title": title, "body": body},
             "data": data,
-            "android": {"priority": "high", "notification": {"sound": "default"}},
+            "android": {"priority": "high", "notification": android_notification},
         }
         if route:
             # Web: the notification opens the app on that screen.

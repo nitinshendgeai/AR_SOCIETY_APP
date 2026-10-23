@@ -207,6 +207,7 @@ class VisitorService:
                 module="visitor", entity_id=str(visitor.id),
                 action_url="/visitors/pending",   # the resident's approvals screen
                 push=True,
+                urgent=True,   # somebody is standing at the gate: ring, don't just chime
             )
 
         self.db.commit()
