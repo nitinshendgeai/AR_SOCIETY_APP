@@ -8,6 +8,7 @@ import 'package:ar_society_app/features/accounts/data/accounts_api.dart';
 import 'package:ar_society_app/features/accounts/data/registers_api.dart';
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
 import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart';
+import 'package:ar_society_app/features/accounts/presentation/widgets/voucher_hotkeys.dart';
 import 'package:ar_society_app/features/accounts/presentation/widgets/register_widgets.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
@@ -37,7 +38,7 @@ class _CashBankBookScreenState extends ConsumerState<CashBankBookScreen> {
     final all = ref.watch(cashBankBookProvider((societyId: societyId, from: from, to: to, accountId: null)));
     final desktop = isDesktopLayout(context);
 
-    return AppPage(
+    return VoucherHotkeys(child: AppPage(
       title: 'Cash & Bank Book',
       subtitle: 'Every receipt and payment, with who entered it',
       actions: [
@@ -118,7 +119,7 @@ class _CashBankBookScreenState extends ConsumerState<CashBankBookScreen> {
           ],
         ),
       ),
-    );
+    ));
   }
 }
 

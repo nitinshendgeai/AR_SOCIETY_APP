@@ -7,6 +7,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart';
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
 import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart';
+import 'package:ar_society_app/features/accounts/presentation/widgets/voucher_hotkeys.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
@@ -75,7 +76,7 @@ class _LedgerStatementScreenState extends ConsumerState<LedgerStatementScreen> {
     final account = async.valueOrNull?.account;
     final title = widget.title ?? account?.name ?? 'Ledger';
 
-    return AppPage(
+    return VoucherHotkeys(child: AppPage(
       title: title,
       actions: [
         PdfActions(
@@ -187,7 +188,7 @@ class _LedgerStatementScreenState extends ConsumerState<LedgerStatementScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 

@@ -47,5 +47,5 @@ vouchers with `can_approve`; `POST /accounts/vouchers/{id}/approve` and `/reject
 ## Entering vouchers fast (computer)
 
 Add Expense and New Voucher work from the keyboard: type to find a ledger, head or flat, **Enter** to take it and move on,
-**Ctrl+S** to save, **Ctrl+Enter** to save and start the next voucher, **Alt+L** to add a line. See the help guide
+**Ctrl+S** to save, **Ctrl+Enter** to save and start the next voucher, **Alt+L** to add a line, **F4 / F5 / F6 / F7** for Contra / Payment / Receipt / Journal, and **Alt+C** (or Enter when nothing matches) to create a ledger from inside a voucher. See the help guide
 ("Entering many vouchers: the keyboard").
