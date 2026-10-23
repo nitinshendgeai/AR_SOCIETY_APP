@@ -22,6 +22,7 @@ from app.modules.vendor.models.vendor import (
     ServiceRequestStatus, ServiceRequestPriority,
 )
 from app.modules.vendor.services.vendor_service import VendorService_
+from app.modules.vendor.services.vendor_tds import SECTION_LABELS, constitution_label
 from app.schemas.common import OrmBase
 
 router = APIRouter(prefix="/vendors", tags=["Vendor & AMC Management"])
@@ -45,6 +46,14 @@ def _vendor_out(v) -> dict:
         "status": v.status.value,
         "gst_number": v.gst_number,
         "pan_number": v.pan_number,
+        "constitution": v.constitution,
+        "constitution_label": constitution_label(v.constitution),
+        "tds_section": v.tds_section,
+        "tds_section_label": SECTION_LABELS.get(v.tds_section or ""),
+        "tds_lower_rate": str(v.tds_lower_rate) if v.tds_lower_rate is not None else None,
+        "tds_lower_cert_no": v.tds_lower_cert_no,
+        "tds_lower_valid_from": v.tds_lower_valid_from.isoformat() if v.tds_lower_valid_from else None,
+        "tds_lower_valid_to": v.tds_lower_valid_to.isoformat() if v.tds_lower_valid_to else None,
         "bank_account": v.bank_account,
         "bank_name": v.bank_name,
         "bank_ifsc": v.bank_ifsc,
@@ -124,6 +133,11 @@ def _invoice_out(i) -> dict:
             "transaction_ref": p.transaction_ref,
             "bank_name": p.bank_name,
             "remarks": p.remarks,
+            "tds_amount": str(p.tds_amount if p.tds_amount is not None else Decimal("0.00")),
+            "tds_rate": str(p.tds_rate if p.tds_rate is not None else Decimal("0")),
+            "tds_section": p.tds_section,
+            "tds_note": p.tds_note,
+            "net_paid": str(p.amount - (p.tds_amount if p.tds_amount is not None else Decimal("0"))),
             "is_reversed": p.is_reversed,
             "reversed_at": p.reversed_at.isoformat() if p.reversed_at else None,
             "reversal_reason": p.reversal_reason,
@@ -183,6 +197,10 @@ class VendorCreate(OrmBase):
     gst_number: Optional[str] = None; pan_number: Optional[str] = None
     bank_account: Optional[str] = None; bank_name: Optional[str] = None
     bank_ifsc: Optional[str] = None; notes: Optional[str] = None
+    constitution: Optional[str] = None; tds_section: Optional[str] = None
+    tds_lower_rate: Optional[Decimal] = Field(default=None, ge=0, le=30, max_digits=7, decimal_places=4)
+    tds_lower_cert_no: Optional[str] = None
+    tds_lower_valid_from: Optional[date] = None; tds_lower_valid_to: Optional[date] = None
 
     _company = field_validator("company_name", mode="before")(val.line_max(255, required=True))
     _pin = field_validator("pincode", mode="before")(_pincode)
@@ -197,6 +215,7 @@ class VendorCreate(OrmBase):
     _bank = field_validator("bank_name", mode="before")(val.line_max(100))
     _ifsc = field_validator("bank_ifsc", mode="before")(_upper_match(_IFSC, "Enter a valid IFSC, e.g. HDFC0001234"))
     _notes = field_validator("notes", mode="before")(val.note_max(2000))
+    _cert = field_validator("tds_lower_cert_no", mode="before")(val.line_max(50))
 
 class VendorUpdate(OrmBase):
     company_name: Optional[str] = Field(default=None, max_length=255); mobile: Optional[str] = None
@@ -207,6 +226,10 @@ class VendorUpdate(OrmBase):
     gst_number: Optional[str] = None; pan_number: Optional[str] = None
     bank_account: Optional[str] = None; bank_name: Optional[str] = None
     bank_ifsc: Optional[str] = None; notes: Optional[str] = None
+    constitution: Optional[str] = None; tds_section: Optional[str] = None
+    tds_lower_rate: Optional[Decimal] = Field(default=None, ge=0, le=30, max_digits=7, decimal_places=4)
+    tds_lower_cert_no: Optional[str] = None
+    tds_lower_valid_from: Optional[date] = None; tds_lower_valid_to: Optional[date] = None
 
     _company = field_validator("company_name", mode="before")(val.line_max(255))
     _mobile = field_validator("mobile", mode="before")(val.mobile_any)
@@ -222,6 +245,7 @@ class VendorUpdate(OrmBase):
     _notes = field_validator("notes", mode="before")(val.note_max(2000))
 
     _pin = field_validator("pincode", mode="before")(_pincode)
+    _cert = field_validator("tds_lower_cert_no", mode="before")(val.line_max(50))
 
     @field_validator("status")
     @classmethod
@@ -515,6 +539,93 @@ def create_vendor(data: VendorCreate, request: Request, db: Session = Depends(ge
                   user: User = Depends(get_current_user)):
     return VendorService_(db).create_vendor(data.model_dump(), user, request)
 
+# ── TDS: the vendor types and sections, the society's rules, and what has been deducted ──────────────────────
+@router.get("/tds/options", dependencies=[Depends(manager_above)])
+def tds_options():
+    """Vendor types and TDS sections for the vendor form, and the usual section for each kind of vendor."""
+    from app.modules.vendor.services import vendor_tds
+    return vendor_tds.options()
+
+
+@router.get("/tds/rules/{society_id}")
+def tds_rules(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(manager_above)):
+    """The society's TDS rates and limits (filled in with starting values the first time)."""
+    from app.modules.accounts.models.taxes import TaxConfiguration
+    from app.modules.vendor.services import vendor_tds
+    assert_society_access(user, society_id)
+    vendor_tds.ensure_default_rules(db, society_id)
+    db.commit()
+    rows = db.query(TaxConfiguration).filter(
+        TaxConfiguration.society_id == society_id, TaxConfiguration.tax_type == "TDS").order_by(
+        TaxConfiguration.section_code, TaxConfiguration.payee_class, TaxConfiguration.effective_from.desc()).all()
+    return [{
+        "id": str(r.id), "code": r.code, "name": r.name, "section": r.section_code, "payee_class": r.payee_class,
+        "rate": str(r.rate), "yearly_limit": str(r.threshold_amount) if r.threshold_amount is not None else None,
+        "single_limit": str(r.single_threshold) if r.single_threshold is not None else None,
+        "effective_from": r.effective_from.isoformat(),
+        "effective_to": r.effective_to.isoformat() if r.effective_to else None,
+        "is_active": r.is_active, "notes": r.notes,
+    } for r in rows]
+
+
+class TdsRuleUpdate(OrmBase):
+    rate: Optional[Decimal] = Field(default=None, ge=0, le=100, max_digits=7, decimal_places=4)
+    yearly_limit: Optional[Decimal] = Field(default=None, ge=0, **dict(max_digits=14, decimal_places=2))
+    single_limit: Optional[Decimal] = Field(default=None, ge=0, **dict(max_digits=14, decimal_places=2))
+    is_active: Optional[bool] = None
+
+
+@router.patch("/tds/rules/{rule_id}", dependencies=[Depends(admin_committee)])
+def update_tds_rule(rule_id: UUID, data: TdsRuleUpdate, db: Session = Depends(get_db),
+                    user: User = Depends(get_current_user)):
+    """Correct a rate or limit (the law changes, or the chartered accountant says otherwise)."""
+    from app.modules.accounts.models.taxes import TaxConfiguration
+    r = db.query(TaxConfiguration).filter(TaxConfiguration.id == rule_id, TaxConfiguration.tax_type == "TDS").first()
+    if not r:
+        raise HTTPException(404, "TDS rule not found")
+    assert_society_access(user, r.society_id)
+    changes = data.model_dump(exclude_unset=True)
+    if "rate" in changes and changes["rate"] is not None:
+        r.rate = changes["rate"]
+    if "yearly_limit" in changes:
+        r.threshold_amount = changes["yearly_limit"]
+    if "single_limit" in changes:
+        r.single_threshold = changes["single_limit"]
+    if "is_active" in changes and changes["is_active"] is not None:
+        r.is_active = changes["is_active"]
+    db.commit()
+    return {"id": str(r.id), "code": r.code, "rate": str(r.rate)}
+
+
+@router.get("/tds/register/{society_id}")
+def tds_register(society_id: UUID, from_date: Optional[date] = None, to_date: Optional[date] = None,
+                 db: Session = Depends(get_db), user: User = Depends(manager_above)):
+    """TDS deducted on vendor payments, with the date each is due to be deposited, for the quarterly return."""
+    from app.modules.vendor.models.vendor import VendorPaymentTransaction, Vendor
+    assert_society_access(user, society_id)
+    q = db.query(VendorPaymentTransaction).join(Vendor, Vendor.id == VendorPaymentTransaction.vendor_id).filter(
+        VendorPaymentTransaction.society_id == society_id, VendorPaymentTransaction.tds_amount > 0,
+        VendorPaymentTransaction.is_reversed == False)  # noqa: E712
+    if from_date:
+        q = q.filter(VendorPaymentTransaction.payment_date >= from_date)
+    if to_date:
+        q = q.filter(VendorPaymentTransaction.payment_date <= to_date)
+    rows, total = [], Decimal("0")
+    for p in q.order_by(VendorPaymentTransaction.payment_date, VendorPaymentTransaction.created_at).all():
+        d = p.payment_date
+        due = date(d.year, 4, 30) if d.month == 3 else date(d.year + (d.month == 12), d.month % 12 + 1, 7)
+        total += p.tds_amount
+        rows.append({
+            "payment_number": p.payment_number, "payment_date": d.isoformat(), "vendor": p.vendor.company_name,
+            "pan": p.vendor.pan_number, "constitution": constitution_label(p.vendor.constitution),
+            "section": p.tds_section, "section_label": SECTION_LABELS.get(p.tds_section or ""),
+            "amount_settled": str(p.amount), "tds_base": str(p.tds_base_amount), "rate": str(p.tds_rate),
+            "tds_amount": str(p.tds_amount), "net_paid": str(p.amount - p.tds_amount),
+            "deposit_due": due.isoformat(), "note": p.tds_note,
+        })
+    return {"rows": rows, "total_tds": str(total)}
+
+
 @router.get("/{vendor_id}")
 def get_vendor(vendor_id: UUID, db: Session = Depends(get_db), user: User = Depends(manager_above)):
     return _vendor_out(VendorService_(db).get_vendor(vendor_id, user))
@@ -652,6 +763,13 @@ def create_invoice(data: VendorInvoiceCreate, db: Session = Depends(get_db),
 @router.get("/invoices/{inv_id}")
 def get_invoice(inv_id: UUID, db: Session = Depends(get_db), user: User = Depends(manager_above)):
     return _invoice_out(VendorService_(db).get_vendor_invoice(inv_id, user))
+
+@router.get("/invoices/{inv_id}/payment-preview")
+def payment_preview(inv_id: UUID, amount: Decimal = Query(..., gt=0, max_digits=12, decimal_places=2),
+                    paid_date: date = Query(default_factory=date.today),
+                    db: Session = Depends(get_db), user: User = Depends(manager_above)):
+    """The TDS a payment would carry, from the vendor's type and section, so it is shown before it is made."""
+    return VendorService_(db).payment_preview(inv_id, amount, paid_date, user)
 
 @router.post("/invoices/{inv_id}/payments", dependencies=[Depends(manager_above)])
 def record_payment(inv_id: UUID, data: RecordPaymentRequest, db: Session = Depends(get_db),

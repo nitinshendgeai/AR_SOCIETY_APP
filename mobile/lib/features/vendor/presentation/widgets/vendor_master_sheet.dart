@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
-import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show formatInr, formatAccountsDate;
+import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show apiDate, formatInr, formatAccountsDate;
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart' show vendorPaymentsProvider;
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/features/vendor/data/vendors_work_api.dart';
 import 'package:ar_society_app/features/vendor/presentation/providers/vendor_providers.dart' show vendorsProvider;
 import 'package:ar_society_app/features/vendor/presentation/providers/vendors_work_providers.dart';
+import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_widgets.dart' show DateField;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
 
@@ -37,12 +38,18 @@ class _VendorSheetState extends ConsumerState<VendorSheet> {
   late final _bank = TextEditingController(text: e?.bankName);
   late final _ifsc = TextEditingController(text: e?.bankIfsc);
   late final _notes = TextEditingController(text: e?.notes);
+  late final _lowerRate = TextEditingController(text: e?.tdsLowerRate);
+  late final _lowerCert = TextEditingController(text: e?.tdsLowerCertNo);
+  late DateTime? _lowerFrom = e?.tdsLowerValidFrom == null ? null : DateTime.tryParse(e!.tdsLowerValidFrom!);
+  late DateTime? _lowerTo = e?.tdsLowerValidTo == null ? null : DateTime.tryParse(e!.tdsLowerValidTo!);
   late String _category = e?.category ?? 'other';
   late String _status = e?.status ?? 'active';
+  late String? _constitution = e?.constitution;
+  late String? _tdsSection = e?.tdsSection;
   bool _saving = false;
 
   List<TextEditingController> get _all =>
-      [_name, _person, _mobile, _email, _address, _city, _pin, _gst, _pan, _account, _bank, _ifsc, _notes];
+      [_name, _person, _mobile, _email, _address, _city, _pin, _gst, _pan, _account, _bank, _ifsc, _notes, _lowerRate, _lowerCert];
 
   @override
   void dispose() {
@@ -71,6 +78,13 @@ class _VendorSheetState extends ConsumerState<VendorSheet> {
       'bank_name': _t(_bank),
       'bank_ifsc': _t(_ifsc),
       'notes': _t(_notes),
+      // What kind of vendor this is decides the TDS rate taken when it is paid; null clears it.
+      'constitution': _constitution,
+      'tds_section': _constitution == null ? null : _tdsSection,
+      'tds_lower_rate': _constitution == null ? null : _t(_lowerRate),
+      'tds_lower_cert_no': _constitution == null ? null : _t(_lowerCert),
+      'tds_lower_valid_from': _constitution == null || _lowerFrom == null ? null : apiDate(_lowerFrom!),
+      'tds_lower_valid_to': _constitution == null || _lowerTo == null ? null : apiDate(_lowerTo!),
     };
     final api = ref.read(vendorsWorkApiProvider);
     try {
@@ -115,6 +129,75 @@ class _VendorSheetState extends ConsumerState<VendorSheet> {
         child: Text(title,
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.primary)),
       );
+
+  /// The vendor's type and TDS section. The rate we deduct when paying comes from these (and the PAN).
+  Widget _tdsSectionUi() {
+    final options = ref.watch(tdsOptionsProvider);
+    return options.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (o) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        _section('TDS (tax deducted when you pay this vendor)'),
+        FormFieldBox(
+          label: 'Type of vendor',
+          child: DropdownButtonFormField<String?>(
+            key: const Key('vendor-constitution'),
+            initialValue: _constitution,
+            isExpanded: true,
+            decoration: const InputDecoration(),
+            items: [
+              const DropdownMenuItem<String?>(value: null, child: Text('Not set: no TDS will be deducted')),
+              for (final c in o.constitutions) DropdownMenuItem<String?>(value: c.$1, child: Text(c.$2)),
+            ],
+            onChanged: (v) => setState(() {
+              _constitution = v;
+              if (v != null) _tdsSection ??= o.categoryDefaultSection[_category];
+            }),
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_constitution != null) ...[
+          FormFieldBox(
+            label: 'Usually paid under',
+            child: DropdownButtonFormField<String?>(
+              key: const Key('vendor-tds-section'),
+              initialValue: _tdsSection,
+              isExpanded: true,
+              decoration: const InputDecoration(),
+              items: [
+                const DropdownMenuItem<String?>(value: null, child: Text('No TDS on this vendor')),
+                for (final s in o.sections) DropdownMenuItem<String?>(value: s.$1, child: Text(s.$2, overflow: TextOverflow.ellipsis)),
+              ],
+              onChanged: (v) => setState(() => _tdsSection = v),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'TDS is worked out when you record a payment, from this type, the section and the PAN above (no PAN means 20%). '
+            'The PAN must match the type: P individual, H HUF, F firm or LLP, C company.',
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+          ),
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            title: const Text('Lower-deduction certificate (optional)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            childrenPadding: const EdgeInsets.only(bottom: 8),
+            children: [
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(child: _field(_lowerRate, 'Rate % (0 to 30)', max: 7, keyboard: const TextInputType.numberWithOptions(decimal: true))),
+                const SizedBox(width: 12),
+                Expanded(child: _field(_lowerCert, 'Certificate no.', max: 50)),
+              ]),
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(child: FormFieldBox(label: 'Valid from', child: DateField(label: '', value: _lowerFrom, onChanged: (d) => setState(() => _lowerFrom = d)))),
+                const SizedBox(width: 12),
+                Expanded(child: FormFieldBox(label: 'Valid to', child: DateField(label: '', value: _lowerTo, onChanged: (d) => setState(() => _lowerTo = d)))),
+              ]),
+            ],
+          ),
+        ],
+      ]),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -190,6 +273,7 @@ class _VendorSheetState extends ConsumerState<VendorSheet> {
             const SizedBox(width: 12),
             Expanded(child: _field(_ifsc, 'IFSC', max: 11, caps: upper)),
           ]),
+          _tdsSectionUi(),
           _field(_notes, 'Notes (anything to remember about this vendor)', max: 2000),
           if (e != null) _PaidToVendor(societyId: widget.societyId, vendorId: e!.id),
           ElevatedButton(

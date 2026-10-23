@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/material.dart';
@@ -6,8 +8,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show formatInr;
+import 'package:ar_society_app/features/vendor/data/vendors_work_api.dart' show PaymentTdsPreview;
 import 'package:ar_society_app/features/vendor/domain/entities/vendor_entities.dart';
 import 'package:ar_society_app/features/vendor/presentation/providers/vendor_providers.dart';
+import 'package:ar_society_app/features/vendor/presentation/providers/vendors_work_providers.dart' show vendorsWorkApiProvider;
+import 'package:ar_society_app/features/vendor/presentation/widgets/payment_tds_card.dart';
 import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_widgets.dart' show DateField;
 import 'package:ar_society_app/features/vendor/presentation/widgets/vendor_picker.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
@@ -518,11 +524,43 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
   String _mode = kVendorPaymentModes.first.$1;
   DateTime _paidDate = DateTime.now();
   bool _saving = false;
+  PaymentTdsPreview? _preview;
+  bool _previewing = false;
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
     _amountCtrl = TextEditingController(text: widget.invoice.outstanding);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshPreview());
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  /// The TDS this payment would carry, checked as the amount or date changes. Nothing is saved.
+  void _refreshPreview() {
+    _debounce?.cancel();
+    final amount = double.tryParse(_amountCtrl.text);
+    if (amount == null || amount <= 0) {
+      setState(() => _preview = null);
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 350), () async {
+      if (!mounted) return;
+      setState(() => _previewing = true);
+      try {
+        final p = await ref.read(vendorsWorkApiProvider).paymentPreview(widget.invoice.id, amount, _paidDate);
+        if (mounted) setState(() => _preview = p);
+      } catch (_) {
+        if (mounted) setState(() => _preview = null);     // the payment itself still works; only the preview is missing
+      } finally {
+        if (mounted) setState(() => _previewing = false);
+      }
+    });
   }
 
   Future<void> _pickDate() async {
@@ -530,7 +568,10 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
       context: context, initialDate: _paidDate,
       firstDate: widget.invoice.invoiceDate, lastDate: DateTime.now(),
     );
-    if (picked != null) setState(() => _paidDate = picked);
+    if (picked != null) {
+      setState(() => _paidDate = picked);
+      _refreshPreview();
+    }
   }
 
   Future<void> _save() async {
@@ -548,7 +589,8 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
       invalidateBooks(ref);
       if (mounted) {
         Navigator.pop(context);
-        AppToast.success(context, 'Payment recorded');
+        final tds = _preview?.applies == true ? ' · TDS ${formatInr(double.tryParse(_preview!.tdsAmount) ?? 0)} deducted' : '';
+        AppToast.success(context, 'Payment recorded$tds');
       }
     } catch (e) {
       if (mounted) showErrorToast(context, e);
@@ -572,6 +614,7 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,10}(\.\d{0,2})?'))],
               decoration: const InputDecoration(prefixText: '₹'),
+              onChanged: (_) => _refreshPreview(),
               validator: (v) {
                 final n = double.tryParse(v ?? '');
                 if (n == null || n <= 0) return 'Enter a valid amount';
@@ -580,6 +623,7 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
                 return null;
               },
             )),
+            PaymentTdsCard(preview: _preview, loading: _previewing),
             const SizedBox(height: 14),
             FormFieldBox(label: 'Paid On', child: FormDateField(
               value: _paidDate,

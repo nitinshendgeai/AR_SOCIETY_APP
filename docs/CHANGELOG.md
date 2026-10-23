@@ -4,6 +4,23 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-23 (ii)
+
+### feat: vendor type and TDS deducted automatically when a vendor is paid
+
+- **Vendor master:** type of vendor (individual / proprietor, HUF, partnership firm, LLP, private or public company, AOP,
+  trust, co-operative society, government), the usual TDS section (194C contract, 194J professional or technical, 194I rent,
+  194H commission, started from the kind of work), and an optional lower-deduction certificate. The PAN's 4th letter must match the type.
+- **At payment:** the TDS is worked out from the type, section and PAN (no PAN: 20%), applying the single-payment and
+  yearly limits (crossing the yearly limit taxes everything not yet taxed), on the bill's value without GST. The payment form
+  shows the TDS and what the vendor receives first. It is posted: Dr creditors, Cr bank, Cr TDS payable. Reversing the payment
+  reverses it.
+- Rates and limits are data per society (`accounting_tax_configurations`, filled with starting values on first use): confirm
+  with the society's chartered accountant. Vendors with no type set are paid in full as before; bills that already carry TDS
+  from booking are not deducted again.
+- `GET /vendors/tds/options`, `GET /vendors/invoices/{id}/payment-preview`, `GET|PATCH /vendors/tds/rules`, `GET /vendors/tds/register/{society}`.
+  Migration `c5f9d3b7e2a8` (additive).
+
 ## 2026-10-22
 
 ### feat: print the ready-made plumber / electrician checklists in Hindi
