@@ -6,6 +6,14 @@ Format: `[YYYY-MM-DD] type: description`
 
 ## 2026-10-24
 
+### feat: Gateway of Accounts, a keyboard menu for the whole of the books
+
+- **Alt+G** from the Accounts page, Day Book, Cash & Bank Book or a ledger (or the **Gateway** button on the Accounts page on a
+  computer) opens one menu with Vouchers, Books, Reports, and Ledgers and masters. **Up / Down** move (and wrap), **Enter**
+  opens, **a letter** opens that line directly, **Esc** goes back. F4-F7 work on it too. The year and the cash and bank balances
+  are at the top; Approvals shows how many are waiting. The reports open on the current financial year.
+- Frontend only; the existing screens are unchanged.
+
 ### feat: Tally-style keys for vouchers: F4-F7, and creating a ledger while entering
 
 - **F4 Contra, F5 Payment, F6 Receipt, F7 Journal** open a new voucher from the Accounts page, Day Book, Cash & Bank Book
