@@ -5,6 +5,7 @@ Workflow:
   Create FinancialPeriod → Create BillingCycle → Generate Bills per flat
   → Issue Bills → Record Payment → Update DueTracker → Generate Receipt
 """
+import json
 import re
 from datetime import datetime, date
 from decimal import Decimal
@@ -471,6 +472,7 @@ class BillingService:
                 subtotal=draft.subtotal, tax_amount=draft.tax,
                 total_amount=draft.total, outstanding=draft.total,
                 previous_dues=draft.previous_dues,
+                interest_working=json.dumps(draft.interest_working) if draft.interest_working else None,
             )
             self.db.add(bill)
             self.db.flush()
@@ -749,13 +751,13 @@ class BillingService:
             MaintenanceBill.bill_status.in_(RESIDENT_VISIBLE_BILL_STATUSES),
         ).order_by(MaintenanceBill.bill_date.desc()).all()
 
-    def generate_bill_pdf(self, bill_id: UUID) -> bytes:
+    def generate_bill_pdf(self, bill_id: UUID, with_receipts: bool = True) -> bytes:
         bill = self.get_bill(bill_id)
         return generate_maintenance_bill_pdf(bill, self.get_maintenance_settings(bill.society_id),
-                                             **self._bill_print_context(bill))
+                                             **self._bill_print_context(bill, with_receipts=with_receipts))
 
     def generate_cycle_bills_pdf(self, cycle_id: UUID, wing_id: Optional[UUID] = None,
-                                 status: Optional[str] = None) -> tuple:
+                                 status: Optional[str] = None, with_receipts: bool = True) -> tuple:
         """Every bill of a cycle in one PDF, a bill to a page (more where a bill runs on), flat by flat in wing
         order — what a society prints and hands round. Cancelled bills are left out unless asked for with `status`.
         Returns (pdf bytes, number of bills)."""
@@ -777,7 +779,7 @@ class BillingService:
                                   _flat_sort_key(b.flat.flat_number if b.flat else "")))
         settings = self.get_maintenance_settings(cycle.society_id)
         heads = self._element_heads(cycle.society_id)
-        items = [{"bill": b, "settings": settings, **self._bill_print_context(b, heads)} for b in bills]
+        items = [{"bill": b, "settings": settings, **self._bill_print_context(b, heads, with_receipts)} for b in bills]
         society = bills[0].society
         author = (society.name if society else None) or "Society"
         return generate_bills_pdf(items, title=f"Maintenance bills — {cycle.name}", author=author), len(bills)
@@ -792,11 +794,12 @@ class BillingService:
         )
         return {name: code for name, code in rows}
 
-    def _bill_print_context(self, bill: MaintenanceBill, heads: Optional[dict] = None) -> dict:
+    def _bill_print_context(self, bill: MaintenanceBill, heads: Optional[dict] = None,
+                            with_receipts: bool = True) -> dict:
         """What the printed bill needs beyond the bill itself: which standard
         element each charge head came from (decides the bill head it's shown
         under), the unpaid interest inside the arrears, and the flat's
-        previous bill (its receipts are listed at the foot)."""
+        previous bill (its receipts are listed at the foot, unless `with_receipts` is off)."""
         if heads is None:
             heads = self._element_heads(bill.society_id)
         earlier = (
@@ -818,7 +821,7 @@ class BillingService:
         return {
             "element_codes": heads,
             "accumulated_interest": interest,
-            "previous_bill": earlier[0] if earlier else None,
+            "previous_bill": earlier[0] if earlier and with_receipts else None,
         }
 
     def get_overdue_bills(self, society_id: UUID) -> List[MaintenanceBill]:

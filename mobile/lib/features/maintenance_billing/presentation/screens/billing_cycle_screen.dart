@@ -28,6 +28,7 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
   _BillFilter _filter = _BillFilter.all;
   String _search = '';
   bool _busy = false;
+  bool _withReceipts = true; // print each bill with the receipts towards the previous one
 
   void _refresh() => invalidateCycle(ref, widget.societyId, widget.cycleId);
 
@@ -117,13 +118,22 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
       title: cycle?.name ?? 'Billing Cycle',
       actions: [
           // Print or share every bill of the cycle as one PDF, flat by flat.
-          if (cycle != null && cycle.isFinalized)
+          if (cycle != null && cycle.isFinalized) ...[
+            IconButton(
+              key: const Key('bill-receipts-toggle'),
+              tooltip: _withReceipts
+                  ? 'Printing with the previous bill\'s receipts (tap to leave them out)'
+                  : 'Printing without the previous bill\'s receipts (tap to include them)',
+              icon: Icon(_withReceipts ? Icons.receipt_long_rounded : Icons.receipt_long_outlined),
+              onPressed: () => setState(() => _withReceipts = !_withReceipts),
+            ),
             PdfActions(
-              load: () => ref.read(maintenanceBillingApiProvider).cycleBillsPdf(widget.cycleId),
+              load: () => ref.read(maintenanceBillingApiProvider).cycleBillsPdf(widget.cycleId, withReceipts: _withReceipts),
               fileName: 'Bills-${cycle.name.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')}.pdf',
               subject: 'Maintenance bills — ${cycle.name}',
               downloadLabel: 'Print all bills',
             ),
+          ],
           IconButton(icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh', onPressed: _refresh),
           if (desktop && action != null)
             HeaderActionButton(icon: action.$2, label: action.$1, onPressed: _busy ? null : action.$3),

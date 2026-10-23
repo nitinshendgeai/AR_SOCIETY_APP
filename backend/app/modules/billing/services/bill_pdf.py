@@ -24,6 +24,7 @@ bye-laws 65-67, arrears and interest on arrears shown on the bill):
 
 Amounts print as "Rs." — the standard PDF fonts have no rupee glyph.
 """
+import json
 from datetime import date
 from decimal import Decimal
 from io import BytesIO
@@ -504,6 +505,9 @@ def bill_story(
     ]))
     story.append(t)
     story.append(Spacer(1, 5 * mm))
+    working = _interest_working_table(bill, width)
+    if working is not None:
+        story += [working, Spacer(1, 5 * mm)]
 
     # ── Notes ──
     notes: List[str] = []
@@ -565,6 +569,43 @@ def bill_story(
     story.append(KeepTogether(block))
 
     return story
+
+
+def _interest_working_table(bill: MaintenanceBill, width) -> Optional[Table]:
+    """'Interest working': for each earlier bill the interest was charged on, the unpaid amount, the days it ran and the
+    rate, so a member can check the Interest line. Nothing for a bill with no interest or made before this was kept."""
+    try:
+        rows_in = json.loads(bill.interest_working) if bill.interest_working else []
+    except ValueError:
+        rows_in = []
+    if not rows_in:
+        return None
+
+    def day(iso):
+        return date.fromisoformat(iso).strftime("%d-%b-%y")
+
+    head = ["Bill No.", "Unpaid (Rs.)", "From", "To", "Days", "Rate % p.a.", "Interest (Rs.)"]
+    rows = [[_p("Interest working", "cell_cb")] + [""] * 6, [_p(h, "rc_b") for h in head]]
+    total = ZERO
+    for r in rows_in:
+        total += Decimal(r["interest"])
+        rows.append([_p(r["bill"], "rc"), _p(_inr(Decimal(r["principal"])), "rc_r"), _p(day(r["from"]), "rc"),
+                     _p(day(r["to"]), "rc"), _p(str(r["days"]), "rc_r"), _p(r["rate"], "rc_r"),
+                     _p(_inr(Decimal(r["interest"])), "rc_r")])
+    rows.append([_p("Total interest", "rc_b")] + [""] * 5 + [_p(_inr(total), "rc_r")])
+    widths = [30 * mm, 26 * mm, 22 * mm, 22 * mm, 14 * mm, 22 * mm]
+    widths.append(width - sum(widths))
+    last = len(rows) - 1
+    t = Table(rows, colWidths=widths)
+    t.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 0.8, RULE), ("INNERGRID", (0, 1), (-1, -1), 0.6, RULE),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.6, RULE), ("SPAN", (0, 0), (-1, 0)), ("SPAN", (0, last), (5, last)),
+        ("BACKGROUND", (0, last), (-1, last), BAND),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3), ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]))
+    return t
 
 
 def _receipts_table(prev: MaintenanceBill, width) -> Table:

@@ -33,6 +33,7 @@ class MaintenanceBillDetailScreen extends ConsumerStatefulWidget {
 
 class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDetailScreen> {
   bool _busy = false;
+  bool _withReceipts = true; // print with the receipts towards the previous bill
 
   void _refresh(MaintenanceBill bill) {
     ref.invalidate(maintenanceBillProvider(widget.billId));
@@ -55,7 +56,7 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
 
   /// Share or download the bill's PDF.
   Future<void> _pdf(MaintenanceBill bill, {required bool share}) => _sharePdf(
-        () => ref.read(maintenanceBillingApiProvider).billPdf(bill.id),
+        () => ref.read(maintenanceBillingApiProvider).billPdf(bill.id, withReceipts: _withReceipts),
         fileName: '${bill.invoiceNumber}.pdf',
         subject: 'Maintenance Bill ${bill.invoiceNumber}',
         share: share,
@@ -144,6 +145,14 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
       title: billAsync.valueOrNull?.invoiceNumber ?? 'Bill',
       actions: [
           if (billAsync.valueOrNull != null) ...[
+            IconButton(
+              key: const Key('bill-receipts-toggle'),
+              tooltip: _withReceipts
+                  ? 'Printing with the previous bill\'s receipts (tap to leave them out)'
+                  : 'Printing without the previous bill\'s receipts (tap to include them)',
+              icon: Icon(_withReceipts ? Icons.receipt_long_rounded : Icons.receipt_long_outlined),
+              onPressed: () => setState(() => _withReceipts = !_withReceipts),
+            ),
             IconButton(
               tooltip: 'Download PDF',
               icon: const Icon(Icons.download_rounded),

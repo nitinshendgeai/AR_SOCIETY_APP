@@ -324,6 +324,9 @@ class MaintenanceBill(Base, TimestampMixin):
     # Interest on this bill's unpaid balance has been billed (on later
     # bills) up to this date, so the next bill only charges the new days.
     arrears_interest_upto = Column(Date, nullable=True)
+    # How the interest on this bill was worked out, per earlier bill (JSON list), for the printed bill. Empty on bills
+    # made before this existed or with no interest.
+    interest_working = Column(Text, nullable=True)
     # The days this bill charges for. Normally the cycle's own period; longer for a flat billed from its possession
     # date or from its last bill (catch-up), shorter for a flat that took possession during the cycle. Empty on bills
     # made before this existed: the cycle's period then.
