@@ -4,6 +4,17 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-24
+
+### feat: Tally-style keys for vouchers: F4-F7, and creating a ledger while entering
+
+- **F4 Contra, F5 Payment, F6 Receipt, F7 Journal** open a new voucher from the Accounts page, Day Book, Cash & Bank Book
+  and ledger statements, and switch the kind on the voucher form (not on a voucher being corrected). The key is shown beside
+  each kind in the New voucher list. In a browser F5 would reload the page; these screens use it for Payment.
+- **Create a ledger from the voucher:** type a name that is not in the list; "Nothing matches" now says to press Enter or
+  Alt+C, which asks only for the group (income groups first for a receipt, expense for a payment) and brings the new ledger
+  back into the line. On a phone the picker sheet offers "Create ledger ...". Cash and bank accounts still go through Chart of Accounts.
+
 ## 2026-10-23
 
 ### feat: import the asset register from Excel or CSV
