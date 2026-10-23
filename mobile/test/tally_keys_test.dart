@@ -159,8 +159,10 @@ void main() {
           home: Scaffold(
             body: Builder(
               builder: (context) => ElevatedButton(
-                onPressed: () async =>
-                    done?.call(await showQuickLedger(context, societyId: 'soc', name: 'Lift AMC', preferNature: nature)),
+                onPressed: () async {
+                  final made = await showQuickLedger(context, societyId: 'soc', name: 'Lift AMC', preferNature: nature);
+                  done?.call(made);
+                },
                 child: const Text('open'),
               ),
             ),
