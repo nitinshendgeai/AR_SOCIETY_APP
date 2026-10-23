@@ -27,9 +27,10 @@ from app.modules.accounts.services.documents_pdf import (
     render_day_book_pdf, render_ledger_pdf, render_members_ledger_pdf, render_voucher_pdf,
 )
 from app.modules.accounts.services.reports_pdf import render_report_pdf
+from app.modules.accounts.services.outstanding import OutstandingService
 from app.modules.accounts.services.registers import RegistersService
 from app.modules.accounts.services.registers_pdf import (
-    render_bills_register_pdf, render_cash_bank_pdf, render_invoice_register_pdf,
+    render_bills_register_pdf, render_cash_bank_pdf, render_invoice_register_pdf, render_outstanding_pdf,
 )
 from app.modules.billing.services.bill_pdf import flat_label, member_name
 
@@ -376,6 +377,21 @@ def bills_register(society_id: UUID, date_from: Optional[date] = None, date_to: 
         return _pdf(render_bills_register_pdf(reg, _society(db, society_id)),
                     f"Bills-Register-{_span(date_from, date_to)}.pdf")
     return reg
+
+
+# ── Outstandings ──────────────────────────────────────────────────────────────
+
+@router.get("/outstanding/{society_id}")
+def outstanding(society_id: UUID, kind: str = Query("receivable", pattern="^(receivable|payable)$"),
+                format: str = Query("json", pattern="^(json|pdf)$"),
+                db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """What members owe the society (receivable) or the society owes vendors (payable), as on today, aged in days
+    past the due date: party by party with the bills behind each. ?format=pdf: the printed statement."""
+    assert_society_access(user, society_id)
+    rep = OutstandingService(db).report(society_id, kind)
+    if format == "pdf":
+        return _pdf(render_outstanding_pdf(rep, _society(db, society_id)), f"Outstanding-{kind}-{rep['as_of']}.pdf")
+    return rep
 
 
 # ── Members' ledger ───────────────────────────────────────────────────────────

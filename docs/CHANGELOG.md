@@ -6,6 +6,17 @@ Format: `[YYYY-MM-DD] type: description`
 
 ## 2026-10-24
 
+### feat: Outstanding Receivable and Payable, aged by days past the due date
+
+- Two new statements in the Accounts books (Gateway: **U** Outstanding Receivable, **W** Outstanding Payable): what members
+  owe the society, flat by flat, and what the society owes vendors, vendor by vendor. Each party shows its total in the
+  bands *not yet due / 1-30 / 31-60 / 61-90 / over 90 days* past the due date, the oldest due date and, when opened,
+  the bills behind it. A band chip narrows the list to the parties with something in that band; a PDF prints the statement.
+- Members' figures are the same as the defaulters list (maintenance dues, advances set off). Vendors' are the bills not yet
+  paid: bill total less TDS booked with the bill less payments. A bill with no due date is aged from its bill date.
+- `GET /accounts/outstanding/{society_id}?kind=receivable|payable[&format=pdf]`. Read-only; nothing is posted.
+- Tests: `tests/accounts/test_outstanding.py`, `test/outstanding_test.dart`.
+
 ### feat: Interest working on the bill, and print with or without the previous receipts
 
 - A bill that carries interest on arrears now shows an **Interest working** table: for each earlier bill the interest was

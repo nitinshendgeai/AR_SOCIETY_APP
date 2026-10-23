@@ -79,6 +79,7 @@ import 'package:ar_society_app/features/accounts/presentation/screens/ledger_sta
 import 'package:ar_society_app/features/accounts/presentation/screens/approvals_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/cash_bank_book_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/invoice_bill_registers_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/outstanding_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/members_ledger_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/expense_form_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/recurring_expenses_screen.dart';
@@ -204,6 +205,8 @@ class AppRoutes {
   static const accountsCashBook   = '/accounts/registers/cash-bank';
   static const accountsInvoices   = '/accounts/registers/invoices';
   static const accountsBills      = '/accounts/registers/bills';
+  static const accountsReceivable = '/accounts/outstanding/receivable';
+  static const accountsPayable    = '/accounts/outstanding/payable';
   static const accountsApprovals  = '/accounts/approvals';
   static const accountsVoucherNew = '/accounts/vouchers/new';
   static const accountsVoucherEdit = '/accounts/vouchers/:voucherId/edit';
@@ -849,6 +852,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             (AppRoutes.accountsCashBook, (_) => const CashBankBookScreen()),
             (AppRoutes.accountsInvoices, (_) => const InvoiceRegisterScreen()),
             (AppRoutes.accountsBills, (_) => const BillsRegisterScreen()),
+            (AppRoutes.accountsReceivable, (_) => const OutstandingScreen(initialKind: 'receivable')),
+            (AppRoutes.accountsPayable, (_) => const OutstandingScreen(initialKind: 'payable')),
             (AppRoutes.accountsApprovals, (_) => const ApprovalsScreen()),
             (AppRoutes.accountsVoucherNew, (s) {
               final type = s.uri.queryParameters['type'] ?? 'receipt';

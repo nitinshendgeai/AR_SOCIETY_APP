@@ -33,6 +33,10 @@ Each register can be filtered by period, printed or shared as a PDF, and names t
   due, status and who generated it. Filter by status; search by invoice number, flat or member.
 - **Bills Register** – the bills received from vendors: date, bill number, vendor, expense head, total, paid, still to
   pay, status and who entered it.
+- **Outstanding Receivable / Payable** – what members owe and what the society owes vendors, party by party, aged in days
+  past the due date (not yet due, 1-30, 31-60, 61-90, over 90) with the bills behind each; printable. Members' figures
+  match the defaulters list; vendors' are bills not yet paid (less TDS booked and payments). A bill without a due date
+  is aged from its bill date.
 - **Day Book** and **ledgers** show Entered by too (and Approved by where there is one).
 
 The registers only read what is already posted; they change nothing.
