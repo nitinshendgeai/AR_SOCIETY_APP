@@ -88,6 +88,7 @@ import 'package:ar_society_app/features/stores/presentation/screens/store_item_s
 import 'package:ar_society_app/features/stores/presentation/screens/stores_screen.dart';
 import 'package:ar_society_app/features/amenities/presentation/screens/amenity_detail_screen.dart';
 import 'package:ar_society_app/features/assets/presentation/screens/asset_detail_screen.dart';
+import 'package:ar_society_app/features/assets/presentation/screens/assets_import_screen.dart';
 import 'package:ar_society_app/features/assets/presentation/screens/assets_screen.dart';
 import 'package:ar_society_app/features/notices/presentation/screens/notice_detail_screen.dart';
 import 'package:ar_society_app/features/notices/presentation/screens/notices_screen.dart';
@@ -184,6 +185,7 @@ class AppRoutes {
   static const amenities          = '/amenities';
   static const amenityDetail      = '/amenities/:id';
   static const assets             = '/assets';
+  static const assetsImport       = '/assets/import';
   static const assetDetail        = '/assets/:id';
   static const workOrderDetail    = '/vendors/work-orders/:id';
   static const contractDetail     = '/vendors/contracts/:id';
@@ -810,6 +812,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           for (final (path, builder) in <(String, Widget Function(GoRouterState))>[
             (AppRoutes.assets, (_) => const AssetsScreen()),
+            (AppRoutes.assetsImport, (_) => const AssetsImportScreen()),
             (AppRoutes.assetDetail, (s) => AssetDetailScreen(key: ValueKey(s.pathParameters['id']), assetId: s.pathParameters['id']!)),
             (AppRoutes.vendorsWork, (_) => const VendorsWorkScreen()),
             (AppRoutes.workOrderDetail, (s) => WorkOrderDetailScreen(workOrderId: s.pathParameters['id']!)),

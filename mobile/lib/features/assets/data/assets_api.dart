@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -358,6 +361,92 @@ class AssetHistory {
 
 // ── API ──────────────────────────────────────────────────────────────────────
 
+// ── Importing the register from Excel / CSV ──────────────────────────────────
+
+/// One column of the file and the asset field it is read into (null: not imported).
+class AssetImportColumn {
+  final int index;
+  final String heading;
+  final String? field;
+  final String? fieldLabel;
+  final String? sample;
+  const AssetImportColumn({required this.index, required this.heading, this.field, this.fieldLabel, this.sample});
+
+  factory AssetImportColumn.fromJson(Map<String, dynamic> j) => AssetImportColumn(
+        index: (j['index'] as num).toInt(),
+        heading: j['heading'] as String? ?? '',
+        field: j['field'] as String?,
+        fieldLabel: j['field_label'] as String?,
+        sample: j['sample'] as String?,
+      );
+}
+
+class AssetImportRow {
+  final int line;
+  final String status; // ready | created | duplicate | error
+  final String? assetCode;
+  final String? name;
+  final String? category;
+  final String? message;
+  const AssetImportRow({required this.line, required this.status, this.assetCode, this.name, this.category, this.message});
+
+  factory AssetImportRow.fromJson(Map<String, dynamic> j) => AssetImportRow(
+        line: (j['line'] as num).toInt(),
+        status: j['status'] as String? ?? 'error',
+        assetCode: j['asset_code'] as String?,
+        name: j['name'] as String?,
+        category: j['category'] as String?,
+        message: j['message'] as String?,
+      );
+}
+
+class AssetImportResult {
+  final bool dryRun;
+  final String fileName;
+  final String sheet;
+  final int totalRows;
+  final List<AssetImportColumn> columns;
+  final List<(String, String)> fields; // (field, label): everything a column can be pointed at
+  final int ready;
+  final int created;
+  final int duplicates;
+  final int errors;
+  final String? message;
+  final List<AssetImportRow> rows;
+  const AssetImportResult({
+    required this.dryRun,
+    required this.fileName,
+    required this.sheet,
+    required this.totalRows,
+    required this.columns,
+    required this.fields,
+    this.ready = 0,
+    this.created = 0,
+    this.duplicates = 0,
+    this.errors = 0,
+    this.message,
+    this.rows = const [],
+  });
+
+  factory AssetImportResult.fromJson(Map<String, dynamic> j) => AssetImportResult(
+        dryRun: j['dry_run'] as bool? ?? true,
+        fileName: j['file_name'] as String? ?? '',
+        sheet: j['sheet'] as String? ?? '',
+        totalRows: (j['total_rows'] as num?)?.toInt() ?? 0,
+        columns: [for (final c in (j['columns'] as List? ?? const [])) AssetImportColumn.fromJson(c as Map<String, dynamic>)],
+        fields: [
+          for (final f in (j['fields'] as List? ?? const []))
+            ((f as Map<String, dynamic>)['field'] as String, f['label'] as String),
+        ],
+        ready: (j['ready'] as num?)?.toInt() ?? 0,
+        created: (j['created'] as num?)?.toInt() ?? 0,
+        duplicates: (j['duplicates'] as num?)?.toInt() ?? 0,
+        errors: (j['errors'] as num?)?.toInt() ?? 0,
+        message: j['message'] as String?,
+        rows: [for (final r in (j['rows'] as List? ?? const [])) AssetImportRow.fromJson(r as Map<String, dynamic>)],
+      );
+}
+
 class AssetsApi {
   final Dio _dio;
   AssetsApi({Dio? dio}) : _dio = dio ?? ApiClient.instance;
@@ -378,6 +467,34 @@ class AssetsApi {
 
   Future<AssetHistory> history(String assetId) async =>
       AssetHistory.fromJson((await _dio.get('/inventory/assets/$assetId/history')).data as Map<String, dynamic>);
+
+  /// Reads an Excel (.xlsx) or CSV register. With [dryRun] nothing is saved: every row is checked and the result
+  /// says what would happen. [mapping] ({column heading: field or null}) overrides the automatic column match.
+  Future<AssetImportResult> importFile(
+    String societyId,
+    Uint8List bytes,
+    String fileName, {
+    required bool dryRun,
+    Map<String, String?>? mapping,
+  }) async {
+    final res = await _dio.post(
+      '/inventory/assets/import/$societyId',
+      data: FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: fileName),
+        'dry_run': dryRun.toString(),
+        if (mapping != null) 'mapping': jsonEncode(mapping),
+      }),
+      options: Options(receiveTimeout: const Duration(minutes: 2), sendTimeout: const Duration(minutes: 2)),
+    );
+    return AssetImportResult.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  /// The CSV template with every importable column.
+  Future<Uint8List> importTemplate() async {
+    final res = await _dio.get<List<int>>('/inventory/assets/import-template',
+        options: Options(responseType: ResponseType.bytes));
+    return Uint8List.fromList(res.data!);
+  }
 
   Future<Asset> create(Map<String, dynamic> body) async =>
       Asset.fromJson((await _dio.post('/inventory/assets', data: body)).data as Map<String, dynamic>);
