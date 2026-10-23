@@ -68,6 +68,7 @@ import 'package:ar_society_app/features/vendor/presentation/screens/vendor_bills
 import 'package:ar_society_app/features/vendor/presentation/screens/vendors_work_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/work_order_detail_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/contract_detail_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/accounts_gateway_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/accounts_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/chart_of_accounts_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/day_book_screen.dart';
@@ -193,6 +194,7 @@ class AppRoutes {
   static const myBills            = '/billing/my-bills';
   static const maintenanceElements = '/billing/maintenance-elements';
   static const accounts           = '/accounts';
+  static const accountsGateway    = '/accounts/gateway';
   static const accountsChart      = '/accounts/chart';
   static const accountsDayBook    = '/accounts/day-book';
   static const accountsExpenseNew = '/accounts/expense/new';
@@ -840,6 +842,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               return ExpenseFormScreen(
                   initialAmount: (given['amount'] as num?)?.toDouble(), initialNote: given['note'] as String?);
             }),
+            (AppRoutes.accountsGateway, (_) => const AccountsGatewayScreen()),
             (AppRoutes.accountsExpenses, (_) => const ExpensesByElementScreen()),
             (AppRoutes.accountsRecurring, (_) => const RecurringExpensesScreen()),
             (AppRoutes.accountsMembers, (_) => const MembersLedgerScreen()),

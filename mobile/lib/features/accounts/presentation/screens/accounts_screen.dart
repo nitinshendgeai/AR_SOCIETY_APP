@@ -101,6 +101,12 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
       actions: [
         if (desktop) ...[
           TextButton.icon(
+            key: const Key('accounts-gateway'),
+            onPressed: () => context.push(AppRoutes.accountsGateway),
+            icon: const Icon(Icons.apps_rounded, size: 18),
+            label: const Text('Gateway (Alt+G)'),
+          ),
+          TextButton.icon(
             onPressed: () => chooseNewVoucher(context),
             icon: const Icon(Icons.edit_note_rounded, size: 18),
             label: const Text('New Voucher'),
