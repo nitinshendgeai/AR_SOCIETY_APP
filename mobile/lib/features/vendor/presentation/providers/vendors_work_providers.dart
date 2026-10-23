@@ -26,3 +26,6 @@ final contractsProvider = FutureProvider.autoDispose.family<List<AmcContract>, S
 final contractProvider = FutureProvider.autoDispose.family<AmcContract, String>(
   (ref, id) => ref.watch(vendorsWorkApiProvider).contract(id),
 );
+
+/// Vendor types and TDS sections for the vendor form.
+final tdsOptionsProvider = FutureProvider<TdsOptions>((ref) => ref.watch(vendorsWorkApiProvider).tdsOptions());

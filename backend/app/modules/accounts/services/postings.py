@@ -341,11 +341,19 @@ class AccountPostings:
         detail = payment.payment_mode.value.replace("_", " ").upper()
         if payment.transaction_ref:
             detail += f" {payment.transaction_ref}"
+        # The bill is settled in full (Dr creditors); the vendor gets it less the TDS we hold back, and the TDS is owed
+        # to the government (Cr TDS payable) until it is deposited.
+        tds = money(payment.tds_amount)
+        if tds < 0 or tds >= money(payment.amount):
+            raise ValueError("Invalid TDS amount on vendor payment")
+        lines = [Line(creditors, debit=money(payment.amount),
+                      vendor_id=payment.vendor_id, entity_account_id=ap.id),
+                 Line(self._cash_or_bank(sid, is_cash), credit=money(payment.amount) - tds)]
+        if tds > 0:
+            lines.append(Line(self.accounts.system_account(sid, "tds_payable"), credit=tds))
+            detail += f", TDS {tds} ({payment.tds_section})"
         return self._post(
-            sid, "payment", payment.payment_date,
-            [Line(creditors, debit=money(payment.amount),
-                  vendor_id=payment.vendor_id, entity_account_id=ap.id),
-             Line(self._cash_or_bank(sid, is_cash), credit=money(payment.amount))],
+            sid, "payment", payment.payment_date, lines,
             narration=f"Paid {vendor} against bill {inv.invoice_number} — {detail}",
             reference=payment.payment_number,
             source_type="vendor_payment", source_id=payment.id, user=user)

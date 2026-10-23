@@ -28,6 +28,10 @@ class TaxConfiguration(Base, TimestampMixin):
     section_code = Column(String(30), nullable=True)
     base_type = Column(String(30), nullable=True)
     threshold_amount = Column(Numeric(14, 2), nullable=True)
+    # TDS rules by who is paid: 'individual_huf', 'other' or 'any'; and the single-payment limit (threshold_amount
+    # is the limit for the financial year's total).
+    payee_class = Column(String(20), default="any", server_default="any", nullable=False)
+    single_threshold = Column(Numeric(14, 2), nullable=True)
     effective_from = Column(Date, nullable=False)
     effective_to = Column(Date, nullable=True)
     ledger_system_key = Column(String(50), nullable=True)

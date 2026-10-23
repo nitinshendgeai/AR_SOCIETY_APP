@@ -171,6 +171,17 @@ class Vendor(Base, TimestampMixin):
     # Finance readiness
     gst_number       = Column(String(20), nullable=True, index=True)
     pan_number       = Column(String(20), nullable=True)
+
+    # TDS: what kind of person or firm the vendor is decides the rate we deduct when we pay them (see
+    # services/vendor_tds.py). `tds_section` is the vendor's usual nature of payment (194C contract, 194J
+    # professional...); blank means no TDS. The lower-deduction fields hold a certificate under which a lower
+    # rate applies for a period.
+    constitution     = Column(String(30), nullable=True)
+    tds_section      = Column(String(30), nullable=True)
+    tds_lower_rate   = Column(Numeric(7, 4), nullable=True)
+    tds_lower_cert_no = Column(String(50), nullable=True)
+    tds_lower_valid_from = Column(Date, nullable=True)
+    tds_lower_valid_to   = Column(Date, nullable=True)
     bank_account     = Column(String(50), nullable=True)
     bank_name        = Column(String(100), nullable=True)
     bank_ifsc        = Column(String(20), nullable=True)
@@ -453,6 +464,14 @@ class VendorPaymentTransaction(Base, TimestampMixin):
     transaction_ref = Column(String(100), nullable=True, index=True)
     bank_name = Column(String(100), nullable=True)
     remarks = Column(Text, nullable=True)
+    # TDS deducted from this payment. `amount` is what is settled against the bill (what leaves the vendor's
+    # account); the vendor is paid `amount - tds_amount` and the rest is owed to the government.
+    taxable_value   = Column(Numeric(12, 2), default=0, nullable=False)   # the bill's value excluding GST, for this payment
+    tds_section     = Column(String(30), nullable=True)
+    tds_rate        = Column(Numeric(7, 4), default=0, nullable=False)
+    tds_base_amount = Column(Numeric(12, 2), default=0, nullable=False)   # the part of taxable_value TDS was charged on
+    tds_amount      = Column(Numeric(12, 2), default=0, nullable=False)
+    tds_note        = Column(String(255), nullable=True)                  # why: threshold, no PAN, lower-deduction certificate
     is_reversed = Column(Boolean, default=False, nullable=False, index=True)
     is_legacy = Column(Boolean, default=False, nullable=False, index=True)
     reversed_at = Column(DateTime, nullable=True)

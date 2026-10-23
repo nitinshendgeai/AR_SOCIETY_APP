@@ -91,6 +91,11 @@ class VendorService_:  # trailing underscore avoids clash with model name
                 Vendor.gst_number == data["gst_number"]).first()
             if same_gst:
                 raise HTTPException(409, f"GST number {data['gst_number']} already belongs to {same_gst.company_name}")
+        self._check_tds_setup(data)
+        if data.get("constitution") and not data.get("tds_section"):
+            from app.modules.vendor.services.vendor_tds import CATEGORY_DEFAULT_SECTION
+            cat = data["category"]
+            data["tds_section"] = CATEGORY_DEFAULT_SECTION.get(getattr(cat, "value", cat))
         code   = self.vendor_repo.next_vendor_code(society_id)
         vendor = Vendor(**data, vendor_code=code, registered_by=user.id)
         self.vendor_repo.create(vendor)
@@ -98,6 +103,26 @@ class VendorService_:  # trailing underscore avoids clash with model name
                     new_values={"code": code, "name": data["company_name"]})
         self.db.refresh(vendor)
         return vendor
+
+    @staticmethod
+    def _check_tds_setup(d: dict) -> None:
+        """The vendor's type, PAN and TDS section have to agree, because the rate we deduct comes from them."""
+        from app.modules.vendor.services import vendor_tds as t
+        constitution, section = d.get("constitution"), d.get("tds_section")
+        if constitution and constitution not in t.CONSTITUTION_VALUES:
+            raise HTTPException(422, "Choose the vendor's type from the list")
+        if section and section not in t.SECTION_VALUES:
+            raise HTTPException(422, "Choose the TDS section from the list")
+        if section and not constitution:
+            raise HTTPException(422, "Choose the vendor's type (individual, firm, company...): the TDS rate depends on it")
+        clash = t.pan_mismatch(d.get("pan_number"), constitution)
+        if clash:
+            raise HTTPException(422, clash)
+        lower, start, end = d.get("tds_lower_rate"), d.get("tds_lower_valid_from"), d.get("tds_lower_valid_to")
+        if lower is not None and not (0 <= Decimal(lower) <= 30):
+            raise HTTPException(422, "A lower-deduction rate must be between 0 and 30%")
+        if start and end and end < start:
+            raise HTTPException(422, "The certificate's valid-to date is before its valid-from date")
 
     def update_vendor(self, vendor_id: UUID, data: dict, user: User, request=None) -> Vendor:
         from app.modules.vendor.models.vendor import VendorStatus
@@ -114,6 +139,9 @@ class VendorService_:  # trailing underscore avoids clash with model name
                 Vendor.gst_number == data["gst_number"]).first()
             if same:
                 raise HTTPException(409, f"GST number {data['gst_number']} already belongs to {same.company_name}")
+        self._check_tds_setup({**{k: getattr(v, k) for k in (
+            "pan_number", "constitution", "tds_section", "tds_lower_rate", "tds_lower_valid_from",
+            "tds_lower_valid_to")}, **data})
         old = {k: getattr(v, k) for k in data}
         for k, val_ in data.items():
             setattr(v, k, val_)
@@ -483,6 +511,8 @@ class VendorService_:  # trailing underscore avoids clash with model name
             from app.modules.vendor.services.work_orders import WorkOrderService
             WorkOrderService(self.db).check_payment(inv, amount)
 
+        from app.modules.vendor.services.vendor_tds import compute_payment_tds
+        tds = compute_payment_tds(self.db, inv.vendor, inv, amount, paid_date)
         payment = VendorPaymentTransaction(
             society_id=inv.society_id,
             vendor_id=inv.vendor_id,
@@ -490,6 +520,12 @@ class VendorService_:  # trailing underscore avoids clash with model name
             payment_number="PENDING",
             payment_date=paid_date,
             amount=amount,
+            taxable_value=tds.taxable_value,
+            tds_section=tds.section if (tds.applies or tds.rule_code) else None,   # counts towards the year's total
+            tds_rate=tds.rate if tds.applies else 0,
+            tds_base_amount=tds.base,
+            tds_amount=tds.tds,
+            tds_note=tds.note[:255] or None,
             payment_mode=payment_mode,
             transaction_ref=transaction_ref,
             bank_name=bank_name,
@@ -515,11 +551,29 @@ class VendorService_:  # trailing underscore avoids clash with model name
                 "amount": str(amount),
                 "invoice": inv.invoice_number,
                 "payment_number": payment.payment_number,
+                "tds": str(tds.tds),
             },
         )
         self.db.commit()
         self.db.refresh(inv)
         return inv
+
+    def payment_preview(self, inv_id: UUID, amount: Decimal, paid_date: date, user: User) -> dict:
+        """What paying `amount` on `paid_date` would do: the TDS and what the vendor receives. Saves nothing."""
+        from app.modules.vendor.services.vendor_tds import compute_payment_tds
+        inv = self.db.query(VendorInvoice).filter(VendorInvoice.id == inv_id).first()
+        if not inv:
+            raise HTTPException(404, "Invoice not found")
+        self._scoped(user, inv, "Invoice")
+        amount = Decimal(amount)
+        r = compute_payment_tds(self.db, inv.vendor, inv, amount, paid_date)
+        self.db.commit()          # the society's starting TDS rules, if this was the first use
+        return {
+            "amount": str(amount), "taxable_value": str(r.taxable_value), "applies": r.applies,
+            "section": r.section, "section_label": r.section_label, "rate": str(r.rate),
+            "tds_base": str(r.base), "tds_amount": str(r.tds), "net_payable": str(amount - r.tds),
+            "note": r.note,
+        }
 
     def reverse_vendor_payment(self, payment_id: UUID, reason: str, user: User) -> VendorInvoice:
         payment = self.db.query(VendorPaymentTransaction).filter(
