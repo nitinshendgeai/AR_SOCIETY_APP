@@ -186,3 +186,42 @@ List<PhoneTab> phoneTabsFor(UserEntity user, Set<String> grantedFormCodes) {
   }
   return tabs;
 }
+
+/// The third crumb for a page opened from a menu entry (a register, a report, a voucher form), or null when the page
+/// is the entry itself or has no known name. Only pages whose name is known are named; nothing is guessed from the
+/// address.
+String? subPageLabel(String path) {
+  final q = path.indexOf('?');
+  var p = q < 0 ? path : path.substring(0, q);
+  if (p.length > 1 && p.endsWith('/')) p = p.substring(0, p.length - 1);
+  const exact = <String, String>{
+    AppRoutes.accountsDayBook: 'Day Book',
+    AppRoutes.accountsCashBook: 'Cash & Bank Book',
+    AppRoutes.accountsInvoices: 'Invoice Register',
+    AppRoutes.accountsBills: 'Bills Register',
+    AppRoutes.accountsRecurring: 'Monthly Expenses',
+    AppRoutes.accountsReceivable: 'Outstanding Receivable',
+    AppRoutes.accountsPayable: 'Outstanding Payable',
+    AppRoutes.accountsMembers: "Members' Ledger",
+    AppRoutes.accountsApprovals: 'Approvals',
+    AppRoutes.accountsChart: 'Chart of Accounts',
+    AppRoutes.accountsExpenses: 'Spend by Maintenance Element',
+    AppRoutes.accountsStatements: 'Financial Statements',
+    AppRoutes.accountsExpenseNew: 'New Expense',
+    AppRoutes.accountsVoucherNew: 'New Voucher',
+  };
+  final named = exact[p];
+  if (named != null) return named;
+  const reports = {
+    'trial-balance': 'Trial Balance',
+    'income-expenditure': 'Income & Expenditure',
+    'balance-sheet': 'Balance Sheet',
+    'receipts-payments': 'Receipts & Payments',
+    'funds': 'Schedule of Funds',
+  };
+  final report = RegExp('^${RegExp.escape(AppRoutes.accountsStatements)}/([a-z-]+)\$').firstMatch(p);
+  if (report != null) return reports[report.group(1)];
+  if (RegExp(r'^/accounts/ledger/[^/]+$').hasMatch(p)) return 'Ledger';
+  if (RegExp(r'^/accounts/vouchers/[^/]+/edit$').hasMatch(p)) return 'Edit Voucher';
+  return null;
+}

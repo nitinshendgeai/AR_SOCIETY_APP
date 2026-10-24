@@ -341,7 +341,7 @@ Run in this container with Flutter 3.47.5 (Dart 3.13.4) and Python venv from `ba
 | Command (from `mobile/`) | Before | After |
 |---|---|---|
 | `flutter analyze` | 0 errors, 0 warnings, 443 infos | 0 errors, 0 warnings, 443 infos |
-| `flutter test` | 409 passed | **434 passed, 0 failed, 0 skipped** (+25 new) |
+| `flutter test` | 409 passed | **436 passed, 0 failed, 0 skipped** (+27 new; 434 at the first push, +2 for breadcrumbs) |
 | `flutter build web --release` | not run | **succeeded** (`build/web`; tree-shaken icon font, existing wasm dry-run notice) |
 
 | Command (from `backend/`) | Result |
@@ -352,10 +352,10 @@ Not run: the full backend suite (1,300+ tests; no backend change), a browser/dev
 
 ## 13.9 Remaining defects and decisions needing owner approval
 
-1. **Dashboard drawer (phone) is still a separate renderer** of the same data (always-expanded groups, `context.push`). It now shows the new groups and order but not the collapsible behaviour; merging the three renderers was not done. OPEN (low risk, can be a follow-up).
+1. **Dashboard drawer (phone)** reads the same menu data and its groups are already collapsible by hand (`ExpansionTile`), but it starts fully open and uses `context.push`. Left as is: existing tests (`widget_test.dart`) require every permitted item to be present when it opens, and changing that would mean weakening them. Renderer code is still separate from the sidebar's.
 2. **Hindi/Marathi strings for the new group names are my translations**; the file already asks for a native reader's check.
 3. **Not checked in a browser or on a device:** sidebar scrolling/hover, safe areas and large text scale were exercised by widget tests only (collapse, scroll extent, semantics); no screenshots or production check.
-4. **Breadcrumbs** still show `Group › Item` only; deeper pages (a bill, a voucher) do not add a third crumb. OPEN (small).
+4. **Breadcrumbs:** pages opened from Accounts now add a third crumb (Day Book, Trial Balance, New Voucher, Ledger…) from a table of known pages (`subPageLabel`); other deep pages (a bill, a staff profile) still show `Group › Item`, because no name is guessed from the address.
 5. **Role-name route guards vs form codes (R1)** unchanged by decision D4.
 6. **Tenant gap (R3), resident directory (R12), Manager "Maintenance Dues" sum** unchanged by decision.
 7. **Per-endpoint action permissions** (Phase 4 detail) were not traced individually; enforcement stays with the existing backend dependencies, whose tests pass.

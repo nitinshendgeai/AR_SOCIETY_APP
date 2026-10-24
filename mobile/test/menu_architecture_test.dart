@@ -165,6 +165,21 @@ void main() {
     });
   });
 
+  group('breadcrumbs', () {
+    test('pages opened from Accounts are named; unknown pages are not guessed', () {
+      expect(subPageLabel('/accounts/day-book'), 'Day Book');
+      expect(subPageLabel('/accounts/registers/cash-bank'), 'Cash & Bank Book');
+      expect(subPageLabel('/accounts/statements/trial-balance?fy=2025-26'), 'Trial Balance');
+      expect(subPageLabel('/accounts/statements'), 'Financial Statements');
+      expect(subPageLabel('/accounts/vouchers/new?type=receipt'), 'New Voucher');
+      expect(subPageLabel('/accounts/ledger/abc'), 'Ledger');
+      expect(subPageLabel('/accounts/vouchers/v1/edit'), 'Edit Voucher');
+      expect(subPageLabel('/accounts/statements/unknown-report'), isNull);
+      expect(subPageLabel('/accounts'), isNull);
+      expect(subPageLabel('/residents/detail'), isNull);
+    });
+  });
+
   group('the sidebar', () {
     Future<GoRouter> boot(WidgetTester t, UserEntity user, Set<String> granted, {String start = '/admin'}) async {
       t.view.physicalSize = const Size(1400, 1000);
@@ -236,6 +251,15 @@ void main() {
       await boot(t, _user('Society Admin'), _admin, start: '/accounts/gateway');
       expect(selected(t, 'Gateway of Accounts'), isTrue);
       expect(selected(t, 'Accounts'), isFalse);
+    });
+
+    testWidgets('a page opened from Accounts adds a third crumb; the entry itself does not', (t) async {
+      final router = await boot(t, _user('Society Admin'), _admin, start: '/accounts');
+      expect(find.text('Day Book'), findsNothing);
+      router.go('/accounts/day-book');
+      await t.pumpAndSettle();
+      expect(find.text('Day Book'), findsOneWidget);                  // the crumb (the page is a stub)
+      expect(find.text('Accounts & Financial Reports'), findsWidgets);
     });
 
     testWidgets('a menu entry navigates to its route', (t) async {

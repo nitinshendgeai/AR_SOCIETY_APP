@@ -72,7 +72,7 @@ class AppShell extends ConsumerWidget {
         const VerticalDivider(width: 1),
         Expanded(
           child: Column(children: [
-            _TopBar(user: user, crumbs: [for (final c in _breadcrumbs(active)) context.tr(c)]),
+            _TopBar(user: user, crumbs: [for (final c in _breadcrumbs(active, location)) context.tr(c)]),
             const EmergencyBanner(),
             Expanded(
               child: Align(
@@ -138,8 +138,11 @@ class AppShell extends ConsumerWidget {
 
   static String _firstSegment(String path) => path.split('/').firstWhere((p) => p.isNotEmpty, orElse: () => '');
 
-  static List<String> _breadcrumbs((AppMenuCategory, AppMenuItem)? active) =>
-      active == null ? const ['Dashboard'] : [active.$1.label, active.$2.label];
+  static List<String> _breadcrumbs((AppMenuCategory, AppMenuItem)? active, String location) {
+    if (active == null) return const ['Dashboard'];
+    final sub = subPageLabel(location);
+    return [active.$1.label, active.$2.label, if (sub != null && sub != active.$2.label) sub];
+  }
 }
 
 /// On a phone every page brings its own app bar, and reaches the menu only through the dashboard's
