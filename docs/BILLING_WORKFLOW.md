@@ -62,6 +62,12 @@ page:
 `BillingService._bill_print_context` supplies each charge head's element,
 the unpaid interest inside the arrears and the flat's previous bill.
 
+**Rounding.** With *Round bills to the whole rupee* on (`maintenance_settings.round_to_rupee`), `MaintenanceCalculator` rounds
+each bill's subtotal + tax (interest on arrears included) to the nearest rupee, half up (`round_to_rupee()`), after the
+interest line is added. The difference is `FlatBillDraft.round_off`, saved as `maintenance_bills.round_off` and included in
+`total_amount`/`outstanding`; the printed bill shows it as "Round off". `AccountPostings.post_bill` already posts any
+difference between the bill total and its lines to the `round_off` (Rounding Off) ledger, so the voucher balances.
+
 Interest on arrears is simple interest at the society rate on the unpaid principal. A committee-approved `InterestWaiver` (no interest, or a lower rate, for a date range on one flat) is applied by `MaintenanceCalculator._rate_days`.
 
 ## Payment receipt (`GET /billing/receipts/{receipt_no}/pdf`)

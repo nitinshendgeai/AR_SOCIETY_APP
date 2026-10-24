@@ -249,6 +249,10 @@ class MaintenanceSettings(Base, TimestampMixin):
     # as approved straight away - for a society whose treasurer is also the admin and has no one else to approve.
     auto_approve_admin_expenses = Column(Boolean, default=False, server_default="false", nullable=False)
 
+    # On: each bill's amount is rounded to the nearest whole rupee (half a rupee up) and the difference, up to 50 paise
+    # either way, is shown on the bill as "Round off" and posted to the Rounding Off ledger. Off: bills run to the paisa.
+    round_to_rupee = Column(Boolean, default=False, server_default="false", nullable=False)
+
     society = relationship("Society")
 
 
@@ -327,6 +331,9 @@ class MaintenanceBill(Base, TimestampMixin):
     # How the interest on this bill was worked out, per earlier bill (JSON list), for the printed bill. Empty on bills
     # made before this existed or with no interest.
     interest_working = Column(Text, nullable=True)
+    # The rounding to a whole rupee that is inside total_amount (negative: rounded down). Nothing when the society
+    # does not round, or on bills made before this existed.
+    round_off       = Column(Numeric(12, 2), default=0, server_default="0", nullable=False)
     # The days this bill charges for. Normally the cycle's own period; longer for a flat billed from its possession
     # date or from its last bill (catch-up), shorter for a flat that took possession during the cycle. Empty on bills
     # made before this existed: the cycle's period then.

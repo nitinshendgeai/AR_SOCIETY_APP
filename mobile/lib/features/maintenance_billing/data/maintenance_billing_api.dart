@@ -210,6 +210,9 @@ class MaintenanceRules {
   /// A payment entered by an admin / committee member is posted as approved at once (no second approver).
   final bool autoApproveAdminExpenses;
 
+  /// Each bill is rounded to the nearest whole rupee; the difference is shown on the bill as "Round off".
+  final bool roundToRupee;
+
   const MaintenanceRules({
     this.constructionCostPerSqft,
     this.interestRatePct = '12',
@@ -226,6 +229,7 @@ class MaintenanceRules {
     this.billNotes,
     this.billingStartDate,
     this.autoApproveAdminExpenses = false,
+    this.roundToRupee = false,
   });
 
   factory MaintenanceRules.fromJson(Map<String, dynamic> j) => MaintenanceRules(
@@ -245,6 +249,7 @@ class MaintenanceRules {
         billingStartDate:
             j['billing_start_date'] == null ? null : DateTime.parse(j['billing_start_date'] as String),
         autoApproveAdminExpenses: j['auto_approve_admin_expenses'] as bool? ?? false,
+        roundToRupee: j['round_to_rupee'] as bool? ?? false,
       );
 }
 
@@ -274,6 +279,8 @@ class FlatPreview {
   final List<PreviewLine> lines;
   final String tax;
   final String total;
+  /// The rounding to a whole rupee inside [total] ('0' when the society does not round).
+  final String roundOff;
   /// The days this flat's bill charges for, and how many months that is (more than the cycle's own for a flat
   /// billed from its possession date or last bill; part of it for one that took possession during the cycle).
   final DateTime? periodStart;
@@ -282,7 +289,7 @@ class FlatPreview {
 
   const FlatPreview({required this.flatId, required this.flatLabel, this.areaSqft,
       this.occupancy, required this.previousDues, required this.lines,
-      required this.tax, required this.total, this.periodStart, this.periodEnd, this.months});
+      required this.tax, required this.total, this.roundOff = '0', this.periodStart, this.periodEnd, this.months});
 
   factory FlatPreview.fromJson(Map<String, dynamic> j) => FlatPreview(
         flatId: j['flat_id'] as String,
@@ -293,6 +300,7 @@ class FlatPreview {
         lines: [for (final e in (j['lines'] as List)) PreviewLine.fromJson(e as Map<String, dynamic>)],
         tax: _str(j['tax']),
         total: _str(j['total']),
+        roundOff: _str(j['round_off'] ?? '0'),
         periodStart: j['period_start'] == null ? null : DateTime.parse(j['period_start'] as String),
         periodEnd: j['period_end'] == null ? null : DateTime.parse(j['period_end'] as String),
         months: j['months'] as String?,
@@ -596,6 +604,8 @@ class MaintenanceBill {
   final String outstanding;
   final String? cancellationReason;
   final String previousDues;
+  /// The rounding to a whole rupee inside [totalAmount] (negative: rounded down).
+  final String roundOff;
   final List<BillLineItem> lineItems;
   final List<BillPayment> payments;
 
@@ -621,6 +631,7 @@ class MaintenanceBill {
     required this.outstanding,
     this.cancellationReason,
     this.previousDues = '0',
+    this.roundOff = '0',
     this.lineItems = const [],
     this.payments = const [],
   });
@@ -657,6 +668,7 @@ class MaintenanceBill {
         outstanding: _str(j['outstanding']),
         cancellationReason: j['cancellation_reason'] as String?,
         previousDues: _str(j['previous_dues']),
+        roundOff: _str(j['round_off'] ?? '0'),
         lineItems: [
           for (final e in (j['line_items'] as List? ?? const []))
             BillLineItem.fromJson(e as Map<String, dynamic>)

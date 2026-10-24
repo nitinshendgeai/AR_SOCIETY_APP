@@ -467,7 +467,8 @@ def bill_story(
     prev_interest = min(max(Decimal(accumulated_interest or 0), ZERO), max(arrears_total, ZERO))
     arrears = arrears_total - prev_interest
     discount = Decimal(bill.discount_amount or 0)
-    payable = current + arrears + current_interest + prev_interest - discount
+    round_off = Decimal(bill.round_off or 0)
+    payable = current + arrears + current_interest + prev_interest - discount + round_off
 
     amt_w = 40 * mm
     data = [[_p("No", "cell_b"), _p("Head", "cell_b"), _p("Amount (Rs.)", "cell_rb")]]
@@ -479,6 +480,8 @@ def bill_story(
                ("Previous Interest/ Late Fees", prev_interest)]
     if discount:
         summary.append(("Less: Discount", -discount))
+    if round_off:
+        summary.append(("Round off", round_off))
     for label, amount in summary:
         data.append([_p(label, "cell_r"), "", _p(_inr(amount), "cell_r")])
     data.append([_p("Total Maintenance Payable Amount", "cell_rb"), "", _p(f"Rs. {_inr(payable)}", "cell_rb")])
