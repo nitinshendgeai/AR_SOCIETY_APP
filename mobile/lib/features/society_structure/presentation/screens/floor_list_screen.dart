@@ -94,11 +94,11 @@ class _FloorCard extends ConsumerWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         border: Border.all(color: AppTheme.border),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         onTap: () => context.push(
           AppRoutes.flatsByWing.replaceFirst(':wingId', wing.id),
           extra: {'wing': wing, 'floor': floor},
@@ -111,7 +111,7 @@ class _FloorCard extends ConsumerWidget {
               height: 44,
               decoration: BoxDecoration(
                 color: AppTheme.secondary.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppTheme.radiusM),
               ),
               child: Center(
                 child: Text(

@@ -89,7 +89,7 @@ class RequirementsBanner extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppTheme.radiusS),
         border: Border.all(color: color.withOpacity(0.35)),
       ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [

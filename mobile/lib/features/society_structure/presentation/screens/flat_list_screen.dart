@@ -266,11 +266,11 @@ class _FlatCard extends ConsumerWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         border: Border.all(color: AppTheme.border),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         onTap: () => context.push(AppRoutes.flatDetail, extra: flat),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -280,7 +280,7 @@ class _FlatCard extends ConsumerWidget {
               height: 44,
               decoration: BoxDecoration(
                 color: occColor.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppTheme.radiusM),
               ),
               child: Center(
                 child: Icon(Icons.door_front_door_rounded,

@@ -312,7 +312,7 @@ class _TermsCardState extends State<_TermsCard> {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         border: Border.all(color: AppTheme.border),
       ),
       child: Column(
@@ -447,7 +447,7 @@ class _SocietyStep extends ConsumerWidget {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: AppTheme.error.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppTheme.radiusM),
                 border: Border.all(color: AppTheme.error.withOpacity(0.3)),
               ),
               child: Row(
@@ -501,7 +501,7 @@ class _SocietyCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
         border: Border.all(color: AppTheme.border),
       ),
       child: Column(
@@ -516,7 +516,7 @@ class _SocietyCard extends StatelessWidget {
                   gradient: const LinearGradient(
                     colors: [AppTheme.primary, AppTheme.primaryDark],
                   ),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusS),
                 ),
                 child: const Icon(Icons.apartment_rounded,
                     color: Colors.white, size: 22),
@@ -536,7 +536,7 @@ class _SocietyCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppTheme.success.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusXl),
                 ),
                 child: const Text(
                   'Active',
@@ -686,7 +686,7 @@ class _QuickTipsCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
         border: Border.all(color: AppTheme.border),
       ),
       child: Column(

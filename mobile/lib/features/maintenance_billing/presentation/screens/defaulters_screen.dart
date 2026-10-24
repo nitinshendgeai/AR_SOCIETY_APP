@@ -264,7 +264,7 @@ class _DefaultersScreenState extends ConsumerState<DefaultersScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
                           color: AppTheme.cardBg,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusXl),
                           border: Border.all(color: AppTheme.fieldBorder),
                         ),
                         child: DropdownButton<int>(

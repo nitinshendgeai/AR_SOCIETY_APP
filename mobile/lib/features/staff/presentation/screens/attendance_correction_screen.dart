@@ -149,7 +149,7 @@ class _CorrectionReviewCard extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: _statusColor().withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusXl),
                   border: Border.all(color: _statusColor().withOpacity(0.3)),
                 ),
                 child: Text(correction.status.label,

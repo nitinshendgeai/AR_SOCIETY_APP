@@ -211,7 +211,7 @@ class _Header extends StatelessWidget {
           backgroundColor: AppTheme.cardBg,
           side: const BorderSide(color: AppTheme.fieldBorder),
           fixedSize: const Size(40, 40),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusS)),
         ),
       ),
       const SizedBox(width: 16),
@@ -347,7 +347,7 @@ class FormSection extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         border: Border.all(color: AppTheme.border),
       ),
       child: LayoutBuilder(builder: (context, box) {
@@ -441,11 +441,11 @@ class FormSwitchTile extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: value && enabled ? AppTheme.primarySoft.withOpacity(0.5) : AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppTheme.radiusS),
         border: Border.all(color: value && enabled ? AppTheme.primary.withOpacity(0.35) : AppTheme.fieldBorder),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppTheme.radiusS),
         onTap: enabled ? () => onChanged!(!value) : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -837,7 +837,7 @@ class AppPage extends StatelessWidget {
                     backgroundColor: AppTheme.cardBg,
                     side: const BorderSide(color: AppTheme.fieldBorder),
                     fixedSize: const Size(40, 40),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusS)),
                   ),
                 ),
                 const SizedBox(width: 16),

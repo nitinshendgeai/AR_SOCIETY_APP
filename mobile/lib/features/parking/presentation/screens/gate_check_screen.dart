@@ -116,7 +116,7 @@ class _GateCheckScreenState extends ConsumerState<GateCheckScreen> {
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: AppTheme.success.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusM),
                     border: Border.all(color: AppTheme.success.withOpacity(0.3)),
                   ),
                   child: Row(children: [
@@ -188,7 +188,7 @@ class _LookupResultCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(AppTheme.radiusXl),
               ),
               child: Text(lookup.category.label,
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),

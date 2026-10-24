@@ -122,7 +122,7 @@ class AuthPage extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
         border: Border.all(color: AppTheme.border),
       ),
       child: child,
@@ -198,7 +198,7 @@ class _BrandPanel extends StatelessWidget {
                 Container(
                   width: 40,
                   height: 40,
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.16), borderRadius: BorderRadius.circular(10)),
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.16), borderRadius: BorderRadius.circular(AppTheme.radiusS)),
                   child: Icon(p.$1, size: 20, color: Colors.white),
                 ),
                 const SizedBox(width: 14),

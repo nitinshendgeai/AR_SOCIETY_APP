@@ -40,7 +40,7 @@ class PaymentTdsCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppTheme.warning.withOpacity(0.10),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppTheme.radiusS),
         border: Border.all(color: AppTheme.warning.withOpacity(0.35)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

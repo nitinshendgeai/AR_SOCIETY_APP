@@ -156,7 +156,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
             prefixIcon: const Icon(Icons.search_rounded, size: 20),
             contentPadding: const EdgeInsets.symmetric(vertical: 10),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppTheme.radiusM),
               borderSide: const BorderSide(color: AppTheme.border),
             ),
             filled: true,
@@ -321,7 +321,7 @@ class _StaffCard extends ConsumerWidget {
                   height: 40,
                   decoration: BoxDecoration(
                     color: AppTheme.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusM),
                   ),
                   child: const Icon(Icons.person_rounded, color: AppTheme.primary, size: 22),
                 ),
@@ -407,7 +407,7 @@ class _AccessDeniedWidget extends StatelessWidget {
               height: 72,
               decoration: BoxDecoration(
                 color: AppTheme.error.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(AppTheme.radiusXl),
               ),
               child: const Icon(Icons.lock_outline_rounded, color: AppTheme.error, size: 36),
             ),
@@ -446,7 +446,7 @@ class _StatusBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Text(

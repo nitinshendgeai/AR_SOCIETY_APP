@@ -474,7 +474,7 @@ class _BooksGrid extends StatelessWidget {
                         width: 38,
                         height: 38,
                         decoration: BoxDecoration(
-                            color: AppTheme.primarySoft, borderRadius: BorderRadius.circular(10)),
+                            color: AppTheme.primarySoft, borderRadius: BorderRadius.circular(AppTheme.radiusS)),
                         child: Icon(i.icon, color: AppTheme.primary, size: 20),
                       ),
                       const SizedBox(width: 12),

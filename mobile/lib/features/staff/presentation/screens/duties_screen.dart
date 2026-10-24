@@ -170,7 +170,7 @@ class _StatChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         border: Border.all(color: color.withOpacity(0.25)),
       ),
       child: Row(
@@ -209,7 +209,7 @@ class _DutyCard extends ConsumerWidget {
                   color: duty.isCompleted
                       ? AppTheme.success.withOpacity(0.1)
                       : AppTheme.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusS),
                 ),
                 child: Icon(
                   duty.isCompleted ? Icons.check_circle_rounded : Icons.assignment_outlined,
@@ -328,7 +328,7 @@ class _ChecklistSection extends ConsumerWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppTheme.radiusS),
         border: Border.all(color: AppTheme.border),
       ),
       child: Column(

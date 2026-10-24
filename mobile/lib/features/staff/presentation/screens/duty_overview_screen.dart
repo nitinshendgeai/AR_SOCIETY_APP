@@ -294,7 +294,7 @@ class _StatChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
           color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppTheme.radiusM),
           border: Border.all(color: color.withOpacity(0.25)),
         ),
         child: Column(children: [
@@ -346,7 +346,7 @@ class _DutyOverviewCard extends ConsumerWidget {
             Container(
               width: 36,
               height: 36,
-              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(AppTheme.radiusS)),
               child: Icon(icon, color: color, size: 20),
             ),
             const SizedBox(width: 12),

@@ -378,7 +378,7 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: AppTheme.errorSoft, borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: AppTheme.errorSoft, borderRadius: BorderRadius.circular(AppTheme.radiusS)),
               child: Text('Cancelled${v.cancelReason == null ? '' : ': ${v.cancelReason}'}',
                   style: const TextStyle(fontSize: 13, color: AppTheme.error, fontWeight: FontWeight.w600)),
             ),
@@ -387,7 +387,7 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: AppTheme.warningSoft, borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: AppTheme.warningSoft, borderRadius: BorderRadius.circular(AppTheme.radiusS)),
               child: const Text('Waiting for approval by the admin or committee. It is not in the books until then.',
                   style: TextStyle(fontSize: 13, color: AppTheme.warning, fontWeight: FontWeight.w600)),
             ),
@@ -396,7 +396,7 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: AppTheme.errorSoft, borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: AppTheme.errorSoft, borderRadius: BorderRadius.circular(AppTheme.radiusS)),
               child: Text('Rejected${(v.approvalNote ?? '').isEmpty ? '' : ': ${v.approvalNote}'}',
                   style: const TextStyle(fontSize: 13, color: AppTheme.error, fontWeight: FontWeight.w600)),
             ),
@@ -405,7 +405,7 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: AppTheme.warningSoft, borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: AppTheme.warningSoft, borderRadius: BorderRadius.circular(AppTheme.radiusS)),
               child: const Text('Reversed by an entry in a later year (this year\'s books are closed).',
                   style: TextStyle(fontSize: 13, color: AppTheme.warning, fontWeight: FontWeight.w600)),
             ),

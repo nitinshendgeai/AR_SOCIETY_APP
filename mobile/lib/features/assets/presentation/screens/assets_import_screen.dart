@@ -164,7 +164,7 @@ class _AssetsImportScreenState extends ConsumerState<AssetsImportScreen> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: AppTheme.primary.withOpacity(0.06),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppTheme.radiusM),
             border: Border.all(color: AppTheme.primary.withOpacity(0.15)),
           ),
           child: const Text(
@@ -284,7 +284,7 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(AppTheme.radiusM)),
         child: Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
       );
 }
@@ -352,7 +352,7 @@ class _RowTile extends StatelessWidget {
         .join(' · ');
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppTheme.border)),
+      decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusS), border: Border.all(color: AppTheme.border)),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Icon(icon, color: color, size: 18),
         const SizedBox(width: 10),

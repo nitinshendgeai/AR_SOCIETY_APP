@@ -370,7 +370,7 @@ class _NextStep extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.only(bottom: 4),
-      decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.06), borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.06), borderRadius: BorderRadius.circular(AppTheme.radiusS)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(text, style: const TextStyle(fontSize: 13.5, height: 1.35)),
         if (needsCommittee)

@@ -118,7 +118,7 @@ class _CyclePreviewScreenState extends ConsumerState<CyclePreviewScreen> {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: AppTheme.warningSoft,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusM),
                     ),
                     child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       const Icon(Icons.warning_amber_rounded, color: AppTheme.warning, size: 20),
