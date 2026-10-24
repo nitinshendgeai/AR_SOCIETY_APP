@@ -183,7 +183,7 @@ class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           elevation: 0,
           shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusM)),
+          shape: const StadiumBorder(),
           textStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.1),
         ).copyWith(
           animationDuration: AppMotion.base,
@@ -202,7 +202,7 @@ class AppTheme {
           minimumSize: const Size(double.infinity, 52),
           padding: const EdgeInsets.symmetric(horizontal: 20),
           side: const BorderSide(color: border, width: 1.2),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusM)),
+          shape: const StadiumBorder(),
           textStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.1),
         ).copyWith(
           overlayColor: WidgetStateProperty.resolveWith(
@@ -214,9 +214,28 @@ class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: primary,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusS)),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          shape: const StadiumBorder(),
           textStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 15, fontWeight: FontWeight.w600),
+        ),
+      ),
+
+      // FilledButton (used beside the elevated ones) gets the same bubble look.
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(64, 52),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          shape: const StadiumBorder(),
+          textStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.1),
+        ),
+      ),
+
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          shape: const WidgetStatePropertyAll(StadiumBorder()),
+          side: const WidgetStatePropertyAll(BorderSide(color: border)),
+          backgroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? primarySoft : cardBg),
+          foregroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? primary : textSecondary),
         ),
       ),
 
@@ -231,7 +250,7 @@ class AppTheme {
         foregroundColor: Colors.white,
         elevation: 3,
         extendedTextStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 16, fontWeight: FontWeight.w600),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: const StadiumBorder(),
       ),
 
       // White fields with a hairline border. Most forms sit straight on
@@ -417,9 +436,9 @@ class AppTheme {
       labelLarge:  t.labelLarge?.copyWith(fontSize: 14),
     );
     const buttonText = TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 14, fontWeight: FontWeight.w600);
-    final buttonShape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(8));
+    const buttonShape = StadiumBorder();
     const buttonSize = Size(64, 40);
-    const buttonPadding = EdgeInsets.symmetric(horizontal: 18);
+    const buttonPadding = EdgeInsets.symmetric(horizontal: 22);
     // Desktop platforms default to compact density, which would shave the
     // 40px button height down to 32px — too small a click target.
 
@@ -530,7 +549,7 @@ class AppTheme {
         elevation: 2,
         hoverElevation: 4,
         extendedTextStyle: buttonText,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: const StadiumBorder(),
       ),
 
       // Outlined white fields: on a large light-gray canvas a gray fill
