@@ -173,32 +173,15 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
             itemBuilder: (_, i) {
               final dept = _departments[i];
               final selected = dept == _departmentFilter;
-              return GestureDetector(
+              return AppFilterPill(
+                label: _deptLabels[dept]!,
+                selected: selected,
                 onTap: () {
                   setState(() => _departmentFilter = dept);
                   if (societyId != null) {
                     ref.read(staffListProvider.notifier).load(societyId, department: dept);
                   }
                 },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: selected ? AppTheme.primary : AppTheme.cardBg,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: selected ? AppTheme.primary : AppTheme.border,
-                    ),
-                  ),
-                  child: Text(
-                    _deptLabels[dept]!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: selected ? Colors.white : AppTheme.textSecondary,
-                    ),
-                  ),
-                ),
               );
             },
           ),
