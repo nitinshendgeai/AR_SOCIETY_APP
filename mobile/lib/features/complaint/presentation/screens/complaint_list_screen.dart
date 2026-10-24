@@ -274,7 +274,7 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
 
     return ListView(padding: const EdgeInsets.fromLTRB(24, 8, 24, 32), children: [
       AppDataTable<ComplaintListEntity>(
-        toolbar: Row(children: [
+        toolbar: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
           TableSearchField(
             hint: 'Search number, title, flat…',
             onChanged: (v) => setState(() => _query = v),
@@ -304,30 +304,30 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
         onRowTap: (c) => context.push('/complaints/${c.id}'),
         empty: const EmptyState(icon: Icons.inbox_rounded, title: 'No complaints'),
         columns: [
-          AppDataColumn.text('No.', (c) => '#${c.complaintNumber}', width: 140, bold: true),
+          AppDataColumn.text('No.', (c) => '#${c.complaintNumber}', width: 150, bold: true),
           AppDataColumn.text('Title', (c) => c.title, flex: 4),
           AppDataColumn.text('Flat', (c) => [
                 if (c.wingName != null) c.wingName,
                 if (c.flatNumber != null) c.flatNumber,
-              ].join(' — ').ifEmpty('—'), flex: 2),
+              ].join(' — ').ifEmpty('—'), flex: 3),
           AppDataColumn(
             label: 'Category',
-            flex: 2,
+            width: 120,
             sortKey: (c) => c.category.label,
             cell: (c) => _CategoryChip(c.category),
           ),
           AppDataColumn(
             label: 'Priority',
-            width: 100,
+            width: 90,
             sortKey: (c) => c.priority.index,
             cell: (c) => _PriorityBadge(c.priority),
           ),
-          AppDataColumn.text('Assigned to', (c) => c.assignedToName ?? 'Unassigned', flex: 2),
+          AppDataColumn.text('Assigned to', (c) => c.assignedToName ?? 'Unassigned', flex: 3),
           AppDataColumn.text('Raised', (c) => tableDate(c.createdAt),
-              flex: 2, sortKey: (c) => c.createdAt.millisecondsSinceEpoch),
+              width: 110, sortKey: (c) => c.createdAt.millisecondsSinceEpoch),
           AppDataColumn(
             label: 'Status',
-            flex: 2,
+            width: 110,
             sortKey: (c) => c.status.label,
             cell: (c) => _StatusBadge(c.status),
           ),

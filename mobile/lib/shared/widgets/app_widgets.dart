@@ -447,15 +447,21 @@ class KpiCard extends StatelessWidget {
                   ),
                   if (note != null) ...[
                     const SizedBox(height: 3),
-                    Text(
-                      note!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      // textSecondary, not textTertiary: the note can say something the person needs to act on
-                      // (for example "Could not load. Tap to retry") and the lighter grey is below readable contrast.
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppTheme.textSecondary,
+                    // One line that shrinks a little to fit rather than being cut: in a phone's half-width card
+                    // "Could not load. Tap to retry" read "Could not load. Tap to re…".
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        note!,
+                        maxLines: 1,
+                        softWrap: false,
+                        // textSecondary, not textTertiary: the note can say something the person needs to act on
+                        // (for example "Could not load. Tap to retry") and the lighter grey is below readable contrast.
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.textSecondary,
+                        ),
                       ),
                     ),
                   ],
