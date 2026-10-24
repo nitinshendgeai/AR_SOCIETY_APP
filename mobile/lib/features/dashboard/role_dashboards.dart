@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/shared/widgets/dux_logo.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/auth/biometric_preference.dart';
@@ -108,12 +109,14 @@ class _DashboardShell extends ConsumerWidget {
       title: title,
       showBack: false,
       actions: [
-        if (!desktop)
+        if (!desktop) ...[
+          const DuxLogo(size: 30),
           IconButton(
             icon: const Icon(Icons.logout_rounded),
             tooltip: 'Sign out',
             onPressed: () => _confirmLogout(context, ref),
           ),
+        ],
       ],
       drawer: desktop ? null : Drawer(
         child: SafeArea(

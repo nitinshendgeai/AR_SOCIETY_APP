@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/shared/widgets/dux_logo.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/config/env.dart';
@@ -63,15 +64,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // App icon / logo
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: Image.asset(
-                      'assets/branding/duxos_logo.png',
-                      width: 88,
-                      height: 88,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
+                  const DuxLogo(size: 96),
                   const SizedBox(height: 24),
                   Text(
                     Env.appName,

@@ -5,6 +5,7 @@ import 'package:ar_society_app/core/layout/phone_bottom_bar.dart';
 import 'package:ar_society_app/core/navigation/app_menu.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/shared/widgets/dux_logo.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart';
 
@@ -83,16 +84,20 @@ void main() {
       }
       await t.tap(find.text('More'));
       await t.pumpAndSettle();
-      expect(find.text('RESIDENTS'), findsNothing); // category label is "PEOPLE & RESIDENTS"
-      expect(find.text('PEOPLE & RESIDENTS'), findsOneWidget);
+      expect(find.text('People & Residents'), findsOneWidget);
       expect(find.text('Residents'), findsOneWidget);
     });
 
-    testWidgets('More offers Signed-in devices and Sign out', (t) async {
+    testWidgets('More opens with who is signed in, then the menu, and ends with the account actions', (t) async {
       await t.pumpWidget(wrap(_user('Society Admin', societyId: 's1'), '/residents'));
       await t.pumpAndSettle();
       await t.tap(find.text('More'));
       await t.pumpAndSettle();
+      expect(find.text('U'), findsOneWidget);                         // the signed-in person, at the top
+      expect(find.byType(DuxLogo), findsOneWidget);
+      expect(find.text('Sign out'), findsNothing);                    // not before the menu
+      // The account actions come last, under the menu.
+      await t.dragUntilVisible(find.text('Sign out'), find.byType(ListView), const Offset(0, -300));
       expect(find.text('Signed-in devices'), findsOneWidget);
       expect(find.text('Sign out'), findsOneWidget);
     });

@@ -9,6 +9,7 @@ import 'package:ar_society_app/core/navigation/app_menu.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
+import 'package:ar_society_app/shared/widgets/dux_logo.dart';
 import 'package:ar_society_app/features/auth/presentation/widgets/society_switcher.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart'
     show pendingVisitorApprovalsProvider;
@@ -94,81 +95,106 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
       initialChildSize: 0.7,
       maxChildSize: 0.92,
       minChildSize: 0.4,
-      builder: (ctx, controller) => ListView(
-        controller: controller,
-        padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
-        children: [
-          // Phones have no account menu, so the language is chosen here.
-          Consumer(
-            builder: (ctx, sheetRef, _) => ListTile(
-              leading: const Icon(Icons.translate_rounded, color: AppTheme.textSecondary),
-              title: Text(ctx.tr('Language')),
-              trailing: Text(kLanguageNames[sheetRef.watch(localeProvider).languageCode] ?? 'English',
-                  style: const TextStyle(color: AppTheme.textSecondary)),
-              onTap: () {
-                Navigator.of(ctx).pop();
-                showLanguagePicker(context, ref);
-              },
-            ),
-          ),
-          if (user.societies.length > 1)
-            ListTile(
-              leading: const Icon(Icons.swap_horiz_rounded, color: AppTheme.textSecondary),
-              title: Text(ctx.tr('Switch society')),
-              subtitle: Text(user.societies.firstWhere((c) => c.current, orElse: () => user.societies.first).societyName),
-              onTap: () {
-                Navigator.of(ctx).pop();
-                showSocietySwitcher(context, ref);
-              },
-            ),
-          if (helpAvailable)
-            ListTile(
-              leading: const Icon(Icons.help_outline_rounded, color: AppTheme.textSecondary),
-              title: Text(ctx.tr('Help')),
-              subtitle: Text(ctx.tr('How to use the app')),
-              onTap: () {
-                Navigator.of(ctx).pop();
-                openHelp(user);
-              },
-            ),
-          ListTile(
-            leading: const Icon(Icons.devices_rounded, color: AppTheme.textSecondary),
-            title: Text(ctx.tr('Signed-in devices')),
-            onTap: () {
-              Navigator.of(ctx).pop();
-              context.go(AppRoutes.activeDevices);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.logout_rounded, color: AppTheme.error),
-            title: Text(ctx.tr('Sign out'), style: const TextStyle(color: AppTheme.error)),
-            onTap: () {
-              Navigator.of(ctx).pop();
-              confirmSignOut(context, ref);
-            },
-          ),
-          const Divider(height: 8),
-          for (final c in menu) ...[
-            Padding(
+      builder: (ctx, controller) {
+        Widget heading(String label) => Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-              child: Text(ctx.tr(c.label).toUpperCase(),
-                  style: const TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.8, color: AppTheme.textTertiary)),
+              child: Text(ctx.tr(label),
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
+            );
+        final society = user.societies.where((c) => c.current).map((c) => c.societyName).firstOrNull;
+        return ListView(
+          controller: controller,
+          padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
+          children: [
+            // Who is signed in, and where, first; the menu follows, the account actions come last.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Row(children: [
+                const DuxLogo(size: 40),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(user.fullName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                    Text([user.roles.firstOrNull ?? user.primaryRole, if (society != null) society].join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                  ]),
+                ),
+              ]),
             ),
-            for (final item in c.items)
-              ListTile(
-                leading: Icon(item.icon, color: AppTheme.textSecondary),
-                title: Text(ctx.tr(item.label)),
-                onTap: item.route == null
-                    ? null
-                    : () {
-                        Navigator.of(ctx).pop();
-                        context.go(item.route!);
-                      },
+            const Divider(height: 8),
+            for (final c in menu) ...[
+              heading(c.label),
+              for (final item in c.items)
+                ListTile(
+                  leading: Icon(item.icon, color: AppTheme.textSecondary),
+                  title: Text(ctx.tr(item.label)),
+                  onTap: item.route == null
+                      ? null
+                      : () {
+                          Navigator.of(ctx).pop();
+                          context.go(item.route!);
+                        },
+                ),
+            ],
+            const Divider(height: 24),
+            heading('Account'),
+            // Phones have no account menu, so the language is chosen here.
+            Consumer(
+              builder: (ctx, sheetRef, _) => ListTile(
+                leading: const Icon(Icons.translate_rounded, color: AppTheme.textSecondary),
+                title: Text(ctx.tr('Language')),
+                trailing: Text(kLanguageNames[sheetRef.watch(localeProvider).languageCode] ?? 'English',
+                    style: const TextStyle(color: AppTheme.textSecondary)),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  showLanguagePicker(context, ref);
+                },
               ),
+            ),
+            if (user.societies.length > 1)
+              ListTile(
+                leading: const Icon(Icons.swap_horiz_rounded, color: AppTheme.textSecondary),
+                title: Text(ctx.tr('Switch society')),
+                subtitle: Text(user.societies.firstWhere((c) => c.current, orElse: () => user.societies.first).societyName),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  showSocietySwitcher(context, ref);
+                },
+              ),
+            if (helpAvailable)
+              ListTile(
+                leading: const Icon(Icons.help_outline_rounded, color: AppTheme.textSecondary),
+                title: Text(ctx.tr('Help')),
+                subtitle: Text(ctx.tr('How to use the app')),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  openHelp(user);
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.devices_rounded, color: AppTheme.textSecondary),
+              title: Text(ctx.tr('Signed-in devices')),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                context.go(AppRoutes.activeDevices);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout_rounded, color: AppTheme.error),
+              title: Text(ctx.tr('Sign out'), style: const TextStyle(color: AppTheme.error)),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                confirmSignOut(context, ref);
+              },
+            ),
           ],
-        ],
-      ),
+        );
+      },
     ),
   );
 }
