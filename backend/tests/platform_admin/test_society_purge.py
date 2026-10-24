@@ -140,3 +140,27 @@ def test_default_logins_are_kept_and_other_users_go(db):
     ps.purge_society(db, a.id, keep_default_logins=False)
     db.commit()
     assert db.query(User).filter_by(society_id=a.id).count() == 0
+
+
+def test_restore_default_logins_recreates_only_the_missing_ones(client, db):
+    from app.models.user import UserRole
+    a = _seed(db, "AAA6", "Alpha6")
+    _, h = make_superadmin(db)
+    keep = make_user(db, "admin@aaa6.com", role="Society Admin"); place_in(db, keep, a)
+
+    r = client.post(f"{P}/societies/{a.id}/restore-logins", json={}, headers=h)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert sorted(c["email"] for c in body["restored"]) == ["chairman@aaa6.com", "secretary@aaa6.com", "treasurer@aaa6.com"]
+    assert body["already_present"] == ["admin@aaa6.com"]
+    assert all(c["password"] for c in body["restored"])
+
+    made = db.query(User).filter_by(email="chairman@aaa6.com").one()
+    assert made.society_id == a.id and made.must_change_password is True
+    assert db.query(UserRole).filter_by(user_id=made.id).count() == 1
+
+    again = client.post(f"{P}/societies/{a.id}/restore-logins", json={}, headers=h).json()
+    assert again["restored"] == [] and len(again["already_present"]) == 4
+
+    society_admin = make_user(db, "sa@aaa6.test", role="Society Admin"); place_in(db, society_admin, a)
+    assert client.post(f"{P}/societies/{a.id}/restore-logins", json={}, headers=society_admin["headers"]).status_code == 403

@@ -186,6 +186,7 @@ class _Actions extends ConsumerWidget {
           icon: const Icon(Icons.block_rounded, size: 18),
           label: const Text('Suspend'),
         ),
+      OutlinedButton.icon(onPressed: () => open(RestoreLoginsSheet(society: s)), icon: const Icon(Icons.person_add_alt_1_rounded, size: 18), label: const Text('Restore default logins')),
       OutlinedButton.icon(
         style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error),
         onPressed: () => open(CleanDataSheet(society: s)),

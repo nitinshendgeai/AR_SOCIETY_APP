@@ -50,6 +50,7 @@ String eventLabel(String? e) => switch (e) {
       'limits_changed' => 'Limits changed',
       'service_switched' => 'Service switched',
       'data_cleaned' => 'Data cleaned',
+      'logins_restored' => 'Logins restored',
       'society_self_registered' => 'Registered',
       _ => e ?? 'Changed',
     };
@@ -61,6 +62,7 @@ String eventDetail(String? e, Map<String, dynamic> d) => switch (e) {
       'trial_extended' => '${d['extend_days']} more days, now ends ${dayText(_dt(d['new_end_date']))}',
       'service_switched' => '${(d['service'] ?? '').toString().replaceAll('_', ' ')} turned ${d['enabled'] == true ? 'on' : 'off'}',
       'data_cleaned' => '${d['rows_deleted'] ?? 0} records deleted',
+      'logins_restored' => '${(d['restored'] as List?)?.length ?? 0} default logins recreated',
       'limits_changed' => 'Users ${(d['old'] as Map?)?['users']} → ${(d['new'] as Map?)?['users']}, flats ${(d['old'] as Map?)?['flats']} → ${(d['new'] as Map?)?['flats']}',
       _ => '',
     };
@@ -259,6 +261,14 @@ class CleanPreview {
       );
 }
 
+/// A default login recreated for a society, with the first-login password to hand over.
+class RestoredLogin {
+  final String role;
+  final String email;
+  final String password;
+  const RestoredLogin({required this.role, required this.email, required this.password});
+}
+
 class PlatformApi {
   final Dio _dio;
   PlatformApi({Dio? dio}) : _dio = dio ?? ApiClient.instance;
@@ -293,4 +303,12 @@ class PlatformApi {
   Future<CleanPreview> cleanPreview(String id) async => CleanPreview.fromJson((await _dio.get('/platform-admin/societies/$id/clean-data')).data as Map<String, dynamic>);
 
   Future<void> cleanData(String id, String confirm) => _dio.post('/platform-admin/societies/$id/clean-data', data: {'confirm': confirm});
+
+  Future<List<RestoredLogin>> restoreLogins(String id) async {
+    final j = (await _dio.post('/platform-admin/societies/$id/restore-logins', data: const {})).data as Map<String, dynamic>;
+    return [
+      for (final c in (j['restored'] as List? ?? const []))
+        RestoredLogin(role: c['role'] as String? ?? '', email: c['email'] as String? ?? '', password: c['password'] as String? ?? ''),
+    ];
+  }
 }

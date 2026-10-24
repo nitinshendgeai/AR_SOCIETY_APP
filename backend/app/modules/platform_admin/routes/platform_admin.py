@@ -135,3 +135,10 @@ def clean_data(society_id: UUID, data: CleanDataRequest, db: Session = Depends(g
     """Permanently delete all of the society's data (rows only; the society itself, other societies and platform
     admins are kept). `confirm` must be the society's code, typed in full."""
     return PlatformAdminService(db).clean_data(str(society_id), data.confirm, admin)
+
+
+@router.post("/societies/{society_id}/restore-logins")
+def restore_default_logins(society_id: UUID, db: Session = Depends(get_db), admin: User = Depends(require_platform_admin)):
+    """Recreate the society's missing default logins (admin, chairman, secretary, treasurer) with the standard
+    first-login password, which must be changed at first sign-in. Existing logins are not touched."""
+    return PlatformAdminService(db).restore_default_logins(str(society_id), admin)
