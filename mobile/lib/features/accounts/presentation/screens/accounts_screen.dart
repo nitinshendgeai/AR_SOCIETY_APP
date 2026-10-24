@@ -211,52 +211,52 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                 ]),
                 const SizedBox(height: 22),
                 const _SectionTitle('Books & Registers'),
-                _BooksGrid(items: [
-                  _BookItem(Icons.menu_book_rounded, 'Cash & Bank Book',
+                BooksGrid(items: [
+                  BookItem(Icons.menu_book_rounded, 'Cash & Bank Book',
                       'Every receipt and payment, with who entered it',
                       () => context.push(AppRoutes.accountsCashBook)),
-                  _BookItem(Icons.receipt_long_rounded, 'Day Book', 'Every voucher, date-wise',
+                  BookItem(Icons.receipt_long_rounded, 'Day Book', 'Every voucher, date-wise',
                       () => context.push(AppRoutes.accountsDayBook)),
-                  _BookItem(Icons.request_quote_rounded, 'Invoice Register',
+                  BookItem(Icons.request_quote_rounded, 'Invoice Register',
                       'Maintenance invoices raised on members',
                       () => context.push(AppRoutes.accountsInvoices)),
-                  _BookItem(Icons.inventory_2_rounded, 'Bills Register', 'Bills received from vendors',
+                  BookItem(Icons.inventory_2_rounded, 'Bills Register', 'Bills received from vendors',
                       () => context.push(AppRoutes.accountsBills)),
-                  _BookItem(Icons.event_repeat_rounded, 'Monthly Expenses',
+                  BookItem(Icons.event_repeat_rounded, 'Monthly Expenses',
                       'Security, lift, electricity: recorded each month as they fall due',
                       () => context.push(AppRoutes.accountsRecurring)),
                 ]),
                 const SizedBox(height: 22),
                 const _SectionTitle('Receivables & Payables'),
-                _BooksGrid(items: [
-                  _BookItem(Icons.hourglass_bottom_rounded, 'Outstanding Receivable',
+                BooksGrid(items: [
+                  BookItem(Icons.hourglass_bottom_rounded, 'Outstanding Receivable',
                       'What members owe, aged by days overdue',
                       () => context.push(AppRoutes.accountsReceivable)),
-                  _BookItem(Icons.hourglass_top_rounded, 'Outstanding Payable',
+                  BookItem(Icons.hourglass_top_rounded, 'Outstanding Payable',
                       'What the society owes vendors, aged',
                       () => context.push(AppRoutes.accountsPayable)),
-                  _BookItem(Icons.groups_2_rounded, "Members' Ledger", 'Flat-wise dues and advances',
+                  BookItem(Icons.groups_2_rounded, "Members' Ledger", 'Flat-wise dues and advances',
                       () => context.push(AppRoutes.accountsMembers)),
                   if (canOpenVendorBills)
-                    _BookItem(Icons.storefront_rounded, 'Vendor Bills', 'Bills booked and paid',
+                    BookItem(Icons.storefront_rounded, 'Vendor Bills', 'Bills booked and paid',
                         () => context.push(AppRoutes.vendorBills)),
-                  _BookItem(Icons.fact_check_rounded, 'Approvals',
+                  BookItem(Icons.fact_check_rounded, 'Approvals',
                       s.pendingApprovals > 0 ? '${s.pendingApprovals} waiting' : 'Payments and journals to approve',
                       () => context.push(AppRoutes.accountsApprovals)),
                 ]),
                 const SizedBox(height: 22),
                 const _SectionTitle('Accounting Setup'),
-                _BooksGrid(items: [
-                  _BookItem(Icons.account_tree_rounded, 'Chart of Accounts', 'Groups, ledgers and balances',
+                BooksGrid(items: [
+                  BookItem(Icons.account_tree_rounded, 'Chart of Accounts', 'Groups, ledgers and balances',
                       () => context.push(AppRoutes.accountsChart)),
                 ]),
                 const SizedBox(height: 22),
                 const _SectionTitle('Financial Reports'),
-                _BooksGrid(items: [
-                  _BookItem(Icons.summarize_rounded, 'Financial Statements',
+                BooksGrid(items: [
+                  BookItem(Icons.summarize_rounded, 'Financial Statements',
                       'Balance Sheet, I&E, Trial Balance · Year-end closing',
                       () => context.push(AppRoutes.accountsStatements)),
-                  _BookItem(Icons.pie_chart_outline_rounded, 'Spend by Element',
+                  BookItem(Icons.pie_chart_outline_rounded, 'Spend by Element',
                       'Monthly and yearly spend on each maintenance element',
                       () => context.push(AppRoutes.accountsExpenses)),
                 ]),
@@ -439,62 +439,74 @@ class _SectionTitle extends StatelessWidget {
       );
 }
 
-class _BookItem {
+class BookItem {
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
-  const _BookItem(this.icon, this.title, this.subtitle, this.onTap);
+  const BookItem(this.icon, this.title, this.subtitle, this.onTap);
 }
 
-class _BooksGrid extends StatelessWidget {
-  final List<_BookItem> items;
-  const _BooksGrid({required this.items});
+class BooksGrid extends StatelessWidget {
+  final List<BookItem> items;
+  const BooksGrid({super.key, required this.items});
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
         final columns = c.maxWidth >= 900 ? 4 : (c.maxWidth >= 520 ? 2 : 1);
-        return GridView(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: columns, mainAxisSpacing: 10, crossAxisSpacing: 10, mainAxisExtent: 72),
-          children: [
-            for (final i in items)
-              Material(
-                color: AppTheme.cardBg,
+        // Row by row, so a short last row shares the full width between its tiles instead of leaving an empty cell
+        // beside a lone one.
+        final rows = <Widget>[];
+        for (var start = 0; start < items.length; start += columns) {
+          final row = items.skip(start).take(columns).toList();
+          rows.add(Padding(
+            padding: EdgeInsets.only(top: start == 0 ? 0 : 10),
+            child: SizedBox(
+              height: 72,
+              child: Row(children: [
+                for (var k = 0; k < row.length; k++) ...[
+                  if (k > 0) const SizedBox(width: 10),
+                  Expanded(child: _tile(row[k])),
+                ],
+              ]),
+            ),
+          ));
+        }
+        return Column(children: rows);
+      });
+
+  Widget _tile(BookItem i) =>
+      Material(
+              color: AppTheme.cardBg,
+              borderRadius: BorderRadius.circular(AppTheme.radiusM),
+              child: InkWell(
                 borderRadius: BorderRadius.circular(AppTheme.radiusM),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusM),
-                  onTap: i.onTap,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    child: Row(children: [
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                            color: AppTheme.primarySoft, borderRadius: BorderRadius.circular(10)),
-                        child: Icon(i.icon, color: AppTheme.primary, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(i.title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                          Text(i.subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                        ]),
-                      ),
-                      const Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
-                    ]),
-                  ),
+                onTap: i.onTap,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Row(children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                          color: AppTheme.primarySoft, borderRadius: BorderRadius.circular(10)),
+                      child: Icon(i.icon, color: AppTheme.primary, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(i.title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                        Text(i.subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      ]),
+                    ),
+                    const Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
+                  ]),
                 ),
               ),
-          ],
-        );
-      });
+            );
 }
 
 class _CashBankCard extends StatelessWidget {

@@ -305,6 +305,10 @@ class AppFilterPill extends StatelessWidget {
       selected: selected,
       onSelected: (_) => onTap(),
       showCheckmark: false,
+      // The default 48px touch target is taller than the 34px strip these sit in, which clipped the bubbles' tops
+      // and bottoms on phones. The bubble itself is the target.
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
       backgroundColor: AppTheme.cardBg,
       selectedColor: AppTheme.primary,
       side: BorderSide(color: selected ? AppTheme.primary : AppTheme.border),
