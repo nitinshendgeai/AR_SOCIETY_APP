@@ -153,25 +153,13 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
               itemBuilder: (_, i) {
                 final (value, label) = _typeOptions[i];
                 final selected = value == _typeFilter;
-                return GestureDetector(
+                return AppFilterPill(
+                  label: label,
+                  selected: selected,
                   onTap: () {
                     setState(() => _typeFilter = value);
                     _load();
                   },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: selected ? AppTheme.primary : AppTheme.cardBg,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: selected ? AppTheme.primary : AppTheme.border),
-                    ),
-                    child: Text(label,
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: selected ? Colors.white : AppTheme.textSecondary)),
-                  ),
                 );
               },
             ),

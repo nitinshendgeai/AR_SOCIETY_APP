@@ -169,8 +169,8 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error, side: BorderSide(color: AppTheme.error.withOpacity(0.5))),
                   onPressed: _updating ? null : () => _updateStatus(societyId, 'rejected'),
                   icon: const Icon(Icons.cancel_outlined),
                   label: const Text('Reject'),

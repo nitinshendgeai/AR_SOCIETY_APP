@@ -286,6 +286,37 @@ class AppToast {
 void showErrorToast(BuildContext context, Object error) =>
     AppToast.error(context, friendlyErrorMessage(error));
 
+// ── Filter pill ───────────────────────────────────────────────────────────────
+//
+// One bubble for a filter row (a department, a resident type): filled blue when
+// chosen, white with a hairline otherwise. A real chip, so it is reachable from
+// the keyboard and announced as selected, unlike a tappable box.
+class AppFilterPill extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const AppFilterPill({super.key, required this.label, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onTap(),
+      showCheckmark: false,
+      backgroundColor: AppTheme.cardBg,
+      selectedColor: AppTheme.primary,
+      side: BorderSide(color: selected ? AppTheme.primary : AppTheme.border),
+      labelStyle: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: selected ? Colors.white : AppTheme.textSecondary,
+      ),
+    );
+  }
+}
+
 // ── Empty state ───────────────────────────────────────────────────────────────
 //
 // Most list/dashboard screens either show a blank scroll view when data is
