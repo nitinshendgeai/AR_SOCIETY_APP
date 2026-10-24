@@ -106,3 +106,17 @@ def test_clean_data_endpoint_needs_platform_admin_and_the_code(client, db):
 
     events = client.get(f"{P}/activity", headers=h).json()
     assert any(e["event"] == "data_cleaned" and e["society_id"] == str(a.id) for e in events)
+
+
+def test_delete_order_removes_children_before_their_parents():
+    """Deleting a parent first fires ON DELETE SET NULL / RESTRICT on rows still to be deleted (e.g. flats before
+    maintenance_bills nulls the NOT NULL bills.flat_id and fails on PostgreSQL). SQLite tests with few rows miss it."""
+    from app.db.base import Base
+    md = Base.metadata
+    order = ps.delete_order(md, list(ps.build_scope(md, "x")))
+    position = {name: i for i, name in enumerate(order)}
+    for name in order:
+        for fk in md.tables[name].foreign_keys:
+            parent = fk.column.table.name
+            if parent != name and parent in position:
+                assert position[name] < position[parent], f"{name} must be deleted before {parent}"
