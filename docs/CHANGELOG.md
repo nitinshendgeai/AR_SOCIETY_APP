@@ -6,6 +6,20 @@ Format: `[YYYY-MM-DD] type: description`
 
 ## 2026-10-24
 
+### security: no fixed default passwords for accounts the system creates
+
+- New staff logins (was `Staff@1234`), resident and tenant logins made from a mobile number (was `admin1234`) and the
+  four accounts of a newly registered society (was `Admin@1234`) now each get a **random temporary password**
+  (`app/core/passwords.py`, 12 characters, no look-alikes), shown once to whoever created the account, with
+  `must_change_password=True` as before. Admin-created users and password resets already worked this way.
+- A society's four first accounts share one password made for that registration (not the same for the next society).
+- Someone in two societies now starts with a different temporary password in each; sign-in still offers the societies
+  whose password matches once they have set the same one, and **Switch society** works without a password.
+- The Add Staff form and the sign-in demo hint (non-production only) no longer name a password; the trial-success
+  screen no longer falls back to one.
+- Accounts created earlier keep their password until the person changes it; see the audit note on those.
+- Tests: `tests/auth/test_temp_passwords.py` (includes a guard that fails if a fixed default is put back in `app/`).
+
 ### feat: Round bills to the whole rupee (optional)
 
 - **Billing rules → Round bills to the whole rupee** (off by default). When on, each bill's amount (charges, GST and

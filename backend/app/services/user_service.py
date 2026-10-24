@@ -11,24 +11,14 @@ from app.models.user import User, UserStatus
 from app.repositories.user_repo import UserRepository
 from app.schemas.user import UserUpdate, AdminUserCreate
 from app.core.security import hash_password
+from app.core.passwords import generate_temp_password
 
 
 # Temporary passwords are often read out to the member (phone, office
 # counter), so leave out characters that look or sound alike: 0/O/o, 1/l/I.
 PLATFORM_ROLE = "Platform Admin"
 
-_TEMP_PASSWORD_ALPHABET = "".join(
-    c for c in string.ascii_letters + string.digits if c not in "0Oo1lI")
-
-
-def _generate_temp_password(length: int = 12) -> str:
-    alphabet = _TEMP_PASSWORD_ALPHABET
-    while True:
-        pwd = "".join(secrets.choice(alphabet) for _ in range(length))
-        if (any(c.isupper() for c in pwd)
-                and any(c.islower() for c in pwd)
-                and any(c.isdigit() for c in pwd)):
-            return pwd
+_generate_temp_password = generate_temp_password  # kept under its old name for existing callers
 
 
 class UserService:

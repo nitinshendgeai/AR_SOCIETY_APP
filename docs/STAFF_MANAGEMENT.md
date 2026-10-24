@@ -62,7 +62,7 @@ Technical Staff → reports directly to Manager
 
 When a staff member is created with an `email`:
 1. A `User` account is created automatically
-2. Password is set to `Staff@1234` with `must_change_password=True`
+2. A random temporary password is generated for that person (`app/core/passwords.py`) with `must_change_password=True`
 3. Role is auto-assigned via designation name or department
 4. `temp_password` is returned in the API response (one-time only)
 5. Flutter shows a credentials dialog to the admin with the email and password

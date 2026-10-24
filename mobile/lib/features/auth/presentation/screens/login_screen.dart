@@ -81,10 +81,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       subtitle: 'Sign in to ${Env.appName}',
       footer: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         _RegisterCTA(),
-        // Demo format hint — debug/staging builds only; the exact
-        // default-password convention it documents (Admin@1234,
-        // resident "admin1234") isn't something to hand an unauthenticated
-        // visitor on a production login screen.
+        // Demo format hint — debug/staging builds only: it shows how the login names are formed, which isn't
+        // something to hand an unauthenticated visitor on a production login screen. It never shows a password:
+        // every account gets its own random temporary password.
         if (!Env.isProduction) ...[
           const SizedBox(height: 16),
           _DemoFormatHint(),
@@ -322,10 +321,10 @@ class _DemoFormatHintState extends State<_DemoFormatHint> {
                 const SizedBox(height: 6),
                 _HintRow(label: 'Admin Login',  value: 'admin@greenpark.com'),
                 const SizedBox(height: 6),
-                _HintRow(label: 'Password',     value: 'Admin@1234'),
+                _HintRow(label: 'Password',     value: 'shown once, after you register'),
                 const SizedBox(height: 10),
                 const Text(
-                  'Replace "greenpark" with your society code (lowercase).\nYou must change this password on first login.',
+                  'Replace "greenpark" with your society code (lowercase).\nYou must change the password on first login.',
                   style: TextStyle(
                     fontSize: 11,
                     color: AppTheme.textSecondary,
@@ -335,8 +334,8 @@ class _DemoFormatHintState extends State<_DemoFormatHint> {
                 const SizedBox(height: 14),
                 const Text(
                   'Residents and tenants added by the society sign in with '
-                  'their mobile number and password admin1234, then must set a '
-                  'new password on first login.',
+                  'their mobile number and the temporary password the society '
+                  'office gives them, then must set a new password on first login.',
                   style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),
               ],

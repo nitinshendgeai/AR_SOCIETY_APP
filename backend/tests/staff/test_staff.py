@@ -78,11 +78,15 @@ def test_create_staff_with_email_creates_user(client, db):
     assert r.status_code == 201
     data = r.json()
     assert data["user_id"] is not None, "user_id must be set"
-    assert data["temp_password"] == "Staff@1234"
+    temp = data["temp_password"]
+    assert temp and temp != "Staff@1234", "each login gets its own random password, not a fixed default"
     # Verify the user can log in with the temp password
     login_r = client.post("/api/v1/auth/login",
-                          json={"email": "mohan@test.com", "password": "Staff@1234"})
+                          json={"email": "mohan@test.com", "password": temp})
     assert login_r.status_code == 200, login_r.text
+    # ...and the old fixed default no longer works
+    old = client.post("/api/v1/auth/login", json={"email": "mohan@test.com", "password": "Staff@1234"})
+    assert old.status_code == 401
 
 
 def test_create_staff_without_email_no_user(client, db):

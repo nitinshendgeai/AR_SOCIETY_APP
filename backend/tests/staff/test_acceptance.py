@@ -151,22 +151,22 @@ class TestFirstLogin:
         self.admin = make_user(db, "adm2@accept.io", role="Society Admin")
 
     def test_B1_login_succeeds_with_temp_password(self):
-        _create_staff(self.client, self.admin["headers"],
+        pw = _create_staff(self.client, self.admin["headers"],
                       self.society.id, "Login Test", "9812000001",
-                      "logintest@stafftest.io", "security")
+                      "logintest@stafftest.io", "security")["temp_password"]
         r = self.client.post("/api/v1/auth/login",
-                             json={"email": "logintest@stafftest.io", "password": "Staff@1234"})
+                             json={"email": "logintest@stafftest.io", "password": pw})
         assert r.status_code == 200, f"Login failed: {r.text}"
         data = r.json()
         assert "access_token" in data
         assert "refresh_token" in data
 
     def test_B2_must_change_password_flag_true_on_creation(self):
-        _create_staff(self.client, self.admin["headers"],
+        pw = _create_staff(self.client, self.admin["headers"],
                       self.society.id, "Flag Test", "9812000002",
-                      "flagtest@stafftest.io", "security")
+                      "flagtest@stafftest.io", "security")["temp_password"]
         r = self.client.post("/api/v1/auth/login",
-                             json={"email": "flagtest@stafftest.io", "password": "Staff@1234"})
+                             json={"email": "flagtest@stafftest.io", "password": pw})
         assert r.status_code == 200, f"Login failed: {r.text}"
         token = r.json()["access_token"]
         me = self.client.get("/api/v1/auth/me",
@@ -174,17 +174,17 @@ class TestFirstLogin:
         assert me.json()["must_change_password"] is True
 
     def test_B3_change_password_clears_flag(self):
-        _create_staff(self.client, self.admin["headers"],
+        pw = _create_staff(self.client, self.admin["headers"],
                       self.society.id, "Pwd Change", "9812000003",
-                      "pwdchange@stafftest.io", "security")
+                      "pwdchange@stafftest.io", "security")["temp_password"]
         login = self.client.post("/api/v1/auth/login",
-                                 json={"email": "pwdchange@stafftest.io", "password": "Staff@1234"})
+                                 json={"email": "pwdchange@stafftest.io", "password": pw})
         assert login.status_code == 200
         token = login.json()["access_token"]
         h = {"Authorization": f"Bearer {token}"}
 
         cp = self.client.post("/api/v1/auth/change-password",
-                              json={"current_password": "Staff@1234",
+                              json={"current_password": pw,
                                     "new_password": "NewPass@9876"},
                               headers=h)
         assert cp.status_code == 204, f"change_password failed: {cp.text}"
@@ -199,19 +199,19 @@ class TestFirstLogin:
         assert me.json()["must_change_password"] is False, "must_change_password should be False after change"
 
     def test_B4_old_password_rejected_after_change(self):
-        _create_staff(self.client, self.admin["headers"],
+        pw = _create_staff(self.client, self.admin["headers"],
                       self.society.id, "Old Pwd", "9812000004",
-                      "oldpwd@stafftest.io", "security")
+                      "oldpwd@stafftest.io", "security")["temp_password"]
         login = self.client.post("/api/v1/auth/login",
-                                 json={"email": "oldpwd@stafftest.io", "password": "Staff@1234"})
+                                 json={"email": "oldpwd@stafftest.io", "password": pw})
         assert login.status_code == 200
         token = login.json()["access_token"]
         self.client.post("/api/v1/auth/change-password",
-                         json={"current_password": "Staff@1234", "new_password": "NewPass@9999"},
+                         json={"current_password": pw, "new_password": "NewPass@9999"},
                          headers={"Authorization": f"Bearer {token}"})
 
         old_login = self.client.post("/api/v1/auth/login",
-                                     json={"email": "oldpwd@stafftest.io", "password": "Staff@1234"})
+                                     json={"email": "oldpwd@stafftest.io", "password": pw})
         assert old_login.status_code == 401, "Old password should be rejected"
 
 

@@ -46,7 +46,8 @@ class _TrialSuccessScreenState extends ConsumerState<TrialSuccessScreen> {
     final buffer = StringBuffer();
     buffer.writeln('Society: ${result.societyName}');
     buffer.writeln('Society Code: ${result.societyCode.toLowerCase()}');
-    buffer.writeln('Password for all accounts: ${result.adminCredential?.password ?? "Admin@1234"}');
+    final password = result.adminCredential?.password;
+    if (password != null) buffer.writeln('Password for all accounts: $password');
     buffer.writeln();
     for (final c in result.credentials) {
       buffer.writeln('${c.role}: ${c.email}');

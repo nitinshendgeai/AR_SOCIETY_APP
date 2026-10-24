@@ -1,5 +1,7 @@
 """One person, several societies: a mobile number or email is a login per society (unique within a society among
 active users), sign-in offers the societies whose password matches, and only active users of active societies count."""
+import pytest
+
 from app.core.security import hash_password
 from app.models.society import AccountStatus
 from app.models.user import User, UserStatus
@@ -8,6 +10,14 @@ from tests.conftest import make_flat, make_society, make_user, make_wing
 API = "/api/v1"
 PHONE = "9876500001"
 DEFAULT = "admin1234"
+
+
+@pytest.fixture(autouse=True)
+def _same_password_in_every_society(monkeypatch):
+    """New logins get a random temporary password each, so a person in two societies starts with two different ones.
+    These tests are about the sign-in that offers the societies whose password matches, which is what a person gets
+    once they have set the same password in each; this makes the new logins start out that way."""
+    monkeypatch.setattr("app.services.user_provisioning.generate_temp_password", lambda *a, **k: DEFAULT)
 
 
 def _admin(db, society, email):
