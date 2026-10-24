@@ -130,3 +130,29 @@ def render_bills_register_pdf(reg: dict, society, *, compress: bool = True) -> b
     total = ["", f"{t['count']} bills", "", "", "", "", _inr(t["total"]), _inr(t["paid"]), _inr(t["outstanding"]), "", ""]
     return _build("Bills Register", f"Bills received from vendors · {period}", society,
                   lambda w: [_table(rows, columns, w, total)])
+
+
+def render_outstanding_pdf(rep: dict, society, *, compress: bool = True) -> bytes:
+    """Outstandings: one line per party with the amount in each age band, then the totals."""
+    receivable = rep["kind"] == "receivable"
+    labels = {b["key"]: b["label"] for b in rep["bucket_labels"]}
+    keys = [b["key"] for b in rep["bucket_labels"]]
+    as_of = date.fromisoformat(rep["as_of"])
+    columns: List[Column] = [("Flat" if receivable else "Vendor", "name", 0 if not receivable else 24, False)]
+    if receivable:
+        columns.append(("Member", "sub", 0, False))
+    columns += [("Oldest due", "oldest", 22, False), ("Days", "days", 14, True), ("Bills", "bills", 13, True)]
+    columns += [(labels[k] + " Rs.", k, 24, True) for k in keys]
+    columns.append(("Total Rs.", "total", 26, True))
+    rows = [{
+        "name": p["name"], "sub": p.get("sub") or "", "oldest": _date(p["oldest_due_date"]),
+        "days": str(p["days_overdue"]) if p["days_overdue"] else "", "bills": str(p["bill_count"]),
+        **{k: _amt(p["buckets"][k]) for k in keys}, "total": _inr(p["total"]),
+    } for p in rep["parties"]]
+    t = rep["totals"]
+    total = ["Total"] + ([""] if receivable else []) + ["", "", str(t["bills"])] + \
+        [_inr(t["buckets"][k]) for k in keys] + [_inr(t["outstanding"])]
+    title = "Outstanding Receivable" if receivable else "Outstanding Payable"
+    sub = ("Maintenance dues from members" if receivable else "Bills received from vendors and not yet paid") + \
+        f" · aged from the due date · as on {_date(rep['as_of'])}"
+    return _build(title, sub, society, lambda w: [_table(rows, columns, w, total)])
