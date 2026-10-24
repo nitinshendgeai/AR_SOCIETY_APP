@@ -12,6 +12,7 @@ from app.modules.platform_admin.schemas.platform_admin import (
     ActivateSocietyRequest,
     LimitsRequest,
     ServiceSwitchRequest,
+    CleanDataRequest,
 )
 from app.modules.platform_admin.services.platform_admin_service import PlatformAdminService
 
@@ -118,3 +119,19 @@ def switch_service(society_id: UUID, service_key: str, data: ServiceSwitchReques
                    admin: User = Depends(require_platform_admin)):
     """Switch one service on or off for this society. Off closes its API calls and hides its menu items."""
     return PlatformAdminService(db).set_service(str(society_id), service_key, data.enabled, admin)
+
+
+# ── Clean data ────────────────────────────────────────────────────────────────
+
+@router.get("/societies/{society_id}/clean-data")
+def clean_data_preview(society_id: UUID, db: Session = Depends(get_db), admin: User = Depends(require_platform_admin)):
+    """What "Clean data" would delete for this society: rows per table. Deletes nothing."""
+    return PlatformAdminService(db).clean_data_preview(str(society_id))
+
+
+@router.post("/societies/{society_id}/clean-data")
+def clean_data(society_id: UUID, data: CleanDataRequest, db: Session = Depends(get_db),
+               admin: User = Depends(require_platform_admin)):
+    """Permanently delete all of the society's data (rows only; the society itself, other societies and platform
+    admins are kept). `confirm` must be the society's code, typed in full."""
+    return PlatformAdminService(db).clean_data(str(society_id), data.confirm, admin)

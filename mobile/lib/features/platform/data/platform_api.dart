@@ -49,6 +49,7 @@ String eventLabel(String? e) => switch (e) {
       'trial_extended' => 'Trial extended',
       'limits_changed' => 'Limits changed',
       'service_switched' => 'Service switched',
+      'data_cleaned' => 'Data cleaned',
       'society_self_registered' => 'Registered',
       _ => e ?? 'Changed',
     };
@@ -59,6 +60,7 @@ String eventDetail(String? e, Map<String, dynamic> d) => switch (e) {
       'society_activated' => 'On the ${planLabel(d['plan']?.toString())} plan${d['expires_on'] == null ? '' : ' until ${dayText(_dt(d['expires_on']))}'}',
       'trial_extended' => '${d['extend_days']} more days, now ends ${dayText(_dt(d['new_end_date']))}',
       'service_switched' => '${(d['service'] ?? '').toString().replaceAll('_', ' ')} turned ${d['enabled'] == true ? 'on' : 'off'}',
+      'data_cleaned' => '${d['rows_deleted'] ?? 0} records deleted',
       'limits_changed' => 'Users ${(d['old'] as Map?)?['users']} → ${(d['new'] as Map?)?['users']}, flats ${(d['old'] as Map?)?['flats']} → ${(d['new'] as Map?)?['flats']}',
       _ => '',
     };
@@ -241,6 +243,20 @@ class SocietyServiceSwitch {
       );
 }
 
+/// What "Clean data" would delete: rows per table.
+class CleanPreview {
+  final String confirmWith;
+  final int total;
+  final Map<String, int> counts;
+  const CleanPreview({required this.confirmWith, required this.total, required this.counts});
+
+  factory CleanPreview.fromJson(Map<String, dynamic> j) => CleanPreview(
+        confirmWith: j['confirm_with'] as String? ?? '',
+        total: j['total'] as int? ?? 0,
+        counts: {for (final e in (j['counts'] as Map? ?? const {}).entries) e.key.toString(): (e.value as num).toInt()},
+      );
+}
+
 class PlatformApi {
   final Dio _dio;
   PlatformApi({Dio? dio}) : _dio = dio ?? ApiClient.instance;
@@ -271,4 +287,8 @@ class PlatformApi {
 
   Future<void> switchService(String id, String key, bool enabled) =>
       _dio.put('/platform-admin/societies/$id/services/$key', data: {'enabled': enabled});
+
+  Future<CleanPreview> cleanPreview(String id) async => CleanPreview.fromJson((await _dio.get('/platform-admin/societies/$id/clean-data')).data as Map<String, dynamic>);
+
+  Future<void> cleanData(String id, String confirm) => _dio.post('/platform-admin/societies/$id/clean-data', data: {'confirm': confirm});
 }
