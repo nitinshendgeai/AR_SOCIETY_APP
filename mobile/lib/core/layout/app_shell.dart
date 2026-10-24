@@ -349,19 +349,19 @@ class _GroupHeader extends StatelessWidget {
           key: Key('nav-group-$groupKey'),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 14, 16, 6),
+            padding: const EdgeInsets.fromLTRB(24, 12, 16, 6),
             child: Row(children: [
               Expanded(
-                child: Text(label.toUpperCase(),
+                child: Text(label,
                     style: const TextStyle(
-                      fontSize: 11,
+                      fontSize: 12.5,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                      color: AppTheme.textTertiary,
+                      letterSpacing: 0.1,
+                      color: AppTheme.textSecondary,
                     )),
               ),
               Icon(expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
-                  size: 18, color: AppTheme.textTertiary),
+                  size: 18, color: AppTheme.textSecondary),
             ]),
           ),
         ),

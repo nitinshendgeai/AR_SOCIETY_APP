@@ -45,16 +45,21 @@ class AppDataColumn<T> {
         width: width,
         numeric: numeric,
         sortKey: sortKey ?? (r) => text(r).toLowerCase(),
-        cell: (r) => Text(
-          text(r),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: numeric ? TextAlign.right : TextAlign.left,
-          style: TextStyle(
-            fontSize: 13.5,
-            fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
-            color: AppTheme.textPrimary,
-            fontFeatures: numeric ? const [FontFeature.tabularFigures()] : null,
+        // A long value is cut with an ellipsis; hovering shows all of it.
+        cell: (r) => Tooltip(
+          message: text(r),
+          waitDuration: const Duration(milliseconds: 500),
+          child: Text(
+            text(r),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: numeric ? TextAlign.right : TextAlign.left,
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
+              color: AppTheme.textPrimary,
+              fontFeatures: numeric ? const [FontFeature.tabularFigures()] : null,
+            ),
           ),
         ),
       );

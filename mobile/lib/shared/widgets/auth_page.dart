@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/shared/widgets/dux_logo.dart';
 import 'package:ar_society_app/core/config/env.dart';
 import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show kDesktopBreakpoint;
@@ -127,10 +128,7 @@ class AuthPage extends StatelessWidget {
       child: child,
     );
     final head = Column(mainAxisSize: MainAxisSize.min, children: [
-      ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: Image.asset('assets/branding/duxos_logo.png', width: 72, height: 72, fit: BoxFit.cover),
-      ),
+      const DuxLogo(size: 76),
       const SizedBox(height: 16),
       _heading(context, centered: true),
       const SizedBox(height: 24),
@@ -187,10 +185,7 @@ class _BrandPanel extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(56),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: Image.asset('assets/branding/duxos_logo.png', width: 68, height: 68, fit: BoxFit.cover),
-            ),
+            const DuxLogo(size: 72),
             const SizedBox(height: 28),
             Text(Env.appName,
                 style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Colors.white)),
