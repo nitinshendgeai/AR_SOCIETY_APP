@@ -4,7 +4,9 @@ import 'package:ar_society_app/core/help/help_launcher.dart';
 import 'package:ar_society_app/core/l10n/language_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/core/layout/sign_out.dart';
 import 'package:ar_society_app/core/navigation/app_menu.dart';
+import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/widgets/society_switcher.dart';
@@ -129,6 +131,22 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
                 openHelp(user);
               },
             ),
+          ListTile(
+            leading: const Icon(Icons.devices_rounded, color: AppTheme.textSecondary),
+            title: Text(ctx.tr('Signed-in devices')),
+            onTap: () {
+              Navigator.of(ctx).pop();
+              context.go(AppRoutes.activeDevices);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.logout_rounded, color: AppTheme.error),
+            title: Text(ctx.tr('Sign out'), style: const TextStyle(color: AppTheme.error)),
+            onTap: () {
+              Navigator.of(ctx).pop();
+              confirmSignOut(context, ref);
+            },
+          ),
           const Divider(height: 8),
           for (final c in menu) ...[
             Padding(

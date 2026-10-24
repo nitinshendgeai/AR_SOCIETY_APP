@@ -1248,7 +1248,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 10),
         _chipRow([
           const _QuickActionChip(icon: Icons.receipt_long_rounded, label: 'Maintenance Billing', route: AppRoutes.maintenanceBilling),
-          const _QuickActionChip(icon: Icons.payments_rounded, label: 'Payments', route: AppRoutes.onlinePayments),
+          const _QuickActionChip(icon: Icons.payments_rounded, label: 'Online Payments', route: AppRoutes.onlinePayments),
           if (_on(user, 'vendors'))
             const _QuickActionChip(icon: Icons.request_quote_rounded, label: 'Vendor Bills', route: AppRoutes.vendorBills),
         ]),

@@ -33,50 +33,56 @@ const appMenuCategories = [
   AppMenuCategory('Platform', Icons.public_rounded, [
     AppMenuItem('platform_admin', 'Platform Console', Icons.dashboard_rounded, AppRoutes.platformHome),
   ]),
-  AppMenuCategory('People', Icons.people_alt_rounded, [
+  AppMenuCategory('People & Residents', Icons.people_alt_rounded, [
     AppMenuItem('residents', 'Residents', Icons.people_outline_rounded, AppRoutes.residentsList),
     AppMenuItem('tenants', 'Tenants', Icons.groups_2_outlined, AppRoutes.tenantsList),
+    AppMenuItem('pending_resident_changes', 'Pending Resident Changes', Icons.fact_check_outlined, AppRoutes.pendingResidentChanges),
+    AppMenuItem('staff', 'Staff', Icons.badge_rounded, AppRoutes.staffHome),
   ]),
   // Wings and flats are everyday records (who lives where, what is vacant), not
   // just first-time setup, so they sit in the menu rather than only behind the
   // Setup Wizard. They share the wizard's access.
-  AppMenuCategory('Property', Icons.apartment_rounded, [
+  AppMenuCategory('Property & Parking', Icons.home_work_rounded, [
     AppMenuItem('setup_wizard', 'Wings', Icons.domain_rounded, AppRoutes.wingsList),
     AppMenuItem('setup_wizard', 'Flats', Icons.door_front_door_rounded, AppRoutes.flatsList),
     AppMenuItem('shops', 'Shops', Icons.storefront_rounded, AppRoutes.shops),
+    AppMenuItem('parking_management', 'Parking Management', Icons.local_parking_rounded, AppRoutes.parkingManagement),
+    AppMenuItem('assets', 'Assets', Icons.inventory_2_rounded, AppRoutes.assets),
   ]),
-  AppMenuCategory('Community', Icons.diversity_3_rounded, [
+  AppMenuCategory('Community & Services', Icons.diversity_3_rounded, [
     AppMenuItem('visitors', 'Visitors', Icons.meeting_room_rounded, AppRoutes.visitorsMy),
+    AppMenuItem('parcels', 'Parcels', Icons.local_shipping_rounded, AppRoutes.parcels),
+    AppMenuItem('domestic_help', 'Domestic help', Icons.cleaning_services_rounded, AppRoutes.domesticHelp),
+    AppMenuItem('complaints', 'Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
     AppMenuItem('notices', 'Notices', Icons.campaign_rounded, AppRoutes.notices),
     AppMenuItem('amenities', 'Amenities', Icons.pool_rounded, AppRoutes.amenities),
     AppMenuItem('meetings', 'Meetings', Icons.groups_rounded, AppRoutes.meetings),
     AppMenuItem('polls', 'Polls', Icons.how_to_vote_rounded, AppRoutes.polls),
     AppMenuItem('documents', 'Documents', Icons.folder_open_rounded, AppRoutes.documents),
     AppMenuItem('certificates', 'Certificates & NOC', Icons.verified_outlined, AppRoutes.certificates),
-    AppMenuItem('parcels', 'Parcels', Icons.inventory_2_rounded, AppRoutes.parcels),
-    AppMenuItem('domestic_help', 'Domestic help', Icons.cleaning_services_rounded, AppRoutes.domesticHelp),
-    AppMenuItem('complaints', 'Complaints', Icons.report_problem_rounded, AppRoutes.complaints),
-    AppMenuItem('pending_resident_changes', 'Pending Resident Changes', Icons.fact_check_outlined, AppRoutes.pendingResidentChanges),
   ]),
   AppMenuCategory('Operations', Icons.build_rounded, [
     AppMenuItem('manager_checklist', "Manager's Checklist", Icons.fact_check_rounded, AppRoutes.managerChecklist),
-    AppMenuItem('staff', 'Staff', Icons.badge_rounded, AppRoutes.staffHome),
     AppMenuItem('checklist_templates', 'Checklist Templates', Icons.checklist_rtl_rounded, AppRoutes.checklistTemplates),
-    AppMenuItem('parking_management', 'Parking Management', Icons.local_parking_rounded, AppRoutes.parkingManagement),
-    AppMenuItem('assets', 'Assets', Icons.inventory_2_rounded, AppRoutes.assets),
     AppMenuItem('inventory', 'Stores', Icons.warehouse_rounded, AppRoutes.stores),
     AppMenuItem('vendors', 'Vendors & Work', Icons.handyman_rounded, AppRoutes.vendorsWork),
   ]),
-  AppMenuCategory('Finance', Icons.payments_rounded, [
+  // Day-to-day billing and collection. The books, registers and reports are under Accounts.
+  AppMenuCategory('Finance & Maintenance', Icons.payments_rounded, [
     AppMenuItem('maintenance_billing', 'Maintenance Billing', Icons.request_quote_rounded, AppRoutes.maintenanceBilling),
     AppMenuItem('maintenance_elements', 'Maintenance Elements', Icons.tune_rounded, AppRoutes.maintenanceElements),
-    AppMenuItem('online_payments', 'Payments', Icons.receipt_long_rounded, AppRoutes.onlinePayments),
+    AppMenuItem('online_payments', 'Online Payments', Icons.currency_rupee_rounded, AppRoutes.onlinePayments),
     AppMenuItem('defaulters', 'Defaulters', Icons.warning_amber_rounded, AppRoutes.defaulters),
+    AppMenuItem('vendor_bills', 'Vendor Bills', Icons.request_page_rounded, AppRoutes.vendorBills),
     AppMenuItem('bank_reconciliation', 'Bank Reconciliation', Icons.account_balance_rounded, AppRoutes.bankReconciliation),
-    AppMenuItem('vendor_bills', 'Vendor Bills', Icons.storefront_rounded, AppRoutes.vendorBills),
-    AppMenuItem('accounts', 'Accounts', Icons.account_balance_wallet_rounded, AppRoutes.accounts),
   ]),
-  AppMenuCategory('Administration', Icons.admin_panel_settings_rounded, [
+  // Both entries open existing screens (the landing page and the keyboard Gateway); the groups
+  // inside them (transactions, books, receivables, setup, reports) live on those screens.
+  AppMenuCategory('Accounts & Financial Reports', Icons.menu_book_rounded, [
+    AppMenuItem('accounts', 'Accounts', Icons.account_balance_wallet_rounded, AppRoutes.accounts),
+    AppMenuItem('accounts', 'Gateway of Accounts', Icons.apps_rounded, AppRoutes.accountsGateway),
+  ]),
+  AppMenuCategory('Administration & Settings', Icons.admin_panel_settings_rounded, [
     AppMenuItem('users_roles', 'Users & Roles', Icons.people_rounded, AppRoutes.usersList),
     AppMenuItem('permission_matrix', 'Permission Matrix', Icons.rule_rounded, AppRoutes.permissionMatrix),
     AppMenuItem('forms_matrix', 'Forms Matrix', Icons.dashboard_customize_rounded, AppRoutes.formsMatrix),
@@ -84,30 +90,42 @@ const appMenuCategories = [
     AppMenuItem('automation', 'Automatic tasks', Icons.autorenew_rounded, AppRoutes.automation),
     AppMenuItem('setup_wizard', 'Setup Wizard', Icons.checklist_rounded, AppRoutes.structureWizard),
   ]),
-  AppMenuCategory('My Account', Icons.person_rounded, [
-    AppMenuItem('my_bills', 'My Bills', Icons.receipt_long_rounded, AppRoutes.myBills),
+  // The resident's own screens (granted to the Resident role only).
+  AppMenuCategory(residentPaymentsLabel, Icons.receipt_long_rounded, [
+    AppMenuItem('my_bills', 'My Bills', Icons.description_rounded, AppRoutes.myBills),
+  ]),
+  AppMenuCategory('Profile & Help', Icons.person_rounded, [
     AppMenuItem('edit_my_info', 'Edit My Info', Icons.edit_note_rounded, AppRoutes.editMyProfile),
   ]),
 ];
+
+/// The resident's own group; for a resident it comes first, before the shared community screens.
+const residentPaymentsLabel = 'Payments';
 
 /// The menu entries [grantedFormCodes] allow, grouped by category, with
 /// routes resolved for [user]: people who run the society (admin,
 /// committee, manager, security) land on the society-wide Visitors and
 /// Complaints lists, everyone else on their own; admin, committee and
 /// managers get the staff register rather than the Staff Portal.
-List<AppMenuCategory> visibleMenuCategories(Set<String> grantedFormCodes, {UserEntity? user}) => appMenuCategories
-    // The society screens need a society; a platform admin has none, so they see only the console.
-    .where((category) => user?.isPlatformAdmin != true || category.label == 'Platform')
-    .map((category) => AppMenuCategory(
-          category.label,
-          category.icon,
-          category.items
-              .where((item) => grantedFormCodes.contains(item.formCode))
-              .map((item) => _resolveFor(item, user))
-              .toList(),
-        ))
-    .where((category) => category.items.isNotEmpty)
-    .toList();
+List<AppMenuCategory> visibleMenuCategories(Set<String> grantedFormCodes, {UserEntity? user}) {
+  final visible = appMenuCategories
+      // The society screens need a society; a platform admin has none, so they see only the console.
+      .where((category) => user?.isPlatformAdmin != true || category.label == 'Platform')
+      .map((category) => AppMenuCategory(
+            category.label,
+            category.icon,
+            category.items
+                .where((item) => grantedFormCodes.contains(item.formCode))
+                .map((item) => _resolveFor(item, user))
+                .toList(),
+          ))
+      .where((category) => category.items.isNotEmpty)
+      .toList();
+  if (user?.isResident != true) return visible;
+  // A resident's money comes first: their bills, then the community screens, then their profile.
+  final payments = visible.where((c) => c.label == residentPaymentsLabel).toList();
+  return [...payments, ...visible.where((c) => c.label != residentPaymentsLabel)];
+}
 
 AppMenuItem _resolveFor(AppMenuItem item, UserEntity? user) {
   final societyId = user?.societyId;
@@ -167,4 +185,43 @@ List<PhoneTab> phoneTabsFor(UserEntity user, Set<String> grantedFormCodes) {
     if (tabs.length == 4) break;
   }
   return tabs;
+}
+
+/// The third crumb for a page opened from a menu entry (a register, a report, a voucher form), or null when the page
+/// is the entry itself or has no known name. Only pages whose name is known are named; nothing is guessed from the
+/// address.
+String? subPageLabel(String path) {
+  final q = path.indexOf('?');
+  var p = q < 0 ? path : path.substring(0, q);
+  if (p.length > 1 && p.endsWith('/')) p = p.substring(0, p.length - 1);
+  const exact = <String, String>{
+    AppRoutes.accountsDayBook: 'Day Book',
+    AppRoutes.accountsCashBook: 'Cash & Bank Book',
+    AppRoutes.accountsInvoices: 'Invoice Register',
+    AppRoutes.accountsBills: 'Bills Register',
+    AppRoutes.accountsRecurring: 'Monthly Expenses',
+    AppRoutes.accountsReceivable: 'Outstanding Receivable',
+    AppRoutes.accountsPayable: 'Outstanding Payable',
+    AppRoutes.accountsMembers: "Members' Ledger",
+    AppRoutes.accountsApprovals: 'Approvals',
+    AppRoutes.accountsChart: 'Chart of Accounts',
+    AppRoutes.accountsExpenses: 'Spend by Maintenance Element',
+    AppRoutes.accountsStatements: 'Financial Statements',
+    AppRoutes.accountsExpenseNew: 'New Expense',
+    AppRoutes.accountsVoucherNew: 'New Voucher',
+  };
+  final named = exact[p];
+  if (named != null) return named;
+  const reports = {
+    'trial-balance': 'Trial Balance',
+    'income-expenditure': 'Income & Expenditure',
+    'balance-sheet': 'Balance Sheet',
+    'receipts-payments': 'Receipts & Payments',
+    'funds': 'Schedule of Funds',
+  };
+  final report = RegExp('^${RegExp.escape(AppRoutes.accountsStatements)}/([a-z-]+)\$').firstMatch(p);
+  if (report != null) return reports[report.group(1)];
+  if (RegExp(r'^/accounts/ledger/[^/]+$').hasMatch(p)) return 'Ledger';
+  if (RegExp(r'^/accounts/vouchers/[^/]+/edit$').hasMatch(p)) return 'Edit Voucher';
+  return null;
 }

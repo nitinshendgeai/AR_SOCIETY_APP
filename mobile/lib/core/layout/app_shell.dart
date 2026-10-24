@@ -5,6 +5,7 @@ import 'package:ar_society_app/core/l10n/language_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/layout/phone_bottom_bar.dart';
+import 'package:ar_society_app/core/layout/sign_out.dart';
 import 'package:ar_society_app/core/navigation/app_menu.dart';
 import 'package:ar_society_app/features/notices/presentation/widgets/emergency_banner.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
@@ -27,6 +28,21 @@ bool isDesktopLayout(BuildContext context) =>
     MediaQuery.sizeOf(context).width >= kDesktopBreakpoint;
 
 final sidebarCollapsedProvider = StateProvider<bool>((_) => false);
+
+/// Groups the person opened or closed by hand, valid only for the page they did it on: moving to another page
+/// opens the group that page belongs to again (see [sidebarGroupExpanded]).
+final sidebarGroupToggleProvider = StateProvider<({String location, Map<String, bool> groups})>(
+    (_) => (location: '', groups: const {}));
+
+/// Whether the sidebar group [label] is open: the group holding the current page always starts open, and a
+/// click on its header overrides that for as long as the person stays on the page.
+bool sidebarGroupExpanded(
+  String label, {
+  required bool holdsActive,
+  required String location,
+  required ({String location, Map<String, bool> groups}) toggled,
+}) =>
+    (toggled.location == location ? toggled.groups[label] : null) ?? holdsActive;
 
 /// Wraps every signed-in page. On desktop widths it adds the persistent
 /// navigation sidebar and top bar around [child]; on narrow screens it
@@ -56,7 +72,7 @@ class AppShell extends ConsumerWidget {
         const VerticalDivider(width: 1),
         Expanded(
           child: Column(children: [
-            _TopBar(user: user, crumbs: [for (final c in _breadcrumbs(active)) context.tr(c)]),
+            _TopBar(user: user, crumbs: [for (final c in _breadcrumbs(active, location)) context.tr(c)]),
             const EmergencyBanner(),
             Expanded(
               child: Align(
@@ -122,8 +138,11 @@ class AppShell extends ConsumerWidget {
 
   static String _firstSegment(String path) => path.split('/').firstWhere((p) => p.isNotEmpty, orElse: () => '');
 
-  static List<String> _breadcrumbs((AppMenuCategory, AppMenuItem)? active) =>
-      active == null ? const ['Dashboard'] : [active.$1.label, active.$2.label];
+  static List<String> _breadcrumbs((AppMenuCategory, AppMenuItem)? active, String location) {
+    if (active == null) return const ['Dashboard'];
+    final sub = subPageLabel(location);
+    return [active.$1.label, active.$2.label, if (sub != null && sub != active.$2.label) sub];
+  }
 }
 
 /// On a phone every page brings its own app bar, and reaches the menu only through the dashboard's
@@ -232,6 +251,13 @@ class _Sidebar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final collapsed = ref.watch(sidebarCollapsedProvider);
     final onHome = activeRoute == null && location == homeRoute;
+    final toggled = ref.watch(sidebarGroupToggleProvider);
+    bool expanded(AppMenuCategory c) => sidebarGroupExpanded(
+          c.label,
+          holdsActive: c.items.any((i) => i.route != null && i.route == activeRoute),
+          location: location,
+          toggled: toggled,
+        );
     // Residents: how many visitors are waiting at the gate for their approval.
     final me = ref.watch(currentUserProvider);
     final waitingVisitors = me?.isResident == true && me!.hasService('visitors')
@@ -264,25 +290,28 @@ class _Sidebar extends ConsumerWidget {
                     child: Divider(height: 1),
                   )
                 else
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 18, 16, 6),
-                    child: Text(context.tr(c.label).toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8,
-                          color: AppTheme.textTertiary,
-                        )),
+                  _GroupHeader(
+                    label: context.tr(c.label),
+                    groupKey: c.label,
+                    expanded: expanded(c),
+                    onTap: () => ref.read(sidebarGroupToggleProvider.notifier).state = (
+                      location: location,
+                      groups: {
+                        if (toggled.location == location) ...toggled.groups,
+                        c.label: !expanded(c),
+                      },
+                    ),
                   ),
-                for (final item in c.items)
-                  _NavTile(
-                    icon: item.icon,
-                    label: context.tr(item.label),
-                    selected: item.route == activeRoute,
-                    collapsed: collapsed,
-                    badge: item.formCode == 'visitors' ? waitingVisitors : 0,
-                    onTap: item.route == null ? null : () => context.go(item.route!),
-                  ),
+                if (collapsed || expanded(c))
+                  for (final item in c.items)
+                    _NavTile(
+                      icon: item.icon,
+                      label: context.tr(item.label),
+                      selected: item.route == activeRoute,
+                      collapsed: collapsed,
+                      badge: item.formCode == 'visitors' ? waitingVisitors : 0,
+                      onTap: item.route == null ? null : () => context.go(item.route!),
+                    ),
               ],
             ],
           ),
@@ -299,6 +328,43 @@ class _Sidebar extends ConsumerWidget {
       ]),
     );
   }
+}
+
+/// The heading of a sidebar group: its name and a chevron, one click opens or closes the group.
+class _GroupHeader extends StatelessWidget {
+  final String label;
+  final String groupKey;
+  final bool expanded;
+  final VoidCallback onTap;
+  const _GroupHeader({required this.label, required this.groupKey, required this.expanded, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        expanded: expanded,
+        label: label,
+        excludeSemantics: true,
+        child: InkWell(
+          key: Key('nav-group-$groupKey'),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 14, 16, 6),
+            child: Row(children: [
+              Expanded(
+                child: Text(label.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                      color: AppTheme.textTertiary,
+                    )),
+              ),
+              Icon(expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                  size: 18, color: AppTheme.textTertiary),
+            ]),
+          ),
+        ),
+      );
 }
 
 class _Brand extends ConsumerWidget {
@@ -402,7 +468,8 @@ class _NavTile extends StatelessWidget {
         ),
       ),
     );
-    return collapsed ? Tooltip(message: label, waitDuration: const Duration(milliseconds: 300), child: tile) : tile;
+    final announced = Semantics(button: true, selected: selected, label: label, excludeSemantics: true, child: tile);
+    return collapsed ? Tooltip(message: label, waitDuration: const Duration(milliseconds: 300), child: announced) : announced;
   }
 }
 
@@ -453,32 +520,13 @@ class _UserMenu extends ConsumerWidget {
     return (parts.first[0] + (parts.length > 1 ? parts.last[0] : '')).toUpperCase();
   }
 
-  Future<void> _signOut(BuildContext context, WidgetRef ref) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Sign out?'),
-        content: const Text('You will be returned to the login screen.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppTheme.error),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Sign out'),
-          ),
-        ],
-      ),
-    );
-    if (ok == true) ref.read(authProvider.notifier).logout();
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return PopupMenuButton<String>(
       tooltip: context.tr('Account'),
       offset: const Offset(0, 48),
       onSelected: (v) {
-        if (v == 'logout') _signOut(context, ref);
+        if (v == 'logout') confirmSignOut(context, ref);
         if (v == 'devices') context.go(AppRoutes.activeDevices);
         if (v == 'society') showSocietySwitcher(context, ref);
         if (v == 'language') showLanguagePicker(context, ref);

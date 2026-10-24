@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/accounts_gateway_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/widgets/gateway_menu.dart';
 import 'package:ar_society_app/features/accounts/presentation/widgets/voucher_hotkeys.dart';
 
@@ -24,6 +25,61 @@ Widget _menu(List<String> opened, {VoidCallback? onBack}) => MaterialApp(
     );
 
 void main() {
+  group('the Gateway of Accounts hierarchy', () {
+    Future<List<GatewaySection>> build(WidgetTester t, {Set<String>? granted}) async {
+      late List<GatewaySection> sections;
+      await t.pumpWidget(MaterialApp(
+        home: Builder(builder: (context) {
+          sections = AccountsGatewayScreen.sections(context, fy: '2025-26', pendingApprovals: 2, granted: granted);
+          return const SizedBox();
+        }),
+      ));
+      return sections;
+    }
+
+    testWidgets('five groups, every account function reachable once, no letter used twice', (t) async {
+      final sections = await build(t);
+      expect({for (final s in sections) s.title: [for (final i in s.items) i.label]}, {
+        'Transactions': ['Receipt', 'Payment', 'Contra (cash / bank transfer)', 'Journal', 'Expense'],
+        'Books & Registers': ['Day Book', 'Cash & Bank Book', 'Invoice Register', 'Bills Register', 'Monthly Expenses'],
+        'Receivables & Payables': [
+          'Outstanding Receivable (members)', 'Outstanding Payable (vendors)', "Members' Ledger", 'Vendor Bills', 'Approvals',
+        ],
+        'Accounting Setup': ['Chart of Accounts (ledgers)'],
+        'Financial Reports': [
+          'Trial Balance', 'Income & Expenditure', 'Balance Sheet', 'Receipts & Payments', 'Schedule of Funds',
+          'Spend by Maintenance Element', 'Financial Statements and Year-end Closing',
+        ],
+      });
+      final items = [for (final s in sections) ...s.items];
+      expect(items.length, 23); // nothing dropped from before the regrouping
+      expect(items.map((i) => i.letter).toSet().length, items.length);
+      expect(items.map((i) => i.label).toSet().length, items.length);
+    });
+
+    testWidgets('the shortcut letters did not move', (t) async {
+      final items = {for (final s in await build(t)) for (final i in s.items) i.label: i.letter};
+      expect(items['Receipt'], 'R');
+      expect(items['Day Book'], 'D');
+      expect(items['Approvals'], 'A');
+      expect(items['Trial Balance'], 'T');
+      expect(items['Chart of Accounts (ledgers)'], 'H');
+      expect(items["Members' Ledger"], 'N');
+      expect(items['Vendor Bills'], 'V');
+      expect(items['Financial Statements and Year-end Closing'], 'Z');
+    });
+
+    testWidgets('the approvals badge is kept, and Vendor Bills is left out for someone without that grant', (t) async {
+      final all = [for (final s in await build(t)) ...s.items];
+      expect(all.firstWhere((i) => i.label == 'Approvals').badge, '2 waiting');
+      final without = [for (final s in await build(t, granted: {'accounts'})) ...s.items];
+      expect(without.any((i) => i.label == 'Vendor Bills'), isFalse);
+      expect(without.length, 22);
+      final withGrant = [for (final s in await build(t, granted: {'accounts', 'vendor_bills'})) ...s.items];
+      expect(withGrant.length, 23);
+    });
+  });
+
   group('the Gateway menu', () {
     testWidgets('shows the sections, the letters, the hints and a badge', (tester) async {
       await tester.pumpWidget(_menu([]));

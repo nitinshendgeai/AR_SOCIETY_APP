@@ -5,13 +5,14 @@
 const Map<String, Map<String, String>> kTranslations = {
   // ── Menu groups ──
   'Platform': {'hi': 'प्लेटफ़ॉर्म', 'mr': 'प्लॅटफॉर्म'},
-  'People': {'hi': 'लोग', 'mr': 'लोक'},
-  'Property': {'hi': 'संपत्ति', 'mr': 'मालमत्ता'},
-  'Community': {'hi': 'समुदाय', 'mr': 'सामुदायिक'},
+  'People & Residents': {'hi': 'लोग और निवासी', 'mr': 'लोक आणि रहिवासी'},
+  'Property & Parking': {'hi': 'संपत्ति और पार्किंग', 'mr': 'मालमत्ता आणि पार्किंग'},
+  'Community & Services': {'hi': 'समुदाय और सेवाएँ', 'mr': 'सामुदायिक आणि सेवा'},
   'Operations': {'hi': 'संचालन', 'mr': 'कामकाज'},
-  'Finance': {'hi': 'वित्त', 'mr': 'वित्त'},
-  'Administration': {'hi': 'प्रशासन', 'mr': 'प्रशासन'},
-  'My Account': {'hi': 'मेरा खाता', 'mr': 'माझे खाते'},
+  'Finance & Maintenance': {'hi': 'वित्त और मेंटेनेंस', 'mr': 'वित्त आणि देखभाल'},
+  'Accounts & Financial Reports': {'hi': 'लेखा और वित्तीय रिपोर्ट', 'mr': 'लेखा आणि आर्थिक अहवाल'},
+  'Administration & Settings': {'hi': 'प्रशासन और सेटिंग्स', 'mr': 'प्रशासन आणि सेटिंग्ज'},
+  'Profile & Help': {'hi': 'प्रोफ़ाइल और सहायता', 'mr': 'प्रोफाइल आणि मदत'},
 
   // ── Menu items ──
   'Accounts': {'hi': 'लेखा', 'mr': 'लेखा'},
@@ -39,7 +40,9 @@ const Map<String, Map<String, String>> kTranslations = {
   'Notices': {'hi': 'सूचनाएँ', 'mr': 'सूचना'},
   'Parcels': {'hi': 'पार्सल', 'mr': 'पार्सल'},
   'Parking Management': {'hi': 'पार्किंग प्रबंधन', 'mr': 'पार्किंग व्यवस्थापन'},
+  'Online Payments': {'hi': 'ऑनलाइन भुगतान', 'mr': 'ऑनलाइन भरणा'},
   'Payments': {'hi': 'भुगतान', 'mr': 'भरणा'},
+  'Gateway of Accounts': {'hi': 'लेखा गेटवे', 'mr': 'लेखा गेटवे'},
   'Pending Resident Changes': {
     'hi': 'लंबित निवासी बदलाव',
     'mr': 'प्रलंबित रहिवासी बदल'
