@@ -9,6 +9,7 @@ import 'package:ar_society_app/core/navigation/app_menu.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart' show AppFilterPill;
 import 'package:ar_society_app/shared/widgets/dux_logo.dart';
 import 'package:ar_society_app/features/auth/presentation/widgets/society_switcher.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart'
@@ -66,7 +67,7 @@ class PhoneBottomBar extends ConsumerWidget {
       selectedIndex: active ?? tabs.length,
       onDestinationSelected: (i) {
         if (i == tabs.length) {
-          _showMore(context, ref, menu, user);
+          _showMore(context, ref, menu, user, location);
         } else {
           context.go(tabs[i].route);
         }
@@ -84,7 +85,11 @@ class PhoneBottomBar extends ConsumerWidget {
   }
 }
 
-void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, UserEntity user) {
+void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, UserEntity user, String location) {
+  // Opens on the group of the page the person is on, else the first. Held outside the sheet's builder, which
+  // runs again whenever the sheet is dragged.
+  final current = menu.indexWhere((c) => c.items.any((i) => i.route == location));
+  final selected = ValueNotifier<int>(current < 0 ? 0 : current);
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -102,11 +107,13 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
                   style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
             );
         final society = user.societies.where((c) => c.current).map((c) => c.societyName).firstOrNull;
-        return ListView(
+        return ValueListenableBuilder<int>(
+          valueListenable: selected,
+          builder: (ctx, group, _) => ListView(
           controller: controller,
           padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
           children: [
-            // Who is signed in, and where, first; the menu follows, the account actions come last.
+            // Who is signed in, and where, first; then the menu, one group at a time; the account actions come last.
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Row(children: [
@@ -127,9 +134,16 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
               ]),
             ),
             const Divider(height: 8),
-            for (final c in menu) ...[
-              heading(c.label),
-              for (final item in c.items)
+            // The groups as bubbles: pick one and only its screens are listed, instead of one long list of everything.
+            if (menu.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Wrap(spacing: 8, runSpacing: 8, children: [
+                  for (var i = 0; i < menu.length; i++)
+                    AppFilterPill(label: ctx.tr(menu[i].label), selected: i == group, onTap: () => selected.value = i),
+                ]),
+              ),
+              for (final item in menu[group].items)
                 ListTile(
                   leading: Icon(item.icon, color: AppTheme.textSecondary),
                   title: Text(ctx.tr(item.label)),
@@ -193,6 +207,7 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
               },
             ),
           ],
+        ),
         );
       },
     ),
