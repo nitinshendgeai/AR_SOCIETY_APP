@@ -213,6 +213,13 @@ void main() {
 
     bool open(String label) => find.byKey(Key('nav-group-$label')).evaluate().isNotEmpty;
 
+    testWidgets('on the dashboard, which is in no group, the first group is open', (t) async {
+      await boot(t, _user('Society Admin'), _admin, start: '/admin');
+      expect(find.text('Residents'), findsOneWidget);            // People & Residents, the first group
+      expect(find.text('Wings'), findsNothing);                 // the others stay closed
+      expect(find.text('Gateway of Accounts'), findsNothing);
+    });
+
     testWidgets('shows the groups; only the group of the current page starts open', (t) async {
       await boot(t, _user('Society Admin'), _admin, start: '/residents');
       expect(open('People & Residents') && open('Accounts & Financial Reports') && open('Administration & Settings'), isTrue);

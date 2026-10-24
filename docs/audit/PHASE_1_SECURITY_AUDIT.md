@@ -85,7 +85,7 @@ Method: 506 routes called with an empty body by a Resident, Security Staff, Mana
 | R9 | Hidden buttons are not a control: every restriction above is enforced server-side and tested through the API | PASS | T |
 | R10 | Permission-matrix edits (`PUT /roles/{id}/permissions`, `/forms`) left no trail | **FIXED** | audit-log entries (module `rbac`, old/new codes, who). T |
 | R11 | **Roles are global** (`roles.name` unique, no society). A Society Admin has the `admin` permission, so editing the matrix changes the grants every society's residents/staff get, for example granting Residents `admin` everywhere | **OPEN** | Changing it alters the permission model, so it needs your approval. Options: (a) matrix edits platform-admin-only; (b) per-society role copies (needs a migration); (c) keep as is and rely on the new audit trail. |
-| R12 | Whether every member should see the resident directory at all | OPEN (product decision) | Phase 1 only removed the sensitive fields. |
+| R12 | Whether every member should see the resident directory at all | **DECIDED 2026-10-24** | Members keep a neighbour directory of **name and flat**. Phone number and email now join the hidden fields (and members can no longer search by them); the office and each person's own record see everything. See `docs/CHANGELOG.md` 2026-10-24. |
 
 ## 5. Migration and start-up readiness
 

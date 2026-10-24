@@ -12,6 +12,7 @@ from app.schemas.resident import ResidentCreate, ResidentUpdate, ResidentOut, Re
 from app.core.tenant_scope import assert_user_in_society
 from app.services.audit_service import AuditService
 from app.services.occupancy_service import OccupancyService
+from app.core.privacy import can_search_contacts
 from app.services.user_provisioning import provision_login_by_phone
 
 _PRIMARY_ALLOWED_TYPES = (ResidentType.OWNER, ResidentType.CO_OWNER)
@@ -167,7 +168,7 @@ class ResidentService:
         residents = self.repo.list_scoped(
             society_id=current_user.society_id, flat_id=flat_id,
             resident_type=resident_type, is_active=is_active, search=search,
-            skip=skip, limit=limit,
+            skip=skip, limit=limit, search_contacts=can_search_contacts(current_user),
         )
         return [self._enrich(r) for r in residents]
 

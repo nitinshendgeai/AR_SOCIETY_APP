@@ -81,7 +81,7 @@ Landing page = `userRoleHome`; "Menu" = non-member form codes granted by default
 | Housekeeping / Technical Staff | Staff Portal | Staff |
 | Gym Trainer | Staff Portal | none (no "Staff" grant by default — existing gap) |
 | Resident | Resident dashboard | Edit My Info, My Bills |
-| Tenant | Resident dashboard | none (the dashboard links to My Bills and Edit My Info but the Tenant role is not granted them — existing gap) |
+| Tenant | Resident dashboard | none. Resolved 2026-10-24: My Bills and Edit My Info work from a resident record, which a Tenant does not have, so the dashboard no longer shows them to someone who is not granted them (nothing was granted) |
 
 ### 4.2 The route guard (what it does and does not do)
 - Management screens (residents, tenants, shops, automation, users and matrices, society settings, wings/flats/setup, parking management, checklist templates and manager checklist, billing screens, vendors, accounts, assets, stores) require the same form code the menu uses. Without it: redirect to the person's own dashboard with "You do not have access to that screen."

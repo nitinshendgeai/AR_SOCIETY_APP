@@ -35,8 +35,9 @@ final sidebarCollapsedProvider = StateProvider<bool>((_) => false);
 final sidebarGroupToggleProvider = StateProvider<({String location, Map<String, bool> groups})>(
     (_) => (location: '', groups: const {}));
 
-/// Whether the sidebar group [label] is open: the group holding the current page always starts open, and a
-/// click on its header overrides that for as long as the person stays on the page.
+/// Whether the sidebar group [label] is open: the group holding the current page always starts open (on a page that
+/// is in no group, such as the dashboard, the first group does, so the sidebar is never a bare list of headings), and
+/// a click on its header overrides that for as long as the person stays on the page.
 bool sidebarGroupExpanded(
   String label, {
   required bool holdsActive,
@@ -253,9 +254,11 @@ class _Sidebar extends ConsumerWidget {
     final collapsed = ref.watch(sidebarCollapsedProvider);
     final onHome = activeRoute == null && location == homeRoute;
     final toggled = ref.watch(sidebarGroupToggleProvider);
+    final inAGroup = categories.any((c) => c.items.any((i) => i.route != null && i.route == activeRoute));
     bool expanded(AppMenuCategory c) => sidebarGroupExpanded(
           c.label,
-          holdsActive: c.items.any((i) => i.route != null && i.route == activeRoute),
+          holdsActive: c.items.any((i) => i.route != null && i.route == activeRoute) ||
+              (!inAGroup && categories.isNotEmpty && identical(c, categories.first)),
           location: location,
           toggled: toggled,
         );

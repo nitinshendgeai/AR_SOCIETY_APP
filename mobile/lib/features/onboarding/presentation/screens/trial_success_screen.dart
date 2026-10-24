@@ -28,7 +28,10 @@ class _TrialSuccessScreenState extends ConsumerState<TrialSuccessScreen> {
       context.go(AppRoutes.login);
       return;
     }
-    setState(() { _signingIn = true; _loginError = null; });
+    setState(() {
+      _signingIn = true;
+      _loginError = null;
+    });
     await ref.read(authProvider.notifier).login(
       email:    admin.email,
       password: admin.password,
@@ -46,11 +49,11 @@ class _TrialSuccessScreenState extends ConsumerState<TrialSuccessScreen> {
     final buffer = StringBuffer();
     buffer.writeln('Society: ${result.societyName}');
     buffer.writeln('Society Code: ${result.societyCode.toLowerCase()}');
-    final password = result.adminCredential?.password;
-    if (password != null) buffer.writeln('Password for all accounts: $password');
+    buffer.writeln(
+        'Each account has its own password; each must be changed at first sign-in.');
     buffer.writeln();
     for (final c in result.credentials) {
-      buffer.writeln('${c.role}: ${c.email}');
+      buffer.writeln('${c.role}: ${c.email}  /  ${c.password}');
     }
     Clipboard.setData(ClipboardData(text: buffer.toString()));
     ScaffoldMessenger.of(context).showSnackBar(
@@ -62,7 +65,8 @@ class _TrialSuccessScreenState extends ConsumerState<TrialSuccessScreen> {
   Widget build(BuildContext context) {
     final admin      = result.adminCredential;
     final code       = result.societyCode.toLowerCase();
-    final others     = result.credentials.where((c) => c.role != 'Society Admin').toList();
+    final others =
+        result.credentials.where((c) => c.role != 'Society Admin').toList();
 
     return AuthPage(
       title: 'Society Created Successfully',
@@ -130,7 +134,8 @@ class _TrialSuccessScreenState extends ConsumerState<TrialSuccessScreen> {
                   border: Border.all(color: AppTheme.warning.withOpacity(0.2)),
                 ),
                 child: Row(children: [
-                  const Icon(Icons.timer_rounded, color: AppTheme.warning, size: 16),
+              const Icon(Icons.timer_rounded,
+                  color: AppTheme.warning, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -180,14 +185,15 @@ class _TrialSuccessScreenState extends ConsumerState<TrialSuccessScreen> {
                   ),
                   icon: _signingIn
                       ? const SizedBox(
-                          width: 18, height: 18,
+                      width: 18,
+                      height: 18,
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.login_rounded),
                   label: Text(
                     _signingIn ? 'Signing in…' : 'Sign in as Admin',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 15),
+                style:
+                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                   ),
                   onPressed: _signingIn ? null : _signInAsAdmin,
                 ),
@@ -240,9 +246,7 @@ class _AdminLoginCardState extends State<_AdminLoginCard> {
                   color: AppTheme.textPrimary)),
         ]),
         const SizedBox(height: 14),
-        _InfoRow(label: 'Email',
-            value: widget.credential.email,
-            canCopy: true),
+        _InfoRow(label: 'Email', value: widget.credential.email, canCopy: true),
         const SizedBox(height: 8),
         Row(children: [
           const SizedBox(
@@ -269,19 +273,24 @@ class _AdminLoginCardState extends State<_AdminLoginCard> {
           GestureDetector(
             onTap: () => setState(() => _showPwd = !_showPwd),
             child: Icon(
-              _showPwd ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-              size: 16, color: AppTheme.textSecondary,
+              _showPwd
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+              size: 16,
+              color: AppTheme.textSecondary,
             ),
           ),
           const SizedBox(width: 8),
           GestureDetector(
             onTap: () {
-              Clipboard.setData(ClipboardData(text: widget.credential.password));
+              Clipboard.setData(
+                  ClipboardData(text: widget.credential.password));
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Password copied')),
               );
             },
-            child: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.primary),
+            child: const Icon(Icons.copy_rounded,
+                size: 16, color: AppTheme.primary),
           ),
         ]),
         const SizedBox(height: 12),
@@ -313,6 +322,7 @@ class _AdditionalUsersCard extends StatefulWidget {
 
 class _AdditionalUsersCardState extends State<_AdditionalUsersCard> {
   bool _expanded = false;
+  bool _showPasswords = false;
 
   @override
   Widget build(BuildContext context) {
@@ -341,14 +351,17 @@ class _AdditionalUsersCardState extends State<_AdditionalUsersCard> {
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                             color: AppTheme.textPrimary)),
-                    Text('${widget.credentials.length} accounts · All use same password',
+                    Text(
+                        '${widget.credentials.length} accounts · each has its own password',
                         style: const TextStyle(
                             fontSize: 12, color: AppTheme.textSecondary)),
                   ],
                 ),
               ),
               Icon(
-                _expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                _expanded
+                    ? Icons.expand_less_rounded
+                    : Icons.expand_more_rounded,
                 color: AppTheme.textSecondary,
               ),
             ]),
@@ -356,8 +369,21 @@ class _AdditionalUsersCardState extends State<_AdditionalUsersCard> {
         ),
         if (_expanded) ...[
           const Divider(height: 1),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => setState(() => _showPasswords = !_showPasswords),
+              icon: Icon(
+                  _showPasswords
+                      ? Icons.visibility_off_rounded
+                      : Icons.visibility_rounded,
+                  size: 16),
+              label: Text(_showPasswords ? 'Hide passwords' : 'Show passwords'),
+            ),
+          ),
           ...widget.credentials.map((c) => Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Row(children: [
               Expanded(
                 child: Column(
@@ -374,14 +400,23 @@ class _AdditionalUsersCardState extends State<_AdditionalUsersCard> {
                             fontSize: 12,
                             color: AppTheme.textSecondary,
                             fontFamily: 'monospace')),
+                        Text(
+                            _showPasswords
+                                ? c.password
+                                : '•' * c.password.length.clamp(6, 10),
+                            style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textPrimary,
+                                fontFamily: 'monospace')),
                   ],
                 ),
               ),
               GestureDetector(
                 onTap: () {
-                  Clipboard.setData(ClipboardData(text: c.email));
+                      Clipboard.setData(
+                          ClipboardData(text: '${c.email}  /  ${c.password}'));
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Email copied')),
+                        const SnackBar(content: Text('Login copied')),
                   );
                 },
                 child: const Icon(Icons.copy_rounded,
@@ -402,7 +437,8 @@ class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
   final bool canCopy;
-  const _InfoRow({required this.label, required this.value, this.canCopy = false});
+  const _InfoRow(
+      {required this.label, required this.value, this.canCopy = false});
 
   @override
   Widget build(BuildContext context) {
@@ -431,7 +467,8 @@ class _InfoRow extends StatelessWidget {
               const SnackBar(content: Text('Copied')),
             );
           },
-          child: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.primary),
+          child:
+              const Icon(Icons.copy_rounded, size: 16, color: AppTheme.primary),
         ),
     ]);
   }

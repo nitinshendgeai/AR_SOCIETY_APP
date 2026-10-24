@@ -48,6 +48,7 @@ class ResidentRepository(BaseRepository[Resident]):
         search: Optional[str] = None,
         skip: int = 0,
         limit: int = 50,
+        search_contacts: bool = True,
     ) -> List[Resident]:
         # Always joined (not just when scoping by society_id) — flat_id/wing_id
         # are both non-nullable on Resident/Flat, and the ordering below needs
@@ -65,11 +66,14 @@ class ResidentRepository(BaseRepository[Resident]):
             q = q.filter(Resident.is_active == is_active)
         if search:
             like = f"%{search}%"
-            q = q.filter(
-                (Resident.full_name.ilike(like)) |
-                (Resident.phone.ilike(like)) |
-                (Resident.email.ilike(like))
-            )
+            if search_contacts:
+                q = q.filter(
+                    (Resident.full_name.ilike(like)) |
+                    (Resident.phone.ilike(like)) |
+                    (Resident.email.ilike(like))
+                )
+            else:   # a member may search names only
+                q = q.filter(Resident.full_name.ilike(like))
         # Flat number, not name, is the canonical resident-list order (mirrors
         # FlatRepository.get_by_society's ordering). flat_number is free text
         # ("A-101", "1101", "A-1702", ...), so plain SQL string ordering would

@@ -12,6 +12,7 @@ from app.models.audit_log import AuditAction
 from app.repositories.tenant_repo import TenantRepository
 from app.repositories.flat_repo import FlatRepository
 from app.schemas.tenant import TenantCreate, TenantUpdate, TenantOut, TenantCreateOut
+from app.core.privacy import can_search_contacts
 from app.core.tenant_scope import assert_user_in_society
 from app.services.audit_service import AuditService
 from app.services.occupancy_service import OccupancyService
@@ -118,6 +119,7 @@ class TenantService:
         tenants = self.repo.list_scoped(
             society_id=current_user.society_id, flat_id=flat_id,
             is_active=is_active, search=search, skip=skip, limit=limit,
+            search_contacts=can_search_contacts(current_user),
         )
         return [self._enrich(t) for t in tenants]
 
