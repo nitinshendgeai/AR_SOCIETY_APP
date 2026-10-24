@@ -193,8 +193,9 @@ class _CleanDataSheetState extends ConsumerState<CleanDataSheet> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(color: AppTheme.errorSoft, borderRadius: BorderRadius.circular(AppTheme.radiusM)),
               child: Text(
-                  'This permanently deletes ${p.total} records of ${s.name}: its people and their logins, flats, bills, vouchers, complaints and everything else. '
-                  'It cannot be undone. The society itself, its code, other societies and platform admins are not touched.',
+                  'This permanently deletes ${p.total} records of ${s.name}: its people, flats, bills, vouchers, complaints and everything else. '
+                  'It cannot be undone. ${p.keptLogins.isEmpty ? '' : 'The default logins stay (${p.keptLogins.join(', ')}). '}'
+                  'The society itself, its code, other societies and platform admins are not touched.',
                   style: const TextStyle(height: 1.4)),
             ),
             if (rows.isNotEmpty) ...[
