@@ -1,0 +1,20 @@
+title = "AR Society gitleaks config"
+
+# Keep every default rule.
+[extend]
+useDefault = true
+
+# The Firebase *web* API key for project society-app-186ff, in mobile/web/firebase-config.js and
+# mobile/lib/core/push/push_config.dart. It identifies the project to the browser SDK and ships in every web client by
+# design (see docs/PUSH_NOTIFICATIONS.md); it is not a server secret. The real secret, the service account JSON, is
+# only ever set in Railway.
+#
+# Allowed by its exact value and nothing else: any OTHER key, in these files or elsewhere, is still reported.
+# (Matching by file path was tried and rejected: in gitleaks v8.28 a path match allows everything in that file.)
+#
+# Precondition: this key must be restricted in Google Cloud Console (HTTP referrers = society.duxos.in, API
+# restrictions = the Firebase APIs in use). See docs/audit/PHASE_2_CI_AUDIT.md. If the key is ever rotated, replace the
+# value below.
+[[allowlists]]
+description = "Firebase web API key for society-app-186ff (public by design)"
+regexes = ['''^AIzaSyCf0OCzzQ95vw-OtQa2m-KO_2DnJv8wjh8$''']
