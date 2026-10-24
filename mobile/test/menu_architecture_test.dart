@@ -12,7 +12,9 @@ import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:ar_society_app/features/auth/data/repositories/auth_repository.dart';
+import 'package:ar_society_app/features/auth/domain/entities/society_choice.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
+import 'package:ar_society_app/shared/widgets/dux_logo.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/notices/presentation/providers/notices_providers.dart';
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
@@ -260,6 +262,32 @@ void main() {
       await t.pumpAndSettle();
       expect(find.text('Day Book'), findsOneWidget);                  // the crumb (the page is a stub)
       expect(find.text('Accounts & Financial Reports'), findsWidgets);
+    });
+
+    testWidgets('the brand block is the DUX OS logo, with the society under the name', (t) async {
+      const user = UserEntity(
+        id: 'u', email: 'a@b.c', fullName: 'A B', roles: ['Society Admin'], societyId: 's1', termsAccepted: true,
+        societies: [
+          SocietyChoice(societyId: 's0', societyName: 'Other Society'),
+          SocietyChoice(societyId: 's1', societyName: 'Green Park CHS', current: true),
+        ],
+      );
+      await boot(t, user, _admin, start: '/residents');
+      expect(find.byType(DuxLogo), findsOneWidget);
+      final image = t.widget<Image>(find.descendant(of: find.byType(DuxLogo), matching: find.byType(Image)));
+      expect((image.image as AssetImage).assetName, 'assets/branding/duxos_logo.png');
+      expect(find.text('DUX OS'), findsOneWidget);
+      expect(find.text('Green Park CHS'), findsOneWidget);
+      expect(find.text('Other Society'), findsNothing);
+    });
+
+    testWidgets('with a single society the subtitle stays "Society ERP"; collapsed shows the logo alone', (t) async {
+      await boot(t, _user('Society Admin'), _admin, start: '/residents');
+      expect(find.text('Society ERP'), findsOneWidget);
+      await t.tap(find.text('Collapse'));
+      await t.pumpAndSettle();
+      expect(find.byType(DuxLogo), findsOneWidget);
+      expect(find.text('DUX OS'), findsNothing);
     });
 
     testWidgets('a menu entry navigates to its route', (t) async {

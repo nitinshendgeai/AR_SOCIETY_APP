@@ -10,6 +10,7 @@ import 'package:ar_society_app/core/navigation/app_menu.dart';
 import 'package:ar_society_app/features/notices/presentation/widgets/emergency_banner.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/shared/widgets/dux_logo.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
@@ -373,32 +374,31 @@ class _Brand extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mark = Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [AppTheme.primary, AppTheme.primaryDark]),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      alignment: Alignment.center,
-      child: const Text('D', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18)),
-    );
+    // The society being worked in, under the product name; "Society ERP" when the person has only one society.
+    final user = ref.watch(currentUserProvider);
+    final societies = user?.societies ?? const [];
+    final society = societies.where((s) => s.current).map((s) => s.societyName).firstOrNull;
+    // Same height as the top bar, so the two dividers line up across the page.
     return SizedBox(
-      height: 64,
+      height: 56,
       child: collapsed
-          ? Center(child: mark)
+          ? const Center(child: DuxLogo(size: 36))
           : Padding(
               padding: const EdgeInsets.symmetric(horizontal: 18),
               child: Row(children: [
-                mark,
+                const DuxLogo(size: 36),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('DUX OS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 0.2)),
-                      Text('Society ERP', style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
+                      const Text('DUX OS',
+                          style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, letterSpacing: 0.4, height: 1.15)),
+                      Text(society ?? context.tr('Society ERP'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, height: 1.2)),
                     ],
                   ),
                 ),
