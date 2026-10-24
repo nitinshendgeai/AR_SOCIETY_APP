@@ -4,7 +4,10 @@ from uuid import UUID
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+import logging
+
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 
 from app.core import services_catalog as catalog
 from app.models.society import Society, AccountStatus, ACCOUNT_STATUS_TRANSITIONS
@@ -16,6 +19,9 @@ from app.models.user import User, UserRole
 from app.models.wing import Wing
 from app.services.audit_service import AuditService
 from app.services import society_purge
+
+
+logger = logging.getLogger(__name__)
 
 
 class PlatformAdminService:
@@ -345,6 +351,11 @@ class PlatformAdminService:
         except RuntimeError as e:
             self.db.rollback()
             raise HTTPException(status_code=400, detail=str(e))
+        except IntegrityError as e:
+            self.db.rollback()
+            logger.error("Clean data failed for society %s: %s", society_id, e)
+            detail = str(getattr(e, "orig", e)).strip().splitlines()[0][:200]
+            raise HTTPException(status_code=409, detail=f"Could not clean the data; nothing was deleted. {detail}")
         except Exception:
             self.db.rollback()
             raise

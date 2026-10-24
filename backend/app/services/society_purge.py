@@ -69,7 +69,7 @@ def delete_order(metadata, names):
 
     for blocking_only in (False, True):
         try:
-            return list(TopologicalSorter(graph(blocking_only)).static_order())[::-1]
+            return list(TopologicalSorter(graph(blocking_only)).static_order())
         except CycleError:
             continue
     raise RuntimeError("Foreign-key cycle between blocking constraints; cannot order the deletes safely.")
