@@ -12,6 +12,7 @@ import 'package:ar_society_app/features/accounts/presentation/providers/accounts
 import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart';
 import 'package:ar_society_app/features/accounts/presentation/widgets/voucher_hotkeys.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart' show myFormCodesProvider;
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
@@ -91,6 +92,8 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
     final societyId = ref.watch(currentUserProvider)?.societyId;
     if (societyId == null) return const Scaffold(body: Center(child: Text('No society context')));
     final summaryAsync = ref.watch(accountsSummaryProvider(societyId));
+    // Vendor Bills has its own grant; without it the link would only turn the person away.
+    final canOpenVendorBills = ref.watch(myFormCodesProvider).valueOrNull?.contains('vendor_bills') ?? true;
     final desktop = isDesktopLayout(context);
     // Phone tiles are too narrow for "₹11,44,973.82"; they show "₹11.45 L".
     final narrow = MediaQuery.sizeOf(context).width < 600;
@@ -188,7 +191,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                     label: 'Payable to Vendors',
                     value: money(s.creditors),
                     color: AppTheme.error,
-                    onTap: () => context.push(AppRoutes.vendorBills),
+                    onTap: canOpenVendorBills ? () => context.push(AppRoutes.vendorBills) : null,
                   ),
                   KpiCard(
                     icon: Icons.trending_up_rounded,
@@ -207,7 +210,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                   ),
                 ]),
                 const SizedBox(height: 22),
-                const _SectionTitle('Books'),
+                const _SectionTitle('Books & Registers'),
                 _BooksGrid(items: [
                   _BookItem(Icons.menu_book_rounded, 'Cash & Bank Book',
                       'Every receipt and payment, with who entered it',
@@ -219,30 +222,43 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                       () => context.push(AppRoutes.accountsInvoices)),
                   _BookItem(Icons.inventory_2_rounded, 'Bills Register', 'Bills received from vendors',
                       () => context.push(AppRoutes.accountsBills)),
+                  _BookItem(Icons.event_repeat_rounded, 'Monthly Expenses',
+                      'Security, lift, electricity: recorded each month as they fall due',
+                      () => context.push(AppRoutes.accountsRecurring)),
+                ]),
+                const SizedBox(height: 22),
+                const _SectionTitle('Receivables & Payables'),
+                _BooksGrid(items: [
                   _BookItem(Icons.hourglass_bottom_rounded, 'Outstanding Receivable',
                       'What members owe, aged by days overdue',
                       () => context.push(AppRoutes.accountsReceivable)),
                   _BookItem(Icons.hourglass_top_rounded, 'Outstanding Payable',
                       'What the society owes vendors, aged',
                       () => context.push(AppRoutes.accountsPayable)),
+                  _BookItem(Icons.groups_2_rounded, "Members' Ledger", 'Flat-wise dues and advances',
+                      () => context.push(AppRoutes.accountsMembers)),
+                  if (canOpenVendorBills)
+                    _BookItem(Icons.storefront_rounded, 'Vendor Bills', 'Bills booked and paid',
+                        () => context.push(AppRoutes.vendorBills)),
                   _BookItem(Icons.fact_check_rounded, 'Approvals',
                       s.pendingApprovals > 0 ? '${s.pendingApprovals} waiting' : 'Payments and journals to approve',
                       () => context.push(AppRoutes.accountsApprovals)),
-                  _BookItem(Icons.event_repeat_rounded, 'Monthly Expenses',
-                      'Security, lift, electricity: recorded each month as they fall due',
-                      () => context.push(AppRoutes.accountsRecurring)),
-                  _BookItem(Icons.pie_chart_outline_rounded, 'Spend by Element',
-                      'Monthly and yearly spend on each maintenance element',
-                      () => context.push(AppRoutes.accountsExpenses)),
+                ]),
+                const SizedBox(height: 22),
+                const _SectionTitle('Accounting Setup'),
+                _BooksGrid(items: [
                   _BookItem(Icons.account_tree_rounded, 'Chart of Accounts', 'Groups, ledgers and balances',
                       () => context.push(AppRoutes.accountsChart)),
-                  _BookItem(Icons.groups_2_rounded, "Members' Ledger", 'Flat-wise dues and advances',
-                      () => context.push(AppRoutes.accountsMembers)),
-                  _BookItem(Icons.storefront_rounded, 'Vendor Bills', 'Bills booked and paid',
-                      () => context.push(AppRoutes.vendorBills)),
+                ]),
+                const SizedBox(height: 22),
+                const _SectionTitle('Financial Reports'),
+                _BooksGrid(items: [
                   _BookItem(Icons.summarize_rounded, 'Financial Statements',
                       'Balance Sheet, I&E, Trial Balance · Year-end closing',
                       () => context.push(AppRoutes.accountsStatements)),
+                  _BookItem(Icons.pie_chart_outline_rounded, 'Spend by Element',
+                      'Monthly and yearly spend on each maintenance element',
+                      () => context.push(AppRoutes.accountsExpenses)),
                 ]),
                 const SizedBox(height: 22),
                 const _SectionTitle('Cash & Bank Books'),

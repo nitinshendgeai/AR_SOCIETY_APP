@@ -148,7 +148,7 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
     final desktop = isDesktopLayout(context);
 
     return AppPage(
-      title: 'Payments',
+      title: 'Online Payments',
       actions: [
           IconButton(
             icon: _exporting

@@ -83,9 +83,18 @@ void main() {
       }
       await t.tap(find.text('More'));
       await t.pumpAndSettle();
-      expect(find.text('RESIDENTS'), findsNothing); // category label is "PEOPLE"
-      expect(find.text('PEOPLE'), findsOneWidget);
+      expect(find.text('RESIDENTS'), findsNothing); // category label is "PEOPLE & RESIDENTS"
+      expect(find.text('PEOPLE & RESIDENTS'), findsOneWidget);
       expect(find.text('Residents'), findsOneWidget);
+    });
+
+    testWidgets('More offers Signed-in devices and Sign out', (t) async {
+      await t.pumpWidget(wrap(_user('Society Admin', societyId: 's1'), '/residents'));
+      await t.pumpAndSettle();
+      await t.tap(find.text('More'));
+      await t.pumpAndSettle();
+      expect(find.text('Signed-in devices'), findsOneWidget);
+      expect(find.text('Sign out'), findsOneWidget);
     });
   });
 }

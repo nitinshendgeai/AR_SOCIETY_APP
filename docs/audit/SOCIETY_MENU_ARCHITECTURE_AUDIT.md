@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| Status | **Phase 1 only (inspection). No application code has been changed. Awaiting approval before Phase 2+.** |
+| Status | **Phases 1–8 delivered locally (sections 1–12 are the Phase 1 audit as approved; section 13 onward is the delivery). Not pushed, not merged, not deployed.** |
 | Branch | `claude/compassionate-planck-6h3b5e`, at `origin/main` `371169b` (PR #126 merge). Working tree clean apart from this file. |
 | Not done | Nothing pushed, merged, deployed. Railway, production data and `https://society.duxos.in` were not touched or contacted. |
-| Toolchain | **`flutter` and `dart` are not installed in this container**, so `flutter analyze` / `flutter test` / web build have not been run and no baseline exists yet. Installing the SDK (proxy permitting) is the first step of Phase 2. |
+| Toolchain | Flutter 3.47.5 (the version CI pins) was installed in the container during Phase 2; results are in section 13.6. |
 | Screenshots | **No screenshots reached me in the message** (only the text). Everything below comes from code. The screen names you described (Accounts, long sidebar, Gateway of Accounts) were matched to code; please re-send the images if you want visual specifics (for example the negative bank balance) compared. |
 
 Evidence rule: where a fact is not in the repository it is marked **NOT VERIFIED**; nothing is inferred.
@@ -251,3 +251,112 @@ Risk control: every step is config/presentation only; no route, schema, accounti
 - Per-endpoint backend permissions, and whether `MyBillsScreen` shows history/receipts/statements, were not traced.
 - Production (`society.duxos.in`) and the screenshots were not seen.
 - Sections 13+ of the final audit (final tree, files changed, test and build results) are for Phase 8.
+
+
+---
+
+# Delivery (Phases 2–8)
+
+Approved decisions: D1 tree and Gateway grouping as proposed; D2 Users & Roles in **Administration & Settings**; D3 "Payments" renamed **Online Payments**; D4 role-name route guards untouched; D5 Tenant gap untouched; D6 resident items without a screen left out.
+
+## 13.1 Final master menu tree
+
+40 items (the 39 that existed plus **Gateway of Accounts**, a second entry for the existing `/accounts/gateway` route). Source: `appMenuCategories` in `mobile/lib/core/navigation/app_menu.dart`.
+
+```
+Dashboard                      (utility tile)
+PEOPLE & RESIDENTS             Residents · Tenants · Pending Resident Changes · Staff
+PROPERTY & PARKING             Wings · Flats · Shops · Parking Management · Assets
+COMMUNITY & SERVICES           Visitors · Parcels · Domestic help · Complaints · Notices · Amenities ·
+                               Meetings · Polls · Documents · Certificates & NOC
+OPERATIONS                     Manager's Checklist · Checklist Templates · Stores · Vendors & Work
+FINANCE & MAINTENANCE          Maintenance Billing · Maintenance Elements · Online Payments · Defaulters ·
+                               Vendor Bills · Bank Reconciliation
+ACCOUNTS & FINANCIAL REPORTS   Accounts · Gateway of Accounts
+ADMINISTRATION & SETTINGS      Users & Roles · Permission Matrix · Forms Matrix · Society Settings ·
+                               Automatic tasks · Setup Wizard
+PLATFORM (Platform Admin)      Platform Console
+Collapse                       (utility tile)
+```
+Account menu (desktop) / More sheet (phone): society switch, language, help, Signed-in devices, Sign out. **New on phone:** Signed-in devices and Sign out in the More sheet.
+
+## 13.2 Resident menu (shown to the Resident role from the same data)
+
+```
+PAYMENTS               My Bills                       /billing/my-bills
+COMMUNITY & SERVICES   Visitors · Parcels · Domestic help · Complaints · Notices · Amenities ·
+                       Meetings · Polls · Documents · Certificates & NOC
+PROFILE & HELP         Edit My Info                   /residents/me/edit
+```
+Payments comes first for a Resident. No management group is reachable: those form codes are not granted to Resident, and the backend authorizes independently. Tenant sees Community & Services only (existing gap D5, unchanged). Left out because no resident screen exists: My Flat page, Household Members, My Vehicles, Occupancy, Directory (policy open), Payment History / Receipts / Statements as separate screens, Events, Notifications screen, Help & Contact (Help stays in the account menu / More sheet).
+
+## 13.3 Menu-to-route mapping and moves
+
+No route, path, guard or form code changed. Every item keeps the route in section 3. Moves (config only): Pending Resident Changes and Staff to People & Residents; Parking Management and Assets to Property & Parking; Parcels, Domestic help, Complaints moved up within Community & Services; Vendor Bills, Bank Reconciliation and Defaulters stay in Finance & Maintenance (Defaulters/Vendor Bills/Bank Reconciliation reordered); Accounts to its own group with the new Gateway entry; Users & Roles stays in Administration & Settings; My Bills to Payments; Edit My Info to Profile & Help. Group names changed: People, Property, Community, Finance, Administration, My Account are now People & Residents, Property & Parking, Community & Services, Finance & Maintenance, Administration & Settings, and Payments / Profile & Help for the resident.
+
+## 13.4 Role and permission matrix (seeded defaults, verified by `menu_architecture_test.dart`)
+
+| Role | Groups shown | Items |
+|---|---|---|
+| Society Admin | 7 management groups | 37 |
+| Committee (4 roles) | as Admin | Administration & Settings = Society Settings, Automatic tasks, Setup Wizard |
+| Manager | People (Staff), Property (Assets), Community, Operations, Finance, Accounts | no Administration |
+| Security Staff / Supervisors | People (Staff), Community | |
+| Resident | Payments, Community & Services, Profile & Help | 12 |
+| Tenant | Community & Services | 10 |
+| Platform Admin | Platform | 1 |
+
+Denied access is unchanged: unknown grants never block; a known missing grant redirects to the person's dashboard with "You do not have access to that screen."; the backend answers 403. Existing tests for these (`route_access_test.dart`) pass unchanged.
+
+## 13.5 Accounts Gateway hierarchy (delivered)
+
+Same 23 destinations, same letters, same F4–F7 / Alt+G / arrows / Enter / Esc behaviour. Sections: **Transactions** (Receipt R, Payment P, Contra C, Journal J, Expense E) · **Books & Registers** (Day Book D, Cash & Bank B, Invoice Register I, Bills Register L, Monthly Expenses M) · **Receivables & Payables** (Outstanding Receivable U, Outstanding Payable W, Members' Ledger N, Vendor Bills V, Approvals A with its badge) · **Accounting Setup** (Chart of Accounts H) · **Financial Reports** (Trial Balance T, Income & Expenditure X, Balance Sheet S, Receipts & Payments Y, Funds F, Spend by Maintenance Element O, Financial Statements and Year-end Closing Z). The subtitle now also names F4–F7. The Accounts landing page's tile grid is split under the same headings (Books & Registers, Receivables & Payables, Accounting Setup, Financial Reports); its warnings, Sync, approvals and recurring banners, KPI cards, Cash & Bank Books and voucher chips are untouched. Vendor Bills links (Gateway line, Accounts tile, Payable-to-Vendors card) are hidden/inactive for someone with the Accounts grant but not the Vendor Bills grant (finding R2). No accounting calculation, posting rule or warning was changed.
+
+## 13.6 Files changed
+
+| File | Change |
+|---|---|
+| `mobile/lib/core/navigation/app_menu.dart` | new groups/order/labels/icons, Gateway entry, resident ordering |
+| `mobile/lib/core/layout/app_shell.dart` | collapsible sidebar groups (current group auto-open, per-page toggle), selected/button semantics, shared sign-out |
+| `mobile/lib/core/layout/phone_bottom_bar.dart` | More sheet: Signed-in devices, Sign out |
+| `mobile/lib/core/layout/sign_out.dart` (new) | shared "Sign out?" dialog |
+| `mobile/lib/core/l10n/translations.dart` | Hindi/Marathi for new groups and labels; obsolete group names removed |
+| `mobile/lib/features/accounts/.../accounts_gateway_screen.dart`, `accounts_screen.dart` | A–E grouping, grant-aware Vendor Bills |
+| `mobile/lib/features/billing/.../online_payments_list_screen.dart`, `dashboard/role_dashboards.dart` | "Payments" shown as "Online Payments" (screen title, Manager chip) |
+| `mobile/test/menu_architecture_test.dart` (new, 21 tests) | tree/order, no duplicate label/route/icon, form codes exist on the server, guard agreement, role visibility, resident isolation, role-resolved routes, sidebar open/close/auto-open/selected/navigate/collapse/scroll |
+| `mobile/test/accounts_gateway_test.dart` | +3 tests: hierarchy, letters, badge and grant-aware Vendor Bills |
+| `mobile/test/phone_bottom_bar_test.dart` | group name updated, +1 test for the new More entries |
+
+## 13.7 Duplicates consolidated
+
+- Group names unified; "Payments" no longer collides with the accounting Payment voucher.
+- Icons now unique across all 40 items (Parcels, Vendor Bills, Online Payments and the Property group were changed; asserted by a test).
+- Vendor Bills keeps one canonical route; its other entry points (Gateway, Accounts tile, KPI card) are grant-aware links to it, not copies.
+- Gateway items were regrouped, not duplicated: 23 before, 23 after.
+
+## 13.8 Test and build results
+
+Run in this container with Flutter 3.47.5 (Dart 3.13.4) and Python venv from `backend/requirements-dev.txt`.
+
+| Command (from `mobile/`) | Before | After |
+|---|---|---|
+| `flutter analyze` | 0 errors, 0 warnings, 443 infos | 0 errors, 0 warnings, 443 infos |
+| `flutter test` | 409 passed | **434 passed, 0 failed, 0 skipped** (+25 new) |
+| `flutter build web --release` | not run | **succeeded** (`build/web`; tree-shaken icon font, existing wasm dry-run notice) |
+
+| Command (from `backend/`) | Result |
+|---|---|
+| `python -m pytest tests/rbac tests/test_seed_roles.py tests/platform_admin -q` | **99 passed** (no backend code changed) |
+
+Not run: the full backend suite (1,300+ tests; no backend change), a browser/device check of the built app, anything against production. Existing tests were updated only where they encoded the old group name (`phone_bottom_bar_test.dart`); none were weakened, skipped or deleted. `localization_test.dart` (every group and item has Hindi and Marathi) passes unchanged.
+
+## 13.9 Remaining defects and decisions needing owner approval
+
+1. **Dashboard drawer (phone) is still a separate renderer** of the same data (always-expanded groups, `context.push`). It now shows the new groups and order but not the collapsible behaviour; merging the three renderers was not done. OPEN (low risk, can be a follow-up).
+2. **Hindi/Marathi strings for the new group names are my translations**; the file already asks for a native reader's check.
+3. **Not checked in a browser or on a device:** sidebar scrolling/hover, safe areas and large text scale were exercised by widget tests only (collapse, scroll extent, semantics); no screenshots or production check.
+4. **Breadcrumbs** still show `Group › Item` only; deeper pages (a bill, a voucher) do not add a third crumb. OPEN (small).
+5. **Role-name route guards vs form codes (R1)** unchanged by decision D4.
+6. **Tenant gap (R3), resident directory (R12), Manager "Maintenance Dues" sum** unchanged by decision.
+7. **Per-endpoint action permissions** (Phase 4 detail) were not traced individually; enforcement stays with the existing backend dependencies, whose tests pass.
+8. **Push/PR:** nothing pushed; the branch has local commits only until you approve.
