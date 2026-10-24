@@ -45,8 +45,18 @@ admins' Forms Matrix, and only a platform admin can change the Platform Admin ro
 | Set limits (users, flats, storage; not below current use) | `PUT /api/v1/platform-admin/societies/{id}/limits` |
 | Every optional service and whether it is on for a society | `GET /api/v1/platform-admin/societies/{id}/services` |
 | Switch one service on or off for a society | `PUT /api/v1/platform-admin/societies/{id}/services/{key}` body `{"enabled": false}` |
+| Preview what **Clean data** would delete (rows per table; deletes nothing) | `GET /api/v1/platform-admin/societies/{id}/clean-data` |
+| **Clean data**: delete all of the society's rows (tables, the society record, other societies and platform admins stay); body `{"confirm": "<society code>"}` | `POST /api/v1/platform-admin/societies/{id}/clean-data` |
 | What platform admins have done | `GET /api/v1/platform-admin/activity` |
 | Platform-wide counts | `GET /api/v1/platform-admin/stats` |
+
+## Clean data
+*Clean data* (red button on a society's page) permanently deletes everything the society has entered: its people and logins,
+flats, bills, vouchers, complaints and so on. Only rows go; no table is touched, and the society record, its code, other
+societies, platform admins and the shared roles/forms stay. The admin sees the row counts first and must type the society code
+to confirm. It is recorded under *Activity* as "Data cleaned". The same logic runs from the command line:
+`python scripts/purge_society.py <CODE> [--dry-run] [--delete-society]` (code in `app/services/society_purge.py`).
+Uploaded files on disk or storage are not removed.
 
 ## What suspending does
 A suspended or closed society is **locked out**: its people cannot sign in or refresh a session, and every API call

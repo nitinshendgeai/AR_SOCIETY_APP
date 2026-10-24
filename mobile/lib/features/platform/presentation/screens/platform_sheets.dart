@@ -156,6 +156,80 @@ class _SuspendSheetState extends ConsumerState<SuspendSheet> {
   }
 }
 
+// ── Clean data ───────────────────────────────────────────────────────────────
+
+class CleanDataSheet extends ConsumerStatefulWidget {
+  final PlatformSociety society;
+  const CleanDataSheet({super.key, required this.society});
+
+  @override
+  ConsumerState<CleanDataSheet> createState() => _CleanDataSheetState();
+}
+
+class _CleanDataSheetState extends ConsumerState<CleanDataSheet> {
+  final _confirm = TextEditingController();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _confirm.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.society;
+    final preview = ref.watch(platformCleanPreviewProvider(s.id));
+    return BillingSheetFrame(
+      title: 'Clean data of ${s.name}',
+      child: preview.when(
+        loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator())),
+        error: (e, _) => Text('Could not check what would be deleted: $e'),
+        data: (p) {
+          final matches = _confirm.text.trim().toUpperCase() == p.confirmWith.toUpperCase();
+          final rows = p.counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: AppTheme.errorSoft, borderRadius: BorderRadius.circular(AppTheme.radiusM)),
+              child: Text(
+                  'This permanently deletes ${p.total} records of ${s.name}: its people and their logins, flats, bills, vouchers, complaints and everything else. '
+                  'It cannot be undone. The society itself, its code, other societies and platform admins are not touched.',
+                  style: const TextStyle(height: 1.4)),
+            ),
+            if (rows.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 180),
+                child: ListView(shrinkWrap: true, children: [
+                  for (final r in rows)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(children: [
+                        Expanded(child: Text(r.key.replaceAll('_', ' '), style: const TextStyle(color: AppTheme.textSecondary))),
+                        Text('${r.value}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
+                ]),
+              ),
+            ],
+            const SizedBox(height: 12),
+            FormFieldBox(label: 'Type ${p.confirmWith} to confirm', required: true, child: TextField(controller: _confirm, onChanged: (_) => setState(() {}), autocorrect: false)),
+            const SizedBox(height: 14),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: AppTheme.error, padding: const EdgeInsets.symmetric(vertical: 14)),
+              onPressed: _saving || !matches || p.total == 0
+                  ? null
+                  : () => _run(context, ref, (b) => setState(() => _saving = b), () => ref.read(platformApiProvider).cleanData(s.id, _confirm.text.trim()), 'Data cleaned'),
+              child: Text(_saving ? 'Cleaning…' : (p.total == 0 ? 'Nothing to clean' : 'Clean data')),
+            ),
+          ]);
+        },
+      ),
+    );
+  }
+}
+
 // ── Limits ───────────────────────────────────────────────────────────────────
 
 class LimitsSheet extends ConsumerStatefulWidget {

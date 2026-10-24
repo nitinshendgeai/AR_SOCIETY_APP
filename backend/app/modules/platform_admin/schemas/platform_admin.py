@@ -79,3 +79,7 @@ class PlatformStatsOut(BaseModel):
     expired_societies: int
     suspended_societies: int
     expiring_soon:     int   # trial ends in ≤ 7 days
+
+
+class CleanDataRequest(BaseModel):
+    confirm: str   # the society's code (its name when it has none), typed in full by the platform admin

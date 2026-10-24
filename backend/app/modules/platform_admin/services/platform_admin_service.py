@@ -15,6 +15,7 @@ from app.models.role import Role
 from app.models.user import User, UserRole
 from app.models.wing import Wing
 from app.services.audit_service import AuditService
+from app.services import society_purge
 
 
 class PlatformAdminService:
@@ -325,6 +326,41 @@ class PlatformAdminService:
             )
         self.db.commit()
         return self.society_services(society_id)
+
+    # ── Clean data ────────────────────────────────────────────────────────────
+
+    def clean_data_preview(self, society_id: str) -> dict:
+        society = self._get_society(society_id)
+        result = society_purge.purge_society(self.db, society.id, dry_run=True)
+        return {"society_id": str(society.id), "society_name": society.name, "confirm_with": self._confirm_text(society),
+                "counts": result["counts"], "total": sum(result["counts"].values())}
+
+    def clean_data(self, society_id: str, confirm: str, admin: User) -> dict:
+        society = self._get_society(society_id)
+        if (confirm or "").strip().upper() != self._confirm_text(society).upper():
+            raise HTTPException(status_code=400, detail="Type the society code exactly to confirm.")
+        society_id, name = society.id, society.name
+        try:
+            result = society_purge.purge_society(self.db, society_id)
+        except RuntimeError as e:
+            self.db.rollback()
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception:
+            self.db.rollback()
+            raise
+        AuditService.log(
+            db=self.db, action=AuditAction.DELETE,
+            module="platform_admin", entity_id=str(society_id),
+            entity_type="Society", user=admin,
+            new_values={"event": "data_cleaned", "rows_deleted": sum(result["counts"].values()), "counts": result["counts"]},
+        )
+        self.db.commit()
+        return {"society_id": str(society_id), "society_name": name, "counts": result["counts"],
+                "total": sum(result["counts"].values()), "message": "Society data cleaned."}
+
+    @staticmethod
+    def _confirm_text(society: Society) -> str:
+        return society.society_code or society.name
 
     # ── Internal ──────────────────────────────────────────────────────────────
 

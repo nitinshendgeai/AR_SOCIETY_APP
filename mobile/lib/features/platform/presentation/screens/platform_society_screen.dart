@@ -186,6 +186,12 @@ class _Actions extends ConsumerWidget {
           icon: const Icon(Icons.block_rounded, size: 18),
           label: const Text('Suspend'),
         ),
+      OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error),
+        onPressed: () => open(CleanDataSheet(society: s)),
+        icon: const Icon(Icons.delete_sweep_rounded, size: 18),
+        label: const Text('Clean data'),
+      ),
     ]);
   }
 }
