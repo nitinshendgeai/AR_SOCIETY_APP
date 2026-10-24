@@ -67,6 +67,13 @@ def money(v) -> Decimal:
     return Decimal(v).quantize(CENT, rounding=ROUND_HALF_UP)
 
 
+def round_to_rupee(amount) -> Decimal:
+    """What to add to `amount` to make it a whole rupee: the nearest, half a rupee up (e.g. 1,234.50 -> +0.50,
+    1,234.49 -> -0.49)."""
+    amount = Decimal(amount)
+    return money(amount.quantize(Decimal(1), rounding=ROUND_HALF_UP) - amount)
+
+
 def cycle_months(cycle: BillingCycle) -> int:
     months = FREQUENCY_MONTHS.get(cycle.frequency)
     if months:
@@ -107,7 +114,7 @@ def default_settings(society_id) -> MaintenanceSettings:
         society_id=society_id, construction_cost_per_sqft=None,
         interest_rate_pct=Decimal(12), interest_grace_days=0,
         non_occupancy_pct=ZERO, gst_enabled=False,
-        gst_rate_pct=Decimal(18), gst_threshold_monthly=Decimal(7500),
+        gst_rate_pct=Decimal(18), gst_threshold_monthly=Decimal(7500), round_to_rupee=False,
     )
 
 
@@ -157,6 +164,7 @@ class FlatBillDraft:
     interest_bills: List[MaintenanceBill] = field(default_factory=list)
     interest_adjusted: bool = False          # a waiver changed the interest on this bill
     interest_working: List[dict] = field(default_factory=list)   # interest per earlier bill, printed on the bill
+    round_off: Decimal = ZERO                # to the whole rupee, when the society rounds its bills
 
     @property
     def subtotal(self) -> Decimal:
@@ -168,7 +176,7 @@ class FlatBillDraft:
 
     @property
     def total(self) -> Decimal:
-        return self.subtotal + self.tax
+        return self.subtotal + self.tax + self.round_off
 
 
 class MaintenanceCalculator:
@@ -502,6 +510,8 @@ class MaintenanceCalculator:
                             l.tax_amount = money(l.amount * s.gst_rate_pct / 100)
 
             self._add_arrears(draft, open_bills.get(flat.id, []), bill_date, self.waivers.get(flat.id, []))
+            if s.round_to_rupee:
+                draft.round_off = round_to_rupee(draft.subtotal + draft.tax)
 
             if draft.total > 0:
                 drafts.append(draft)

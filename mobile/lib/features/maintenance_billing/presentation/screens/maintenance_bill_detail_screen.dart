@@ -396,6 +396,7 @@ class _LineItems extends StatelessWidget {
           ),
         const Divider(height: 20),
         if (amountOf(bill.penaltyAmount) > 0) _row('Late fee', bill.penaltyAmount),
+        if (amountOf(bill.roundOff) != 0) _row('Round off', bill.roundOff),
         _row('Total', bill.totalAmount, bold: true),
         if (amountOf(bill.paidAmount) > 0) _row('Paid', bill.paidAmount, color: AppTheme.success),
         if (amountOf(bill.previousDues) > 0 && !bill.isCancelled) ...[

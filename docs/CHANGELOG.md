@@ -6,6 +6,17 @@ Format: `[YYYY-MM-DD] type: description`
 
 ## 2026-10-24
 
+### feat: Round bills to the whole rupee (optional)
+
+- **Billing rules → Round bills to the whole rupee** (off by default). When on, each bill's amount (charges, GST and
+  interest on arrears) is rounded to the nearest rupee, 50 paise and above going up. The difference is kept on the bill
+  as `round_off` (negative when rounded down), shown as **Round off** on the printed bill, the bill screen and the cycle
+  preview, and posted to the **Rounding Off** ledger (3105) so the bill voucher still balances: rounding up credits it,
+  rounding down debits it. Arrears are not rounded again; a member pays exactly the whole-rupee amount to settle a bill.
+- Applies to bills generated after the switch is turned on; existing bills are unchanged (`round_off` = 0).
+- Additive migration `e7b1f5d9a4c0` (`maintenance_settings.round_to_rupee`, `maintenance_bills.round_off`).
+- Tests: `tests/billing/test_round_to_rupee.py`, `test/round_to_rupee_test.dart`.
+
 ### feat: Outstanding Receivable and Payable, aged by days past the due date
 
 - Two new statements in the Accounts books (Gateway: **U** Outstanding Receivable, **W** Outstanding Payable): what members

@@ -1301,6 +1301,7 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
   late bool _gst = widget.rules.gstEnabled;
   late DateTime? _billingStart = widget.rules.billingStartDate;
   late bool _autoApprove = widget.rules.autoApproveAdminExpenses;
+  late bool _roundToRupee = widget.rules.roundToRupee;
   late final _accountNameCtrl = TextEditingController(text: widget.rules.bankAccountName ?? '');
   late final _bankNameCtrl = TextEditingController(text: widget.rules.bankName ?? '');
   late final _accountNoCtrl = TextEditingController(text: widget.rules.bankAccountNumber ?? '');
@@ -1356,6 +1357,7 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
         'bank_ifsc': _ifscCtrl.text.trim().toUpperCase(),
         'upi_id': _upiCtrl.text.trim(),
         'bill_notes': _billNotesCtrl.text.trim(),
+        'round_to_rupee': _roundToRupee,
         // Only sent when changed: it is the admin's call alone, and a manager saving other rules must not trip it.
         if (_autoApprove != widget.rules.autoApproveAdminExpenses) 'auto_approve_admin_expenses': _autoApprove,
       });
@@ -1427,6 +1429,21 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
                     style: TextStyle(color: _billingStart == null ? AppTheme.textSecondary : AppTheme.textPrimary),
                   ),
                 )),
+              ),
+            ],
+          ),
+          _section(
+            'Round bills to the whole rupee',
+            'Off: a bill runs to the paisa. On: each bill\'s amount is rounded to the nearest rupee (50 paise and above '
+                'goes up), the difference is shown on the bill as "Round off" and is booked to the Rounding Off '
+                'ledger. It applies to bills generated from now on; bills already made are not changed.',
+            [
+              SwitchListTile(
+                key: const ValueKey('round-to-rupee'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Round each bill to the nearest rupee'),
+                value: _roundToRupee,
+                onChanged: (v) => setState(() => _roundToRupee = v),
               ),
             ],
           ),

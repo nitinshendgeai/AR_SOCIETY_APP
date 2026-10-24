@@ -171,6 +171,7 @@ class _FlatPreviewCard extends StatelessWidget {
         '${day(flat.periodStart!)} – ${day(flat.periodEnd!)}${flat.months != null ? ' (${flat.months} mo)' : ''}',
       if (flat.occupancy == 'tenant_occupied') 'Let out',
       if (amountOf(flat.previousDues) > 0) 'Arrears ${formatRupees(flat.previousDues)}',
+      if (amountOf(flat.roundOff) != 0) 'Round off ${formatRupees(flat.roundOff)}',
     ];
     return Card(
       margin: const EdgeInsets.only(bottom: 10),

@@ -350,6 +350,8 @@ class MaintenanceSettingsUpdate(OrmBase):
     billing_start_date: Optional[date] = None
     # Post a payment entered by an admin / committee member as approved at once (no second approver)
     auto_approve_admin_expenses: Optional[bool] = None
+    # Round each bill to the whole rupee (the difference is shown on the bill and posted to Rounding Off)
+    round_to_rupee: Optional[bool] = None
 
     @field_validator("billing_start_date")
     @classmethod
@@ -404,6 +406,7 @@ def _settings_out(st) -> dict:
         "bill_notes": st.bill_notes,
         "billing_start_date": st.billing_start_date.isoformat() if st.billing_start_date else None,
         "auto_approve_admin_expenses": bool(st.auto_approve_admin_expenses),
+        "round_to_rupee": bool(st.round_to_rupee),
     }
 
 @router.get("/maintenance-settings/{society_id}", dependencies=[Depends(manager_above)])
@@ -486,6 +489,7 @@ def preview_cycle(cycle_id: UUID, db: Session = Depends(get_db), user: User = De
             } for l in d.lines],
             "subtotal": str(d.subtotal),
             "tax": str(d.tax),
+            "round_off": str(d.round_off),
             "total": str(d.total),
         })
     readiness = cycle_readiness(db, cycle.society_id, cycle, calc.charges, calc.allocations)
@@ -593,6 +597,7 @@ def _bill_out(b) -> dict:
         "outstanding": str(b.outstanding),
         "cancellation_reason": b.cancellation_reason,
         "previous_dues": str(b.previous_dues or 0),
+        "round_off": str(b.round_off or 0),
     }
 
 def _bill_detail_out(b) -> dict:

@@ -470,7 +470,7 @@ class BillingService:
                 bill_date=today, due_date=cycle.due_date,
                 period_start=draft.period_start or cycle.cycle_start, period_end=draft.period_end or cycle.cycle_end,
                 subtotal=draft.subtotal, tax_amount=draft.tax,
-                total_amount=draft.total, outstanding=draft.total,
+                total_amount=draft.total, outstanding=draft.total, round_off=draft.round_off,
                 previous_dues=draft.previous_dues,
                 interest_working=json.dumps(draft.interest_working) if draft.interest_working else None,
             )
