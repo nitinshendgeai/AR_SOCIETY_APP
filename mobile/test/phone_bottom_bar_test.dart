@@ -88,6 +88,19 @@ void main() {
       expect(find.text('Residents'), findsOneWidget);
     });
 
+    testWidgets('More lists one group at a time; a group bubble switches it', (t) async {
+      await t.pumpWidget(wrap(_user('Society Admin', societyId: 's1'), '/residents'));
+      await t.pumpAndSettle();
+      await t.tap(find.text('More'));
+      await t.pumpAndSettle();
+      expect(find.text('Residents'), findsOneWidget);
+      expect(find.text('Amenities'), findsNothing);    // another group's screen is not listed yet
+      await t.tap(find.text('Community & Services'));
+      await t.pumpAndSettle();
+      expect(find.text('Amenities'), findsOneWidget);
+      expect(find.text('Residents'), findsNothing);
+    });
+
     testWidgets('More opens with who is signed in, then the menu, and ends with the account actions', (t) async {
       await t.pumpWidget(wrap(_user('Society Admin', societyId: 's1'), '/residents'));
       await t.pumpAndSettle();
@@ -95,11 +108,10 @@ void main() {
       await t.pumpAndSettle();
       expect(find.text('U'), findsOneWidget);                         // the signed-in person, at the top
       expect(find.byType(DuxLogo), findsOneWidget);
-      expect(find.text('Sign out'), findsNothing);                    // not before the menu
       // The account actions come last, under the menu.
       await t.dragUntilVisible(find.text('Sign out'), find.byType(ListView), const Offset(0, -300));
       expect(find.text('Signed-in devices'), findsOneWidget);
-      expect(find.text('Sign out'), findsOneWidget);
+      expect(t.getTopLeft(find.text('Sign out')).dy, greaterThan(t.getTopLeft(find.text('Residents')).dy));
     });
   });
 }
