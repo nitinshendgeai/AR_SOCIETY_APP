@@ -5,6 +5,7 @@ Platform-admin maintenance script: permanently delete all data of ONE society.
     python scripts/purge_society.py <SOCIETY_CODE> --dry-run       # preview only, nothing is deleted
     python scripts/purge_society.py <SOCIETY_CODE> --yes           # no prompt (automation)
     python scripts/purge_society.py <SOCIETY_CODE> --delete-society  # also remove the society record itself
+    python scripts/purge_society.py <SOCIETY_CODE> --wipe-logins   # also delete the default logins (kept by default)
 
 Run it from the backend/ directory against the database in DATABASE_URL (the same env var the app uses).
 
@@ -12,7 +13,7 @@ What is deleted: every row that belongs to the society — all tables carrying a
 reached from them through foreign keys (flats, residents, bill lines, voucher entries, poll options, ...), plus the
 society's users and their sessions / device tokens / notifications / audit-log rows.
 
-What is kept: other societies, platform-admin (superadmin) accounts, and the global roles / permissions / forms.
+What is kept: the society's default logins (admin / chairman / secretary / treasurer @<code>.com), other societies, platform-admin (superadmin) accounts, and the global roles / permissions / forms.
 By default the `societies` row is kept (so the code stays reserved and can be re-onboarded); pass --delete-society
 to remove it too.
 
@@ -33,6 +34,7 @@ def main(argv=None) -> int:
     ap.add_argument("society_code", help="society_code of the society to clean")
     ap.add_argument("--dry-run", action="store_true", help="show what would be deleted, delete nothing")
     ap.add_argument("--delete-society", action="store_true", help="also delete the society record itself")
+    ap.add_argument("--wipe-logins", action="store_true", help="also delete the default logins (admin, chairman, secretary, treasurer)")
     ap.add_argument("--yes", action="store_true", help="skip the interactive confirmation")
     args = ap.parse_args(argv)
 
@@ -43,7 +45,8 @@ def main(argv=None) -> int:
         if found is None:
             raise LookupError(f"No society with code {args.society_code!r}.")
         society_id, society_name = found
-        preview = purge_society(db, society_id, dry_run=True, delete_society=args.delete_society)
+        preview = purge_society(db, society_id, dry_run=True, delete_society=args.delete_society,
+                                 keep_default_logins=not args.wipe_logins)
         db.rollback()
         print(f"Society : {society_name}  (code {args.society_code.upper()}, id {society_id})")
         total = sum(preview["counts"].values())
@@ -60,7 +63,7 @@ def main(argv=None) -> int:
                 print("Code did not match — aborted, nothing deleted.")
                 return 1
 
-        result = purge_society(db, society_id, delete_society=args.delete_society)
+        result = purge_society(db, society_id, delete_society=args.delete_society, keep_default_logins=not args.wipe_logins)
         db.commit()
         print(f"Done — {sum(result['counts'].values())} rows deleted.")
         return 0

@@ -9,7 +9,7 @@ roles / permissions / forms. The `societies` row itself is kept unless delete_so
 """
 from graphlib import CycleError, TopologicalSorter
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session
 
 BLOCKING_ONDELETE = {None, "NO ACTION", "RESTRICT"}
@@ -21,7 +21,15 @@ def _import_models():
     return Base.metadata
 
 
-def build_scope(metadata, society_id):
+def default_login_emails(society_code):
+    """The logins onboarding creates for every society (admin, chairman, secretary, treasurer @ <code>.com)."""
+    from app.modules.onboarding.services.onboarding_service import DEFAULT_USER_CONFIGS
+    if not society_code:
+        return []
+    return [f"{cfg['prefix']}@{society_code.lower()}.com" for cfg in DEFAULT_USER_CONFIGS]
+
+
+def build_scope(metadata, society_id, keep_emails=()):
     """Return {table_name: WHERE-clause} selecting this society's rows in every table that holds its data.
 
     A table is in scope if it has `society_id`, or if a foreign key leads to a table that is in scope (child tables).
@@ -32,6 +40,9 @@ def build_scope(metadata, society_id):
     for name, t in tables.items():
         if name != "societies" and "society_id" in t.c:
             scope[name] = t.c.society_id == society_id
+    if keep_emails:
+        # kept users stay, and so does everything that hangs off them alone (their roles, sessions, ...)
+        scope["users"] = and_(scope["users"], func.lower(tables["users"].c.email).not_in([e.lower() for e in keep_emails]))
     scope["societies"] = None  # handled separately
 
     # Child tables with no society_id of their own: scoped through their foreign keys, to a fixpoint.
@@ -83,24 +94,29 @@ def find_society(db: Session, society_code: str):
     ).first()
 
 
-def purge_society(db: Session, society_id, dry_run: bool = False, delete_society: bool = False) -> dict:
+def purge_society(db: Session, society_id, dry_run: bool = False, delete_society: bool = False,
+                  keep_default_logins: bool = True) -> dict:
     """Delete all data of one society. Returns {table: rows_deleted}. Caller commits/rolls back.
 
     Only rows are deleted, never tables. With dry_run the same counts are returned and nothing is deleted.
+    The society's default logins (see default_login_emails) are kept unless keep_default_logins is False or the
+    society record itself is being deleted.
     """
     metadata = _import_models()
     societies = metadata.tables["societies"]
     users = metadata.tables["users"]
 
-    society_name = db.execute(select(societies.c.name).where(societies.c.id == society_id)).scalar()
-    if society_name is None:
+    row = db.execute(select(societies.c.name, societies.c.society_code).where(societies.c.id == society_id)).first()
+    if row is None:
         raise LookupError("Society not found.")
+    society_name, society_code = row
+    keep_emails = default_login_emails(society_code) if keep_default_logins and not delete_society else []
 
     if db.execute(select(func.count()).select_from(users).where(
             users.c.society_id == society_id, users.c.is_superadmin.is_(True))).scalar():
         raise RuntimeError("Refusing to purge: a platform-admin (superadmin) account is attached to this society.")
 
-    scope = build_scope(metadata, society_id)
+    scope = build_scope(metadata, society_id, keep_emails)
     counts = {}
     for name in delete_order(metadata, list(scope)):
         table = metadata.tables[name]
@@ -116,4 +132,4 @@ def purge_society(db: Session, society_id, dry_run: bool = False, delete_society
             counts["societies"] = 1
         else:
             counts["societies"] = db.execute(delete(societies).where(societies.c.id == society_id)).rowcount
-    return {"society_id": society_id, "society_name": society_name, "counts": counts}
+    return {"society_id": society_id, "society_name": society_name, "counts": counts, "kept_logins": keep_emails}

@@ -248,12 +248,14 @@ class CleanPreview {
   final String confirmWith;
   final int total;
   final Map<String, int> counts;
-  const CleanPreview({required this.confirmWith, required this.total, required this.counts});
+  final List<String> keptLogins;
+  const CleanPreview({required this.confirmWith, required this.total, required this.counts, this.keptLogins = const []});
 
   factory CleanPreview.fromJson(Map<String, dynamic> j) => CleanPreview(
         confirmWith: j['confirm_with'] as String? ?? '',
         total: j['total'] as int? ?? 0,
         counts: {for (final e in (j['counts'] as Map? ?? const {}).entries) e.key.toString(): (e.value as num).toInt()},
+        keptLogins: [for (final e in (j['kept_logins'] as List? ?? const [])) e.toString()],
       );
 }
 

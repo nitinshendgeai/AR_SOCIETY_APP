@@ -120,3 +120,23 @@ def test_delete_order_removes_children_before_their_parents():
             parent = fk.column.table.name
             if parent != name and parent in position:
                 assert position[name] < position[parent], f"{name} must be deleted before {parent}"
+
+
+def test_default_logins_are_kept_and_other_users_go(db):
+    from app.models.user import UserRole
+    a = _seed(db, "AAA5", "Alpha5")
+    admin = make_user(db, "admin@aaa5.com", role="Society Admin"); place_in(db, admin, a)
+    treasurer = make_user(db, "treasurer@aaa5.com", role="Committee Treasurer"); place_in(db, treasurer, a)
+
+    preview = ps.purge_society(db, a.id, dry_run=True)
+    assert sorted(preview["kept_logins"]) == sorted(ps.default_login_emails("AAA5"))
+
+    ps.purge_society(db, a.id)
+    db.commit()
+    left = sorted(u.email for u in db.query(User).filter_by(society_id=a.id))
+    assert left == ["admin@aaa5.com", "treasurer@aaa5.com"]        # the seeded resident login is gone
+    assert db.query(UserRole).filter_by(user_id=admin["user"].id).count() == 1   # and they can still act
+
+    ps.purge_society(db, a.id, keep_default_logins=False)
+    db.commit()
+    assert db.query(User).filter_by(society_id=a.id).count() == 0

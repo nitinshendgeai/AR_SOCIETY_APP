@@ -339,7 +339,8 @@ class PlatformAdminService:
         society = self._get_society(society_id)
         result = society_purge.purge_society(self.db, society.id, dry_run=True)
         return {"society_id": str(society.id), "society_name": society.name, "confirm_with": self._confirm_text(society),
-                "counts": result["counts"], "total": sum(result["counts"].values())}
+                "counts": result["counts"], "total": sum(result["counts"].values()),
+                "kept_logins": result["kept_logins"]}
 
     def clean_data(self, society_id: str, confirm: str, admin: User) -> dict:
         society = self._get_society(society_id)
@@ -367,7 +368,8 @@ class PlatformAdminService:
         )
         self.db.commit()
         return {"society_id": str(society_id), "society_name": name, "counts": result["counts"],
-                "total": sum(result["counts"].values()), "message": "Society data cleaned."}
+                "total": sum(result["counts"].values()), "kept_logins": result["kept_logins"],
+                "message": "Society data cleaned."}
 
     @staticmethod
     def _confirm_text(society: Society) -> str:

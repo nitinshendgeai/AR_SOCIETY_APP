@@ -52,10 +52,11 @@ admins' Forms Matrix, and only a platform admin can change the Platform Admin ro
 
 ## Clean data
 *Clean data* (red button on a society's page) permanently deletes everything the society has entered: its people and logins,
-flats, bills, vouchers, complaints and so on. Only rows go; no table is touched, and the society record, its code, other
+flats, bills, vouchers, complaints and so on, but keeps the four default logins onboarding created
+(`admin@`, `chairman@`, `secretary@`, `treasurer@<society code>.com`) so the society can sign in and start again. Only rows go; no table is touched, and the society record, its code, other
 societies, platform admins and the shared roles/forms stay. The admin sees the row counts first and must type the society code
 to confirm. It is recorded under *Activity* as "Data cleaned". The same logic runs from the command line:
-`python scripts/purge_society.py <CODE> [--dry-run] [--delete-society]` (code in `app/services/society_purge.py`).
+`python scripts/purge_society.py <CODE> [--dry-run] [--delete-society] [--wipe-logins]` (code in `app/services/society_purge.py`).
 Uploaded files on disk or storage are not removed.
 
 ## What suspending does
