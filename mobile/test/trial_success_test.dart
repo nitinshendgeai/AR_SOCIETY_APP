@@ -13,10 +13,10 @@ const _result = RegistrationResult(
   trialDays: 30,
   message: 'ok',
   credentials: [
-    RegistrationCredential(role: 'Society Admin', email: 'admin@gpchs.com', password: 'Kd7mQvR2xTpa'),
-    RegistrationCredential(role: 'Committee Chairman', email: 'chairman@gpchs.com', password: 'Zw4nHbE8sYcu'),
-    RegistrationCredential(role: 'Committee Secretary', email: 'secretary@gpchs.com', password: 'Pf3tGjA6dMwe'),
-    RegistrationCredential(role: 'Committee Treasurer', email: 'treasurer@gpchs.com', password: 'Qx9vLkB5nRhs'),
+    RegistrationCredential(role: 'Society Admin', email: 'admin@gpchs.com', password: 'pw-for-admin'),
+    RegistrationCredential(role: 'Committee Chairman', email: 'chairman@gpchs.com', password: 'pw-for-chairman'),
+    RegistrationCredential(role: 'Committee Secretary', email: 'secretary@gpchs.com', password: 'pw-for-secretary'),
+    RegistrationCredential(role: 'Committee Treasurer', email: 'treasurer@gpchs.com', password: 'pw-for-treasurer'),
   ],
 );
 
@@ -36,10 +36,10 @@ void main() {
     await t.tap(find.text('Additional Users Created'));       // the other three open
     await t.pumpAndSettle();
     expect(find.textContaining('each has its own password'), findsOneWidget);
-    expect(find.text('Zw4nHbE8sYcu'), findsNothing);          // masked until asked for
+    expect(find.text('pw-for-chairman'), findsNothing);          // masked until asked for
     await t.tap(find.text('Show passwords'));
     await t.pumpAndSettle();
-    for (final pw in ['Zw4nHbE8sYcu', 'Pf3tGjA6dMwe', 'Qx9vLkB5nRhs']) {
+    for (final pw in ['pw-for-chairman', 'pw-for-secretary', 'pw-for-treasurer']) {
       expect(find.text(pw), findsOneWidget, reason: pw);
     }
     expect(find.text('Admin@1234'), findsNothing);
