@@ -33,13 +33,13 @@ from app.models.society import Society
 from app.utils.local_time import zone, local_today, local_to_utc_naive, to_local, utc_naive
 from app.models.role import Role
 from app.models.audit_log import AuditAction
+from app.core.passwords import generate_temp_password
 from app.core.security import hash_password
 from app.core.tenant_scope import resolve_create_society_id
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
 from app.models.notification import NotificationType, NotificationChannel
 
-DEFAULT_STAFF_PASSWORD = "Staff@1234"
 
 # A punch-in this recent can still be checked out: a night shift runs past midnight.
 OPEN_PUNCH_WINDOW = timedelta(hours=18)
@@ -267,7 +267,7 @@ class StaffService:
         temp_pwd = None
         if data.email and not data.user_id:
             # Auto-create a login account for this staff member
-            temp_pwd = DEFAULT_STAFF_PASSWORD
+            temp_pwd = generate_temp_password()
             new_user = User(
                 society_id           = data.society_id,
                 email                = data.email,

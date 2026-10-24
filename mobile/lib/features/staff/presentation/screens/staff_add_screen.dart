@@ -137,7 +137,7 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
       children: [
         FormSection(
           title: 'Personal details',
-          description: 'An email creates a login for the person (password Staff@1234).',
+          description: 'An email creates a login for the person. Their temporary password is shown once, after you save.',
           children: [
             FormFieldBox(
               label: 'Full name',

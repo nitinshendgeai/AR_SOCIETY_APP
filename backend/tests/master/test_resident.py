@@ -63,15 +63,20 @@ def test_create_resident(client, db, society_a):
     assert any("mobile number" in w.lower() for w in body["warnings"])
 
 
-def test_resident_login_created_with_default_password(client, db, society_a):
-    """A resident added with a mobile number gets a login: the mobile number
-    and the default password admin1234, to be changed at the first sign-in."""
+def test_resident_login_created_with_its_own_temporary_password(client, db, society_a):
+    """A resident added with a mobile number gets a login: the mobile number and a random temporary password
+    (shown once to the admin), to be changed at the first sign-in. The old fixed default does not work."""
     r = client.post("/api/v1/residents/", json={
         "flat_id": str(society_a["flat"].id), "full_name": "Kiran Owner", "phone": "9000000011",
     }, headers=society_a["admin"]["headers"])
     assert r.status_code == 201, r.text
-    assert any("Password: admin1234" in w for w in r.json()["warnings"])
-    login = client.post("/api/v1/auth/login", json={"email": "9000000011", "password": "admin1234"})
+    shown = [w for w in r.json()["warnings"] if "Password: " in w]
+    assert shown, r.json()["warnings"]
+    temp = shown[0].split("Password: ", 1)[1].split(" ", 1)[0]
+    assert len(temp) >= 10 and temp != "admin1234"
+    old = client.post("/api/v1/auth/login", json={"email": "9000000011", "password": "admin1234"})
+    assert old.status_code == 401
+    login = client.post("/api/v1/auth/login", json={"email": "9000000011", "password": temp})
     assert login.status_code == 200, login.text
     me = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {login.json()['access_token']}"})
     assert me.json()["must_change_password"] is True

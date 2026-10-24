@@ -7,10 +7,10 @@ account before that resident can sign in.
 Convention: the mobile number is both the login identifier (see
 AuthService.login()'s email-or-phone lookup) and the source of the
 placeholder email required by User.email's NOT NULL/UNIQUE constraint.
-DEFAULT_PASSWORD is a fixed initial password with must_change_password=True
-forced on the account, mirroring the existing pattern for auto-generated
-onboarding accounts (STANDARD_ONBOARDING_PASSWORD in
-app/modules/onboarding/services/onboarding_service.py).
+Each new login gets its own random temporary password (app/core/passwords.py)
+with must_change_password=True forced on the account. It is shown once, in the
+message returned to the admin who triggered this, and is never stored in the
+clear.
 """
 from typing import Optional, Tuple
 from uuid import UUID
@@ -19,8 +19,7 @@ from sqlalchemy.orm import Session
 from app.models.user import User, UserStatus
 from app.repositories.user_repo import UserRepository
 from app.core.security import hash_password
-
-DEFAULT_PASSWORD = "admin1234"
+from app.core.passwords import generate_temp_password
 
 
 def provision_login_by_phone(
@@ -46,18 +45,19 @@ def provision_login_by_phone(
             "linked to the existing account."
         )
 
+    temp_password = generate_temp_password()
     user = User(
         society_id=society_id,
         email=f"{role_name.lower()}.{phone}@duxos.local",
         phone=phone,
         full_name=full_name,
-        hashed_password=hash_password(DEFAULT_PASSWORD),
+        hashed_password=hash_password(temp_password),
         status=UserStatus.ACTIVE,
         must_change_password=True,
     )
     user = repo.create(user)
     repo.assign_role(user, role_name)
     return user, (
-        f"Login created — Mobile Number: {phone}, Password: {DEFAULT_PASSWORD} "
+        f"Login created — Mobile Number: {phone}, Password: {temp_password} "
         "(must be changed on first login)."
     )

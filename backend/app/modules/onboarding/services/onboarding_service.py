@@ -20,6 +20,7 @@ from app.models.user import User, UserRole, UserStatus
 from app.repositories.user_repo import UserRepository
 from app.models.audit_log import AuditAction
 from app.core.config import settings
+from app.core.passwords import generate_temp_password
 from app.core.security import hash_password
 from app.services.audit_service import AuditService
 from app.services.email_service import EmailService
@@ -29,10 +30,6 @@ from app.modules.staff.models.staff import (
 )
 
 TRIAL_DAYS = 30
-
-# Fixed password used for ALL system-generated onboarding accounts.
-# Users are forced to change this on first login (must_change_password=True).
-STANDARD_ONBOARDING_PASSWORD = "Admin@1234"
 
 # 16 default roles for self-registered societies
 EXTENDED_DEFAULT_ROLES = [
@@ -73,7 +70,8 @@ ROLE_RBAC_GROUP = {
 
 # Four primary onboarding credentials returned to the new society admin.
 # Email pattern: {prefix}@{society_code_lowercase}.com
-# All share STANDARD_ONBOARDING_PASSWORD and must_change_password=True.
+# They share one random password, made for this registration and shown once to the person registering, with
+# must_change_password=True (nobody else can know it, and it is not the same for the next society).
 DEFAULT_USER_CONFIGS = [
     {"prefix": "admin",     "name_suffix": "Admin",                 "role": "Society Admin"},
     {"prefix": "chairman",  "name_suffix": "Chairman",              "role": "Committee Chairman"},
@@ -295,7 +293,8 @@ class OnboardingService:
                                roles: list) -> Tuple[list, list]:
         code     = society.society_code.lower()
         role_map = {r.name: r for r in roles}
-        pwd_hash = hash_password(STANDARD_ONBOARDING_PASSWORD)
+        temp_password = generate_temp_password()
+        pwd_hash = hash_password(temp_password)
 
         created_users, credentials = [], []
 
@@ -327,7 +326,7 @@ class OnboardingService:
             credentials.append({
                 "role":     cfg["role"],
                 "email":    email,
-                "password": STANDARD_ONBOARDING_PASSWORD,
+                "password": temp_password,
             })
 
         return created_users, credentials
