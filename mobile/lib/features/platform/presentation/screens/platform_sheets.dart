@@ -231,6 +231,65 @@ class _CleanDataSheetState extends ConsumerState<CleanDataSheet> {
   }
 }
 
+// ── Restore default logins ───────────────────────────────────────────────────
+
+class RestoreLoginsSheet extends ConsumerStatefulWidget {
+  final PlatformSociety society;
+  const RestoreLoginsSheet({super.key, required this.society});
+
+  @override
+  ConsumerState<RestoreLoginsSheet> createState() => _RestoreLoginsSheetState();
+}
+
+class _RestoreLoginsSheetState extends ConsumerState<RestoreLoginsSheet> {
+  bool _saving = false;
+  List<RestoredLogin>? _restored;
+
+  Future<void> _restore() async {
+    setState(() => _saving = true);
+    try {
+      final r = await ref.read(platformApiProvider).restoreLogins(widget.society.id);
+      invalidatePlatform(ref);
+      if (mounted) setState(() => _restored = r);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        showErrorToast(context, e);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.society;
+    final restored = _restored;
+    return BillingSheetFrame(
+      title: 'Restore default logins of ${s.name}',
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (restored == null) ...[
+          Text(
+              'Recreates any of the four default logins (admin, chairman, secretary, treasurer) that are missing, each with its role. '
+              'Logins that already exist are not changed. Each new login must change its password the first time it signs in.',
+              style: const TextStyle(height: 1.4, color: AppTheme.textSecondary)),
+          const SizedBox(height: 14),
+          AppPrimaryButton(label: 'Restore logins', isLoading: _saving, onPressed: _saving ? null : _restore),
+        ] else ...[
+          Text(restored.isEmpty ? 'All four default logins already exist. Nothing to restore.' : 'Recreated. Share these with the society; they must change the password at first sign-in.',
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 10),
+          for (final c in restored)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: SelectableText('${c.role}\n${c.email}  /  ${c.password}', style: const TextStyle(height: 1.4)),
+            ),
+          const SizedBox(height: 14),
+          AppPrimaryButton(label: 'Done', onPressed: () => Navigator.of(context).pop(true)),
+        ],
+      ]),
+    );
+  }
+}
+
 // ── Limits ───────────────────────────────────────────────────────────────────
 
 class LimitsSheet extends ConsumerStatefulWidget {

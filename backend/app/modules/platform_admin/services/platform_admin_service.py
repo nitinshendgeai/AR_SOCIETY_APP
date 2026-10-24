@@ -371,6 +371,28 @@ class PlatformAdminService:
                 "total": sum(result["counts"].values()), "kept_logins": result["kept_logins"],
                 "message": "Society data cleaned."}
 
+    def restore_default_logins(self, society_id: str, admin: User) -> dict:
+        """Recreate the default logins onboarding gives every society (admin, chairman, secretary, treasurer) that are
+        missing, e.g. after Clean data with --wipe-logins or an earlier clean. Existing ones are left untouched."""
+        from app.modules.onboarding.services.onboarding_service import OnboardingService
+        society = self._get_society(society_id)
+        if not society.society_code:
+            raise HTTPException(status_code=400, detail="This society has no code, so default logins cannot be made.")
+        onboarding = OnboardingService(self.db)
+        wanted = society_purge.default_login_emails(society.society_code)
+        present = {e.lower() for (e,) in self.db.query(User.email).filter(func.lower(User.email).in_(wanted)).all()}
+        _, credentials = onboarding._create_default_users(society, onboarding._create_extended_roles())
+        self.db.flush()
+        AuditService.log(
+            db=self.db, action=AuditAction.CREATE,
+            module="platform_admin", entity_id=str(society.id),
+            entity_type="Society", user=admin,
+            new_values={"event": "logins_restored", "restored": [c["email"] for c in credentials]},
+        )
+        self.db.commit()
+        return {"society_id": str(society.id), "restored": credentials,
+                "already_present": sorted(e for e in wanted if e.lower() in present)}
+
     @staticmethod
     def _confirm_text(society: Society) -> str:
         return society.society_code or society.name

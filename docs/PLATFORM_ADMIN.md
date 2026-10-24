@@ -47,6 +47,7 @@ admins' Forms Matrix, and only a platform admin can change the Platform Admin ro
 | Switch one service on or off for a society | `PUT /api/v1/platform-admin/societies/{id}/services/{key}` body `{"enabled": false}` |
 | Preview what **Clean data** would delete (rows per table; deletes nothing) | `GET /api/v1/platform-admin/societies/{id}/clean-data` |
 | **Clean data**: delete all of the society's rows (tables, the society record, other societies and platform admins stay); body `{"confirm": "<society code>"}` | `POST /api/v1/platform-admin/societies/{id}/clean-data` |
+| **Restore default logins**: recreate the missing admin / chairman / secretary / treasurer logins with the first-login password (returned once in the reply) | `POST /api/v1/platform-admin/societies/{id}/restore-logins` |
 | What platform admins have done | `GET /api/v1/platform-admin/activity` |
 | Platform-wide counts | `GET /api/v1/platform-admin/stats` |
 
@@ -57,7 +58,8 @@ flats, bills, vouchers, complaints and so on, but keeps the four default logins 
 societies, platform admins and the shared roles/forms stay. The admin sees the row counts first and must type the society code
 to confirm. It is recorded under *Activity* as "Data cleaned". The same logic runs from the command line:
 `python scripts/purge_society.py <CODE> [--dry-run] [--delete-society] [--wipe-logins]` (code in `app/services/society_purge.py`).
-Uploaded files on disk or storage are not removed.
+Uploaded files on disk or storage are not removed. *Restore default logins* (next to it) recreates any of the four logins that are
+missing, with the standard first-login password; existing ones are left alone.
 
 ## What suspending does
 A suspended or closed society is **locked out**: its people cannot sign in or refresh a session, and every API call
