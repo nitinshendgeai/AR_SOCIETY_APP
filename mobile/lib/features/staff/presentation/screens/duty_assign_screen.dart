@@ -437,7 +437,7 @@ class _Summary extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppTheme.primary.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppTheme.radiusS),
       ),
       child: Row(children: [
         const Icon(Icons.info_outline_rounded, size: 16, color: AppTheme.primary),
@@ -501,7 +501,7 @@ class _StaffPicker extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: AppTheme.cardBg,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppTheme.radiusM),
           border: Border.all(color: AppTheme.border),
         ),
         child: const Text('No staff found. Add staff first.',
@@ -516,7 +516,7 @@ class _StaffPicker extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         border: Border.all(color: AppTheme.border),
       ),
       child: Column(

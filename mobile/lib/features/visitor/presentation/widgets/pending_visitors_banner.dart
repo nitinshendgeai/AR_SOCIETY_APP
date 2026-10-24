@@ -30,14 +30,14 @@ class PendingVisitorsBanner extends ConsumerWidget {
       padding: padding,
       child: Material(
         color: AppTheme.warningSoft,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppTheme.radiusM),
           onTap: () => context.push(AppRoutes.visitorsPending),
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(AppTheme.radiusM),
               border: Border.all(color: AppTheme.warning.withValues(alpha: 0.45)),
             ),
             child: Row(children: [
@@ -46,7 +46,7 @@ class PendingVisitorsBanner extends ConsumerWidget {
                 height: 40,
                 decoration: BoxDecoration(
                   color: AppTheme.warning.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusS),
                 ),
                 child: const Icon(Icons.notifications_active_rounded, color: AppTheme.warning),
               ),

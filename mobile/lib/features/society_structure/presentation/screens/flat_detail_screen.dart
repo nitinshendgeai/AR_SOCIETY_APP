@@ -131,7 +131,7 @@ class _HeaderCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
         border: Border.all(color: occColor.withOpacity(0.2)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -141,7 +141,7 @@ class _HeaderCard extends StatelessWidget {
             height: 52,
             decoration: BoxDecoration(
               color: occColor.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(AppTheme.radiusM),
             ),
             child: Icon(occIcon, color: occColor, size: 28),
           ),
@@ -184,7 +184,7 @@ class _DetailsCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         border: Border.all(color: AppTheme.border),
       ),
       child: Column(
@@ -250,7 +250,7 @@ class _PeopleCard extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         border: Border.all(color: AppTheme.border),
       ),
       child: Column(

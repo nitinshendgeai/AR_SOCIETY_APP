@@ -154,7 +154,7 @@ class _ShopsScreenState extends ConsumerState<ShopsScreen> {
   Widget _card(Shop s) => Card(
         margin: const EdgeInsets.only(bottom: 8),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppTheme.radiusM),
           onTap: () => _open(s),
           child: Padding(
             padding: const EdgeInsets.all(14),

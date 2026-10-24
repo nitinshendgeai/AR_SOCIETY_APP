@@ -180,7 +180,7 @@ class _Tag extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         margin: const EdgeInsets.only(left: 6),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(AppTheme.radiusS)),
         child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
       );
 }

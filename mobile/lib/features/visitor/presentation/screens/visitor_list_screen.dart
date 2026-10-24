@@ -275,7 +275,7 @@ class _VisitorCard extends ConsumerWidget {
                 height: 42,
                 decoration: BoxDecoration(
                   color: visitor.status.color.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusM),
                 ),
                 child: Icon(
                   _typeIcon(visitor.visitorType),
@@ -389,7 +389,7 @@ class _StatusBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: status.color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
         border: Border.all(color: status.color.withOpacity(0.3)),
       ),
       child: Text(

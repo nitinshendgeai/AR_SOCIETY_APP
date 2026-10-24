@@ -155,7 +155,7 @@ class _RoleMatrixState extends State<RoleMatrix> {
       margin: EdgeInsets.fromLTRB(_margin, 8, _margin, _margin),
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         border: Border.all(color: AppTheme.border),
       ),
       clipBehavior: Clip.antiAlias,

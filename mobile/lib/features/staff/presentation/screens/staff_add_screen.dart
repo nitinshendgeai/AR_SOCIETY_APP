@@ -311,7 +311,7 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusL)),
         title: Row(
           children: const [
             Icon(Icons.check_circle_rounded, color: AppTheme.success, size: 22),

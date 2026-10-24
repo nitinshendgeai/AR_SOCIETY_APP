@@ -209,9 +209,9 @@ class _SetupBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
         color: AppTheme.warningSoft,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppTheme.radiusM),
           onTap: onTap,
           child: const Padding(
             padding: EdgeInsets.all(14),
@@ -255,7 +255,7 @@ class _CycleCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -309,7 +309,7 @@ class _Pill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: color.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppTheme.radiusXl),
         ),
         child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
       );
@@ -1255,7 +1255,7 @@ class _SuggestionNote extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         margin: const EdgeInsets.only(top: 4),
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: AppTheme.surface, borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(color: AppTheme.surface, borderRadius: BorderRadius.circular(AppTheme.radiusS)),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Icon(icon, size: 18, color: AppTheme.textSecondary),
           const SizedBox(width: 10),
@@ -1375,7 +1375,7 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppTheme.cardBg,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
           boxShadow: AppTheme.cardShadow,
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

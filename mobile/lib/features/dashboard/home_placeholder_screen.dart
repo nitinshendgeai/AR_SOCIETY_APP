@@ -41,7 +41,7 @@ class HomePlaceholderScreen extends ConsumerWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusL),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,7 +81,7 @@ class HomePlaceholderScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: AppTheme.cardBg,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusL),
                   border: Border.all(color: AppTheme.border),
                 ),
                 child: Column(
@@ -124,7 +124,7 @@ class HomePlaceholderScreen extends ConsumerWidget {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: AppTheme.success.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusS),
                     border: Border.all(color: AppTheme.success.withOpacity(0.2)),
                   ),
                   child: Row(

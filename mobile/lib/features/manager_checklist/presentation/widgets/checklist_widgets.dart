@@ -75,7 +75,7 @@ class StatePill extends StatelessWidget {
     final look = stateLook(entry);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: look.soft, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: look.soft, borderRadius: BorderRadius.circular(AppTheme.radiusXl)),
       child: Text(look.label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: look.color)),
     );
   }

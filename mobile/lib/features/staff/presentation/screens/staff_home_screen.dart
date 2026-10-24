@@ -81,7 +81,7 @@ class StaffHomeScreen extends ConsumerWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusL),
                 ),
                 child: Row(
                   children: [
@@ -90,7 +90,7 @@ class StaffHomeScreen extends ConsumerWidget {
                       height: 44,
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusM),
                       ),
                       child: const Icon(Icons.person_rounded,
                           color: Colors.white, size: 26),
@@ -352,7 +352,7 @@ class _StaffProfileStatus extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppTheme.radiusM),
           border: Border.all(color: color.withOpacity(0.3)),
         ),
         child: Row(
@@ -413,7 +413,7 @@ class _ModuleCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: AppTheme.cardBg,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppTheme.radiusL),
             border: Border.all(color: AppTheme.border),
           ),
           child: Column(
@@ -424,7 +424,7 @@ class _ModuleCard extends StatelessWidget {
                 height: 42,
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusM),
                 ),
                 child: Icon(icon, color: color, size: 22),
               ),

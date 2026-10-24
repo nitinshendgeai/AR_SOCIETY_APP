@@ -106,7 +106,7 @@ class _StaffImportScreenState extends ConsumerState<StaffImportScreen> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: AppTheme.primary.withOpacity(0.06),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppTheme.radiusM),
             border: Border.all(color: AppTheme.primary.withOpacity(0.15)),
           ),
           child: Column(
@@ -559,7 +559,7 @@ class _RowTile extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppTheme.radiusS),
         border: Border.all(color: AppTheme.border),
       ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [

@@ -99,7 +99,7 @@ class _ApprovalCard extends ConsumerWidget {
                 height: 44,
                 decoration: BoxDecoration(
                   color: AppTheme.warning.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusM),
                 ),
                 child: const Icon(Icons.person_rounded,
                     color: AppTheme.warning, size: 24),

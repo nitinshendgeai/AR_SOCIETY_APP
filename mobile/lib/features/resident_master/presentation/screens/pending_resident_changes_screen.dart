@@ -131,7 +131,7 @@ class _PendingResidentChangesScreenState extends ConsumerState<PendingResidentCh
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: AppTheme.cardBg,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusM),
                   border: Border.all(color: AppTheme.border),
                 ),
                 child: Column(

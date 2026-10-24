@@ -236,7 +236,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       children: [
         if (_lastSaved != null)
           DecoratedBox(
-            decoration: BoxDecoration(color: AppTheme.successSoft, borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(color: AppTheme.successSoft, borderRadius: BorderRadius.circular(AppTheme.radiusS)),
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Row(children: [

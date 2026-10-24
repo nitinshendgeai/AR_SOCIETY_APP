@@ -23,7 +23,7 @@ class ResidentTypeBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: _color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
         border: Border.all(color: _color.withOpacity(0.3)),
       ),
       child: Text(type.label,
@@ -43,7 +43,7 @@ class PrimaryChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: AppTheme.warning.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
         border: Border.all(color: AppTheme.warning.withOpacity(0.3)),
       ),
       child: const Row(mainAxisSize: MainAxisSize.min, children: [
@@ -75,7 +75,7 @@ class AgreementStatusBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: _color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
         border: Border.all(color: _color.withOpacity(0.3)),
       ),
       child: Text(status.label.toUpperCase(),
@@ -97,7 +97,7 @@ class ActiveBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Text(isActive ? 'ACTIVE' : 'INACTIVE',
@@ -120,7 +120,7 @@ class RmSection extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         border: Border.all(color: AppTheme.border),
       ),
       child: Column(

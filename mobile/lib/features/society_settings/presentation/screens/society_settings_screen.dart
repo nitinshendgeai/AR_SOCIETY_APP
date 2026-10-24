@@ -450,7 +450,7 @@ class _SubscriptionTab extends StatelessWidget {
         DecoratedBox(
           decoration: BoxDecoration(
             color: AppTheme.primarySoft.withOpacity(0.6),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(AppTheme.radiusM),
             border: Border.all(color: AppTheme.primary.withOpacity(0.2)),
           ),
           child: const Padding(
@@ -630,7 +630,7 @@ class _InfoTile extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppTheme.radiusS),
         border: Border.all(color: AppTheme.border),
       ),
       child: Row(
