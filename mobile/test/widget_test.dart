@@ -61,7 +61,7 @@ const _committeeFormCodes = [
   'pending_resident_changes', 'staff', 'parking_management', 'setup_wizard',
 ];
 const _securityFormCodes = ['visitors', 'complaints', 'staff'];
-const _residentFormCodes = ['visitors', 'complaints', 'edit_my_info'];
+const _residentFormCodes = ['visitors', 'complaints', 'edit_my_info', 'my_bills'];
 
 // ── Entity unit tests ─────────────────────────────────────────────────────────
 
@@ -291,8 +291,14 @@ void main() {
   group('ResidentDashboardScreen', () {
     testWidgets('renders greeting and module grid', (tester) async {
       final user = _makeUser(role: 'Resident');
+      // The quick actions sit below the first screen; a taller screen makes the list build them.
+      tester.view.physicalSize = const Size(800, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-      await tester.pumpWidget(_wrapWithUser(const ResidentDashboardScreen(), user));
+      await tester.pumpWidget(_wrapWithUser(const ResidentDashboardScreen(), user, formCodes: _residentFormCodes));
+      await tester.pump();
       await tester.pump();
 
       expect(find.text('Resident Dashboard'), findsOneWidget);
@@ -300,6 +306,28 @@ void main() {
       expect(find.text('Visitors Waiting'), findsOneWidget);
       expect(find.text('Bills Due'), findsOneWidget);
       expect(find.text('My Flat'), findsOneWidget);
+      expect(find.text('Edit My Info'), findsOneWidget);
+      expect(find.text('My Bills'), findsOneWidget);
+    });
+
+    testWidgets('a Tenant is not offered My Bills or Edit My Info (they work from a resident record)', (tester) async {
+      // A Tenant is granted the member screens only; the bills and the profile edit would be empty or fail for them.
+      // The quick actions sit below the first screen; a taller screen makes the list build them.
+      tester.view.physicalSize = const Size(800, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(_wrapWithUser(const ResidentDashboardScreen(), _makeUser(role: 'Tenant'),
+          formCodes: const ['visitors', 'complaints']));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Open Complaints'), findsOneWidget);
+      expect(find.text('My Flat'), findsOneWidget);
+      expect(find.text('Bills Due'), findsNothing);
+      expect(find.text('My Bills'), findsNothing);
+      expect(find.text('Edit My Info'), findsNothing);
+      expect(find.text('Maintenance'), findsNothing);
     });
   });
 

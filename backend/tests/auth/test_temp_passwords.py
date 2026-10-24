@@ -69,7 +69,7 @@ def test_each_new_resident_login_has_its_own_password(client, db):
     assert phone not in shown[1], "the password is not derived from the mobile number"
 
 
-def test_each_society_registration_gets_its_own_first_password(client):
+def test_each_first_account_of_a_new_society_has_its_own_password(client):
     payload = {"society_name": "Temp Pwd One", "society_code": "TPW001", "contact_person_name": "A B",
                "contact_email": "a@tpw001.example.com", "contact_mobile": "9876500101", "city": "Pune",
                "state": "Maharashtra", "country": "India", "total_wings": 1, "total_flats": 10, "terms_accepted": True}
@@ -78,10 +78,15 @@ def test_each_society_registration_gets_its_own_first_password(client):
                                                       "society_code": "TPW002", "contact_email": "a@tpw002.example.com",
                                                       "contact_mobile": "9876500102"})
     assert one.status_code == 201 and two.status_code == 201, (one.text, two.text)
-    p1 = {c["password"] for c in one.json()["credentials"]}
-    p2 = {c["password"] for c in two.json()["credentials"]}
-    assert len(p1) == 1 and len(p2) == 1, "one password per registration, shared by its four accounts"
-    assert p1 != p2 and not (p1 | p2) & set(OLD_DEFAULTS)
+    p1 = [c["password"] for c in one.json()["credentials"]]
+    p2 = [c["password"] for c in two.json()["credentials"]]
+    assert len(p1) == 4 and len(set(p1)) == 4, "each of the four accounts has its own password"
+    assert len(set(p1) | set(p2)) == 8, "and none is shared with the next society"
+    assert not (set(p1) | set(p2)) & set(OLD_DEFAULTS)
+    # one account's password does not open another's
+    chairman = next(c for c in one.json()["credentials"] if c["role"] == "Committee Chairman")
+    admin_pw = next(c["password"] for c in one.json()["credentials"] if c["role"] == "Society Admin")
+    assert client.post(f"{API}/auth/login", json={"email": chairman["email"], "password": admin_pw}).status_code == 401
     admin = next(c for c in one.json()["credentials"] if c["role"] == "Society Admin")
     assert client.post(f"{API}/auth/login", json={"email": admin["email"], "password": admin["password"]}).status_code == 200
     old = client.post(f"{API}/auth/login", json={"email": admin["email"], "password": "Admin@1234"})

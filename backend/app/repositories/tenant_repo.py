@@ -44,6 +44,7 @@ class TenantRepository(BaseRepository[Tenant]):
         search: Optional[str] = None,
         skip: int = 0,
         limit: int = 50,
+        search_contacts: bool = True,
     ) -> List[Tenant]:
         q = self.db.query(Tenant)
         if society_id is not None:
@@ -55,11 +56,14 @@ class TenantRepository(BaseRepository[Tenant]):
             q = q.filter(Tenant.is_active == is_active)
         if search:
             like = f"%{search}%"
-            q = q.filter(
-                (Tenant.full_name.ilike(like)) |
-                (Tenant.phone.ilike(like)) |
-                (Tenant.email.ilike(like))
-            )
+            if search_contacts:
+                q = q.filter(
+                    (Tenant.full_name.ilike(like)) |
+                    (Tenant.phone.ilike(like)) |
+                    (Tenant.email.ilike(like))
+                )
+            else:   # a member may search names only
+                q = q.filter(Tenant.full_name.ilike(like))
         return q.order_by(Tenant.full_name).offset(skip).limit(limit).all()
 
     def find_duplicate_warnings(

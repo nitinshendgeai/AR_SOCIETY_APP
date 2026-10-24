@@ -831,6 +831,13 @@ class ResidentDashboardScreen extends ConsumerWidget {
     final myFlat = myFlatId == null ? null : ref.watch(flatByIdProvider(myFlatId)).valueOrNull;
     final residentLoaded = ref.watch(myResidentProvider).hasValue;
     final myFlats = ref.watch(myFlatsProvider).valueOrNull ?? const <ResidentModel>[];
+    // My Bills and Edit My Info work from a resident record (a Tenant has none, so those screens would be empty or
+    // fail), and the Forms Matrix says who gets them. Show them to the people granted them; while the grants are
+    // still loading nothing is hidden.
+    final grants = ref.watch(myFormCodesProvider).valueOrNull?.toSet();
+    bool granted(String code) => grants == null || grants.contains(code);
+    final canSeeBills = granted('my_bills');
+    final canEditInfo = granted('edit_my_info');
     return _DashboardShell(
       title: 'Resident Dashboard',
       children: [
@@ -889,6 +896,7 @@ class ResidentDashboardScreen extends ConsumerWidget {
                 retry: () => ref.invalidate(pendingVisitorApprovalsProvider),
                 onTap: () => context.push(AppRoutes.visitorsPending),
               ),
+            if (canSeeBills)
             _SummaryCard(
               icon: Icons.receipt_long_rounded,
               label: 'Bills Due',
@@ -917,7 +925,8 @@ class ResidentDashboardScreen extends ConsumerWidget {
         _chipRow([
           if (_on(user, 'complaints'))
             const _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaint', route: AppRoutes.complaints),
-          const _QuickActionChip(icon: Icons.edit_note_rounded, label: 'Edit My Info', route: AppRoutes.editMyProfile),
+          if (canEditInfo)
+            const _QuickActionChip(icon: Icons.edit_note_rounded, label: 'Edit My Info', route: AppRoutes.editMyProfile),
           if (_on(user, 'visitors'))
             const _QuickActionChip(icon: Icons.person_rounded, label: 'Visitors', route: AppRoutes.visitorsMy),
         ]),
@@ -931,24 +940,26 @@ class ResidentDashboardScreen extends ConsumerWidget {
         _chipRow([
           if (_on(user, 'visitors'))
             _QuickActionChip(icon: Icons.pending_actions_rounded, label: 'Approvals', route: AppRoutes.visitorsPending, badge: waiting),
-          const _QuickActionChip(icon: Icons.receipt_long_rounded, label: 'My Bills', route: AppRoutes.myBills),
+          if (canSeeBills)
+            const _QuickActionChip(icon: Icons.receipt_long_rounded, label: 'My Bills', route: AppRoutes.myBills),
         ]),
         const SizedBox(height: 18),
         _OperationalPanel(title: 'Recent updates', children: [
-          _InfoTile(
-            icon: Icons.receipt_long_rounded,
-            title: 'Maintenance',
-            value: ref.watch(myBillsProvider).when(
-                  data: (s) => s.openCount == 0
-                      ? 'All bills paid'
-                      : '${formatRupees(s.totalOutstanding)} due on ${s.openCount} bill${s.openCount == 1 ? '' : 's'}',
-                  loading: () => '…',
-                  error: (_, __) => 'Open My Bills to check',
-                ),
-            color: AppTheme.primary,
-          ),
+          if (canSeeBills)
+            _InfoTile(
+              icon: Icons.receipt_long_rounded,
+              title: 'Maintenance',
+              value: ref.watch(myBillsProvider).when(
+                    data: (s) => s.openCount == 0
+                        ? 'All bills paid'
+                        : '${formatRupees(s.totalOutstanding)} due on ${s.openCount} bill${s.openCount == 1 ? '' : 's'}',
+                    loading: () => '…',
+                    error: (_, __) => 'Open My Bills to check',
+                  ),
+              color: AppTheme.primary,
+            ),
+          if (canSeeBills && _on(user, 'visitors')) const SizedBox(height: 8),
           if (_on(user, 'visitors')) ...[
-            const SizedBox(height: 8),
             _InfoTile(
               icon: Icons.pending_actions_rounded,
               title: 'Visitor approvals',

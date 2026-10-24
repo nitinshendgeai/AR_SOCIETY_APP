@@ -1,8 +1,9 @@
 """Field-level privacy for records every member of a society may look up.
 
-The resident and tenant registers are readable by any member (a neighbour's name and flat), but a member must not see
-another person's identity documents, date of birth, emergency contacts, rent or deposit. The office (manager and above)
-sees everything, and so does a person looking at their own record.
+The resident and tenant registers are readable by any member, but only as a neighbour directory: a name and a flat. A
+member must not see another person's phone number or email, identity documents, date of birth, emergency contacts, rent
+or deposit, and cannot look a person up by phone number or email either (see `can_search_contacts`). The office (manager
+and above) sees everything, and so does a person looking at their own record.
 """
 from typing import Iterable
 
@@ -12,14 +13,20 @@ from app.core.dependencies import _user_has_permission
 from app.models.user import User
 
 RESIDENT_PRIVATE_FIELDS = (
-    "date_of_birth", "id_proof_type", "id_proof_number", "kyc_doc_url",
+    "phone", "email", "date_of_birth", "id_proof_type", "id_proof_number", "kyc_doc_url",
     "emergency_contact_name", "emergency_contact_phone",
 )
 TENANT_PRIVATE_FIELDS = (
-    "monthly_rent", "security_deposit", "agreement_doc_url", "id_proof_type", "id_proof_number", "kyc_doc_url",
+    "phone", "email", "monthly_rent", "security_deposit", "agreement_doc_url", "id_proof_type", "id_proof_number", "kyc_doc_url",
     "police_verification_status", "police_verification_date", "emergency_contact_name", "emergency_contact_phone",
     "remarks",
 )
+
+
+def can_search_contacts(user: User) -> bool:
+    """Only the office may search the registers by phone number or email: otherwise the search is an oracle that
+    confirms whose number it is even though the number itself is hidden from the results."""
+    return _user_has_permission(user, "manager_above")
 
 
 def hide_private(item: BaseModel, user: User, fields: Iterable[str]) -> BaseModel:

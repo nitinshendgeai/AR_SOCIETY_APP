@@ -6,6 +6,24 @@ Format: `[YYYY-MM-DD] type: description`
 
 ## 2026-10-24
 
+### security / ux: member directory, Tenant dashboard, first accounts, sidebar
+
+- **Resident directory (policy decided).** Members keep a neighbour directory of a **name and a flat**. A member could
+  still read every other resident's and tenant's **phone number and email** through the API (no screen showed them), and
+  search the registers by phone or email, which confirms whose number it is even with the number hidden. Now
+  `phone` and `email` are among the private fields (hidden from members; the office and a person's own record see
+  everything), and a member's search matches names only. Tests: `tests/security/test_tenant_isolation_and_rbac.py`.
+  Gate and other staff are members for this purpose; if they need numbers, grant that deliberately.
+- **Tenant role (resolved, nothing granted).** My Bills and Edit My Info read a *resident* record (`/billing/bills/me`,
+  `/residents/me`); a Tenant is a separate record and has none, so those screens would be empty or fail ("No resident
+  profile linked to this account"). The Resident/Tenant dashboard now shows **Bills Due**, **My Bills**, **Edit My Info**
+  and the Maintenance line only to people granted `my_bills` / `edit_my_info` in the Forms Matrix; a Resident sees no
+  difference. Tenant self-service on their own tenancy record would be a new feature.
+- **A society's first four accounts each get their own password** (they shared one per registration). The trial-success
+  screen lists each account with its password and copies "email / password"; Restore default logins already did.
+- **Sidebar:** on a page that is in no group (the dashboard) the first group is open, so the sidebar is never a bare list
+  of closed headings.
+
 ### security: no fixed default passwords for accounts the system creates
 
 - New staff logins (was `Staff@1234`), resident and tenant logins made from a mobile number (was `admin1234`) and the

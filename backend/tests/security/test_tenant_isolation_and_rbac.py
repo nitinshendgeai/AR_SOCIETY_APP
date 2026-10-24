@@ -158,12 +158,14 @@ def _register_people(client, world):
     h = world.admin_a["headers"]            # creating records is for admin and committee; reading is wider
     res = client.post(f"{API}/residents/", json={
         "flat_id": str(world.flat_a.id), "full_name": "Neighbour One", "phone": "9822000001",
+        "email": "neighbour.one@example.com",
         "id_proof_type": "Aadhaar", "id_proof_number": "1234 5678 9012", "date_of_birth": "1980-04-02",
         "emergency_contact_name": "Relative", "emergency_contact_phone": "9822000009",
     }, headers=h)
     assert res.status_code == 201, res.text
     ten = client.post(f"{API}/tenants/", json={
         "flat_id": str(world.flat_a.id), "full_name": "Tenant One", "monthly_rent": "21000.00",
+        "phone": "9822000002", "email": "tenant.one@example.com",
         "agreement_start_date": str(date.today()), "agreement_end_date": str(date.today() + timedelta(days=300)),
         "id_proof_type": "PAN", "id_proof_number": "ABCDE1234F",
     }, headers=h)
@@ -171,11 +173,12 @@ def _register_people(client, world):
     return res.json(), ten.json()
 
 
-RESIDENT_PRIVATE = ("date_of_birth", "id_proof_type", "id_proof_number", "emergency_contact_name", "emergency_contact_phone")
-TENANT_PRIVATE = ("monthly_rent", "id_proof_type", "id_proof_number")
+RESIDENT_PRIVATE = ("phone", "email", "date_of_birth", "id_proof_type", "id_proof_number", "emergency_contact_name",
+                    "emergency_contact_phone")
+TENANT_PRIVATE = ("phone", "email", "monthly_rent", "id_proof_type", "id_proof_number")
 
 
-def test_members_see_neighbours_but_not_their_identity_documents_or_rent(client, world):
+def test_members_see_neighbours_but_not_their_contact_details_identity_documents_or_rent(client, world):
     res, ten = _register_people(client, world)
     for who in ("resident_a", "security_a"):
         h = getattr(world, who)["headers"]
@@ -197,8 +200,10 @@ def test_the_office_still_sees_everything(client, world):
         h = getattr(world, who)["headers"]
         r = client.get(f"{API}/residents/{res['id']}", headers=h).json()
         assert r["id_proof_number"] == "1234 5678 9012" and r["date_of_birth"] == "1980-04-02", who
+        assert r["phone"] == "9822000001" and r["email"] == "neighbour.one@example.com", who
         t = client.get(f"{API}/tenants/{ten['id']}", headers=h).json()
         assert t["monthly_rent"] == "21000.00" and t["id_proof_number"] == "ABCDE1234F", who
+        assert t["phone"] == "9822000002" and t["email"] == "tenant.one@example.com", who
 
 
 def test_a_resident_sees_their_own_record_in_full(client, db, world):
@@ -207,6 +212,25 @@ def test_a_resident_sees_their_own_record_in_full(client, db, world):
                  headers=world.admin_a["headers"])
     own = client.get(f"{API}/residents/{res['id']}", headers=world.resident_a["headers"]).json()
     assert own["id_proof_number"] == "1234 5678 9012"
+    assert own["phone"] == "9822000001" and own["email"] == "neighbour.one@example.com"
+
+
+def test_a_member_cannot_look_a_person_up_by_phone_or_email(client, world):
+    """The phone number is hidden from the results; searching by it must not confirm whose it is either."""
+    res, ten = _register_people(client, world)
+    for who in ("resident_a", "security_a"):
+        h = getattr(world, who)["headers"]
+        for term in ("9822000001", "neighbour.one@example.com"):
+            assert client.get(f"{API}/residents/", params={"search": term}, headers=h).json() == [], (who, term)
+        for term in ("9822000002", "tenant.one@example.com"):
+            assert client.get(f"{API}/tenants/", params={"search": term}, headers=h).json() == [], (who, term)
+        # a name still finds the neighbour: that is the directory
+        assert [r["id"] for r in client.get(f"{API}/residents/", params={"search": "Neighbour"}, headers=h).json()] == [res["id"]]
+        assert [t["id"] for t in client.get(f"{API}/tenants/", params={"search": "Tenant One"}, headers=h).json()] == [ten["id"]]
+    for who in ("manager_a", "admin_a"):
+        h = getattr(world, who)["headers"]
+        assert [r["id"] for r in client.get(f"{API}/residents/", params={"search": "9822000001"}, headers=h).json()] == [res["id"]], who
+        assert [t["id"] for t in client.get(f"{API}/tenants/", params={"search": "tenant.one@"}, headers=h).json()] == [ten["id"]], who
 
 
 def test_rent_agreements_and_occupancy_history_stay_with_the_office(client, world):

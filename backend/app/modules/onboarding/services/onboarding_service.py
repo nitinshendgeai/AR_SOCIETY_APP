@@ -70,8 +70,9 @@ ROLE_RBAC_GROUP = {
 
 # Four primary onboarding credentials returned to the new society admin.
 # Email pattern: {prefix}@{society_code_lowercase}.com
-# They share one random password, made for this registration and shown once to the person registering, with
-# must_change_password=True (nobody else can know it, and it is not the same for the next society).
+# Each gets its own random password, shown once to the person registering (or to the platform admin restoring them),
+# with must_change_password=True: nobody can know one in advance, and none is the same as another or as the next
+# society's.
 DEFAULT_USER_CONFIGS = [
     {"prefix": "admin",     "name_suffix": "Admin",                 "role": "Society Admin"},
     {"prefix": "chairman",  "name_suffix": "Chairman",              "role": "Committee Chairman"},
@@ -293,9 +294,6 @@ class OnboardingService:
                                roles: list) -> Tuple[list, list]:
         code     = society.society_code.lower()
         role_map = {r.name: r for r in roles}
-        temp_password = generate_temp_password()
-        pwd_hash = hash_password(temp_password)
-
         created_users, credentials = [], []
 
         for cfg in DEFAULT_USER_CONFIGS:
@@ -305,11 +303,12 @@ class OnboardingService:
             if self.db.query(User).filter(User.email == email).first():
                 continue  # idempotent: skip if already exists
 
+            temp_password = generate_temp_password()
             user = User(
                 society_id           = society.id,
                 email                = email,
                 full_name            = full_name,
-                hashed_password      = pwd_hash,
+                hashed_password      = hash_password(temp_password),
                 status               = UserStatus.ACTIVE,
                 must_change_password = True,
                 terms_accepted       = False,
