@@ -161,6 +161,88 @@ class PaymentTdsPreview {
       );
 }
 
+/// One bill still to be paid to a vendor (`GET /vendors/invoices/vendor/{id}/open`).
+class OpenBill {
+  final String invoiceId;
+  final String invoiceNumber;
+  final String? description;
+  final DateTime invoiceDate;
+  final DateTime dueDate;
+  final String total;
+  final String paid;
+  final String outstanding;
+  final int daysOverdue;
+  const OpenBill({
+    required this.invoiceId,
+    required this.invoiceNumber,
+    this.description,
+    required this.invoiceDate,
+    required this.dueDate,
+    required this.total,
+    required this.paid,
+    required this.outstanding,
+    this.daysOverdue = 0,
+  });
+
+  double get outstandingAmount => double.tryParse(outstanding) ?? 0;
+
+  factory OpenBill.fromJson(Map<String, dynamic> j) => OpenBill(
+        invoiceId: j['invoice_id'] as String,
+        invoiceNumber: j['invoice_number'] as String,
+        description: j['description'] as String?,
+        invoiceDate: DateTime.parse(j['invoice_date'] as String),
+        dueDate: DateTime.parse(j['due_date'] as String),
+        total: j['total']?.toString() ?? '0',
+        paid: j['paid']?.toString() ?? '0',
+        outstanding: j['outstanding']?.toString() ?? '0',
+        daysOverdue: (j['days_overdue'] as num?)?.toInt() ?? 0,
+      );
+}
+
+/// What the society still owes one vendor, bill by bill, oldest due first.
+class OpenBills {
+  final String vendorId;
+  final String vendorName;
+  final String totalOutstanding;
+  final List<OpenBill> bills;
+  const OpenBills({
+    required this.vendorId,
+    required this.vendorName,
+    required this.totalOutstanding,
+    required this.bills,
+  });
+
+  double get total => double.tryParse(totalOutstanding) ?? 0;
+
+  factory OpenBills.fromJson(Map<String, dynamic> j) => OpenBills(
+        vendorId: j['vendor_id'] as String,
+        vendorName: j['vendor_name'] as String? ?? '',
+        totalOutstanding: j['total_outstanding']?.toString() ?? '0',
+        bills: [for (final b in (j['bills'] as List? ?? const [])) OpenBill.fromJson(b as Map<String, dynamic>)],
+      );
+}
+
+/// The outcome of one payment that settled several bills.
+class PayBillsResult {
+  final int billsPaid;
+  final String settled;
+  final String tdsHeld;
+  final String paidToVendor;
+  const PayBillsResult({
+    required this.billsPaid,
+    required this.settled,
+    required this.tdsHeld,
+    required this.paidToVendor,
+  });
+
+  factory PayBillsResult.fromJson(Map<String, dynamic> j) => PayBillsResult(
+        billsPaid: (j['bills_paid'] as num?)?.toInt() ?? 0,
+        settled: j['settled']?.toString() ?? '0',
+        tdsHeld: j['tds_held']?.toString() ?? '0',
+        paidToVendor: j['paid_to_vendor']?.toString() ?? '0',
+      );
+}
+
 class Quotation {
   final String id;
   final String vendorId;
@@ -483,6 +565,37 @@ class VendorsWorkApi {
     final r = await _dio.get('/vendors/invoices/$invoiceId/payment-preview',
         queryParameters: {'amount': amount.toStringAsFixed(2), 'paid_date': _iso(paidDate)});
     return PaymentTdsPreview.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// What the society still owes [vendorId], bill by bill (oldest due first).
+  Future<OpenBills> openBills(String vendorId) async =>
+      OpenBills.fromJson((await _dio.get('/vendors/invoices/vendor/$vendorId/open')).data as Map<String, dynamic>);
+
+  /// One cheque / transfer settling the chosen bills: each is paid (with its TDS) and posted, or none.
+  /// [items] are (bill id, amount settled against it); [bankAccountId] is the cash or bank ledger it is paid from.
+  Future<PayBillsResult> payBills({
+    required String vendorId,
+    required List<({String invoiceId, double amount})> items,
+    required DateTime paidDate,
+    required String paymentMode,
+    String? paymentRef,
+    String? bankName,
+    String? bankAccountId,
+  }) async {
+    final r = await _dio.post('/vendors/invoices/vendor/$vendorId/pay', data: {
+      'items': [for (final i in items) {'invoice_id': i.invoiceId, 'amount': _money(i.amount)}],
+      'paid_date': _iso(paidDate),
+      'payment_mode': paymentMode,
+      if (paymentRef != null && paymentRef.isNotEmpty) 'payment_ref': paymentRef,
+      if (bankName != null && bankName.isNotEmpty) 'bank_name': bankName,
+      if (bankAccountId != null) 'bank_account_id': bankAccountId,
+    });
+    return PayBillsResult.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// Takes a wrongly entered bill out of the books (admin / committee; only while nothing is paid on it).
+  Future<void> cancelInvoice(String invoiceId, String reason) async {
+    await _dio.post('/vendors/invoices/$invoiceId/cancel', data: {'reason': reason});
   }
 
   Future<VendorRecord> createVendor(Map<String, dynamic> body) async =>

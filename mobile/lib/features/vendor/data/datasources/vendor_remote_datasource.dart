@@ -86,6 +86,7 @@ class VendorRemoteDataSource {
     required String paymentMode,
     String? paymentRef,
     String? bankName,
+    String? bankAccountId,
   }) async {
     final r = await _dio.post('/vendors/invoices/$invoiceId/payments', data: {
       'amount': amount.toStringAsFixed(2),
@@ -93,6 +94,7 @@ class VendorRemoteDataSource {
       'payment_mode': paymentMode,
       if (paymentRef != null && paymentRef.isNotEmpty) 'payment_ref': paymentRef,
       if (bankName != null && bankName.isNotEmpty) 'bank_name': bankName,
+      if (bankAccountId != null) 'bank_account_id': bankAccountId,
     });
     return VendorInvoiceModel.fromJson(r.data as Map<String, dynamic>);
   }

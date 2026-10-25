@@ -54,6 +54,11 @@ The registers only read what is already posted; they change nothing.
 | **Other income** (hall rent, interest, scrap) | Receipt voucher | Dr bank / cash, Cr the income ledger. |
 | **TDS / GST deposited** with the government | Payment voucher | Dr TDS Payable / GST Payable, Cr bank. |
 
+**In the app:** *Vendor Bills → Pay Vendor* (also *Pay several bills of this vendor* inside a bill, and *Pay bills* from the
+note a Payment voucher shows when its vendor has unpaid bills). Choose the vendor, tick the bills, lower an amount to part-pay,
+choose the payment mode and the bank or cash ledger it is paid from, and save: every bill is paid (with its own TDS) and
+posted, or none is. A bill's own sheet also has *Cancel this bill* for the admin or committee while nothing is paid on it.
+
 ## Bank reconciliation (Accounts → Bank Reconciliation)
 
 The bank ledger says what the society thinks is in the bank; the statement says what the bank thinks. Marking each line of

@@ -26,6 +26,9 @@ An audit of the Finance & Maintenance and Accounts modules (see `docs/ACCOUNTING
   Creditors must name the vendor and cannot be used to pay a vendor who has unpaid bills (it left the bill unpaid and the
   payables out of step with the ledger).
 - **Resident receipts** can name the bank or cash ledger the money was deposited into (before: always the default bank).
+- **App: Pay Vendor.** New screen to pay several of a vendor's bills with one cheque or transfer (tick the bills, part-pay by
+  lowering an amount, choose the bank or cash ledger); a bill's sheet can pay several bills, choose the ledger for a single
+  payment and (admin / committee) cancel the bill; a Payment voucher naming a vendor with unpaid bills points to Pay Vendor.
 
 ## 2026-10-24
 

@@ -5,16 +5,19 @@ import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
+import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
-import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show formatInr;
+import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show LedgerAccount, formatInr;
+import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart' show LedgerChooser;
 import 'package:ar_society_app/features/vendor/data/vendors_work_api.dart' show PaymentTdsPreview;
 import 'package:ar_society_app/features/vendor/domain/entities/vendor_entities.dart';
 import 'package:ar_society_app/features/vendor/presentation/providers/vendor_providers.dart';
-import 'package:ar_society_app/features/vendor/presentation/providers/vendors_work_providers.dart' show vendorsWorkApiProvider;
+import 'package:ar_society_app/features/vendor/presentation/providers/vendors_work_providers.dart' show vendorOpenBillsProvider, vendorsWorkApiProvider;
 import 'package:ar_society_app/features/vendor/presentation/widgets/payment_tds_card.dart';
-import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_widgets.dart' show DateField;
+import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_widgets.dart' show DateField, askReason;
 import 'package:ar_society_app/features/vendor/presentation/widgets/vendor_picker.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
@@ -128,6 +131,14 @@ class _VendorBillsScreenState extends ConsumerState<VendorBillsScreen> {
             tooltip: 'Refresh',
             onPressed: () => ref.read(vendorInvoicesProvider(societyId).notifier).refresh(),
           ),
+          if (!desktop)
+            IconButton(
+              icon: const Icon(Icons.payments_rounded),
+              tooltip: 'Pay Vendor',
+              onPressed: () => context.push(AppRoutes.payVendorBills),
+            ),
+          if (desktop)
+            HeaderActionButton(icon: Icons.payments_rounded, label: 'Pay Vendor', onPressed: () => context.push(AppRoutes.payVendorBills)),
           if (desktop)
             HeaderActionButton(icon: Icons.add_rounded, label: 'Add Bill', onPressed: () => _addBill(societyId)),
         ],
@@ -454,10 +465,35 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
 
 // ── Bill Detail / Record Payment ────────────────────────────────────────────
 
-class _BillDetailSheet extends StatelessWidget {
+class _BillDetailSheet extends ConsumerWidget {
   final VendorInvoiceEntity invoice;
   final String societyId;
   const _BillDetailSheet({required this.invoice, required this.societyId});
+
+  /// Takes a wrongly entered bill out of the books and the payables: only the admin or committee, and only while
+  /// nothing has been paid on it (the server checks both).
+  Future<void> _cancel(BuildContext context, WidgetRef ref) async {
+    final reason = await askReason(
+      context,
+      title: 'Cancel this bill?',
+      message: 'Bill ${invoice.invoiceNumber} of ${invoice.vendorName ?? 'the vendor'} is taken out of the books and '
+          'what is owed. Enter it again, correctly, if the vendor is still to be paid.',
+      action: 'Cancel bill',
+    );
+    if (reason == null || !context.mounted) return;
+    try {
+      await ref.read(vendorsWorkApiProvider).cancelInvoice(invoice.id, reason);
+      ref.invalidate(vendorOpenBillsProvider(invoice.vendorId));
+      await ref.read(vendorInvoicesProvider(societyId).notifier).refresh();
+      invalidateBooks(ref);
+      if (context.mounted) {
+        AppToast.success(context, 'Bill cancelled');
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (context.mounted) showErrorToast(context, e);
+    }
+  }
 
   Widget _row(String label, String value) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
@@ -468,26 +504,46 @@ class _BillDetailSheet extends StatelessWidget {
       );
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final canCancel = ref.watch(currentUserProvider)?.isAdminOrCommittee == true &&
+        (double.tryParse(invoice.paidAmount) ?? 0) == 0;
     return AppSheetFrame(
       title: invoice.vendorName ?? 'Vendor',
       subtitle: 'Bill details',
-      footer: invoice.isPaid
+      footer: invoice.isPaid && !canCancel
           ? null
-          : SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pop(context);
-                  showAppSheet(
-                    context: context,
-                    builder: (_) => _RecordPaymentSheet(invoice: invoice, societyId: societyId),
-                  );
-                },
-                icon: const Icon(Icons.payments_rounded),
-                label: const Text('Record Payment'),
-              ),
-            ),
+          : Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              if (!invoice.isPaid) ...[
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    showAppSheet(
+                      context: context,
+                      builder: (_) => _RecordPaymentSheet(invoice: invoice, societyId: societyId),
+                    );
+                  },
+                  icon: const Icon(Icons.payments_rounded),
+                  label: const Text('Record Payment'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    final router = GoRouter.of(context);          // the sheet's own context is gone once it closes
+                    Navigator.pop(context);
+                    router.push('${AppRoutes.payVendorBills}?vendor=${invoice.vendorId}');
+                  },
+                  icon: const Icon(Icons.checklist_rounded),
+                  label: const Text('Pay several bills of this vendor'),
+                ),
+              ],
+              if (canCancel)
+                TextButton.icon(
+                  onPressed: () => _cancel(context, ref),
+                  style: TextButton.styleFrom(foregroundColor: AppTheme.error),
+                  icon: const Icon(Icons.cancel_outlined),
+                  label: const Text('Cancel this bill'),
+                ),
+            ]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -522,6 +578,7 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
   final _refCtrl = TextEditingController();
   final _bankCtrl = TextEditingController();
   String _mode = kVendorPaymentModes.first.$1;
+  LedgerAccount? _paidFrom;
   DateTime _paidDate = DateTime.now();
   bool _saving = false;
   PaymentTdsPreview? _preview;
@@ -585,8 +642,10 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
             paymentMode: _mode,
             paymentRef: _refCtrl.text.trim().isEmpty ? null : _refCtrl.text.trim(),
             bankName: _bankCtrl.text.trim().isEmpty ? null : _bankCtrl.text.trim(),
+            bankAccountId: _paidFrom?.id,
           );
       invalidateBooks(ref);
+      ref.invalidate(vendorOpenBillsProvider(widget.invoice.vendorId));
       if (mounted) {
         Navigator.pop(context);
         final tds = _preview?.applies == true ? ' · TDS ${formatInr(double.tryParse(_preview!.tdsAmount) ?? 0)} deducted' : '';
@@ -597,6 +656,20 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  /// The cash or bank ledger the money leaves: cash from a cash ledger, any other way from a bank ledger.
+  Widget _paidFromField() {
+    final all = ref.watch(ledgersProvider(widget.societyId)).valueOrNull ?? const <LedgerAccount>[];
+    final options = all.where((l) => l.isActive && (_mode == 'cash' ? l.isCash : l.isBank)).toList();
+    _paidFrom ??= options.where((l) => l.isDefaultBank).firstOrNull ?? options.firstOrNull;
+    return LedgerChooser(
+      label: 'Paid from',
+      value: _paidFrom,
+      options: options,
+      sheetTitle: _mode == 'cash' ? 'Cash account' : 'Bank account',
+      onChanged: (l) => setState(() => _paidFrom = l),
+    );
   }
 
   @override
@@ -639,8 +712,13 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
               items: kVendorPaymentModes
                   .map((m) => DropdownMenuItem(value: m.$1, child: Text(m.$2)))
                   .toList(),
-              onChanged: (v) => setState(() => _mode = v!),
+              onChanged: (v) => setState(() {
+                _mode = v!;
+                _paidFrom = null;                       // a cash payment is from a cash ledger, any other from a bank
+              }),
             )),
+            const SizedBox(height: 14),
+            _paidFromField(),
             const SizedBox(height: 14),
             FormFieldBox(label: 'Reference (optional)', child: TextFormField(
               controller: _refCtrl,

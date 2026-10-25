@@ -7,6 +7,11 @@ final vendorRecordsProvider = FutureProvider.autoDispose.family<List<VendorRecor
   (ref, societyId) => ref.watch(vendorsWorkApiProvider).vendors(societyId),
 );
 
+/// What the society still owes one vendor, bill by bill — for choosing the bills a payment settles.
+final vendorOpenBillsProvider = FutureProvider.autoDispose.family<OpenBills, String>(
+  (ref, vendorId) => ref.watch(vendorsWorkApiProvider).openBills(vendorId),
+);
+
 final procurementLimitsProvider = FutureProvider.autoDispose.family<ProcurementLimits, String>(
   (ref, societyId) => ref.watch(vendorsWorkApiProvider).limits(societyId),
 );

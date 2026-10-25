@@ -94,11 +94,12 @@ class VendorRepository {
     required String paymentMode,
     String? paymentRef,
     String? bankName,
+    String? bankAccountId,
   }) async {
     try {
       final m = await _ds.recordPayment(
         invoiceId: invoiceId, amount: amount, paidDate: paidDate,
-        paymentMode: paymentMode, paymentRef: paymentRef, bankName: bankName,
+        paymentMode: paymentMode, paymentRef: paymentRef, bankName: bankName, bankAccountId: bankAccountId,
       );
       return VendorSuccess(m.toEntity());
     } catch (e) { return _handle(e); }
