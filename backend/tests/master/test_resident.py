@@ -93,6 +93,17 @@ def test_create_resident_rejects_repeat_of_same_name_and_type_on_flat(client, db
     assert client.post("/api/v1/residents/", json={**body, "resident_type": "family"}, headers=h).status_code == 201
 
 
+def test_database_refuses_duplicate_resident_name_per_flat(db, society_a):
+    from app.models.resident import Resident, ResidentType
+    flat_id = society_a["flat"].id
+    db.add(Resident(flat_id=flat_id, full_name="Dup Person", resident_type=ResidentType.OWNER))
+    db.commit()
+    db.add(Resident(flat_id=flat_id, full_name=" dup PERSON ", resident_type=ResidentType.OWNER))
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()
+
+
 def test_read_one_resident(client, db, society_a):
     created = client.post("/api/v1/residents/", json={
         "flat_id": str(society_a["flat"].id), "full_name": "Bob Owner",

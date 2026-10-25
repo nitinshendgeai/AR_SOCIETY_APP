@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Date, Boolean, Enum, ForeignKey, Text, Integer, Index, CheckConstraint, text
+from sqlalchemy import Column, String, Date, Boolean, Enum, ForeignKey, Text, Integer, Index, CheckConstraint, text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
@@ -34,6 +34,14 @@ class Resident(Base, TimestampMixin):
             unique=True,
             postgresql_where=text("is_primary = true AND is_active = true"),
             sqlite_where=text("is_primary = 1 AND is_active = 1"),
+        ),
+        # One active resident of a type per name per flat, so re-running a bulk
+        # import cannot double them. Mirrored in alembic/versions/c5f7b9d1e3a5_*.
+        Index(
+            "uq_resident_name_per_flat", "flat_id", func.lower(func.trim(text("full_name"))), "resident_type",
+            unique=True,
+            postgresql_where=text("is_active = true"),
+            sqlite_where=text("is_active = 1"),
         ),
         CheckConstraint(
             "is_primary IS NOT TRUE OR resident_type IN ('owner', 'co_owner')",
