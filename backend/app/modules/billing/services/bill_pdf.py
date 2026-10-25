@@ -385,6 +385,7 @@ def generate_maintenance_bill_pdf(
     *,
     compress: bool = True,
     element_codes: Optional[Dict[str, str]] = None,
+    element_names: Optional[Dict[str, str]] = None,
     accumulated_interest: Decimal = ZERO,
     previous_bill: Optional[MaintenanceBill] = None,
 ) -> bytes:
@@ -400,7 +401,7 @@ def generate_maintenance_bill_pdf(
         buf, pagesize=A4, title=f"Maintenance Bill {bill.invoice_number}",
         author=society_name, pageCompression=1 if compress else 0, **PAGE_MARGINS,
     )
-    doc.build(bill_story(bill, settings, doc.width, element_codes=element_codes,
+    doc.build(bill_story(bill, settings, doc.width, element_codes=element_codes, element_names=element_names,
                          accumulated_interest=accumulated_interest, previous_bill=previous_bill))
     return buf.getvalue()
 
@@ -417,7 +418,7 @@ def generate_bills_pdf(bills: List[dict], *, title: str, author: str, compress: 
         if i:
             story.append(PageBreak())
         story += bill_story(item["bill"], item.get("settings"), doc.width,
-                            element_codes=item.get("element_codes"),
+                            element_codes=item.get("element_codes"), element_names=item.get("element_names"),
                             accumulated_interest=item.get("accumulated_interest", ZERO),
                             previous_bill=item.get("previous_bill"))
     doc.build(story)
@@ -430,13 +431,14 @@ def bill_story(
     width: float,
     *,
     element_codes: Optional[Dict[str, str]] = None,
+    element_names: Optional[Dict[str, str]] = None,
     accumulated_interest: Decimal = ZERO,
     previous_bill: Optional[MaintenanceBill] = None,
 ) -> List:
     """The flowables of one printed bill (the letterhead down to the receipts towards the previous bill), in the layout
     the society chose (`MaintenanceSettings.bill_layout`)."""
     if settings is not None and getattr(settings, "bill_layout", None) == "classic":
-        return classic_bill_story(bill, settings, width, element_codes=element_codes,
+        return classic_bill_story(bill, settings, width, element_codes=element_codes, element_names=element_names,
                                   accumulated_interest=accumulated_interest, previous_bill=previous_bill)
     element_codes = element_codes or {}
     society = bill.society
@@ -685,13 +687,16 @@ def classic_bill_story(
     width: float,
     *,
     element_codes: Optional[Dict[str, str]] = None,
+    element_names: Optional[Dict[str, str]] = None,
     accumulated_interest: Decimal = ZERO,
     previous_bill: Optional[MaintenanceBill] = None,
 ) -> List:
     """The flowables of one bill in the classic layout. The same figures as the standard layout, laid out differently:
-    each charge head is its own line, the totals sit in one box with the amount in words, the notes are numbered, and the
+    each maintenance element is its own line (a charge head prints under the name of the element it was made from, and
+    two heads of one element add up to one line), the totals sit in one box with the amount in words, the notes are numbered, and the
     receipts for the previous bill print as slips above the signature line."""
     element_codes = element_codes or {}
+    element_names = element_names or {}
     society = bill.society
     society_name = society.name if society else "Society"
     flat = bill.flat
@@ -756,10 +761,16 @@ def classic_bill_story(
     # ── Particulars: every head on its own line; heads not charged this time print 0.00 ──
     lines = [li for li in bill.line_items if not _is_interest(li)]
     amount_of = (lambda li: li.amount) if gst_charged else (lambda li: li.total)
+    def element_of(description: str) -> str:
+        return element_names.get(description, description)
+
     charged: Dict[str, Decimal] = {}
     for li in lines:
-        charged[li.description] = charged.get(li.description, ZERO) + Decimal(amount_of(li))
-    heads = list(charged.items()) + [(name, ZERO) for name in sorted(element_codes) if name not in charged]
+        name = element_of(li.description)
+        charged[name] = charged.get(name, ZERO) + Decimal(amount_of(li))
+    # the society's other elements, so the bill shows every element it levies (0.00 where nothing is charged this time)
+    others = sorted({element_of(head) for head in (element_names or element_codes)} - set(charged))
+    heads = list(charged.items()) + [(name, ZERO) for name in others]
     if gst_charged:
         rates = {li.tax_percent.normalize() for li in lines if li.tax_amount}
         label = f"GST @ {next(iter(rates)):f}%" if len(rates) == 1 else "GST"

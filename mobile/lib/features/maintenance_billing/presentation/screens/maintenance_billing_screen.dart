@@ -1437,7 +1437,8 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
           _section(
             'How the bill prints',
             'Standard groups the charges under a fixed list of heads (Maintenance Charges, Sinking Fund, Repair & '
-                'Maintenance Fund...). Classic prints every charge head on its own line, with the totals and the amount in '
+                'Maintenance Fund...). Classic prints every maintenance element on its own line (a charge head appears under the '
+                'name of its element, and heads of one element add up), with the totals and the amount in '
                 'words, numbered notes, and the receipt for the previous bill at the foot above the signature line. It '
                 'applies to every bill printed from now on, including bills already made.',
             [
@@ -1449,7 +1450,7 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
                   isExpanded: true,
                   items: const [
                     DropdownMenuItem(value: 'standard', child: Text('Standard: heads grouped')),
-                    DropdownMenuItem(value: 'classic', child: Text('Classic: every head on its own line')),
+                    DropdownMenuItem(value: 'classic', child: Text('Classic: element by element')),
                   ],
                   onChanged: (v) => setState(() => _billLayout = v ?? 'standard'),
                 ),

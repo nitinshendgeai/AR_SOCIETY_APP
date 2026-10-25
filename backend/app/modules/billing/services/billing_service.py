@@ -779,7 +779,9 @@ class BillingService:
                                   _flat_sort_key(b.flat.flat_number if b.flat else "")))
         settings = self.get_maintenance_settings(cycle.society_id)
         heads = self._element_heads(cycle.society_id)
-        items = [{"bill": b, "settings": settings, **self._bill_print_context(b, heads, with_receipts)} for b in bills]
+        names = self._element_names(cycle.society_id)
+        items = [{"bill": b, "settings": settings, **self._bill_print_context(b, heads, with_receipts, names)}
+                 for b in bills]
         society = bills[0].society
         author = (society.name if society else None) or "Society"
         return generate_bills_pdf(items, title=f"Maintenance bills — {cycle.name}", author=author), len(bills)
@@ -794,14 +796,27 @@ class BillingService:
         )
         return {name: code for name, code in rows}
 
+    def _element_names(self, society_id: UUID) -> dict:
+        """{charge head name: the name of the maintenance element it was created from} for a society: what the classic
+        bill prints each head under, so the bill reads element by element."""
+        rows = (
+            self.db.query(MaintenanceChargeConfig.name, MaintenanceElement.name)
+            .join(MaintenanceElement, MaintenanceElement.id == MaintenanceChargeConfig.element_id)
+            .filter(MaintenanceChargeConfig.society_id == society_id)
+            .all()
+        )
+        return {head: element for head, element in rows}
+
     def _bill_print_context(self, bill: MaintenanceBill, heads: Optional[dict] = None,
-                            with_receipts: bool = True) -> dict:
+                            with_receipts: bool = True, names: Optional[dict] = None) -> dict:
         """What the printed bill needs beyond the bill itself: which standard
         element each charge head came from (decides the bill head it's shown
         under), the unpaid interest inside the arrears, and the flat's
         previous bill (its receipts are listed at the foot, unless `with_receipts` is off)."""
         if heads is None:
             heads = self._element_heads(bill.society_id)
+        if names is None:
+            names = self._element_names(bill.society_id)
         earlier = (
             self.db.query(MaintenanceBill)
             .filter(MaintenanceBill.flat_id == bill.flat_id, MaintenanceBill.id != bill.id,
@@ -820,6 +835,7 @@ class BillingService:
             for b in earlier if b.outstanding and b.outstanding > 0), Decimal(0))
         return {
             "element_codes": heads,
+            "element_names": names,
             "accumulated_interest": interest,
             "previous_bill": earlier[0] if earlier and with_receipts else None,
         }

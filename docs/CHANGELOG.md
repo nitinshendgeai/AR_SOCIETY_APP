@@ -12,7 +12,7 @@ Some societies print their bills with every charge head on its own line and a re
 "How the bill prints" now offers **Classic** next to the standard layout (`maintenance_settings.bill_layout`, migration
 `d6f8a0c2e4b6`; every society keeps Standard until it chooses). Classic prints: the society in a rounded box with its name in
 blue; "Bill for the Month of ..."; each owner's name on its own line; Bill No., Bill Date, Due Date and carpet area on the
-right; **Particulars** with every charge head as the society named it (heads not charged this time print 0.00); Total,
+right; **Particulars** element by element (each charge head prints under the name of the maintenance element it was made from, two heads of one element add up to one line, and the society's other elements print 0.00 when not charged this time); Total,
 Arrears / Advance, Accumulated Interest, Interest on Principal Arrears and Grand Total with the amount in words; numbered
 notes (interest, how to pay, the society's own notes); and a **receipt slip for each payment received towards the previous bill**
 above the signature line. The figures are the same as the standard bill's; it applies to single and cycle-wide prints.

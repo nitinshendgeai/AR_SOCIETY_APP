@@ -390,3 +390,45 @@ def test_classic_layout_in_the_bulk_print(client, db):
                              title="t", author="a", compress=False)
     text = " ".join(_text(pdf).replace("|", " ").split())
     assert text.count("P a r t i c u l a r s") == len(bills) >= 2
+
+
+# ── Classic layout, element by element ────────────────────────────────────────
+
+def _classic_text(db, bill_id, **context):
+    svc = BillingService(db)
+    bill = svc.get_bill(bill_id)
+    ctx = {**svc._bill_print_context(bill), **context}
+    pdf = generate_maintenance_bill_pdf(bill, svc.get_maintenance_settings(bill.society_id), compress=False, **ctx)
+    return " ".join(_text(pdf).replace("|", " ").split())
+
+
+def test_classic_bill_prints_each_head_under_its_elements_name_and_adds_heads_of_one_element(client, db):
+    society, flat1, manager, bill, cycle_id = _classic(client, db, "pdfe1")
+    h = manager["headers"]
+    # "Maintenance" and "Water" are charge heads; say they were made from these elements, and add a second head of the
+    # Service Charges element, billed to the same flat
+    db.add(InvoiceLineItem(bill_id=bill.id, charge_type=ChargeType.MAINTENANCE, description="Service top-up",
+                           unit_rate=100, amount=100, total=100))
+    db.commit()
+    db.expire_all()
+    text = _classic_text(db, bill.id, element_names={
+        "Maintenance": "Service Charges", "Service top-up": "Service Charges", "Water": "Water Charges",
+        "Festival Fund": "Festival Fund", "Legal Charges": "Legal Charges"})
+    assert "Service Charges 2,600.00" in text                       # 2,500 + 100: two heads, one element, one line
+    assert "Water Charges 300.00" in text
+    assert "Festival Fund 0.00" in text and "Legal Charges 0.00" in text      # the society's other elements, none charged
+    assert "Maintenance 2,500.00" not in text and "Service top-up" not in text
+
+
+def test_the_elements_names_come_from_the_maintenance_elements_master(client, db):
+    society, flat1, flat2, manager, resident, other, cycle_id = _generated_cycle(client, db, "pdfe2")
+    h = manager["headers"]
+    elements = client.get(f"/api/v1/billing/elements/{society.id}", headers=h).json()
+    water = next(e for e in elements if e["code"] == "water_charges")
+    r = client.post("/api/v1/billing/charges", json={"society_id": str(society.id), "element_id": water["id"],
+                                                     "name": "Tanker water", "default_amount": "150.00"}, headers=h)
+    assert r.status_code == 201, r.text
+    svc = BillingService(db)
+    assert svc._element_names(society.id)["Tanker water"] == water["name"]
+    assert svc._bill_print_context(svc.get_bill(db.query(MaintenanceBill).first().id))["element_names"]["Tanker water"] \
+        == water["name"]
