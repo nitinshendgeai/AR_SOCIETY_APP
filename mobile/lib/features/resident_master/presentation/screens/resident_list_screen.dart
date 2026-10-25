@@ -145,7 +145,7 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
       Row(children: [
         Expanded(
           child: SizedBox(
-            height: 34,
+            height: 40,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: _typeOptions.length,

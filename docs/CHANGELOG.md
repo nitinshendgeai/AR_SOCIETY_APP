@@ -6,6 +6,18 @@ Format: `[YYYY-MM-DD] type: description`
 
 ## 2026-10-24
 
+### fix: flaky SQLite UUID test, filter-pill clipping, Books grid orphan tile
+
+- **Flaky backend test.** `test_staff_by_user_does_not_cross_societies` (and, rarely, other tests) failed with
+  `'float' object has no attribute 'replace'`. The SQLite test database declared UUID columns as `UUID`, which SQLite
+  gives numeric affinity, so a random id made only of digits (or digits and one `e`) was stored as a number and read
+  back as a float/int. Test database only: `tests/conftest.py` now declares them `CHAR(32)`, and
+  `tests/db/test_sqlite_uuid_storage.py` pins it with two such ids. Production (PostgreSQL) was never affected.
+- **Filter pills** (`AppFilterPill`) no longer clip on phones: the chip's 48px touch target was taller than the 34px
+  strip on the Residents screen. The bubble is its own target now and the strip is 40px.
+- **Accounts "Books" grid.** A group whose last row had one tile (5 tiles in 2 columns, or 1 in 2) left an empty cell
+  beside it. The grid now lays out row by row and a short last row shares the full width.
+
 ### security / ux: member directory, Tenant dashboard, first accounts, sidebar
 
 - **Resident directory (policy decided).** Members keep a neighbour directory of a **name and a flat**. A member could

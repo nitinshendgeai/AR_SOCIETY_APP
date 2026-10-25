@@ -34,6 +34,17 @@ pg_base.JSONB = _JSONBCompat
 
 
 from sqlalchemy import create_engine, event
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+
+
+@compiles(PG_UUID, "sqlite")
+def _uuid_as_text_on_sqlite(type_, compiler, **kw):
+    """SQLite gives a column declared "UUID" numeric affinity, so a random id made only of digits (or digits and a
+    single "e") was stored as a number and read back as a float/int: an occasional, unreproducible 500. CHAR(32) has
+    text affinity and holds the same 32-hex-digit string SQLAlchemy already writes. Test database only."""
+    return "CHAR(32)"
+
 from sqlalchemy.orm import sessionmaker, Session
 from fastapi.testclient import TestClient
 
