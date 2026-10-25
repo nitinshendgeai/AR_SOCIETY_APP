@@ -77,6 +77,13 @@ class StaffRepository {
     } catch (e) { return _handle(e); }
   }
 
+  Future<StaffResult<StaffEntity>> createStaffLogin(String staffId) async {
+    try {
+      final m = await _ds.createStaffLogin(staffId);
+      return StaffSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
   // ── Designations & Shifts ──────────────────────────────────────────────────
 
   Future<StaffResult<List<DesignationEntity>>> listDesignations(String societyId) async {

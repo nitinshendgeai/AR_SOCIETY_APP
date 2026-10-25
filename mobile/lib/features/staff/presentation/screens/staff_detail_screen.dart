@@ -5,6 +5,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/staff/data/repositories/staff_repository.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
+import 'package:ar_society_app/features/staff/presentation/widgets/staff_login_dialog.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
 
@@ -108,6 +109,24 @@ class StaffDetailScreen extends ConsumerWidget {
             ],
           ),
 
+          if (staff.userId == null) ...[
+            const SizedBox(height: 16),
+            _Section(
+              title: 'Login',
+              children: [
+                const _Row(label: 'App login', value: 'No login yet'),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.key_rounded, size: 18),
+                    label: const Text('Create login'),
+                    onPressed: () => _createLogin(context, ref),
+                  ),
+                ),
+              ],
+            ),
+          ],
+
           const SizedBox(height: 16),
 
           // Emergency contact
@@ -141,6 +160,28 @@ class StaffDetailScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _createLogin(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await ref.read(staffRepositoryProvider).createStaffLogin(staff.id);
+    if (!context.mounted) return;
+    switch (result) {
+      case StaffSuccess(:final data):
+        ref.read(staffListProvider.notifier).load(staff.societyId);
+        final message = data.loginMessage ??
+            (data.tempPassword != null
+                ? 'Email: ${data.email}\nPassword: ${data.tempPassword}'
+                : 'Login linked.');
+        await showStaffLoginDialog(context, name: staff.fullName, message: message);
+        if (context.mounted) context.pop();
+      case StaffFailure(:final message):
+        messenger.showSnackBar(SnackBar(
+          content: Text(message),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+        ));
+    }
   }
 }
 

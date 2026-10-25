@@ -237,6 +237,12 @@ class StaffRemoteDataSource {
     return StaffModel.fromJson(r.data as Map<String, dynamic>);
   }
 
+  /// POST /staff/{staff_id}/login: gives a staff member a login (email, else mobile number)
+  Future<StaffModel> createStaffLogin(String staffId) async {
+    final r = await _dio.post('/staff/$staffId/login');
+    return StaffModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
   // ── Designations ─────────────────────────────────────────────────────────
 
   /// GET /staff/designations/{society_id}

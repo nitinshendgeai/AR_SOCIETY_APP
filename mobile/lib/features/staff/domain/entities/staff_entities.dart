@@ -57,6 +57,7 @@ class StaffEntity {
   final String? designationName;
   final String? reportingManagerName;
   final String? tempPassword;
+  final String? loginMessage;
   final String? address;
   final String? notes;
   final String? photoUrl;
@@ -80,6 +81,7 @@ class StaffEntity {
     this.designationName,
     this.reportingManagerName,
     this.tempPassword,
+    this.loginMessage,
     this.address,
     this.notes,
     this.photoUrl,
