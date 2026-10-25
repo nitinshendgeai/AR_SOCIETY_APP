@@ -13,7 +13,7 @@ from app.modules.parking.models.parking import (
 )
 from app.modules.parking.schemas.parking import (
     ZoneCreate, FloorCreate, SlotCreate, SlotUpdate,
-    AllocationCreate, VisitorParkingCreate, ViolationCreate, AccessLogCreate,
+    AllocationCreate, VisitorParkingCreate, ViolationCreate, ViolationFine, ViolationWaive, AccessLogCreate,
 )
 from app.modules.parking.repositories.parking_repo import (
     ParkingZoneRepo, ParkingFloorRepo, ParkingSlotRepo,
@@ -33,6 +33,8 @@ from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
 from app.models.notification import NotificationType, NotificationChannel
 from app.utils.vehicle_number import normalize_vehicle_number
+from app.modules.billing.models.billing import FlatChargeKind
+from app.modules.billing.services.flat_charges import FlatChargeService
 
 
 from app.utils.auto_code import short_code
@@ -373,11 +375,81 @@ class ParkingService:
         violation = ParkingViolation(**{**data.model_dump(), "society_id": society_id}, reported_by=user.id)
         self.db.add(violation)
         self.db.flush()
+        # A fine recorded by the manager or the committee goes straight on the flat's next bill when the vehicle is
+        # registered to a flat; one a guard records waits for them to charge it (see bill_fine).
+        if violation.fine_amount and self._flat_for_violation(violation) and self._can_charge_fines(user):
+            self._charge_fine(violation, self._flat_for_violation(violation), user)
         self._audit(AuditAction.CREATE, violation, "ParkingViolation", user, request,
                     new_values={"vehicle": data.vehicle_number, "type": data.violation_type.value})
         self.db.commit()
         self.db.refresh(violation)
-        return violation
+        return self._with_fine_status(violation)
+
+    # ── Fines ─────────────────────────────────────────────────────────────────
+    # A fine is an amount owed by a flat: it goes on the flat's next maintenance bill (Fines & Penalties), where it is
+    # paid and booked with everything else. Only the manager or the committee charges one.
+
+    @staticmethod
+    def _can_charge_fines(user: User) -> bool:
+        from app.core.dependencies import _user_has_permission
+        return _user_has_permission(user, "manager_above")
+
+    def _flat_for_violation(self, v: ParkingViolation) -> Optional[UUID]:
+        """The flat the violating vehicle is registered to, when it is."""
+        q = self.db.query(Vehicle).filter(Vehicle.society_id == v.society_id, Vehicle.is_active == True)  # noqa: E712
+        q = q.filter(Vehicle.id == v.vehicle_id) if v.vehicle_id else q.filter(Vehicle.vehicle_number == v.vehicle_number)
+        vehicle = q.first()
+        return vehicle.flat_id if vehicle is not None else None
+
+    def _charge_fine(self, v: ParkingViolation, flat_id: UUID, user: User):
+        label = v.violation_type.value.replace("_", " ")
+        return FlatChargeService(self.db).raise_for_source(
+            society_id=v.society_id, flat_id=flat_id, kind=FlatChargeKind.FINE,
+            title=f"Parking violation — {v.vehicle_number} ({label})", amount=v.fine_amount,
+            reason=v.description, source_type="parking_violation", source_id=v.id, user=user, notify=True)
+
+    def _with_fine_status(self, v: ParkingViolation) -> ParkingViolation:
+        charge = FlatChargeService(self.db).for_source("parking_violation", v.id) if v.fine_amount else None
+        v.fine_status = charge.status.value if charge is not None else None
+        return v
+
+    def _violation(self, violation_id: UUID, user: User) -> ParkingViolation:
+        v = self.db.query(ParkingViolation).filter(ParkingViolation.id == violation_id).first()
+        return self._scoped_or_404(v, user, "Violation")
+
+    def bill_fine(self, violation_id: UUID, data: ViolationFine, user: User, request=None) -> ParkingViolation:
+        """Charge the violation's fine to a flat (default: the vehicle's), for the flat's next maintenance bill."""
+        v = self._violation(violation_id, user)
+        flat_id = data.flat_id or self._flat_for_violation(v)
+        if flat_id is None:
+            raise HTTPException(422, "This vehicle is not registered to a flat — choose the flat to charge")
+        amount = data.amount or v.fine_amount
+        if not amount:
+            raise HTTPException(422, "Enter the fine")
+        existing = FlatChargeService(self.db).for_source("parking_violation", v.id)
+        if existing is not None and existing.status.value != "cancelled":
+            raise HTTPException(409, "This fine is already charged" + (" and on a bill" if existing.status.value == "billed" else ""))
+        v.fine_amount = amount
+        self._charge_fine(v, flat_id, user)
+        self._audit(AuditAction.UPDATE, v, "ParkingViolation", user, request,
+                    new_values={"fine_charged": amount, "flat": str(flat_id)})
+        self.db.commit()
+        self.db.refresh(v)
+        return self._with_fine_status(v)
+
+    def waive_fine(self, violation_id: UUID, data: ViolationWaive, user: User, request=None) -> ParkingViolation:
+        """Take the fine off the flat's next bill, while it is not on a bill yet."""
+        v = self._violation(violation_id, user)
+        result = FlatChargeService(self.db).withdraw_for_source("parking_violation", v.id, data.reason, user)
+        if result is None:
+            raise HTTPException(409, "There is no fine charged for this violation")
+        if result == "billed":
+            raise HTTPException(409, "The fine is already on a bill — cancel that bill to take it off")
+        self._audit(AuditAction.UPDATE, v, "ParkingViolation", user, request,
+                    new_values={"fine_waived": data.reason})
+        self.db.commit()
+        self.db.refresh(v)
+        return self._with_fine_status(v)
 
     def resolve_violation(self, violation_id: UUID, user: User) -> ParkingViolation:
         v = self.db.query(ParkingViolation).filter(ParkingViolation.id == violation_id).first()
@@ -387,13 +459,13 @@ class ParkingService:
         v.resolved_by  = user.id
         self.db.commit()
         self.db.refresh(v)
-        return v
+        return self._with_fine_status(v)
 
     def get_violations(self, society_id: UUID, user: User, unresolved_only=False) -> List[ParkingViolation]:
         assert_society_access(user, society_id)
         q = self.db.query(ParkingViolation).filter(ParkingViolation.society_id==society_id)
         if unresolved_only: q = q.filter(ParkingViolation.is_resolved==False)
-        return q.order_by(ParkingViolation.created_at.desc()).limit(100).all()
+        return [self._with_fine_status(v) for v in q.order_by(ParkingViolation.created_at.desc()).limit(100).all()]
 
     # ── Gate validation ───────────────────────────────────────────────────────
 

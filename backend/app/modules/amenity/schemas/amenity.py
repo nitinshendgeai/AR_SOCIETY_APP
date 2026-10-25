@@ -1,5 +1,6 @@
-from pydantic import BaseModel, field_validator
-from typing import Optional, List
+from pydantic import BaseModel, Field, field_validator
+from decimal import Decimal
+from typing import List, Literal, Optional
 from uuid import UUID
 from datetime import date, time, datetime
 from app.schemas.common import OrmBase, TimestampSchema
@@ -186,3 +187,25 @@ class BookingOut(TimestampSchema):
     charge_amount:   Optional[float]
     deposit_amount:  Optional[float]
     deposit_paid:    bool
+
+
+PayMode = Literal["cash", "upi", "bank_transfer", "cheque", "neft", "rtgs"]
+
+
+class DepositReceive(OrmBase):
+    """The deposit taken for a booking, and how: cash goes to a cash ledger, anything else to a bank ledger."""
+    payment_mode: PayMode = "cash"
+    bank_account_id: Optional[UUID] = None        # default: cash in hand, or the default bank
+    reference: Optional[str] = Field(default=None, max_length=100)
+    paid_date: Optional[date] = None
+
+
+class DepositRefund(OrmBase):
+    """The deposit given back. `retained_amount` is what the society keeps (damage, a late cancellation): it needs a
+    reason, and becomes income."""
+    retained_amount: Decimal = Field(default=Decimal("0"), ge=0, max_digits=12, decimal_places=2)
+    reason: Optional[str] = Field(default=None, max_length=500)
+    payment_mode: PayMode = "cash"
+    bank_account_id: Optional[UUID] = None
+    reference: Optional[str] = Field(default=None, max_length=100)
+    paid_date: Optional[date] = None

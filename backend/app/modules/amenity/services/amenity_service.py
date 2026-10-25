@@ -6,6 +6,7 @@ against the hours, the rules, blackout dates and everyone else's bookings, and i
 for the committee. Everything is confined to the caller's society: something of another society reads as not found.
 """
 from datetime import date, datetime, time, timedelta
+from decimal import Decimal
 from typing import Dict, List, Optional
 from uuid import UUID
 
@@ -31,8 +32,11 @@ from app.modules.amenity.repositories.amenity_repo import (
 )
 from app.modules.amenity.schemas.amenity import (
     AmenityCreate, AmenityUpdate, BlackoutCreate, BookingApproveRequest, BookingCancelRequest, BookingCreate,
-    BookingOut, BookingRejectRequest, PricingCreate, RuleCreate, SlotCreate, UsageLogCreate,
+    BookingOut, BookingRejectRequest, DepositReceive, DepositRefund, PricingCreate, RuleCreate, SlotCreate,
+    UsageLogCreate,
 )
+from app.modules.billing.models.billing import ChargeType, FlatChargeKind
+from app.modules.billing.services.flat_charges import FlatChargeService
 from app.modules.amenity.services.rule_engine import AmenityRuleEngine
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
@@ -355,6 +359,24 @@ class AmenityService:
                 deposit = rate.deposit_amount
         return charge, deposit
 
+    # ── The books ─────────────────────────────────────────────────────────────
+    # An approved booking's charge goes on its flat's next maintenance bill — owed by the flat, and booked to Amenities
+    # Income when the bill is issued. The deposit is not income: it is held as a liability until it is given back.
+
+    def _bill_charge(self, booking: AmenityBooking, amenity: Amenity, user: Optional[User]) -> None:
+        if not booking.charge_amount or booking.flat_id is None:
+            return                      # a free booking, or one with no flat to bill
+        FlatChargeService(self.db).raise_for_source(
+            society_id=booking.society_id, flat_id=booking.flat_id, kind=FlatChargeKind.EXTRA,
+            title=f"{amenity.name} booking — {booking.booking_date:%d %b %Y}", amount=booking.charge_amount,
+            source_type="amenity_booking", source_id=booking.id, user=user, charge_type=ChargeType.AMENITIES)
+
+    def _withdraw_charges(self, booking: AmenityBooking, why: str, user: Optional[User]) -> dict:
+        """Take the booking's charges off the flat's next bill, if they are not on a bill yet."""
+        svc = FlatChargeService(self.db)
+        return {kind: svc.withdraw_for_source(kind, booking.id, why, user)
+                for kind in ("amenity_booking", "amenity_booking_extra")}
+
     def create_booking(self, data: BookingCreate, user: User, request=None) -> AmenityBooking:
         amenity = self._get_amenity_or_404(data.amenity_id, user)
         if user.society_id is not None and user.society_id != amenity.society_id:
@@ -394,6 +416,8 @@ class AmenityService:
         booking = AmenityBooking(**values, booked_by=user.id, status=status, charge_amount=charge, deposit_amount=deposit)
         self.db.add(booking)
         self.db.flush()
+        if status == BookingStatus.APPROVED:
+            self._bill_charge(booking, amenity, user)
         self._audit(AuditAction.CREATE, booking, "AmenityBooking", user, request,
                     new_values={"amenity": str(amenity.id), "date": str(data.booking_date), "status": status.value})
         if status == BookingStatus.PENDING:
@@ -422,6 +446,7 @@ class AmenityService:
         booking.status = BookingStatus.APPROVED
         booking.approved_by = user.id
         booking.approved_at = datetime.utcnow()
+        self._bill_charge(booking, booking.amenity, user)
         self._audit(AuditAction.APPROVE, booking, "AmenityBooking", user, request, new_values={"status": "approved"})
         NotificationService.send(
             db=self.db, user_id=booking.booked_by, title="Booking Approved",
@@ -462,7 +487,10 @@ class AmenityService:
         booking.status = BookingStatus.CANCELLED
         booking.cancelled_at = datetime.utcnow()
         booking.cancellation_reason = (data.reason or "").strip() or None
-        self._audit(AuditAction.UPDATE, booking, "AmenityBooking", user, request, new_values={"status": "cancelled"})
+        # Off the next bill if it is not on one yet; one already billed is the committee's to credit.
+        charges = self._withdraw_charges(booking, "Booking cancelled", user)
+        self._audit(AuditAction.UPDATE, booking, "AmenityBooking", user, request,
+                    new_values={"status": "cancelled", "charge": charges["amenity_booking"]})
         self.db.commit()
         self.db.refresh(booking)
         return booking
@@ -480,21 +508,97 @@ class AmenityService:
         self.db.add(AmenityUsageLog(booking_id=booking.id, amenity_id=booking.amenity_id,
                                     society_id=booking.society_id, used_by=booking.booked_by,
                                     **usage_data.model_dump()))
+        if usage_data.extra_charges and booking.flat_id is not None:
+            # Damage or extras found afterwards: on the flat's next bill too
+            FlatChargeService(self.db).raise_for_source(
+                society_id=booking.society_id, flat_id=booking.flat_id, kind=FlatChargeKind.EXTRA,
+                title=f"{booking.amenity.name} — damage / extra charges, {booking.booking_date:%d %b %Y}",
+                amount=usage_data.extra_charges, reason=(usage_data.damage_notes or "").strip() or None,
+                source_type="amenity_booking_extra", source_id=booking.id, user=user,
+                charge_type=ChargeType.AMENITIES)
         self._audit(AuditAction.UPDATE, booking, "AmenityBooking", user, request,
                     new_values={"status": "completed", "damage_noted": usage_data.damage_noted})
         self.db.commit()
         self.db.refresh(booking)
         return booking
 
+    # ── Deposit ───────────────────────────────────────────────────────────────
+
+    def receive_deposit(self, booking_id: UUID, data: DepositReceive, user: User, request=None) -> dict:
+        """The booking's refundable deposit has been taken: booked as Dr cash / bank, Cr Amenity Deposits Held."""
+        booking = self._get_booking_or_404(booking_id, user)
+        if not booking.deposit_amount or booking.deposit_amount <= 0:
+            raise HTTPException(422, "This booking has no deposit")
+        if booking.status not in (BookingStatus.APPROVED, BookingStatus.COMPLETED):
+            raise HTTPException(409, "The deposit is taken once the booking is approved")
+        if booking.deposit_paid:
+            raise HTTPException(409, "The deposit for this booking is already received")
+        paid_on = data.paid_date or date.today()
+        if paid_on > date.today():
+            raise HTTPException(422, "The deposit can't be dated in the future")
+        from app.modules.accounts.services.accounts_service import AccountsService
+        from app.modules.accounts.services.postings import AccountPostings
+        accounts = AccountsService(self.db)
+        ledger = accounts.resolve_cash_bank(booking.society_id, data.payment_mode == "cash", data.bank_account_id)
+        try:
+            voucher = AccountPostings(self.db, accounts).post_amenity_deposit(booking, ledger, paid_on, data.reference, user)
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+        booking.deposit_paid = True
+        self._audit(AuditAction.UPDATE, booking, "AmenityBooking", user, request,
+                    new_values={"deposit_received": str(booking.deposit_amount), "voucher": voucher.voucher_number})
+        self.db.commit()
+        self.db.refresh(booking)
+        return {**self.out([booking])[0], "voucher_number": voucher.voucher_number}
+
+    def refund_deposit(self, booking_id: UUID, data: DepositRefund, user: User, request=None) -> dict:
+        """Give the deposit back, keeping `retained_amount` (damage, a late cancellation) as Amenities Income."""
+        booking = self._get_booking_or_404(booking_id, user)
+        if not booking.deposit_paid:
+            raise HTTPException(409, "No deposit has been received for this booking")
+        if booking.deposit_refunded:
+            raise HTTPException(409, "The deposit for this booking is already settled")
+        if booking.status not in (BookingStatus.COMPLETED, BookingStatus.CANCELLED):
+            raise HTTPException(409, "The deposit is settled once the booking is over or cancelled")
+        retained = Decimal(data.retained_amount)
+        if retained > Decimal(str(booking.deposit_amount)):
+            raise HTTPException(422, "More can't be kept than the deposit")
+        if retained > 0 and not (data.reason or "").strip():
+            raise HTTPException(422, "Say why part of the deposit is kept")
+        paid_on = data.paid_date or date.today()
+        if paid_on > date.today():
+            raise HTTPException(422, "The refund can't be dated in the future")
+        from app.modules.accounts.services.accounts_service import AccountsService
+        from app.modules.accounts.services.postings import AccountPostings
+        accounts = AccountsService(self.db)
+        ledger = accounts.resolve_cash_bank(booking.society_id, data.payment_mode == "cash", data.bank_account_id)
+        try:
+            voucher = AccountPostings(self.db, accounts).post_amenity_deposit_refund(
+                booking, retained, ledger, paid_on, data.reference, user)
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+        booking.deposit_refunded = True
+        self._audit(AuditAction.UPDATE, booking, "AmenityBooking", user, request,
+                    new_values={"deposit_refunded": str(Decimal(str(booking.deposit_amount)) - retained),
+                                "kept": str(retained), "reason": data.reason, "voucher": voucher.voucher_number})
+        self.db.commit()
+        self.db.refresh(booking)
+        return {**self.out([booking])[0], "voucher_number": voucher.voucher_number}
+
     # ── Queries ───────────────────────────────────────────────────────────────
 
     def out(self, bookings: List[AmenityBooking]) -> List[dict]:
         """Bookings with the names a screen shows: the amenity, who booked, which flat, who decided."""
         labels = self._flat_labels([b.flat_id for b in bookings])
+        charges = FlatChargeService(self.db)
         rows = []
         for b in bookings:
             d = BookingOut.model_validate(b).model_dump(mode="json")
+            charge = charges.for_source("amenity_booking", b.id) if b.charge_amount else None
             d.update({
+                "deposit_refunded": b.deposit_refunded,
+                # Where the charge stands on the flat's maintenance bills: waiting for the next one, billed, or withdrawn
+                "charge_bill_status": charge.status.value if charge is not None else None,
                 "amenity_name": b.amenity.name if b.amenity else None,
                 "booked_by_name": b.booker.full_name if b.booker else None,
                 "flat": labels.get(b.flat_id),

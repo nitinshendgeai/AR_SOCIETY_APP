@@ -53,6 +53,9 @@ The registers only read what is already posted; they change nothing.
 | Money **paid in advance** to a vendor with nothing outstanding | Payment voucher: Dr Sundry Creditors (choose the vendor), Cr bank | Shown as "Advances paid to vendors" on the Balance Sheet. A vendor who has unpaid bills cannot be paid by a loose voucher: pay the bills instead, so each is marked paid. |
 | A **resident pays** maintenance | **Online Payments → Record payment** (choose the bank ledger it was deposited into). A Receipt voucher on Members' Dues is refused for a flat with unpaid bills, since it would leave them unpaid; with none, it is an advance and may be entered | Dr bank / cash, Cr Members' Dues (that flat); set off against the oldest bills; any excess is the member's advance. |
 | **Other income** (hall rent, interest, scrap) | Receipt voucher | Dr bank / cash, Cr the income ledger. |
+| **Amenity / hall booking charge** | Automatic | Added to the flat's next bill: Dr Members' Dues, Cr Amenities income. |
+| **Amenity deposit** (received / refunded) | Booking → Deposit | Receipt: Dr bank/cash, Cr Amenity Deposits Held. Refund: Dr deposit; Cr bank/cash, and Cr Amenities income for any part kept. |
+| **Parking violation fine** | Violation → Charge fine | Added to the flat's next bill: Dr Members' Dues, Cr Fines & Penalties. |
 | **TDS / GST deposited** with the government | Payment voucher | Dr TDS Payable / GST Payable, Cr bank. |
 
 **In the app:** *Vendor Bills → Pay Vendor* (also *Pay several bills of this vendor* inside a bill, and *Pay bills* from the
