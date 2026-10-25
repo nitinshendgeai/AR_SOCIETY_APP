@@ -238,6 +238,9 @@ class MaintenanceSettings(Base, TimestampMixin):
     bank_ifsc           = Column(String(20), nullable=True)
     upi_id              = Column(String(100), nullable=True)
     bill_notes          = Column(Text, nullable=True)   # extra lines under the bye-law notes
+    # How the bill prints: "standard" (the heads grouped into the fixed list) or "classic" (every head on its own line,
+    # the numbered notes and the previous bill's receipt slip at the foot).
+    bill_layout         = Column(String(20), default="standard", server_default="standard", nullable=False)
 
     # "Billing in this app starts on": when set, each flat is billed for the days from the end of what it was last
     # billed for — or, for a flat never billed here, from its possession date (never earlier than this date) — up to

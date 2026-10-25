@@ -1302,6 +1302,7 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
   late DateTime? _billingStart = widget.rules.billingStartDate;
   late bool _autoApprove = widget.rules.autoApproveAdminExpenses;
   late bool _roundToRupee = widget.rules.roundToRupee;
+  late String _billLayout = widget.rules.billLayout;
   late final _accountNameCtrl = TextEditingController(text: widget.rules.bankAccountName ?? '');
   late final _bankNameCtrl = TextEditingController(text: widget.rules.bankName ?? '');
   late final _accountNoCtrl = TextEditingController(text: widget.rules.bankAccountNumber ?? '');
@@ -1358,6 +1359,7 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
         'upi_id': _upiCtrl.text.trim(),
         'bill_notes': _billNotesCtrl.text.trim(),
         'round_to_rupee': _roundToRupee,
+        'bill_layout': _billLayout,
         // Only sent when changed: it is the admin's call alone, and a manager saving other rules must not trip it.
         if (_autoApprove != widget.rules.autoApproveAdminExpenses) 'auto_approve_admin_expenses': _autoApprove,
       });
@@ -1429,6 +1431,29 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
                     style: TextStyle(color: _billingStart == null ? AppTheme.textSecondary : AppTheme.textPrimary),
                   ),
                 )),
+              ),
+            ],
+          ),
+          _section(
+            'How the bill prints',
+            'Standard groups the charges under a fixed list of heads (Maintenance Charges, Sinking Fund, Repair & '
+                'Maintenance Fund...). Classic prints every maintenance element on its own line (a charge head appears under the '
+                'name of its element, and heads of one element add up), with the totals and the amount in '
+                'words, numbered notes, and the receipt for the previous bill at the foot above the signature line. It '
+                'applies to every bill printed from now on, including bills already made.',
+            [
+              FormFieldBox(
+                label: 'Bill layout',
+                child: DropdownButtonFormField<String>(
+                  key: const ValueKey('bill-layout'),
+                  initialValue: _billLayout,
+                  isExpanded: true,
+                  items: const [
+                    DropdownMenuItem(value: 'standard', child: Text('Standard: heads grouped')),
+                    DropdownMenuItem(value: 'classic', child: Text('Classic: element by element')),
+                  ],
+                  onChanged: (v) => setState(() => _billLayout = v ?? 'standard'),
+                ),
               ),
             ],
           ),

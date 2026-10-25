@@ -4,6 +4,30 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-25 (classic bill layout)
+
+### feat: a second bill layout, "Classic", chosen in Maintenance Rules
+
+Some societies print their bills with every charge head on its own line and a receipt slip at the foot. Maintenance Rules >
+"How the bill prints" now offers **Classic** next to the standard layout (`maintenance_settings.bill_layout`, migration
+`d6f8a0c2e4b6`; every society keeps Standard until it chooses). Classic prints: the society in a rounded box with its name in
+blue; "Bill for the Month of ..."; each owner's name on its own line; Bill No., Bill Date, Due Date and carpet area on the
+right; **Particulars** element by element (each charge head prints under the name of the maintenance element it was made from, two heads of one element add up to one line, and the society's other elements print 0.00 when not charged this time); Total,
+Arrears / Advance, Accumulated Interest, Interest on Principal Arrears and Grand Total with the amount in words; numbered
+notes (interest, how to pay, the society's own notes); and a **receipt slip for each payment received towards the previous bill**
+above the signature line. The figures are the same as the standard bill's; it applies to single and cycle-wide prints.
+
+## 2026-10-25 (maintenance bill: owners' names)
+
+### fix: a bill with more than one owner no longer prints the name over "Bill No."
+
+On the printed maintenance bill a long name ("Nitin Baban Shendge & Jayashri Nitin Shendge") ran past the left half of the
+details box and over the Bill No. label. Each owner now prints on a line of their own, lined up under the first name: the
+resident the bill was raised to, then the flat's other active owners and co-owners; a name entered as "A & B" or "A and B" is
+split into two lines. A family member's bill carries only that person. The label, colon and value are separate columns, so a
+value that wraps stays aligned, and the box is split evenly (it was 55/45, wider than its half). The closing note that repeated
+the footer line ("This is computer generated bill hence signature is not required") is removed; the footer keeps it.
+
 ## 2026-10-25 (Alt+P on Add Expense)
 
 ### feat: Alt+P switches Add Expense between Paid now and Pay later
