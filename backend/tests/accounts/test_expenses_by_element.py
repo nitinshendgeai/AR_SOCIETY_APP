@@ -22,7 +22,11 @@ def _pay(client, h, sid, ledgers, expense, amount, paid_from="cash", on=None, **
         "entries": [{"account_id": ledgers[expense]["id"], "debit": str(amount)},
                     {"account_id": ledgers[paid_from]["id"], "credit": str(amount)}], **extra})
     assert r.status_code == 201, r.text
-    return r.json()
+    v = r.json()
+    if v["approval_status"] == "pending":       # counts in the books (and in this report) only once approved
+        ok = client.post(f"{A}/vouchers/{v['id']}/approve", json={}, headers=h)
+        assert ok.status_code == 200, ok.text
+    return v
 
 
 def _report(client, h, sid, **params):

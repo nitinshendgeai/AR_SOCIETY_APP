@@ -636,10 +636,14 @@ class OnlinePaymentSubmission(Base, TimestampMixin):
     screenshot_mime_type = Column(String(50), nullable=True)
     screenshot_file_name = Column(String(255), nullable=True)
 
+    # The society's cash or bank ledger the money went into (unset: cash in hand for cash, else the default bank).
+    deposit_account_id   = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+
     # Numbers run per society, so they are unique within one.
     __table_args__ = (UniqueConstraint("society_id", "receipt_number", name="uq_online_payment_society_receipt"),)
 
     society   = relationship("Society")
+    deposit_account = relationship("Account", foreign_keys=[deposit_account_id])
     wing      = relationship("Wing")
     flat      = relationship("Flat")
     bill      = relationship("MaintenanceBill", back_populates="online_payments")
@@ -692,7 +696,7 @@ class PaymentAllocation(Base, TimestampMixin):
 
 class BankStatementEntry(Base, TimestampMixin):
     """
-    One credit row from an imported bank statement — the other half of
+    One row (credit or debit) from an imported bank statement — the other half of
     reconciliation. OnlinePaymentSubmission is what the society *recorded*
     as received from a resident; this is what the bank *actually shows*
     credited. Matching the two closes the loop: a submission only moves
@@ -711,6 +715,12 @@ class BankStatementEntry(Base, TimestampMixin):
     description   = Column(String(500), nullable=False)
     reference     = Column(String(100), nullable=True, index=True)   # bank's own UTR/ref, if present
     amount        = Column(Numeric(12, 2), nullable=False)
+    # credit: money the bank received (a deposit); debit: money it paid out (a cheque cleared, a transfer).
+    direction     = Column(String(6), default="credit", server_default="credit", nullable=False)
+    # The bank ledger the statement belongs to (unset on rows imported before there were several bank accounts).
+    bank_account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True, index=True)
+    # The books' own line this row was matched to (see accounts/services/bank_reconciliation.py).
+    matched_entry_id = Column(UUID(as_uuid=True), ForeignKey("voucher_entries.id", ondelete="SET NULL"), nullable=True, index=True)
 
     match_status  = Column(Enum(BankStatementMatchStatus, values_callable=lambda e: [x.value for x in e]),
                             default=BankStatementMatchStatus.UNMATCHED, nullable=False, index=True)

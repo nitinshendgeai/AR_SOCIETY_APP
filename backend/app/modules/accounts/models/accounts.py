@@ -185,6 +185,10 @@ class VoucherEntry(Base, TimestampMixin):
     vendor_id  = Column(UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True, index=True)
     entity_account_id = Column(UUID(as_uuid=True), ForeignKey("entity_accounts.id", ondelete="SET NULL"), nullable=True, index=True)
     narration  = Column(Text, nullable=True)
+    # Bank reconciliation: the day the bank cleared this line (a deposit credited, a cheque or transfer debited).
+    # Only meaningful on a bank ledger's lines; empty until the bank statement shows it.
+    cleared_date = Column(Date, nullable=True, index=True)
+    cleared_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     voucher = relationship("Voucher", back_populates="entries")
     account = relationship("Account")

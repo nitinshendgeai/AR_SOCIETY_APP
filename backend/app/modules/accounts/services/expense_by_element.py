@@ -22,8 +22,9 @@ ZERO = Decimal("0")
 
 
 def expenses_by_element(db: Session, society_id: UUID, date_from: date, date_to: date) -> dict:
-    """Net spend (debits less credits, so a refund reduces it) per element and per ledger between the two dates,
-    cancelled vouchers left out."""
+    """Net spend (debits less credits, so a refund reduces it) per element and per ledger between the two dates.
+    Only approved vouchers count — not cancelled ones, ones waiting for approval or rejected — and the year-end
+    closing entry, which only moves the year's result to the Income & Expenditure Account, is not a refund."""
     expense_ledgers = (
         db.query(Account)
         .join(AccountGroup, AccountGroup.id == Account.group_id)
@@ -38,6 +39,7 @@ def expenses_by_element(db: Session, society_id: UUID, date_from: date, date_to:
                      func.coalesce(func.sum(VoucherEntry.debit), 0) - func.coalesce(func.sum(VoucherEntry.credit), 0))
             .join(Voucher, Voucher.id == VoucherEntry.voucher_id)
             .filter(Voucher.society_id == society_id, Voucher.is_cancelled == False,  # noqa: E712
+                    Voucher.approval_status == "approved", Voucher.voucher_type != "closing",
                     Voucher.voucher_date >= date_from, Voucher.voucher_date <= date_to,
                     VoucherEntry.account_id.in_([a.id for a in expense_ledgers] or [None]))
             .group_by(VoucherEntry.account_id)

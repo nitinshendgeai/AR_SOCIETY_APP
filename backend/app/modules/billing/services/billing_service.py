@@ -868,6 +868,7 @@ class BillingService:
         screenshot_bytes: Optional[bytes] = None, screenshot_mime_type: Optional[str] = None,
         screenshot_file_name: Optional[str] = None,
         purpose: ChargeType = ChargeType.MAINTENANCE,
+        deposit_account_id: Optional[UUID] = None,
     ) -> OnlinePaymentSubmission:
         flat = self.db.query(Flat).filter(Flat.id == flat_id, Flat.is_active == True).first()
         if not flat:
@@ -879,6 +880,15 @@ class BillingService:
 
         if amount <= 0:
             raise HTTPException(422, "Amount must be greater than zero")
+
+        if deposit_account_id is not None:
+            from app.modules.accounts.models.accounts import Account
+            ledger = self.db.query(Account).filter(Account.id == deposit_account_id).first()
+            if not ledger or ledger.society_id != wing.society_id or not ledger.is_active or not (
+                    ledger.is_cash or ledger.is_bank):
+                raise HTTPException(422, "Choose a cash or bank ledger of this society for the money to go into")
+            if (payment_mode == PaymentMode.CASH) != bool(ledger.is_cash):
+                raise HTTPException(422, "Cash goes into a cash ledger, and any other payment into a bank ledger")
 
         if screenshot_bytes:
             if len(screenshot_bytes) > MAX_SCREENSHOT_BYTES:
@@ -913,7 +923,7 @@ class BillingService:
             recorded_by=user.id, receipt_number=receipt_number,
             amount=amount, payment_date=payment_date, payment_mode=payment_mode,
             transaction_ref=transaction_ref, bank_name=bank_name, notes=notes,
-            purpose=purpose,
+            purpose=purpose, deposit_account_id=deposit_account_id,
             status=status,
             screenshot_data=screenshot_bytes, screenshot_mime_type=screenshot_mime_type,
             screenshot_file_name=screenshot_file_name,
@@ -1012,36 +1022,57 @@ class BillingService:
 
     MATCH_DATE_WINDOW_DAYS = 5
 
-    def import_bank_statement_csv(self, society_id: UUID, csv_text: str, user: User) -> List[BankStatementEntry]:
+    def import_bank_statement_csv(self, society_id: UUID, csv_text: str, user: User,
+                                  include_debits: bool = False,
+                                  bank_account_id: Optional[UUID] = None) -> List[BankStatementEntry]:
         assert_society_access(user, society_id)
-        """Expects a header row with columns Date, Description, Amount, and
-        optionally Reference (case-insensitive, any order) — a generic
-        format the admin prepares from whatever their bank's own export
-        looks like, since every bank's raw CSV differs. Date accepts
-        YYYY-MM-DD or DD-MM-YYYY. Only positive (credit) amounts are kept;
-        debits/withdrawals are irrelevant to resident-payment reconciliation."""
+        """Expects a header row with columns Date, Description, and either Amount or Debit / Credit columns, and
+        optionally Reference (case-insensitive, any order) — a generic format the admin prepares from whatever their
+        bank's own export looks like, since every bank's raw CSV differs. Date accepts YYYY-MM-DD or DD-MM-YYYY.
+
+        With an Amount column, a positive amount is a credit and a negative one a debit. By default only credits are
+        kept (resident payments are all that is reconciled against online payments); with include_debits, the
+        statement's debits (cheques cleared, transfers paid out) are kept too, so they can be matched to the books'
+        payments. Debit / Credit columns always give both. `bank_account_id` names the society's bank ledger the
+        statement belongs to."""
         import csv, io
         from decimal import InvalidOperation
+
+        if bank_account_id is not None:
+            from app.modules.accounts.services.bank_reconciliation import BankReconciliationService
+            BankReconciliationService(self.db).bank_account(society_id, bank_account_id)
 
         reader = csv.DictReader(io.StringIO(csv_text))
         if not reader.fieldnames:
             raise HTTPException(422, "CSV has no header row")
         columns = {f.strip().lower(): f for f in reader.fieldnames if f}
-        missing = [c for c in ("date", "description", "amount") if c not in columns]
+        split = "amount" not in columns and ("debit" in columns or "credit" in columns)
+        missing = [c for c in ("date", "description") if c not in columns] + (
+            [] if "amount" in columns or split else ["amount"])
         if missing:
             raise HTTPException(
                 422,
                 f"CSV missing required column(s): {', '.join(missing)}. "
-                "Expected headers: Date, Description, Amount, and optionally Reference.",
+                "Expected headers: Date, Description, Amount (or Debit and Credit), and optionally Reference.",
             )
+
+        def number(raw: str, i: int, label: str) -> Decimal:
+            raw = (raw or "").strip().replace(",", "")
+            if not raw:
+                return Decimal(0)
+            try:
+                return Decimal(raw)
+            except InvalidOperation:
+                raise HTTPException(422, f"Row {i}: unrecognized {label} {raw!r}")
 
         rows = []
         for i, raw in enumerate(reader, start=2):  # row 1 is the header
             date_str   = (raw.get(columns["date"]) or "").strip()
             desc       = (raw.get(columns["description"]) or "").strip()
-            amount_str = (raw.get(columns["amount"]) or "").strip()
             ref        = (raw.get(columns["reference"]) or "").strip() if "reference" in columns else ""
-            if not date_str and not amount_str:
+            amount_cells = ([raw.get(columns[c]) for c in ("debit", "credit") if c in columns] if split
+                            else [raw.get(columns["amount"])])
+            if not date_str and not any((c or "").strip() for c in amount_cells):
                 continue  # skip blank rows
             txn_date = None
             for fmt in ("%Y-%m-%d", "%d-%m-%Y"):
@@ -1052,17 +1083,24 @@ class BillingService:
                     continue
             if txn_date is None:
                 raise HTTPException(422, f"Row {i}: unrecognized date {date_str!r} — use YYYY-MM-DD or DD-MM-YYYY")
-            try:
-                amount = Decimal(amount_str.replace(",", ""))
-            except InvalidOperation:
-                raise HTTPException(422, f"Row {i}: unrecognized amount {amount_str!r}")
+            if split:
+                debit = number(raw.get(columns["debit"]) if "debit" in columns else "", i, "debit")
+                credit = number(raw.get(columns["credit"]) if "credit" in columns else "", i, "credit")
+                amount, direction = (credit, "credit") if credit > 0 else (debit, "debit")
+            else:
+                signed = number(raw.get(columns["amount"]), i, "amount")
+                amount, direction = (signed, "credit") if signed > 0 else (-signed, "debit")
             if amount <= 0:
-                continue  # debit/zero row — nothing to reconcile against
+                continue  # an empty row — nothing to reconcile against
+            if direction == "debit" and not (include_debits or split):
+                continue  # a withdrawal: not a resident payment
             rows.append({
                 "txn_date": txn_date,
                 "description": desc or "(no description)",
                 "reference": ref or None,
                 "amount": amount,
+                "direction": direction,
+                "bank_account_id": bank_account_id,
             })
 
         if not rows:
@@ -1077,13 +1115,15 @@ class BillingService:
                 society_id=society_id, imported_by=user.id,
                 txn_date=row["txn_date"], description=row["description"],
                 reference=row.get("reference"), amount=row["amount"],
+                direction=row.get("direction") or "credit", bank_account_id=row.get("bank_account_id"),
             )
             self.db.add(entry)
             entries.append(entry)
         self.db.flush()
         for e in entries:
             self._audit(AuditAction.CREATE, e, "BankStatementEntry", user,
-                        new_values={"amount": str(e.amount), "date": e.txn_date.isoformat()})
+                        new_values={"amount": str(e.amount), "date": e.txn_date.isoformat(),
+                                    "direction": e.direction})
         self.db.commit()
         for e in entries:
             self.db.refresh(e)
@@ -1107,6 +1147,8 @@ class BillingService:
         entry = self.get_bank_statement_entry(entry_id)
         if user is not None:
             assert_society_access(user, entry.society_id)
+        if entry.direction != "credit":
+            return []                  # a payment the bank made is never a resident's payment
         window_start = entry.txn_date - timedelta(days=self.MATCH_DATE_WINDOW_DAYS)
         window_end   = entry.txn_date + timedelta(days=self.MATCH_DATE_WINDOW_DAYS)
         return self.db.query(OnlinePaymentSubmission).filter(
@@ -1123,6 +1165,8 @@ class BillingService:
         assert_society_access(user, entry.society_id)
         if entry.match_status != BankStatementMatchStatus.UNMATCHED:
             raise HTTPException(409, f"Entry is already {entry.match_status.value}")
+        if entry.direction != "credit":
+            raise HTTPException(422, "Only money the bank received can be matched to a resident's payment")
         submission = self.get_online_payment_submission(submission_id, user)
         if submission.society_id != entry.society_id:
             raise HTTPException(400, "Payment submission belongs to a different society")
@@ -1140,6 +1184,12 @@ class BillingService:
         submission.status = ReconciliationStatus.RECONCILED
         submission.reviewed_by = user.id
         submission.reviewed_at = now
+        # The money is in the bank: the same line of the books is cleared on the bank reconciliation statement
+        from app.modules.accounts.services.bank_reconciliation import BankReconciliationService
+        account_id = BankReconciliationService(self.db).clear_for_source(
+            "online_payment", submission.id, entry.txn_date, user)
+        if entry.bank_account_id is None:
+            entry.bank_account_id = account_id
 
         self._audit(AuditAction.UPDATE, entry, "BankStatementEntry", user,
                     new_values={"matched_submission": submission.receipt_number, "amount": str(entry.amount)})

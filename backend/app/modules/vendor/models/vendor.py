@@ -463,6 +463,8 @@ class VendorPaymentTransaction(Base, TimestampMixin):
     payment_mode = Column(Enum(VendorPaymentMode, values_callable=lambda e: [x.value for x in e]), nullable=True, index=True)
     transaction_ref = Column(String(100), nullable=True, index=True)
     bank_name = Column(String(100), nullable=True)
+    # The cash or bank ledger the money left (unset: cash in hand for a cash payment, else the default bank).
+    bank_account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
     remarks = Column(Text, nullable=True)
     # TDS deducted from this payment. `amount` is what is settled against the bill (what leaves the vendor's
     # account); the vendor is paid `amount - tds_amount` and the rest is owed to the government.
@@ -482,6 +484,7 @@ class VendorPaymentTransaction(Base, TimestampMixin):
     vendor = relationship("Vendor")
     invoice = relationship("VendorInvoice", back_populates="payments")
     creator = relationship("User", foreign_keys=[created_by])
+    bank_account = relationship("Account", foreign_keys=[bank_account_id])
 
     __table_args__ = (
         UniqueConstraint("society_id", "payment_number", name="uq_vendor_payment_society_number"),

@@ -93,7 +93,7 @@ def period_spend(db: Session, society_id: UUID, start: date, end: date) -> Perio
         .join(Account, Account.id == VoucherEntry.account_id)
         .join(AccountGroup, AccountGroup.id == Account.group_id)
         .filter(Voucher.society_id == society_id, Account.society_id == society_id, AccountGroup.nature == "expense",
-                Voucher.is_cancelled == False,  # noqa: E712
+                Voucher.is_cancelled == False, Voucher.voucher_type != "closing",  # noqa: E712
                 Voucher.reversed_at.is_(None), Voucher.reversal_of_id.is_(None),
                 Voucher.voucher_date >= start, Voucher.voucher_date <= end)
         .group_by(Voucher.id, Voucher.voucher_number, Voucher.voucher_date, Voucher.approval_status,

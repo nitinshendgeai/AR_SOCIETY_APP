@@ -4,6 +4,29 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-25
+
+### fix: books integrity — vendor bill → payment → bank reconciliation, resident receipts, reports
+
+An audit of the Finance & Maintenance and Accounts modules (see `docs/ACCOUNTING_PROCEDURE.md` for the corrected flows).
+
+- **Reports read the books one way.** The Receipts & Payments, Schedule of Funds, dashboard year figures and spend per
+  maintenance element counted payments *waiting for approval* and *rejected* ones, so Receipts & Payments did not balance
+  while any payment was waiting, and the spend report disagreed with the ledgers. They now count approved, live vouchers
+  only. The spend per element (and the budget suggestions) also no longer read the year-end closing entry, which zeroes
+  every expense ledger, as a refund: after a year was closed its spend showed as nil.
+- **Bank reconciliation against the books.** Reconciliation only matched resident payments (credits) to a statement. Now
+  each bank ledger has a Bank Reconciliation Statement (books balance, less deposits and plus payments the bank has not
+  cleared = balance per bank), lines are cleared by hand or by matching an imported statement (credits and debits;
+  auto-match takes only unambiguous rows), and a resident's online payment and its line in the books confirm each other.
+  Migration `f8a2c6e0b3d5` (additive).
+- **Vendor payables.** A vendor's open bills can be listed and several settled with one cheque from a chosen bank or
+  cash ledger (before: one bill at a time, always the default bank); a wrongly entered bill can be cancelled while
+  nothing is paid on it; a bill's outstanding no longer includes TDS already held; a loose Payment voucher on Sundry
+  Creditors must name the vendor and cannot be used to pay a vendor who has unpaid bills (it left the bill unpaid and the
+  payables out of step with the ledger).
+- **Resident receipts** can name the bank or cash ledger the money was deposited into (before: always the default bank).
+
 ## 2026-10-24
 
 ### fix: flaky SQLite UUID test, filter-pill clipping, Books grid orphan tile

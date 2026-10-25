@@ -113,8 +113,11 @@ def _invoice_out(i) -> dict:
         "igst_amount": str(i.igst_amount),
         "total_amount": str(i.total_amount),
         "paid_amount": str(i.paid_amount),
-        "outstanding": str(i.total_amount - i.paid_amount),
+        # What can still be paid to the vendor: the bill less the TDS held when it was booked and less what was paid.
+        "outstanding": str(max(i.total_amount - (i.tds_amount or 0) - i.paid_amount, Decimal("0.00"))),
+        "tds_amount": str(i.tds_amount if i.tds_amount is not None else Decimal("0.00")),
         "is_paid": i.is_paid,
+        "is_cancelled": not i.is_active,
         "paid_date": i.paid_date.isoformat() if i.paid_date else None,
         "payment_mode": i.payment_mode.value if i.payment_mode else None,
         "payment_ref": i.payment_ref,
@@ -132,6 +135,7 @@ def _invoice_out(i) -> dict:
             "payment_mode": p.payment_mode.value,
             "transaction_ref": p.transaction_ref,
             "bank_name": p.bank_name,
+            "bank_account_id": str(p.bank_account_id) if p.bank_account_id else None,
             "remarks": p.remarks,
             "tds_amount": str(p.tds_amount if p.tds_amount is not None else Decimal("0.00")),
             "tds_rate": str(p.tds_rate if p.tds_rate is not None else Decimal("0")),
@@ -376,6 +380,7 @@ class RecordPaymentRequest(OrmBase):
     amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
     paid_date: date; payment_mode: VendorPaymentMode
     payment_ref: Optional[str] = None; bank_name: Optional[str] = None
+    bank_account_id: Optional[UUID] = None        # the cash / bank ledger it is paid from (default: cash, or the default bank)
 
     _ref = field_validator("payment_ref", mode="before")(val.line_max(100))
     _bank = field_validator("bank_name", mode="before")(val.line_max(100))
@@ -776,7 +781,7 @@ def record_payment(inv_id: UUID, data: RecordPaymentRequest, db: Session = Depen
                     user: User = Depends(get_current_user)):
     inv = VendorService_(db).record_vendor_payment(
         inv_id, data.amount, data.paid_date, data.payment_mode,
-        data.payment_ref, data.bank_name, user)
+        data.payment_ref, data.bank_name, user, data.bank_account_id)
     return _invoice_out(inv)
 
 @router.get("/invoices/{inv_id}/payments")
@@ -791,6 +796,43 @@ def reverse_payment(payment_id: UUID, data: ReversePaymentRequest,
                     db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     inv = VendorService_(db).reverse_vendor_payment(payment_id, data.reason, user)
     return _invoice_out(inv)
+
+
+class PayBillItem(OrmBase):
+    invoice_id: UUID
+    amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+
+
+class PayBillsRequest(RecordPaymentRequest):
+    amount: Optional[Decimal] = None              # the total is the sum of the bills chosen
+    items: List[PayBillItem] = Field(min_length=1, max_length=100)
+
+
+class CancelInvoiceRequest(OrmBase):
+    reason: str = Field(min_length=3, max_length=1000)
+
+
+@router.get("/invoices/vendor/{vendor_id}/open", dependencies=[Depends(manager_above)])
+def vendor_open_bills(vendor_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """What the society still owes this vendor, bill by bill (oldest due first), for choosing the bills a payment
+    settles."""
+    return VendorService_(db).open_bills(vendor_id, user)
+
+
+@router.post("/invoices/vendor/{vendor_id}/pay", dependencies=[Depends(manager_above)])
+def pay_vendor_bills(vendor_id: UUID, data: PayBillsRequest, db: Session = Depends(get_db),
+                     user: User = Depends(get_current_user)):
+    """One cheque / transfer to a vendor settling the bills chosen — each is paid (with its TDS) and posted, or none."""
+    return VendorService_(db).pay_bills(
+        vendor_id, [{"invoice_id": i.invoice_id, "amount": i.amount} for i in data.items], data.paid_date,
+        data.payment_mode, data.payment_ref, data.bank_name, user, data.bank_account_id)
+
+
+@router.post("/invoices/{inv_id}/cancel", dependencies=[Depends(admin_committee)])
+def cancel_invoice(inv_id: UUID, data: CancelInvoiceRequest, db: Session = Depends(get_db),
+                   user: User = Depends(get_current_user)):
+    """Take a wrongly entered bill out of the books and the payables (only while nothing has been paid against it)."""
+    return _invoice_out(VendorService_(db).cancel_invoice(inv_id, data.reason, user))
 
 
 @router.get("/invoices/vendor/{vendor_id}")
