@@ -89,16 +89,17 @@ def test_create_staff_with_email_creates_user(client, db):
     assert old.status_code == 401
 
 
-def test_create_staff_without_email_no_user(client, db):
-    """Creating staff without email must NOT create a User."""
+def test_create_staff_without_email_gets_mobile_login(client, db):
+    """Without an email the staff member's mobile number becomes the login (no email password)."""
     admin   = _admin(db, "4")
     society = make_society(db, "Staff No Email Society")
 
     r = _create_staff(client, admin["headers"], society.id, name="Kiran Bose")
     assert r.status_code == 201
     data = r.json()
-    assert data["user_id"] is None
-    assert data["temp_password"] is None
+    assert data["user_id"] is not None
+    assert data["temp_password"] is None            # no email: the message carries the password
+    assert data["login_message"] and "Login created" in data["login_message"]
 
 
 def test_list_staff_society_scoped(client, db):
@@ -255,6 +256,45 @@ def test_reporting_loops_are_refused(client, db):
     assert set_manager(a, c["user_id"]).status_code == 422          # through a longer chain
     assert set_manager(c, a["user_id"]).status_code == 200          # a shorter, loop-free change
     assert set_manager(a, None).status_code == 200                  # clearing is fine
+
+
+def test_staff_without_email_get_a_mobile_login(client, db):
+    admin   = _admin(db, "13")
+    society = make_society(db, "Staff Mobile Login Society")
+    h = admin["headers"]
+
+    g = _create_staff(client, h, society.id, name="Night Guard", dept="security", mobile="9400000001")
+    assert g.status_code == 201, g.text
+    body = g.json()
+    assert body["user_id"] is not None
+    assert "9400000001" in body["login_message"] and "Password:" in body["login_message"]
+    # With the login they can be somebody's reporting person.
+    r = _create_staff(client, h, society.id, name="Gate Helper", dept="security", mobile="9400000002",
+                      extra={"reporting_manager_id": body["user_id"]})
+    assert r.status_code == 201, r.text
+
+    # With an email, the email is the login and the password comes back as before.
+    e = _create_staff(client, h, society.id, name="Mail Guard", dept="security", mobile="9400000003",
+                      email="mailguard@mobilelogin.test")
+    assert e.json()["temp_password"] and e.json()["login_message"] is None
+
+
+def test_create_login_for_existing_staff(client, db):
+    admin   = _admin(db, "14")
+    society = make_society(db, "Staff Add Login Society")
+    h = admin["headers"]
+    s = _create_staff(client, h, society.id, name="Old Guard", dept="security", mobile="9500000001")
+    sid = s.json()["id"]
+    # Simulate staff entered before logins were automatic.
+    from app.modules.staff.models.staff import Staff
+    st = db.get(Staff, sid if not isinstance(sid, str) else __import__("uuid").UUID(sid))
+    st.user_id = None
+    db.commit()
+
+    r = client.post(f"/api/v1/staff/{sid}/login", headers=h)
+    assert r.status_code == 200, r.text
+    assert r.json()["user_id"] is not None and "9500000001" in r.json()["login_message"]  # relinked: the login already existed
+    assert client.post(f"/api/v1/staff/{sid}/login", headers=h).status_code == 409
 
 
 def test_department_filter(client, db):

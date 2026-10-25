@@ -32,6 +32,7 @@ from app.repositories.user_repo import UserRepository, UserRole, UserStatus
 from app.models.society import Society
 from app.utils.local_time import zone, local_today, local_to_utc_naive, to_local, utc_naive
 from app.models.role import Role
+from app.services.user_provisioning import provision_login_by_phone
 from app.models.audit_log import AuditAction
 from app.core.passwords import generate_temp_password
 from app.core.security import hash_password
@@ -283,14 +284,35 @@ class StaffService:
         staff = Staff(**data.model_dump(), employee_code=code)
         self.repo.create(staff)  # commits + refreshes
 
-        temp_pwd = None
-        if data.email and not data.user_id:
-            # Auto-create a login account for this staff member
+        temp_pwd = login_message = None
+        if not data.user_id:
+            temp_pwd, login_message = self._provision_login(staff)
+
+        self._audit(AuditAction.CREATE, staff, "Staff", user, request,
+                    new_values={"employee_code": code, "name": data.full_name,
+                                "dept": data.department.value,
+                                "user_created": bool(temp_pwd or login_message)})
+
+        if temp_pwd:
+            staff.__dict__['temp_password'] = temp_pwd
+        if login_message:
+            staff.__dict__['login_message'] = login_message
+        return staff
+
+    def _provision_login(self, staff: Staff):
+        """Give a staff member a login and return (temp_password, login_message).
+
+        With an email, the email is the login and the temporary password is returned. Without
+        one (most guards and housekeepers), the mobile number is the login, the same as a
+        resident's; the message says what was created and carries the temporary password.
+        The role comes from the designation, else the department."""
+        role_name = self._resolve_staff_role(staff)
+        if staff.email:
             temp_pwd = generate_temp_password()
             new_user = User(
-                society_id           = data.society_id,
-                email                = data.email,
-                full_name            = data.full_name,
+                society_id           = staff.society_id,
+                email                = staff.email,
+                full_name            = staff.full_name,
                 hashed_password      = hash_password(temp_pwd),
                 status               = UserStatus.ACTIVE,
                 must_change_password = True,
@@ -299,23 +321,39 @@ class StaffService:
             )
             self.db.add(new_user)
             self.db.flush()
-
-            role_name = self._resolve_staff_role(staff)
             if role_name:
-                role = self.db.query(Role).filter(Role.name == role_name).first()
-                if role:
-                    self.db.add(UserRole(user_id=new_user.id, role_id=role.id))
-
+                UserRepository(self.db).assign_role(new_user, role_name)
             staff.user_id = new_user.id
             self.db.commit()
             self.db.refresh(staff)
+            return temp_pwd, None
+        if not role_name:
+            return None, None
+        login, message = provision_login_by_phone(
+            self.db, society_id=staff.society_id, phone=staff.mobile,
+            full_name=staff.full_name, role_name=role_name)
+        staff.user_id = login.id
+        self.db.commit()
+        self.db.refresh(staff)
+        return None, message
 
-        self._audit(AuditAction.CREATE, staff, "Staff", user, request,
-                    new_values={"employee_code": code, "name": data.full_name,
-                                "dept": data.department.value, "user_created": temp_pwd is not None})
-
+    def create_staff_login(self, staff_id: UUID, user: User, request=None) -> Staff:
+        """Add a login to a staff member who has none (see _provision_login)."""
+        staff = self._staff_or_404(staff_id, user)
+        if staff.user_id:
+            raise HTTPException(status_code=409, detail=f"{staff.full_name} already has a login")
+        if staff.email and UserRepository(self.db).get_by_email(staff.email, society_id=staff.society_id):
+            raise HTTPException(status_code=409,
+                detail=f"A login with the email {staff.email} already exists — link that user instead")
+        temp_pwd, login_message = self._provision_login(staff)
+        if not (temp_pwd or login_message):
+            raise HTTPException(status_code=422,
+                detail="This person's department has no login role; set a designation first")
+        self._audit(AuditAction.UPDATE, staff, "Staff", user, request, new_values={"login_created": True})
         if temp_pwd:
             staff.__dict__['temp_password'] = temp_pwd
+        if login_message:
+            staff.__dict__['login_message'] = login_message
         return staff
 
     def _resolve_staff_role(self, staff: Staff) -> Optional[str]:
