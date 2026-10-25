@@ -85,12 +85,13 @@ def test_edit_follows_the_voucher_rules(client, db):
         {"account_id": L["bank"]["id"], "debit": "600"},
         {"account_id": L["misc_income"]["id"], "credit": "600"}], expect=422)
     # Members' Dues lines still name the flat
-    r = _voucher(client, h, sid, "receipt", "2026-09-15", [
-        {"account_id": L["cash"]["id"], "debit": "100"},
-        {"account_id": L["members_dues"]["id"], "credit": "100", "flat_id": str(flat1.id)}])
+    # (a refund of an advance: a Receipt on Members' Dues is refused for a flat with unpaid bills)
+    r = _voucher(client, h, sid, "payment", "2026-09-15", [
+        {"account_id": L["members_dues"]["id"], "debit": "100", "flat_id": str(flat1.id)},
+        {"account_id": L["cash"]["id"], "credit": "100"}], approver=approver)
     _edit(client, h, r["id"], "2026-09-15", [
-        {"account_id": L["cash"]["id"], "debit": "100"},
-        {"account_id": L["members_dues"]["id"], "credit": "100"}], expect=422)
+        {"account_id": L["members_dues"]["id"], "debit": "100"},
+        {"account_id": L["cash"]["id"], "credit": "100"}], expect=422)
 
     # Posted from a bill: edit the bill, not the voucher
     auto = db.query(Voucher).filter(Voucher.society_id == society.id, Voucher.source_type.isnot(None)).first()

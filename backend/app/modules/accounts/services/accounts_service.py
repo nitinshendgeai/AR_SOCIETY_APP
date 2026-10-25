@@ -596,6 +596,8 @@ class AccountsService:
                     raise HTTPException(422, "Vendor not found in this society")
             if vtype == "payment" and money(e.get("debit")) and account.id == creditors.id:
                 self._assert_not_a_billed_payment(society_id, account, e.get("vendor_id"))
+            if vtype == "receipt" and money(e.get("credit")) and account.id == members_dues.id:
+                self._assert_not_a_billed_receipt(society_id, e["flat_id"])
             lines.append(Line(account, money(e.get("debit")), money(e.get("credit")),
                               flat_id=e.get("flat_id"), vendor_id=e.get("vendor_id"), narration=e.get("narration")))
 
@@ -612,6 +614,25 @@ class AccountsService:
         if vtype == "journal" and any(l.account.is_cash_or_bank for l in lines):
             raise HTTPException(422, "A journal doesn't touch cash or bank — use a receipt, payment or contra")
         return lines
+
+    def _assert_not_a_billed_receipt(self, society_id: UUID, flat_id) -> None:
+        """A resident's payment is recorded in Billing (Online Payments), which sets it off against the flat's bills,
+        issues the receipt and posts it here. A loose Receipt voucher on Members' Dues would lower what the books say the
+        flat owes while its bills stay unpaid — still earning interest and reminders — so it is refused while the flat has
+        unpaid bills. With none, it is an advance and may be entered."""
+        from app.modules.billing.models.billing import BillStatus, MaintenanceBill
+        open_bills = self.db.query(MaintenanceBill).filter(
+            MaintenanceBill.society_id == society_id, MaintenanceBill.flat_id == flat_id,
+            MaintenanceBill.is_active == True,  # noqa: E712
+            MaintenanceBill.bill_status.in_((BillStatus.ISSUED, BillStatus.PARTIALLY_PAID, BillStatus.OVERDUE)),
+            MaintenanceBill.outstanding > 0).all()
+        owed = sum((money(b.outstanding) for b in open_bills), ZERO)
+        if owed > 0:
+            from app.modules.billing.services.bill_pdf import flat_label
+            flat = self._flat_in_society(flat_id, society_id)
+            raise HTTPException(422, f"{flat_label(flat)} has unpaid bills ({inr(owed)}). Record the payment in Online "
+                                     f"Payments so the bills are marked paid and the resident gets a receipt — a Receipt "
+                                     f"voucher on Members' Dues is only for an advance from a flat with nothing unpaid")
 
     def _assert_not_a_billed_payment(self, society_id: UUID, creditors: Account, vendor_id) -> None:
         """A payment voucher that debits Sundry Creditors is an advance to a vendor. Paying a bill that way would

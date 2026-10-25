@@ -6,6 +6,14 @@ Format: `[YYYY-MM-DD] type: description`
 
 ## 2026-10-25
 
+### fix: a Receipt voucher can no longer settle a flat's dues behind Billing's back
+
+A Receipt voucher crediting Members' Dues lowered what the books said a flat owed while its maintenance bills stayed unpaid
+(still earning interest and reminders; the Members' AR reconciliation showed the difference). It is now refused, with a
+message pointing to Online Payments, while the flat has unpaid bills; for a flat with none it is an advance and is allowed.
+Journals (waivers) and Payments (refunds) on Members' Dues are unaffected. The Receipt voucher form shows the same note on a
+Members' Dues line. Two Member AR tests that built a half-paid bill by hand now post its receipt directly.
+
 ### fix: books integrity — vendor bill → payment → bank reconciliation, resident receipts, reports
 
 An audit of the Finance & Maintenance and Accounts modules (see `docs/ACCOUNTING_PROCEDURE.md` for the corrected flows).
