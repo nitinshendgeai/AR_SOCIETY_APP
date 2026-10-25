@@ -25,7 +25,13 @@ from sqlalchemy.orm import Session
 from app.modules.accounts.models.taxes import TaxConfiguration
 from app.modules.vendor.models.vendor import Vendor, VendorCategory, VendorPaymentTransaction
 
-NO_PAN_RATE = Decimal("20")            # section 206AA: no PAN, deduct at 20% or the normal rate, whichever is higher
+# The sections are stored under their familiar 1961-Act names (194C, 194J...). From 1 April 2026 the same payments are
+# deducted under section 393 of the Income-tax Act, 2025; the rates, thresholds and who they apply to were carried over
+# unchanged (docs/TDS_RATES.md has the table checked against the FY 2026-27 chart), so only the labels name both.
+#
+# Not applied, on purpose: section 206AB (a higher rate for vendors who have not filed their return) was omitted by the
+# Finance Act 2025 from 1 April 2025, so a vendor's filing status never changes the rate.
+NO_PAN_RATE = Decimal("20")            # no PAN: deduct at 20% or the normal rate, whichever is higher (206AA)
 RULES_EFFECTIVE_FROM = date(2025, 4, 1)
 
 PAN_RE = re.compile(r"^[A-Z]{5}\d{4}[A-Z]$")
@@ -53,12 +59,12 @@ _PAN_KIND = {"P": "an individual", "H": "a HUF", "C": "a company", "F": "a firm 
 
 # value, label, short label. The value is stored on the vendor and on each payment.
 SECTIONS: List[Tuple[str, str, str]] = [
-    ("194C", "Contract / work: security, housekeeping, repairs, AMC (194C)", "194C contract"),
-    ("194J_PROF", "Professional fees: CA, architect, lawyer, doctor (194J)", "194J professional"),
-    ("194J_TECH", "Technical services / IT support (194J)", "194J technical"),
-    ("194I_PM", "Rent of plant and machinery (194I)", "194I rent: machinery"),
-    ("194I_LB", "Rent of land, building or furniture (194I)", "194I rent: property"),
-    ("194H", "Commission or brokerage (194H)", "194H commission"),
+    ("194C", "Contract / work: security, housekeeping, manpower, repairs, AMC (194C; Sec 393(1))", "194C contract"),
+    ("194J_PROF", "Professional fees: CA, architect, lawyer, doctor (194J; Sec 393(1))", "194J professional"),
+    ("194J_TECH", "Technical services / IT support (194J; Sec 393(1))", "194J technical"),
+    ("194I_PM", "Rent of plant and machinery (194I; Sec 393(1))", "194I rent: machinery"),
+    ("194I_LB", "Rent of land, building or furniture (194I; Sec 393(1))", "194I rent: property"),
+    ("194H", "Commission or brokerage (194H; Sec 393(1))", "194H commission"),
 ]
 SECTION_VALUES = {s[0] for s in SECTIONS}
 SECTION_LABELS = {s[0]: s[2] for s in SECTIONS}

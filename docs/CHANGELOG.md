@@ -20,6 +20,11 @@ the rate deducted when the vendor is paid. Two things were missing:
   vendors with no type, a type that disagrees with the PAN, no section where the category has a usual one, or no PAN (20%
   rate), with the fix that can be worked out; the committee applies it to one vendor or all at once, or sets type and
   section by hand. Managers can view it.
+- **TDS rates checked against the FY 2026-27 chart** (section 393 of the Income-tax Act, 2025, in force from 1 April 2026):
+  every starting rate and limit already matched, so none changed. Section labels now name both the 194x section and Sec 393(1),
+  and 194C mentions manpower. Section 206AB (higher rate for non-filers) was omitted from 1 April 2025 and is deliberately not
+  applied. Insurance commission, goods purchase, e-commerce and property transfer are not vendor-bill payments for a society and
+  were left out. `docs/TDS_RATES.md` has the table and these decisions; a test holds the defaults to the chart.
 
 ## 2026-10-25 (amenity deposit and parking fine screens)
 
