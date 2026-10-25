@@ -158,7 +158,7 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: BoxDecoration(
               color: AppTheme.cardBg,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(AppTheme.radiusXl),
               border: Border.all(color: AppTheme.border),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -255,11 +255,11 @@ class _TenantCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         border: Border.all(color: AppTheme.border),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         onTap: () => context.push(AppRoutes.tenantDetail, extra: tenant),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -267,7 +267,7 @@ class _TenantCard extends StatelessWidget {
             Container(
               width: 44,
               height: 44,
-              decoration: BoxDecoration(color: AppTheme.secondary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: AppTheme.secondary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppTheme.radiusM)),
               child: const Icon(Icons.groups_2_rounded, color: AppTheme.secondary, size: 22),
             ),
             const SizedBox(width: 14),

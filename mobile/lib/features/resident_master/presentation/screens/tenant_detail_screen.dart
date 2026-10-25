@@ -313,7 +313,7 @@ class _HeaderCard extends StatelessWidget {
           colors: [AppTheme.secondary.withOpacity(0.14), AppTheme.secondary.withOpacity(0.03)],
           begin: Alignment.topLeft, end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
         border: Border.all(color: AppTheme.secondary.withOpacity(0.18)),
       ),
       child: Row(children: [

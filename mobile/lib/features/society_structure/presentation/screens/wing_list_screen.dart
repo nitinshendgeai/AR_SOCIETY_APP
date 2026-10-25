@@ -164,13 +164,13 @@ class _WingCard extends ConsumerWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         border: Border.all(
           color: wing.isActive ? AppTheme.border : AppTheme.error.withOpacity(0.3),
         ),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         onTap: () => context.push(
           AppRoutes.floorsByWing.replaceFirst(':wingId', wing.id),
           extra: wing,
@@ -185,7 +185,7 @@ class _WingCard extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: (wing.isActive ? AppTheme.primary : AppTheme.textSecondary)
                       .withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusM),
                 ),
                 child: Center(
                   child: Text(

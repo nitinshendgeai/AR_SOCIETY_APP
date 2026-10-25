@@ -100,7 +100,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: AppTheme.success.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(AppTheme.radiusM),
                 border: Border.all(
                     color: AppTheme.success.withOpacity(0.2)),
               ),
@@ -161,7 +161,7 @@ class _ProgressHeader extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -289,7 +289,7 @@ class _StepCard extends StatelessWidget {
                     color: isSelected
                         ? step.color.withOpacity(0.06)
                         : AppTheme.cardBg,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusM),
                     border: Border.all(
                       color: isSelected
                           ? step.color.withOpacity(0.3)

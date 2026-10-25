@@ -80,7 +80,7 @@ class _TrialSuccessScreenState extends ConsumerState<TrialSuccessScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                 decoration: BoxDecoration(
                   color: AppTheme.primary.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusXl),
                   border: Border.all(color: AppTheme.primary.withOpacity(0.25)),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -119,7 +119,7 @@ class _TrialSuccessScreenState extends ConsumerState<TrialSuccessScreen> {
                     side: const BorderSide(color: AppTheme.primary),
                     foregroundColor: AppTheme.primary,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusM)),
                   ),
                 ),
               ),
@@ -130,7 +130,7 @@ class _TrialSuccessScreenState extends ConsumerState<TrialSuccessScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
                   color: AppTheme.warning.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusS),
                   border: Border.all(color: AppTheme.warning.withOpacity(0.2)),
                 ),
                 child: Row(children: [
@@ -157,7 +157,7 @@ class _TrialSuccessScreenState extends ConsumerState<TrialSuccessScreen> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: AppTheme.error.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusS),
                     border: Border.all(color: AppTheme.error.withOpacity(0.3)),
                   ),
                   child: Text(_loginError!,
@@ -181,7 +181,7 @@ class _TrialSuccessScreenState extends ConsumerState<TrialSuccessScreen> {
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusM)),
                   ),
                   icon: _signingIn
                       ? const SizedBox(
@@ -224,7 +224,7 @@ class _AdminLoginCardState extends State<_AdminLoginCard> {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppTheme.primary.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
         border: Border.all(color: AppTheme.primary.withOpacity(0.25)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -329,12 +329,12 @@ class _AdditionalUsersCardState extends State<_AdditionalUsersCard> {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
         border: Border.all(color: AppTheme.border),
       ),
       child: Column(children: [
         InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
           onTap: () => setState(() => _expanded = !_expanded),
           child: Padding(
             padding: const EdgeInsets.all(16),

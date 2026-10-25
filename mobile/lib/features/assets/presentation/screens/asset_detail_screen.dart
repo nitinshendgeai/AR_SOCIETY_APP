@@ -273,7 +273,7 @@ class _Header extends StatelessWidget {
           Container(
             width: 52,
             height: 52,
-            decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppTheme.radiusM)),
             child: Icon(assetCategoryIcon(a.category), color: AppTheme.primary, size: 28),
           ),
           const SizedBox(width: 14),

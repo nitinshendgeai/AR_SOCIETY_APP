@@ -149,7 +149,7 @@ class _EditMyProfileScreenState extends ConsumerState<EditMyProfileScreen> {
               DecoratedBox(
                 decoration: BoxDecoration(
                   color: AppTheme.warningSoft,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusM),
                   border: Border.all(color: AppTheme.warning.withOpacity(0.3)),
                 ),
                 child: Padding(

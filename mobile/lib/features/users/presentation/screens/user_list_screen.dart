@@ -232,11 +232,11 @@ class _SearchBar extends StatelessWidget {
           filled: true,
           fillColor: AppTheme.cardBg,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppTheme.radiusM),
             borderSide: const BorderSide(color: AppTheme.border),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppTheme.radiusM),
             borderSide: const BorderSide(color: AppTheme.border),
           ),
         ),
@@ -332,7 +332,7 @@ class _Chip extends StatelessWidget {
           color: active
               ? AppTheme.primary.withOpacity(0.1)
               : AppTheme.cardBg,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppTheme.radiusXl),
           border: Border.all(
             color: active ? AppTheme.primary : AppTheme.border,
           ),
@@ -413,7 +413,7 @@ class _UserTile extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: AppTheme.cardBg,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppTheme.radiusM),
           border: Border.all(color: AppTheme.border),
         ),
         child: Row(

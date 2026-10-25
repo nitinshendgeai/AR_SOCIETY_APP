@@ -229,7 +229,7 @@ class _AssetTile extends StatelessWidget {
             Container(
               width: 42,
               height: 42,
-              decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppTheme.radiusS)),
               child: Icon(assetCategoryIcon(a.category), color: AppTheme.primary, size: 22),
             ),
             const SizedBox(width: 12),

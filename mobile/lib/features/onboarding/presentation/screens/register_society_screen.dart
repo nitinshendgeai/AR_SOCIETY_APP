@@ -374,7 +374,7 @@ class _Page3 extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AppTheme.primary.withOpacity(0.06),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppTheme.radiusM),
               border: Border.all(color: AppTheme.primary.withOpacity(0.2)),
             ),
             child: Row(

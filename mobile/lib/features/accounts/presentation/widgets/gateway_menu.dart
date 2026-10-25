@@ -150,7 +150,7 @@ class _GatewayMenuState extends State<GatewayMenu> {
             if (item.badge != null) ...[
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: AppTheme.warningSoft, borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(color: AppTheme.warningSoft, borderRadius: BorderRadius.circular(AppTheme.radiusS)),
                 child: Text(item.badge!,
                     style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppTheme.warning)),
               ),

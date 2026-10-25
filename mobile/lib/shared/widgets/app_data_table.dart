@@ -169,7 +169,7 @@ class _AppDataTableState<T> extends State<AppDataTable<T>> {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         border: Border.all(color: AppTheme.border),
       ),
       clipBehavior: Clip.antiAlias,

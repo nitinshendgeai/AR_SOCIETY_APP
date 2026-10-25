@@ -210,7 +210,7 @@ class _RegisterCTA extends StatelessWidget {
               AppTheme.primaryDark.withOpacity(0.05),
             ],
           ),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
           border: Border.all(color: AppTheme.primary.withOpacity(0.25)),
         ),
         child: Row(
@@ -272,12 +272,12 @@ class _DemoFormatHintState extends State<_DemoFormatHint> {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.primary.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         border: Border.all(color: AppTheme.primary.withOpacity(0.18)),
       ),
       child: Column(children: [
         InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppTheme.radiusM),
           onTap: () => setState(() => _expanded = !_expanded),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

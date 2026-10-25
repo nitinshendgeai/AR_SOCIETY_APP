@@ -175,7 +175,7 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: BoxDecoration(
               color: AppTheme.cardBg,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(AppTheme.radiusXl),
               border: Border.all(color: AppTheme.border),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -281,11 +281,11 @@ class _ResidentCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         border: Border.all(color: AppTheme.border),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
         onTap: () => context.push(AppRoutes.residentDetail, extra: resident),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -295,7 +295,7 @@ class _ResidentCard extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 color: AppTheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppTheme.radiusM),
               ),
               child: const Icon(Icons.person_rounded, color: AppTheme.primary, size: 22),
             ),

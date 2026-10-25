@@ -268,7 +268,7 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
                 height: 36,
                 decoration: BoxDecoration(
                   color: AppTheme.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusS),
                 ),
                 child: Icon(
                   widget.type == _ApprovalType.checkin
