@@ -4,6 +4,19 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-25 (classic bill layout)
+
+### feat: a second bill layout, "Classic", chosen in Maintenance Rules
+
+Some societies print their bills with every charge head on its own line and a receipt slip at the foot. Maintenance Rules >
+"How the bill prints" now offers **Classic** next to the standard layout (`maintenance_settings.bill_layout`, migration
+`d6f8a0c2e4b6`; every society keeps Standard until it chooses). Classic prints: the society in a rounded box with its name in
+blue; "Bill for the Month of ..."; each owner's name on its own line; Bill No., Bill Date, Due Date and carpet area on the
+right; **Particulars** with every charge head as the society named it (heads not charged this time print 0.00); Total,
+Arrears / Advance, Accumulated Interest, Interest on Principal Arrears and Grand Total with the amount in words; numbered
+notes (interest, how to pay, the society's own notes); and a **receipt slip for each payment received towards the previous bill**
+above the signature line. The figures are the same as the standard bill's; it applies to single and cycle-wide prints.
+
 ## 2026-10-25 (maintenance bill: owners' names)
 
 ### fix: a bill with more than one owner no longer prints the name over "Bill No."

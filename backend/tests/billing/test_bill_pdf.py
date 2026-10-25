@@ -15,7 +15,7 @@ from app.modules.billing.models.billing import (
     ChargeType, InvoiceLineItem, MaintenanceBill, PaymentMode, PaymentReceipt,
 )
 from app.modules.billing.services.bill_pdf import (
-    _inr, amount_in_words, bill_head, generate_maintenance_bill_pdf, rs_in_words,
+    _bill_month, _inr, amount_in_words, bill_head, generate_maintenance_bill_pdf, rs_in_words,
 )
 from app.modules.billing.services.billing_service import BillingService
 from tests.billing.test_maintenance_billing import _charge, _cycle, _generated_cycle, _rig
@@ -281,3 +281,112 @@ def test_the_details_box_keeps_each_column_inside_its_half(client, db):
         assert w <= inner + 0.01, (w, inner)
     # the two long names are two lines, the rest one line each: the left block is taller than the right
     assert left.wrap(width, 10_000)[1] > right.wrap(width, 10_000)[1]
+
+
+# ── The classic layout ────────────────────────────────────────────────────────
+
+def _classic(client, db, tag, **settings):
+    """A society on the classic layout with its first bill issued: (society, flat1, manager, bill, cycle_id)."""
+    society, flat1, flat2, manager, resident, other, cycle_id = _generated_cycle(client, db, tag)
+    r = client.put(f"/api/v1/billing/maintenance-settings/{society.id}",
+                   json={"bill_layout": "classic", **settings}, headers=manager["headers"])
+    assert r.status_code == 200, r.text
+    assert r.json()["bill_layout"] == "classic"
+    client.post(f"/api/v1/billing/cycles/{cycle_id}/issue-all", headers=manager["headers"])
+    bill = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=flat1.id).one()
+    return society, flat1, manager, bill, cycle_id
+
+
+def test_the_layout_is_a_setting_standard_unless_chosen(client, db):
+    society, flat1, flat2, manager, resident, other, cycle_id = _generated_cycle(client, db, "pdfl0")
+    h = manager["headers"]
+    assert client.get(f"/api/v1/billing/maintenance-settings/{society.id}", headers=h).json()["bill_layout"] == "standard"
+    assert client.put(f"/api/v1/billing/maintenance-settings/{society.id}", json={"bill_layout": "fancy"},
+                      headers=h).status_code == 422
+    bill = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=flat1.id).one()
+    _, text = _bill_pdf(db, bill.id)
+    assert "Maintenance Bill" in text and "Notes *" in text.replace("Notes * ", "Notes *")   # the standard layout
+
+
+def test_classic_layout_lists_every_head_and_the_totals(client, db):
+    society, flat1, manager, bill, cycle_id = _classic(
+        client, db, "pdfl1", bank_account_number="520101046817693", bank_ifsc="UBIN0904309", bank_name="Union Bank")
+    society.registration_number = "BOM/WR/HSG/TC/10133/98-99"
+    flat1.area_sqft = 437
+    db.commit()
+    db.expire_all()
+    svc = BillingService(db)
+    bill = svc.get_bill(bill.id)
+    pdf = generate_maintenance_bill_pdf(bill, svc.get_maintenance_settings(bill.society_id), compress=False,
+                                        **{**svc._bill_print_context(bill),
+                                           "element_codes": {"Maintenance": "service_charges", "Water": "water_charges",
+                                                             "Festival Fund": "other", "Legal Charges": "other"}})
+    text = " ".join(_text(pdf).replace("|", " ").split())
+    for expected in [
+        "MB SOCIETY PDFL1", "Regn. No. BOM/WR/HSG/TC/10133/98-99",
+        _bill_month(bill),                              # "Bill for the Period Oct-2026 to Nov-2026" for a 30-day cycle
+        "Name : Asha Rao FLAT NO Tower A 101",
+        f"Bill No. : {bill.invoice_number}", f"Bill Date : {bill.bill_date:%d/%m/%Y}",
+        f"Due Date : {bill.due_date:%d/%m/%Y}", "Area Carpet : 437 Sq. Feet",
+        "P a r t i c u l a r s Amount (in Rs.)",
+        "Maintenance 2,500.00 Water 300.00",               # the heads as the society named them, not grouped
+        "Festival Fund 0.00", "Legal Charges 0.00",         # heads not charged this time print 0.00
+        "GST @ 18% 54.00",
+        "Total : 2,854.00", "Arrears / Advance : 0.00", "Accumulated Interest : 0.00",
+        "Interest on Principal Arrears of : 0.00", "Grand Total : 2,854.00",
+        "Rs. Two Thousand Eight Hundred Fifty Four only.",
+        "Notes :", "1. Interest @ 12% p.a.", "NEFT to MB SOCIETY PDFL1",
+        "A/c No. 520101046817693", "IFSC UBIN0904309",
+        "Outstanding dues are subject to final audit.",
+        "HON. SECRETARY / TREASURER / CHAIRMAN",
+    ]:
+        assert expected in text, expected
+    # the standard layout's own furniture is not there
+    assert "Current Bill Amount" not in text and "Computer Generated" not in text
+
+
+def test_classic_layout_prints_the_previous_bills_receipt_slip(client, db):
+    society, flat1, manager, first, cycle_id = _classic(client, db, "pdfl2")
+    db.add(PaymentReceipt(society_id=society.id, bill_id=first.id, flat_id=flat1.id, receipt_number="10905",
+                          payment_date=date(2026, 9, 28), amount=Decimal("2000.00"),
+                          payment_mode=PaymentMode.CHEQUE, cheque_number="130364410038", bank_name="HDFC BANK"))
+    first.paid_amount = Decimal("2000.00")
+    first.outstanding = first.total_amount - first.paid_amount
+    db.commit()
+    second_cycle = _cycle(client, manager["headers"], society.id, name="Nov 2026").json()["id"]
+    assert client.post(f"/api/v1/billing/cycles/{second_cycle}/generate-bills", headers=manager["headers"]).status_code == 200
+    second = db.query(MaintenanceBill).filter_by(cycle_id=UUID(second_cycle), flat_id=flat1.id).one()
+    _, text = _bill_pdf(db, second.id)
+    for expected in [
+        "RECEIPT for Previous Bill", "Receipt No.: 10905", "Date : 28/09/2026",
+        "Received with thanks from Asha Rao", "Tower A 101",
+        "Rs. Two Thousand only.", "Rs. 2,000.00",
+        "Vide Cheque 130364410038 HDFC BANK", "Subject to realisation of cheque",
+        f"Towards Bill No. {first.invoice_number} Dated : {first.bill_date:%d-%b-%Y}",
+        "For MB SOCIETY PDFL2",
+    ]:
+        assert expected in text, expected
+    # the flat's first bill has nothing to receipt
+    _, first_text = _bill_pdf(db, first.id)
+    assert "RECEIPT for Previous Bill" not in first_text
+
+
+def test_classic_layout_puts_each_owner_on_a_line_and_in_the_box(client, db):
+    society, flat1, manager, bill, cycle_id = _classic(client, db, "pdfl3")
+    bill.resident.full_name = "Mukesh B. Ashar & Meena M. Ashar"
+    db.commit()
+    db.expire_all()
+    _, text = _bill_pdf(db, bill.id)
+    assert "Name : Mukesh B. Ashar Meena M. Ashar FLAT NO" in text
+
+
+def test_classic_layout_in_the_bulk_print(client, db):
+    from app.modules.billing.services.bill_pdf import generate_bills_pdf
+    society, flat1, manager, bill, cycle_id = _classic(client, db, "pdfl4")
+    svc = BillingService(db)
+    bills = svc.list_cycle_bills(UUID(cycle_id))
+    settings = svc.get_maintenance_settings(society.id)
+    pdf = generate_bills_pdf([{"bill": b, "settings": settings, **svc._bill_print_context(b)} for b in bills],
+                             title="t", author="a", compress=False)
+    text = " ".join(_text(pdf).replace("|", " ").split())
+    assert text.count("P a r t i c u l a r s") == len(bills) >= 2
