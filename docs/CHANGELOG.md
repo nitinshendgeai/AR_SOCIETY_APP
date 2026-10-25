@@ -4,6 +4,28 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-25 (vendor master import and TDS review)
+
+### feat: import the vendor master, and fix every vendor's TDS by type
+
+The vendor master already held each vendor's type (individual, firm, company...), PAN and usual TDS section, which decide
+the rate deducted when the vendor is paid. Two things were missing:
+
+- **Import** (`POST /vendors/import/{society_id}`, template at `/vendors/import-template`; Vendors & Work > upload icon): an
+  Excel/CSV vendor list, previewed before anything is saved. Only name and mobile are needed. The type comes from the Type
+  column, else the PAN's 4th letter, else a "Pvt Ltd" / "LLP" name; the section from the TDS Section column, else the
+  category's usual one. A type that disagrees with the PAN is refused. Vendors already there (same name or GSTIN) are skipped,
+  so a file can be imported twice. Each row says what was worked out.
+- **TDS review** (`GET /vendors/society/{id}/tds-review`, `POST .../tds-review/apply`; Vendors & Work > checklist icon): lists
+  vendors with no type, a type that disagrees with the PAN, no section where the category has a usual one, or no PAN (20%
+  rate), with the fix that can be worked out; the committee applies it to one vendor or all at once, or sets type and
+  section by hand. Managers can view it.
+- **TDS rates checked against the FY 2026-27 chart** (section 393 of the Income-tax Act, 2025, in force from 1 April 2026):
+  every starting rate and limit already matched, so none changed. Section labels now name both the 194x section and Sec 393(1),
+  and 194C mentions manpower. Section 206AB (higher rate for non-filers) was omitted from 1 April 2025 and is deliberately not
+  applied. Insurance commission, goods purchase, e-commerce and property transfer are not vendor-bill payments for a society and
+  were left out. `docs/TDS_RATES.md` has the table and these decisions; a test holds the defaults to the chart.
+
 ## 2026-10-25 (amenity deposit and parking fine screens)
 
 ### feat: screens for amenity deposits and parking fines

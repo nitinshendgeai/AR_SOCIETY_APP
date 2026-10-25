@@ -294,3 +294,29 @@ def test_residents_cannot_use_the_tds_endpoints(client, db, rig):
     db.commit()
     assert client.get(f"{V}/tds/options", headers=res["headers"]).status_code == 403
     assert client.get(f"{V}/tds/register/{rig['sid']}", headers=res["headers"]).status_code == 403
+
+
+# ── The starting rates, held to the FY 2026-27 chart (section 393 of the Income-tax Act, 2025) ─────────────────
+
+def test_default_rules_match_the_fy_2026_27_chart():
+    """section, payee class -> (rate %, yearly limit, single-payment limit). If the law changes, change the chart and
+    docs/TDS_RATES.md with the rules."""
+    from app.modules.vendor.services.vendor_tds import DEFAULT_RULES
+    chart = {
+        ("194C", "individual_huf"): ("1", "100000", "30000"),
+        ("194C", "other"): ("2", "100000", "30000"),
+        ("194J_PROF", "any"): ("10", "50000", None),
+        ("194J_TECH", "any"): ("2", "50000", None),
+        ("194I_PM", "any"): ("2", "600000", None),
+        ("194I_LB", "any"): ("10", "600000", None),
+        ("194H", "any"): ("2", "20000", None),
+    }
+    assert {(s, k): (r, y, one) for s, k, r, y, one, _ in DEFAULT_RULES} == chart
+
+
+def test_a_vendors_filing_status_never_changes_the_rate():
+    """Section 206AB was omitted from 1 April 2025, so nothing in the TDS code should ask whether the vendor files returns."""
+    import inspect
+    from app.modules.vendor.services import vendor_tds
+    code = inspect.getsource(vendor_tds.compute_payment_tds).lower()
+    assert "itr" not in code and "non_filer" not in code and "206ab" not in code

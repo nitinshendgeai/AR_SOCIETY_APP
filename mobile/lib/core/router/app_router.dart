@@ -67,6 +67,8 @@ import 'package:ar_society_app/features/billing/presentation/screens/bank_reconc
 import 'package:ar_society_app/features/accounts/presentation/screens/bank_reconciliation_statement_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/vendor_bills_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/pay_vendor_bills_screen.dart';
+import 'package:ar_society_app/features/vendor/presentation/screens/vendor_tds_review_screen.dart';
+import 'package:ar_society_app/features/vendor/presentation/screens/vendors_import_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/vendors_work_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/work_order_detail_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/contract_detail_screen.dart';
@@ -183,6 +185,8 @@ class AppRoutes {
   static const vendorBills        = '/vendors/bills';
   static const payVendorBills     = '/vendors/bills/pay';
   static const vendorsWork        = '/vendors/work';
+  static const vendorsImport      = '/vendors/import';
+  static const vendorTdsReview    = '/vendors/tds-review';
   static const platformHome       = '/platform';
   static const platformSociety    = '/platform/societies/:id';
   static const stores             = '/stores';
@@ -836,6 +840,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             (AppRoutes.assetsImport, (_) => const AssetsImportScreen()),
             (AppRoutes.assetDetail, (s) => AssetDetailScreen(key: ValueKey(s.pathParameters['id']), assetId: s.pathParameters['id']!)),
             (AppRoutes.vendorsWork, (_) => const VendorsWorkScreen()),
+            (AppRoutes.vendorsImport, (_) => const VendorsImportScreen()),
+            (AppRoutes.vendorTdsReview, (_) => const VendorTdsReviewScreen()),
             (AppRoutes.workOrderDetail, (s) => WorkOrderDetailScreen(workOrderId: s.pathParameters['id']!)),
             (AppRoutes.contractDetail, (s) => ContractDetailScreen(contractId: s.pathParameters['id']!)),
           ])
