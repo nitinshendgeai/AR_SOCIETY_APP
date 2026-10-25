@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.core.dependencies import (
     get_current_user, require_roles,
-    require_admin_committee, require_security, require_any_member,
+    require_admin_committee, require_security, require_any_member, require_manager_above,
 )
 from app.core.tenant_scope import assert_society_access
 from app.models.user import User
@@ -15,7 +15,7 @@ from app.modules.parking.schemas.parking import (
     SlotCreate, SlotUpdate, SlotOut,
     AllocationCreate, AllocationOut,
     VisitorParkingCreate, VisitorParkingOut,
-    ViolationCreate, ViolationOut,
+    ViolationCreate, ViolationOut, ViolationFine, ViolationWaive,
     AccessLogCreate, AccessLogOut, GateVehicleLookupOut, VehicleParkingOut,
 )
 from app.modules.parking.models.parking import SlotType
@@ -129,6 +129,18 @@ def active_visitor_parking(society_id: UUID, db: Session = Depends(get_db), user
 def report_violation(data: ViolationCreate, request: Request, db: Session = Depends(get_db),
                      user: User = Depends(security_above)):
     return ParkingService(db).report_violation(data, user, request)
+
+@router.post("/violations/{violation_id}/fine", response_model=ViolationOut, dependencies=[Depends(require_manager_above)])
+def bill_violation_fine(violation_id: UUID, data: ViolationFine, request: Request, db: Session = Depends(get_db),
+                        user: User = Depends(get_current_user)):
+    """Charge the fine to a flat: it goes on the flat's next maintenance bill."""
+    return ParkingService(db).bill_fine(violation_id, data, user, request)
+
+@router.post("/violations/{violation_id}/waive-fine", response_model=ViolationOut,
+             dependencies=[Depends(require_manager_above)])
+def waive_violation_fine(violation_id: UUID, data: ViolationWaive, request: Request, db: Session = Depends(get_db),
+                         user: User = Depends(get_current_user)):
+    return ParkingService(db).waive_fine(violation_id, data, user, request)
 
 @router.post("/violations/{violation_id}/resolve", response_model=ViolationOut)
 def resolve_violation(violation_id: UUID, db: Session = Depends(get_db),

@@ -175,6 +175,18 @@ class AccountsService:
         ).order_by(Account.created_at).first()
         return bank or self.system_account(society_id, "bank")
 
+    def resolve_cash_bank(self, society_id: UUID, is_cash: bool, account_id: Optional[UUID] = None) -> Account:
+        """The ledger money goes into or comes out of: the one chosen — which must be a cash ledger for cash and a bank
+        ledger for anything else — else cash in hand, or the default bank."""
+        if account_id is None:
+            return self.system_account(society_id, "cash") if is_cash else self.default_bank(society_id)
+        account = self.db.query(Account).filter(Account.id == account_id).first()
+        if not account or account.society_id != society_id or not account.is_active or not account.is_cash_or_bank:
+            raise HTTPException(422, "Choose a cash or bank ledger of this society")
+        if is_cash != bool(account.is_cash):
+            raise HTTPException(422, "Cash goes through a cash ledger, and any other payment through a bank ledger")
+        return account
+
     def list_groups(self, society_id: UUID) -> List[AccountGroup]:
         self.ensure_chart(society_id)
         return self.db.query(AccountGroup).filter(

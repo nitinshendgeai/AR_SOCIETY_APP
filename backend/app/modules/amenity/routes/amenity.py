@@ -14,7 +14,7 @@ from app.modules.amenity.schemas.amenity import (
     RuleCreate, RuleOut, PricingCreate, PricingOut,
     BlackoutCreate, BlackoutOut, SlotCreate, SlotOut,
     BookingCreate, BookingApproveRequest,
-    BookingRejectRequest, BookingCancelRequest, UsageLogCreate,
+    BookingRejectRequest, BookingCancelRequest, UsageLogCreate, DepositReceive, DepositRefund,
 )
 from app.modules.amenity.services.amenity_service import AmenityService
 
@@ -51,6 +51,20 @@ def my_bookings(skip: int = 0, limit: int = 50,
                 db: Session = Depends(get_db),
                 user: User = Depends(any_member)):
     return AmenityService(db).my_bookings(user, skip, limit)
+
+
+@router.post("/bookings/{booking_id}/deposit", dependencies=[Depends(booking_manager)])
+def receive_deposit(booking_id: UUID, data: DepositReceive, request: Request, db: Session = Depends(get_db),
+                    user: User = Depends(get_current_user)):
+    """The booking's refundable deposit has been taken (cash, or into a bank account): booked as a liability."""
+    return AmenityService(db).receive_deposit(booking_id, data, user, request)
+
+
+@router.post("/bookings/{booking_id}/deposit/refund", dependencies=[Depends(booking_manager)])
+def refund_deposit(booking_id: UUID, data: DepositRefund, request: Request, db: Session = Depends(get_db),
+                   user: User = Depends(get_current_user)):
+    """Give the deposit back, keeping part of it (damage, a late cancellation) as income if there is a reason."""
+    return AmenityService(db).refund_deposit(booking_id, data, user, request)
 
 
 @router.get("/bookings/society/{society_id}/pending",

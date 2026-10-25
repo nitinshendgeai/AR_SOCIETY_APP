@@ -36,6 +36,7 @@ from app.modules.accounts.models.accounts import Account, Voucher
 from app.modules.accounts.services.accounts_service import (
     ZERO, AccountsService, Line, fiscal_year, live_posting, money,
 )
+from app.modules.vendor.services.work_orders import inr
 from app.modules.accounts.services.chart_of_accounts import VENDOR_CATEGORY_LEDGER, bill_line_ledger_key
 from app.modules.billing.models.billing import (
     BillStatus, MaintenanceBill, MaintenanceChargeConfig, MaintenanceElement, OnlinePaymentSubmission,
@@ -264,6 +265,47 @@ class AccountPostings:
                                 f"Payment {sub.receipt_number} rejected: {sub.review_notes or ''}".strip(), user)
         else:
             self.post_online_payment(sub, user)
+
+    # ── Amenity deposits ──────────────────────────────────────────────────────
+
+    def post_amenity_deposit(self, booking, cash_bank: Account, paid_on: date, reference: Optional[str],
+                             user: Optional[User]) -> Voucher:
+        """The refundable deposit taken for a booking: Dr cash / bank, Cr Amenity Deposits Held. It is a liability — the
+        society owes it back — not income."""
+        if self.active_voucher("amenity_deposit", booking.id):
+            raise ValueError("The deposit for this booking is already in the books")
+        sid, amount = booking.society_id, money(booking.deposit_amount)
+        if amount <= 0:
+            raise ValueError("This booking has no deposit")
+        held = self.accounts.system_account(sid, "amenity_deposits")
+        what = f"{booking.amenity.name if booking.amenity else 'Amenity'} on {booking.booking_date:%d %b %Y}"
+        return self._post(
+            sid, "receipt", paid_on, [Line(cash_bank, debit=amount), Line(held, credit=amount)],
+            narration=f"Deposit received for {what}", reference=reference,
+            source_type="amenity_deposit", source_id=booking.id, user=user)
+
+    def post_amenity_deposit_refund(self, booking, retained, cash_bank: Account, paid_on: date,
+                                    reference: Optional[str], user: Optional[User]) -> Voucher:
+        """The deposit given back: Dr Amenity Deposits Held for the whole deposit, Cr cash / bank for what goes back and
+        Cr Amenities Income for what is kept (damage, a late cancellation). All kept makes it a journal."""
+        if not self.active_voucher("amenity_deposit", booking.id):
+            raise ValueError("The deposit for this booking is not in the books")
+        if self.active_voucher("amenity_deposit_refund", booking.id):
+            raise ValueError("The deposit for this booking has already been settled")
+        sid, deposit, kept = booking.society_id, money(booking.deposit_amount), money(retained)
+        if kept < 0 or kept > deposit:
+            raise ValueError("The amount kept must be between nothing and the deposit")
+        held = self.accounts.system_account(sid, "amenity_deposits")
+        lines = [Line(held, debit=deposit)]
+        if deposit - kept > 0:
+            lines.append(Line(cash_bank, credit=deposit - kept))
+        if kept > 0:
+            lines.append(Line(self.accounts.system_account(sid, "amenities_income"), credit=kept))
+        what = f"{booking.amenity.name if booking.amenity else 'Amenity'} on {booking.booking_date:%d %b %Y}"
+        narration = f"Deposit for {what} " + (f"refunded, {inr(kept)} kept" if kept > 0 else "refunded")
+        return self._post(
+            sid, "payment" if deposit - kept > 0 else "journal", paid_on, lines, narration=narration,
+            reference=reference, source_type="amenity_deposit_refund", source_id=booking.id, user=user)
 
     # ── Vendor bills ──────────────────────────────────────────────────────────
 

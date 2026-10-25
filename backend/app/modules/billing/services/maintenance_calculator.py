@@ -495,7 +495,7 @@ class MaintenanceCalculator:
                 if self._applies(fc, cycle):
                     is_fine = fc.kind == FlatChargeKind.FINE
                     draft.lines.append(LineDraft(
-                        charge_type=ChargeType.PENALTY if is_fine else ChargeType.OTHER,
+                        charge_type=ChargeType.PENALTY if is_fine else (fc.charge_type or ChargeType.OTHER),
                         description=f"Fine — {fc.title}" if is_fine else fc.title,
                         amount=money(fc.amount), gst_applicable=bool(fc.gst_applicable) and not is_fine,
                         flat_charge_id=fc.id,

@@ -1130,6 +1130,7 @@ def _flat_charge_out(c) -> dict:
         "recurring": c.recurring, "end_date": c.end_date.isoformat() if c.end_date else None,
         "status": c.status.value, "bill_id": str(c.bill_id) if c.bill_id else None,
         "invoice_number": c.invoice_number, "cancel_reason": c.cancel_reason,
+        "charge_type": c.charge_type.value if c.charge_type else None, "source_type": c.source_type,
         "created_at": c.created_at.isoformat() if c.created_at else None,
     }
 

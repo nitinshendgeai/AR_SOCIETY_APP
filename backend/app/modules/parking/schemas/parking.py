@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from uuid import UUID
 from datetime import date, datetime
@@ -110,6 +110,19 @@ class ViolationOut(TimestampSchema):
     society_id: UUID; slot_id: Optional[UUID]; vehicle_number: str
     violation_type: ViolationType; description: Optional[str]
     is_resolved: bool; resolved_at: Optional[datetime]; fine_amount: Optional[int]
+    # Where the fine stands on the flat's maintenance bills: None (not charged), waiting, billed or cancelled
+    fine_status: Optional[str] = None
+
+
+class ViolationFine(OrmBase):
+    """Charge a violation's fine to a flat. The flat defaults to the registered vehicle's; the amount to the fine
+    recorded with the violation."""
+    flat_id: Optional[UUID] = None
+    amount: Optional[int] = Field(default=None, gt=0, le=1_000_000)
+
+
+class ViolationWaive(OrmBase):
+    reason: str = Field(min_length=3, max_length=500)
 
 
 class AccessLogCreate(OrmBase):

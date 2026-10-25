@@ -4,6 +4,19 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-25 (amenity and parking income)
+
+### feat: amenity bookings and parking fines now reach the books
+
+- An approved amenity booking with a charge, and any extra/damage charge entered at completion, becomes a flat charge on the
+  flat's next maintenance bill (Amenities income, owed through Members' Dues). Cancelling withdraws it unless already billed.
+- Refundable deposits: `POST /amenities/bookings/{id}/deposit` records receipt (Dr cash/bank, Cr Amenity Deposits Held, a new
+  liability ledger 1406); `/deposit/refund` returns it, keeping part (with a reason) as Amenities income.
+- Parking violation fines are charged to the registered flat as a fine (Fines & Penalties) on its next bill. A manager's
+  report charges at once; a guard's waits for `POST /parking/violations/{id}/fine`; `/waive-fine` withdraws it before billing.
+- Monthly parking rent was already billed through PARKING-basis charge heads. Migration `a9c3e5f7b1d2` adds source links to
+  flat charges.
+
 ## 2026-10-25
 
 ### fix: a Receipt voucher can no longer settle a flat's dues behind Billing's back

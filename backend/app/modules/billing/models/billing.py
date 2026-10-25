@@ -512,6 +512,12 @@ class FlatCharge(Base, TimestampMixin):
                             default=FlatChargeStatus.ACTIVE, nullable=False, index=True)
     cancelled_at   = Column(DateTime, nullable=True)
     cancel_reason  = Column(Text, nullable=True)
+    # The income head an additional charge is booked to on the bill (amenities, parking...); unset: Other Charges
+    # Recovered. A fine always goes to Fines & Penalties.
+    charge_type    = Column(Enum(ChargeType, values_callable=lambda e: [x.value for x in e]), nullable=True)
+    # What raised it (an amenity booking, a parking violation), so it can be found, and withdrawn while unbilled.
+    source_type    = Column(String(40), nullable=True, index=True)
+    source_id      = Column(UUID(as_uuid=True), nullable=True, index=True)
 
     society = relationship("Society")
     flat    = relationship("Flat")
