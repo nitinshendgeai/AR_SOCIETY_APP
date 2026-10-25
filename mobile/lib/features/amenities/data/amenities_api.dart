@@ -206,6 +206,12 @@ class BookingItem {
   final String? cancellationReason;
   final double? charge;
   final double? deposit;
+  final bool depositPaid;
+  final bool depositRefunded;
+
+  /// Where the booking's charge stands on the flat's maintenance bills: 'active' (waiting for the next bill),
+  /// 'billed', 'cancelled', or null when there is no charge.
+  final String? chargeBillStatus;
 
   const BookingItem({
     required this.id,
@@ -224,6 +230,9 @@ class BookingItem {
     this.cancellationReason,
     this.charge,
     this.deposit,
+    this.depositPaid = false,
+    this.depositRefunded = false,
+    this.chargeBillStatus,
   });
 
   factory BookingItem.fromJson(Map<String, dynamic> j) => BookingItem(
@@ -243,7 +252,33 @@ class BookingItem {
         cancellationReason: j['cancellation_reason'] as String?,
         charge: _num(j['charge_amount']),
         deposit: _num(j['deposit_amount']),
+        depositPaid: j['deposit_paid'] as bool? ?? false,
+        depositRefunded: j['deposit_refunded'] as bool? ?? false,
+        chargeBillStatus: j['charge_bill_status'] as String?,
       );
+
+  bool get hasDeposit => (deposit ?? 0) > 0;
+
+  /// The deposit can be taken once the booking is confirmed.
+  bool get canReceiveDeposit => hasDeposit && !depositPaid && (status == 'approved' || status == 'completed');
+
+  /// It is given back once the booking is over (or cancelled).
+  bool get canRefundDeposit => depositPaid && !depositRefunded && (status == 'completed' || status == 'cancelled');
+
+  String? get depositText => !hasDeposit
+      ? null
+      : depositRefunded
+          ? 'settled'
+          : depositPaid
+              ? 'held'
+              : 'not received';
+
+  String? get chargeText => switch (chargeBillStatus) {
+        'active' => 'on the next maintenance bill',
+        'billed' => 'billed to the flat',
+        'cancelled' => 'withdrawn',
+        _ => null,
+      };
 
   String get when => '${dayLabel(date)}, ${timeLabel(start)} – ${timeLabel(end)}';
 
@@ -351,4 +386,31 @@ class AmenitiesApi {
   Future<BookingItem> complete(String id, {bool damage = false, String? notes}) async => BookingItem.fromJson(
       (await _dio.post('/amenities/bookings/$id/complete', data: {'damage_noted': damage, if (notes != null && notes.isNotEmpty) 'damage_notes': notes})).data
           as Map<String, dynamic>);
+
+  /// Take the booking's refundable deposit. [bankAccountId] is the cash or bank ledger it goes into.
+  Future<BookingItem> receiveDeposit(String id,
+          {required String mode, String? bankAccountId, String? reference, DateTime? paidOn}) async =>
+      BookingItem.fromJson((await _dio.post('/amenities/bookings/$id/deposit', data: {
+        'payment_mode': mode,
+        if (bankAccountId != null) 'bank_account_id': bankAccountId,
+        if (reference != null && reference.isNotEmpty) 'reference': reference,
+        if (paidOn != null) 'paid_date': apiDate(paidOn),
+      })).data as Map<String, dynamic>);
+
+  /// Give the deposit back, keeping [retained] (with a [reason]) as income.
+  Future<BookingItem> refundDeposit(String id,
+          {required String mode,
+          String? bankAccountId,
+          String? reference,
+          double retained = 0,
+          String? reason,
+          DateTime? paidOn}) async =>
+      BookingItem.fromJson((await _dio.post('/amenities/bookings/$id/deposit/refund', data: {
+        'payment_mode': mode,
+        'retained_amount': retained.toStringAsFixed(2),
+        if (reason != null && reason.isNotEmpty) 'reason': reason,
+        if (bankAccountId != null) 'bank_account_id': bankAccountId,
+        if (reference != null && reference.isNotEmpty) 'reference': reference,
+        if (paidOn != null) 'paid_date': apiDate(paidOn),
+      })).data as Map<String, dynamic>);
 }

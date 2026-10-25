@@ -4,8 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/amenities/data/amenities_api.dart';
 import 'package:ar_society_app/features/amenities/presentation/providers/amenities_providers.dart';
+import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show LedgerAccount, formatInr;
+import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
+import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart' show LedgerChooser;
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
+import 'package:ar_society_app/features/vendor/domain/entities/vendor_entities.dart' show kVendorPaymentModes;
 import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
@@ -633,4 +637,150 @@ class _CompleteSheetState extends State<CompleteSheet> {
 bool canManageBookings(WidgetRef ref) {
   final u = ref.read(currentUserProvider);
   return u != null && (u.isAdminOrCommittee || u.isManager);
+}
+
+/// What the deposit sheet hands back: how it was paid, into / out of which cash or bank ledger, and — for a refund —
+/// what is kept.
+typedef DepositEntry = ({String mode, LedgerAccount ledger, String? reference, double retained, String? reason});
+
+/// Take a booking's refundable deposit ([refund] false) or give it back ([refund] true, optionally keeping part).
+/// Cash moves through a cash ledger, anything else through a bank ledger.
+class DepositSheet extends ConsumerStatefulWidget {
+  final BookingItem booking;
+  final bool refund;
+  const DepositSheet({super.key, required this.booking, this.refund = false});
+
+  @override
+  ConsumerState<DepositSheet> createState() => _DepositSheetState();
+}
+
+class _DepositSheetState extends ConsumerState<DepositSheet> {
+  final _form = GlobalKey<FormState>();
+  final _reference = TextEditingController();
+  final _kept = TextEditingController();
+  final _reason = TextEditingController();
+  String _mode = 'cash';
+  LedgerAccount? _ledger;
+
+  @override
+  void dispose() {
+    _reference.dispose();
+    _kept.dispose();
+    _reason.dispose();
+    super.dispose();
+  }
+
+  double get _deposit => widget.booking.deposit ?? 0;
+  double get _keep => double.tryParse(_kept.text.trim()) ?? 0;
+
+  List<LedgerAccount> _options(List<LedgerAccount> all) =>
+      all.where((l) => l.isActive && (_mode == 'cash' ? l.isCash : l.isBank)).toList();
+
+  LedgerAccount? _default(List<LedgerAccount> options) =>
+      options.where((l) => l.isDefaultBank).firstOrNull ?? options.firstOrNull;
+
+  void _chooseMode(String mode) => setState(() => _mode = mode);
+
+  @override
+  Widget build(BuildContext context) {
+    final societyId = ref.watch(currentUserProvider)?.societyId;
+    final all = societyId == null ? null : ref.watch(ledgersProvider(societyId)).valueOrNull;
+    final options = _options(all ?? const []);
+    // The ledger follows the mode until one is picked that suits it.
+    final ledger = _ledger != null && options.any((l) => l.id == _ledger!.id) ? _ledger : _default(options);
+    final refund = widget.refund;
+    final back = _deposit - _keep;
+    final moves = !refund || back > 0;
+    return BillingSheetFrame(
+      title: refund ? 'Give the deposit back' : 'Receive the deposit',
+      subtitle: '${widget.booking.amenityName} · ${formatInr(_deposit)} deposit',
+      child: Form(
+        key: _form,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          if (refund) ...[
+            FormFieldBox(
+              label: 'Amount kept (optional)',
+              child: TextFormField(
+                controller: _kept,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,9}(\.\d{0,2})?'))],
+                decoration: const InputDecoration(
+                    prefixText: '₹ ', helperText: 'Damage or a late cancellation; booked as income'),
+                onChanged: (_) => setState(() {}),
+                validator: (v) => _keep > _deposit ? 'More than the deposit' : null,
+              ),
+            ),
+            if (_keep > 0)
+              FormFieldBox(
+                label: 'Why part is kept',
+                required: true,
+                child: TextFormField(
+                  controller: _reason,
+                  minLines: 2,
+                  maxLines: 3,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(alignLabelWithHint: true),
+                  validator: (v) => _keep > 0 && (v ?? '').trim().isEmpty ? 'Say why' : null,
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                  back > 0
+                      ? 'Returned to the member: ${formatInr(back)}'
+                      : 'Nothing is returned; the whole deposit is kept',
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
+            ),
+          ],
+          if (moves) ...[
+            FormFieldBox(
+              label: refund ? 'Paid back by' : 'Received by',
+              child: DropdownButtonFormField<String>(
+                initialValue: _mode,
+                isExpanded: true,
+                items: [for (final m in kVendorPaymentModes) DropdownMenuItem(value: m.$1, child: Text(m.$2))],
+                onChanged: (v) => _chooseMode(v!),
+              ),
+            ),
+            LedgerChooser(
+              label: refund ? 'Paid from' : 'Received into',
+              value: ledger,
+              options: options,
+              sheetTitle: _mode == 'cash' ? 'Cash account' : 'Bank account',
+              helper: all != null && options.isEmpty
+                  ? (_mode == 'cash'
+                      ? 'No cash ledger yet — add one in the Chart of Accounts'
+                      : 'No bank ledger yet — add one in the Chart of Accounts')
+                  : null,
+              onChanged: (l) => setState(() => _ledger = l),
+            ),
+            FormFieldBox(
+              label: 'Cheque / UTR no. (optional)',
+              child: TextFormField(controller: _reference, inputFormatters: [LengthLimitingTextInputFormatter(100)]),
+            ),
+          ],
+          const SizedBox(height: 8),
+          FilledButton(
+            onPressed: () {
+              if (!_form.currentState!.validate()) return;
+              // A deposit kept in full moves no money, but the books still name a ledger for the voucher.
+              final l = ledger ?? (moves ? null : (all ?? const []).where((x) => x.isActive && x.isCashOrBank).firstOrNull);
+              if (l == null) {
+                AppToast.warning(context, _mode == 'cash' ? 'Choose the cash ledger' : 'Choose the bank account');
+                return;
+              }
+              Navigator.of(context).pop<DepositEntry>((
+                mode: _mode,
+                ledger: l,
+                reference: _trimmed(_reference),
+                retained: refund ? _keep : 0,
+                reason: refund ? _trimmed(_reason) : null,
+              ));
+            },
+            child: Text(refund ? 'Give back' : 'Receive deposit'),
+          ),
+        ]),
+      ),
+    );
+  }
 }
