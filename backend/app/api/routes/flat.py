@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
 
 from app.db.session import get_db
-from app.schemas.flat import FlatCreate, FlatUpdate, FlatOut
+from app.schemas.flat import (FlatCreate, FlatUpdate, FlatOut, PossessionImportRequest,
+                              PossessionImportResult)
+from app.services.flat_possession_import import import_possession_dates
 from app.services.flat_service import FlatService
 from app.core.dependencies import require_admin, require_committee, get_current_user
 from app.models.user import User
@@ -16,6 +18,14 @@ router = APIRouter(prefix="/flats", tags=["Flats"])
 def create_flat(data: FlatCreate, db: Session = Depends(get_db),
                  current_user: User = Depends(require_admin)):
     return FlatService(db).create(data, current_user)
+
+
+@router.post("/possession-import", response_model=List[PossessionImportResult])
+def import_possession(data: PossessionImportRequest, request: Request, db: Session = Depends(get_db),
+                      current_user: User = Depends(require_committee)):
+    """Set the possession date of many flats from a sheet: added where there is none, replaced where there is
+    one. `dry_run` checks every row and writes nothing."""
+    return import_possession_dates(db, data.society_id, data.rows, data.dry_run, current_user, request)
 
 
 @router.get("/", response_model=List[FlatOut])

@@ -9,6 +9,7 @@ import 'package:ar_society_app/features/manager_checklist/presentation/screens/m
 import 'package:ar_society_app/features/governance/presentation/screens/polls_screen.dart';
 import 'package:ar_society_app/features/shops/presentation/screens/shops_screen.dart';
 import 'package:ar_society_app/features/shops/presentation/screens/shops_import_screen.dart';
+import 'package:ar_society_app/features/society_structure/presentation/screens/flat_possession_import_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart';
@@ -239,6 +240,7 @@ class AppRoutes {
   static const flatsByWing        = '/wings/:wingId/flats';
   static const flatDetail         = '/flats/detail';
   static const flatForm           = '/flats/form';
+  static const flatPossessionImport = '/flats/possession-import';
   static const structureWizard    = '/structure-wizard';
   // Resident Master (Phase M1.4)
   static const residentsList      = '/residents';
@@ -683,6 +685,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: AppRoutes.parcels, builder: (_, __) => const ParcelsScreen()),
           GoRoute(path: AppRoutes.domesticHelp, builder: (_, __) => const DomesticHelpScreen()),
           GoRoute(path: AppRoutes.shopsImport, builder: (_, __) => const ShopsImportScreen()),
+          GoRoute(path: AppRoutes.flatPossessionImport, builder: (_, __) => const FlatPossessionImportScreen()),
           GoRoute(path: AppRoutes.stores, builder: (_, __) => const StoresScreen()),
           GoRoute(
             path: AppRoutes.storeItem,
