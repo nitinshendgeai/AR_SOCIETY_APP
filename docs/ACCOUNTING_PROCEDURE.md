@@ -69,6 +69,12 @@ the bank ledger with the day the bank cleared it leaves the **Bank Reconciliatio
     Less:  deposits not yet cleared
     Balance as per the bank statement
 
+**In the app:** *Accounts → Books → Bank Reconciliation* (Gateway of Accounts: **K**). Choose the bank account and the date.
+*Statement* shows the Bank Reconciliation Statement; tick the payments and deposits the bank's statement shows and
+*Mark cleared* with the day the bank cleared them. *Bank rows* imports the bank's CSV, lists its rows (credits and debits)
+for that account and matches each to a line of the books (*Match*), or *Auto-match* the unambiguous ones; a row that is not
+a transaction of the society is ignored with a reason. *Cleared* lists what is cleared, with *Undo*.
+
 - Reconcile each bank ledger separately; cash has no statement. Opening balances count as cleared.
 - Only approved, live vouchers appear: a payment waiting for approval, a rejected or a cancelled one is not on it.
 - **Clear a line** by hand (with the date on the bank statement), or **import the statement** (CSV with Date, Description,

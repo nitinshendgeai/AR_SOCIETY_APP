@@ -64,6 +64,7 @@ import 'package:ar_society_app/features/users/presentation/screens/forms_matrix_
 import 'package:ar_society_app/features/staff/presentation/screens/checklist_templates_screen.dart';
 import 'package:ar_society_app/features/billing/presentation/screens/online_payments_list_screen.dart';
 import 'package:ar_society_app/features/billing/presentation/screens/bank_reconciliation_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/bank_reconciliation_statement_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/vendor_bills_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/pay_vendor_bills_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/vendors_work_screen.dart';
@@ -205,6 +206,7 @@ class AppRoutes {
   static const accountsRecurring  = '/accounts/recurring';
   static const accountsMembers    = '/accounts/members';
   static const accountsCashBook   = '/accounts/registers/cash-bank';
+  static const accountsBankRecon  = '/accounts/bank-reconciliation';
   static const accountsInvoices   = '/accounts/registers/invoices';
   static const accountsBills      = '/accounts/registers/bills';
   static const accountsReceivable = '/accounts/outstanding/receivable';
@@ -864,6 +866,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             (AppRoutes.accountsRecurring, (_) => const RecurringExpensesScreen()),
             (AppRoutes.accountsMembers, (_) => const MembersLedgerScreen()),
             (AppRoutes.accountsCashBook, (_) => const CashBankBookScreen()),
+            (AppRoutes.accountsBankRecon, (_) => const BankReconciliationStatementScreen()),
             (AppRoutes.accountsInvoices, (_) => const InvoiceRegisterScreen()),
             (AppRoutes.accountsBills, (_) => const BillsRegisterScreen()),
             (AppRoutes.accountsReceivable, (_) => const OutstandingScreen(initialKind: 'receivable')),

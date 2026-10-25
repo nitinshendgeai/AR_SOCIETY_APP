@@ -45,6 +45,8 @@ class AccountsGatewayScreen extends ConsumerWidget {
             onOpen: () => go(AppRoutes.accountsDayBook)),
         GatewayItem(label: 'Cash & Bank Book', letter: 'B', icon: Icons.menu_book_rounded,
             onOpen: () => go(AppRoutes.accountsCashBook)),
+        GatewayItem(label: 'Bank Reconciliation', letter: 'K', icon: Icons.account_balance_rounded,
+            onOpen: () => go(AppRoutes.accountsBankRecon)),
         GatewayItem(label: 'Invoice Register', letter: 'I', icon: Icons.request_quote_rounded,
             onOpen: () => go(AppRoutes.accountsInvoices)),
         GatewayItem(label: 'Bills Register', letter: 'L', icon: Icons.inventory_2_rounded,
