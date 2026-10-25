@@ -1,5 +1,6 @@
 from typing import List, Optional
 from uuid import UUID
+from sqlalchemy import func
 from sqlalchemy.orm import Session, contains_eager
 from app.models.resident import Resident, ResidentType
 from app.models.tenant import Tenant
@@ -104,6 +105,22 @@ class ResidentRepository(BaseRepository[Resident]):
             Resident.flat_id == flat_id,
             Resident.is_primary == True,
             Resident.is_active == True,
+        )
+        if exclude_id is not None:
+            q = q.filter(Resident.id != exclude_id)
+        return self.db.query(q.exists()).scalar()
+
+    def has_active_duplicate(self, flat_id: UUID, full_name: str, resident_type: ResidentType,
+                             exclude_id: Optional[UUID] = None) -> bool:
+        """Is there already an active resident of this type on the flat with the
+        same name (ignoring case and surrounding/repeated spaces)? Stops a re-run
+        of a bulk import from creating every row a second time."""
+        norm = " ".join((full_name or "").lower().split())
+        q = self.db.query(Resident).filter(
+            Resident.flat_id == flat_id,
+            Resident.is_active == True,
+            Resident.resident_type == resident_type,
+            func.lower(func.trim(Resident.full_name)) == norm,
         )
         if exclude_id is not None:
             q = q.filter(Resident.id != exclude_id)

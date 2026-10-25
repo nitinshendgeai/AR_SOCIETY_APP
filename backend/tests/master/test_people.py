@@ -67,7 +67,7 @@ def test_blank_email_and_phone_are_stored_as_nothing(client, rig):
     r = _resident(client, rig, email="  ", phone=" ")
     assert r.status_code == 201, r.text
     assert r.json()["email"] is None and r.json()["phone"] is None
-    r = _resident(client, rig, email=" Asha@Example.COM ")
+    r = _resident(client, rig, full_name="Asha Rao Two", email=" Asha@Example.COM ")
     assert r.json()["email"] == "asha@example.com"
 
 
