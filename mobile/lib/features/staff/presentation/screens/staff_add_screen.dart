@@ -7,6 +7,8 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
+import 'package:ar_society_app/features/staff/presentation/widgets/reporting_manager_field.dart';
+import 'package:ar_society_app/features/staff/presentation/widgets/staff_login_dialog.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Form to create a new staff member.
@@ -94,13 +96,7 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
 
     final allShifts = shiftsAsync.valueOrNull ?? <ShiftEntity>[];
 
-    // Managers for reporting manager dropdown
     final allStaff = staffAsync is StaffListLoaded ? staffAsync.staff : <StaffEntity>[];
-    final managers = allStaff.where((s) =>
-      s.department == 'admin' ||
-      (s.designationName?.toLowerCase().contains('manager') ?? false) ||
-      (s.designationName?.toLowerCase().contains('supervisor') ?? false)
-    ).toList();
 
     ref.listen(staffFormProvider, (_, next) {
       if (next is StaffFormSuccess) {
@@ -109,6 +105,9 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
         final staff = next.staff;
         if (staff.tempPassword != null && staff.email != null) {
           _showCredentialsDialog(context, staff.fullName, staff.email!, staff.tempPassword!);
+        } else if (staff.loginMessage != null) {
+          showStaffLoginDialog(context, name: staff.fullName, message: staff.loginMessage!)
+              .then((_) { if (context.mounted) context.pop(); });
         } else {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(next.message),
@@ -137,7 +136,7 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
       children: [
         FormSection(
           title: 'Personal details',
-          description: 'An email creates a login for the person. Their temporary password is shown once, after you save.',
+          description: 'Everyone gets a login: their email if given, otherwise their mobile number. The temporary password is shown once, after you save.',
           children: [
             FormFieldBox(
               label: 'Full name',
@@ -233,20 +232,10 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
                 onChanged: (v) => setState(() => _selectedShiftId = v),
               ),
             ),
-            FormFieldBox(
-              label: 'Reporting manager',
-              child: DropdownButtonFormField<String>(
-                isExpanded: true,
-                value: _selectedReportingManagerId,
-                decoration: const InputDecoration(hintText: 'Select reporting manager'),
-                items: managers
-                    .map((s) => DropdownMenuItem(
-                          value: s.userId,
-                          child: Text('${s.fullName} (${s.departmentLabel})', overflow: TextOverflow.ellipsis),
-                        ))
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedReportingManagerId = v),
-              ),
+            ReportingManagerField(
+              allStaff: allStaff,
+              selectedUserId: _selectedReportingManagerId,
+              onChanged: (v) => setState(() => _selectedReportingManagerId = v),
             ),
           ],
         ),

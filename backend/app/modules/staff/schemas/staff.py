@@ -116,6 +116,7 @@ class StaffOut(TimestampSchema):
     reporting_manager_name: Optional[str] = None
     user_id:       Optional[UUID] = None
     temp_password: Optional[str] = None
+    login_message: Optional[str] = None   # set when a mobile-number login was just created
     address:       Optional[str] = None
     notes:         Optional[str] = None
     photo_url:     Optional[str] = None

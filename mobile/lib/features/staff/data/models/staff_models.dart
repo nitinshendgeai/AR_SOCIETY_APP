@@ -89,6 +89,7 @@ class StaffModel {
   final String? designationName;
   final String? reportingManagerName;
   final String? tempPassword;
+  final String? loginMessage;
   final String? address;
   final String? notes;
   final String? photoUrl;
@@ -112,6 +113,7 @@ class StaffModel {
     this.designationName,
     this.reportingManagerName,
     this.tempPassword,
+    this.loginMessage,
     this.address,
     this.notes,
     this.photoUrl,
@@ -136,6 +138,7 @@ class StaffModel {
         designationName: j['designation_name'] as String?,
         reportingManagerName: j['reporting_manager_name'] as String?,
         tempPassword: j['temp_password'] as String?,
+        loginMessage: j['login_message'] as String?,
         address: j['address'] as String?,
         notes: j['notes'] as String?,
         photoUrl: j['photo_url'] as String?,
@@ -153,6 +156,7 @@ class StaffModel {
         designationName: designationName,
         reportingManagerName: reportingManagerName,
         tempPassword: tempPassword,
+        loginMessage: loginMessage,
         address: address,
         notes: notes,
         photoUrl: photoUrl,

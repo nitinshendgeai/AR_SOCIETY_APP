@@ -100,6 +100,12 @@ def update_staff(staff_id: UUID, data: StaffUpdate, request: Request,
                  db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return StaffService(db).update_staff(staff_id, data, user, request)
 
+@router.post("/{staff_id}/login", response_model=StaffOut,
+             dependencies=[Depends(manager_or_above)])
+def create_staff_login(staff_id: UUID, request: Request, db: Session = Depends(get_db),
+                       user: User = Depends(get_current_user)):
+    return StaffService(db).create_staff_login(staff_id, user, request)
+
 @router.get("/{staff_id}", response_model=StaffOut)
 def get_staff(staff_id: UUID, db: Session = Depends(get_db),
               user: User = Depends(supervisor_above)):
