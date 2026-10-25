@@ -284,7 +284,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       const _ElementOption(_otherElement, 'Other — not billed through maintenance'),
     ];
 
-    return AppFormPage(
+    final switchHint = desktop ? ' Alt+P switches.' : '';
+    final page = AppFormPage(
       title: 'Add Expense',
       subtitle:
           'A petty-cash purchase or a monthly bill. It is posted to the books and counts towards its maintenance element.',
@@ -293,7 +294,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       saving: _saving,
       onSubmit: _saving ? null : () => _save(societyId, another: false),
       onSubmitAndNew: _saving ? null : () => _save(societyId, another: true),
-      footerNote: desktop ? const Text('Enter: next field · Ctrl+S: save · Ctrl+Enter: save and add another') : null,
+      footerNote: desktop
+          ? const Text('Enter: next field · Ctrl+S: save · Ctrl+Enter: save and add another · Alt+P: paid now / pay later')
+          : null,
       actions: [
         AppBarTextAction(
           onPressed: () => context.push(AppRoutes.accountsExpenses),
@@ -410,8 +413,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               child: FormFieldBox(
                 label: 'When is it paid?',
                 helper: _payLater
-                    ? 'Saved as the vendor\'s bill. Pay it later from Vendor Bills → Pay Vendor, where its TDS is worked out.'
-                    : 'Paid now: a petty purchase or bill paid on the spot, from cash or the bank.',
+                    ? 'Saved as the vendor\'s bill. Pay it later from Vendor Bills → Pay Vendor, where its TDS is worked out.$switchHint'
+                    : 'Paid now: a petty purchase or bill paid on the spot, from cash or the bank.$switchHint',
                 // Left out of the Tab / Enter order: the keyboard flow (element, head, amount, ...) is for an expense paid
                 // now and must not stop here; this is chosen with the mouse or a tap.
                 child: ExcludeFocus(
@@ -503,6 +506,12 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           ],
         ),
       ],
+    );
+    // Alt+P flips between Paid now and Pay later from any field: the choice itself is left out of the Tab / Enter order
+    // (see 'When is it paid?'), so the keyboard has its own key for it.
+    return CallbackShortcuts(
+      bindings: {const SingleActivator(LogicalKeyboardKey.keyP, alt: true): () => setState(() => _payLater = !_payLater)},
+      child: page,
     );
   }
 }

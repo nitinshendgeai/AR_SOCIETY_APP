@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -175,7 +176,47 @@ Future<void> _save(WidgetTester t, String label) async {
   await t.pumpAndSettle();
 }
 
+Future<void> _altP(WidgetTester t) async {
+  await t.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+  await t.sendKeyEvent(LogicalKeyboardKey.keyP);
+  await t.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+  await t.pumpAndSettle();
+}
+
 void main() {
+  testWidgets('Alt+P flips between Paid now and Pay later from the keyboard, even while typing', (t) async {
+    await _pump(t);
+    expect(find.text('Save expense'), findsOneWidget);
+
+    await _altP(t);
+    expect(find.text('Save bill'), findsOneWidget);
+    expect(find.text('Due date'), findsOneWidget);
+    expect(find.text('Paid from'), findsNothing);
+
+    // from inside a text field too, and back again
+    await t.tap(find.widgetWithText(TextField, '0.00'));
+    await t.pump();
+    await _altP(t);
+    expect(find.text('Save expense'), findsOneWidget);
+    expect(find.text('Paid from'), findsOneWidget);
+    expect(find.text('Due date'), findsNothing);
+  });
+
+  testWidgets('P alone, or Ctrl+P, does not switch; and what was typed is kept when switching', (t) async {
+    await _pump(t);
+    await t.enterText(find.widgetWithText(TextField, '0.00'), '4800');
+    await t.sendKeyEvent(LogicalKeyboardKey.keyP);
+    await t.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await t.sendKeyEvent(LogicalKeyboardKey.keyP);
+    await t.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await t.pumpAndSettle();
+    expect(find.text('Save expense'), findsOneWidget);
+
+    await _altP(t);
+    expect(find.text('Save bill'), findsOneWidget);
+    expect(find.text('4800'), findsOneWidget);
+  });
+
   testWidgets('Paid now is the default; Pay later swaps the payment details for the bill\'s', (t) async {
     await _pump(t);
     expect(find.text('Save expense'), findsOneWidget);
