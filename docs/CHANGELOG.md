@@ -4,6 +4,16 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-25 (amenity deposit and parking fine screens)
+
+### feat: screens for amenity deposits and parking fines
+
+- Bookings (All bookings / Requests): managers see whether the charge is on the next bill or billed, and the deposit's state;
+  **Receive deposit** (cash or bank ledger) once confirmed, **Give deposit back** once the booking is over or cancelled, with an
+  optional amount kept (reason required).
+- Parking Management has a **Violations** tab: report a violation (with an optional fine), **Charge fine to flat** (flat chosen
+  when the vehicle isn't registered; amount asked when none was recorded) and **Waive fine** until it is billed.
+
 ## 2026-10-25 (amenity and parking income)
 
 ### feat: amenity bookings and parking fines now reach the books

@@ -198,6 +198,20 @@ class _BookingCardState extends ConsumerState<BookingCard> {
     }
   }
 
+  Future<void> _deposit(BookingItem b, {required bool refund}) async {
+    final e =
+        await showAppSheet<DepositEntry>(context: context, builder: (_) => DepositSheet(booking: b, refund: refund));
+    if (e == null) return;
+    final api = ref.read(amenitiesApiProvider);
+    await _run(
+      () => refund
+          ? api.refundDeposit(b.id,
+              mode: e.mode, bankAccountId: e.ledger.id, reference: e.reference, retained: e.retained, reason: e.reason)
+          : api.receiveDeposit(b.id, mode: e.mode, bankAccountId: e.ledger.id, reference: e.reference),
+      refund ? 'Deposit settled' : 'Deposit received',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final b = widget.booking;
@@ -224,13 +238,35 @@ class _BookingCardState extends ConsumerState<BookingCard> {
           if (b.charge != null || b.deposit != null)
             Padding(
               padding: const EdgeInsets.only(top: 2),
-              child: Text([if (b.charge != null) 'Charge ${rupees(b.charge)}', if (b.deposit != null) 'Deposit ${rupees(b.deposit)}'].join(' · '),
+              child: Text(
+                  [
+                    if (b.charge != null) 'Charge ${rupees(b.charge)}${b.chargeText == null ? '' : ' (${b.chargeText})'}',
+                    if (b.deposit != null)
+                      'Deposit ${rupees(b.deposit)}${widget.manager && b.depositText != null ? ' (${b.depositText})' : ''}',
+                  ].join(' · '),
                   style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
             ),
           if (b.status == 'rejected' && (b.rejectionReason ?? '').isNotEmpty)
             Padding(padding: const EdgeInsets.only(top: 4), child: Text('Why: ${b.rejectionReason}', style: const TextStyle(color: AppTheme.error, fontSize: 12.5))),
           if (b.status == 'cancelled' && (b.cancellationReason ?? '').isNotEmpty)
             Padding(padding: const EdgeInsets.only(top: 4), child: Text('Reason: ${b.cancellationReason}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12.5))),
+          if (widget.manager && (b.canReceiveDeposit || b.canRefundDeposit)) ...[
+            const SizedBox(height: 10),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              if (b.canReceiveDeposit)
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : () => _deposit(b, refund: false),
+                  icon: const Icon(Icons.savings_outlined, size: 18),
+                  label: const Text('Receive deposit'),
+                ),
+              if (b.canRefundDeposit)
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : () => _deposit(b, refund: true),
+                  icon: const Icon(Icons.undo_rounded, size: 18),
+                  label: const Text('Give deposit back'),
+                ),
+            ]),
+          ],
           if (b.isLive) ...[
             const SizedBox(height: 10),
             Wrap(spacing: 8, runSpacing: 8, children: [
