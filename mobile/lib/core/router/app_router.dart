@@ -67,6 +67,8 @@ import 'package:ar_society_app/features/billing/presentation/screens/bank_reconc
 import 'package:ar_society_app/features/accounts/presentation/screens/bank_reconciliation_statement_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/vendor_bills_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/pay_vendor_bills_screen.dart';
+import 'package:ar_society_app/features/vendor/presentation/screens/tds_register_screen.dart';
+import 'package:ar_society_app/features/vendor/presentation/screens/tds_rules_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/vendor_master_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/vendor_tds_review_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/vendors_import_screen.dart';
@@ -189,6 +191,8 @@ class AppRoutes {
   static const vendorMaster       = '/vendors/master';
   static const vendorsImport      = '/vendors/import';
   static const vendorTdsReview    = '/vendors/tds-review';
+  static const vendorTdsRules     = '/vendors/tds-rules';
+  static const vendorTdsRegister  = '/vendors/tds-register';
   static const platformHome       = '/platform';
   static const platformSociety    = '/platform/societies/:id';
   static const stores             = '/stores';
@@ -845,6 +849,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             (AppRoutes.vendorMaster, (_) => const VendorMasterScreen()),
             (AppRoutes.vendorsImport, (_) => const VendorsImportScreen()),
             (AppRoutes.vendorTdsReview, (_) => const VendorTdsReviewScreen()),
+            (AppRoutes.vendorTdsRules, (_) => const TdsRulesScreen()),
+            (AppRoutes.vendorTdsRegister, (_) => const TdsRegisterScreen()),
             (AppRoutes.workOrderDetail, (s) => WorkOrderDetailScreen(workOrderId: s.pathParameters['id']!)),
             (AppRoutes.contractDetail, (s) => ContractDetailScreen(contractId: s.pathParameters['id']!)),
           ])

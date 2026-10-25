@@ -39,6 +39,8 @@ const _prefixToForm = <(String, String?)>[
   ('/vendors/master', 'vendor_master'),
   ('/vendors/import', 'vendor_master'),
   ('/vendors/tds-review', 'vendor_master'),
+  ('/vendors/tds-rules', 'vendor_master'),
+  ('/vendors/tds-register', 'vendor_master'),
   ('/vendors', 'vendors'),
   ('/accounts', 'accounts'),
   ('/assets', 'assets'),

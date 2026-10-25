@@ -48,6 +48,17 @@ class _VendorMasterScreenState extends ConsumerState<VendorMasterScreen> {
           ),
           if (isDesktopLayout(context)) HeaderActionButton(icon: Icons.add_rounded, label: 'Add Vendor', onPressed: add),
         ],
+        // Managers read the rates and the register too, so these are not committee-only.
+        PopupMenuButton<String>(
+          key: const Key('vendors-tds-more'),
+          tooltip: 'TDS rates and register',
+          icon: const Icon(Icons.percent_rounded),
+          onSelected: (route) => context.push(route),
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: AppRoutes.vendorTdsRules, child: Text('TDS rates & limits')),
+            PopupMenuItem(value: AppRoutes.vendorTdsRegister, child: Text('TDS register (deducted)')),
+          ],
+        ),
       ],
       floatingActionButton: committee && !isDesktopLayout(context)
           ? FloatingActionButton.extended(
