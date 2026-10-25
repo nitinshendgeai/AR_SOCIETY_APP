@@ -630,6 +630,8 @@ class _LineCard extends ConsumerWidget {
                   onChanged();
                 },
               ),
+              // preferNature is 'income' only on a Receipt: a resident's payment belongs in Online Payments.
+              if (preferNature == 'income') const _ResidentPaymentNote(),
             ],
           ]),
         ),
@@ -712,6 +714,37 @@ class _UnpaidBillsNote extends ConsumerWidget {
               ),
             ),
             TextButton(onPressed: () => openPayVendor(context, vendorId: vendorId), child: const Text('Pay bills')),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// On a Receipt line for Members' Dues: a resident's payment is recorded in Online Payments, which settles the flat's bills
+/// and issues the receipt. The server refuses a Receipt voucher here for a flat with unpaid bills.
+class _ResidentPaymentNote extends StatelessWidget {
+  const _ResidentPaymentNote();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: AppTheme.warningSoft, borderRadius: BorderRadius.circular(AppTheme.radiusS)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+          child: Row(children: [
+            const Icon(Icons.info_outline_rounded, size: 18, color: AppTheme.warning),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'A resident\'s payment is recorded in Online Payments, which marks the bills paid and issues the receipt. '
+                'Use a voucher here only for an advance from a flat with nothing unpaid.',
+                style: TextStyle(fontSize: 12.5, height: 1.4),
+              ),
+            ),
+            TextButton(onPressed: () => context.push(AppRoutes.onlinePayments), child: const Text('Open')),
           ]),
         ),
       ),

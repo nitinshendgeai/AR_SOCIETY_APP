@@ -51,7 +51,7 @@ The registers only read what is already posted; they change nothing.
 | A **petty purchase paid on the spot** | **Add Expense** (cash or bank) | Dr expense head, Cr cash / bank. No payable is created because nothing is owed afterwards. |
 | A bill was **entered wrongly** | **Cancel the bill** (admin / committee; only while nothing is paid on it, else reverse the payment first) | The bill's voucher is cancelled (or reversed in the open year if its year is closed); it leaves the payables. Enter the bill again correctly. |
 | Money **paid in advance** to a vendor with nothing outstanding | Payment voucher: Dr Sundry Creditors (choose the vendor), Cr bank | Shown as "Advances paid to vendors" on the Balance Sheet. A vendor who has unpaid bills cannot be paid by a loose voucher: pay the bills instead, so each is marked paid. |
-| A **resident pays** maintenance | **Billing → Record payment** (choose the bank ledger it was deposited into) | Dr bank / cash, Cr Members' Dues (that flat); set off against the oldest bills; any excess is the member's advance. |
+| A **resident pays** maintenance | **Online Payments → Record payment** (choose the bank ledger it was deposited into). A Receipt voucher on Members' Dues is refused for a flat with unpaid bills, since it would leave them unpaid; with none, it is an advance and may be entered | Dr bank / cash, Cr Members' Dues (that flat); set off against the oldest bills; any excess is the member's advance. |
 | **Other income** (hall rent, interest, scrap) | Receipt voucher | Dr bank / cash, Cr the income ledger. |
 | **TDS / GST deposited** with the government | Payment voucher | Dr TDS Payable / GST Payable, Cr bank. |
 

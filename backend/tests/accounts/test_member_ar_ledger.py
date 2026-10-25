@@ -2,6 +2,7 @@
 from datetime import date
 
 from app.modules.billing.models.billing import BillStatus, BillingCycle, MaintenanceBill, PaymentMode, PaymentReceipt
+from app.modules.accounts.services.accounts_service import AccountsService, Line
 from tests.billing.test_maintenance_billing import _rig
 from tests.conftest import make_user
 
@@ -12,6 +13,17 @@ def _ledgers(client, headers, sid):
     r = client.get(f"{API}/ledgers/{sid}", headers=headers)
     assert r.status_code == 200, r.text
     return {a["system_key"] or a["name"]: a for a in r.json()}
+
+
+def _posted_receipt(db, society, flat, amount, d):
+    """The receipt voucher Billing posts for a resident's payment. (A Receipt voucher entered by hand on Members' Dues is
+    refused for a flat with unpaid bills; these tests build a half-paid bill by hand and need its receipt in the books.)"""
+    svc = AccountsService(db)
+    svc.build_voucher(society.id, "receipt", date.fromisoformat(d), [
+        Line(svc.system_account(society.id, "bank"), debit=amount),
+        Line(svc.system_account(society.id, "members_dues"), credit=amount, flat_id=flat.id)],
+        narration="Received from the resident")
+    db.commit()
 
 
 def _voucher(client, headers, sid, entries, approver, d="2026-04-30", vtype="journal"):
@@ -67,10 +79,7 @@ def test_member_ar_reconciles_to_billing_outstanding(client, db):
         {"account_id": ledgers["members_dues"]["id"], "debit": "1000", "flat_id": str(flat.id)},
         {"account_id": ledgers["service_charges"]["id"], "credit": "1000"},
     ], approver)
-    _voucher(client, h, sid, [
-        {"account_id": ledgers["bank"]["id"], "debit": "400"},
-        {"account_id": ledgers["members_dues"]["id"], "credit": "400", "flat_id": str(flat.id)},
-    ], approver, vtype="receipt")
+    _posted_receipt(db, society, flat, 400, "2026-04-30")
 
     r = client.get(f"{API}/members/{sid}/ar-reconciliation", headers=h)
     assert r.status_code == 200, r.text
@@ -168,10 +177,7 @@ def test_member_ar_historical_snapshot_uses_dated_receipts(client, db):
         {"account_id": ledgers["members_dues"]["id"], "debit": "1000", "flat_id": str(flat.id)},
         {"account_id": ledgers["service_charges"]["id"], "credit": "1000"},
     ], approver, d="2026-06-01")
-    _voucher(client, h, sid, [
-        {"account_id": ledgers["bank"]["id"], "debit": "400"},
-        {"account_id": ledgers["members_dues"]["id"], "credit": "400", "flat_id": str(flat.id)},
-    ], approver, d="2026-06-20", vtype="receipt")
+    _posted_receipt(db, society, flat, 400, "2026-06-20")
     db.add(PaymentReceipt(
         society_id=society.id,
         bill_id=bill.id,
