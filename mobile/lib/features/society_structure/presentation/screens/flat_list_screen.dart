@@ -157,6 +157,9 @@ class _FlatListScreenState extends ConsumerState<FlatListScreen> {
     return AppPage(
       title: title,
       actions: [
+          AppBarTextAction(
+              icon: Icons.event_available_rounded, label: 'Possession dates',
+              onPressed: () => context.push(AppRoutes.flatPossessionImport)),
           if (desktop)
             HeaderActionButton(icon: Icons.add_rounded, label: 'Add Flat', onPressed: _addFlat),
         ],

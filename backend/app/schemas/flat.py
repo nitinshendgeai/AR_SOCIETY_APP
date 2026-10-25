@@ -98,3 +98,27 @@ class FlatOut(TimestampSchema):
     electric_consumer_no: Optional[str] = None
     wing_id:          UUID
     wing_name:        Optional[str] = None   # populated by service helper
+
+
+class PossessionImportRow(OrmBase):
+    """One line of the possession-date sheet. Everything arrives as text (or null); the wing is optional when
+    the flat number is only used once in the society."""
+    line:            Optional[int] = None
+    wing:            Optional[str] = None
+    flat_number:     Optional[str] = None
+    possession_date: Optional[str] = None          # ISO date; the app converts dd/mm/yyyy before sending
+
+
+class PossessionImportRequest(OrmBase):
+    society_id: Optional[UUID] = None
+    rows: list[PossessionImportRow] = Field(max_length=2000)
+    dry_run: bool = False
+
+
+class PossessionImportResult(OrmBase):
+    line: Optional[int] = None
+    wing: Optional[str] = None
+    flat_number: Optional[str] = None
+    status: str                                    # updated | unchanged | error
+    previous: Optional[date] = None                # the date it had before (updated)
+    message: Optional[str] = None
