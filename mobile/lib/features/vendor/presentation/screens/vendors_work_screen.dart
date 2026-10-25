@@ -65,7 +65,23 @@ class _VendorsWorkScreenState extends ConsumerState<VendorsWorkScreen> with Sing
     };
     return AppPage(
       title: 'Vendors & Work',
-      actions: [if (desktop && add != null) HeaderActionButton(icon: Icons.add_rounded, label: label!, onPressed: add)],
+      actions: [
+        if (committee) ...[
+          IconButton(
+            key: const Key('vendors-import'),
+            icon: const Icon(Icons.upload_file_rounded),
+            tooltip: 'Import vendors from Excel / CSV',
+            onPressed: () => context.push(AppRoutes.vendorsImport),
+          ),
+          IconButton(
+            key: const Key('vendors-tds-review'),
+            icon: const Icon(Icons.fact_check_outlined),
+            tooltip: 'TDS review',
+            onPressed: () => context.push(AppRoutes.vendorTdsReview),
+          ),
+        ],
+        if (desktop && add != null) HeaderActionButton(icon: Icons.add_rounded, label: label!, onPressed: add),
+      ],
       bottom: TabBar(
           controller: _tabs,
           isScrollable: !desktop,

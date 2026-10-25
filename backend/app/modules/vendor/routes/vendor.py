@@ -2,7 +2,7 @@ from typing import List, Literal, Optional
 from uuid import UUID
 from datetime import date
 from decimal import Decimal
-from fastapi import APIRouter, Depends, HTTPException, Request, Query, Response
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Query, Response, UploadFile
 from sqlalchemy.orm import Session
 import re
 from datetime import datetime
@@ -543,6 +543,68 @@ class ProcurementIn(OrmBase):
 def create_vendor(data: VendorCreate, request: Request, db: Session = Depends(get_db),
                   user: User = Depends(get_current_user)):
     return VendorService_(db).create_vendor(data.model_dump(), user, request)
+
+# ── Vendor master in bulk: import from a file, and review every vendor's TDS setup ───────────────────────────
+@router.get("/import-template", dependencies=[Depends(admin_committee)])
+def vendor_import_template():
+    """A CSV with every column the vendor import understands, and example rows."""
+    from app.modules.vendor.services.vendor_import import template_csv
+    return Response(content=template_csv().encode("utf-8-sig"), media_type="text/csv",
+                    headers={"Content-Disposition": 'attachment; filename="vendors_import_template.csv"'})
+
+
+@router.post("/import/{society_id}")
+async def import_vendors(society_id: UUID, request: Request, file: UploadFile = File(...),
+                         dry_run: bool = Form(True), mapping: Optional[str] = Form(None),
+                         db: Session = Depends(get_db), user: User = Depends(admin_committee)):
+    """Add vendors from an Excel (.xlsx) or CSV master. `dry_run=true` (the default) only checks the file and says
+    what would be imported; send `dry_run=false` to add them. Columns are matched by their headings; `mapping` is an
+    optional JSON object {heading: field or null}. Each vendor's TDS type and section are taken from the file, or
+    worked out from its PAN, name and category."""
+    import json
+    from app.modules.vendor.services import vendor_import, vendor_master
+    chosen = None
+    if mapping:
+        try:
+            chosen = json.loads(mapping)
+            assert isinstance(chosen, dict)
+        except Exception:
+            raise HTTPException(status_code=422, detail="mapping must be a JSON object of heading to field")
+    data = await file.read(vendor_import.MAX_BYTES + 1)
+    return vendor_master.import_vendors(db, society_id, data, file.filename or "", chosen, dry_run, user, request)
+
+
+@router.get("/society/{society_id}/tds-review")
+def vendor_tds_review(society_id: UUID, only_issues: bool = False, db: Session = Depends(get_db),
+                      user: User = Depends(manager_above)):
+    """Every vendor's TDS setup and what is wrong with it (no type, a type that disagrees with the PAN, no section,
+    no PAN), with the fix that can be worked out."""
+    from app.modules.vendor.services import vendor_master
+    assert_society_access(user, society_id)
+    return vendor_master.tds_review(db, society_id, only_issues)
+
+
+class TdsFixItem(OrmBase):
+    vendor_id: UUID
+    constitution: Optional[str] = None
+    tds_section: Optional[str] = None
+
+
+class TdsFixIn(OrmBase):
+    items: List[TdsFixItem] = []
+    use_suggestions: bool = False
+
+
+@router.post("/society/{society_id}/tds-review/apply")
+def vendor_tds_review_apply(society_id: UUID, data: TdsFixIn, request: Request, db: Session = Depends(get_db),
+                            user: User = Depends(admin_committee)):
+    """Set vendors' type and TDS section: the ones listed, and with `use_suggestions` every vendor whose fix can be
+    worked out from its PAN, name and category."""
+    from app.modules.vendor.services import vendor_master
+    assert_society_access(user, society_id)
+    return vendor_master.apply_tds_review(db, society_id, [i.model_dump() for i in data.items], data.use_suggestions,
+                                          user, request)
+
 
 # ── TDS: the vendor types and sections, the society's rules, and what has been deducted ──────────────────────
 @router.get("/tds/options", dependencies=[Depends(manager_above)])

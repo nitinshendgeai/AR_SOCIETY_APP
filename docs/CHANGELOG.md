@@ -4,6 +4,23 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-25 (vendor master import and TDS review)
+
+### feat: import the vendor master, and fix every vendor's TDS by type
+
+The vendor master already held each vendor's type (individual, firm, company...), PAN and usual TDS section, which decide
+the rate deducted when the vendor is paid. Two things were missing:
+
+- **Import** (`POST /vendors/import/{society_id}`, template at `/vendors/import-template`; Vendors & Work > upload icon): an
+  Excel/CSV vendor list, previewed before anything is saved. Only name and mobile are needed. The type comes from the Type
+  column, else the PAN's 4th letter, else a "Pvt Ltd" / "LLP" name; the section from the TDS Section column, else the
+  category's usual one. A type that disagrees with the PAN is refused. Vendors already there (same name or GSTIN) are skipped,
+  so a file can be imported twice. Each row says what was worked out.
+- **TDS review** (`GET /vendors/society/{id}/tds-review`, `POST .../tds-review/apply`; Vendors & Work > checklist icon): lists
+  vendors with no type, a type that disagrees with the PAN, no section where the category has a usual one, or no PAN (20%
+  rate), with the fix that can be worked out; the committee applies it to one vendor or all at once, or sets type and
+  section by hand. Managers can view it.
+
 ## 2026-10-25 (amenity deposit and parking fine screens)
 
 ### feat: screens for amenity deposits and parking fines
