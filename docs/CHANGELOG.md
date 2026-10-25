@@ -4,6 +4,14 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-25 (Alt+P on Add Expense)
+
+### feat: Alt+P switches Add Expense between Paid now and Pay later
+
+The Paid now / Pay later choice is deliberately outside the Tab / Enter order (the keyboard flow is for an expense paid now),
+so a keyboard user could not reach it. Alt+P now flips it from any field, keeping what has been typed; the footer and the
+field's help line name the key on desktop.
+
 ## 2026-10-25 (TDS rates and register screens)
 
 ### feat: TDS Rates & Limits and TDS Register screens
