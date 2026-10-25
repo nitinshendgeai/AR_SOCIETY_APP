@@ -231,6 +231,32 @@ def test_staff_reporting_hierarchy(client, db):
     assert guard_r.json()["reporting_manager_id"] == sup_user_id
 
 
+def test_reporting_loops_are_refused(client, db):
+    admin   = _admin(db, "12")
+    society = make_society(db, "Reporting Loop Society")
+    h = admin["headers"]
+
+    def mk(name, mobile, email, **extra):
+        r = _create_staff(client, h, society.id, name=name, dept="technical", mobile=mobile,
+                          email=email, extra=extra or None)
+        assert r.status_code == 201, r.text
+        return r.json()
+
+    a = mk("Loop A", "9300000001", "loopa@loop.test")
+    # Anyone with a login can be a reporting person, not only managers and supervisors.
+    b = mk("Loop B", "9300000002", "loopb@loop.test", reporting_manager_id=a["user_id"])
+    c = mk("Loop C", "9300000003", "loopc@loop.test", reporting_manager_id=b["user_id"])
+
+    def set_manager(staff, manager_user_id):
+        return client.patch(f"/api/v1/staff/{staff['id']}", json={"reporting_manager_id": manager_user_id}, headers=h)
+
+    assert set_manager(a, a["user_id"]).status_code == 422          # themselves
+    assert set_manager(a, b["user_id"]).status_code == 422          # A under B, who is under A
+    assert set_manager(a, c["user_id"]).status_code == 422          # through a longer chain
+    assert set_manager(c, a["user_id"]).status_code == 200          # a shorter, loop-free change
+    assert set_manager(a, None).status_code == 200                  # clearing is fine
+
+
 def test_department_filter(client, db):
     """GET /staff/society/{id}/department/{dept} returns only that dept."""
     admin   = _admin(db, "11")

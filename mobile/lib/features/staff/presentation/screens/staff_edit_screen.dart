@@ -8,6 +8,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
+import 'package:ar_society_app/features/staff/presentation/widgets/reporting_manager_field.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// Form to edit an existing staff member's record.
@@ -105,14 +106,6 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
     final allShifts = shiftsAsync.valueOrNull ?? <ShiftEntity>[];
 
     final allStaff = staffAsync is StaffListLoaded ? staffAsync.staff : <StaffEntity>[];
-    final managers = allStaff
-        .where((s) => s.id != widget.staff.id)
-        .where((s) =>
-          s.department == 'admin' ||
-          (s.designationName?.toLowerCase().contains('manager') ?? false) ||
-          (s.designationName?.toLowerCase().contains('supervisor') ?? false))
-        .toList();
-
     ref.listen(staffFormProvider, (_, next) {
       if (next is StaffFormSuccess) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -229,21 +222,11 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
                 onChanged: (v) => setState(() => _selectedStatus = v),
               ),
             ),
-            FormFieldBox(
-              label: 'Reporting manager',
-              child: DropdownButtonFormField<String>(
-                isExpanded: true,
-                value: managers.any((s) => s.userId == _selectedReportingManagerId) ? _selectedReportingManagerId : null,
-                decoration: const InputDecoration(hintText: 'Select reporting manager'),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('No reporting manager')),
-                  ...managers.map((s) => DropdownMenuItem(
-                        value: s.userId,
-                        child: Text('${s.fullName} (${s.departmentLabel})', overflow: TextOverflow.ellipsis),
-                      )),
-                ],
-                onChanged: (v) => setState(() => _selectedReportingManagerId = v),
-              ),
+            ReportingManagerField(
+              allStaff: allStaff,
+              selectedUserId: _selectedReportingManagerId,
+              excludeStaffId: widget.staff.id,
+              onChanged: (v) => setState(() => _selectedReportingManagerId = v),
             ),
             // Deactivate shortcut
             if (_selectedStatus != 'inactive' && _selectedStatus != 'terminated')

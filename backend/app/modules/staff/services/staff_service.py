@@ -149,6 +149,24 @@ class StaffService:
         self._in_society(User, reporting_manager_id, society_id, "Reporting manager")
         self._in_society(User, user_id, society_id, "Linked user")
 
+    def _assert_no_reporting_loop(self, manager_user_id: Optional[UUID], staff_user_id: Optional[UUID]) -> None:
+        """Nobody may report to themselves, directly or through the people under them.
+
+        The reporting person is a login (user id). Walk up from the proposed manager through
+        their own staff record's manager; reaching the staff member's own login is a loop.
+        A staff member with no login has nobody reporting to them, so no loop is possible."""
+        if manager_user_id is None or staff_user_id is None:
+            return
+        seen = set()
+        current = manager_user_id
+        while current is not None and current not in seen:
+            if current == staff_user_id:
+                raise HTTPException(status_code=422,
+                    detail="That would make a reporting loop: this person already sits above the chosen manager")
+            seen.add(current)
+            above = self.db.query(Staff.reporting_manager_id).filter(Staff.user_id == current).first()
+            current = above[0] if above else None
+
     def _assert_mobile_free(self, society_id: UUID, mobile: str, exclude_id: Optional[UUID] = None) -> None:
         q = self.db.query(Staff).filter(Staff.society_id == society_id, Staff.mobile == mobile,
                                         Staff.is_active == True)  # noqa: E712
@@ -256,6 +274,7 @@ class StaffService:
         data.society_id = society_id
         self._assert_staff_links(society_id, data.designation_id, data.shift_id,
                                  data.reporting_manager_id, data.user_id)
+        self._assert_no_reporting_loop(data.reporting_manager_id, data.user_id)
         self._assert_mobile_free(society_id, data.mobile)
         if data.email and not data.user_id and UserRepository(self.db).get_by_email(data.email, society_id=society_id):
             raise HTTPException(status_code=409,
@@ -315,6 +334,7 @@ class StaffService:
                  if getattr(data, k) is not None or k not in _NOT_CLEARABLE}
         self._assert_staff_links(staff.society_id, patch.get("designation_id"), patch.get("shift_id"),
                                  patch.get("reporting_manager_id"))
+        self._assert_no_reporting_loop(patch.get("reporting_manager_id"), staff.user_id)
         if patch.get("mobile"):
             self._assert_mobile_free(staff.society_id, patch["mobile"], exclude_id=staff.id)
         updated = self.repo.update(staff, patch)
