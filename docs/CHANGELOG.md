@@ -4,6 +4,16 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-25 (Vendor Master menu item)
+
+### feat: Vendor Master is its own menu item
+
+Operations > **Vendor Master** (`/vendors/master`, form code `vendor_master`, granted by default to Society Admin, the Committee
+roles and Manager, like Vendors & Work; migration `c4e6a8b0d2f4` adds it for existing societies). It lists the society's vendors
+with search (name, code, phone, GSTIN, PAN); the committee adds and edits vendors, imports a vendor list, and opens the TDS
+review from the same screen. The Import and TDS Review buttons moved here from Vendors & Work, and their pages are now gated by
+the new form code, so a role can be given the master without work orders, or the reverse, in the Forms Matrix.
+
 ## 2026-10-25 (vendor master import and TDS review)
 
 ### feat: import the vendor master, and fix every vendor's TDS by type

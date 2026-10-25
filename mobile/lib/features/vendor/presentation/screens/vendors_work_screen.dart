@@ -65,23 +65,7 @@ class _VendorsWorkScreenState extends ConsumerState<VendorsWorkScreen> with Sing
     };
     return AppPage(
       title: 'Vendors & Work',
-      actions: [
-        if (committee) ...[
-          IconButton(
-            key: const Key('vendors-import'),
-            icon: const Icon(Icons.upload_file_rounded),
-            tooltip: 'Import vendors from Excel / CSV',
-            onPressed: () => context.push(AppRoutes.vendorsImport),
-          ),
-          IconButton(
-            key: const Key('vendors-tds-review'),
-            icon: const Icon(Icons.fact_check_outlined),
-            tooltip: 'TDS review',
-            onPressed: () => context.push(AppRoutes.vendorTdsReview),
-          ),
-        ],
-        if (desktop && add != null) HeaderActionButton(icon: Icons.add_rounded, label: label!, onPressed: add),
-      ],
+      actions: [if (desktop && add != null) HeaderActionButton(icon: Icons.add_rounded, label: label!, onPressed: add)],
       bottom: TabBar(
           controller: _tabs,
           isScrollable: !desktop,
@@ -94,7 +78,7 @@ class _VendorsWorkScreenState extends ConsumerState<VendorsWorkScreen> with Sing
       body: TabBarView(controller: _tabs, children: [
         _WorkOrdersTab(societyId: societyId),
         _ContractsTab(societyId: societyId),
-        _VendorsTab(societyId: societyId, committee: committee),
+        VendorsTab(societyId: societyId, committee: committee),
         _LimitsTab(societyId: societyId, committee: committee),
       ]),
     );
@@ -546,10 +530,12 @@ class _ContractSheetState extends ConsumerState<_ContractSheet> {
 
 // ── Vendors ──────────────────────────────────────────────────────────────────
 
-class _VendorsTab extends ConsumerWidget {
+/// The society's vendors, as a list. [query] narrows it by name, code, phone, GSTIN or PAN.
+class VendorsTab extends ConsumerWidget {
   final String societyId;
   final bool committee;
-  const _VendorsTab({required this.societyId, required this.committee});
+  final String query;
+  const VendorsTab({super.key, required this.societyId, required this.committee, this.query = ''});
 
   Future<void> _blacklist(BuildContext context, WidgetRef ref, VendorRecord v) async {
     final reason = await askReason(context,
@@ -566,15 +552,24 @@ class _VendorsTab extends ConsumerWidget {
     }
   }
 
+  List<VendorRecord> _matching(List<VendorRecord> rows) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return rows;
+    return rows
+        .where((v) => [v.companyName, v.vendorCode, v.mobile, v.gstNumber, v.panNumber, v.contactPerson]
+            .any((f) => (f ?? '').toLowerCase().contains(q)))
+        .toList();
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) => _asyncList<VendorRecord>(
         ref,
-        ref.watch(vendorRecordsProvider(societyId)),
+        ref.watch(vendorRecordsProvider(societyId)).whenData((rows) => _matching(rows)),
         () => ref.invalidate(vendorRecordsProvider(societyId)),
         intro: 'The society\'s vendors and contractors. Keep GSTIN, PAN and bank details here — they print on '
             'work orders and are used for payments. A vendor whose phone or email is a committee member\'s can\'t '
             'be given work.',
-        empty: 'No vendors yet',
+        empty: query.trim().isEmpty ? 'No vendors yet' : 'No vendor matches "${query.trim()}"',
         item: (v) => Card(
           margin: const EdgeInsets.only(bottom: 8),
           child: ListTile(

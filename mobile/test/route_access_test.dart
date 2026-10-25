@@ -23,13 +23,13 @@ const _member = ['meetings', 'polls', 'documents', 'certificates', 'parcels', 'd
 const _adminCommittee = [
   'residents', 'tenants', 'shops', 'automation', 'society_settings', 'pending_resident_changes', 'parking_management',
   'setup_wizard', 'manager_checklist', 'checklist_templates', 'online_payments', 'bank_reconciliation', 'vendor_bills',
-  'vendors', 'maintenance_billing', 'maintenance_elements', 'accounts', 'defaulters', 'assets', 'inventory', 'staff',
+  'vendors', 'vendor_master', 'maintenance_billing', 'maintenance_elements', 'accounts', 'defaulters', 'assets', 'inventory', 'staff',
 ];
 final _admin = {..._member, ..._adminCommittee, 'users_roles', 'permission_matrix', 'forms_matrix'};
 final _committee = {..._member, ..._adminCommittee};
 final _manager = {
   ..._member, 'manager_checklist', 'staff', 'checklist_templates', 'online_payments', 'bank_reconciliation', 'vendor_bills',
-  'vendors', 'maintenance_billing', 'maintenance_elements', 'accounts', 'defaulters', 'assets', 'inventory',
+  'vendors', 'vendor_master', 'maintenance_billing', 'maintenance_elements', 'accounts', 'defaulters', 'assets', 'inventory',
 };
 final _resident = {..._member, 'edit_my_info', 'my_bills'};
 final _securityStaff = {..._member, 'staff'};
@@ -70,6 +70,9 @@ void main() {
       '/billing/defaulters': 'defaulters',
       '/billing/my-bills': null,                      // members' own bills
       '/vendors/bills': 'vendor_bills',
+      '/vendors/master': 'vendor_master',
+      '/vendors/import': 'vendor_master',        // the import and the TDS review are part of the Vendor Master
+      '/vendors/tds-review': 'vendor_master',
       '/vendors/work': 'vendors',
       '/vendors/work-orders/w1': 'vendors',
       '/accounts': 'accounts',

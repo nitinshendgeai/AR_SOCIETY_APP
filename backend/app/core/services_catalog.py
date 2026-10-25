@@ -32,7 +32,7 @@ SERVICES: Tuple[Service, ...] = (
     Service("parking", "Parking", "Slots, allotments, the gate vehicle check and parking charges", ("parking",), ("parking_management",)),
     Service("staff", "Staff & duty", "Staff, duty plans, attendance and shift handover", ("staff", "handovers", "payroll", "workload"),
             ("staff", "checklist_templates")),
-    Service("vendors", "Vendors & work orders", "Vendors, AMC, work orders and vendor bills", ("vendors",), ("vendors", "vendor_bills")),
+    Service("vendors", "Vendors & work orders", "Vendors, AMC, work orders and vendor bills", ("vendors",), ("vendors", "vendor_master", "vendor_bills")),
     Service("inventory", "Stores & assets", "Stock register and the assets register", ("inventory",), ("assets", "inventory")),
     Service("governance", "Meetings, polls & documents", "Meetings and minutes, polls and voting, the documents library",
             ("governance",), ("meetings", "polls", "documents")),

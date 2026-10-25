@@ -63,6 +63,7 @@ const Map<String, Map<String, String>> kTranslations = {
   },
   'Vendor Bills': {'hi': 'विक्रेता बिल', 'mr': 'विक्रेता बिले'},
   'Vendors & Work': {'hi': 'विक्रेता और कार्य', 'mr': 'विक्रेते आणि कामे'},
+  'Vendor Master': {'hi': 'विक्रेता मास्टर', 'mr': 'विक्रेता मास्टर'},
   'Visitors': {'hi': 'आगंतुक', 'mr': 'अभ्यागत'},
   'Wings': {'hi': 'विंग', 'mr': 'विंग'},
 

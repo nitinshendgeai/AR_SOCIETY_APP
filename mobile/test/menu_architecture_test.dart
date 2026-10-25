@@ -25,13 +25,13 @@ const _member = ['meetings', 'polls', 'documents', 'certificates', 'parcels', 'd
 const _adminCommittee = [
   'residents', 'tenants', 'shops', 'automation', 'society_settings', 'pending_resident_changes', 'parking_management',
   'setup_wizard', 'manager_checklist', 'checklist_templates', 'online_payments', 'bank_reconciliation', 'vendor_bills',
-  'vendors', 'maintenance_billing', 'maintenance_elements', 'accounts', 'defaulters', 'assets', 'inventory', 'staff',
+  'vendors', 'vendor_master', 'maintenance_billing', 'maintenance_elements', 'accounts', 'defaulters', 'assets', 'inventory', 'staff',
 ];
 final _admin = {..._member, ..._adminCommittee, 'users_roles', 'permission_matrix', 'forms_matrix'};
 final _committee = {..._member, ..._adminCommittee};
 final _manager = {
   ..._member, 'manager_checklist', 'staff', 'checklist_templates', 'online_payments', 'bank_reconciliation', 'vendor_bills',
-  'vendors', 'maintenance_billing', 'maintenance_elements', 'accounts', 'defaulters', 'assets', 'inventory',
+  'vendors', 'vendor_master', 'maintenance_billing', 'maintenance_elements', 'accounts', 'defaulters', 'assets', 'inventory',
 };
 final _resident = {..._member, 'edit_my_info', 'my_bills'};
 final _tenant = {..._member};
@@ -54,7 +54,7 @@ void main() {
           'Visitors', 'Parcels', 'Domestic help', 'Complaints', 'Notices', 'Amenities', 'Meetings', 'Polls', 'Documents',
           'Certificates & NOC',
         ],
-        'Operations': ["Manager's Checklist", 'Checklist Templates', 'Stores', 'Vendors & Work'],
+        'Operations': ["Manager's Checklist", 'Checklist Templates', 'Stores', 'Vendors & Work', 'Vendor Master'],
         'Finance & Maintenance': [
           'Maintenance Billing', 'Maintenance Elements', 'Online Payments', 'Defaulters', 'Vendor Bills', 'Bank Reconciliation',
         ],
@@ -69,7 +69,7 @@ void main() {
 
     test('no duplicate labels, routes or icons; every item has a route', () {
       final items = [for (final c in appMenuCategories) ...c.items];
-      expect(items.length, 40); // the 39 that existed, plus the Gateway of Accounts
+      expect(items.length, 41); // the 40 that existed, plus the Vendor Master
       expect(items.map((i) => i.label).toSet().length, items.length, reason: 'duplicate label');
       expect(items.map((i) => i.route).toSet().length, items.length, reason: 'duplicate route');
       expect(items.map((i) => i.icon.codePoint).toSet().length, items.length, reason: 'duplicate icon');
@@ -110,7 +110,7 @@ void main() {
         'Accounts & Financial Reports', 'Administration & Settings',
       ]);
       expect(t['Administration & Settings'], contains('Users & Roles'));
-      expect(t.values.expand((x) => x).length, 37);
+      expect(t.values.expand((x) => x).length, 38);
     });
 
     test('Committee has no Users, Permission Matrix or Forms Matrix', () {
