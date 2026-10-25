@@ -4,6 +4,17 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-25 (maintenance bill: owners' names)
+
+### fix: a bill with more than one owner no longer prints the name over "Bill No."
+
+On the printed maintenance bill a long name ("Nitin Baban Shendge & Jayashri Nitin Shendge") ran past the left half of the
+details box and over the Bill No. label. Each owner now prints on a line of their own, lined up under the first name: the
+resident the bill was raised to, then the flat's other active owners and co-owners; a name entered as "A & B" or "A and B" is
+split into two lines. A family member's bill carries only that person. The label, colon and value are separate columns, so a
+value that wraps stays aligned, and the box is split evenly (it was 55/45, wider than its half). The closing note that repeated
+the footer line ("This is computer generated bill hence signature is not required") is removed; the footer keeps it.
+
 ## 2026-10-25 (Alt+P on Add Expense)
 
 ### feat: Alt+P switches Add Expense between Paid now and Pay later

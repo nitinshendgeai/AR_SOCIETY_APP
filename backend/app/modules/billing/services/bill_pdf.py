@@ -25,6 +25,7 @@ bye-laws 65-67, arrears and interest on arrears shown on the bill):
 Amounts print as "Rs." — the standard PDF fonts have no rupee glyph.
 """
 import json
+import re
 from datetime import date
 from decimal import Decimal
 from io import BytesIO
@@ -227,6 +228,33 @@ def member_name(flat, resident=None) -> str:
     return m.full_name if m else "-"
 
 
+_JOINERS = re.compile(r"\s+(?:&|and)\s+", re.IGNORECASE)
+
+
+def member_names(flat, resident=None) -> List[str]:
+    """The names a bill is addressed to, one per owner: the resident it was raised to first, then the flat's other
+    active owners and co-owners (the primary first). A tenant's or family member's bill carries only that person. A name
+    entered as "A & B" or "A and B" is two people and is split, so each prints on its own line."""
+    def is_owner(r) -> bool:
+        return r.resident_type.value in ("owner", "co_owner")
+
+    owners = [r for r in (flat.residents if flat else []) if r.is_active and is_owner(r)]
+    owners.sort(key=lambda r: not r.is_primary)
+    if resident is not None:
+        people = [resident] + [r for r in owners if r is not resident and r.id != resident.id] if is_owner(resident) \
+            else [resident]
+    else:
+        first = member(flat)
+        people = owners or ([first] if first else [])
+    names: List[str] = []
+    for person in people:
+        for part in _JOINERS.split(person.full_name or ""):
+            part = " ".join(part.split())
+            if part and part.lower() not in (n.lower() for n in names):
+                names.append(part)
+    return names or ["-"]
+
+
 def flat_label(flat) -> str:
     """'B 304' — wing and flat number."""
     if not flat:
@@ -306,9 +334,14 @@ def sign_off(society_name: str, width, note: str) -> Table:
     return sign
 
 
+COLON_W = 2.5 * mm
+
+
 def _kv(rows, widths) -> Table:
-    """Label / ': value' pairs, as in the bill's details box."""
-    t = Table([[_p(k, "cell_b"), Paragraph(f": {v}", S["cell"])] for k, v in rows], colWidths=widths)
+    """Label / ':' / value triples, as in the bill's details box. `widths` is (label, value); the colon has a column of
+    its own so a value that runs to several lines (two owners' names) stays under its first line, not under the label."""
+    t = Table([[_p(k, "cell_b"), _p(":"), Paragraph(v, S["cell"])] for k, v in rows],
+              colWidths=[widths[0], COLON_W, widths[1] - COLON_W])
     t.setStyle(TableStyle([
         ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 2),
         ("TOPPADDING", (0, 0), (-1, -1), 0.3), ("BOTTOMPADDING", (0, 0), (-1, -1), 0.3),
@@ -425,12 +458,12 @@ def bill_story(
     p_end = (bill.period_end or cycle.cycle_end) if cycle else None
     period = f"{_dm(p_start)} to {_dm(p_end)}" if cycle else ""
     left = _kv([
-        ("Name", f"<b>{escape(member_name(flat, bill.resident))}</b>"),
+        ("Name", "<br/>".join(f"<b>{escape(n)}</b>" for n in member_names(flat, bill.resident))),
         ("Flat No.", escape(flat_label(flat))),
         ("Area sq ft", area),
         ("Mobile No", escape(m.phone or "") if m else ""),
         ("Mail ID", escape(email)),
-    ], [36 * mm, width * 0.55 - 28 * mm])
+    ], [24 * mm, width * 0.5 - 12 - 24 * mm - 8])
     van = flat.virtual_account_number if flat else None
     right = _kv([
         ("Bill No.", escape(bill.invoice_number)),
@@ -438,8 +471,8 @@ def bill_story(
         ("Due Date", _dm(bill.due_date)),
         ("Bill Period", period),
         *([("Virtual A/c No.(VAN)", escape(van))] if van else []),
-    ], [33 * mm, width * 0.45 - 37 * mm])
-    box = Table([[left, right]], colWidths=[width * 0.55, width * 0.45])
+    ], [33 * mm, width * 0.5 - 12 - 33 * mm - 8])
+    box = Table([[left, right]], colWidths=[width * 0.5, width * 0.5])
     box.setStyle(TableStyle([
         ("BOX", (0, 0), (-1, -1), 0.8, RULE), ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 12), ("TOPPADDING", (0, 0), (-1, -1), 5),
@@ -542,7 +575,6 @@ def bill_story(
     notes.append("Outstanding dues are subject to final audit.")
     if settings and settings.bill_notes:
         notes += [escape(line.strip()) for line in settings.bill_notes.splitlines() if line.strip()]
-    notes.append("This is computer generated bill hence signature is not required.")
     # A "Notes" tab over the notes box, as one table so the two line up
     note_rows = [[_p("Notes", "tab"), ""]] + [
         [Paragraph(n if n.startswith("&nbsp;") else f"* {n}", S["note"]), ""] for n in notes]

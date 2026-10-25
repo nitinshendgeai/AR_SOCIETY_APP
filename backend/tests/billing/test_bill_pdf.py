@@ -211,3 +211,73 @@ def test_bill_payment_details_are_validated(client, db):
     r = client.put(f"/api/v1/billing/maintenance-settings/{society.id}", json={"upi_id": "  "},
                    headers=manager["headers"])
     assert r.status_code == 200 and r.json()["upi_id"] is None
+
+
+# ── The member's name block: every owner on a line of their own, aligned, and inside the box ──────────────────
+
+def _first_bill(client, db, tag):
+    society, flat1, flat2, manager, resident, other, cycle_id = _generated_cycle(client, db, tag)
+    client.post(f"/api/v1/billing/cycles/{cycle_id}/issue-all", headers=manager["headers"])
+    bill = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=flat1.id).one()
+    return society, flat1, bill
+
+
+def test_each_owner_prints_on_a_line_of_their_own(client, db):
+    from app.models.resident import ResidentType
+    society, flat1, bill = _first_bill(client, db, "pdfn1")
+    db.add(Resident(full_name="Vikram Rao", flat_id=flat1.id, resident_type=ResidentType.CO_OWNER))
+    db.add(Resident(full_name="Tara Rao", flat_id=flat1.id, resident_type=ResidentType.FAMILY))
+    db.commit()
+    db.expire_all()
+    _, text = _bill_pdf(db, bill.id)
+    # the resident it was raised to first, then the other owner; a family member is not an owner, so not on the bill
+    assert "Name : Asha Rao Vikram Rao Flat No. :" in text
+    assert "Tara Rao" not in text
+
+
+def test_a_name_entered_as_two_owners_is_split_onto_two_lines(client, db):
+    society, flat1, bill = _first_bill(client, db, "pdfn2")
+    bill.resident.full_name = "Nitin Baban Shendge & Jayashri Nitin Shendge"
+    db.commit()
+    db.expire_all()
+    _, text = _bill_pdf(db, bill.id)
+    assert "Name : Nitin Baban Shendge Jayashri Nitin Shendge Flat No. :" in text
+    assert "&" not in text.split("Flat No.")[0]
+
+
+def test_a_family_members_bill_carries_only_that_person(client, db):
+    from app.models.resident import ResidentType
+    society, flat1, bill = _first_bill(client, db, "pdfn3")
+    tenant = Resident(full_name="Tara Rao", flat_id=flat1.id, resident_type=ResidentType.FAMILY)
+    db.add(tenant)
+    db.commit()
+    bill.resident_id = tenant.id
+    db.commit()
+    db.expire_all()
+    _, text = _bill_pdf(db, bill.id)
+    assert "Name : Tara Rao Flat No. :" in text
+    assert "Asha Rao" not in text
+
+
+def test_the_details_box_keeps_each_column_inside_its_half(client, db):
+    """A long name used to run past the left half and print over 'Bill No.'. Both halves are measured as laid out."""
+    from reportlab.lib.pagesizes import A4
+    from app.modules.billing.services.bill_pdf import PAGE_MARGINS, bill_story
+    society, flat1, bill = _first_bill(client, db, "pdfn4")
+    bill.resident.full_name = "Chandrashekhar Venkataraghavan Subramaniam & Lakshmi Narayanan Venkataraghavan Iyer"
+    flat1.virtual_account_number = "SHARA0101"
+    db.commit()
+    db.expire_all()
+    svc = BillingService(db)
+    bill = svc.get_bill(bill.id)
+    width = A4[0] - PAGE_MARGINS["leftMargin"] - PAGE_MARGINS["rightMargin"]
+    story = bill_story(bill, svc.get_maintenance_settings(bill.society_id), width, **svc._bill_print_context(bill))
+    box = next(f for f in story if getattr(f, "_cellvalues", None) and len(f._cellvalues[0]) == 2
+               and hasattr(f._cellvalues[0][0], "_cellvalues"))
+    left, right = box._cellvalues[0]
+    inner = width * 0.5 - 18                         # a half, less the box's padding (12 left, 6 right)
+    for table in (left, right):
+        w, _ = table.wrap(width, 10_000)
+        assert w <= inner + 0.01, (w, inner)
+    # the two long names are two lines, the rest one line each: the left block is taller than the right
+    assert left.wrap(width, 10_000)[1] > right.wrap(width, 10_000)[1]
