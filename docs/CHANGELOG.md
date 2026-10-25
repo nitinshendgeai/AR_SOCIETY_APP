@@ -26,6 +26,10 @@ An audit of the Finance & Maintenance and Accounts modules (see `docs/ACCOUNTING
   Creditors must name the vendor and cannot be used to pay a vendor who has unpaid bills (it left the bill unpaid and the
   payables out of step with the ledger).
 - **Resident receipts** can name the bank or cash ledger the money was deposited into (before: always the default bank).
+- **App: Add Expense → Pay later.** The expense form has *Paid now / Pay later*. Pay later saves the supplier's bill as a vendor
+  bill (vendor and bill number required, optional due date) under the chosen expense head instead of a paid Payment voucher, so it
+  is owed until it is paid from Pay Vendor. Also fixed: after a save the form kept a ledger object that the reloaded list no
+  longer contained (Paid from / expense head), which asserted in debug builds.
 - **App: Bank Reconciliation.** New screen (Accounts → Books, Gateway **K**): the Bank Reconciliation Statement of a bank
   account as on a date, tick-and-clear of payments and deposits the bank has cleared, import of the bank's CSV with matching of
   its credit and debit rows to the books (manual and auto-match), and the list of cleared lines with Undo.
