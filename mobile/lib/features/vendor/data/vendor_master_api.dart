@@ -185,6 +185,127 @@ class TdsFixResult {
       );
 }
 
+// ── TDS rates and the register of what was deducted ──────────────────────────
+
+/// One rate-and-limit row: the percentage deducted for a section and kind of payee, with the yearly and
+/// single-payment limits under which nothing is deducted.
+class TdsRule {
+  final String id;
+  final String code;
+  final String name;
+  final String section;
+  final String payeeClass; // individual_huf | other | any
+  final String rate;
+  final String? yearlyLimit;
+  final String? singleLimit;
+  final DateTime? effectiveFrom;
+  final DateTime? effectiveTo;
+  final bool active;
+  final String? notes;
+  const TdsRule({
+    required this.id,
+    required this.code,
+    required this.name,
+    required this.section,
+    required this.payeeClass,
+    required this.rate,
+    this.yearlyLimit,
+    this.singleLimit,
+    this.effectiveFrom,
+    this.effectiveTo,
+    this.active = true,
+    this.notes,
+  });
+
+  factory TdsRule.fromJson(Map<String, dynamic> j) => TdsRule(
+        id: j['id'] as String,
+        code: j['code'] as String? ?? '',
+        name: j['name'] as String? ?? '',
+        section: j['section'] as String? ?? '',
+        payeeClass: j['payee_class'] as String? ?? 'any',
+        rate: '${j['rate']}',
+        yearlyLimit: j['yearly_limit'] as String?,
+        singleLimit: j['single_limit'] as String?,
+        effectiveFrom: DateTime.tryParse('${j['effective_from'] ?? ''}'),
+        effectiveTo: DateTime.tryParse('${j['effective_to'] ?? ''}'),
+        active: j['is_active'] as bool? ?? true,
+        notes: j['notes'] as String?,
+      );
+
+  String get payeeLabel => switch (payeeClass) {
+        'individual_huf' => 'Individual / HUF',
+        'other' => 'Firm, LLP, company, other',
+        _ => 'Everyone',
+      };
+
+  /// "2" for 2.0000, "0.5" for 0.5000.
+  String get rateText {
+    final d = double.tryParse(rate) ?? 0;
+    return d == d.roundToDouble() ? d.toStringAsFixed(0) : d.toString();
+  }
+}
+
+/// One TDS deduction on a vendor payment, with the date it is due to be deposited.
+class TdsRegisterRow {
+  final String paymentNumber;
+  final DateTime date;
+  final String vendor;
+  final String? pan;
+  final String? constitution;
+  final String? sectionLabel;
+  final String amountSettled;
+  final String base;
+  final String rate;
+  final String tds;
+  final String netPaid;
+  final DateTime? depositDue;
+  final String? note;
+  const TdsRegisterRow({
+    required this.paymentNumber,
+    required this.date,
+    required this.vendor,
+    this.pan,
+    this.constitution,
+    this.sectionLabel,
+    required this.amountSettled,
+    required this.base,
+    required this.rate,
+    required this.tds,
+    required this.netPaid,
+    this.depositDue,
+    this.note,
+  });
+
+  factory TdsRegisterRow.fromJson(Map<String, dynamic> j) => TdsRegisterRow(
+        paymentNumber: j['payment_number'] as String? ?? '',
+        date: DateTime.parse(j['payment_date'] as String),
+        vendor: j['vendor'] as String? ?? '',
+        pan: j['pan'] as String?,
+        constitution: j['constitution'] as String?,
+        sectionLabel: j['section_label'] as String?,
+        amountSettled: '${j['amount_settled']}',
+        base: '${j['tds_base']}',
+        rate: '${j['rate']}',
+        tds: '${j['tds_amount']}',
+        netPaid: '${j['net_paid']}',
+        depositDue: DateTime.tryParse('${j['deposit_due'] ?? ''}'),
+        note: j['note'] as String?,
+      );
+}
+
+class TdsRegister {
+  final List<TdsRegisterRow> rows;
+  final String total;
+  const TdsRegister({this.rows = const [], this.total = '0'});
+
+  factory TdsRegister.fromJson(Map<String, dynamic> j) => TdsRegister(
+        rows: [for (final r in (j['rows'] as List? ?? const [])) TdsRegisterRow.fromJson(r as Map<String, dynamic>)],
+        total: '${j['total_tds'] ?? 0}',
+      );
+}
+
+typedef TdsRegisterRange = ({String societyId, DateTime from, DateTime to});
+
 class VendorMasterApi {
   final Dio _dio;
   VendorMasterApi({Dio? dio}) : _dio = dio ?? ApiClient.instance;
@@ -215,6 +336,23 @@ class VendorMasterApi {
     return Uint8List.fromList(res.data!);
   }
 
+  Future<List<TdsRule>> tdsRules(String societyId) async => [
+        for (final r in (await _dio.get('/vendors/tds/rules/$societyId')).data as List) TdsRule.fromJson(r as Map<String, dynamic>)
+      ];
+
+  /// Correct a rate or limit. A null limit means no limit.
+  Future<void> updateTdsRule(String id,
+          {required String rate, String? yearlyLimit, String? singleLimit, required bool active}) =>
+      _dio.patch('/vendors/tds/rules/$id',
+          data: {'rate': rate, 'yearly_limit': yearlyLimit, 'single_limit': singleLimit, 'is_active': active});
+
+  Future<TdsRegister> tdsRegister(String societyId, DateTime from, DateTime to) async => TdsRegister.fromJson((await _dio
+          .get('/vendors/tds/register/$societyId', queryParameters: {'from_date': _day(from), 'to_date': _day(to)}))
+      .data as Map<String, dynamic>);
+
+  static String _day(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
   Future<TdsReview> tdsReview(String societyId) async =>
       TdsReview.fromJson((await _dio.get('/vendors/society/$societyId/tds-review')).data as Map<String, dynamic>);
 
@@ -240,4 +378,12 @@ final vendorMasterApiProvider = Provider<VendorMasterApi>((_) => VendorMasterApi
 
 final tdsReviewProvider = FutureProvider.autoDispose.family<TdsReview, String>(
   (ref, societyId) => ref.watch(vendorMasterApiProvider).tdsReview(societyId),
+);
+
+final tdsRulesProvider = FutureProvider.autoDispose.family<List<TdsRule>, String>(
+  (ref, societyId) => ref.watch(vendorMasterApiProvider).tdsRules(societyId),
+);
+
+final tdsRegisterProvider = FutureProvider.autoDispose.family<TdsRegister, TdsRegisterRange>(
+  (ref, k) => ref.watch(vendorMasterApiProvider).tdsRegister(k.societyId, k.from, k.to),
 );

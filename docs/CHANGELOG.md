@@ -4,6 +4,21 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-25 (TDS rates and register screens)
+
+### feat: TDS Rates & Limits and TDS Register screens
+
+The backend already held the society's TDS rates (`GET/PATCH /vendors/tds/rules`) and the register of what was deducted
+(`GET /vendors/tds/register`), but neither had a screen. On the Vendor Master (percent icon):
+
+- **TDS Rates & Limits**: every section and kind of vendor with its rate and the yearly / single-payment limits under which
+  nothing is deducted; the committee corrects a rate or limit or switches a rule off, a manager reads them.
+- **TDS Register**: TDS deducted on vendor payments over a period (this financial year, or any quarter, or a chosen range),
+  with the date each is due to be deposited, whether the vendor had a PAN, and the total, for the challan and the quarterly
+  return.
+
+Both are gated by the Vendor Master form code.
+
 ## 2026-10-25 (Vendor Master menu item)
 
 ### feat: Vendor Master is its own menu item

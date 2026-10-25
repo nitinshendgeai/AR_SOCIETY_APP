@@ -73,6 +73,8 @@ void main() {
       '/vendors/master': 'vendor_master',
       '/vendors/import': 'vendor_master',        // the import and the TDS review are part of the Vendor Master
       '/vendors/tds-review': 'vendor_master',
+      '/vendors/tds-rules': 'vendor_master',
+      '/vendors/tds-register': 'vendor_master',
       '/vendors/work': 'vendors',
       '/vendors/work-orders/w1': 'vendors',
       '/accounts': 'accounts',
