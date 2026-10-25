@@ -59,7 +59,7 @@ def _window_spend(db: Session, society_id: UUID, start: date, end: date):
         .join(AccountGroup, AccountGroup.id == Account.group_id)
         .filter(Account.society_id == society_id, AccountGroup.nature == "expense",
                 Voucher.is_cancelled == False,  # noqa: E712
-                Voucher.approval_status == "approved",
+                Voucher.approval_status == "approved", Voucher.voucher_type != "closing",
                 Voucher.reversed_at.is_(None), Voucher.reversal_of_id.is_(None),
                 Voucher.voucher_date >= start, Voucher.voucher_date <= end)
         .group_by(Account.id, Account.maintenance_element_id)

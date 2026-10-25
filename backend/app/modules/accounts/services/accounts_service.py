@@ -594,6 +594,8 @@ class AccountsService:
                 vendor = self.db.query(Vendor).filter(Vendor.id == e["vendor_id"]).first()
                 if not vendor or vendor.society_id != society_id:
                     raise HTTPException(422, "Vendor not found in this society")
+            if vtype == "payment" and money(e.get("debit")) and account.id == creditors.id:
+                self._assert_not_a_billed_payment(society_id, account, e.get("vendor_id"))
             lines.append(Line(account, money(e.get("debit")), money(e.get("credit")),
                               flat_id=e.get("flat_id"), vendor_id=e.get("vendor_id"), narration=e.get("narration")))
 
@@ -610,6 +612,24 @@ class AccountsService:
         if vtype == "journal" and any(l.account.is_cash_or_bank for l in lines):
             raise HTTPException(422, "A journal doesn't touch cash or bank — use a receipt, payment or contra")
         return lines
+
+    def _assert_not_a_billed_payment(self, society_id: UUID, creditors: Account, vendor_id) -> None:
+        """A payment voucher that debits Sundry Creditors is an advance to a vendor. Paying a bill that way would
+        reduce what the books owe the vendor without marking the bill paid, so the payables would never agree
+        with the ledger (and the bill could be paid twice): bills are paid from the vendor's bills."""
+        if not vendor_id:
+            raise HTTPException(422, f"Choose the vendor on the {creditors.name} line — what is owed is kept "
+                                     f"vendor by vendor")
+        from app.modules.vendor.models.vendor import Vendor, VendorInvoice
+        rows = self.db.query(VendorInvoice).filter(
+            VendorInvoice.society_id == society_id, VendorInvoice.vendor_id == vendor_id,
+            VendorInvoice.is_active == True, VendorInvoice.is_paid == False).all()  # noqa: E712
+        owed = sum((max(money(i.total_amount) - money(i.tds_amount) - money(i.paid_amount), ZERO) for i in rows), ZERO)
+        if owed > 0:
+            name = self.db.query(Vendor.company_name).filter(Vendor.id == vendor_id).scalar() or "This vendor"
+            raise HTTPException(422, f"{name} has bills still to be paid ({inr(owed)}). Pay them from the vendor's "
+                                     f"bills so each bill is marked paid — a payment voucher on {creditors.name} "
+                                     f"is only for an advance to a vendor with nothing outstanding")
 
     @staticmethod
     def snapshot(voucher: Voucher) -> dict:
@@ -713,7 +733,18 @@ class AccountsService:
         voucher.cancelled_at = datetime.utcnow()
         voucher.cancelled_by = user.id if user else None
         voucher.cancel_reason = reason
+        self._release_statement_rows(voucher)
         return voucher
+
+    def _release_statement_rows(self, voucher: Voucher) -> None:
+        """A bank statement row matched to a line of a voucher that no longer stands is free to be matched again."""
+        from app.modules.billing.models.billing import BankStatementEntry, BankStatementMatchStatus
+        ids = [e.id for e in voucher.entries]
+        if not ids:
+            return
+        for row in self.db.query(BankStatementEntry).filter(BankStatementEntry.matched_entry_id.in_(ids)):
+            row.match_status, row.matched_entry_id = BankStatementMatchStatus.UNMATCHED, None
+            row.matched_by = row.matched_at = None
 
     def reverse(self, voucher: Voucher, reason: str, user: Optional[User]) -> Voucher:
         """Undo a voucher of a closed year by posting its mirror image in
@@ -873,7 +904,7 @@ class AccountsService:
                 .join(Voucher, Voucher.id == VoucherEntry.voucher_id)
                 .join(AccountGroup, AccountGroup.id == Account.group_id)
                 .filter(Voucher.society_id == society_id, Voucher.is_cancelled == False,
-                        Voucher.voucher_date >= fy_from,
+                        Voucher.approval_status == "approved", Voucher.voucher_date >= fy_from,
                         AccountGroup.nature.in_(("income", "expense")))
                 .group_by(Account.id, AccountGroup.nature).all())
         income = sum((money(cr) - money(dr) for _, n, dr, cr in year if n == "income"), ZERO)

@@ -1,6 +1,7 @@
 """RBAC tests — role-based access control enforcement."""
 import pytest
 from tests.conftest import make_user, make_society, place_in
+from app.models.role import Role
 
 
 def test_admin_can_create_society(client, db):
@@ -101,3 +102,16 @@ def test_multi_role_access(client, db):
     r = client.patch(f"/api/v1/societies/{society.id}", json={"city": "Chennai"},
                      headers=headers)
     assert r.status_code == 200
+
+
+def test_roles_list_includes_unused_roles_but_not_platform_admin(client, db):
+    """Create User must offer every society role, even ones nobody holds yet."""
+    admin = make_user(db, "rolelist@rbac.com", role="Society Admin")
+    db.add(Role(name="Unused Test Role"))
+    db.commit()
+
+    r = client.get("/api/v1/roles/", headers=admin["headers"])
+    assert r.status_code == 200, r.text
+    names = {x["name"] for x in r.json()}
+    assert "Unused Test Role" in names
+    assert "Platform Admin" not in names

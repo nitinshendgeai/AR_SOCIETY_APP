@@ -137,7 +137,8 @@ class RegistersService:
         for i in invoices:
             total, paid = money(i.total_amount), money(i.paid_amount)
             net = money(i.net_payable_amount) if i.net_payable_amount is not None else total
-            state = "paid" if i.is_paid else ("part_paid" if paid > 0 else "unpaid")
+            state = ("cancelled" if not i.is_active else "paid" if i.is_paid
+                     else "part_paid" if paid > 0 else "unpaid")
             if status and state != status:
                 continue
             vendor = i.vendor.company_name if i.vendor else None
@@ -148,12 +149,14 @@ class RegistersService:
                 "due_date": i.due_date.isoformat() if i.due_date else None, "vendor": vendor,
                 "description": i.description, "expense_head": ledger.get(i.expense_account_id),
                 "amount": _s(i.amount), "gst": _s(i.gst_amount), "tds": _s(i.tds_amount), "total": _s(total),
-                "net_payable": _s(net), "paid": _s(paid), "outstanding": _s(max(net - paid, ZERO)),
+                "net_payable": _s(net), "paid": _s(paid),
+                "outstanding": _s(ZERO if state == "cancelled" else max(net - paid, ZERO)),
                 "status": state, "entered_by": entered.get(i.id),
             })
+        live = [r for r in rows if r["status"] != "cancelled"]          # a cancelled bill is shown, not counted
         return {"date_from": date_from.isoformat() if date_from else None,
                 "date_to": date_to.isoformat() if date_to else None, "rows": rows,
-                "totals": {"count": len(rows),
-                           "total": _s(sum((Decimal(r["total"]) for r in rows), ZERO)),
-                           "paid": _s(sum((Decimal(r["paid"]) for r in rows), ZERO)),
-                           "outstanding": _s(sum((Decimal(r["outstanding"]) for r in rows), ZERO))}}
+                "totals": {"count": len(live),
+                           "total": _s(sum((Decimal(r["total"]) for r in live), ZERO)),
+                           "paid": _s(sum((Decimal(r["paid"]) for r in live), ZERO)),
+                           "outstanding": _s(sum((Decimal(r["outstanding"]) for r in live), ZERO))}}

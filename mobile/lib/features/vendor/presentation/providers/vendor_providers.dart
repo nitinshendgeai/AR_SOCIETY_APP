@@ -106,10 +106,11 @@ class VendorInvoicesNotifier extends FamilyAsyncNotifier<List<VendorInvoiceEntit
     required String paymentMode,
     String? paymentRef,
     String? bankName,
+    String? bankAccountId,
   }) async {
     final result = await ref.read(vendorRepositoryProvider).recordPayment(
           invoiceId: invoiceId, amount: amount, paidDate: paidDate,
-          paymentMode: paymentMode, paymentRef: paymentRef, bankName: bankName,
+          paymentMode: paymentMode, paymentRef: paymentRef, bankName: bankName, bankAccountId: bankAccountId,
         );
     switch (result) {
       case VendorSuccess(:final data):

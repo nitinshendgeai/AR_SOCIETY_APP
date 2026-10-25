@@ -149,9 +149,10 @@ class DashboardService:
             amount=_money(sum((b.outstanding for b in overdue), ZERO)))
         vendor_due = (db.query(VendorInvoice)
                       .filter(VendorInvoice.society_id == society_id, VendorInvoice.is_paid == False,
+                              VendorInvoice.is_active == True,
                               VendorInvoice.due_date != None, VendorInvoice.due_date < today).all())
         add("vendor_bills_overdue", len(vendor_due), "high",
-            amount=_money(sum((v.total_amount - v.paid_amount for v in vendor_due), ZERO)))
+            amount=_money(sum((v.total_amount - (v.tds_amount or 0) - v.paid_amount for v in vendor_due), ZERO)))
         add("recurring_due", len(RecurringExpenseService(db).due(society_id)), "medium")
 
         # People

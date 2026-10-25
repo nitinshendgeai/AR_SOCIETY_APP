@@ -365,6 +365,7 @@ class FinancialReports:
 
         cash_vouchers = (select(VoucherEntry.voucher_id).join(Voucher, Voucher.id == VoucherEntry.voucher_id)
                          .where(Voucher.society_id == sid, Voucher.is_cancelled == False,  # noqa: E712
+                                Voucher.approval_status == "approved",
                                 Voucher.voucher_date >= start, Voucher.voucher_date <= as_at,
                                 VoucherEntry.account_id.in_(cash_ids)))
         moves = (self.db.query(VoucherEntry.account_id, func.coalesce(func.sum(VoucherEntry.debit), 0),
@@ -420,6 +421,7 @@ class FinancialReports:
                            func.coalesce(func.sum(VoucherEntry.credit), 0))
              .join(Voucher, Voucher.id == VoucherEntry.voucher_id)
              .filter(Voucher.society_id == sid, Voucher.is_cancelled == False,  # noqa: E712
+                     Voucher.approval_status == "approved",
                      Voucher.voucher_date >= start, Voucher.voucher_date <= as_at)
              .group_by(VoucherEntry.account_id).all())
         moved = {acc: (money(dr), money(cr)) for acc, dr, cr in q}

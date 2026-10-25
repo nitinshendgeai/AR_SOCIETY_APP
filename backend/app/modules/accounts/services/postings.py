@@ -185,7 +185,8 @@ class AccountPostings:
         sid = p.society_id
         flat = p.flat or (p.bill.flat if p.bill else None)
         flat_id = p.flat_id or (p.bill.flat_id if p.bill else None)
-        cash_bank = self._cash_or_bank(sid, p.payment_mode == PaymentMode.CASH)
+        chosen = getattr(p, "deposit_account", None) if getattr(p, "deposit_account_id", None) else None
+        cash_bank = chosen or self._cash_or_bank(sid, p.payment_mode == PaymentMode.CASH)
         dues = self.accounts.system_account(sid, "members_dues")
         advance_control = self.accounts.system_account(sid, "member_deposits")
         against = f" against Bill {p.bill.invoice_number}" if p.bill else " on account"
@@ -348,7 +349,8 @@ class AccountPostings:
             raise ValueError("Invalid TDS amount on vendor payment")
         lines = [Line(creditors, debit=money(payment.amount),
                       vendor_id=payment.vendor_id, entity_account_id=ap.id),
-                 Line(self._cash_or_bank(sid, is_cash), credit=money(payment.amount) - tds)]
+                 Line(payment.bank_account if payment.bank_account_id else self._cash_or_bank(sid, is_cash),
+                      credit=money(payment.amount) - tds)]
         if tds > 0:
             lines.append(Line(self.accounts.system_account(sid, "tds_payable"), credit=tds))
             detail += f", TDS {tds} ({payment.tds_section})"

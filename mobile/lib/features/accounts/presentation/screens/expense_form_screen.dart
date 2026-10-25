@@ -11,7 +11,13 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart';
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
 import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart' show NextVoucherNumber;
+import 'package:ar_society_app/features/vendor/data/repositories/vendor_repository.dart'
+    show VendorFailure, VendorSuccess;
 import 'package:ar_society_app/features/vendor/data/vendors_work_api.dart' show VendorRecord;
+import 'package:ar_society_app/features/vendor/presentation/providers/vendor_providers.dart'
+    show vendorInvoicesProvider, vendorRepositoryProvider;
+import 'package:ar_society_app/features/vendor/presentation/providers/vendors_work_providers.dart'
+    show vendorOpenBillsProvider;
 import 'package:ar_society_app/features/vendor/presentation/widgets/vendor_picker.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
@@ -35,6 +41,10 @@ class _ElementOption {
 /// voucher in the books. An expense head that does not yet count towards the chosen element is linked
 /// to it when the expense is saved, so the next one lands under the same element on its own and the
 /// element's spend feeds its budget in the monthly maintenance calculation.
+///
+/// "Pay later" is for a supplier's bill that is not paid yet: it is booked as a vendor bill (an expense now, owed to the
+/// vendor until it is paid from Pay Vendor) instead of a Payment voucher, so the books never show money paid that has not
+/// been, and the bill can be paid — and its TDS worked out — when the money goes.
 class ExpenseFormScreen extends ConsumerStatefulWidget {
   /// Start from an amount and a note (an asset's service that cost money, for instance).
   final double? initialAmount;
@@ -51,8 +61,12 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   LedgerAccount? _head;
   LedgerAccount? _paidFrom;
   late final _amount = TextEditingController(
-      text: widget.initialAmount == null ? '' : widget.initialAmount!.toStringAsFixed(widget.initialAmount! % 1 == 0 ? 0 : 2));
+      text: widget.initialAmount == null
+          ? ''
+          : widget.initialAmount!.toStringAsFixed(widget.initialAmount! % 1 == 0 ? 0 : 2));
   VendorRecord? _vendor;
+  bool _payLater = false;
+  DateTime? _dueDate;
   final _reference = TextEditingController();
   late final _note = TextEditingController(text: widget.initialNote);
   bool _saving = false;
@@ -102,8 +116,26 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     if (_elementKey == null) return 'Choose what the expense was for';
     if (_head == null) return 'Choose the expense head';
     if (amount <= 0) return 'Enter the amount';
+    if (_payLater) {
+      if (_vendor == null) return 'Choose the vendor the bill is from';
+      if (_reference.text.trim().isEmpty) return 'Enter the supplier\'s bill number';
+      if (_dueDate != null && _dueDate!.isBefore(DateTime(_date.year, _date.month, _date.day))) {
+        return 'The due date can\'t be before the bill date';
+      }
+      return null;
+    }
     if (_paidFrom == null) return 'Choose cash or the bank account it was paid from';
     return null;
+  }
+
+  Future<void> _pickDue() async {
+    final d = await showDatePicker(
+      context: context,
+      initialDate: _dueDate ?? _date,
+      firstDate: _date,
+      lastDate: _date.add(const Duration(days: 365 * 2)),
+    );
+    if (d != null) setState(() => _dueDate = d);
   }
 
   Future<void> _save(String societyId, {required bool another}) async {
@@ -122,6 +154,36 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         // Remember the link for next time: this head now counts towards the element.
         final updated = await api.updateLedger(head.id, {'maintenance_element_id': _elementKey});
         counted = updated.maintenanceElementName;
+      }
+      if (_payLater) {
+        final vendor = _vendor!;
+        final note = _note.text.trim();
+        final result = await ref.read(vendorRepositoryProvider).createInvoice(
+              societyId: societyId,
+              vendorId: vendor.id,
+              invoiceNumber: _reference.text.trim(),
+              invoiceDate: _date,
+              dueDate: _dueDate,
+              amount: amount,
+              totalAmount: amount,
+              description: note.isEmpty ? null : note,
+              expenseAccountId: head.id,
+            );
+        switch (result) {
+          case VendorSuccess(:final data):
+            ref.invalidate(vendorInvoicesProvider(societyId));
+            ref.invalidate(vendorOpenBillsProvider(vendor.id));
+            invalidateBooks(ref);
+            if (!mounted) return;
+            AppToast.success(
+                context,
+                'Bill ${data.invoiceNumber} of ${vendor.companyName} saved for ${formatInr(amount)}'
+                '${counted == null ? '' : ' — counts towards $counted'}. It is owed until you pay it from Pay Vendor.');
+            _afterSave(another, head.name, amount);
+            return;
+          case VendorFailure(:final message):
+            throw Exception(message);
+        }
       }
       final narration = [_vendor?.companyName ?? '', _note.text.trim()].where((s) => s.isNotEmpty).join(' — ');
       final v = await api.createVoucher(
@@ -143,27 +205,33 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           context,
           '${formatInr(amount)} saved as ${v.voucherNumber}$where'
           '${v.isPending ? ' — it counts in the books once the admin or committee approves it' : ''}');
-      if (another) {
-        setState(() {
-          _saving = false;
-          _lastSaved = '${head.name} ${formatInr(amount)}';
-          _amount.clear();
-          _vendor = null;
-          _reference.clear();
-          _note.clear();
-        });
-        // Straight on to the next one: back to the first field.
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _elementFocus.requestFocus();
-        });
-      } else {
-        context.canPop() ? context.pop() : context.go(AppRoutes.accounts);
-      }
+      _afterSave(another, head.name, amount);
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
         showErrorToast(context, e);
       }
+    }
+  }
+
+  /// After a save: on to the next entry, or back where the person came from.
+  void _afterSave(bool another, String headName, double amount) {
+    if (another) {
+      setState(() {
+        _saving = false;
+        _lastSaved = '$headName ${formatInr(amount)}';
+        _amount.clear();
+        _vendor = null;
+        _dueDate = null;
+        _reference.clear();
+        _note.clear();
+      });
+      // Straight on to the next one: back to the first field.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _elementFocus.requestFocus();
+      });
+    } else {
+      context.canPop() ? context.pop() : context.go(AppRoutes.accounts);
     }
   }
 
@@ -176,15 +244,17 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
     // Until the books and the element list have loaded there is nothing to fill in.
     Widget waiting(Widget body) => AppPage(
-      title: 'Add Expense',
-      body: body,
-    );
+          title: 'Add Expense',
+          body: body,
+        );
     return ledgersAsync.when(
       loading: () => waiting(const AppLoader()),
-      error: (e, _) => waiting(ListView(padding: const EdgeInsets.all(20), children: [AppErrorBanner(message: friendlyErrorMessage(e))])),
+      error: (e, _) => waiting(
+          ListView(padding: const EdgeInsets.all(20), children: [AppErrorBanner(message: friendlyErrorMessage(e))])),
       data: (all) => elementsAsync.when(
         loading: () => waiting(const AppLoader()),
-        error: (e, _) => waiting(ListView(padding: const EdgeInsets.all(20), children: [AppErrorBanner(message: friendlyErrorMessage(e))])),
+        error: (e, _) => waiting(
+            ListView(padding: const EdgeInsets.all(20), children: [AppErrorBanner(message: friendlyErrorMessage(e))])),
         data: (elements) => _form(societyId, all, elements),
       ),
     );
@@ -193,7 +263,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   Widget _form(String societyId, List<LedgerAccount> all, List<MaintenanceElement> allElements) {
     final expense = all.where((l) => l.nature == 'expense' && l.isActive).toList();
     final cashBank = all.where((l) => l.isCashOrBank && l.isActive).toList();
-    _paidFrom ??= cashBank.where((l) => l.isCash).firstOrNull ?? cashBank.firstOrNull;
+    // The ledgers are reloaded after every save (new objects for the same accounts): keep the choice by id, or the
+    // dropdown would be left holding a ledger that is no longer in its list.
+    _paidFrom = cashBank.where((l) => l.id == _paidFrom?.id).firstOrNull ??
+        cashBank.where((l) => l.isCash).firstOrNull ??
+        cashBank.firstOrNull;
     // Contributions to the funds are not running expenses.
     final elements = allElements.where((e) => e.category != 'sinking_fund' && e.category != 'repair_fund').toList()
       ..sort((a, b) {
@@ -203,7 +277,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       });
     final heads = _headsFor(expense);
     final element = elements.where((e) => e.id == _elementKey).firstOrNull;
-    final head = heads.contains(_head) ? _head : null;
+    final head = heads.where((h) => h.id == _head?.id).firstOrNull;
     final desktop = isDesktopLayout(context);
     final elementOptions = [
       for (final e in elements) _ElementOption(e.id, e.name),
@@ -212,8 +286,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
     return AppFormPage(
       title: 'Add Expense',
-      subtitle: 'A petty-cash purchase or a monthly bill. It is posted to the books and counts towards its maintenance element.',
-      submitLabel: 'Save expense',
+      subtitle:
+          'A petty-cash purchase or a monthly bill. It is posted to the books and counts towards its maintenance element.',
+      submitLabel: _payLater ? 'Save bill' : 'Save expense',
       submitIcon: Icons.save_rounded,
       saving: _saving,
       onSubmit: _saving ? null : () => _save(societyId, another: false),
@@ -236,13 +311,15 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       children: [
         if (_lastSaved != null)
           DecoratedBox(
-            decoration: BoxDecoration(color: AppTheme.successSoft, borderRadius: BorderRadius.circular(AppTheme.radiusS)),
+            decoration:
+                BoxDecoration(color: AppTheme.successSoft, borderRadius: BorderRadius.circular(AppTheme.radiusS)),
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Row(children: [
                 const Icon(Icons.check_circle_rounded, size: 18, color: AppTheme.success),
                 const SizedBox(width: 8),
-                Expanded(child: Text('Saved: $_lastSaved. Add the next one below.', style: const TextStyle(fontSize: 13))),
+                Expanded(
+                    child: Text('Saved: $_lastSaved. Add the next one below.', style: const TextStyle(fontSize: 13))),
               ]),
             ),
           ),
@@ -302,7 +379,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                         key: ValueKey('head/$_elementKey/${heads.length}'),
                         value: head,
                         isExpanded: true,
-                        items: [for (final l in heads) DropdownMenuItem(value: l, child: Text(l.name, overflow: TextOverflow.ellipsis))],
+                        items: [
+                          for (final l in heads)
+                            DropdownMenuItem(value: l, child: Text(l.name, overflow: TextOverflow.ellipsis))
+                        ],
                         onChanged: _elementKey == null ? null : (v) => setState(() => _head = v),
                       ),
               ),
@@ -321,9 +401,32 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           ],
         ),
         FormSection(
-          title: 'Payment',
-          description: 'How much, and where the money came from.',
+          title: _payLater ? 'Bill' : 'Payment',
+          description: _payLater
+              ? 'How much, and who is owed. It counts as an expense now and stays owed until you pay it.'
+              : 'How much, and where the money came from.',
           children: [
+            FormFull(
+              child: FormFieldBox(
+                label: 'When is it paid?',
+                helper: _payLater
+                    ? 'Saved as the vendor\'s bill. Pay it later from Vendor Bills → Pay Vendor, where its TDS is worked out.'
+                    : 'Paid now: a petty purchase or bill paid on the spot, from cash or the bank.',
+                // Left out of the Tab / Enter order: the keyboard flow (element, head, amount, ...) is for an expense paid
+                // now and must not stop here; this is chosen with the mouse or a tap.
+                child: ExcludeFocus(
+                    child: SegmentedButton<bool>(
+                  key: const ValueKey('pay-timing'),
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('Paid now'), icon: Icon(Icons.payments_rounded)),
+                    ButtonSegment(value: true, label: Text('Pay later'), icon: Icon(Icons.schedule_rounded)),
+                  ],
+                  selected: {_payLater},
+                  onSelectionChanged: (s) => setState(() => _payLater = s.first),
+                )),
+              ),
+            ),
             FormFieldBox(
               label: 'Amount (₹)',
               child: TextField(
@@ -334,30 +437,52 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                 decoration: const InputDecoration(prefixText: '₹ ', hintText: '0.00'),
               ),
             ),
-            FormFieldBox(
-              label: 'Paid from',
-              child: DropdownButtonFormField<LedgerAccount>(
-                value: _paidFrom,
-                isExpanded: true,
-                items: [for (final l in cashBank) DropdownMenuItem(value: l, child: Text(l.name, overflow: TextOverflow.ellipsis))],
-                onChanged: (v) => setState(() => _paidFrom = v),
+            if (!_payLater)
+              FormFieldBox(
+                label: 'Paid from',
+                child: DropdownButtonFormField<LedgerAccount>(
+                  value: _paidFrom,
+                  isExpanded: true,
+                  items: [
+                    for (final l in cashBank)
+                      DropdownMenuItem(value: l, child: Text(l.name, overflow: TextOverflow.ellipsis))
+                  ],
+                  onChanged: (v) => setState(() => _paidFrom = v),
+                ),
               ),
+            FormFieldBox(
+              label: _payLater ? 'Vendor' : 'Paid to',
+              required: _payLater,
+              helper: _payLater ? 'Who sent the bill' : 'Optional',
+              child: VendorPicker(
+                  societyId: societyId, value: _vendor?.id, label: '', onChanged: (v) => setState(() => _vendor = v)),
             ),
             FormFieldBox(
-              label: 'Paid to',
-              helper: 'Optional',
-              child: VendorPicker(societyId: societyId, value: _vendor?.id, label: '', onChanged: (v) => setState(() => _vendor = v)),
-            ),
-            FormFieldBox(
-              label: "Supplier's bill / cheque no.",
-              helper: 'Optional. The number on their bill or your cheque — ours is given automatically.',
+              label: _payLater ? "Supplier's bill no." : "Supplier's bill / cheque no.",
+              required: _payLater,
+              helper: _payLater
+                  ? 'The number on their bill'
+                  : 'Optional. The number on their bill or your cheque — ours is given automatically.',
               child: TextField(controller: _reference, textInputAction: TextInputAction.next),
             ),
-            FormFieldBox(
-              label: 'Voucher no.',
-              helper: 'Given automatically when you save',
-              child: NextVoucherNumber(societyId: societyId, type: 'payment', date: _date, showLabel: false),
-            ),
+            if (_payLater)
+              FormFieldBox(
+                label: 'Due date',
+                helper: 'Optional. Without one the bill is aged from its date.',
+                child: FormDateField(
+                  value: _dueDate,
+                  hint: 'Select due date',
+                  format: apiDate,
+                  onTap: _pickDue,
+                  onClear: _dueDate == null ? null : () => setState(() => _dueDate = null),
+                ),
+              )
+            else
+              FormFieldBox(
+                label: 'Voucher no.',
+                helper: 'Given automatically when you save',
+                child: NextVoucherNumber(societyId: societyId, type: 'payment', date: _date, showLabel: false),
+              ),
             FormFull(
               child: Align(
                 alignment: Alignment.centerLeft,
@@ -371,7 +496,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             FormFull(
               child: FormFieldBox(
                 label: 'Note',
-                child: TextField(controller: _note, maxLines: 2, decoration: const InputDecoration(hintText: 'Optional')),
+                child:
+                    TextField(controller: _note, maxLines: 2, decoration: const InputDecoration(hintText: 'Optional')),
               ),
             ),
           ],

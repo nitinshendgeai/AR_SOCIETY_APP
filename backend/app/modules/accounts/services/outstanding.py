@@ -99,7 +99,8 @@ class OutstandingService:
 
     def _payable(self, society_id: UUID, as_of: date) -> List[dict]:
         invoices = (self.db.query(VendorInvoice).options(joinedload(VendorInvoice.vendor))
-                    .filter(VendorInvoice.society_id == society_id, VendorInvoice.is_paid == False)  # noqa: E712
+                    .filter(VendorInvoice.society_id == society_id, VendorInvoice.is_paid == False,  # noqa: E712
+                            VendorInvoice.is_active == True)  # noqa: E712
                     .order_by(VendorInvoice.due_date, VendorInvoice.invoice_date).all())
         by_vendor: Dict[UUID, List[dict]] = {}
         names: Dict[UUID, str] = {}

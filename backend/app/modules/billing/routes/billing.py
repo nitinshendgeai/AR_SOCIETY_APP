@@ -114,6 +114,8 @@ def _online_payment_out(s) -> dict:
         "payment_mode": s.payment_mode.value,
         "transaction_ref": s.transaction_ref,
         "bank_name": s.bank_name,
+        "deposit_account_id": str(s.deposit_account_id) if s.deposit_account_id else None,
+        "deposit_account_name": s.deposit_account.name if s.deposit_account else None,
         "notes": s.notes,
         "status": s.status.value,
         "recorded_by": str(s.recorded_by) if s.recorded_by else None,
@@ -793,6 +795,7 @@ def submit_online_payment(
     transaction_ref: Optional[str] = Form(None),
     bank_name: Optional[str] = Form(None),
     notes: Optional[str] = Form(None),
+    deposit_account_id: Optional[UUID] = Form(None),
     screenshot: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -810,6 +813,7 @@ def submit_online_payment(
         transaction_ref=transaction_ref, bank_name=bank_name, notes=notes,
         screenshot_bytes=screenshot_bytes, screenshot_mime_type=content_type,
         screenshot_file_name=screenshot.filename if screenshot else None, user=user,
+        deposit_account_id=deposit_account_id,
     )
     return _online_payment_out(submission)
 
@@ -918,6 +922,9 @@ def _bank_entry_out(e) -> dict:
         "description": e.description,
         "reference": e.reference,
         "amount": str(e.amount),
+        "direction": e.direction,
+        "bank_account_id": str(e.bank_account_id) if e.bank_account_id else None,
+        "matched_entry_id": str(e.matched_entry_id) if e.matched_entry_id else None,
         "match_status": e.match_status.value,
         "matched_submission_id": str(e.matched_submission_id) if e.matched_submission_id else None,
         "matched_submission_receipt_number": e.matched_submission.receipt_number if e.matched_submission else None,
@@ -930,11 +937,14 @@ def _bank_entry_out(e) -> dict:
              dependencies=[Depends(manager_above)])
 async def import_bank_statement(
     society_id: UUID, statement: UploadFile = File(...),
+    include_debits: bool = Query(False, description="Keep the statement's debits too (to reconcile payments)"),
+    bank_account_id: Optional[UUID] = Query(None, description="The bank ledger the statement belongs to"),
     db: Session = Depends(get_db), user: User = Depends(get_current_user),
 ):
     csv_bytes = await statement.read()
     entries = BillingService(db).import_bank_statement_csv(
-        society_id, csv_bytes.decode("utf-8-sig"), user)
+        society_id, csv_bytes.decode("utf-8-sig"), user,
+        include_debits=include_debits, bank_account_id=bank_account_id)
     return [_bank_entry_out(e) for e in entries]
 
 @router.get("/bank-reconciliation/society/{society_id}", dependencies=[Depends(manager_above)])

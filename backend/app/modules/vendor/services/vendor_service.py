@@ -486,14 +486,41 @@ class VendorService_:  # trailing underscore avoids clash with model name
             gross_amount=data.get("total_amount"),
         )
 
+    def _payment_ledger(self, society_id: UUID, payment_mode: VendorPaymentMode, account_id: Optional[UUID]):
+        """The cash or bank ledger a payment is made from: the one chosen, which must suit the way it is paid."""
+        if account_id is None:
+            return None
+        from app.modules.accounts.models.accounts import Account
+        account = self.db.query(Account).filter(Account.id == account_id).first()
+        if not account or account.society_id != society_id or not account.is_active or not (
+                account.is_cash or account.is_bank):
+            raise HTTPException(422, "Choose a cash or bank ledger of this society to pay from")
+        if (payment_mode == VendorPaymentMode.CASH) != bool(account.is_cash):
+            raise HTTPException(422, "A cash payment is made from a cash ledger, and any other payment from a bank ledger")
+        return account
+
     def record_vendor_payment(self, inv_id: UUID, amount: Decimal, paid_date: date,
                                payment_mode: VendorPaymentMode, transaction_ref: Optional[str],
-                               bank_name: Optional[str], user: User) -> VendorInvoice:
+                               bank_name: Optional[str], user: User,
+                               bank_account_id: Optional[UUID] = None) -> VendorInvoice:
         """Record one immutable AP payment transaction against an invoice."""
+        inv = self._pay_invoice(inv_id, amount, paid_date, payment_mode, transaction_ref, bank_name, user,
+                                bank_account_id).invoice
+        self.db.commit()
+        self.db.refresh(inv)
+        return inv
+
+    def _check_payable(self, inv_id: UUID, amount: Decimal, paid_date: date, payment_mode: VendorPaymentMode,
+                       user: User, bank_account_id: Optional[UUID] = None):
+        """Everything that decides whether `amount` can be paid against the invoice, without paying it:
+        (invoice, ledger it is paid from, amount)."""
         inv = self.db.query(VendorInvoice).filter(VendorInvoice.id == inv_id).first()
         if not inv:
             raise HTTPException(404, "Invoice not found")
         self._scoped(user, inv, "Invoice")
+        if not inv.is_active:
+            raise HTTPException(409, "Invoice was cancelled")
+        ledger = self._payment_ledger(inv.society_id, payment_mode, bank_account_id)
         if paid_date < inv.invoice_date:
             raise HTTPException(422, "The payment can't be dated before the invoice")
         if inv.is_paid:
@@ -510,6 +537,14 @@ class VendorService_:  # trailing underscore avoids clash with model name
         if inv.work_order_id:
             from app.modules.vendor.services.work_orders import WorkOrderService
             WorkOrderService(self.db).check_payment(inv, amount)
+        return inv, ledger, amount
+
+    def _pay_invoice(self, inv_id: UUID, amount: Decimal, paid_date: date,
+                     payment_mode: VendorPaymentMode, transaction_ref: Optional[str],
+                     bank_name: Optional[str], user: User,
+                     bank_account_id: Optional[UUID] = None) -> VendorPaymentTransaction:
+        """One payment against one invoice, posted to the books."""
+        inv, ledger, amount = self._check_payable(inv_id, amount, paid_date, payment_mode, user, bank_account_id)
 
         from app.modules.vendor.services.vendor_tds import compute_payment_tds
         tds = compute_payment_tds(self.db, inv.vendor, inv, amount, paid_date)
@@ -529,6 +564,7 @@ class VendorService_:  # trailing underscore avoids clash with model name
             payment_mode=payment_mode,
             transaction_ref=transaction_ref,
             bank_name=bank_name,
+            bank_account_id=ledger.id if ledger else None,
             created_by=user.id,
         )
         self.db.add(payment)
@@ -554,6 +590,78 @@ class VendorService_:  # trailing underscore avoids clash with model name
                 "tds": str(tds.tds),
             },
         )
+        return payment
+
+    def open_bills(self, vendor_id: UUID, user: Optional[User] = None) -> dict:
+        """What the society still owes a vendor, bill by bill, oldest due first — so a payment can be made against
+        the bills it settles. The bill's own TDS (deducted when it was booked) is not payable to the vendor."""
+        vendor = self.get_vendor(vendor_id, user)
+        rows = (self.db.query(VendorInvoice)
+                .filter(VendorInvoice.vendor_id == vendor.id, VendorInvoice.is_active == True,  # noqa: E712
+                        VendorInvoice.is_paid == False)
+                .order_by(VendorInvoice.due_date.is_(None), VendorInvoice.due_date, VendorInvoice.invoice_date).all())
+        bills = []
+        for i in rows:
+            left = max(Decimal(i.total_amount) - Decimal(i.tds_amount or 0) - Decimal(i.paid_amount), Decimal("0"))
+            if left <= 0:
+                continue
+            due = i.due_date or i.invoice_date
+            bills.append({
+                "invoice_id": str(i.id), "invoice_number": i.invoice_number, "description": i.description,
+                "invoice_date": i.invoice_date.isoformat(), "due_date": due.isoformat(),
+                "total": str(i.total_amount), "paid": str(i.paid_amount), "outstanding": str(left),
+                "days_overdue": max(0, (date.today() - due).days),
+            })
+        return {"vendor_id": str(vendor.id), "vendor_name": vendor.company_name,
+                "total_outstanding": str(sum((Decimal(b["outstanding"]) for b in bills), Decimal("0"))),
+                "bills": bills}
+
+    def pay_bills(self, vendor_id: UUID, items: List[dict], paid_date: date, payment_mode: VendorPaymentMode,
+                  transaction_ref: Optional[str], bank_name: Optional[str], user: User,
+                  bank_account_id: Optional[UUID] = None) -> dict:
+        """One cheque or transfer settling several of a vendor's bills — each bill gets its own payment (and TDS),
+        all or none. `items` are {invoice_id, amount}."""
+        vendor = self.get_vendor(vendor_id, user)
+        if not items:
+            raise HTTPException(422, "Choose at least one bill to pay")
+        seen = set()
+        for it in items:
+            if it["invoice_id"] in seen:
+                raise HTTPException(422, "A bill can be paid only once in one payment")
+            seen.add(it["invoice_id"])
+        # Every bill is checked before the first is paid, so one that can't be paid stops the whole payment.
+        for it in items:
+            inv = self.db.query(VendorInvoice).filter(VendorInvoice.id == it["invoice_id"]).first()
+            if not inv or inv.vendor_id != vendor.id:
+                raise HTTPException(422, "A bill chosen is not this vendor's")
+            self._check_payable(inv.id, it["amount"], paid_date, payment_mode, user, bank_account_id)
+        made = [self._pay_invoice(it["invoice_id"], Decimal(it["amount"]), paid_date, payment_mode, transaction_ref,
+                                  bank_name, user, bank_account_id) for it in items]
+        self.db.commit()
+        total = sum((Decimal(p.amount) for p in made), Decimal("0"))
+        tds = sum((Decimal(p.tds_amount or 0) for p in made), Decimal("0"))
+        return {"vendor_id": str(vendor.id), "bills_paid": len(made), "settled": str(total),
+                "tds_held": str(tds), "paid_to_vendor": str(total - tds),
+                "payments": [{"invoice_number": p.invoice.invoice_number, "payment_number": p.payment_number,
+                              "amount": str(p.amount), "tds": str(p.tds_amount or 0)} for p in made]}
+
+    def cancel_invoice(self, inv_id: UUID, reason: str, user: User) -> VendorInvoice:
+        """Take a wrongly entered bill out of the books and the payables. A bill that has been paid can't be
+        cancelled until its payments are reversed."""
+        inv = self.db.query(VendorInvoice).filter(VendorInvoice.id == inv_id).first()
+        if not inv:
+            raise HTTPException(404, "Invoice not found")
+        self._scoped(user, inv, "Invoice")
+        if not inv.is_active:
+            raise HTTPException(409, "Invoice is already cancelled")
+        if any(not p.is_reversed for p in inv.payments):
+            raise HTTPException(409, "This bill has payments against it — reverse them before cancelling the bill")
+        inv.is_active = False
+        from app.modules.accounts.services.postings import AccountPostings
+        AccountPostings(self.db)._cancel_source(
+            "vendor_invoice", inv.id, f"Bill {inv.invoice_number} cancelled: {reason}", user)
+        self._audit(AuditAction.UPDATE, inv, "VendorInvoice", user,
+                    new_values={"cancelled": True, "reason": reason, "invoice": inv.invoice_number})
         self.db.commit()
         self.db.refresh(inv)
         return inv
@@ -625,12 +733,13 @@ class VendorService_:  # trailing underscore avoids clash with model name
     def get_vendor_invoices(self, vendor_id: UUID, user: Optional[User] = None) -> List[VendorInvoice]:
         self.get_vendor(vendor_id, user)
         return self.db.query(VendorInvoice).filter(
-            VendorInvoice.vendor_id == vendor_id
+            VendorInvoice.vendor_id == vendor_id, VendorInvoice.is_active == True  # noqa: E712
         ).order_by(VendorInvoice.invoice_date.desc()).all()
 
     def list_invoices_by_society(self, society_id: UUID, is_paid: Optional[bool] = None,
                                   skip=0, limit=50) -> List[VendorInvoice]:
-        q = self.db.query(VendorInvoice).filter(VendorInvoice.society_id == society_id)
+        q = self.db.query(VendorInvoice).filter(VendorInvoice.society_id == society_id,
+                                                VendorInvoice.is_active == True)  # noqa: E712
         if is_paid is not None:
             q = q.filter(VendorInvoice.is_paid == is_paid)
         return q.order_by(VendorInvoice.invoice_date.desc()).offset(skip).limit(limit).all()

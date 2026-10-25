@@ -17,6 +17,7 @@ from app.models.user import User
 from app.modules.accounts.models.accounts import VOUCHER_TYPES, Account, Voucher
 from app.modules.accounts.models.posting_errors import AccountingPostingError
 from app.modules.accounts.services.accounts_service import AccountsService, dr_cr, fiscal_year, money
+from app.modules.accounts.services.bank_reconciliation import BankReconciliationService
 from app.modules.accounts.services.expense_by_element import expenses_by_element
 from app.modules.accounts.services.recurring_expenses import RecurringExpenseService, first_of
 from app.modules.accounts.services.postings import AccountPostings
@@ -669,6 +670,96 @@ def sync_postings(society_id: UUID, db: Session = Depends(get_db), user: User = 
     counts = AccountPostings(db).sync_society(society_id, user)
     db.commit()
     return counts
+
+
+# ── Bank reconciliation ───────────────────────────────────────────────────────
+
+class ClearLinesIn(BaseModel):
+    entry_ids: List[UUID] = Field(min_length=1, max_length=500)
+    cleared_date: date
+
+
+class UnclearLinesIn(BaseModel):
+    entry_ids: List[UUID] = Field(min_length=1, max_length=500)
+
+
+class MatchLineIn(BaseModel):
+    entry_id: UUID
+
+
+def _statement_row_out(row) -> dict:
+    return {
+        "id": str(row.id), "txn_date": row.txn_date.isoformat(), "description": row.description,
+        "reference": row.reference, "amount": str(row.amount), "direction": row.direction,
+        "bank_account_id": str(row.bank_account_id) if row.bank_account_id else None,
+        "match_status": row.match_status.value,
+        "matched_entry_id": str(row.matched_entry_id) if row.matched_entry_id else None,
+    }
+
+
+@router.get("/bank-reconciliation/{society_id}")
+def bank_reconciliation_statement(society_id: UUID, account_id: Optional[UUID] = None, as_on: Optional[date] = None,
+                                  db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """The Bank Reconciliation Statement of a bank ledger (default: the default bank) as on a date: the balance in the
+    books, the payments and deposits the bank has not cleared yet, and the balance the bank statement should show."""
+    assert_society_access(user, society_id)
+    data = BankReconciliationService(db).statement(society_id, account_id, as_on)
+    db.commit()                                   # the standard chart, if this was the first visit
+    return data
+
+
+@router.get("/bank-reconciliation/{society_id}/cleared")
+def bank_reconciliation_cleared(society_id: UUID, account_id: Optional[UUID] = None,
+                                date_from: Optional[date] = None, date_to: Optional[date] = None,
+                                db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
+    return BankReconciliationService(db).cleared_lines(society_id, account_id, date_from, date_to)
+
+
+@router.post("/bank-reconciliation/{society_id}/clear", dependencies=[Depends(require_admin_committee)])
+def bank_reconciliation_clear(society_id: UUID, data: ClearLinesIn, db: Session = Depends(get_db),
+                              user: User = Depends(get_current_user)):
+    """Mark lines of a bank ledger as cleared by the bank on a date."""
+    assert_society_access(user, society_id)
+    return {"cleared": BankReconciliationService(db).clear(society_id, data.entry_ids, data.cleared_date, user)}
+
+
+@router.post("/bank-reconciliation/{society_id}/unclear", dependencies=[Depends(require_admin_committee)])
+def bank_reconciliation_unclear(society_id: UUID, data: UnclearLinesIn, db: Session = Depends(get_db),
+                                user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
+    return {"uncleared": BankReconciliationService(db).unclear(society_id, data.entry_ids, user)}
+
+
+@router.get("/bank-reconciliation/{society_id}/rows/{row_id}/suggestions")
+def bank_statement_row_suggestions(society_id: UUID, row_id: UUID, db: Session = Depends(get_db),
+                                   user: User = Depends(get_current_user)):
+    """The books' lines a statement row could be (same amount, opposite side, not cleared, dated nearby)."""
+    assert_society_access(user, society_id)
+    return BankReconciliationService(db).suggestions(society_id, row_id)
+
+
+@router.post("/bank-reconciliation/{society_id}/rows/{row_id}/match", dependencies=[Depends(require_admin_committee)])
+def bank_statement_row_match(society_id: UUID, row_id: UUID, data: MatchLineIn, db: Session = Depends(get_db),
+                             user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
+    return _statement_row_out(BankReconciliationService(db).confirm_match(society_id, row_id, data.entry_id, user))
+
+
+@router.post("/bank-reconciliation/{society_id}/rows/{row_id}/unmatch",
+             dependencies=[Depends(require_admin_committee)])
+def bank_statement_row_unmatch(society_id: UUID, row_id: UUID, db: Session = Depends(get_db),
+                               user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
+    return _statement_row_out(BankReconciliationService(db).unmatch(society_id, row_id, user))
+
+
+@router.post("/bank-reconciliation/{society_id}/auto-match", dependencies=[Depends(require_admin_committee)])
+def bank_reconciliation_auto_match(society_id: UUID, account_id: Optional[UUID] = None,
+                                   db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Match every statement row that can only mean one line of the books; the rest are left for a person."""
+    assert_society_access(user, society_id)
+    return BankReconciliationService(db).auto_match(society_id, account_id, user)
 
 
 # ── Financial statements & year-end closing ───────────────────────────────────

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:ar_society_app/features/vendor/presentation/widgets/vendor_picker.dart';
+import 'package:ar_society_app/features/vendor/presentation/providers/vendors_work_providers.dart' show vendorOpenBillsProvider;
+import 'package:ar_society_app/features/vendor/presentation/screens/pay_vendor_bills_screen.dart' show openPayVendor;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -428,12 +430,15 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
               FormFieldBox(
                 label: 'Paid to',
                 helper: 'Vendor, optional',
-                child: VendorPicker(
-                  societyId: societyId,
-                  value: _vendorId,
-                  label: '',
-                  onChanged: (v) => setState(() => _vendorId = v?.id),
-                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  VendorPicker(
+                    societyId: societyId,
+                    value: _vendorId,
+                    label: '',
+                    onChanged: (v) => setState(() => _vendorId = v?.id),
+                  ),
+                  if (_vendorId != null) _UnpaidBillsNote(vendorId: _vendorId!),
+                ]),
               ),
             if (!_isEdit)
               FormFieldBox(
@@ -676,6 +681,40 @@ class _Totals extends StatelessWidget {
               color: diff.abs() < 0.001 ? AppTheme.success : AppTheme.warning),
         ),
       ]),
+    );
+  }
+}
+
+/// Under the vendor on a Payment voucher: when the vendor has bills still to be paid, say so and offer the screen that
+/// pays them — a loose voucher would leave the bills unpaid and the books out of step with what is owed.
+class _UnpaidBillsNote extends ConsumerWidget {
+  final String vendorId;
+  const _UnpaidBillsNote({required this.vendorId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final open = ref.watch(vendorOpenBillsProvider(vendorId)).valueOrNull;
+    if (open == null || open.bills.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: AppTheme.warningSoft, borderRadius: BorderRadius.circular(AppTheme.radiusS)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+          child: Row(children: [
+            const Icon(Icons.info_outline_rounded, size: 18, color: AppTheme.warning),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${open.vendorName} has ${open.bills.length} unpaid ${open.bills.length == 1 ? 'bill' : 'bills'} '
+                '(${formatInr(open.total)}). Pay them from Pay Vendor so each bill is marked paid.',
+                style: const TextStyle(fontSize: 12.5, height: 1.4),
+              ),
+            ),
+            TextButton(onPressed: () => openPayVendor(context, vendorId: vendorId), child: const Text('Pay bills')),
+          ]),
+        ),
+      ),
     );
   }
 }

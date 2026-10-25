@@ -4,6 +4,39 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-25
+
+### fix: books integrity — vendor bill → payment → bank reconciliation, resident receipts, reports
+
+An audit of the Finance & Maintenance and Accounts modules (see `docs/ACCOUNTING_PROCEDURE.md` for the corrected flows).
+
+- **Reports read the books one way.** The Receipts & Payments, Schedule of Funds, dashboard year figures and spend per
+  maintenance element counted payments *waiting for approval* and *rejected* ones, so Receipts & Payments did not balance
+  while any payment was waiting, and the spend report disagreed with the ledgers. They now count approved, live vouchers
+  only. The spend per element (and the budget suggestions) also no longer read the year-end closing entry, which zeroes
+  every expense ledger, as a refund: after a year was closed its spend showed as nil.
+- **Bank reconciliation against the books.** Reconciliation only matched resident payments (credits) to a statement. Now
+  each bank ledger has a Bank Reconciliation Statement (books balance, less deposits and plus payments the bank has not
+  cleared = balance per bank), lines are cleared by hand or by matching an imported statement (credits and debits;
+  auto-match takes only unambiguous rows), and a resident's online payment and its line in the books confirm each other.
+  Migration `f8a2c6e0b3d5` (additive).
+- **Vendor payables.** A vendor's open bills can be listed and several settled with one cheque from a chosen bank or
+  cash ledger (before: one bill at a time, always the default bank); a wrongly entered bill can be cancelled while
+  nothing is paid on it; a bill's outstanding no longer includes TDS already held; a loose Payment voucher on Sundry
+  Creditors must name the vendor and cannot be used to pay a vendor who has unpaid bills (it left the bill unpaid and the
+  payables out of step with the ledger).
+- **Resident receipts** can name the bank or cash ledger the money was deposited into (before: always the default bank).
+- **App: Add Expense → Pay later.** The expense form has *Paid now / Pay later*. Pay later saves the supplier's bill as a vendor
+  bill (vendor and bill number required, optional due date) under the chosen expense head instead of a paid Payment voucher, so it
+  is owed until it is paid from Pay Vendor. Also fixed: after a save the form kept a ledger object that the reloaded list no
+  longer contained (Paid from / expense head), which asserted in debug builds.
+- **App: Bank Reconciliation.** New screen (Accounts → Books, Gateway **K**): the Bank Reconciliation Statement of a bank
+  account as on a date, tick-and-clear of payments and deposits the bank has cleared, import of the bank's CSV with matching of
+  its credit and debit rows to the books (manual and auto-match), and the list of cleared lines with Undo.
+- **App: Pay Vendor.** New screen to pay several of a vendor's bills with one cheque or transfer (tick the bills, part-pay by
+  lowering an amount, choose the bank or cash ledger); a bill's sheet can pay several bills, choose the ledger for a single
+  payment and (admin / committee) cancel the bill; a Payment voucher naming a vendor with unpaid bills points to Pay Vendor.
+
 ## 2026-10-24
 
 ### fix: flaky SQLite UUID test, filter-pill clipping, Books grid orphan tile
