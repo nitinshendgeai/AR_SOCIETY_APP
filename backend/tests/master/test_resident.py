@@ -82,6 +82,17 @@ def test_resident_login_created_with_its_own_temporary_password(client, db, soci
     assert me.json()["must_change_password"] is True
 
 
+def test_create_resident_rejects_repeat_of_same_name_and_type_on_flat(client, db, society_a):
+    # A bulk import run twice must not double every resident.
+    body = {"flat_id": str(society_a["flat"].id), "full_name": "Sneha Ram", "resident_type": "owner"}
+    h = society_a["admin"]["headers"]
+    assert client.post("/api/v1/residents/", json=body, headers=h).status_code == 201
+    r = client.post("/api/v1/residents/", json={**body, "full_name": "  sneha   RAM "}, headers=h)
+    assert r.status_code == 409, r.text
+    # A different type of the same name, or the same name on another flat, is fine.
+    assert client.post("/api/v1/residents/", json={**body, "resident_type": "family"}, headers=h).status_code == 201
+
+
 def test_read_one_resident(client, db, society_a):
     created = client.post("/api/v1/residents/", json={
         "flat_id": str(society_a["flat"].id), "full_name": "Bob Owner",

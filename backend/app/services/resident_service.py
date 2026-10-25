@@ -55,6 +55,14 @@ class ResidentService:
                 detail="This flat already has an active primary resident",
             )
 
+        # Same name and type already active on this flat: a repeat (typically a
+        # bulk import run twice), not a new resident.
+        if self.repo.has_active_duplicate(data.flat_id, data.full_name, data.resident_type):
+            raise HTTPException(
+                status_code=409,
+                detail=f"{data.full_name.strip()} is already an active {data.resident_type.value.replace('_', '-')} of this flat",
+            )
+
         # 6-7: duplicate phone/email/ID — warning only, never blocking.
         warnings = self.repo.find_duplicate_warnings(
             society_id=current_user.society_id,
