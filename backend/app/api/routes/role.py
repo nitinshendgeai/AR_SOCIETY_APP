@@ -84,26 +84,11 @@ def list_roles(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Return roles that are in use within the caller's society.
-    Superadmins / users without a society get all platform roles.
+    Return every assignable role. Roles are platform-wide, so a society must
+    be able to pick any of them (e.g. Manager, Security Staff) even before
+    anyone in the society holds that role.
     """
-    if not current_user.society_id:
-        # Platform admin — show all
-        roles = db.query(Role).order_by(Role.name).all()
-    else:
-        # Return distinct roles assigned to users in this society
-        roles = (
-            db.query(Role)
-            .join(UserRole, UserRole.role_id == Role.id)
-            .join(User, User.id == UserRole.user_id)
-            .filter(User.society_id == current_user.society_id, User.is_active == True)
-            .distinct()
-            .order_by(Role.name)
-            .all()
-        )
-        # If the society has no users yet, fall back to all platform roles
-        if not roles:
-            roles = db.query(Role).order_by(Role.name).all()
+    roles = db.query(Role).order_by(Role.name).all()
 
     if not current_user.is_superadmin:
         roles = [r for r in roles if r.name != PLATFORM_ROLE]
