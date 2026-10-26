@@ -28,6 +28,7 @@ from app.modules.billing.services.budget_suggestions import suggest_budgets
 from app.modules.billing.services.period_expenses import cycle_readiness
 from app.modules.billing.services.flat_charges import FlatChargeService
 from app.modules.billing.services.interest_waivers import InterestWaiverService
+from app.modules.billing.services.advance_import import AdvanceImportRequest, import_advances
 from app.modules.billing.services.allocations import PaymentAllocator, allocated, payment_counts, unapplied
 from app.schemas.common import OrmBase, TimestampSchema
 from typing import Optional
@@ -819,6 +820,15 @@ def submit_online_payment(
         deposit_account_id=deposit_account_id,
     )
     return _online_payment_out(submission)
+
+@router.post("/advance-import", dependencies=[Depends(manager_above)])
+def import_advance_maintenance(data: AdvanceImportRequest, db: Session = Depends(get_db),
+                               user: User = Depends(get_current_user)):
+    """Record maintenance members paid in advance, many flats at once: each row is a payment on account, kept as the
+    flat's advance (ledger: Advance Maintenance from Members) and set off against its bills as they are raised.
+    `dry_run` checks every row and writes nothing."""
+    return import_advances(db, data.society_id, data.rows, data.dry_run, user)
+
 
 @router.get("/online-payments/society/{society_id}", dependencies=[Depends(manager_above)])
 def list_online_payments(

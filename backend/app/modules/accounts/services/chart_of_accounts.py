@@ -54,6 +54,8 @@ STANDARD_LEDGERS = [
     ("current_liabilities", "tds_payable", "1404", "TDS Payable", {}),
     ("current_liabilities", "gst_payable", "1405", "GST Payable", {}),
     ("current_liabilities", "amenity_deposits", "1406", "Amenity Deposits Held (refundable)", {}),
+    # Maintenance paid before it is billed: a liability until a bill takes it up, then it clears Members' Dues.
+    ("current_liabilities", "advance_maintenance", "1407", "Advance Maintenance from Members", {}),
     # Input GST is recoverable tax on eligible vendor purchases. Keep these
     # as separate assets so CGST/SGST/IGST registers can reconcile independently.
     ("current_assets", "gst_input_cgst", "2307", "Input GST - CGST", {}),

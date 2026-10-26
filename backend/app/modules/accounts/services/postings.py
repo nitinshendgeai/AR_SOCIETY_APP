@@ -189,7 +189,7 @@ class AccountPostings:
         chosen = getattr(p, "deposit_account", None) if getattr(p, "deposit_account_id", None) else None
         cash_bank = chosen or self._cash_or_bank(sid, p.payment_mode == PaymentMode.CASH)
         dues = self.accounts.system_account(sid, "members_dues")
-        advance_control = self.accounts.system_account(sid, "member_deposits")
+        advance_control = self.accounts.system_account(sid, "advance_maintenance")
         against = f" against Bill {p.bill.invoice_number}" if p.bill else " on account"
 
         # PaymentReceipt is always on-bill. OnlinePaymentSubmission can leave
@@ -236,7 +236,7 @@ class AccountPostings:
             return None
         flat = payment.flat or bill.flat
         dues = self.accounts.system_account(payment.society_id, "members_dues")
-        advance_control = self.accounts.system_account(payment.society_id, "member_deposits")
+        advance_control = self.accounts.system_account(payment.society_id, "advance_maintenance")
         from app.modules.accounts.services.entities import AccountingEntityService
         entities = AccountingEntityService(self.db)
         ar = entities.ensure_flat_member(flat, dues)

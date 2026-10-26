@@ -3,9 +3,11 @@ import 'package:ar_society_app/core/motion/loading.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
+import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/billing/data/payment_setoff_api.dart';
@@ -150,6 +152,9 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
     return AppPage(
       title: 'Online Payments',
       actions: [
+          AppBarTextAction(
+              icon: Icons.upload_file_rounded, label: 'Import advances',
+              onPressed: () => context.push(AppRoutes.advanceImport)),
           IconButton(
             icon: _exporting
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
