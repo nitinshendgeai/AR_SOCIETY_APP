@@ -4,6 +4,18 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-26 (regenerate after cancelling)
+
+### feat: bills that were issued by mistake can be regenerated once they are all cancelled
+
+Regenerate bills is now allowed when every bill of the cycle is unissued **or cancelled**. A bill that was issued and then
+cancelled does not stop it: it stays as the record of that invoice (its number and its cancelled posting in the books), and
+the new bills get new numbers; a generated bill that was cancelled before it was issued is deleted with the rest. One issued
+or paid bill still stops it, and the message says to cancel it first. The cycle now reports `can_regenerate` (worked out on
+the server, from the bills' own fields) and the cycle screen uses it, so the **Regenerate Bills** button also shows when every
+bill is cancelled and there is nothing left to issue. Interest counted on earlier bills by a cancelled bill is counted again
+by the new bills.
+
 ## 2026-10-26 (regenerate bills)
 
 ### feat: regenerate a cycle's bills until they are issued

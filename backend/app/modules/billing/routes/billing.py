@@ -441,6 +441,7 @@ def _cycle_out(cy) -> dict:
         "frequency": cy.frequency.value,
         "is_finalized": cy.is_finalized,
         "notes": cy.notes,
+        "can_regenerate": BillingService.can_regenerate(cy),
         "bills_count": len(live),
         "generated_count": sum(1 for b in live if b.bill_status == BillStatus.GENERATED),
         "paid_count": sum(1 for b in live if b.bill_status == BillStatus.PAID),

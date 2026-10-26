@@ -81,9 +81,10 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
 
   Future<void> _regenerate(BillingCycle cycle) async {
     final ok = await _confirm(
-      'Regenerate ${cycle.billsCount} bills?',
+      cycle.billsCount > 0 ? 'Regenerate ${cycle.billsCount} bills?' : 'Make the bills again?',
       'The bills of this cycle will be deleted and new ones made from the charges, rules and expenses as they are now. '
-      'Nothing has gone to residents yet, so nothing is lost. You can do this until the bills are issued.',
+      'Nothing has gone to residents yet, so nothing is lost. Bills that were issued and then cancelled stay on record. '
+      'You can do this until a bill is issued.',
       'Regenerate',
     );
     if (!ok) return;
@@ -158,13 +159,18 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
           if (desktop && action != null)
             HeaderActionButton(icon: action.$2, label: action.$1, onPressed: _busy ? null : action.$3),
         ],
-      bottomNavigationBar: desktop || action == null
+      bottomNavigationBar: desktop
           ? null
-          : _bar(action.$1, action.$2, action.$3,
-              // Until the bills are issued they can be thrown away and made again.
-              secondary: cycle != null && cycle.canRegenerate
-                  ? ('Regenerate Bills', Icons.restart_alt_rounded, () => _regenerate(cycle))
-                  : null),
+          : action != null
+              // Until a bill is issued the bills can be thrown away and made again.
+              ? _bar(action.$1, action.$2, action.$3,
+                  secondary: cycle != null && cycle.canRegenerate
+                      ? ('Regenerate Bills', Icons.restart_alt_rounded, () => _regenerate(cycle))
+                      : null)
+              // Every bill was cancelled: nothing to issue, but the bills can be made again.
+              : cycle != null && cycle.canRegenerate
+                  ? _bar('Regenerate Bills', Icons.restart_alt_rounded, () => _regenerate(cycle))
+                  : null,
       body: cycleAsync.when(
         loading: () => const AppLoader(),
         error: (e, _) => Center(
