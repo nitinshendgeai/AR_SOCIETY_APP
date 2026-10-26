@@ -328,6 +328,35 @@ new one). Log in with it to see every society's trial status.
 
 ---
 
+## Release runbook: advance maintenance ledger (migration `0b1c2d3e4f5a`)
+
+This release adds the ledger **Advance Maintenance from Members** (1407, Current Liabilities) and the **Import
+advances** screen. The migration moves advances already posted to *Deposits from Members* (1403) into the new ledger and
+tags each advance line with its flat. It changes existing accounting rows, so take a backup first.
+
+1. **Back up the database.** Railway > Postgres service > Backups, or `pg_dump` with the public proxy URL.
+2. **Deploy the backend.** Confirm `main` has the release, then let Railway deploy (or Deployments > Redeploy). The
+   service needs `RUN_MIGRATIONS=true` (plus `DATABASE_URL`, `SECRET_KEY`, `APP_ENV=production`).
+3. **Watch the deploy log** for `Running upgrade ... -> 0b1c2d3e4f5a, Advance maintenance gets its own ledger` and
+   `Migrations complete`. The health check waits up to 300 s; do not cancel a slow start.
+4. **Check the backend.** `GET /health/ready` answers 200, and `GET /health` reads `"up_to_date": true`. A 503 means the
+   migration did not finish: read the deploy log.
+5. **Deploy the frontend** (Flutter web service: redeploy it, it builds from `/mobile`) and **build the Android app**
+   (Actions > *Build Android APK* runs on a push to `main`, or run it by hand).
+6. **Check the app.** Finance > Chart of Accounts lists *Advance Maintenance from Members* (1407) under Current Liabilities; where the
+   society already held advances they have moved out of *Deposits from Members*; Online Payments has **Import advances**.
+7. **Use it.** Online Payments > Import advances: download the flats sheet, fill in Amount, Payment Date and Payment Mode
+   (and the cheque / UTR number), save as CSV, check the preview, record. The same file cannot be recorded twice.
+   Compare the total with the *Advance Maintenance from Members* line on the Balance Sheet. Then generate and **issue**
+   the bills: each flat's advance is set off against its bills when they are issued, and what is left stays as its
+   advance.
+
+**Rolling back.** Deployments > *Rollback* reverts the code, not the data: the migration's data move is not undone
+(its downgrade leaves the ledger and the moved postings in place). To get the old data back, restore the backup from
+step 1.
+
+---
+
 ## Deployment Checklist
 
 ### Backend
