@@ -357,6 +357,29 @@ step 1.
 
 ---
 
+## Release runbook: regenerate bills (no migration)
+
+This release adds **Regenerate bills** on a billing cycle (`POST /billing/cycles/{id}/regenerate-bills`): while every bill
+of the cycle is unissued, the bills are deleted and made again from the current charges, rules and expenses. It changes no
+tables, so there is no migration and nothing to move.
+
+1. **Deploy the backend.** Confirm `main` has the release, then let Railway deploy (or Deployments > Redeploy).
+2. **Watch the deploy log.** It should end with `Migrations complete` and no new `Running upgrade` line, then the app
+   starts.
+3. **Check the backend.** `GET /health/ready` answers 200. Optionally, `/docs` lists
+   `POST /billing/cycles/{cycle_id}/regenerate-bills`.
+4. **Deploy the frontend** (Flutter web service: redeploy it, it builds from `/mobile`) and **build the Android app**
+   (Actions > *Build Android APK*, or push to `main`).
+5. **Try it on a cycle.** Open a cycle whose bills are all unissued, press **Regenerate bills**, confirm, check the new
+   bills, then issue them. The button is not shown once any bill of the cycle is issued or has a payment.
+
+Notes. Regenerating deletes the cycle's bills and makes new ones, so take a database backup before the first real
+regeneration of a large cycle. New bills continue from the highest remaining invoice number, so regenerating the latest
+cycle reuses its numbers. **Rolling back:** Deployments > *Rollback* on the backend and frontend services reverts the
+release completely (no schema change); it does not undo bills a user has already regenerated.
+
+---
+
 ## Deployment Checklist
 
 ### Backend
