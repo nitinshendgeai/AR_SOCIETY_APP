@@ -79,6 +79,20 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
     });
   }
 
+  Future<void> _regenerate(BillingCycle cycle) async {
+    final ok = await _confirm(
+      'Regenerate ${cycle.billsCount} bills?',
+      'The bills of this cycle will be deleted and new ones made from the charges, rules and expenses as they are now. '
+      'Nothing has gone to residents yet, so nothing is lost. You can do this until the bills are issued.',
+      'Regenerate',
+    );
+    if (!ok) return;
+    await _run(() async {
+      final n = await ref.read(maintenanceBillingApiProvider).regenerateBills(widget.cycleId);
+      if (mounted) AppToast.success(context, '$n bills made again — review, then issue them');
+    });
+  }
+
   Future<void> _run(Future<void> Function() action) async {
     setState(() => _busy = true);
     try {
@@ -134,6 +148,12 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
               downloadLabel: 'Print all bills',
             ),
           ],
+          if (cycle != null && cycle.canRegenerate)
+            AppBarTextAction(
+              icon: Icons.restart_alt_rounded,
+              label: 'Regenerate bills',
+              onPressed: _busy ? null : () => _regenerate(cycle),
+            ),
           IconButton(icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh', onPressed: _refresh),
           if (desktop && action != null)
             HeaderActionButton(icon: action.$2, label: action.$1, onPressed: _busy ? null : action.$3),

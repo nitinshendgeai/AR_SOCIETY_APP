@@ -534,6 +534,9 @@ class BillingCycle {
   /// Bills exist but none have been sent to residents yet.
   bool get awaitingIssue => generatedCount > 0;
 
+  /// Every bill is still unissued, so the bills can be thrown away and made again.
+  bool get canRegenerate => isFinalized && billsCount > 0 && generatedCount == billsCount;
+
   factory BillingCycle.fromJson(Map<String, dynamic> j) => BillingCycle(
         id: j['id'] as String,
         name: j['name'] as String,
@@ -1026,6 +1029,13 @@ class MaintenanceBillingApi {
 
   Future<int> generateBills(String cycleId) async {
     final r = await _dio.post('/billing/cycles/$cycleId/generate-bills');
+    return (r.data as Map<String, dynamic>)['bills_generated'] as int;
+  }
+
+  /// Deletes the cycle's bills and makes them again from today's charges and rules; the server refuses once any bill
+  /// is issued or paid. Returns how many bills were made.
+  Future<int> regenerateBills(String cycleId) async {
+    final r = await _dio.post('/billing/cycles/$cycleId/regenerate-bills');
     return (r.data as Map<String, dynamic>)['bills_generated'] as int;
   }
 
