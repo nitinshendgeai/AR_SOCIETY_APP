@@ -51,6 +51,9 @@ class ChargeBasis(str, enum.Enum):
     BUDGET_AREA            annual budget ₹, split in proportion to flat area
     PARKING                ₹ per allotted parking slot per month (an
                            allocation's own monthly_charge overrides it)
+    SERVICE_CHARGE_PCT     % of the flat's own service-charge lines on the same bill (the heads marked service
+                           charge, for the months billed) - e.g. repair fund 0.75%, sinking fund 0.25% of the
+                           monthly maintenance
     """
     FIXED                 = "fixed"
     PER_SQFT              = "per_sqft"
@@ -58,6 +61,7 @@ class ChargeBasis(str, enum.Enum):
     BUDGET_EQUAL          = "budget_equal"
     BUDGET_AREA           = "budget_area"
     PARKING               = "parking"
+    SERVICE_CHARGE_PCT    = "service_charge_pct"
 
 
 class BillStatus(str, enum.Enum):

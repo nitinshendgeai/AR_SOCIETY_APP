@@ -392,13 +392,17 @@ class MaintenanceCalculator:
 
     # ── Charge heads ─────────────────────────────────────────────────────────
 
-    def _charge_lines(self, charge: MaintenanceChargeConfig, flat: Flat, months: Decimal) -> List[Tuple[str, Decimal]]:
+    def _charge_lines(self, charge: MaintenanceChargeConfig, flat: Flat, months: Decimal,
+                      service_base: Optional[Decimal] = None) -> List[Tuple[str, Decimal]]:
         """The (description, amount) lines a charge head puts on a flat's bill: one, except that a parking head with
         a two-wheeler rate bills a flat's cars and two-wheelers on lines of their own. A period-expense head bills the
         flat's exact share of its pool (nothing when the flat carries none)."""
         if is_period_head(charge):
             alloc = self.allocations.get(charge.id)
             return [(charge.name, alloc.amounts.get(flat.id, ZERO))] if alloc else []
+        if charge.basis == ChargeBasis.SERVICE_CHARGE_PCT:
+            # % of the flat's service-charge lines already on this bill (those are for the months billed)
+            return [(charge.name, money((service_base or ZERO) * (charge.default_amount or ZERO) / 100))]
         if (charge.basis == ChargeBasis.PARKING and charge.two_wheeler_rate is not None
                 and any(is_tw for _own, is_tw in self.parking.get(flat.id, []))):
             cars, two_wheelers = self._parking_split(charge, flat)
@@ -487,8 +491,16 @@ class MaintenanceCalculator:
                 catch_up += 1
             draft = FlatBillDraft(flat=flat, period_start=start, period_end=end, months=months)
 
-            for charge in self.charges:
-                for description, amount in self._charge_lines(charge, flat, months):
+            # The heads that are a % of the flat's service-charge lines come last: they need those lines.
+            ordered = ([c for c in self.charges if c.basis != ChargeBasis.SERVICE_CHARGE_PCT]
+                       + [c for c in self.charges if c.basis == ChargeBasis.SERVICE_CHARGE_PCT])
+            service_base = None
+            for charge in ordered:
+                if charge.basis == ChargeBasis.SERVICE_CHARGE_PCT:
+                    if service_base is None:
+                        service_base = sum((l.amount for l in draft.lines if l.is_service), ZERO)
+                lines = self._charge_lines(charge, flat, months, service_base)
+                for description, amount in lines:
                     if amount <= 0:
                         continue
                     line = LineDraft(

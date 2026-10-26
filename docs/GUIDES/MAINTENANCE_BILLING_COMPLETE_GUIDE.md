@@ -73,6 +73,12 @@ flat's service-charge lines. It does **not** reduce anyone's bill.
 | Annual budget, split equally | ₹ per year | budget ÷ number of active flats ÷ 12 |
 | Annual budget, split by area | ₹ per year | budget × flat area ÷ total area ÷ 12 |
 | Per parking slot | ₹ per slot per month | rate × the flat's allotted slots |
+| % of service charges | % (e.g. 0.75) | the flat's service-charge lines on the same bill × % ÷ 100 |
+
+**% of service charges** is worked out last, from the flat's own lines for the heads marked *Service charge* (already for
+the months billed, so a quarterly bill gets three months' worth). Use it for funds set as a share of the monthly
+maintenance — for example repair fund 0.75% and sinking fund 0.25%. The percentage lines themselves are not part of the
+base, and neither is non-occupancy. It cannot be switched to *Budget from expenses*.
 
 A quarterly cycle multiplies every monthly figure by 3, half-yearly by 6, yearly by 12.
 

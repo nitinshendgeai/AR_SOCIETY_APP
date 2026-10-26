@@ -38,8 +38,8 @@ are, and keep **GST applicable** off unless the society is GST-registered (turno
 | 2 | Property Tax | Per sq ft | blank | off |
 | 3 | Water Charges | Annual budget, split by area | blank | off |
 | 4 | Common Electricity | Annual budget, split equally | blank | **ON** |
-| 5 | Repairs & Maintenance Fund | % of construction cost | **0.75** (% a year) | off |
-| 6 | Sinking Fund | % of construction cost | **0.25** (% a year) | off |
+| 5 | Repairs & Maintenance Fund | **% of service charges** (this society) | **0.75** (% of the monthly service charges) | off |
+| 6 | Sinking Fund | **% of service charges** (this society) | **0.25** (% of the monthly service charges) | off |
 | 7 | Lift Maintenance | Annual budget, split equally | blank | **ON** |
 | 8 | Security Services | Annual budget, split equally | blank | **ON** |
 | 9 | Housekeeping | Annual budget, split equally | blank | **ON** |
@@ -55,7 +55,7 @@ are, and keep **GST applicable** off unless the society is GST-registered (turno
 |---|---|---|
 | Running costs of common services, shared **equally per flat** | 1, 4, 7, 8, 9, 13 | The bye-laws share service charges equally, whatever the flat's size. Lift: every flat pays, ground floor included. |
 | Levied by area, shared **by built-up area** | 2, 3, 11, 12 | The authority or insurer assesses these by area. |
-| Funds, a **% of construction cost** | 5, 6 | Set by the bye-laws: repairs 0.75% a year, sinking at least 0.25% a year. |
+| Funds, a **% of the monthly service charges** | 5, 6 | This society charges 0.75% and 0.25% of the flat's monthly service-charge lines. (The bye-law default is 0.75% and 0.25% of construction cost a year; use *% of construction cost* if your general body resolved that.) |
 | Fixed by the general body | 10, 14 | A rate the GB resolves. |
 
 The **Service charge** switch matters for one thing only: the non-occupancy charge (up to 10%) on tenant-let flats
@@ -176,8 +176,8 @@ the year. Recent average (12 months) does that.
 | Building Insurance | Annual budget, split by area | **Recent average, 12 months** | off |
 | Lease Rent / NA Tax | Annual budget, split by area | **Recent average, 12 months** | off |
 | Education & Training Fund | Annual budget, split equally | **Recent average, 12 months** | off |
-| Repairs & Maintenance Fund | **% of construction cost**, 0.75 | Typed | off |
-| Sinking Fund | **% of construction cost**, 0.25 | Typed | off |
+| Repairs & Maintenance Fund | **% of service charges**, 0.75 | Typed | off |
+| Sinking Fund | **% of service charges**, 0.25 | Typed | off |
 | Parking Charges | Per parking slot | Typed | off |
 | Amenities / Clubhouse | Same for every flat | Typed | off |
 
@@ -190,8 +190,9 @@ Notes:
   the yearly-paid ones.
 - **Bill actual expenses** (a button on the Charge Heads tab) lists the heads that can follow spend, with a tick
   box for each.
-- Repairs Fund and Sinking Fund are a percentage of construction cost per year, **not ₹ per sq ft**. Check the head
-  is on the "% of construction cost" basis with 0.75 and 0.25.
+- Repairs Fund and Sinking Fund use **% of service charges** with 0.75 and 0.25: each is that percentage of the flat's
+  service-charge lines (the heads with *Service charge* on) on the same bill. Make sure those heads have Service
+  charge ON, or the funds will be ₹0.
 
 ### 5.3 How each mode shares the cost
 - **Actual expenses:** the pool is shared **by flat area** for per-sq-ft and area-budget heads, **equally** for fixed
@@ -209,7 +210,7 @@ Notes:
 
 | Setting | What to enter |
 |---|---|
-| Construction cost per sq ft | Architect-certified, excluding land. **Required** for the Repairs and Sinking Funds. |
+| Construction cost per sq ft | Architect-certified, excluding land. Needed only for a head on *% of construction cost*; not needed when the funds are % of service charges. |
 | Non-occupancy % | As the GB resolves, at most 10. Applied to the service-charge lines of tenant-let flats. |
 | Interest % and grace days | Simple interest on arrears, 12% a year by default. |
 | GST | Only if the society is registered. When a flat's monthly GST-able amount is above ₹7,500, 18% applies to all its GST-able lines. |
@@ -286,7 +287,7 @@ GB decides.
 | A cost never reaches the bills | Ledger not linked to an element | Chart of Accounts → Counts towards |
 | Charge didn't change after spending more | Head not on Budget from expenses, or bills were already generated | Switch the head; bills are not recalculated |
 | One month has a huge lift or insurance line | A yearly cost on the actual-expense mode | Move the head to Recent average (12 months) |
-| Funds look too small or too large | Fund head set as ₹ per sq ft | Set to % of construction cost, 0.75 and 0.25, and enter the construction cost in Rules |
+| Funds are ₹0, too small or too large | Fund head on the wrong basis, or the service-charge heads do not have Service charge ON | Set the funds to % of service charges, 0.75 and 0.25, and check Service charge on the five service heads |
 | Preview says a flat has no area | Flat area missing | Add the area in the flat master; area-based heads give ₹0 for it |
 | Generate refused: dates overlap | An earlier cycle covers the same dates | Cancel that cycle's bills, or fix the dates |
 | Electricity bill not in Common Electricity | Booked to a repairs ledger | Book to 4201 |

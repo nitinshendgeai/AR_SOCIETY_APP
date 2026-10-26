@@ -4,6 +4,19 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-26 (funds as a % of service charges)
+
+### feat: a charge head can be a percentage of the flat's service-charge lines
+
+New charge basis **% of service charges** (`service_charge_pct`): the head's amount is a percentage of the flat's own
+service-charge lines on the same bill (the heads marked *Service charge*, already for the months billed). A society that
+charges its repair fund at 0.75% and its sinking fund at 0.25% of the monthly maintenance sets those two heads to this
+basis. It is worked out after the other heads; the percentage lines are not part of the base, nor is non-occupancy. It
+cannot bill actual expenses. The charge head form and element master list it as "% of service charges (monthly)".
+
+Migration `0c2d3e4f5a6b` adds the value to the `chargebasis` enum (no data change; PostgreSQL cannot drop an enum value,
+so the downgrade leaves it). Tests: `tests/billing/test_service_charge_pct.py`.
+
 ## 2026-10-26 (regenerate with issued bills)
 
 ### feat: Regenerate replaces only the unissued and cancelled bills; issued and paid bills stay
