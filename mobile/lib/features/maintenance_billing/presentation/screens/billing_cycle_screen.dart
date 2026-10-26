@@ -148,7 +148,7 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
               downloadLabel: 'Print all bills',
             ),
           ],
-          if (cycle != null && cycle.canRegenerate)
+          if (desktop && cycle != null && cycle.canRegenerate)
             AppBarTextAction(
               icon: Icons.restart_alt_rounded,
               label: 'Regenerate bills',
@@ -158,7 +158,13 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
           if (desktop && action != null)
             HeaderActionButton(icon: action.$2, label: action.$1, onPressed: _busy ? null : action.$3),
         ],
-      bottomNavigationBar: desktop || action == null ? null : _bar(action.$1, action.$2, action.$3),
+      bottomNavigationBar: desktop || action == null
+          ? null
+          : _bar(action.$1, action.$2, action.$3,
+              // Until the bills are issued they can be thrown away and made again.
+              secondary: cycle != null && cycle.canRegenerate
+                  ? ('Regenerate Bills', Icons.restart_alt_rounded, () => _regenerate(cycle))
+                  : null),
       body: cycleAsync.when(
         loading: () => const AppLoader(),
         error: (e, _) => Center(
@@ -303,16 +309,28 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
           ),
       ];
 
-  Widget _bar(String label, IconData icon, VoidCallback onPressed) => SafeArea(
+  Widget _bar(String label, IconData icon, VoidCallback onPressed, {(String, IconData, VoidCallback)? secondary}) =>
+      SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: ElevatedButton.icon(
-            onPressed: _busy ? null : onPressed,
-            icon: _busy
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : Icon(icon),
-            label: Text(label),
-          ),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            ElevatedButton.icon(
+              onPressed: _busy ? null : onPressed,
+              icon: _busy
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Icon(icon),
+              label: Text(label),
+            ),
+            if (secondary != null) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                key: const Key('regenerate-bills'),
+                onPressed: _busy ? null : secondary.$3,
+                icon: Icon(secondary.$2),
+                label: Text(secondary.$1),
+              ),
+            ],
+          ]),
         ),
       );
 
