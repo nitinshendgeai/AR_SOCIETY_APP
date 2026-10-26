@@ -382,8 +382,12 @@ release completely (no schema change); it does not undo bills a user has already
 
 ## Release runbook: deploying everything since the advance maintenance release (one go)
 
-Use this when the releases above (advance maintenance ledger, possession-date import, regenerate bills) were not deployed
-one by one. The only one with a migration is `0b1c2d3e4f5a` (advance ledger); the rest are code only.
+Use this when the releases above (advance maintenance ledger, possession-date import, regenerate bills, and the clearer
+**Regenerate Bills** button on the cycle screen) were not deployed one by one. The only one with a migration is
+`0b1c2d3e4f5a` (advance ledger); the rest are code only, and the button change is app only.
+
+**If the backend is already deployed** with the advance and regenerate releases, only step 5 is needed: redeploy the
+Flutter web service and build a new Android app. An old app does not show the new button or screens.
 
 1. **Back up the database.** Railway > Postgres service > Backups, or `pg_dump` with the public proxy URL. The advance
    migration moves existing accounting rows.
@@ -397,7 +401,7 @@ one by one. The only one with a migration is `0b1c2d3e4f5a` (advance ledger); th
    (Actions > *Build Android APK*, or push to `main`).
 6. **Check the app.** Finance > Chart of Accounts lists *Advance Maintenance from Members* (1407) under Current
    Liabilities; Finance > Payments has **Import advances**; the flat list has **Possession dates**; a cycle whose bills are
-   all unissued has **Regenerate bills**.
+   all unissued has a **Regenerate Bills** button under **Issue N Bills** (top bar on a computer).
 7. **Then use it.** Import the advances and compare the total with the Balance Sheet line; make and **issue** the bills so
    the advances are set off; use *Regenerate bills* only before any bill is issued.
 
