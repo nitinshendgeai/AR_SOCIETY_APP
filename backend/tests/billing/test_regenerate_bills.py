@@ -137,3 +137,83 @@ def test_a_cycle_with_no_bills_and_a_resident_are_refused(client, db):
     cycle_id = _cycle(client, h, society.id).json()["id"]
     assert _regenerate(client, h, cycle_id).status_code == 409
     assert _regenerate(client, resident["headers"], cycle_id).status_code == 403
+
+
+# ── Cancelled bills ───────────────────────────────────────────────────────────
+
+def _cancel(client, h, bill_id):
+    r = client.post(f"{B}/bills/{bill_id}/cancel", json={"reason": "Wrong"}, headers=h)
+    assert r.status_code == 200, r.text
+
+
+def _cycle_info(client, h, cycle_id):
+    return client.get(f"{B}/cycles/detail/{cycle_id}", headers=h).json()
+
+
+def test_bills_issued_by_mistake_and_all_cancelled_can_be_regenerated(client, db):
+    society, flat1, flat2, manager, _r, _o, cycle_id = _generated_cycle(client, db, "rg9")
+    h = manager["headers"]
+    assert _cycle_info(client, h, cycle_id)["can_regenerate"] is True
+    assert client.post(f"{B}/cycles/{cycle_id}/issue-all", headers=h).status_code == 200
+    assert _cycle_info(client, h, cycle_id)["can_regenerate"] is False         # issued: not yet
+    issued = _bills(client, h, cycle_id)
+    old_numbers = {b["invoice_number"] for b in issued}
+    for b in issued:
+        _cancel(client, h, b["id"])
+    info = _cycle_info(client, h, cycle_id)
+    assert info["can_regenerate"] is True and info["bills_count"] == 0           # every bill is cancelled
+
+    r = _regenerate(client, h, cycle_id)
+    assert r.status_code == 200, r.text
+    assert r.json()["bills_generated"] == 2
+
+    db.expire_all()
+    bills = db.query(MaintenanceBill).filter(MaintenanceBill.society_id == society.id).all()
+    live = [b for b in bills if b.bill_status.value == "generated"]
+    cancelled = [b for b in bills if b.bill_status.value == "cancelled"]
+    assert len(live) == 2 and len(cancelled) == 2                                # the cancelled ones stay as a record
+    assert {b.invoice_number for b in cancelled} == old_numbers
+    assert not old_numbers & {b.invoice_number for b in live}                    # the new bills have new numbers
+    for flat in (flat1, flat2):
+        bill = next(b for b in live if b.flat_id == flat.id)
+        tracker = db.query(DueTracker).filter_by(flat_id=flat.id).one()
+        assert tracker.total_billed == bill.total_amount and tracker.outstanding == bill.total_amount
+    assert _cycle_info(client, h, cycle_id)["can_regenerate"] is True
+    # And they can be issued and everything carries on.
+    assert client.post(f"{B}/cycles/{cycle_id}/issue-all", headers=h).status_code == 200
+
+
+def test_a_generated_bill_that_was_cancelled_is_deleted_and_the_rest_replaced(client, db):
+    society, flat1, flat2, manager, _r, _o, cycle_id = _generated_cycle(client, db, "rg10")
+    h = manager["headers"]
+    first = _bills(client, h, cycle_id)
+    _cancel(client, h, first[0]["id"])                 # never issued
+    r = _regenerate(client, h, cycle_id)
+    assert r.status_code == 200, r.text
+    db.expire_all()
+    bills = db.query(MaintenanceBill).filter(MaintenanceBill.society_id == society.id).all()
+    assert len(bills) == 2 and all(b.bill_status.value == "generated" for b in bills)   # nothing left of the cancelled one
+
+
+def test_one_issued_bill_still_stops_it_even_when_the_others_are_cancelled(client, db):
+    society, flat1, flat2, manager, _r, _o, cycle_id = _generated_cycle(client, db, "rg11")
+    h = manager["headers"]
+    assert client.post(f"{B}/cycles/{cycle_id}/issue-all", headers=h).status_code == 200
+    bills = _bills(client, h, cycle_id)
+    _cancel(client, h, bills[0]["id"])
+    assert _cycle_info(client, h, cycle_id)["can_regenerate"] is False
+    r = _regenerate(client, h, cycle_id)
+    assert r.status_code == 409 and "issued" in r.json()["detail"] and "Cancel it first" in r.json()["detail"]
+    assert sorted(b["bill_status"] for b in _bills(client, h, cycle_id)) == ["cancelled", "issued"]      # untouched
+
+
+def test_interest_of_a_cancelled_issued_bill_is_charged_again_by_the_new_bill(client, db):
+    society, flat, h, bill = _second_bill(client, db, "rg12")
+    cycle_id = str(bill.cycle_id)
+    assert client.post(f"{B}/cycles/{cycle_id}/issue-all", headers=h).status_code == 200
+    _cancel(client, h, str(bill.id))
+    assert _regenerate(client, h, cycle_id).status_code == 200
+    db.expire_all()
+    new = db.query(MaintenanceBill).filter(MaintenanceBill.cycle_id == UUID(cycle_id),
+                                           MaintenanceBill.bill_status == "generated").one()
+    assert [li.total for li in new.line_items if li.description.startswith("Interest on arrears")] == [Decimal("36.00")]

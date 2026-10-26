@@ -446,7 +446,7 @@ class BillingService:
             raise HTTPException(409, "Billing cycle already finalized")
 
         # Check already generated
-        existing = self.bill_repo.get_by_cycle(cycle_id)
+        existing = [b for b in self.bill_repo.get_by_cycle(cycle_id) if b.bill_status != BillStatus.CANCELLED]
         if existing:
             raise HTTPException(409, f"Bills already generated for this cycle ({len(existing)} bills)")
 
@@ -520,12 +520,35 @@ class BillingService:
 
     # ── Regenerating a cycle's bills ──────────────────────────────────────────
 
-    UNISSUED = (BillStatus.DRAFT, BillStatus.GENERATED, BillStatus.CANCELLED)
+    UNISSUED = (BillStatus.DRAFT, BillStatus.GENERATED)
+
+    @classmethod
+    def regenerate_blocker(cls, b: MaintenanceBill) -> Optional[str]:
+        """Why this bill stops its cycle's bills being regenerated, from the bill's own fields: None when it does not.
+        A cancelled bill never does (its payments went back to the member's credit when it was cancelled); any other
+        bill must not be issued, paid or part-paid."""
+        if b.bill_status == BillStatus.CANCELLED:
+            return None
+        if (b.paid_amount or 0) > 0:
+            return f"A payment has been recorded against bill {b.invoice_number}"
+        if b.bill_status not in cls.UNISSUED or b.issued_at is not None:
+            return f"Bill {b.invoice_number} has been issued"
+        return None
+
+    @classmethod
+    def can_regenerate(cls, cycle: BillingCycle) -> bool:
+        """Whether the cycle's bills can be thrown away and made again: it has bills, and every one of them is
+        unissued or cancelled. Cheap (no related rows), so the cycle list can show it; regenerating checks more."""
+        bills = [b for b in cycle.bills if b.is_active]
+        return bool(cycle.is_finalized and bills and all(cls.regenerate_blocker(b) is None for b in bills))
 
     def _assert_regenerable(self, bills: List[MaintenanceBill]) -> None:
         """Bills can be replaced only while none has reached a resident: none issued, none paid or part-paid, none
-        with a payment or receipt on it. Say which one stops it."""
+        with a payment or receipt on it (a cancelled bill may have been issued: it stays as a record). Say which one
+        stops it."""
         for b in bills:
+            if b.bill_status == BillStatus.CANCELLED:
+                continue
             label = f"{b.flat.wing.name + '-' if b.flat and b.flat.wing else ''}{b.flat.flat_number if b.flat else ''}"
             live_allocations = [a for a in b.allocations if a.is_live]
             if (b.paid_amount or 0) > 0 or any(not r.is_reversed for r in b.receipts) \
@@ -534,20 +557,26 @@ class BillingService:
                                          f"bills can no longer be regenerated.")
             if b.bill_status not in self.UNISSUED or b.issued_at is not None:
                 raise HTTPException(409, f"Bill {b.invoice_number} ({label}) has been issued, so the bills can no longer "
-                                         f"be regenerated. Cancel and correct bills one at a time instead.")
+                                         f"be regenerated. Cancel it first (and every other issued bill of the cycle), "
+                                         f"or correct bills one at a time.")
 
     def _remove_unissued_bills(self, cycle: BillingCycle, bills: List[MaintenanceBill]) -> None:
-        """Undo what generating the bills did, then delete them: the flats' running dues, the one-off charges they
-        took up, the interest that was counted on earlier bills, the expense working. Nothing was posted to the
-        books (that happens when a bill is issued), so there is nothing to reverse there. Flushed, not committed."""
+        """Undo what generating the bills did, then delete them (a cancelled bill that had been issued is kept as a
+        record): the flats' running dues, the one-off charges they took up, the interest that was counted on earlier
+        bills, the expense working. Nothing is posted to the books by generating (that happens when a bill is issued),
+        and an issued bill's posting was already cancelled with it. Flushed, not committed."""
         grace = 0
         settings = self.db.query(MaintenanceSettings).filter(MaintenanceSettings.society_id == cycle.society_id).first()
         if settings is not None:
             grace = settings.interest_grace_days or 0
 
+        # A bill that was issued and then cancelled stays as the record of that invoice (its number, its posting and
+        # the cancellation in the books); every other bill is deleted.
+        kept = [b for b in bills if b.bill_status == BillStatus.CANCELLED and b.issued_at is not None]
+        gone = [b for b in bills if b not in kept]
+
         for bill in bills:
-            cancelled = bill.bill_status == BillStatus.CANCELLED
-            if not cancelled:                              # a cancelled bill already took itself out of the totals
+            if bill.bill_status != BillStatus.CANCELLED:   # a cancelled bill already took itself out of the totals
                 tracker = self.due_repo.get_by_flat(bill.flat_id)
                 if tracker:
                     tracker.total_billed -= bill.total_amount
@@ -568,8 +597,12 @@ class BillingService:
 
         flats = {b.flat_id for b in bills}
         self.db.flush()
-        for bill in bills:
+        for bill in gone:
             self.db.delete(bill)                           # its line items go with it
+        self.db.flush()
+        for bill in kept:                                  # their expense working goes; the lines stay
+            for li in bill.line_items:
+                li.allocation_id = None
         self.db.flush()
         for row in self.db.query(BillingExpenseAllocation).filter(BillingExpenseAllocation.cycle_id == cycle.id).all():
             self.db.delete(row)
@@ -588,8 +621,9 @@ class BillingService:
     def regenerate_bills_for_cycle(self, cycle_id: UUID, user: User, request=None):
         """Replace a cycle's bills with new ones made from today's charges, rules, expenses and flats. The old bills
         are deleted and new ones created, and nothing else changes; if the new ones cannot be made (no charges, an
-        expense already billed in another cycle …) the old bills stay exactly as they were. Allowed only until a bill
-        is issued. Returns (bills replaced, new bills)."""
+        expense already billed in another cycle …) the old bills stay exactly as they were. Allowed only while no bill
+        of the cycle is issued: bills that were issued and then cancelled do not stop it (they stay as a record).
+        Returns (bills replaced, new bills)."""
         cycle = self.cycle_repo.get(cycle_id)
         if not cycle: raise HTTPException(404, "Billing cycle not found")
         assert_society_access(user, cycle.society_id)
@@ -597,7 +631,7 @@ class BillingService:
         if not cycle.is_finalized or not bills:
             raise HTTPException(409, "No bills have been generated for this cycle yet")
         self._assert_regenerable(bills)
-        replaced = len(bills)
+        replaced = len([b for b in bills if b.bill_status != BillStatus.CANCELLED])
         savepoint = self.db.begin_nested()           # the old bills come back if the new ones cannot be made
         try:
             self._remove_unissued_bills(cycle, bills)

@@ -504,6 +504,7 @@ class BillingCycle {
   final DateTime dueDate;
   final String frequency;
   final bool isFinalized;
+  final bool canRegenerate;
   final String? notes;
   final int billsCount;
   final int generatedCount;
@@ -521,6 +522,7 @@ class BillingCycle {
     required this.dueDate,
     required this.frequency,
     required this.isFinalized,
+    this.canRegenerate = false,
     this.notes,
     this.billsCount = 0,
     this.generatedCount = 0,
@@ -534,8 +536,8 @@ class BillingCycle {
   /// Bills exist but none have been sent to residents yet.
   bool get awaitingIssue => generatedCount > 0;
 
-  /// Every bill is still unissued, so the bills can be thrown away and made again.
-  bool get canRegenerate => isFinalized && billsCount > 0 && generatedCount == billsCount;
+  /// No bill is issued or paid (cancelled ones do not count), so the bills can be thrown away and made again. The
+  /// server decides; see `can_regenerate`.
 
   factory BillingCycle.fromJson(Map<String, dynamic> j) => BillingCycle(
         id: j['id'] as String,
@@ -545,6 +547,7 @@ class BillingCycle {
         dueDate: _date(j['due_date']),
         frequency: j['frequency'] as String? ?? 'monthly',
         isFinalized: j['is_finalized'] as bool? ?? false,
+        canRegenerate: j['can_regenerate'] as bool? ?? false,
         notes: j['notes'] as String?,
         billsCount: j['bills_count'] as int? ?? 0,
         generatedCount: j['generated_count'] as int? ?? 0,
