@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app.modules.billing.models.billing import (
     FinancialPeriod, MaintenanceChargeConfig, BillingCycle,
     MaintenanceBill, InvoiceLineItem, PaymentReceipt, DueTracker, PenaltyRule, FlatCharge, FlatChargeStatus,
-    OnlinePaymentSubmission, ReconciliationStatus,
+    OnlinePaymentSubmission, PaymentAllocation, ReconciliationStatus,
     BankStatementEntry, BankStatementMatchStatus,
     BillStatus, ChargeType, PaymentMode, ChargeBasis, MaintenanceSettings,
     MaintenanceElement, BillingExpenseAllocation, BillingExpenseSource,
@@ -427,10 +427,18 @@ class BillingService:
         Uses active charge configs for the society.
         Prevents duplicate generation.
         """
+        self._lock_cycle(cycle_id)
         bills = self._generate_bills(cycle_id, user)
         self.db.commit()
         self._audit_generated(self.cycle_repo.get(cycle_id), bills, user, request)
         return bills
+
+    def _lock_cycle(self, cycle_id: UUID) -> None:
+        """Take the cycle's row for this transaction. Making or replacing every bill takes a while, and an app that
+        timed out waiting often asks again: the second run waits here until the first has committed, then sees what
+        it did, instead of both running at once and leaving two sets of bills."""
+        self.db.query(BillingCycle).filter(BillingCycle.id == cycle_id).with_for_update() \
+            .populate_existing().first()
 
     def _audit_generated(self, cycle: BillingCycle, bills: List[MaintenanceBill], user: User, request=None) -> None:
         self._audit(AuditAction.CREATE, cycle, "BillingCycle", user, request,
@@ -545,75 +553,122 @@ class BillingService:
     def _assert_regenerable(self, bills: List[MaintenanceBill]) -> None:
         """Bills can be replaced only while none has reached a resident: none issued, none paid or part-paid, none
         with a payment or receipt on it (a cancelled bill may have been issued: it stays as a record). Say which one
-        stops it."""
-        for b in bills:
-            if b.bill_status == BillStatus.CANCELLED:
-                continue
-            label = f"{b.flat.wing.name + '-' if b.flat and b.flat.wing else ''}{b.flat.flat_number if b.flat else ''}"
-            live_allocations = [a for a in b.allocations if a.is_live]
-            if (b.paid_amount or 0) > 0 or any(not r.is_reversed for r in b.receipts) \
-                    or live_allocations or b.online_payments:
-                raise HTTPException(409, f"A payment has been recorded against bill {b.invoice_number} ({label}), so the "
-                                         f"bills can no longer be regenerated.")
+        stops it. A few queries for the whole cycle, not several per bill."""
+        db = self.db
+        live = [b for b in bills if b.bill_status != BillStatus.CANCELLED]
+        ids = [b.id for b in live]
+        with_payment = set()
+        for chunk in self._chunks(ids):
+            with_payment.update(i for (i,) in db.query(PaymentReceipt.bill_id).filter(
+                PaymentReceipt.bill_id.in_(chunk), PaymentReceipt.is_reversed == False))       # noqa: E712
+            with_payment.update(i for (i,) in db.query(PaymentAllocation.bill_id).filter(
+                PaymentAllocation.bill_id.in_(chunk), PaymentAllocation.released_at.is_(None)))
+            with_payment.update(i for (i,) in db.query(OnlinePaymentSubmission.bill_id).filter(
+                OnlinePaymentSubmission.bill_id.in_(chunk)))
+        for b in live:
+            if (b.paid_amount or 0) > 0 or b.id in with_payment:
+                raise HTTPException(409, f"A payment has been recorded against bill {b.invoice_number} "
+                                         f"({self._bill_label(b)}), so the bills can no longer be regenerated.")
             if b.bill_status not in self.UNISSUED or b.issued_at is not None:
-                raise HTTPException(409, f"Bill {b.invoice_number} ({label}) has been issued, so the bills can no longer "
-                                         f"be regenerated. Cancel it first (and every other issued bill of the cycle), "
-                                         f"or correct bills one at a time.")
+                raise HTTPException(409, f"Bill {b.invoice_number} ({self._bill_label(b)}) has been issued, so the bills "
+                                         f"can no longer be regenerated. Cancel it first (and every other issued bill of "
+                                         f"the cycle), or correct bills one at a time.")
+
+    @staticmethod
+    def _bill_label(b: MaintenanceBill) -> str:
+        return f"{b.flat.wing.name + '-' if b.flat and b.flat.wing else ''}{b.flat.flat_number if b.flat else ''}"
+
+    @staticmethod
+    def _chunks(items, size: int = 400):
+        items = list(items)
+        for i in range(0, len(items), size):
+            yield items[i:i + size]
 
     def _remove_unissued_bills(self, cycle: BillingCycle, bills: List[MaintenanceBill]) -> None:
         """Undo what generating the bills did, then delete them (a cancelled bill that had been issued is kept as a
         record): the flats' running dues, the one-off charges they took up, the interest that was counted on earlier
         bills, the expense working. Nothing is posted to the books by generating (that happens when a bill is issued),
-        and an issued bill's posting was already cancelled with it. Flushed, not committed."""
+        and an issued bill's posting was already cancelled with it. Flushed, not committed. Done in a handful of
+        statements for the whole cycle, not a few per bill: a society has hundreds of bills and every statement is a
+        round trip to the database."""
+        db = self.db
         grace = 0
-        settings = self.db.query(MaintenanceSettings).filter(MaintenanceSettings.society_id == cycle.society_id).first()
+        settings = db.query(MaintenanceSettings).filter(MaintenanceSettings.society_id == cycle.society_id).first()
         if settings is not None:
             grace = settings.interest_grace_days or 0
 
         # A bill that was issued and then cancelled stays as the record of that invoice (its number, its posting and
         # the cancellation in the books); every other bill is deleted.
         kept = [b for b in bills if b.bill_status == BillStatus.CANCELLED and b.issued_at is not None]
-        gone = [b for b in bills if b not in kept]
+        kept_ids = {b.id for b in kept}
+        gone = [b for b in bills if b.id not in kept_ids]
+        all_ids = [b.id for b in bills]
+        gone_ids = [b.id for b in gone]
+        flat_ids = {b.flat_id for b in bills}
 
+        # The flats' running dues: a cancelled bill already took itself out of them.
+        trackers = {}
+        for chunk in self._chunks(flat_ids):
+            for t in db.query(DueTracker).filter(DueTracker.flat_id.in_(chunk)):
+                trackers[t.flat_id] = t
         for bill in bills:
-            if bill.bill_status != BillStatus.CANCELLED:   # a cancelled bill already took itself out of the totals
-                tracker = self.due_repo.get_by_flat(bill.flat_id)
-                if tracker:
-                    tracker.total_billed -= bill.total_amount
-                    tracker.outstanding  -= bill.total_amount
-            for fc in self.db.query(FlatCharge).filter(FlatCharge.bill_id == bill.id,
-                                                       FlatCharge.status == FlatChargeStatus.BILLED):
-                fc.status = FlatChargeStatus.ACTIVE
-                fc.bill_id = None
-            # Interest counted on earlier bills is counted again by the new bills, so give those days back.
-            for row in (json.loads(bill.interest_working) if bill.interest_working else []):
-                earlier = self.db.query(MaintenanceBill).filter(
-                    MaintenanceBill.society_id == cycle.society_id,
-                    MaintenanceBill.invoice_number == row.get("bill")).first()
-                if earlier is not None and earlier.arrears_interest_upto == bill.bill_date:
-                    counted_from = date.fromisoformat(row["from"])
-                    earlier.arrears_interest_upto = (
-                        None if counted_from <= earlier.due_date + timedelta(days=grace) else counted_from)
+            tracker = trackers.get(bill.flat_id)
+            if tracker is not None and bill.bill_status != BillStatus.CANCELLED:
+                tracker.total_billed -= bill.total_amount
+                tracker.outstanding  -= bill.total_amount
 
-        flats = {b.flat_id for b in bills}
-        self.db.flush()
-        for bill in gone:
-            self.db.delete(bill)                           # its line items go with it
-        self.db.flush()
-        for bill in kept:                                  # their expense working goes; the lines stay
-            for li in bill.line_items:
-                li.allocation_id = None
-        self.db.flush()
-        for row in self.db.query(BillingExpenseAllocation).filter(BillingExpenseAllocation.cycle_id == cycle.id).all():
-            self.db.delete(row)
-        self.db.flush()
-        for flat_id in flats:
-            tracker = self.due_repo.get_by_flat(flat_id)
-            if tracker:
-                tracker.last_bill_date = self.db.query(func.max(MaintenanceBill.bill_date)).filter(
-                    MaintenanceBill.flat_id == flat_id, MaintenanceBill.cycle_id != cycle.id,
-                    MaintenanceBill.bill_status != BillStatus.CANCELLED, MaintenanceBill.is_active == True,  # noqa: E712
-                ).scalar()
+        # One-off fines and charges that were on these bills go back to waiting for the next ones.
+        for chunk in self._chunks(all_ids):
+            db.query(FlatCharge).filter(FlatCharge.bill_id.in_(chunk), FlatCharge.status == FlatChargeStatus.BILLED) \
+                .update({FlatCharge.status: FlatChargeStatus.ACTIVE, FlatCharge.bill_id: None},
+                        synchronize_session="fetch")
+
+        # Interest counted on earlier bills is counted again by the new bills, so give those days back.
+        working = [(b, row) for b in bills for row in (json.loads(b.interest_working) if b.interest_working else [])]
+        numbers = {row.get("bill") for _, row in working}
+        earlier_by_number = {}
+        for chunk in self._chunks(numbers):
+            for e in db.query(MaintenanceBill).filter(MaintenanceBill.society_id == cycle.society_id,
+                                                      MaintenanceBill.invoice_number.in_(chunk)):
+                earlier_by_number[e.invoice_number] = e
+        for bill, row in working:
+            earlier = earlier_by_number.get(row.get("bill"))
+            if earlier is not None and earlier.arrears_interest_upto == bill.bill_date:
+                counted_from = date.fromisoformat(row["from"])
+                earlier.arrears_interest_upto = (
+                    None if counted_from <= earlier.due_date + timedelta(days=grace) else counted_from)
+        db.flush()
+
+        # Delete the bills and what hangs off them (the same as the database does on delete).
+        for chunk in self._chunks(gone_ids):
+            db.query(OnlinePaymentSubmission).filter(OnlinePaymentSubmission.bill_id.in_(chunk)) \
+                .update({OnlinePaymentSubmission.bill_id: None}, synchronize_session="fetch")
+            for model in (InvoiceLineItem, PaymentReceipt, PaymentAllocation):
+                db.query(model).filter(model.bill_id.in_(chunk)).delete(synchronize_session="fetch")
+            db.query(MaintenanceBill).filter(MaintenanceBill.id.in_(chunk)).delete(synchronize_session="fetch")
+        # The expense working of the cycle goes; the lines of the bills that stay lose their link to it.
+        for chunk in self._chunks(kept_ids):
+            db.query(InvoiceLineItem).filter(InvoiceLineItem.bill_id.in_(chunk)) \
+                .update({InvoiceLineItem.allocation_id: None}, synchronize_session="fetch")
+        allocation_ids = [a for (a,) in db.query(BillingExpenseAllocation.id).filter(
+            BillingExpenseAllocation.cycle_id == cycle.id)]
+        for chunk in self._chunks(allocation_ids):
+            db.query(BillingExpenseSource).filter(BillingExpenseSource.allocation_id.in_(chunk)) \
+                .delete(synchronize_session="fetch")
+            db.query(BillingExpenseAllocation).filter(BillingExpenseAllocation.id.in_(chunk)) \
+                .delete(synchronize_session="fetch")
+        db.flush()
+
+        # The flats' last bill date, from the bills they still have.
+        latest = {}
+        for chunk in self._chunks(flat_ids):
+            for flat_id, last in db.query(MaintenanceBill.flat_id, func.max(MaintenanceBill.bill_date)).filter(
+                    MaintenanceBill.flat_id.in_(chunk), MaintenanceBill.cycle_id != cycle.id,
+                    MaintenanceBill.bill_status != BillStatus.CANCELLED,
+                    MaintenanceBill.is_active == True).group_by(MaintenanceBill.flat_id):          # noqa: E712
+                latest[flat_id] = last
+        for flat_id, tracker in trackers.items():
+            tracker.last_bill_date = latest.get(flat_id)
         cycle.is_finalized = False
         cycle.total_flats_billed = 0
         cycle.total_amount_generated = 0
@@ -624,6 +679,7 @@ class BillingService:
         expense already billed in another cycle …) the old bills stay exactly as they were. Allowed only while no bill
         of the cycle is issued: bills that were issued and then cancelled do not stop it (they stay as a record).
         Returns (bills replaced, new bills)."""
+        self._lock_cycle(cycle_id)
         cycle = self.cycle_repo.get(cycle_id)
         if not cycle: raise HTTPException(404, "Billing cycle not found")
         assert_society_access(user, cycle.society_id)

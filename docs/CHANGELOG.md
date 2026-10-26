@@ -4,6 +4,20 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-26 (regenerate: speed and timeouts)
+
+### fix: Regenerate bills no longer times out on a big society
+
+Regenerating took two to three times as long as generating, because removing the old bills ran several database
+statements per bill. For a society of a few hundred flats that went past the 15 seconds the app gives a request, and the
+app said "Request timed out. The server may be starting up" although the server went on to finish. Removing the old bills,
+and the check that none was issued or paid, now run as a handful of statements for the whole cycle, so regenerating costs
+about what generating does (150 flats: 2,285 statements down to about 1,500; the removal itself from about 1,200 to a
+handful). Generate, Regenerate and Issue all now give the server up to 3 minutes before the app gives up, and after any
+failure the cycle screen reloads, so it shows what the server actually did. Generate and Regenerate also lock the cycle for
+the run, so pressing the button again while the first run is still working waits for it instead of making a second set of
+bills.
+
 ## 2026-10-26 (regenerate after cancelling)
 
 ### feat: bills that were issued by mistake can be regenerated once they are all cancelled
