@@ -7,11 +7,12 @@ Workflow:
 """
 import json
 import re
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
 from fastapi import HTTPException, Request
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.modules.billing.models.billing import (
@@ -426,6 +427,18 @@ class BillingService:
         Uses active charge configs for the society.
         Prevents duplicate generation.
         """
+        bills = self._generate_bills(cycle_id, user)
+        self.db.commit()
+        self._audit_generated(self.cycle_repo.get(cycle_id), bills, user, request)
+        return bills
+
+    def _audit_generated(self, cycle: BillingCycle, bills: List[MaintenanceBill], user: User, request=None) -> None:
+        self._audit(AuditAction.CREATE, cycle, "BillingCycle", user, request,
+                    new_values={"bills_generated": len(bills), "total": str(cycle.total_amount_generated)})
+
+    def _generate_bills(self, cycle_id: UUID, user: User) -> List[MaintenanceBill]:
+        """generate_bills_for_cycle without the commit and the audit entry (which commits), so a caller can undo it
+        with a savepoint."""
         cycle = self.cycle_repo.get(cycle_id)
         if not cycle: raise HTTPException(404, "Billing cycle not found")
         assert_society_access(user, cycle.society_id)
@@ -503,11 +516,101 @@ class BillingService:
         cycle.total_flats_billed    = len(bills)
         cycle.total_amount_generated = sum(b.total_amount for b in bills)
 
-        self._audit(AuditAction.CREATE, cycle, "BillingCycle", user, request,
-                    new_values={"bills_generated": len(bills),
-                                "total": str(cycle.total_amount_generated)})
-        self.db.commit()
         return bills
+
+    # ── Regenerating a cycle's bills ──────────────────────────────────────────
+
+    UNISSUED = (BillStatus.DRAFT, BillStatus.GENERATED, BillStatus.CANCELLED)
+
+    def _assert_regenerable(self, bills: List[MaintenanceBill]) -> None:
+        """Bills can be replaced only while none has reached a resident: none issued, none paid or part-paid, none
+        with a payment or receipt on it. Say which one stops it."""
+        for b in bills:
+            label = f"{b.flat.wing.name + '-' if b.flat and b.flat.wing else ''}{b.flat.flat_number if b.flat else ''}"
+            live_allocations = [a for a in b.allocations if a.is_live]
+            if (b.paid_amount or 0) > 0 or any(not r.is_reversed for r in b.receipts) \
+                    or live_allocations or b.online_payments:
+                raise HTTPException(409, f"A payment has been recorded against bill {b.invoice_number} ({label}), so the "
+                                         f"bills can no longer be regenerated.")
+            if b.bill_status not in self.UNISSUED or b.issued_at is not None:
+                raise HTTPException(409, f"Bill {b.invoice_number} ({label}) has been issued, so the bills can no longer "
+                                         f"be regenerated. Cancel and correct bills one at a time instead.")
+
+    def _remove_unissued_bills(self, cycle: BillingCycle, bills: List[MaintenanceBill]) -> None:
+        """Undo what generating the bills did, then delete them: the flats' running dues, the one-off charges they
+        took up, the interest that was counted on earlier bills, the expense working. Nothing was posted to the
+        books (that happens when a bill is issued), so there is nothing to reverse there. Flushed, not committed."""
+        grace = 0
+        settings = self.db.query(MaintenanceSettings).filter(MaintenanceSettings.society_id == cycle.society_id).first()
+        if settings is not None:
+            grace = settings.interest_grace_days or 0
+
+        for bill in bills:
+            cancelled = bill.bill_status == BillStatus.CANCELLED
+            if not cancelled:                              # a cancelled bill already took itself out of the totals
+                tracker = self.due_repo.get_by_flat(bill.flat_id)
+                if tracker:
+                    tracker.total_billed -= bill.total_amount
+                    tracker.outstanding  -= bill.total_amount
+            for fc in self.db.query(FlatCharge).filter(FlatCharge.bill_id == bill.id,
+                                                       FlatCharge.status == FlatChargeStatus.BILLED):
+                fc.status = FlatChargeStatus.ACTIVE
+                fc.bill_id = None
+            # Interest counted on earlier bills is counted again by the new bills, so give those days back.
+            for row in (json.loads(bill.interest_working) if bill.interest_working else []):
+                earlier = self.db.query(MaintenanceBill).filter(
+                    MaintenanceBill.society_id == cycle.society_id,
+                    MaintenanceBill.invoice_number == row.get("bill")).first()
+                if earlier is not None and earlier.arrears_interest_upto == bill.bill_date:
+                    counted_from = date.fromisoformat(row["from"])
+                    earlier.arrears_interest_upto = (
+                        None if counted_from <= earlier.due_date + timedelta(days=grace) else counted_from)
+
+        flats = {b.flat_id for b in bills}
+        self.db.flush()
+        for bill in bills:
+            self.db.delete(bill)                           # its line items go with it
+        self.db.flush()
+        for row in self.db.query(BillingExpenseAllocation).filter(BillingExpenseAllocation.cycle_id == cycle.id).all():
+            self.db.delete(row)
+        self.db.flush()
+        for flat_id in flats:
+            tracker = self.due_repo.get_by_flat(flat_id)
+            if tracker:
+                tracker.last_bill_date = self.db.query(func.max(MaintenanceBill.bill_date)).filter(
+                    MaintenanceBill.flat_id == flat_id, MaintenanceBill.cycle_id != cycle.id,
+                    MaintenanceBill.bill_status != BillStatus.CANCELLED, MaintenanceBill.is_active == True,  # noqa: E712
+                ).scalar()
+        cycle.is_finalized = False
+        cycle.total_flats_billed = 0
+        cycle.total_amount_generated = 0
+
+    def regenerate_bills_for_cycle(self, cycle_id: UUID, user: User, request=None):
+        """Replace a cycle's bills with new ones made from today's charges, rules, expenses and flats. The old bills
+        are deleted and new ones created, and nothing else changes; if the new ones cannot be made (no charges, an
+        expense already billed in another cycle …) the old bills stay exactly as they were. Allowed only until a bill
+        is issued. Returns (bills replaced, new bills)."""
+        cycle = self.cycle_repo.get(cycle_id)
+        if not cycle: raise HTTPException(404, "Billing cycle not found")
+        assert_society_access(user, cycle.society_id)
+        bills = self.bill_repo.get_by_cycle(cycle_id)
+        if not cycle.is_finalized or not bills:
+            raise HTTPException(409, "No bills have been generated for this cycle yet")
+        self._assert_regenerable(bills)
+        replaced = len(bills)
+        savepoint = self.db.begin_nested()           # the old bills come back if the new ones cannot be made
+        try:
+            self._remove_unissued_bills(cycle, bills)
+            created = self._generate_bills(cycle_id, user)
+            savepoint.commit()
+        except Exception:
+            savepoint.rollback()
+            raise
+        self.db.commit()
+        self._audit(AuditAction.UPDATE, cycle, "BillingCycle", user, request,
+                    new_values={"regenerated": True, "bills_replaced": replaced})
+        self._audit_generated(cycle, created, user, request)
+        return replaced, created
 
     def _record_allocations(self, calc: MaintenanceCalculator, cycle: BillingCycle, drafts) -> dict:
         """Write the snapshot of every period-expense head (the pool, its vouchers, the method, the rate) and prove

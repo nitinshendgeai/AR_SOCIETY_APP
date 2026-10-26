@@ -538,6 +538,14 @@ def generate_bills(cycle_id: UUID, request: Request, db: Session = Depends(get_d
     bills = BillingService(db).generate_bills_for_cycle(cycle_id, user, request)
     return {"bills_generated": len(bills), "cycle_id": str(cycle_id)}
 
+@router.post("/cycles/{cycle_id}/regenerate-bills", dependencies=[Depends(manager_above)])
+def regenerate_bills(cycle_id: UUID, request: Request, db: Session = Depends(get_db),
+                     user: User = Depends(get_current_user)):
+    """Delete the cycle's bills and make them again from today's charges, rules and expenses. Only while none of
+    them has been issued or paid; if the new bills cannot be made the old ones stay."""
+    replaced, created = BillingService(db).regenerate_bills_for_cycle(cycle_id, user, request)
+    return {"bills_replaced": replaced, "bills_generated": len(created), "cycle_id": str(cycle_id)}
+
 @router.post("/cycles/{cycle_id}/issue-all", dependencies=[Depends(manager_above)])
 def issue_all_bills(cycle_id: UUID, request: Request, db: Session = Depends(get_db),
                     user: User = Depends(get_current_user)):

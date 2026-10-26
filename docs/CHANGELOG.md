@@ -4,6 +4,18 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-26 (regenerate bills)
+
+### feat: regenerate a cycle's bills until they are issued
+
+A cycle whose bills are all still unissued can have them thrown away and made again: **Maintenance Billing > the cycle >
+Regenerate bills** (`POST /billing/cycles/{id}/regenerate-bills`). The old bills are deleted and new ones made from the
+charges, rules, expenses and flats as they are now. Undone with the old bills: the flats' running dues, one-off fines and
+charges they took up (they go back to waiting, then are taken up again), the interest counted on earlier bills (so the
+new bills count it again, not zero) and the saved expense working. Nothing was posted to the books (that happens when a
+bill is issued). It is refused once any bill is issued, paid or has a payment or receipt on it, and if the new bills cannot
+be made (no charges, an expense already billed in another cycle) the old bills are left exactly as they were.
+
 ## 2026-10-26 (advance maintenance)
 
 ### feat: advance maintenance has its own ledger, and can be imported from a sheet
