@@ -637,6 +637,19 @@ details>div p{color:var(--fg)}
   <h3>Record payments</h3>
   <p>Open <span class="path">Finance → Payments</span> → <span class="btn">Record Payment</span>, or <span class="btn">Record Payment</span> inside a bill. Pick the flat, choose <b>Open bills, oldest first</b> or <b>One bill</b>, enter the payment details and attach a photo of the cheque or receipt, then <span class="btn">Save &amp; Generate Receipt</span>. A payment settles the <b>oldest bill first</b>. Extra money becomes an advance for the next bill. If a payment is rejected, it is taken back out of the books.</p>
 
+  <h3>Advance maintenance: enter many flats at once</h3>
+  <p>When members have paid maintenance <b>before the bills are made</b>, enter their payments from a sheet instead of one by one. Each payment gets a receipt and is kept as that flat's <b>advance</b>, in its own ledger, <i>Advance Maintenance from Members</i>. It is money the society owes back as service, so it shows under <b>Current Liabilities</b> and not as income.</p>
+  <ol class="steps">
+    <li><div>Open <span class="path">Finance → Payments</span> and press <span class="btn">Import advances</span>, then <span class="btn">Download Flats Sheet</span>. It lists every flat.</div></li>
+    <li><div>Open it in Excel. For each flat that paid, fill in <b>Amount</b>, <b>Payment Date</b> (day first, 01/04/2026), <b>Payment Mode</b> (cash, cheque, UPI, NEFT, RTGS or bank transfer), and the <b>Cheque / UTR No</b> and <b>Bank Name</b> if you have them. Leave the other flats empty: they are skipped.</div></li>
+    <li><div>Save the file as <b>CSV</b> (File → Save As → CSV), then press <span class="btn">Choose CSV File</span> and pick it.</div></li>
+    <li><div>Check the list. A row with a problem says what is wrong (no such flat, no date, a date in the future, a payment already recorded). Press <span class="btn">Export Error Rows to Fix</span> (it shows how many), correct them and import that file again.</div></li>
+    <li><div>Press the <span class="btn">Record</span> button at the bottom (it shows how many advances, for example <i>Record 40 Advances</i>). Nothing is saved before this. Importing the same file twice does not double anything: a payment already recorded is refused.</div></li>
+    <li><div>Check the total against the <b>Advance Maintenance from Members</b> line on the Balance Sheet.</div></li>
+  </ol>
+  <div class="note tip"><b>Then make the bills</b>Make and <b>issue</b> the bills as usual. When a bill is issued, the flat's advance is set off against it automatically, oldest bill first. If the advance is more than the bill, the bill shows as paid and the rest stays as the flat's advance for the next bill. If it is less, the bill shows what is still to pay. Bills that are only generated, not issued, do not use the advance yet.</div>
+  <p>The <span class="path">Finance → Members' Ledger</span> shows each flat's <b>dues</b> and <b>advance</b> separately, and a flat's statement lists what it paid in and what was set off against its bills. The same sheet is only for payments on account: a payment against a bill that already exists is entered with <span class="btn">Record Payment</span> as before.</p>
+
   <h3>Defaulters and bank matching</h3>
   <ul>
     <li><span class="path">Finance → Defaulters</span> ages the dues from the due date. Three months overdue makes a member a defaulter. Send reminders from here.</li>
@@ -843,6 +856,7 @@ details>div p{color:var(--fg)}
 <section class="sec" id="faq" data-roles="all" data-title="Quick answers">
   <header><h2>Quick answers</h2><span class="for">everyone</span></header>
   <p class="lede">The questions people ask most.</p>
+  <details><summary>How do I enter the maintenance members paid in advance?</summary><div><p><span class="path">Finance → Payments → Import advances</span>: download the flats sheet, fill in the amount, date and mode in Excel, save as CSV and choose it. Each payment gets a receipt and is kept as the flat's advance, then set off against its bills when you issue them. See <a href="#billing">Maintenance bills</a>.</p></div></details>
   <details><summary>Where do I enter daily expenses?</summary><div><p><span class="path">Finance → Accounts → Add Expense</span>. Pick what it is for, the head, the amount, and cash or bank. It counts towards that maintenance element on its own.</p></div></details>
   <details><summary>Where do I enter the monthly security, electricity or lift bill?</summary><div><p>Set it up once under <span class="path">Accounts → Monthly Expenses</span>. Each month it comes up as due and you press <b>Record</b> with that month's amount. If the bill comes from a vendor you have a work order or contract with, enter it as a <b>Vendor Bill</b> instead.</p></div></details>
   <details><summary>How do I see what we spent on each element?</summary><div><p><span class="path">Accounts → Spend by Element</span>, for a month or the year so far.</p></div></details>
