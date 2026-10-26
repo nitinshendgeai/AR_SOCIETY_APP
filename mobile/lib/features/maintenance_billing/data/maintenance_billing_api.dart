@@ -1030,20 +1030,23 @@ class MaintenanceBillingApi {
     return BillingCycle.fromJson(r.data as Map<String, dynamic>);
   }
 
+  /// Making or issuing every bill of a society takes longer than the 15 seconds an ordinary request is given.
+  static final _longRunning = Options(receiveTimeout: const Duration(minutes: 3));
+
   Future<int> generateBills(String cycleId) async {
-    final r = await _dio.post('/billing/cycles/$cycleId/generate-bills');
+    final r = await _dio.post('/billing/cycles/$cycleId/generate-bills', options: _longRunning);
     return (r.data as Map<String, dynamic>)['bills_generated'] as int;
   }
 
   /// Deletes the cycle's bills and makes them again from today's charges and rules; the server refuses once any bill
   /// is issued or paid. Returns how many bills were made.
   Future<int> regenerateBills(String cycleId) async {
-    final r = await _dio.post('/billing/cycles/$cycleId/regenerate-bills');
+    final r = await _dio.post('/billing/cycles/$cycleId/regenerate-bills', options: _longRunning);
     return (r.data as Map<String, dynamic>)['bills_generated'] as int;
   }
 
   Future<int> issueAll(String cycleId) async {
-    final r = await _dio.post('/billing/cycles/$cycleId/issue-all');
+    final r = await _dio.post('/billing/cycles/$cycleId/issue-all', options: _longRunning);
     return (r.data as Map<String, dynamic>)['bills_issued'] as int;
   }
 

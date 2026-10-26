@@ -101,6 +101,7 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
       _refresh();
     } catch (e) {
       if (mounted) showErrorToast(context, e);
+      _refresh(); // the server may have finished even if the answer did not arrive: show what is there now
     } finally {
       if (mounted) setState(() => _busy = false);
     }
