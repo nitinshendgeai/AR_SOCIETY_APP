@@ -12,8 +12,8 @@ For how the calculator works inside, see `MAINTENANCE_BILLING_COMPLETE_GUIDE.md`
 ## Part 1 — The idea
 
 ```
-Vendor bill / payment voucher  →  Expense ledger  →  Element  →  Charge head  →  Cycle  →  Bill for every flat
-        (Part 4)                    (Part 3)        (Part 2)     (Part 5)       (Part 6)
+Vendor bill / voucher → Expense ledger → Element → Charge head → Cycle → Bill per flat
+     (Part 4)            (Part 3)        (Part 2)    (Part 5)     (Part 7)
 ```
 
 1. Money spent is booked to an **expense ledger**.
@@ -117,6 +117,7 @@ them, add an expense ledger and link it, or those elements will have no spend.
 
 ### 4.1 Every cost must reach the right ledger
 A vendor bill is booked to, in this order:
+
 1. the expense head chosen on the bill, else
 2. the work order's expense head (bills against a work order), else
 3. the ledger for the vendor's category (set in Vendor Masters).
