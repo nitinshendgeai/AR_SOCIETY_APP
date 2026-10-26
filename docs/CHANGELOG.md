@@ -4,6 +4,26 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-26 (advance maintenance)
+
+### feat: advance maintenance has its own ledger, and can be imported from a sheet
+
+Maintenance paid before bills are raised is credited to **Advance Maintenance from Members** (1407, Current Liabilities)
+instead of *Deposits from Members*, under each flat's own advance account. Online Payments > **Import advances** records
+one payment on account per row from a CSV (flats sheet to fill in; dry run first; the same payment cannot be recorded
+twice). When a bill is issued the flat's advance is set off against it, oldest bill first; the rest stays as the flat's
+advance. Migration `0b1c2d3e4f5a` creates the ledger for societies that already hold advances, moves those postings and
+tags each advance line with its flat. Reports: the Balance Sheet and Trial Balance show the ledger; the Members' Ledger
+(screen and PDF) shows each flat's dues and advance separately; a flat that has only paid an advance has a statement
+(with its advance account's movements) and is counted in the reconciliation. Also **Possession dates** on the flat list
+bulk-sets flats' possession dates from a CSV.
+
+### fix: a set-off of an advance against a bill was not always posted to the books
+
+The journal that moves an advance onto a bill is keyed by the allocation's id, which was not yet set when it was posted,
+so for some flats it was skipped: the bill was paid in billing but the books still showed the dues and the advance. The
+allocation is now saved before it is posted.
+
 ## 2026-10-25 (classic bill layout)
 
 ### feat: a second bill layout, "Classic", chosen in Maintenance Rules
