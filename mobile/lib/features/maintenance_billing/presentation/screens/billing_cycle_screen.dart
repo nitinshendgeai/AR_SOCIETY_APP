@@ -322,8 +322,14 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
               label: Text(label),
             ),
             if (secondary != null) ...[
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
+              const SizedBox(height: 10),
+              const Text(
+                'Not issued yet: if something is wrong, delete these bills and make them again.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+              const SizedBox(height: 6),
+              FilledButton.tonalIcon(
                 key: const Key('regenerate-bills'),
                 onPressed: _busy ? null : secondary.$3,
                 icon: Icon(secondary.$2),
