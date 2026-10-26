@@ -112,6 +112,8 @@ class PaymentAllocator:
         alloc = PaymentAllocation(society_id=sub.society_id, flat_id=sub.flat_id, payment=sub, bill=bill,
                                   amount=amount, allocated_by=user.id if user else None)
         self.db.add(alloc)
+        # The books entry for a set-off is keyed by the allocation's id, so it must have one before anything posts.
+        self.db.flush()
         self.billing._apply_payment_to_bill(bill, amount, sub.payment_date, user)
         return alloc
 

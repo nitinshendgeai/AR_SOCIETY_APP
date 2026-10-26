@@ -401,8 +401,8 @@ def outstanding(society_id: UUID, kind: str = Query("receivable", pattern="^(rec
 def member_balances(society_id: UUID, as_of: Optional[date] = None,
                     format: str = Query("json", pattern="^(json|pdf)$"),
                     db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    """Every flat's balance on Members' Dues (Dr: owes the society).
-    ?format=pdf: the printed list with totals."""
+    """Every flat's account: dues, advance paid ahead, and the balance (Dr: owes the society, Cr: paid in
+    advance). ?format=pdf: the printed list with totals."""
     assert_society_access(user, society_id)
     svc = AccountsService(db)
     rows = svc.member_balances(society_id, as_of)
@@ -410,7 +410,8 @@ def member_balances(society_id: UUID, as_of: Optional[date] = None,
     db.commit()
     if format == "pdf":
         members = [{"flat_label": flat_label(r["flat"]), "member_name": member_name(r["flat"]),
-                    "balance": _amount(r["balance"])} for r in rows]
+                    "balance": _amount(r["balance"]), "dues": _amount(r["dues"]), "advance": _amount(r["advance"])}
+                   for r in rows]
         as_of = as_of or date.today()
         return _pdf(render_members_ledger_pdf(members, _society(db, society_id), as_of),
                     f"Members-Ledger-{as_of.isoformat()}.pdf")
@@ -420,6 +421,7 @@ def member_balances(society_id: UUID, as_of: Optional[date] = None,
             "flat_id": str(r["flat"].id), "flat_label": flat_label(r["flat"]),
             "member_name": member_name(r["flat"]),
             "balance": _amount(r["balance"]), "balance_dr_cr": dr_cr(r["balance"]),
+            "dues": _amount(r["dues"]), "advance": _amount(r["advance"]),
         } for r in rows],
     }
 

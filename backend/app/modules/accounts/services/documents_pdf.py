@@ -336,7 +336,8 @@ def render_day_book_pdf(vouchers: List[dict], society, date_from: Optional[date]
 # ── Members' ledger ───────────────────────────────────────────────────────────
 
 def render_members_ledger_pdf(members: List[dict], society, as_of: date, *, compress: bool = True) -> bytes:
-    """`members`: [{flat_label, member_name, balance (signed: Dr owes)}]."""
+    """`members`: [{flat_label, member_name, dues, advance}] — or, as an older caller sends it, a signed `balance`
+    (Dr owes, Cr advance)."""
     buf = BytesIO()
     name = society.name if society else "Society"
     doc = _doc(buf, A4, "Members' Ledger", name, compress)
@@ -349,11 +350,15 @@ def render_members_ledger_pdf(members: List[dict], society, as_of: date, *, comp
              _p("Advance (Cr) Rs.", "th_r")]]
     dues = advance = Decimal(0)
     for i, m in enumerate(members, 1):
-        bal = Decimal(m["balance"])
-        dues += max(bal, Decimal(0))
-        advance += max(-bal, Decimal(0))
+        if "dues" in m:
+            owed, ahead = Decimal(m["dues"]), Decimal(m.get("advance", 0))
+        else:
+            bal = Decimal(m["balance"])
+            owed, ahead = max(bal, Decimal(0)), max(-bal, Decimal(0))
+        dues += owed
+        advance += ahead
         rows.append([_p(i), _p(m["flat_label"]), _p(m["member_name"]),
-                     _p(_amt(bal) if bal > 0 else "", "td_r"), _p(_amt(-bal) if bal < 0 else "", "td_r")])
+                     _p(_amt(owed) if owed > 0 else "", "td_r"), _p(_amt(ahead) if ahead > 0 else "", "td_r")])
     rows.append(["", _p("TOTAL", "td_b"), _p(f"{len(members)} flats", "td"), _p(_inr(dues), "td_rb"),
                  _p(_inr(advance), "td_rb")])
     rows.append(["", _p("NET", "td_b"), _p("Receivable from members (net of advances)", "td"), "",

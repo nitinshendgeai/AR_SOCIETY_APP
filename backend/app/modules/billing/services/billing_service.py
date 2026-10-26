@@ -885,6 +885,7 @@ class BillingService:
         screenshot_file_name: Optional[str] = None,
         purpose: ChargeType = ChargeType.MAINTENANCE,
         deposit_account_id: Optional[UUID] = None,
+        require_screenshot: bool = True,
     ) -> OnlinePaymentSubmission:
         flat = self.db.query(Flat).filter(Flat.id == flat_id, Flat.is_active == True).first()
         if not flat:
@@ -911,7 +912,7 @@ class BillingService:
                 raise HTTPException(422, f"Screenshot exceeds the {MAX_SCREENSHOT_BYTES // (1024*1024)}MB limit")
             if screenshot_mime_type not in ALLOWED_SCREENSHOT_MIME_TYPES:
                 raise HTTPException(422, f"Unsupported image type: {screenshot_mime_type}")
-        elif payment_mode in self.SCREENSHOT_REQUIRED_MODES:
+        elif require_screenshot and payment_mode in self.SCREENSHOT_REQUIRED_MODES:
             raise HTTPException(422, f"Payment screenshot is required for {payment_mode.value}")
 
         # On-bill: apply immediately, same accounting path as record_payment().

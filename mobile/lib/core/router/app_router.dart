@@ -8,6 +8,7 @@ import 'package:ar_society_app/features/governance/presentation/screens/meetings
 import 'package:ar_society_app/features/manager_checklist/presentation/screens/manager_checklist_screen.dart';
 import 'package:ar_society_app/features/governance/presentation/screens/polls_screen.dart';
 import 'package:ar_society_app/features/shops/presentation/screens/shops_screen.dart';
+import 'package:ar_society_app/features/billing/presentation/screens/advance_import_screen.dart';
 import 'package:ar_society_app/features/shops/presentation/screens/shops_import_screen.dart';
 import 'package:ar_society_app/features/society_structure/presentation/screens/flat_possession_import_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -185,6 +186,7 @@ class AppRoutes {
   static const formsMatrix        = '/forms-matrix';
   static const checklistTemplates = '/staff/checklist-templates';
   static const onlinePayments     = '/billing/online-payments';
+  static const advanceImport      = '/billing/advance-import';
   static const bankReconciliation = '/billing/bank-reconciliation';
   static const vendorBills        = '/vendors/bills';
   static const payVendorBills     = '/vendors/bills/pay';
@@ -685,6 +687,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: AppRoutes.parcels, builder: (_, __) => const ParcelsScreen()),
           GoRoute(path: AppRoutes.domesticHelp, builder: (_, __) => const DomesticHelpScreen()),
           GoRoute(path: AppRoutes.shopsImport, builder: (_, __) => const ShopsImportScreen()),
+          GoRoute(path: AppRoutes.advanceImport, builder: (_, __) => const AdvanceImportScreen()),
           GoRoute(path: AppRoutes.flatPossessionImport, builder: (_, __) => const FlatPossessionImportScreen()),
           GoRoute(path: AppRoutes.stores, builder: (_, __) => const StoresScreen()),
           GoRoute(

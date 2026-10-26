@@ -914,14 +914,22 @@ class AccountsService:
                 "total_debit": total_dr, "total_credit": total_cr, "closing": running}
 
     def member_balances(self, society_id: UUID, as_of: Optional[date] = None) -> List[dict]:
-        """Each flat's balance on Members' Dues — Dr: the member owes the
-        society, Cr: paid in advance."""
+        """Each flat's account with the society. `dues`: what its bills still leave to pay (Members' Dues, Dr);
+        `advance`: maintenance paid ahead — the Advance Maintenance ledger plus any credit left on Members' Dues;
+        `balance`: dues less advance (Dr: the member owes the society, Cr: paid in advance)."""
         dues = self.system_account(society_id, "members_dues")
+        advance_ledger = self.system_account(society_id, "advance_maintenance")
         moves = self._movements(society_id, upto=as_of, group_by=VoucherEntry.flat_id, account_id=dues.id)
+        held = self._movements(society_id, upto=as_of, group_by=VoucherEntry.flat_id, account_id=advance_ledger.id)
         flats = (self.db.query(Flat).join(Wing, Wing.id == Flat.wing_id)
                  .filter(Wing.society_id == society_id, Flat.is_active == True)
                  .options(joinedload(Flat.wing), selectinload(Flat.residents)).all())
-        rows = [{"flat": f, "balance": moves.get(f.id, ZERO)} for f in flats]
+        rows = []
+        for f in flats:
+            owed = moves.get(f.id, ZERO)
+            ahead = -held.get(f.id, ZERO) + max(-owed, ZERO)         # Cr on the advance ledger is a positive advance
+            owed = max(owed, ZERO)
+            rows.append({"flat": f, "dues": owed, "advance": ahead, "balance": owed - ahead})
         rows.sort(key=lambda r: ((r["flat"].wing.name if r["flat"].wing else ""), r["flat"].flat_number))
         return rows
 
