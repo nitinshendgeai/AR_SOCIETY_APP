@@ -483,13 +483,27 @@ class MemberBalance {
   final String memberName;
   final DrCr balance;
 
-  const MemberBalance({required this.flatId, required this.flatLabel, required this.memberName, required this.balance});
+  /// What its bills still leave to pay, and the maintenance paid ahead (the Advance Maintenance ledger); the
+  /// balance is dues less advance.
+  final double dues;
+  final double advance;
+
+  const MemberBalance({
+    required this.flatId,
+    required this.flatLabel,
+    required this.memberName,
+    required this.balance,
+    this.dues = 0,
+    this.advance = 0,
+  });
 
   factory MemberBalance.fromJson(Map<String, dynamic> j) => MemberBalance(
         flatId: j['flat_id'] as String,
         flatLabel: j['flat_label'] as String? ?? '—',
         memberName: j['member_name'] as String? ?? '—',
         balance: DrCr.fromJson(j['balance_dr_cr'] as Map<String, dynamic>?),
+        dues: double.tryParse('${j['dues'] ?? 0}') ?? 0,
+        advance: double.tryParse('${j['advance'] ?? 0}') ?? 0,
       );
 
   /// Dr: the member owes the society; Cr: paid in advance.

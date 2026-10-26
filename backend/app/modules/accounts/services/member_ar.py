@@ -69,6 +69,44 @@ class MemberARService:
             q = q.filter(Entity.source_type == "flat", Entity.source_id == flat_id)
         return q.order_by(Entity.display_name).all()
 
+    def _advance_only_accounts(self, society_id: UUID, flat_id: UUID):
+        """Flats that have paid in advance but have no dues account yet (no bill has been raised for them)."""
+        q = (
+            self.db.query(Entity, EntityAccount, Flat)
+            .join(EntityAccount, EntityAccount.entity_id == Entity.id)
+            .join(Flat, Flat.id == Entity.source_id)
+            .filter(
+                Entity.society_id == society_id, Entity.entity_type == "member", Entity.source_type == "flat",
+                EntityAccount.society_id == society_id, EntityAccount.subledger_type == "ADVANCE",
+                EntityAccount.is_active.is_(True),
+            )
+        )
+        if flat_id:
+            q = q.filter(Entity.source_id == flat_id)
+        return [(entity, None, flat) for entity, _ea, flat in q.order_by(Entity.display_name).all()]
+
+    def _advance_lines(self, entity_id: UUID, society_id: UUID, date_from: Optional[date],
+                       date_to: Optional[date]) -> list:
+        """The flat's advance account: what it paid in (Cr) and what was set off against its bills (Dr), with the
+        running balance (Cr: advance held)."""
+        ea = self.db.query(EntityAccount).filter(
+            EntityAccount.entity_id == entity_id, EntityAccount.society_id == society_id,
+            EntityAccount.subledger_type == "ADVANCE", EntityAccount.is_active.is_(True)).first()
+        if not ea:
+            return []
+        balance = -self._opening(ea.id, date_from)
+        out = []
+        for voucher, entry in self._entity_ledger(ea.id, date_from, date_to):
+            debit, credit = _money(entry.debit), _money(entry.credit)
+            balance += credit - debit
+            out.append({
+                "voucher_id": str(voucher.id), "voucher_number": voucher.voucher_number,
+                "date": voucher.voucher_date.isoformat(), "voucher_type": voucher.voucher_type,
+                "source_type": voucher.source_type, "narration": entry.narration or voucher.narration,
+                "debit": str(debit), "credit": str(credit), "balance": str(_money(balance)),
+            })
+        return out
+
     def _entity_ledger(self, entity_account_id: UUID, date_from: Optional[date],
                        date_to: Optional[date]):
         q = (
@@ -213,13 +251,13 @@ class MemberARService:
     def statement(self, society_id: UUID, flat_id: UUID,
                   date_from: Optional[date] = None,
                   date_to: Optional[date] = None) -> dict:
-        rows = self._accounts(society_id, flat_id)
+        rows = self._accounts(society_id, flat_id) or self._advance_only_accounts(society_id, flat_id)
         if not rows:
             raise ValueError("Member AR subledger not found for this flat")
 
         entity, ar, flat = rows[0]
-        entries = self._entity_ledger(ar.id, date_from, date_to)
-        opening = self._opening(ar.id, date_from)
+        entries = self._entity_ledger(ar.id, date_from, date_to) if ar else []
+        opening = self._opening(ar.id, date_from) if ar else ZERO
         balance = opening
         lines = []
         total_debit = ZERO
@@ -254,7 +292,7 @@ class MemberARService:
             "flat_id": str(flat.id),
             "flat_label": _flat_label(flat),
             "member_entity_id": str(entity.id),
-            "member_account_number": ar.account_number,
+            "member_account_number": ar.account_number if ar else None,
             "date_from": date_from.isoformat() if date_from else None,
             "date_to": date_to.isoformat() if date_to else None,
             "opening_ar": str(_money(opening)),
@@ -268,6 +306,7 @@ class MemberARService:
             "reconciliation_difference": str(_money(balance - outstanding)),
             "reconciled": abs(_money(balance - outstanding)) < Decimal("0.01"),
             "advance_balance": str(_money(advance)),
+            "advance_lines": self._advance_lines(entity.id, society_id, date_from, date_to),
             "lines": lines,
             "bills": self._bills_for_statement(society_id, flat.id, date_to),
         }
@@ -371,7 +410,9 @@ class MemberARService:
                                date_to: Optional[date] = None) -> dict:
         """Reconcile all member AR accounts using bulk aggregates."""
         accounts = self._accounts(society_id)
-        ar_ids = [ar.id for _, ar, _ in accounts]
+        have_ar = {entity.id for entity, _, _ in accounts}
+        accounts += [row for row in self._advance_only_accounts(society_id, None) if row[0].id not in have_ar]
+        ar_ids = [ar.id for _, ar, _ in accounts if ar]
         entity_ids = [entity.id for entity, _, _ in accounts]
         flat_ids = [flat.id for _, _, flat in accounts if flat]
 
@@ -455,7 +496,7 @@ class MemberARService:
         for entity, ar, flat in accounts:
             if not flat:
                 continue
-            debit, credit = gl.get(ar.id, (ZERO, ZERO))
+            debit, credit = gl.get(ar.id, (ZERO, ZERO)) if ar else (ZERO, ZERO)
             closing = _money(debit - credit)
             demand, collected, outstanding = operational.get(flat.id, (ZERO, ZERO, ZERO))
             advance = advances.get(entity.id, ZERO)
@@ -464,7 +505,7 @@ class MemberARService:
                 "flat_id": str(flat.id),
                 "flat_label": _flat_label(flat),
                 "member_entity_id": str(entity.id),
-                "member_account_number": ar.account_number,
+                "member_account_number": ar.account_number if ar else None,
                 "closing_ar": str(closing),
                 "closing_ar_dr_cr": "Dr" if closing >= 0 else "Cr",
                 "operational_demand": str(demand),

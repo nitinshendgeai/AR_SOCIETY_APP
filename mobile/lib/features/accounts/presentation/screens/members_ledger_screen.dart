@@ -71,13 +71,13 @@ class _MembersLedgerScreenState extends ConsumerState<MembersLedgerScreen> {
                 return false;
               }
               return switch (_show) {
-                _Show.dues => m.signed > 0,
-                _Show.advance => m.signed < 0,
+                _Show.dues => m.dues > 0,
+                _Show.advance => m.advance > 0,
                 _Show.all => true,
               };
             }).toList();
-            final receivable = ledger.members.where((m) => m.signed > 0).fold<double>(0, (s, m) => s + m.signed);
-            final advance = ledger.members.where((m) => m.signed < 0).fold<double>(0, (s, m) => s - m.signed);
+            final receivable = ledger.members.fold<double>(0, (s, m) => s + m.dues);
+            final advance = ledger.members.fold<double>(0, (s, m) => s + m.advance);
             void open(MemberBalance m) => context.push(Uri(
                   path: ledgerRoute(ledger.accountId),
                   queryParameters: {'flat': m.flatId, 'title': '${m.flatLabel} · ${m.memberName}'},
@@ -93,15 +93,15 @@ class _MembersLedgerScreenState extends ConsumerState<MembersLedgerScreen> {
                       icon: Icons.call_received_rounded,
                       label: 'Dues receivable',
                       value: formatInr(receivable),
-                      note: '${ledger.members.where((m) => m.signed > 0).length} flats with dues',
+                      note: '${ledger.members.where((m) => m.dues > 0).length} flats with dues',
                       color: AppTheme.warning,
                       onTap: () => setState(() => _show = _Show.dues),
                     ),
                     KpiCard(
                       icon: Icons.savings_rounded,
-                      label: 'Advance received',
+                      label: 'Advance maintenance held',
                       value: formatInr(advance),
-                      note: '${ledger.members.where((m) => m.signed < 0).length} flats in credit',
+                      note: '${ledger.members.where((m) => m.advance > 0).length} flats paid in advance',
                       color: AppTheme.success,
                       onTap: () => setState(() => _show = _Show.advance),
                     ),
@@ -125,6 +125,20 @@ class _MembersLedgerScreenState extends ConsumerState<MembersLedgerScreen> {
                         AppDataColumn.text('Flat', (m) => m.flatLabel, width: 140, bold: true),
                         AppDataColumn.text('Member', (m) => m.memberName, flex: 3),
                         AppDataColumn(
+                          label: 'Dues',
+                          numeric: true,
+                          width: 120,
+                          sortKey: (m) => m.dues,
+                          cell: (m) => Align(alignment: Alignment.centerRight, child: Text(m.dues > 0 ? formatInr(m.dues) : '')),
+                        ),
+                        AppDataColumn(
+                          label: 'Advance',
+                          numeric: true,
+                          width: 120,
+                          sortKey: (m) => m.advance,
+                          cell: (m) => Align(alignment: Alignment.centerRight, child: Text(m.advance > 0 ? formatInr(m.advance) : '')),
+                        ),
+                        AppDataColumn(
                           label: 'Balance',
                           numeric: true,
                           width: 180,
@@ -142,7 +156,12 @@ class _MembersLedgerScreenState extends ConsumerState<MembersLedgerScreen> {
                           if (i > 0) const Divider(height: 1),
                           ListTile(
                             title: Text(m.flatLabel, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                            subtitle: Text(m.memberName, style: const TextStyle(fontSize: 12.5)),
+                            subtitle: Text(
+                              [
+                                m.memberName,
+                                if (m.dues > 0 && m.advance > 0) 'Dues ${formatInr(m.dues)} · Advance ${formatInr(m.advance)}',
+                              ].join('\n'),
+                              style: const TextStyle(fontSize: 12.5)),
                             trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                               DrCrText(m.balance),
                               const Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),

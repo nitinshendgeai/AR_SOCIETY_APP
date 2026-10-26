@@ -51,6 +51,18 @@ def upgrade():
           AND ea.control_account_id = d.id AND d.system_key = 'member_deposits'
           AND n.society_id = d.society_id AND n.system_key = 'advance_maintenance'
     """)
+    # Tag each advance line with its flat, so a flat's advance can be read from the ledger like its dues.
+    op.execute("""
+        UPDATE voucher_entries ve
+        SET flat_id = e.source_id
+        FROM entity_accounts ea, accounting_entities e
+        WHERE ve.entity_account_id = ea.id
+          AND ea.subledger_type = 'ADVANCE'
+          AND ea.entity_id = e.id
+          AND e.source_type = 'flat'
+          AND ve.flat_id IS NULL
+          AND EXISTS (SELECT 1 FROM flats f WHERE f.id = e.source_id)
+    """)
 
 
 def downgrade():

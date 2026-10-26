@@ -211,7 +211,7 @@ class AccountPostings:
         if unapplied_amount > 0:
             from app.modules.accounts.services.entities import AccountingEntityService
             advance = AccountingEntityService(self.db).ensure_flat_advance(flat, advance_control)
-            lines.append(Line(advance_control, credit=unapplied_amount,
+            lines.append(Line(advance_control, credit=unapplied_amount, flat_id=flat_id,
                               entity_account_id=advance.id))
 
         narration = (f"Received from {_member_of(flat, p.bill.resident if p.bill else None)} "
@@ -243,7 +243,7 @@ class AccountPostings:
         advance = entities.ensure_flat_advance(flat, advance_control)
         return self._post(
             payment.society_id, "journal", bill.bill_date,
-            [Line(advance_control, debit=money(allocation.amount), entity_account_id=advance.id),
+            [Line(advance_control, debit=money(allocation.amount), flat_id=flat.id, entity_account_id=advance.id),
              Line(dues, credit=money(allocation.amount), flat_id=flat.id, entity_account_id=ar.id)],
             narration=f"Advance applied to Bill {bill.invoice_number} — {flat.flat_number}",
             reference=payment.receipt_number,

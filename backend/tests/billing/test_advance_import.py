@@ -96,3 +96,64 @@ def test_only_managers_can_import_and_only_their_own_society(client, db):
     assert _post(client, resident["headers"], [], society=society).status_code == 403
     r = _post(client, manager["headers"], [{**_row(2, "101", "100"), "wing": "Nowhere"}], society=society).json()
     assert r[0]["status"] == "error"
+
+
+# ── The advance in the reports ────────────────────────────────────────────────
+
+ACC = "/api/v1/accounts"
+
+
+def _bs_rows(client, h, sid):
+    bs = client.get(f"{ACC}/reports/{sid}/balance-sheet", params={"fy": "2026-27"}, headers=h).json()
+    rows = {r["label"]: r["amounts"][0] for side in bs["sides"] for s in side["sections"] for r in s["rows"]}
+    return bs, rows
+
+
+def test_the_advance_shows_in_the_statements_and_the_flat_wise_reports(client, db):
+    society, flat1, flat2, manager, *_ = _rig(db, "advr")
+    h, sid = manager["headers"], str(society.id)
+    assert [x["status"] for x in _post(client, h, [_row(2, "101", "6000"), _row(3, "102", "2000", mode="cash")],
+                                       society=society).json()] == ["recorded", "recorded"]
+
+    # Trial Balance and Balance Sheet: its own line under Current Liabilities, and the books balance.
+    tb = client.get(f"{ACC}/reports/{sid}/trial-balance", params={"fy": "2026-27"}, headers=h).json()
+    line = next(r for r in tb["rows"] if r["label"] == "Advance Maintenance from Members")
+    assert line["cells"] == ["", "8000.00"] and tb["balanced"]
+    bs, rows = _bs_rows(client, h, sid)
+    assert rows["Advance Maintenance from Members"] == "8000.00" and bs["balanced"]
+
+    # Members' Ledger: advance held, not shown as zero.
+    members = {m["flat_label"]: m for m in client.get(f"{ACC}/members/{sid}", headers=h).json()["members"]}
+    m101, m102 = members["Tower A 101"], members["Tower A 102"]
+    assert (m101["dues"], m101["advance"], m101["balance"], m101["balance_dr_cr"]["type"]) == (
+        "0.00", "6000.00", "-6000.00", "Cr")
+    assert m102["advance"] == "2000.00"
+    assert client.get(f"{ACC}/members/{sid}", params={"format": "pdf"}, headers=h).status_code == 200
+
+    # A flat's own account: statement works before any bill exists, and the ledger can be read flat by flat.
+    st = client.get(f"{ACC}/members/{sid}/{flat1.id}/ar-statement", headers=h)
+    assert st.status_code == 200, st.text
+    assert st.json()["advance_balance"] == "6000.00"
+    assert [(l["credit"], l["balance"]) for l in st.json()["advance_lines"]] == [("6000.00", "6000.00")]
+    rec = client.get(f"{ACC}/members/{sid}/ar-reconciliation", headers=h).json()
+    assert rec["totals"]["advance_balance"] == "8000.00"
+    ledger = next(a for a in client.get(f"{ACC}/ledgers/{sid}", headers=h).json() if a["system_key"] == "advance_maintenance")
+    one = client.get(f"{ACC}/ledgers/{ledger['id']}/statement", params={"flat_id": str(flat1.id)}, headers=h).json()
+    assert one["total_credit"] == "6000.00" and len(one["lines"]) == 1
+
+    # Bills raised: the advance is set off; the rest of the books still tell the same story.
+    _charge(client, h, society.id, amount="2500.00")
+    cycle_id = _cycle(client, h, society.id).json()["id"]
+    assert client.post(f"/api/v1/billing/cycles/{cycle_id}/generate-bills", headers=h).status_code == 200
+    assert client.post(f"/api/v1/billing/cycles/{cycle_id}/issue-all", headers=h).status_code == 200
+    # Every set-off reaches the books, however many flats are issued together (each has its own journal).
+    assert db.query(Voucher).filter_by(society_id=society.id, source_type="advance_allocation").count() == 2
+    members = {m["flat_label"]: m for m in client.get(f"{ACC}/members/{sid}", headers=h).json()["members"]}
+    assert (members["Tower A 101"]["dues"], members["Tower A 101"]["advance"]) == ("0.00", "3500.00")
+    assert (members["Tower A 102"]["dues"], members["Tower A 102"]["advance"]) == ("500.00", "0.00")
+    assert members["Tower A 102"]["balance_dr_cr"]["type"] == "Dr"
+    bs, rows = _bs_rows(client, h, sid)
+    assert rows["Advance Maintenance from Members"] == "3500.00" and bs["balanced"]
+    st = client.get(f"{ACC}/members/{sid}/{flat1.id}/ar-statement", headers=h).json()
+    assert [(l["debit"], l["credit"], l["balance"]) for l in st["advance_lines"]] == [
+        ("0.00", "6000.00", "6000.00"), ("2500.00", "0.00", "3500.00")]
