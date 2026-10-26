@@ -1,4 +1,4 @@
-"""Regenerating a cycle's bills: the old ones are deleted and new ones made, while none has been issued. Nothing else may
+"""Regenerating a cycle's bills: the unissued ones are deleted and new ones made (bills already issued or paid stay). Nothing else may
 be left behind (the flats' running dues, one-off charges, interest already counted), and once a bill reaches a resident
 the bills stay."""
 from datetime import date
@@ -105,12 +105,24 @@ def test_once_a_bill_is_issued_the_bills_cannot_be_regenerated(client, db):
     assert len(_bills(client, h, cycle_id)) == 2
 
 
-def test_a_payment_on_a_bill_stops_it(client, db):
+def test_a_bill_with_a_payment_stays_and_the_other_bills_are_replaced(client, db):
     society, flat1, flat2, manager, _r, _o, cycle_id = _generated_cycle(client, db, "rg6")
     h = manager["headers"]
     bill = db.query(MaintenanceBill).filter_by(flat_id=flat1.id).one()
+    kept_id = bill.id
     r = client.post(f"{B}/online-payments", headers=h, data={
         "flat_id": str(flat1.id), "bill_id": str(bill.id), "amount": "100", "payment_date": str(date.today()),
+        "payment_mode": "cash"})
+    assert r.status_code == 201, r.text
+    r = _regenerate(client, h, cycle_id)
+    assert r.status_code == 200, r.text
+    assert r.json()["bills_replaced"] == 1 and r.json()["bills_generated"] == 1 and r.json()["bills_kept"] == 1
+    db.expire_all()
+    assert db.query(MaintenanceBill).filter_by(flat_id=flat1.id).one().id == kept_id        # the one with a payment stays
+    # With every bill carrying a payment, nothing is left to regenerate.
+    bill2 = db.query(MaintenanceBill).filter_by(flat_id=flat2.id).one()
+    r = client.post(f"{B}/online-payments", headers=h, data={
+        "flat_id": str(flat2.id), "bill_id": str(bill2.id), "amount": "100", "payment_date": str(date.today()),
         "payment_mode": "cash"})
     assert r.status_code == 201, r.text
     r = _regenerate(client, h, cycle_id)
@@ -195,16 +207,18 @@ def test_a_generated_bill_that_was_cancelled_is_deleted_and_the_rest_replaced(cl
     assert len(bills) == 2 and all(b.bill_status.value == "generated" for b in bills)   # nothing left of the cancelled one
 
 
-def test_one_issued_bill_still_stops_it_even_when_the_others_are_cancelled(client, db):
+def test_an_issued_bill_stays_when_the_other_one_is_cancelled_and_made_again(client, db):
     society, flat1, flat2, manager, _r, _o, cycle_id = _generated_cycle(client, db, "rg11")
     h = manager["headers"]
     assert client.post(f"{B}/cycles/{cycle_id}/issue-all", headers=h).status_code == 200
     bills = _bills(client, h, cycle_id)
     _cancel(client, h, bills[0]["id"])
-    assert _cycle_info(client, h, cycle_id)["can_regenerate"] is False
+    assert _cycle_info(client, h, cycle_id)["can_regenerate"] is True       # the cancelled one can be made again
     r = _regenerate(client, h, cycle_id)
-    assert r.status_code == 409 and "issued" in r.json()["detail"] and "Cancel it first" in r.json()["detail"]
-    assert sorted(b["bill_status"] for b in _bills(client, h, cycle_id)) == ["cancelled", "issued"]      # untouched
+    assert r.status_code == 200, r.text
+    assert r.json()["bills_generated"] == 1 and r.json()["bills_kept"] == 1
+    assert sorted(b["bill_status"] for b in _bills(client, h, cycle_id)) == ["cancelled", "generated", "issued"]
+    assert _cycle_info(client, h, cycle_id)["can_regenerate"] is True       # the new one is unissued
 
 
 def test_interest_of_a_cancelled_issued_bill_is_charged_again_by_the_new_bill(client, db):

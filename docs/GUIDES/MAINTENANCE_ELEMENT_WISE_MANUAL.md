@@ -244,8 +244,20 @@ Nothing here blocks **Generate**; it says what to look at first.
 ### Two safeguards
 - The same dates of an element cannot be billed twice. A cycle overlapping an earlier cycle's dates (whose bills
   still stand) is refused. Cancel the earlier bills to free the dates.
-- Bills already generated are never recalculated. Use **Regenerate bills** on a cycle only while the bills are still
-  drafts, after fixing the books.
+- Bills already generated are not changed by later entries. To pick up expenses booked after Generate, use
+  **Regenerate bills** (next section).
+
+### Regenerate bills
+Use it after fixing the books (approving vouchers, adding a late expense, correcting a charge head).
+- It **deletes the unissued bills** of the cycle, and cancelled bills that were never issued, and makes them again
+  from all the approved expenses dated in the cycle as they are now.
+- A bill that is **issued, paid or part-paid stays exactly as it is**, with its invoice number. A cancelled bill that
+  was issued stays as a record, and its flat gets a new bill.
+- For a head that bills actual expenses, the new bills share only the spend the issued bills did not take. Together the
+  bills still add up to the month's spend. Because late expenses fall on the flats billed again, issue the bills of a
+  cycle together where you can.
+- It is refused only when every bill is issued or has a payment. Cancel a bill first to make it again.
+- If the new bills cannot be made, the old ones stay.
 
 ---
 

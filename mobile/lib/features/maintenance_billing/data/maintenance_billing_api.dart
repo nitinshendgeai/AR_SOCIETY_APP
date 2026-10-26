@@ -1038,8 +1038,9 @@ class MaintenanceBillingApi {
     return (r.data as Map<String, dynamic>)['bills_generated'] as int;
   }
 
-  /// Deletes the cycle's bills and makes them again from today's charges and rules; the server refuses once any bill
-  /// is issued or paid. Returns how many bills were made.
+  /// Deletes the cycle's unissued (and cancelled) bills and makes them again from today's charges, rules and
+  /// expenses; bills that are issued or paid stay, and the server refuses when none can be replaced. Returns how many
+  /// bills were made.
   Future<int> regenerateBills(String cycleId) async {
     final r = await _dio.post('/billing/cycles/$cycleId/regenerate-bills', options: _longRunning);
     return (r.data as Map<String, dynamic>)['bills_generated'] as int;
