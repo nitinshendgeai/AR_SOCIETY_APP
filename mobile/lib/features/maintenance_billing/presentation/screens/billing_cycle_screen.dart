@@ -81,10 +81,10 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
 
   Future<void> _regenerate(BillingCycle cycle) async {
     final ok = await _confirm(
-      cycle.billsCount > 0 ? 'Regenerate ${cycle.billsCount} bills?' : 'Make the bills again?',
-      'The bills of this cycle will be deleted and new ones made from the charges, rules and expenses as they are now. '
-      'Nothing has gone to residents yet, so nothing is lost. Bills that were issued and then cancelled stay on record. '
-      'You can do this until a bill is issued.',
+      'Regenerate the unissued bills?',
+      'Bills not yet issued, and cancelled bills that were never issued, are deleted and made again from the charges, '
+      'rules and all approved expenses of this period as they are now. Bills already issued or paid stay as they are; '
+      'the new bills share only the expenses those bills did not take. Cancelled bills that were issued stay on record.',
       'Regenerate',
     );
     if (!ok) return;

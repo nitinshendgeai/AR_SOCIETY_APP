@@ -649,7 +649,9 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
     if (v == null || v.trim().isEmpty) return required ? 'Required' : null;
     final n = double.tryParse(v.trim());
     if (n == null || n < 0) return 'Enter a valid amount';
-    if (_basis == 'construction_cost_pct' && required && n > 100) return 'Enter a percentage';
+    if ((_basis == 'construction_cost_pct' || _basis == 'service_charge_pct') && required && n > 100) {
+      return 'Enter a percentage';
+    }
     return null;
   }
 

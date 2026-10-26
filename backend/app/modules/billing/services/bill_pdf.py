@@ -371,11 +371,20 @@ def _expense_statements(bill: MaintenanceBill) -> List[str]:
         else:
             how = f"equally between flats (Rs. {Decimal(alloc.rate):,.4f} per flat for the full period)"
         what = f" on {escape(alloc.element_name)}" if alloc.element_name else ""
+        spent = sum((Decimal(src.amount or 0) for src in alloc.sources), ZERO)
+        if spent > Decimal(alloc.pool_amount):
+            # Made again after other bills of the cycle were issued: only what those bills did not take is shared.
+            out.append(
+                f"<b>{escape(alloc.charge_name)}</b> is the society's actual expenses{what} from "
+                f"{alloc.period_start:%d %b %Y} to {alloc.period_end:%d %b %Y}: Rs. {_inr(spent)} in all, of which "
+                f"Rs. {_inr(alloc.pool_amount)} was not on bills already issued. That balance is shared {how} over "
+                f"{alloc.eligible_flats} flat(s). Your share: Rs. {_inr(mine)}.")
+            continue
         out.append(
             f"<b>{escape(alloc.charge_name)}</b> is the society's actual expenses{what} from "
             f"{alloc.period_start:%d %b %Y} to {alloc.period_end:%d %b %Y}: Rs. {_inr(alloc.pool_amount)} in all, "
             f"shared {how} over {alloc.eligible_flats} flat(s). Your share: Rs. {_inr(mine)}. Shares are rounded to the "
-            f"paisa so that all bills together add up to exactly Rs. {_inr(alloc.pool_amount)}.")
+            f"paisa so that the shares add up to exactly Rs. {_inr(alloc.pool_amount)}.")
     return out
 
 

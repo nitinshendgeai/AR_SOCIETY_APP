@@ -23,6 +23,7 @@ const kChargeBases = [
   ('budget_equal', 'Annual budget, split equally'),
   ('budget_area', 'Annual budget, split by area'),
   ('parking', 'Per allotted parking slot'),
+  ('service_charge_pct', '% of service charges (monthly)'),
 ];
 
 String chargeBasisLabel(String v) =>
@@ -32,6 +33,7 @@ String chargeBasisLabel(String v) =>
 String chargeAmountFieldLabel(String basis) => switch (basis) {
       'per_sqft' => 'Rate per sq ft per month (₹)',
       'construction_cost_pct' => 'Rate (% per year)',
+      'service_charge_pct' => 'Rate (% of service charges)',
       'budget_equal' || 'budget_area' => 'Annual budget (₹)',
       'parking' => 'Rate per slot per month (₹)',
       _ => 'Amount per flat per month (₹)',
@@ -41,6 +43,8 @@ String chargeBasisHint(String basis) => switch (basis) {
       'per_sqft' => 'Flat area × rate. Most societies charge ₹2–7 per sq ft.',
       'construction_cost_pct' =>
         'Area × construction cost/sq ft (set in Rules) × % ÷ 12. Bye-laws: sinking fund min 0.25%, repair fund 0.75%.',
+      'service_charge_pct' =>
+        'A % of the flat\'s service-charge lines on the same bill (the heads marked Service charge), for the months billed — e.g. repair fund 0.75%, sinking fund 0.25% of the monthly maintenance.',
       'budget_equal' => 'Yearly cost ÷ number of flats ÷ 12 — e.g. security, housekeeping staff.',
       'budget_area' => 'Yearly cost shared in proportion to each flat\'s area ÷ 12 — e.g. water, electricity.',
       'parking' => 'Charged per active parking allotment (car rate). A slot\'s own monthly charge overrides this rate.',
@@ -53,6 +57,7 @@ String basisRateLabel(String basis, String? amount) {
   return switch (basis) {
     'per_sqft' => '${formatRupees(amount)} / sq ft / month',
     'construction_cost_pct' => '$amount% of construction cost / yr',
+    'service_charge_pct' => '$amount% of service charges',
     'budget_equal' => '${formatRupees(amount)} / yr, split equally',
     'budget_area' => '${formatRupees(amount)} / yr, split by area',
     'parking' => '${formatRupees(amount)} / slot / month',
@@ -1038,8 +1043,9 @@ class MaintenanceBillingApi {
     return (r.data as Map<String, dynamic>)['bills_generated'] as int;
   }
 
-  /// Deletes the cycle's bills and makes them again from today's charges and rules; the server refuses once any bill
-  /// is issued or paid. Returns how many bills were made.
+  /// Deletes the cycle's unissued (and cancelled) bills and makes them again from today's charges, rules and
+  /// expenses; bills that are issued or paid stay, and the server refuses when none can be replaced. Returns how many
+  /// bills were made.
   Future<int> regenerateBills(String cycleId) async {
     final r = await _dio.post('/billing/cycles/$cycleId/regenerate-bills', options: _longRunning);
     return (r.data as Map<String, dynamic>)['bills_generated'] as int;

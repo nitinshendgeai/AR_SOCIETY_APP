@@ -201,6 +201,11 @@ class MaintenanceCalculator:
         self.checklist_warnings: List[str] = []
         self._auto_rate: Dict[UUID, Decimal] = {}
         self.allocations: Dict[UUID, AllocationResult] = {}      # charge id -> its period-expense allocation
+        # A partial regenerate leaves the flats whose bills are already issued or paid alone: they are not billed
+        # again, and what their bills took of each period-expense head's pool (charge id -> amount) is not shared out
+        # again.
+        self.skip_flats: set = set()
+        self.pool_taken: Dict[UUID, Decimal] = {}
         self.flat_charges = self._flat_charges_by_flat()
         self.waivers = self._waivers_by_flat()
 
@@ -262,11 +267,15 @@ class MaintenanceCalculator:
         for charge in heads:
             area_based = (charge.basis or ChargeBasis.FIXED) in AREA_BASES
             sources = spend.pools.get(charge.element_id, [])
-            pool = spend.total(charge.element_id)
+            spent = spend.total(charge.element_id)
+            taken = self.pool_taken.get(charge.id, ZERO)
+            pool = spent - taken
             weights: Dict[UUID, Decimal] = {}
             no_area = 0
             for flat in self.flats:
                 period = periods.get(flat.id)
+                if flat.id in self.skip_flats:
+                    continue
                 if period is None:
                     continue
                 share = min(Decimal(1), period[2] / whole) if whole else Decimal(1)
@@ -286,11 +295,20 @@ class MaintenanceCalculator:
                     f"included — approve them first if they should be billed.")
             if no_area:
                 self.warnings.append(f"{label}{no_area} flat(s) have no area set and carry none of this head.")
+            if taken > 0 and pool <= 0:
+                self._checklist_note(
+                    f"{label}the approved expenses in {window} (₹{spent:,.2f}) are already covered by bills that were "
+                    f"issued (₹{taken:,.2f}) — nothing more is billed for this head.")
+                continue
             if pool <= 0:
                 self._checklist_note(
                     f"{label}no approved expenses are recorded on its linked expense ledgers in {window} — "
                     f"nothing is billed for this head.")
                 continue
+            if taken > 0:
+                self._checklist_note(
+                    f"{label}₹{taken:,.2f} of the ₹{spent:,.2f} spent in {window} is already on bills that were "
+                    f"issued; the other ₹{pool:,.2f} is shared over the flats being billed now.")
             amounts = allocate_exact(pool, weights)
             total_weight = sum((w for w in weights.values() if w > 0), ZERO)
             if not amounts:
@@ -374,13 +392,17 @@ class MaintenanceCalculator:
 
     # ── Charge heads ─────────────────────────────────────────────────────────
 
-    def _charge_lines(self, charge: MaintenanceChargeConfig, flat: Flat, months: Decimal) -> List[Tuple[str, Decimal]]:
+    def _charge_lines(self, charge: MaintenanceChargeConfig, flat: Flat, months: Decimal,
+                      service_base: Optional[Decimal] = None) -> List[Tuple[str, Decimal]]:
         """The (description, amount) lines a charge head puts on a flat's bill: one, except that a parking head with
         a two-wheeler rate bills a flat's cars and two-wheelers on lines of their own. A period-expense head bills the
         flat's exact share of its pool (nothing when the flat carries none)."""
         if is_period_head(charge):
             alloc = self.allocations.get(charge.id)
             return [(charge.name, alloc.amounts.get(flat.id, ZERO))] if alloc else []
+        if charge.basis == ChargeBasis.SERVICE_CHARGE_PCT:
+            # % of the flat's service-charge lines already on this bill (those are for the months billed)
+            return [(charge.name, money((service_base or ZERO) * (charge.default_amount or ZERO) / 100))]
         if (charge.basis == ChargeBasis.PARKING and charge.two_wheeler_rate is not None
                 and any(is_tw for _own, is_tw in self.parking.get(flat.id, []))):
             cars, two_wheelers = self._parking_split(charge, flat)
@@ -458,6 +480,8 @@ class MaintenanceCalculator:
         self._apply_period_allocations(cycle, periods)
 
         for flat in self.flats:
+            if flat.id in self.skip_flats:
+                continue
             period = periods.get(flat.id)
             if period is None:
                 not_yet += 1
@@ -467,8 +491,16 @@ class MaintenanceCalculator:
                 catch_up += 1
             draft = FlatBillDraft(flat=flat, period_start=start, period_end=end, months=months)
 
-            for charge in self.charges:
-                for description, amount in self._charge_lines(charge, flat, months):
+            # The heads that are a % of the flat's service-charge lines come last: they need those lines.
+            ordered = ([c for c in self.charges if c.basis != ChargeBasis.SERVICE_CHARGE_PCT]
+                       + [c for c in self.charges if c.basis == ChargeBasis.SERVICE_CHARGE_PCT])
+            service_base = None
+            for charge in ordered:
+                if charge.basis == ChargeBasis.SERVICE_CHARGE_PCT:
+                    if service_base is None:
+                        service_base = sum((l.amount for l in draft.lines if l.is_service), ZERO)
+                lines = self._charge_lines(charge, flat, months, service_base)
+                for description, amount in lines:
                     if amount <= 0:
                         continue
                     line = LineDraft(

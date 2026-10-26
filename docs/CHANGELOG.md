@@ -4,6 +4,41 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-26 (funds as a % of service charges)
+
+### feat: a charge head can be a percentage of the flat's service-charge lines
+
+New charge basis **% of service charges** (`service_charge_pct`): the head's amount is a percentage of the flat's own
+service-charge lines on the same bill (the heads marked *Service charge*, already for the months billed). A society that
+charges its repair fund at 0.75% and its sinking fund at 0.25% of the monthly maintenance sets those two heads to this
+basis. It is worked out after the other heads; the percentage lines are not part of the base, nor is non-occupancy. It
+cannot bill actual expenses. The charge head form and element master list it as "% of service charges (monthly)".
+
+Migration `0c2d3e4f5a6b` adds the value to the `chargebasis` enum (no data change; PostgreSQL cannot drop an enum value,
+so the downgrade leaves it). Tests: `tests/billing/test_service_charge_pct.py`.
+
+## 2026-10-26 (regenerate with issued bills)
+
+### feat: Regenerate replaces only the unissued and cancelled bills; issued and paid bills stay
+
+Regenerate bills was all-or-nothing: one issued bill stopped the whole cycle. Now it deletes the cycle's **unissued**
+bills and its **cancelled bills that were never issued**, and makes them again from the charges, rules and **all** the
+approved expenses dated in the cycle as they are now (so expenses booked after the first generate are included).
+
+- A bill that is **issued, paid or part-paid** stays exactly as it is, with its invoice number, and so does its flat's
+  share. A cancelled bill that was issued stays as a record; its flat gets a new bill.
+- For a head that bills the **actual expenses of each cycle**, the new bills share only the part of the period's spend
+  the standing bills did not take (the month's spend minus their lines), by area or equally over the flats being billed
+  now. The lines of all the live bills still add up to the month's spend. The new bills carry their own working
+  (the full list of expenses, the balance shared) and the printed bill says so; the issued bills keep the working they
+  were made from.
+- Heads billed on a typed amount or a recent average are simply recalculated for the flats being billed.
+- Regenerate is refused only when every flat's bill is issued or has a payment ("Nothing to regenerate"); cancel one
+  first to make it again. If the new bills cannot be made, the old ones stay.
+- The regenerate response now also says how many bills `bills_kept`.
+
+Tests: `tests/billing/test_regenerate_partial.py`; `test_regenerate_bills.py` updated for the new rules.
+
 ## 2026-10-26 (regenerate: speed and timeouts)
 
 ### fix: Regenerate bills no longer times out on a big society
