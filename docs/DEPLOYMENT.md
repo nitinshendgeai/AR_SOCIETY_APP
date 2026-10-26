@@ -380,6 +380,32 @@ release completely (no schema change); it does not undo bills a user has already
 
 ---
 
+## Release runbook: deploying everything since the advance maintenance release (one go)
+
+Use this when the releases above (advance maintenance ledger, possession-date import, regenerate bills) were not deployed
+one by one. The only one with a migration is `0b1c2d3e4f5a` (advance ledger); the rest are code only.
+
+1. **Back up the database.** Railway > Postgres service > Backups, or `pg_dump` with the public proxy URL. The advance
+   migration moves existing accounting rows.
+2. **Deploy the backend.** Confirm `main` has the releases, then let Railway deploy (or Deployments > Redeploy). The service
+   needs `RUN_MIGRATIONS=true` plus `DATABASE_URL`, `SECRET_KEY` and `APP_ENV=production` (see `RAILWAY_SETUP.md`).
+3. **Watch the deploy log** for `Running upgrade ... -> 0b1c2d3e4f5a, Advance maintenance gets its own ledger` and
+   `Migrations complete`. The health check waits up to 300 s; do not cancel a slow start.
+4. **Check the backend.** `GET /health/ready` answers 200 and `GET /health` reads `"up_to_date": true`. A 503 means the
+   migration did not finish: read the deploy log.
+5. **Deploy the frontend** (Flutter web service: redeploy it, it builds from `/mobile`) and **build the Android app**
+   (Actions > *Build Android APK*, or push to `main`).
+6. **Check the app.** Finance > Chart of Accounts lists *Advance Maintenance from Members* (1407) under Current
+   Liabilities; Finance > Payments has **Import advances**; the flat list has **Possession dates**; a cycle whose bills are
+   all unissued has **Regenerate bills**.
+7. **Then use it.** Import the advances and compare the total with the Balance Sheet line; make and **issue** the bills so
+   the advances are set off; use *Regenerate bills* only before any bill is issued.
+
+**Rolling back.** Deployments > *Rollback* on the services reverts the code, not the data: the advance migration's data
+move is not undone. To get the old data back, restore the backup from step 1.
+
+---
+
 ## Deployment Checklist
 
 ### Backend
