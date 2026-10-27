@@ -196,6 +196,17 @@ DEFAULT_ELEMENT_LINKS = {
     "property_tax": "property_tax",
     "insurance": "insurance",
     "lease_rent": "lease_rent_na_tax",
+    # The office and administrative costs are what the service charge recovers. (Wages of security or housekeeping
+    # staff the society employs itself belong to those elements: re-link the salaries ledger if so.)
+    "salaries": "service_charges",
+    "audit_fees": "service_charges",
+    "legal_fees": "service_charges",
+    "printing_stationery": "service_charges",
+    "postage_telephone": "service_charges",
+    "office_expenses": "service_charges",
+    "meeting_expenses": "service_charges",
+    "computer_expenses": "service_charges",
+    "misc_expenses": "service_charges",
 }
 
 
@@ -232,6 +243,15 @@ def bill_line_ledger_key(line, element_code: Optional[str] = None) -> str:
     if "transfer" in desc and "premium" in desc:
         return "transfer_premium"
     return CHARGE_TYPE_LEDGER.get(line.charge_type, "other_charges_recovered")
+
+
+def seed_society_defaults(db: Session, society_id) -> Dict[str, Account]:
+    """What a new society (or one whose data was cleaned) starts with: the standard chart of accounts, the standard
+    maintenance elements, and every standard expense ledger linked to the element it pays for. Safe to call again:
+    it only adds what is missing and links ledgers that have no link yet. Caller commits."""
+    from app.modules.billing.models.billing import MaintenanceSettings
+    settings = db.query(MaintenanceSettings).filter(MaintenanceSettings.society_id == society_id).first()
+    return seed_chart_of_accounts(db, society_id, settings)
 
 
 def seed_chart_of_accounts(db: Session, society_id, bank_settings=None) -> Dict[str, Account]:

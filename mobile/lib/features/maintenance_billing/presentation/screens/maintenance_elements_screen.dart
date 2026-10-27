@@ -36,10 +36,48 @@ class MaintenanceElementsScreen extends ConsumerWidget {
           builder: (_) => _ElementSheet(societyId: societyId, existing: existing),
         );
 
+    Future<void> applyLinks() async {
+      final ok = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Apply standard links?'),
+              content: const Text(
+                  'Links every standard expense ledger that has no link yet to the element it pays for (security, '
+                  'housekeeping, lift, electricity, water, tax, insurance, lease rent, and the office and '
+                  'administrative costs to Service Charges). Links you have already set are not changed.'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Apply')),
+              ],
+            ),
+          ) ==
+          true;
+      if (!ok || !context.mounted) return;
+      try {
+        final r = await ref.read(maintenanceBillingApiProvider).applyStandardLinks(societyId);
+        ref.invalidate(maintenanceElementsProvider((societyId: societyId, includeInactive: true)));
+        ref.invalidate(maintenanceElementsProvider((societyId: societyId, includeInactive: false)));
+        if (context.mounted) {
+          AppToast.success(
+              context,
+              r.linked.isEmpty
+                  ? 'Nothing to link — ${r.alreadyLinked} standard ledgers are already linked'
+                  : '${r.linked.length} ledgers linked to their elements');
+        }
+      } catch (e) {
+        if (context.mounted) showErrorToast(context, e);
+      }
+    }
+
     final desktop = isDesktopLayout(context);
     return AppPage(
       title: 'Maintenance Elements',
       actions: [
+        AppBarTextAction(
+          onPressed: applyLinks,
+          icon: Icons.link_rounded,
+          label: 'Apply standard links',
+        ),
         AppBarTextAction(
           onPressed: () => context.push(AppRoutes.accountsExpenseNew),
           icon: Icons.shopping_bag_outlined,

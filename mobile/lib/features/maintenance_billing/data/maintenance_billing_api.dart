@@ -969,6 +969,18 @@ class MaintenanceBillingApi {
         MaintenanceElement.fromJson,
       );
 
+  /// Adds the standard elements and ledgers the society is missing and links every standard expense ledger that has
+  /// no link yet. Returns the links made as (ledger, element) and how many were already linked.
+  Future<({List<(String, String)> linked, int alreadyLinked})> applyStandardLinks(String societyId) async {
+    final r = await _dio.post('/billing/elements/$societyId/apply-standard-links');
+    final j = r.data as Map<String, dynamic>;
+    final linked = [
+      for (final l in (j['linked'] as List? ?? const []))
+        ((l as Map<String, dynamic>)['ledger'] as String, l['element'] as String),
+    ];
+    return (linked: linked, alreadyLinked: (j['already_linked'] as num?)?.toInt() ?? 0);
+  }
+
   Future<MaintenanceElement> createElement(String societyId, Map<String, dynamic> fields) async {
     final r = await _dio.post('/billing/elements', data: {'society_id': societyId, ...fields});
     return MaintenanceElement.fromJson(r.data as Map<String, dynamic>);

@@ -26,6 +26,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from app.modules.accounts.services.chart_of_accounts import seed_society_defaults  # noqa: E402
 from app.services.society_purge import find_society, purge_society  # noqa: E402
 
 
@@ -64,6 +65,8 @@ def main(argv=None) -> int:
                 return 1
 
         result = purge_society(db, society_id, delete_society=args.delete_society, keep_default_logins=not args.wipe_logins)
+        if not args.delete_society:
+            seed_society_defaults(db, society_id)      # the society starts again with the standard books
         db.commit()
         print(f"Done — {sum(result['counts'].values())} rows deleted.")
         return 0

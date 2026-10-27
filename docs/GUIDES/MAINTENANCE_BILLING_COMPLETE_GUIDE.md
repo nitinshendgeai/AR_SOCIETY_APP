@@ -107,6 +107,12 @@ New books come with these links:
 | Insurance | Building Insurance |
 | Lease Rent | Lease Rent / NA Tax |
 
+The office and administrative ledgers (Salaries, Audit Fees, Legal, Printing & Stationery, Postage & Telephone, Office
+Expenses, Meeting Expenses, Computer Expenses, Miscellaneous) count towards **Service Charges**. A new society, and one whose
+data was cleaned, starts with the standard elements and all these links already in place.
+An older society gets the same links with **Maintenance Elements → Apply standard links**, which links only the ledgers that
+have no link yet.
+
 Repairs ledgers (plumbing, electrical, building …) are **not linked** — they are usually paid from the Repairs Fund or
 are one-off. Link them only if your society recovers them through a monthly head.
 

@@ -318,6 +318,40 @@ class BillingService:
             q = q.filter(MaintenanceElement.is_active == True)
         return q.order_by(MaintenanceElement.sort_order, MaintenanceElement.name).all()
 
+    def apply_standard_links(self, society_id: UUID, user: User) -> dict:
+        """Give a society the standard elements and ledger links it is missing: adds any standard element or
+        ledger that does not exist, and links every standard expense ledger that has NO link yet to the element it
+        pays for. A link that is already set (even to a different element) is never changed. Returns the links made
+        as [{ledger, element}] and how many standard ledgers were already linked."""
+        assert_society_access(user, society_id)
+        from app.modules.accounts.models.accounts import Account
+        from app.modules.accounts.services.chart_of_accounts import (
+            DEFAULT_ELEMENT_LINKS, link_default_elements, seed_society_defaults,
+        )
+
+        def linked_now() -> Dict[UUID, Optional[UUID]]:
+            return {a.id: a.maintenance_element_id for a in self.db.query(Account).filter(
+                Account.society_id == society_id, Account.system_key.in_(list(DEFAULT_ELEMENT_LINKS)))}
+
+        before = linked_now()
+        seed_society_defaults(self.db, society_id)
+        link_default_elements(self.db, society_id)
+        self.db.flush()
+        names = dict(self.db.query(MaintenanceElement.id, MaintenanceElement.name).filter(
+            MaintenanceElement.society_id == society_id))
+        made = []
+        for a in self.db.query(Account).filter(
+                Account.society_id == society_id, Account.system_key.in_(list(DEFAULT_ELEMENT_LINKS))
+        ).order_by(Account.code):
+            if a.maintenance_element_id is not None and before.get(a.id) is None:
+                made.append({"ledger": a.name, "element": names.get(a.maintenance_element_id, "")})
+        already = sum(1 for v in before.values() if v is not None)
+        self.db.commit()
+        AuditService.log(db=self.db, action=AuditAction.UPDATE, module="billing", entity_id=str(society_id),
+                         entity_type="Society", user=user,
+                         new_values={"event": "standard_links_applied", "linked": len(made)})
+        return {"linked": made, "already_linked": already}
+
     def get_element(self, element_id: UUID) -> MaintenanceElement:
         el = self.db.query(MaintenanceElement).filter(MaintenanceElement.id == element_id).first()
         if not el: raise HTTPException(404, "Maintenance element not found")

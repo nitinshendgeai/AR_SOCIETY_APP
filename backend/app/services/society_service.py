@@ -6,6 +6,7 @@ from typing import List, Optional
 from app.models.society import Society
 from app.repositories.society_repo import SocietyRepository
 from app.schemas.society import SocietyCreate, SocietyUpdate
+from app.modules.accounts.services.chart_of_accounts import seed_society_defaults
 
 
 class SocietyService:
@@ -16,7 +17,10 @@ class SocietyService:
         if self.repo.get_by_name(data.name):
             raise HTTPException(status_code=400, detail="Society name already exists")
         society = Society(**data.model_dump())
-        return self.repo.create(society)
+        society = self.repo.create(society)
+        seed_society_defaults(self.repo.db, society.id)  # chart of accounts, maintenance elements and their links
+        self.repo.db.commit()
+        return society
 
     def get_or_404(self, id: UUID, caller_society_id: Optional[UUID] = None) -> Society:
         """Fetch a society by id. When caller_society_id is provided (a

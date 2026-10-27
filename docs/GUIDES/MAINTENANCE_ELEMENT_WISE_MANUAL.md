@@ -67,7 +67,10 @@ is a percentage of the service-charge lines. It never lowers anyone's bill.
 
 **Where:** Finance & Maintenance → Accounts → Chart of Accounts → open an expense ledger → **Counts towards**.
 
-### 3.1 Linked by default (check they are still set)
+### 3.1 Linked by default
+**A new society, and a society whose data was cleaned, starts with all of these already set** — the 14 elements
+of Part 2 and the links below — without anyone having to open the screens first. They only need checking, not
+doing. (A society created before this change keeps whatever links it has; link the missing ones as in the table.)
 
 | Ledger | Counts towards |
 |---|---|
@@ -79,24 +82,17 @@ is a percentage of the service-charge lines. It never lowers anyone's bill.
 | Property Tax (4203) | Property Tax |
 | Insurance Premium (4204) | Building Insurance |
 | Lease Rent / NA Tax (4205) | Lease Rent / NA Tax |
+| Salaries & Wages (4001), Audit Fees (4002), Legal & Professional Fees (4003), Printing & Stationery (4004), Postage, Telephone & Internet (4005), Office & General Expenses (4007), Meeting Expenses (4008), Computer & Software Expenses (4009), Miscellaneous Expenses (4303) | Service Charges |
 
-### 3.2 Link these yourself — Service Charges has no default link
+If the wages are of security or housekeeping staff the society employs directly, re-link Salaries & Wages to Security
+Services or Housekeeping. Link Bank Charges (4006) to Service Charges only if the committee wants it recovered from
+members.
 
-| Ledger | Counts towards |
-|---|---|
-| Salaries & Wages (4001) | Service Charges (office/administrative staff only) |
-| Audit Fees (4002) | Service Charges |
-| Legal & Professional Fees (4003) | Service Charges |
-| Printing & Stationery (4004) | Service Charges |
-| Postage, Telephone & Internet (4005) | Service Charges |
-| Office & General Expenses (4007) | Service Charges |
-| Meeting Expenses (AGM / Committee) (4008) | Service Charges |
-| Computer & Software Expenses (4009) | Service Charges |
-| Miscellaneous Expenses (4303) | Service Charges |
-
-If wages are of security or housekeeping staff the society employs directly, link that salary ledger to Security
-Services or Housekeeping instead. Link Bank Charges (4006) to Service Charges only if the committee wants it
-recovered from members.
+### 3.2 Check these
+- A society created before the defaults were added may have the ledgers above unlinked. On **Maintenance Elements**
+  tap **Apply standard links**: it links every standard expense ledger that has no link yet to the element in the
+  table above, adds any standard element or ledger that is missing, and **never changes a link already set**. Or
+  open each ledger → **Counts towards** and set it by hand.
 
 ### 3.3 Leave unlinked
 
