@@ -310,6 +310,12 @@ def list_elements(society_id: UUID, include_inactive: bool = False, db: Session 
     assert_society_access(user, society_id)
     return [_element_out(e) for e in BillingService(db).list_elements(society_id, include_inactive)]
 
+@router.post("/elements/{society_id}/apply-standard-links", dependencies=[Depends(manager_above)])
+def apply_standard_links(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Add the standard elements and ledgers a society is missing and link every standard expense ledger that has no
+    link yet to the element it pays for. Existing links are never changed."""
+    return BillingService(db).apply_standard_links(society_id, user)
+
 @router.post("/elements", status_code=201, dependencies=[Depends(manager_above)])
 def create_element(data: ElementCreate, db: Session = Depends(get_db),
                    user: User = Depends(get_current_user)):

@@ -89,8 +89,10 @@ Services or Housekeeping. Link Bank Charges (4006) to Service Charges only if th
 members.
 
 ### 3.2 Check these
-- A society created before the defaults were added may have the Service Charges ledgers above unlinked: open each
-  ledger → **Counts towards**.
+- A society created before the defaults were added may have the ledgers above unlinked. On **Maintenance Elements**
+  tap **Apply standard links**: it links every standard expense ledger that has no link yet to the element in the
+  table above, adds any standard element or ledger that is missing, and **never changes a link already set**. Or
+  open each ledger → **Counts towards** and set it by hand.
 
 ### 3.3 Leave unlinked
 

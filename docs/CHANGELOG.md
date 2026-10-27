@@ -18,7 +18,10 @@ record is deleted), through one idempotent helper, `seed_society_defaults`. It a
 - The office and administrative ledgers (salaries, audit, legal, printing & stationery, postage & telephone, office,
   meeting, computer, miscellaneous) now count towards **Service Charges** by default. Bank charges, the repairs
   ledgers, interest and depreciation stay unlinked.
-- Societies that already exist keep their elements and links as they are.
+- Societies that already exist keep their elements and links as they are, until someone taps **Apply standard links** on
+  Maintenance Elements (`POST /billing/elements/{society_id}/apply-standard-links`, manager and above, own society). It adds
+  any standard element or ledger that is missing and links every standard expense ledger that has **no link yet**; a link
+  already set is never changed. It returns the links it made and how many were already linked, and is audited.
 
 Tests: `tests/billing/test_society_defaults.py`.
 
