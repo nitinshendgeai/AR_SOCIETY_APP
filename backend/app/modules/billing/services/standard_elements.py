@@ -32,14 +32,16 @@ STANDARD_ELEMENTS = [
      "Bye-laws 66–67",
      "Electricity for common areas — passages, pumps, lights, CCTV. Shared equally."),
     ("repair_fund", "Repairs & Maintenance Fund", ChargeType.REPAIR_FUND,
-     ChargeBasis.CONSTRUCTION_COST_PCT, Decimal("0.75"), False,
+     ChargeBasis.SERVICE_CHARGE_PCT, Decimal("0.75"), False,
      "Bye-law 67(a)(iii)",
-     "0.75% a year of each flat's construction cost, for repairs and maintenance of the buildings."),
+     "0.75% of each flat's monthly service charges, for repairs and maintenance of the buildings. A society that "
+     "levies it on construction cost instead (0.75% a year) switches the basis to % of construction cost."),
     ("sinking_fund", "Sinking Fund", ChargeType.SINKING_FUND,
-     ChargeBasis.CONSTRUCTION_COST_PCT, Decimal("0.25"), False,
+     ChargeBasis.SERVICE_CHARGE_PCT, Decimal("0.25"), False,
      "Bye-laws 13(c), 67(a)(v)",
-     "Minimum 0.25% a year of each flat's architect-certified construction cost (excluding land), "
-     "kept for major structural repairs or reconstruction."),
+     "0.25% of each flat's monthly service charges, kept for major structural repairs or reconstruction. The bye-law "
+     "minimum is 0.25% a year of the architect-certified construction cost (excluding land); a society that levies "
+     "it that way switches the basis to % of construction cost."),
     ("lift_maintenance", "Lift Maintenance", ChargeType.MAINTENANCE, ChargeBasis.BUDGET_EQUAL, None, True,
      "Bye-laws 66–67",
      "Lift running and AMC costs, borne equally by every flat in a building with a lift — "

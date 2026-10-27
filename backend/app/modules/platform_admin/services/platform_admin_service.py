@@ -19,6 +19,7 @@ from app.models.user import User, UserRole
 from app.models.wing import Wing
 from app.services.audit_service import AuditService
 from app.services import society_purge
+from app.modules.accounts.services.chart_of_accounts import seed_society_defaults
 
 
 logger = logging.getLogger(__name__)
@@ -360,6 +361,7 @@ class PlatformAdminService:
         except Exception:
             self.db.rollback()
             raise
+        seed_society_defaults(self.db, society_id)       # the society starts again with the standard books
         AuditService.log(
             db=self.db, action=AuditAction.DELETE,
             module="platform_admin", entity_id=str(society_id),

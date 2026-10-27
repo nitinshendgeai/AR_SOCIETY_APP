@@ -23,6 +23,7 @@ from app.core.config import settings
 from app.core.passwords import generate_temp_password
 from app.core.security import hash_password
 from app.services.audit_service import AuditService
+from app.modules.accounts.services.chart_of_accounts import seed_society_defaults
 from app.services.email_service import EmailService
 from app.modules.onboarding.schemas.onboarding import SelfRegistrationRequest
 from app.modules.staff.models.staff import (
@@ -116,6 +117,7 @@ class OnboardingService:
         roles   = self._create_extended_roles()
         users, creds = self._create_default_users(society, roles)
         self._create_default_designations_and_shifts(society)
+        seed_society_defaults(self.db, society.id)       # chart of accounts, maintenance elements and their links
 
         # Commit society, roles, users, and defaults FIRST so they are persisted regardless
         # of whether the audit log write succeeds.  AuditService.log() internally

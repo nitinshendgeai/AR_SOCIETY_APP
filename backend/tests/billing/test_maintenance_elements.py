@@ -29,7 +29,7 @@ def test_first_read_seeds_standard_bye_law_elements_once(client, db):
     first = _by_code(_elements(client, manager, society.id))
     assert {"service_charges", "sinking_fund", "repair_fund", "property_tax",
             "lift_maintenance", "parking", "water_charges"} <= set(first)
-    assert first["sinking_fund"]["default_basis"] == "construction_cost_pct"
+    assert first["sinking_fund"]["default_basis"] == "service_charge_pct"
     assert first["sinking_fund"]["default_amount"] == "0.25"
     assert first["repair_fund"]["default_amount"] == "0.75"
     assert first["service_charges"]["is_service_charge"] is True
@@ -82,7 +82,7 @@ def test_charge_head_from_element_inherits_defaults(client, db):
     assert r.status_code == 201, r.text
     c = r.json()
     assert (c["name"], c["charge_type"], c["basis"], c["default_amount"]) == \
-        ("Sinking Fund", "sinking_fund", "construction_cost_pct", "0.25")
+        ("Sinking Fund", "sinking_fund", "service_charge_pct", "0.25")
     assert c["element_id"] == sinking["id"] and c["element_name"] == "Sinking Fund"
 
 
