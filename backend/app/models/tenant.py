@@ -12,6 +12,10 @@ class PoliceVerificationStatus(str, enum.Enum):
     REJECTED   = "rejected"
 
 
+# Which channel an agreement came through. Stored as plain text; the API accepts only these.
+AGREEMENT_CHANNELS = ("direct", "agent", "online_app", "other")
+
+
 class Tenant(Base, TimestampMixin):
     __tablename__ = "tenants"
 
@@ -27,6 +31,8 @@ class Tenant(Base, TimestampMixin):
     monthly_rent         = Column(Numeric(12, 2), nullable=True)
     security_deposit     = Column(Numeric(12, 2), nullable=True)
     agreement_doc_url    = Column(String(500), nullable=True)
+    agreement_channel      = Column(String(20), nullable=True)    # direct | agent | online_app | other
+    agreement_channel_name = Column(String(150), nullable=True)   # the agent's or the app's name
 
     # KYC
     id_proof_type    = Column(String(50), nullable=True)

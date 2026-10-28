@@ -233,6 +233,7 @@ class OccupancyService:
                 monthly_rent=tenant.monthly_rent,
                 security_deposit=tenant.security_deposit,
                 document_url=tenant.agreement_doc_url,
+                channel=tenant.agreement_channel, channel_name=tenant.agreement_channel_name,
                 created_by=user.id,
             )
             self.db.add(agr)
@@ -292,7 +293,8 @@ class OccupancyService:
 
     def renew_agreement(self, tenant_id: UUID, new_start_date: date, new_end_date: date,
                          user: User, monthly_rent: Decimal = None,
-                         security_deposit: Decimal = None, document_url: str = None) -> AgreementTracker:
+                         security_deposit: Decimal = None, document_url: str = None,
+                         channel: str = None, channel_name: str = None) -> AgreementTracker:
         """Creates a new ACTIVE AgreementTracker linked via renewal_of_id to
         the tenant's current one, which moves to RENEWED (never deleted —
         Phase M1.3 §13). Keeps Tenant's cached "current terms" fields
@@ -349,6 +351,9 @@ class OccupancyService:
             monthly_rent=monthly_rent if monthly_rent is not None else current.monthly_rent,
             security_deposit=security_deposit if security_deposit is not None else current.security_deposit,
             document_url=document_url or current.document_url,
+            # the renewal's own channel when one is given, otherwise the current agreement's
+            channel=channel if channel is not None else current.channel,
+            channel_name=channel_name if channel is not None else current.channel_name,
             renewal_of_id=current.id,
             status=AgreementStatus.ACTIVE,
             created_by=user.id,
@@ -364,6 +369,8 @@ class OccupancyService:
             tenant.monthly_rent = monthly_rent
         if security_deposit is not None:
             tenant.security_deposit = security_deposit
+        tenant.agreement_channel      = new_agr.channel
+        tenant.agreement_channel_name = new_agr.channel_name
 
         AuditService.log(db=self.db, action=AuditAction.UPDATE, module="agreement",
                          entity_id=str(current.id), entity_type="AgreementTracker", user=user,

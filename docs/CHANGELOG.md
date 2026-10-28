@@ -4,6 +4,31 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-28 (tenants: import and agreement channel)
+
+### feat: import tenants from a file, and record which channel an agreement came through
+
+**Import tenants.** Tenants list → **Import Tenants** (admin and committee). One row per let-out flat: Wing, Flat No,
+Tenant Name, Mobile, Email, Agreement Start / End, Monthly Rent, Security Deposit, Move-in Date, Channel, Agent / App
+Name, ID proof, Remarks. Columns are found by their headings, in any order, so the society's own sheet works; there is
+a template to download. Every row is checked by the server first (`POST /tenants/import` with `dry_run`; nothing is
+saved), then the good rows go in through the same code as the Add Tenant form, so the move-in, the agreement and the
+flat's occupancy behave the same. Each row stands alone: a bad row is reported (and can be exported to fix) and the rest
+go in; a flat that already has the same tenant is skipped, so a corrected file can be imported again. Wing and Flat No
+must match a flat that exists. With no Move-in Date the agreement start is used; with neither, the tenant is added
+without marking the flat as let out (the row says so). Dates are read day first.
+
+**Agreement channel.** The tenant form (Add and Edit) has **Agreement channel** — Direct, Agent / broker, Online app /
+portal, Other — and the agent's or the app's name. It is kept on the tenant and on each agreement of the tenant's
+history; a renewal keeps the current channel unless it gives another (`channel`, `channel_name` on
+`POST /tenants/{id}/renew-agreement`); changing it on the tenant updates the current agreement. The tenant detail and the
+agreement history show it. In the import, the Channel cell is read as people write it ("Broker", "Online App",
+"NoBroker", "Direct"; anything else is Other, kept as the name).
+
+Migration `0d3e4f5a6b7c` adds four plain text columns (`tenants.agreement_channel`, `agreement_channel_name`,
+`agreement_tracker.channel`, `channel_name`); no data changes. Tests: `tests/master/test_tenant_channel_and_import.py`,
+`mobile/test/tenant_import_test.dart`.
+
 ## 2026-10-28 (paid vendor bills)
 
 ### feat: reverse a vendor payment and cancel a paid bill from the app

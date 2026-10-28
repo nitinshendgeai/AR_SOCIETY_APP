@@ -135,7 +135,19 @@ class TenantService:
         if patch.get("user_id") is not None:
             assert_user_in_society(self.db, patch["user_id"], current_user.society_id)
         old_values = {k: getattr(tenant, k) for k in patch}
+        # A name only makes sense with an agent, an app or another channel: none, or direct, clears it.
+        if "agreement_channel" in patch and patch["agreement_channel"] in (None, "direct"):
+            patch["agreement_channel_name"] = None
+            old_values["agreement_channel_name"] = tenant.agreement_channel_name
         updated = self.repo.update(tenant, patch)
+        if "agreement_channel" in patch or "agreement_channel_name" in patch:
+            # the tenant's current agreement carries the same channel
+            active = self.db.query(AgreementTracker).filter(
+                AgreementTracker.tenant_id == tenant.id, AgreementTracker.status == AgreementStatus.ACTIVE).first()
+            if active is not None:
+                active.channel = updated.agreement_channel
+                active.channel_name = updated.agreement_channel_name
+                self.db.commit()
 
         AuditService.log(
             db=self.db, action=AuditAction.UPDATE, module="tenant",
@@ -170,7 +182,8 @@ class TenantService:
 
     def renew_agreement(self, id: UUID, start_date: date, end_date: date, current_user: User,
                          monthly_rent: Decimal = None, security_deposit: Decimal = None,
-                         document_url: str = None) -> AgreementTracker:
+                         document_url: str = None, channel: str = None,
+                         channel_name: str = None) -> AgreementTracker:
         # Society scoping is enforced inside OccupancyService.renew_agreement
         # itself (via the tenant's flat), so this is a thin passthrough —
         # OccupancyService remains the single owner of AgreementTracker
@@ -178,5 +191,5 @@ class TenantService:
         return OccupancyService(self.db).renew_agreement(
             id, start_date, end_date, current_user,
             monthly_rent=monthly_rent, security_deposit=security_deposit,
-            document_url=document_url,
+            document_url=document_url, channel=channel, channel_name=channel_name,
         )

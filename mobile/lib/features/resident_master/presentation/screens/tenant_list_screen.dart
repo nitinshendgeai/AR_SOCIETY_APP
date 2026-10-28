@@ -186,6 +186,15 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
     return AppPage(
       title: widget.filterFlat != null ? 'Tenants — ${widget.filterFlat!.displayName}' : 'Tenants',
       actions: [
+          if (widget.filterFlat == null && (user?.isAdminOrCommittee ?? false))
+            IconButton(
+              icon: const Icon(Icons.upload_file_rounded),
+              tooltip: 'Import Tenants',
+              onPressed: () async {
+                final imported = await context.push<bool>(AppRoutes.tenantsImport);
+                if (imported == true) _load();
+              },
+            ),
           IconButton(icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh', onPressed: _load),
           if (desktop && (user?.isAdminOrCommittee ?? false))
             HeaderActionButton(icon: Icons.person_add_alt_1_rounded, label: 'Add Tenant', onPressed: _addTenant),

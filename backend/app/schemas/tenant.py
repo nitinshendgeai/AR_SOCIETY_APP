@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Literal, Optional, List
 from uuid import UUID
 from datetime import date
 from decimal import Decimal
@@ -9,6 +9,9 @@ from app.models.tenant import PoliceVerificationStatus
 
 
 DATE_FIELDS = ("agreement_start_date", "agreement_end_date", "move_in_date")
+
+# Which channel the agreement came through.
+AgreementChannel = Literal["direct", "agent", "online_app", "other"]
 
 
 class TenantCreate(OrmBase):
@@ -23,6 +26,8 @@ class TenantCreate(OrmBase):
     monthly_rent:     Optional[Decimal] = Field(default=None, max_digits=12, decimal_places=2)
     security_deposit: Optional[Decimal] = Field(default=None, max_digits=12, decimal_places=2)
     agreement_doc_url: Optional[str] = None
+    agreement_channel:      Optional[AgreementChannel] = None
+    agreement_channel_name: Optional[str] = None      # the agent's or the app's name
     id_proof_type:    Optional[str] = None
     id_proof_number:  Optional[str] = None
     kyc_verified:     bool = False
@@ -53,6 +58,7 @@ class TenantCreate(OrmBase):
     _id_type = field_validator("id_proof_type", mode="before")(val.limited(50))
     _id_number = field_validator("id_proof_number", mode="before")(val.limited(100))
     _urls = field_validator("kyc_doc_url", "agreement_doc_url", mode="before")(val.limited(500))
+    _channel_name = field_validator("agreement_channel_name", mode="before")(val.limited(150))
     _remarks = field_validator("remarks", mode="before")(val.note)
     _dates = field_validator("police_verification_date", *DATE_FIELDS)(val.sane_date)
 
@@ -81,6 +87,8 @@ class TenantUpdate(OrmBase):
     phone:            Optional[str] = None
     email:            Optional[str] = None
     agreement_doc_url: Optional[str] = None
+    agreement_channel:      Optional[AgreementChannel] = None
+    agreement_channel_name: Optional[str] = None
     id_proof_type:    Optional[str] = None
     id_proof_number:  Optional[str] = None
     kyc_verified:     Optional[bool] = None
@@ -100,6 +108,7 @@ class TenantUpdate(OrmBase):
     _id_type = field_validator("id_proof_type", mode="before")(val.limited(50))
     _id_number = field_validator("id_proof_number", mode="before")(val.limited(100))
     _urls = field_validator("kyc_doc_url", "agreement_doc_url", mode="before")(val.limited(500))
+    _channel_name = field_validator("agreement_channel_name", mode="before")(val.limited(150))
     _remarks = field_validator("remarks", mode="before")(val.note)
     _dates = field_validator("police_verification_date")(val.sane_date)
 
@@ -115,6 +124,8 @@ class TenantOut(TimestampSchema):
     monthly_rent:     Optional[Decimal]
     security_deposit: Optional[Decimal]
     agreement_doc_url: Optional[str]
+    agreement_channel:      Optional[str] = None
+    agreement_channel_name: Optional[str] = None
     id_proof_type:    Optional[str]
     id_proof_number:  Optional[str]
     kyc_verified:     bool
@@ -143,8 +154,11 @@ class AgreementRenewalRequest(OrmBase):
     monthly_rent:     Optional[Decimal] = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     security_deposit: Optional[Decimal] = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     document_url:     Optional[str] = None
+    channel:          Optional[AgreementChannel] = None       # the renewal's channel; the current one when left out
+    channel_name:     Optional[str] = None
 
     _url = field_validator("document_url", mode="before")(val.limited(500))
+    _channel_name = field_validator("channel_name", mode="before")(val.limited(150))
     _dates = field_validator("start_date", "end_date")(val.sane_date)
 
     @model_validator(mode="after")

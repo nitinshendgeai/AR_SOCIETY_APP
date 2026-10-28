@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/features/resident_master/data/agreement_channel.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
@@ -35,7 +36,9 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
   final _remarksCtrl = TextEditingController();
   final _rentCtrl = TextEditingController();
   final _depositCtrl = TextEditingController();
+  final _channelNameCtrl = TextEditingController();
 
+  String? _agreementChannel;
   String? _selectedWingId;
   String? _selectedFlatId;
   bool _kycVerified = false;
@@ -69,6 +72,8 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
       _remarksCtrl.text = t.remarks ?? '';
       _kycVerified = t.kycVerified;
       _idProofType = t.idProofType;
+      _agreementChannel = t.agreementChannel;
+      _channelNameCtrl.text = t.agreementChannelName ?? '';
       _policeStatus = t.policeVerificationStatus;
       _selectedFlatId = t.flatId;
     } else if (widget.defaultFlat != null) {
@@ -88,7 +93,14 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
     _remarksCtrl.dispose();
     _rentCtrl.dispose();
     _depositCtrl.dispose();
+    _channelNameCtrl.dispose();
     super.dispose();
+  }
+
+  /// The agent's or the app's name, only for a channel that has one.
+  String? get _channelName {
+    final t = _channelNameCtrl.text.trim();
+    return t.isEmpty || !agreementChannelHasName(_agreementChannel) ? null : t;
   }
 
   String _dateStr(DateTime d) =>
@@ -119,6 +131,8 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
         'id_proof_type': _idProofType,
         'id_proof_number': _idProofNumberCtrl.text.trim().isEmpty ? null : _idProofNumberCtrl.text.trim(),
         'kyc_verified': _kycVerified,
+        'agreement_channel': _agreementChannel,
+        'agreement_channel_name': _channelName,
         'police_verification_status': _policeStatus.value,
         'emergency_contact_name': _emergencyNameCtrl.text.trim().isEmpty ? null : _emergencyNameCtrl.text.trim(),
         'emergency_contact_phone': _emergencyPhoneCtrl.text.trim().isEmpty ? null : _emergencyPhoneCtrl.text.trim(),
@@ -135,6 +149,8 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
         if (_agreementEnd != null) 'agreement_end_date': _dateStr(_agreementEnd!),
         if (_rentCtrl.text.trim().isNotEmpty) 'monthly_rent': _rentCtrl.text.trim(),
         if (_depositCtrl.text.trim().isNotEmpty) 'security_deposit': _depositCtrl.text.trim(),
+        if (_agreementChannel != null) 'agreement_channel': _agreementChannel,
+        if (_channelName != null) 'agreement_channel_name': _channelName,
         if (_idProofType != null) 'id_proof_type': _idProofType,
         if (_idProofNumberCtrl.text.trim().isNotEmpty) 'id_proof_number': _idProofNumberCtrl.text.trim(),
         'kyc_verified': _kycVerified,
@@ -350,6 +366,44 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
                 ),
             ],
           ),
+        FormSection(
+          title: 'How the agreement came',
+          description: 'Through which channel this agreement was made: directly, an agent, or an online app.',
+          children: [
+            FormFieldBox(
+              label: 'Agreement channel',
+              child: DropdownButtonFormField<String>(
+                isExpanded: true,
+                value: _agreementChannel,
+                hint: const Text('Not recorded'),
+                items: [
+                  if (_agreementChannel != null) const DropdownMenuItem(value: rmNoneOption, child: Text(rmNoneOption)),
+                  for (final c in kAgreementChannels) DropdownMenuItem(value: c.$1, child: Text(c.$2)),
+                ],
+                onChanged: (v) => setState(() {
+                  _agreementChannel = v == rmNoneOption ? null : v;
+                  if (!agreementChannelHasName(_agreementChannel)) _channelNameCtrl.clear();
+                }),
+              ),
+            ),
+            if (agreementChannelHasName(_agreementChannel))
+              FormFieldBox(
+                label: agreementChannelNameLabel(_agreementChannel),
+                child: TextFormField(
+                  controller: _channelNameCtrl,
+                  textCapitalization: TextCapitalization.words,
+                  inputFormatters: [LengthLimitingTextInputFormatter(150)],
+                  decoration: InputDecoration(
+                    hintText: _agreementChannel == 'agent'
+                        ? 'e.g. Ramesh Estates'
+                        : _agreementChannel == 'online_app'
+                            ? 'e.g. NoBroker, MagicBricks'
+                            : 'Optional',
+                  ),
+                ),
+              ),
+          ],
+        ),
         FormSection(
           title: 'Verification',
           description: 'Identity and police verification the society keeps on record.',

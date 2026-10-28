@@ -183,6 +183,8 @@ class TenantModel {
   final String? monthlyRent;
   final String? securityDeposit;
   final String? agreementDocUrl;
+  final String? agreementChannel; // direct | agent | online_app | other
+  final String? agreementChannelName; // the agent's or the app's name
   final String? idProofType;
   final String? idProofNumber;
   final bool kycVerified;
@@ -210,6 +212,8 @@ class TenantModel {
     this.monthlyRent,
     this.securityDeposit,
     this.agreementDocUrl,
+    this.agreementChannel,
+    this.agreementChannelName,
     this.idProofType,
     this.idProofNumber,
     this.kycVerified = false,
@@ -242,6 +246,8 @@ class TenantModel {
         monthlyRent: j['monthly_rent']?.toString(),
         securityDeposit: j['security_deposit']?.toString(),
         agreementDocUrl: j['agreement_doc_url'] as String?,
+        agreementChannel: j['agreement_channel'] as String?,
+        agreementChannelName: j['agreement_channel_name'] as String?,
         idProofType: j['id_proof_type'] as String?,
         idProofNumber: j['id_proof_number'] as String?,
         kycVerified: j['kyc_verified'] as bool? ?? false,
@@ -291,6 +297,8 @@ class AgreementModel {
   final String? monthlyRent;
   final String? securityDeposit;
   final String? documentUrl;
+  final String? channel; // direct | agent | online_app | other
+  final String? channelName;
   final String? renewalOfId;
   final String? terminationReason;
 
@@ -305,6 +313,8 @@ class AgreementModel {
     this.monthlyRent,
     this.securityDeposit,
     this.documentUrl,
+    this.channel,
+    this.channelName,
     this.renewalOfId,
     this.terminationReason,
   });
@@ -320,6 +330,8 @@ class AgreementModel {
         monthlyRent: j['monthly_rent']?.toString(),
         securityDeposit: j['security_deposit']?.toString(),
         documentUrl: j['document_url'] as String?,
+        channel: j['channel'] as String?,
+        channelName: j['channel_name'] as String?,
         renewalOfId: j['renewal_of_id'] as String?,
         terminationReason: j['termination_reason'] as String?,
       );

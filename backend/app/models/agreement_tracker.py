@@ -31,6 +31,8 @@ class AgreementTracker(Base, TimestampMixin):
     security_deposit = Column(Numeric(12, 2), nullable=True)
     status          = Column(Enum(AgreementStatus, values_callable=lambda e: [x.value for x in e]), default=AgreementStatus.ACTIVE, nullable=False, index=True)
     document_url    = Column(String(500), nullable=True)
+    channel         = Column(String(20), nullable=True)    # direct | agent | online_app | other
+    channel_name    = Column(String(150), nullable=True)   # the agent's or the app's name
     # Phase M1.3: was a bare UUID column with no FK constraint despite the
     # comment below — promoted to a real self-referential FK now that a
     # preflight (see alembic/versions for the migration) confirmed no

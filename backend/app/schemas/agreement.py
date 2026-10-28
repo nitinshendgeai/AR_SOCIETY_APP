@@ -16,6 +16,8 @@ class AgreementOut(TimestampSchema):
     monthly_rent:     Optional[Decimal]
     security_deposit: Optional[Decimal]
     document_url:     Optional[str]
+    channel:          Optional[str] = None
+    channel_name:     Optional[str] = None
     renewal_of_id:    Optional[UUID]
     termination_reason: Optional[str]
     alert_sent_30:    bool
