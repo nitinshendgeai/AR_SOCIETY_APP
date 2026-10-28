@@ -4,6 +4,19 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-28 (paid vendor bills)
+
+### feat: reverse a vendor payment and cancel a paid bill from the app
+
+The server could already reverse a vendor payment, but the app had no button for it, so a paid bill could not be
+cancelled. The bill details sheet now lists the bill's payments (live and reversed) with a **Reverse** action on each
+live one (manager and above), and admin and committee get **Cancel bill and reverse payments**: every payment of the
+bill is reversed and the bill cancelled in one step, all or nothing, with each reversal and the cancellation in the
+books and the audit log. `POST /vendors/invoices/{id}/cancel` takes `reverse_payments` (default false, so a paid bill
+is still refused unless it is asked for). A bill with no payment is cancelled as before.
+
+Tests: `tests/vendor/test_vendor_settlement.py`, `mobile/test/vendor_bill_actions_test.dart`.
+
 ## 2026-10-27 (society defaults)
 
 ### feat: a new or cleaned society starts with the maintenance elements and their ledger links

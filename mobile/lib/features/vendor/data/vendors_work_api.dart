@@ -199,6 +199,39 @@ class OpenBill {
       );
 }
 
+/// One payment made on a vendor bill (`GET /vendors/invoices/{id}/payments`), live or reversed.
+class BillPayment {
+  final String id;
+  final String paymentNumber;
+  final DateTime paymentDate;
+  final String amount;
+  final String paymentMode;
+  final String? transactionRef;
+  final bool isReversed;
+  final String? reversalReason;
+  const BillPayment({
+    required this.id,
+    required this.paymentNumber,
+    required this.paymentDate,
+    required this.amount,
+    required this.paymentMode,
+    this.transactionRef,
+    this.isReversed = false,
+    this.reversalReason,
+  });
+
+  factory BillPayment.fromJson(Map<String, dynamic> j) => BillPayment(
+        id: j['id'] as String,
+        paymentNumber: j['payment_number'] as String? ?? '',
+        paymentDate: DateTime.parse(j['payment_date'] as String),
+        amount: j['amount']?.toString() ?? '0',
+        paymentMode: j['payment_mode'] as String? ?? '',
+        transactionRef: j['transaction_ref'] as String?,
+        isReversed: j['is_reversed'] as bool? ?? false,
+        reversalReason: j['reversal_reason'] as String?,
+      );
+}
+
 /// What the society still owes one vendor, bill by bill, oldest due first.
 class OpenBills {
   final String vendorId;
@@ -593,9 +626,22 @@ class VendorsWorkApi {
     return PayBillsResult.fromJson(r.data as Map<String, dynamic>);
   }
 
-  /// Takes a wrongly entered bill out of the books (admin / committee; only while nothing is paid on it).
-  Future<void> cancelInvoice(String invoiceId, String reason) async {
-    await _dio.post('/vendors/invoices/$invoiceId/cancel', data: {'reason': reason});
+  /// Takes a wrongly entered bill out of the books and the payables (admin / committee). A bill with payments needs
+  /// them reversed first, or [reversePayments] to reverse them all and cancel the bill in one step (all or nothing).
+  Future<void> cancelInvoice(String invoiceId, String reason, {bool reversePayments = false}) async {
+    await _dio.post('/vendors/invoices/$invoiceId/cancel',
+        data: {'reason': reason, if (reversePayments) 'reverse_payments': true});
+  }
+
+  /// The payments made on a bill, live and reversed.
+  Future<List<BillPayment>> invoicePayments(String invoiceId) async {
+    final r = await _dio.get('/vendors/invoices/$invoiceId/payments');
+    return [for (final p in (r.data as List)) BillPayment.fromJson(p as Map<String, dynamic>)];
+  }
+
+  /// Reverses one payment of a bill: the bill is owed again and the payment's accounting entry is reversed.
+  Future<void> reversePayment(String paymentId, String reason) async {
+    await _dio.post('/vendors/payments/$paymentId/reverse', data: {'reason': reason});
   }
 
   Future<VendorRecord> createVendor(Map<String, dynamic> body) async =>

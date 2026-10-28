@@ -140,6 +140,19 @@ actual expenses. Pending, rejected, cancelled and reversed vouchers are left out
 
 ---
 
+### 4.4 Correcting a wrong vendor bill
+Open the bill (Vendors → Vendor Bills) and use the buttons at the bottom of its details:
+- **Cancel this bill** (admin and committee) — for a bill with no payment. The bill leaves the payables and its
+  accounting entry is reversed. Enter it again, correctly, if the vendor is still to be paid.
+- **Reverse** beside a payment (manager and above) — undoes one payment: the money goes back to the bank or cash
+  ledger it was paid from and the bill is owed again.
+- **Cancel bill and reverse payments** (admin and committee) — for a bill that has been paid: reverses every payment
+  and cancels the bill in one step, all or nothing. Check the bank statement first: if the vendor really was paid,
+  this is not what you want.
+
+Cancelling or reversing also removes the cost from the cycle it was counted in, so use it before you generate the
+cycle, or regenerate the unissued bills afterwards.
+
 ## Part 5 — Charge heads: setting each one
 
 **Where:** Maintenance Billing → **Charge Heads**. Use **Add from elements** to make a head from an element. Changes
