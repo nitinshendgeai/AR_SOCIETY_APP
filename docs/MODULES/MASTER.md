@@ -30,6 +30,8 @@ resident_move_in  → flat.occupancy_status = OWNER_OCCUPIED
 tenant_move_in    → flat.occupancy_status = TENANT_OCCUPIED + AgreementTracker created
 tenant_move_out   → flat.occupancy_status = VACANT + agreement TERMINATED
 ```
+Occupancy is recomputed after every move-in/out: **tenant occupied** = an active tenant with a move-in date; **owner occupied** = an active resident with one; otherwise **vacant**. A possession date alone does not make a flat occupied.
+
 Every event logs to `occupancy_logs` (immutable history).
 
 ### Agreement Tracking

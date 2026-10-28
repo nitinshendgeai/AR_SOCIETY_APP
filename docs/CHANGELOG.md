@@ -4,6 +4,24 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-28 (flat occupancy follows the move-in date)
+
+### fix: a flat's occupancy is decided by who has moved in, not by what was last recorded
+
+Occupancy (Owner occupied / Tenant occupied / Vacant) is now worked out from the occupants: **tenant occupied** when an
+active tenant has a **move-in date**, **owner occupied** when an active resident has one, otherwise **vacant**. A
+possession date (the handover) is shown separately and does not make a flat occupied by itself. After every move-in and
+move-out the status is recomputed from that rule, so a resident listed with no move-in date no longer keeps a flat
+occupied, and a flat with a tenant and a resident who has moved out reads correctly.
+
+**One-time correction** (migration `0e4f5a6b7c8d`): each existing flat that has at least one resident or tenant on
+record gets its status set from the rule. Flats with **no** occupant on record keep the status they were given, because
+nothing says it is wrong (a society may mark a flat occupied, or let out, without entering the people, and a let-out flat
+carries the non-occupancy charge in billing). The migration prints how many flats it changed. No other data changes;
+the previous statuses are not kept.
+
+Tests: `tests/master/test_flat_occupancy_rule.py`.
+
 ## 2026-10-28 (tenants: import and agreement channel)
 
 ### feat: import tenants from a file, and record which channel an agreement came through

@@ -98,6 +98,27 @@ class OccupancyService:
         )
         self.db.add(log)
 
+    # ── What the flat's occupancy is ──────────────────────────────────────────
+
+    def derived_status(self, flat: Flat) -> OccupancyStatus:
+        """A flat's occupancy from who has actually moved in: tenant occupied when an active tenant has a move-in
+        date, owner occupied when an active resident has one, otherwise vacant. A possession date (the handover)
+        does not make a flat occupied by itself. Move-out and a deactivated record take an occupant out."""
+        self.db.flush()
+        def moved_in(model) -> bool:
+            return self.db.query(model.id).filter(
+                model.flat_id == flat.id, model.is_active == True, model.move_out_date.is_(None),   # noqa: E712
+                model.move_in_date.isnot(None)).first() is not None
+        if moved_in(Tenant):
+            return OccupancyStatus.TENANT_OCCUPIED
+        if moved_in(Resident):
+            return OccupancyStatus.OWNER_OCCUPIED
+        return OccupancyStatus.VACANT
+
+    def _sync_status(self, flat: Flat) -> OccupancyStatus:
+        flat.occupancy_status = self.derived_status(flat)
+        return flat.occupancy_status
+
     # ── Resident move-in ──────────────────────────────────────────────────────
 
     def check_resident_move_in(self, flat: Flat) -> None:
@@ -126,7 +147,7 @@ class OccupancyService:
         self.check_resident_move_in(flat)
 
         resident.move_in_date = move_in_date
-        flat.occupancy_status = OccupancyStatus.OWNER_OCCUPIED
+        self._sync_status(flat)
         self._log_event(flat, OccupancyEventType.RESIDENT_MOVE_IN, move_in_date,
                         user, resident_id=resident_id)
         AuditService.log(db=self.db, action=AuditAction.UPDATE, module="occupancy",
@@ -150,13 +171,8 @@ class OccupancyService:
         resident.is_active     = False
         self._unassign_vehicles(resident_id=resident_id, user=user)
 
-        # Check if any other residents remain
-        remaining = self.db.query(Resident).filter(
-            Resident.flat_id == flat_id, Resident.is_active == True,
-            Resident.id != resident_id,
-        ).count()
-        if remaining == 0:
-            flat.occupancy_status = OccupancyStatus.VACANT
+        # What is left once this resident is out: another who has moved in, a tenant, or nobody
+        if self._sync_status(flat) == OccupancyStatus.VACANT:
             self._log_event(flat, OccupancyEventType.FLAT_VACANT, move_out_date, user)
         self._log_event(flat, OccupancyEventType.RESIDENT_MOVE_OUT, move_out_date,
                         user, resident_id=resident_id)
@@ -223,7 +239,7 @@ class OccupancyService:
         )
 
         tenant.move_in_date  = move_in_date
-        flat.occupancy_status = OccupancyStatus.TENANT_OCCUPIED
+        self._sync_status(flat)
 
         if create_agreement and tenant.agreement_start_date and tenant.agreement_end_date:
             agr = AgreementTracker(
@@ -264,7 +280,7 @@ class OccupancyService:
             raise HTTPException(status_code=422, detail="Move-out date cannot be before the move-in date")
         tenant.move_out_date = move_out_date
         tenant.is_active     = False
-        flat.occupancy_status = OccupancyStatus.VACANT
+        self._sync_status(flat)
         self._unassign_vehicles(tenant_id=tenant_id, user=user)
 
         # Terminate active agreement
@@ -281,7 +297,8 @@ class OccupancyService:
 
         self._log_event(flat, OccupancyEventType.TENANT_MOVE_OUT, move_out_date,
                         user, tenant_id=tenant_id)
-        self._log_event(flat, OccupancyEventType.FLAT_VACANT, move_out_date, user)
+        if flat.occupancy_status == OccupancyStatus.VACANT:
+            self._log_event(flat, OccupancyEventType.FLAT_VACANT, move_out_date, user)
         AuditService.log(db=self.db, action=AuditAction.UPDATE, module="occupancy",
                          entity_id=str(flat_id), entity_type="Flat", user=user,
                          new_values={"event": "tenant_move_out", "tenant": str(tenant_id),
