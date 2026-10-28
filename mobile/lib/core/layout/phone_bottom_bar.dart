@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:ar_society_app/core/l10n/app_locale.dart';
-import 'package:ar_society_app/core/help/help_launcher.dart';
 import 'package:ar_society_app/core/l10n/language_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -180,16 +179,15 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
                   showSocietySwitcher(context, ref);
                 },
               ),
-            if (helpAvailable)
-              ListTile(
-                leading: const Icon(Icons.help_outline_rounded, color: AppTheme.textSecondary),
-                title: Text(ctx.tr('Help')),
-                subtitle: Text(ctx.tr('How to use the app')),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  openHelp(user);
-                },
-              ),
+            ListTile(
+              leading: const Icon(Icons.help_outline_rounded, color: AppTheme.textSecondary),
+              title: Text(ctx.tr('Help')),
+              subtitle: Text(ctx.tr('Ask the help assistant')),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                context.go(AppRoutes.helpAssistant);
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.devices_rounded, color: AppTheme.textSecondary),
               title: Text(ctx.tr('Signed-in devices')),
