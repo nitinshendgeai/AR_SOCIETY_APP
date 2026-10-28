@@ -48,6 +48,17 @@ class Settings(BaseSettings):
     # default users + temporary passwords created for it).
     ADMIN_NOTIFICATION_EMAIL: str = "admin@duxos.in"
 
+    # Help assistant (docs-grounded, read-only). "disabled" answers from the manuals alone; "mock" is a deterministic
+    # test provider. No live provider is wired in yet and no provider credential is read anywhere.
+    ASSISTANT_ENABLED: bool = True
+    ASSISTANT_PROVIDER: str = "disabled"
+    ASSISTANT_PROVIDER_TIMEOUT_SECONDS: float = 15.0
+    ASSISTANT_MAX_QUESTION_CHARS: int = 1000
+    ASSISTANT_MAX_HISTORY_TURNS: int = 6
+    ASSISTANT_MAX_HISTORY_CHARS: int = 600
+    ASSISTANT_MAX_ANSWER_CHARS: int = 3000
+    ASSISTANT_RATE_LIMIT_PER_MINUTE: int = 20
+
     class Config:
         env_file = ".env"
         case_sensitive = True

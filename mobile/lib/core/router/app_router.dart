@@ -101,6 +101,7 @@ import 'package:ar_society_app/features/amenities/presentation/screens/amenity_d
 import 'package:ar_society_app/features/assets/presentation/screens/asset_detail_screen.dart';
 import 'package:ar_society_app/features/assets/presentation/screens/assets_import_screen.dart';
 import 'package:ar_society_app/features/assets/presentation/screens/assets_screen.dart';
+import 'package:ar_society_app/features/assistant/presentation/screens/help_assistant_screen.dart';
 import 'package:ar_society_app/features/notices/presentation/screens/notice_detail_screen.dart';
 import 'package:ar_society_app/features/notices/presentation/screens/notices_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/expenses_by_element_screen.dart';
@@ -169,6 +170,7 @@ class AppRoutes {
   static const setupWizard        = '/setup-wizard';
   // Complaint routes
   static const complaints         = '/complaints';
+  static const helpAssistant      = '/help-assistant';
   static const notices            = '/notices';
   static const noticeDetail       = '/notices/:id';
   static const complaintsCreate   = '/complaints/create';
@@ -659,6 +661,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           // Notice board (everyone) and one notice
+          GoRoute(path: AppRoutes.helpAssistant, builder: (_, __) => const HelpAssistantScreen()),
           GoRoute(path: AppRoutes.notices, builder: (_, __) => const NoticesScreen()),
           // Platform console: only for platform admins (the API refuses everyone else anyway)
           for (final (path, builder) in <(String, Widget Function(GoRouterState))>[
