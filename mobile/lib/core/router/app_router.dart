@@ -127,6 +127,7 @@ import 'package:ar_society_app/features/resident_master/presentation/screens/res
 import 'package:ar_society_app/features/resident_master/presentation/screens/edit_my_profile_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/pending_resident_changes_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_list_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_import_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_detail_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_form_screen.dart';
 
@@ -264,6 +265,7 @@ class AppRoutes {
   static const parcels            = '/parcels';
   static const domesticHelp       = '/domestic-help';
   static const tenantsList        = '/tenants';
+  static const tenantsImport      = '/tenants/import';
   static const tenantDetail       = '/tenants/detail';
   static const tenantForm         = '/tenants/form';
 }
@@ -1086,6 +1088,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               final extra = state.extra as Map<String, dynamic>?;
               return TenantListScreen(filterFlat: extra?['flat'] as FlatModel?);
             },
+          ),
+          GoRoute(
+            path: AppRoutes.tenantsImport,
+            builder: (_, __) => const TenantImportScreen(),
           ),
           GoRoute(
             path: AppRoutes.tenantDetail,

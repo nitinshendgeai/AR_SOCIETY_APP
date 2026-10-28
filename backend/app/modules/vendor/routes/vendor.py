@@ -872,6 +872,7 @@ class PayBillsRequest(RecordPaymentRequest):
 
 class CancelInvoiceRequest(OrmBase):
     reason: str = Field(min_length=3, max_length=1000)
+    reverse_payments: bool = False        # also reverse every payment made on the bill (all or nothing)
 
 
 @router.get("/invoices/vendor/{vendor_id}/open", dependencies=[Depends(manager_above)])
@@ -893,8 +894,9 @@ def pay_vendor_bills(vendor_id: UUID, data: PayBillsRequest, db: Session = Depen
 @router.post("/invoices/{inv_id}/cancel", dependencies=[Depends(admin_committee)])
 def cancel_invoice(inv_id: UUID, data: CancelInvoiceRequest, db: Session = Depends(get_db),
                    user: User = Depends(get_current_user)):
-    """Take a wrongly entered bill out of the books and the payables (only while nothing has been paid against it)."""
-    return _invoice_out(VendorService_(db).cancel_invoice(inv_id, data.reason, user))
+    """Take a wrongly entered bill out of the books and the payables. A bill with payments needs them reversed first,
+    or `reverse_payments` to reverse them all and cancel the bill in one step."""
+    return _invoice_out(VendorService_(db).cancel_invoice(inv_id, data.reason, user, data.reverse_payments))
 
 
 @router.get("/invoices/vendor/{vendor_id}")

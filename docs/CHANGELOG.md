@@ -4,6 +4,62 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-28 (flat occupancy follows the move-in date)
+
+### fix: a flat's occupancy is decided by who has moved in, not by what was last recorded
+
+Occupancy (Owner occupied / Tenant occupied / Vacant) is now worked out from the occupants: **tenant occupied** when an
+active tenant has a **move-in date**, **owner occupied** when an active resident has one, otherwise **vacant**. A
+possession date (the handover) is shown separately and does not make a flat occupied by itself. After every move-in and
+move-out the status is recomputed from that rule, so a resident listed with no move-in date no longer keeps a flat
+occupied, and a flat with a tenant and a resident who has moved out reads correctly.
+
+**One-time correction** (migration `0e4f5a6b7c8d`): each existing flat that has at least one resident or tenant on
+record gets its status set from the rule. Flats with **no** occupant on record keep the status they were given, because
+nothing says it is wrong (a society may mark a flat occupied, or let out, without entering the people, and a let-out flat
+carries the non-occupancy charge in billing). The migration prints how many flats it changed. No other data changes;
+the previous statuses are not kept.
+
+Tests: `tests/master/test_flat_occupancy_rule.py`.
+
+## 2026-10-28 (tenants: import and agreement channel)
+
+### feat: import tenants from a file, and record which channel an agreement came through
+
+**Import tenants.** Tenants list → **Import Tenants** (admin and committee). One row per let-out flat: Wing, Flat No,
+Tenant Name, Mobile, Email, Agreement Start / End, Monthly Rent, Security Deposit, Move-in Date, Channel, Agent / App
+Name, ID proof, Remarks. Columns are found by their headings, in any order, so the society's own sheet works; there is
+a template to download. Every row is checked by the server first (`POST /tenants/import` with `dry_run`; nothing is
+saved), then the good rows go in through the same code as the Add Tenant form, so the move-in, the agreement and the
+flat's occupancy behave the same. Each row stands alone: a bad row is reported (and can be exported to fix) and the rest
+go in; a flat that already has the same tenant is skipped, so a corrected file can be imported again. Wing and Flat No
+must match a flat that exists. With no Move-in Date the agreement start is used; with neither, the tenant is added
+without marking the flat as let out (the row says so). Dates are read day first.
+
+**Agreement channel.** The tenant form (Add and Edit) has **Agreement channel** — Direct, Agent / broker, Online app /
+portal, Other — and the agent's or the app's name. It is kept on the tenant and on each agreement of the tenant's
+history; a renewal keeps the current channel unless it gives another (`channel`, `channel_name` on
+`POST /tenants/{id}/renew-agreement`); changing it on the tenant updates the current agreement. The tenant detail and the
+agreement history show it. In the import, the Channel cell is read as people write it ("Broker", "Online App",
+"NoBroker", "Direct"; anything else is Other, kept as the name).
+
+Migration `0d3e4f5a6b7c` adds four plain text columns (`tenants.agreement_channel`, `agreement_channel_name`,
+`agreement_tracker.channel`, `channel_name`); no data changes. Tests: `tests/master/test_tenant_channel_and_import.py`,
+`mobile/test/tenant_import_test.dart`.
+
+## 2026-10-28 (paid vendor bills)
+
+### feat: reverse a vendor payment and cancel a paid bill from the app
+
+The server could already reverse a vendor payment, but the app had no button for it, so a paid bill could not be
+cancelled. The bill details sheet now lists the bill's payments (live and reversed) with a **Reverse** action on each
+live one (manager and above), and admin and committee get **Cancel bill and reverse payments**: every payment of the
+bill is reversed and the bill cancelled in one step, all or nothing, with each reversal and the cancellation in the
+books and the audit log. `POST /vendors/invoices/{id}/cancel` takes `reverse_payments` (default false, so a paid bill
+is still refused unless it is asked for). A bill with no payment is cancelled as before.
+
+Tests: `tests/vendor/test_vendor_settlement.py`, `mobile/test/vendor_bill_actions_test.dart`.
+
 ## 2026-10-27 (society defaults)
 
 ### feat: a new or cleaned society starts with the maintenance elements and their ledger links

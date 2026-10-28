@@ -12,10 +12,10 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show LedgerAccount, formatInr;
 import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart' show LedgerChooser;
-import 'package:ar_society_app/features/vendor/data/vendors_work_api.dart' show PaymentTdsPreview;
+import 'package:ar_society_app/features/vendor/data/vendors_work_api.dart' show BillPayment, PaymentTdsPreview;
 import 'package:ar_society_app/features/vendor/domain/entities/vendor_entities.dart';
 import 'package:ar_society_app/features/vendor/presentation/providers/vendor_providers.dart';
-import 'package:ar_society_app/features/vendor/presentation/providers/vendors_work_providers.dart' show vendorOpenBillsProvider, vendorsWorkApiProvider;
+import 'package:ar_society_app/features/vendor/presentation/providers/vendors_work_providers.dart' show billPaymentsProvider, vendorOpenBillsProvider, vendorsWorkApiProvider;
 import 'package:ar_society_app/features/vendor/presentation/widgets/payment_tds_card.dart';
 import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_widgets.dart' show DateField, askReason;
 import 'package:ar_society_app/features/vendor/presentation/widgets/vendor_picker.dart';
@@ -470,29 +470,110 @@ class _BillDetailSheet extends ConsumerWidget {
   final String societyId;
   const _BillDetailSheet({required this.invoice, required this.societyId});
 
-  /// Takes a wrongly entered bill out of the books and the payables: only the admin or committee, and only while
-  /// nothing has been paid on it (the server checks both).
+  bool get _hasPayments => (double.tryParse(invoice.paidAmount) ?? 0) > 0;
+
+  Future<void> _refreshAfter(WidgetRef ref) async {
+    ref.invalidate(billPaymentsProvider(invoice.id));
+    ref.invalidate(vendorOpenBillsProvider(invoice.vendorId));
+    await ref.read(vendorInvoicesProvider(societyId).notifier).refresh();
+    invalidateBooks(ref);
+  }
+
+  /// Takes a wrongly entered bill out of the books and the payables: only the admin or committee (the server checks).
+  /// A bill with payments is cancelled together with them: every payment is reversed, all or nothing.
   Future<void> _cancel(BuildContext context, WidgetRef ref) async {
     final reason = await askReason(
       context,
-      title: 'Cancel this bill?',
-      message: 'Bill ${invoice.invoiceNumber} of ${invoice.vendorName ?? 'the vendor'} is taken out of the books and '
-          'what is owed. Enter it again, correctly, if the vendor is still to be paid.',
-      action: 'Cancel bill',
+      title: _hasPayments ? 'Cancel this bill and reverse its payments?' : 'Cancel this bill?',
+      message: _hasPayments
+          ? 'Bill ${invoice.invoiceNumber} of ${invoice.vendorName ?? 'the vendor'} is taken out of the books, and '
+              '₹${invoice.paidAmount} paid on it goes back to the bank or cash it was paid from. Check the bank '
+              'statement first: if the vendor really was paid, this is not what you want.'
+          : 'Bill ${invoice.invoiceNumber} of ${invoice.vendorName ?? 'the vendor'} is taken out of the books and '
+              'what is owed. Enter it again, correctly, if the vendor is still to be paid.',
+      action: _hasPayments ? 'Reverse and cancel' : 'Cancel bill',
     );
     if (reason == null || !context.mounted) return;
     try {
-      await ref.read(vendorsWorkApiProvider).cancelInvoice(invoice.id, reason);
-      ref.invalidate(vendorOpenBillsProvider(invoice.vendorId));
-      await ref.read(vendorInvoicesProvider(societyId).notifier).refresh();
-      invalidateBooks(ref);
+      await ref.read(vendorsWorkApiProvider).cancelInvoice(invoice.id, reason, reversePayments: _hasPayments);
+      await _refreshAfter(ref);
       if (context.mounted) {
-        AppToast.success(context, 'Bill cancelled');
+        AppToast.success(context, _hasPayments ? 'Bill cancelled and payments reversed' : 'Bill cancelled');
         Navigator.pop(context);
       }
     } catch (e) {
       if (context.mounted) showErrorToast(context, e);
     }
+  }
+
+  /// Reverses one payment (the bill is owed again and the payment's entry in the books is reversed).
+  Future<void> _reversePayment(BuildContext context, WidgetRef ref, BillPayment p) async {
+    final reason = await askReason(
+      context,
+      title: 'Reverse payment ${p.paymentNumber}?',
+      message: '₹${p.amount} paid on ${p.paymentDate.day}/${p.paymentDate.month}/${p.paymentDate.year} goes back to '
+          'the bank or cash it was paid from, and the bill is owed again by that amount.',
+      action: 'Reverse payment',
+    );
+    if (reason == null || !context.mounted) return;
+    try {
+      await ref.read(vendorsWorkApiProvider).reversePayment(p.id, reason);
+      await _refreshAfter(ref);
+      if (context.mounted) {
+        AppToast.success(context, 'Payment reversed');
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (context.mounted) showErrorToast(context, e);
+    }
+  }
+
+  Widget _payments(BuildContext context, WidgetRef ref) {
+    final payments = ref.watch(billPaymentsProvider(invoice.id));
+    return payments.when(
+      loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: LinearProgressIndicator()),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (list) {
+        if (list.isEmpty) return const SizedBox.shrink();
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const SizedBox(height: 8),
+          const Text('Payments', style: TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          for (final p in list)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(
+                      '${p.paymentNumber} · ₹${p.amount}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        decoration: p.isReversed ? TextDecoration.lineThrough : null,
+                      ),
+                    ),
+                    Text(
+                      '${p.paymentDate.day}/${p.paymentDate.month}/${p.paymentDate.year} · '
+                      '${vendorPaymentModeLabel(p.paymentMode)}'
+                      '${p.transactionRef != null && p.transactionRef!.isNotEmpty ? ' · ${p.transactionRef}' : ''}',
+                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                    ),
+                    if (p.isReversed)
+                      Text('Reversed${p.reversalReason != null ? ': ${p.reversalReason}' : ''}',
+                          style: const TextStyle(color: AppTheme.error, fontSize: 12)),
+                  ]),
+                ),
+                if (!p.isReversed)
+                  TextButton(
+                    onPressed: () => _reversePayment(context, ref, p),
+                    style: TextButton.styleFrom(foregroundColor: AppTheme.error),
+                    child: const Text('Reverse'),
+                  ),
+              ]),
+            ),
+        ]);
+      },
+    );
   }
 
   Widget _row(String label, String value) => Padding(
@@ -505,8 +586,7 @@ class _BillDetailSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final canCancel = ref.watch(currentUserProvider)?.isAdminOrCommittee == true &&
-        (double.tryParse(invoice.paidAmount) ?? 0) == 0;
+    final canCancel = ref.watch(currentUserProvider)?.isAdminOrCommittee == true;
     return AppSheetFrame(
       title: invoice.vendorName ?? 'Vendor',
       subtitle: 'Bill details',
@@ -541,7 +621,7 @@ class _BillDetailSheet extends ConsumerWidget {
                   onPressed: () => _cancel(context, ref),
                   style: TextButton.styleFrom(foregroundColor: AppTheme.error),
                   icon: const Icon(Icons.cancel_outlined),
-                  label: const Text('Cancel this bill'),
+                  label: Text(_hasPayments ? 'Cancel bill and reverse payments' : 'Cancel this bill'),
                 ),
             ]),
       child: Column(
@@ -557,6 +637,7 @@ class _BillDetailSheet extends ConsumerWidget {
           if (invoice.paymentMode != null) _row('Last Mode', vendorPaymentModeLabel(invoice.paymentMode!)),
           if (invoice.paymentRef != null) _row('Reference', invoice.paymentRef!),
           if (invoice.description != null) _row('Notes', invoice.description!),
+          if (_hasPayments) _payments(context, ref),
         ],
       ),
     );

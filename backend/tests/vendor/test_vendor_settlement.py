@@ -192,3 +192,38 @@ def test_a_wrongly_entered_bill_can_be_cancelled_until_it_is_paid(client, rig):
     states = {r["invoice_id"]: r["status"] for r in register["rows"]}
     assert states[bill["id"]] == "cancelled" and states[again["id"]] == "unpaid"
     assert register["totals"]["count"] == 1 and register["totals"]["outstanding"] == "4000.00"
+
+
+def test_a_paid_bill_is_cancelled_in_one_step_by_reversing_its_payments(client, rig):
+    v = _vendor(client, rig)
+    bill = _bill(client, rig, v["id"], "5000", number="B-9")
+    L = _ledgers(client, rig)
+    bank_before = _balance(client, rig, L["bank"]["id"])
+    _pay(client, rig, bill["id"], "3000")
+    paid = _pay(client, rig, bill["id"], "2000")
+    assert paid["is_paid"] and len(paid["payments"]) == 2
+    assert _balance(client, rig, L["bank"]["id"]) == bank_before - Decimal("5000")
+
+    url = f"{V}/invoices/{bill['id']}/cancel"
+    assert client.post(url, json={"reason": "Wrong vendor", "reverse_payments": True},
+                       headers=rig["manager"]).status_code == 403                       # the committee decides
+    assert client.post(url, json={"reason": "Wrong vendor"}, headers=rig["admin"]).status_code == 409   # as before
+
+    done = client.post(url, json={"reason": "Wrong vendor", "reverse_payments": True}, headers=rig["admin"])
+    assert done.status_code == 200, done.text
+    body = done.json()
+    assert body["is_cancelled"] and body["paid_amount"] == "0.00" and not body["is_paid"]
+    assert all(p["is_reversed"] and "Wrong vendor" in p["reversal_reason"] for p in body["payments"])
+    # the books are back as they were: the money is in the bank again and nothing is owed or spent
+    assert _balance(client, rig, L["bank"]["id"]) == bank_before
+    assert _balance(client, rig, L["sundry_creditors"]["id"]) == Decimal("0")
+    assert client.post(url, json={"reason": "Again", "reverse_payments": True},
+                       headers=rig["admin"]).status_code == 409                        # already cancelled
+
+
+def test_one_step_cancel_of_an_unpaid_bill_needs_no_reversal(client, rig):
+    v = _vendor(client, rig)
+    bill = _bill(client, rig, v["id"], "1200", number="B-10")
+    r = client.post(f"{V}/invoices/{bill['id']}/cancel", json={"reason": "Duplicate", "reverse_payments": True},
+                    headers=rig["admin"])
+    assert r.status_code == 200 and r.json()["is_cancelled"]

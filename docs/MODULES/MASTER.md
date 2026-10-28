@@ -12,7 +12,7 @@ Core entity management: Society, Wing, Flat, Resident, Tenant, Vehicle. Foundati
 | Floor | `floors` | wing_id, floor_number (0 = Ground, negative = basement), floor_name |
 | Flat | `flats` | wing_id, flat_number, floor, flat_type, area_sqft, occupancy_status, maintenance_status, kyc_verified |
 | Resident | `residents` | flat_id, user_id, resident_type, kyc_verified, comm_preference |
-| Tenant | `tenants` | flat_id, agreement_start/end, police_verification_status |
+| Tenant | `tenants` | flat_id, agreement_start/end, agreement_channel (+ name), police_verification_status |
 | Vehicle | `vehicles` | society_id, vehicle_number (normalized), rfid_tag, parking_slot |
 
 ## Workflows
@@ -30,6 +30,8 @@ resident_move_in  → flat.occupancy_status = OWNER_OCCUPIED
 tenant_move_in    → flat.occupancy_status = TENANT_OCCUPIED + AgreementTracker created
 tenant_move_out   → flat.occupancy_status = VACANT + agreement TERMINATED
 ```
+Occupancy is recomputed after every move-in/out: **tenant occupied** = an active tenant with a move-in date; **owner occupied** = an active resident with one; otherwise **vacant**. A possession date alone does not make a flat occupied.
+
 Every event logs to `occupancy_logs` (immutable history).
 
 ### Agreement Tracking
@@ -73,6 +75,10 @@ Every event logs to `occupancy_logs` (immutable history).
 - A plain resident or tenant sees and registers vehicles only for **their own flat** (403 / 404 otherwise); staff and committee see the whole society.
 - The audit log stores dates, amounts, ids and enums as JSON (editing a date used to drop the audit entry).
 - App: the resident, tenant, wing, floor and flat forms scroll in a plain scroll view, so **every field is validated** on Save (a lazy list skipped the ones scrolled out of view). Email, vehicle number, rent/deposit are checked as typed; a chosen date of birth or ID type can be cleared.
+
+### Tenants: agreement channel and import
+- **Agreement channel** (`agreement_channel`: `direct` | `agent` | `online_app` | `other`, plus `agreement_channel_name` for the agent or the app) is kept on the tenant and on each `AgreementTracker` (`channel`, `channel_name`). A renewal keeps the current one unless it gives another; editing it on the tenant updates the active agreement; `direct` or none clears the name.
+- **Import** — `POST /tenants/import` (admin/committee) takes `rows` (text cells) and `dry_run`; each row is a tenant of an existing flat (Wing + Flat No), created through `TenantService.create()`. A row for a tenant already in the flat is skipped, a bad row is an error, the rest are created. Result per row: `created` | `skipped` | `error` with a message. Max 2,000 rows.
 
 ## Future Readiness
 - `society_code` → multi-tenant email namespacing

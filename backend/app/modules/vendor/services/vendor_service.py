@@ -645,23 +645,36 @@ class VendorService_:  # trailing underscore avoids clash with model name
                 "payments": [{"invoice_number": p.invoice.invoice_number, "payment_number": p.payment_number,
                               "amount": str(p.amount), "tds": str(p.tds_amount or 0)} for p in made]}
 
-    def cancel_invoice(self, inv_id: UUID, reason: str, user: User) -> VendorInvoice:
+    def cancel_invoice(self, inv_id: UUID, reason: str, user: User, reverse_payments: bool = False) -> VendorInvoice:
         """Take a wrongly entered bill out of the books and the payables. A bill that has been paid can't be
-        cancelled until its payments are reversed."""
+        cancelled until its payments are reversed: reverse them one by one first, or pass `reverse_payments` to
+        reverse every payment of the bill and cancel it in one step (all or nothing)."""
         inv = self.db.query(VendorInvoice).filter(VendorInvoice.id == inv_id).first()
         if not inv:
             raise HTTPException(404, "Invoice not found")
         self._scoped(user, inv, "Invoice")
         if not inv.is_active:
             raise HTTPException(409, "Invoice is already cancelled")
-        if any(not p.is_reversed for p in inv.payments):
+        live = [p for p in inv.payments if not p.is_reversed]
+        if live and not reverse_payments:
             raise HTTPException(409, "This bill has payments against it — reverse them before cancelling the bill")
+        payment_reason = f"Bill {inv.invoice_number} cancelled: {reason}"
+        try:
+            for payment in live:
+                self._reverse_payment(payment, payment_reason, user)
+        except Exception:
+            self.db.rollback()
+            raise
         inv.is_active = False
         from app.modules.accounts.services.postings import AccountPostings
         AccountPostings(self.db)._cancel_source(
             "vendor_invoice", inv.id, f"Bill {inv.invoice_number} cancelled: {reason}", user)
+        self.db.flush()
+        for payment in live:
+            self._audit_payment_reversed(payment, payment_reason, user)
         self._audit(AuditAction.UPDATE, inv, "VendorInvoice", user,
-                    new_values={"cancelled": True, "reason": reason, "invoice": inv.invoice_number})
+                    new_values={"cancelled": True, "reason": reason, "invoice": inv.invoice_number,
+                                "payments_reversed": len(live)})
         self.db.commit()
         self.db.refresh(inv)
         return inv
@@ -690,6 +703,15 @@ class VendorService_:  # trailing underscore avoids clash with model name
         if not payment:
             raise HTTPException(404, "Payment transaction not found")
         self._scoped(user, payment, "Payment transaction")
+        inv = self._reverse_payment(payment, reason, user)
+        self._audit_payment_reversed(payment, reason, user)
+        self.db.commit()
+        self.db.refresh(inv)
+        return inv
+
+    def _reverse_payment(self, payment: VendorPaymentTransaction, reason: str, user: User) -> VendorInvoice:
+        """Reverse one payment of a bill: the bill's paid amount and status go back, and the payment's accounting
+        entry is reversed. Flushed, not committed, so a caller can do several in one transaction."""
         if payment.is_reversed:
             raise HTTPException(409, "Payment transaction is already reversed")
 
@@ -722,13 +744,12 @@ class VendorService_:  # trailing underscore avoids clash with model name
             inv.payment_ref = None
             inv.bank_name = None
         self._post("reverse_vendor_payment", payment, reason, user)
-        self._audit(
-            AuditAction.UPDATE, payment, "VendorPaymentTransaction", user,
-            new_values={"reversed": True, "reason": reason},
-        )
-        self.db.commit()
-        self.db.refresh(inv)
         return inv
+
+    def _audit_payment_reversed(self, payment: VendorPaymentTransaction, reason: str, user: User) -> None:
+        """The audit entry commits, so it is written only once all the reversals of a request are done."""
+        self._audit(AuditAction.UPDATE, payment, "VendorPaymentTransaction", user,
+                    new_values={"reversed": True, "reason": reason})
 
     def get_vendor_invoices(self, vendor_id: UUID, user: Optional[User] = None) -> List[VendorInvoice]:
         self.get_vendor(vendor_id, user)

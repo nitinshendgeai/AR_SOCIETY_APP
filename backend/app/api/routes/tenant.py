@@ -9,6 +9,7 @@ from app.schemas.tenant import (
 )
 from app.schemas.agreement import AgreementOut
 from app.services.tenant_service import TenantService
+from app.services.tenant_import import TenantImportRequest, TenantImportResult, import_tenants
 from app.core.dependencies import require_admin_committee, require_manager_above, get_current_user
 from app.core.privacy import TENANT_PRIVATE_FIELDS, hide_private
 from app.models.user import User
@@ -20,6 +21,15 @@ router = APIRouter(prefix="/tenants", tags=["Tenants"])
 def create_tenant(data: TenantCreate, db: Session = Depends(get_db),
                    current_user: User = Depends(require_admin_committee)):
     return TenantService(db).create(data, current_user)
+
+
+@router.post("/import", response_model=List[TenantImportResult])
+def import_tenants_file(data: TenantImportRequest, db: Session = Depends(get_db),
+                        current_user: User = Depends(require_admin_committee)):
+    """Add tenants from a file: one row per let-out flat, with the agreement, the rent and the channel the agreement
+    came through. A row for a tenant already in the flat is skipped; a bad row is reported and the rest go in.
+    `dry_run` checks every row and writes nothing."""
+    return import_tenants(db, data.rows, data.dry_run, current_user)
 
 
 @router.get("/", response_model=List[TenantOut])
@@ -65,5 +75,5 @@ def renew_agreement(tenant_id: UUID, data: AgreementRenewalRequest, db: Session 
     return TenantService(db).renew_agreement(
         tenant_id, data.start_date, data.end_date, current_user,
         monthly_rent=data.monthly_rent, security_deposit=data.security_deposit,
-        document_url=data.document_url,
+        document_url=data.document_url, channel=data.channel, channel_name=data.channel_name,
     )

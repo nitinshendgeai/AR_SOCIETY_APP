@@ -12,6 +12,11 @@ final vendorOpenBillsProvider = FutureProvider.autoDispose.family<OpenBills, Str
   (ref, vendorId) => ref.watch(vendorsWorkApiProvider).openBills(vendorId),
 );
 
+/// The payments made on one vendor bill, live and reversed.
+final billPaymentsProvider = FutureProvider.autoDispose.family<List<BillPayment>, String>(
+  (ref, invoiceId) => ref.watch(vendorsWorkApiProvider).invoicePayments(invoiceId),
+);
+
 final procurementLimitsProvider = FutureProvider.autoDispose.family<ProcurementLimits, String>(
   (ref, societyId) => ref.watch(vendorsWorkApiProvider).limits(societyId),
 );

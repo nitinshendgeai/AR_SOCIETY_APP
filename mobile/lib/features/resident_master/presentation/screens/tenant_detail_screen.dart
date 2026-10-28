@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:ar_society_app/features/resident_master/data/agreement_channel.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
@@ -157,6 +158,13 @@ class _TenantDetailBody extends ConsumerWidget {
                 RmRow(label: 'End Date', value: rmFormatDate(tenant.agreementEndDate)),
                 RmRow(label: 'Monthly Rent', value: tableMoney(tenant.monthlyRent)),
                 RmRow(label: 'Security Deposit', value: tableMoney(tenant.securityDeposit)),
+                if (tenant.agreementChannel != null)
+                  RmRow(
+                      label: 'Agreement Through',
+                      value: [
+                        agreementChannelLabel(tenant.agreementChannel),
+                        if ((tenant.agreementChannelName ?? '').isNotEmpty) tenant.agreementChannelName!,
+                      ].join(' · ')),
               ],
             ],
           ),
@@ -371,6 +379,12 @@ class _AgreementHistoryTile extends StatelessWidget {
             if (agreement.monthlyRent != null) 'Rent ${tableMoney(agreement.monthlyRent)}',
             if (agreement.securityDeposit != null) 'Deposit ${tableMoney(agreement.securityDeposit)}',
           ].join(' · '), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        ],
+        if (agreement.channel != null) ...[
+          const SizedBox(height: 2),
+          Text(
+              'Through ${[agreementChannelLabel(agreement.channel), if ((agreement.channelName ?? '').isNotEmpty) agreement.channelName!].join(' · ')}',
+              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ],
         if (agreement.terminationReason != null) ...[
           const SizedBox(height: 2),
