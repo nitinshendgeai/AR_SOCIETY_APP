@@ -258,3 +258,23 @@ def test_post_now_says_what_could_not_be_posted_and_why(client, rig, monkeypatch
     assert r.json()["total"] == 1 and r.json()["failed"] == 0 and r.json()["errors"] == []
     assert summary()["pending_postings"] == 0
     assert client.get(f"{A}/pending-postings/{rig['sid']}", headers=rig["admin"]).json() == {"count": 0, "items": []}
+
+
+def test_a_legacy_payment_is_not_waiting_for_the_books(client, rig):
+    """Payments carried over from before payments were recorded one by one are not posted by Post now, so the banner
+    must not count them either (it used to, and the count could never reach zero)."""
+    from app.modules.accounts.models.accounts import Voucher
+    from app.modules.vendor.models.vendor import VendorPaymentTransaction
+    v = _vendor(client, rig)
+    bill = _bill(client, rig, v["id"], "3000", number="B-OLD")
+    _pay(client, rig, bill["id"], "3000")
+    db = rig["db"]
+    summary = lambda: client.get(f"{A}/summary/{rig['sid']}", headers=rig["admin"]).json()["pending_postings"]
+    assert summary() == 0
+    for p in db.query(VendorPaymentTransaction).all():
+        p.is_legacy = True
+    for vch in db.query(Voucher).filter(Voucher.source_type == "vendor_payment"):
+        vch.is_cancelled = True                                               # its entry is not under this source
+    db.commit()
+    assert summary() == 0
+    assert client.get(f"{A}/pending-postings/{rig['sid']}", headers=rig["admin"]).json()["count"] == 0
