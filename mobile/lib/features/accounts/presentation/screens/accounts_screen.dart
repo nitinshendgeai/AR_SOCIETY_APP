@@ -77,15 +77,46 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
   Future<void> _sync(String societyId) async {
     setState(() => _syncing = true);
     try {
-      final n = await ref.read(accountsApiProvider).sync(societyId);
+      final r = await ref.read(accountsApiProvider).sync(societyId);
       invalidateBooks(ref);
-      if (mounted) AppToast.success(context, n == 0 ? 'Books are up to date' : '$n entries posted to the books');
+      if (!mounted) return;
+      if (r.failures.isEmpty) {
+        AppToast.success(context, r.total == 0 ? 'Books are up to date' : '${r.total} entries posted to the books');
+      } else {
+        await _showFailures(r);
+      }
     } catch (e) {
       if (mounted) showErrorToast(context, e);
     } finally {
       if (mounted) setState(() => _syncing = false);
     }
   }
+
+  /// What could not be posted, and why: these stay on the pending list until what is wrong with them is fixed.
+  Future<void> _showFailures(PostingSyncResult r) => showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(r.posted > 0
+              ? '${r.posted} posted, ${r.failures.length} could not be'
+              : '${r.failures.length} could not be posted'),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                const Text('The books refused these. They stay on the list until the problem is fixed.',
+                    style: TextStyle(fontSize: 13)),
+                const SizedBox(height: 12),
+                for (final f in r.failures) ...[
+                  Text(f.label, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  Text(f.message, style: const TextStyle(fontSize: 12, color: AppTheme.error)),
+                  const SizedBox(height: 10),
+                ],
+              ]),
+            ),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {

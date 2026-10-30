@@ -4,6 +4,21 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-30 (Post now says what it could not post)
+
+### fix: "Post now" no longer reports documents as posted when the books refused them
+
+On Accounts, **Post now** tries every bill and payment that is not in the books yet. It counted what it *tried* and the
+app said "N entries posted", even when the books refused some. Those stayed on the pending list, so the banner kept its
+number, nothing seemed to happen, and the reason (recorded on the server) was not shown anywhere in the app.
+
+`POST /accounts/sync/{society_id}` now also returns `failed` and `errors` (document type, number, vendor and the
+reason). The app shows a list of what could not be posted, with the reason for each, instead of a success message; when
+everything posts it says so as before. Documents that fail stay on the pending list until the cause is fixed.
+
+Tests: `tests/vendor/test_vendor_settlement.py` (a bill the books refuse is reported with its reason, stays pending, and
+posts once the cause is gone), `mobile/test/posting_sync_result_test.dart`.
+
 ## 2026-10-30 (flats with nobody on record are vacant)
 
 ### fix: finish the one-time occupancy correction — flats with no resident or tenant on record are set to vacant

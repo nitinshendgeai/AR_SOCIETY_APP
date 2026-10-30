@@ -227,3 +227,30 @@ def test_one_step_cancel_of_an_unpaid_bill_needs_no_reversal(client, rig):
     r = client.post(f"{V}/invoices/{bill['id']}/cancel", json={"reason": "Duplicate", "reverse_payments": True},
                     headers=rig["admin"])
     assert r.status_code == 200 and r.json()["is_cancelled"]
+
+
+def test_post_now_says_what_could_not_be_posted_and_why(client, rig, monkeypatch):
+    from app.modules.accounts.services.postings import AccountPostings
+    real = AccountPostings.post_vendor_invoice
+
+    def broken(self, inv, user=None):
+        raise ValueError("Vendor invoice GST component total must equal GST amount")
+
+    monkeypatch.setattr(AccountPostings, "post_vendor_invoice", broken)
+    v = _vendor(client, rig)
+    bill = _bill(client, rig, v["id"], "5000", number="B-STUCK")           # the books refuse it: it stays unposted
+    summary = lambda: client.get(f"{A}/summary/{rig['sid']}", headers=rig["admin"]).json()
+    assert summary()["pending_postings"] == 1
+
+    r = client.post(f"{A}/sync/{rig['sid']}", headers=rig["admin"])
+    assert r.status_code == 200, r.text
+    got = r.json()
+    assert got["total"] == 1 and got["failed"] == 1                         # tried one, none went in
+    assert got["errors"][0]["type"] == "Vendor bill" and got["errors"][0]["number"] == "B-STUCK"
+    assert got["errors"][0]["vendor"] and "GST component" in got["errors"][0]["message"]
+    assert summary()["pending_postings"] == 1                              # still on the list
+
+    monkeypatch.setattr(AccountPostings, "post_vendor_invoice", real)       # the cause is fixed
+    r = client.post(f"{A}/sync/{rig['sid']}", headers=rig["admin"])
+    assert r.json()["total"] == 1 and r.json()["failed"] == 0 and r.json()["errors"] == []
+    assert summary()["pending_postings"] == 0
