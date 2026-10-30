@@ -249,3 +249,31 @@ def test_a_follow_up_uses_the_previous_question_but_a_full_question_does_not(cli
     ask(client, h, "How do I add a vendor and set up TDS?", history=hist)
     ask(client, h, "and then?", history=hist)
     assert "PREVIOUSTOPIC" not in seen[0] and "PREVIOUSTOPIC" in seen[1]
+
+
+def test_follow_ups_are_grounded_questions_from_other_sections(client, world):
+    from app.modules.assistant import knowledge
+    r = ask(client, world.manager_a["headers"], "What should I check before generating this month's maintenance bills?").json()
+    assert 0 < len(r["follow_ups"]) <= 3 and not any("api" in q.lower().split() for q in r["follow_ups"]) and len(set(r["follow_ups"])) == len(r["follow_ups"])
+    index = knowledge.get_index()
+    for q in r["follow_ups"]:
+        assert q.startswith("Tell me about ") and index.search(q), q
+    assert ask(client, world.resident_a["headers"], "quantum chromodynamics lattice").json()["follow_ups"] == []
+    assert ask(client, world.resident_a["headers"], "Show me the dues of flat A-101").json()["follow_ups"] == []
+
+
+def test_answer_is_conversational_but_adds_no_facts(client, world):
+    r = ask(client, world.manager_a["headers"], "How do I add a vendor and set up TDS?").json()
+    assert r["answer"].startswith(("Here's how it works", "Here's what the"))
+    assert r["sources"][0]["title"] in r["answer"]                 # the intro names the manual it quotes
+
+
+def test_steps_are_not_repeated_inside_the_answer_text(client, world):
+    r = ask(client, world.resident_a["headers"], "How do I approve or reject a visitor?").json()
+    assert len(r["steps"]) >= 2
+    assert not any(line.lstrip().startswith(("1. ", "2. ")) for line in r["answer"].splitlines())
+
+
+def test_follow_ups_skip_sections_written_for_other_roles(client, world):
+    r = ask(client, world.resident_a["headers"], "How do I approve or reject a visitor?").json()
+    assert not any("punch" in q.lower() or "resident changes" in q.lower() for q in r["follow_ups"])

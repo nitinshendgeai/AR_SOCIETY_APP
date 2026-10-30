@@ -173,6 +173,43 @@ def asks_for_records(question: str) -> bool:
 _FOLLOW_UP = re.compile(r"^\s*(and|also|what about|how about|then|why|so|it|that|this|those|them)\b", re.I)
 
 
+def _leaf(section: str) -> str:
+    return section.split(" › ")[-1].strip()
+
+
+def _intro(chunk, steps) -> str:
+    """One friendly line before the manual's own words. It only names the manual section; it adds no facts."""
+    topic = _leaf(chunk.section)
+    if len(steps) >= 2:
+        return f"Here's how it works, from “{topic}” in the {chunk.title}. The steps are below:"
+    return f"Here's what the {chunk.title} says under “{topic}”:"
+
+
+_VAGUE_HEADINGS = {"who does what", "introduction", "quick answers", "good to know", "notes", "overview", "contents", "tips"}
+
+
+def follow_ups_from(hits, asked: str, audience_roles: Tuple[str, ...] = ()) -> List[str]:
+    """Other sections the search found, offered as questions to ask next. Each is the section's own heading, so asking
+    it finds that section again."""
+    out, out_topics, seen = [], [], {_leaf(hits[0][0].section).lower()}
+    top_score = hits[0][1]
+    for chunk, score in hits[1:]:
+        if score < 0.65 * top_score:                      # a weak match is not a useful "next question"
+            continue
+        if audience_roles and not ({"all", *audience_roles} & set(chunk.roles)):
+            continue                                      # a section written for another role (e.g. staff-only duties)
+        topic = re.sub(r"^((\d+\.)*\d+[.)]?|Step \d+\s*[—-]|Part \d+\s*[—-])\s*", "", _leaf(chunk.section)).strip()
+        if topic.lower() in seen or topic.lower() in _VAGUE_HEADINGS or len(topic) < 12 or len(topic) > 70 or topic.lower() in asked.lower() or re.search(r"\bapi\b|/api/", topic, re.I) \
+                or any(topic.lower() in o.lower() or o.lower() in topic.lower() for o in out_topics):
+            continue
+        seen.add(topic.lower())
+        out_topics.append(topic)
+        out.append(f"Tell me about {topic}")
+        if len(out) == 3:
+            break
+    return out
+
+
 def _history_query(history, question: str, question_tokens: int) -> str:
     """The person's previous question, but only when this one cannot stand alone ("and then?", "why?"). A complete
     question is searched on its own: blending in an older topic would drag the answer towards it."""
@@ -308,8 +345,10 @@ def ask(db: Session, user: User, data: AskRequest, request_id: str) -> AskRespon
         except prov.ProviderError as exc:
             provider_status = str(exc) if str(exc) in ("timeout", "malformed") else "error"
     if answer is None:
-        answer = clean_output(f"From “{top_chunk.title} › {top_chunk.section}”:\n{knowledge.lead_text(top_chunk.text)}",
-                              settings.ASSISTANT_MAX_ANSWER_CHARS)
+        body = knowledge.lead_text(top_chunk.text)
+        if len(steps) >= 2:                              # the steps are listed under the answer; do not say them twice
+            body = "\n".join(l for l in body.splitlines() if not re.match(r"^\d+\.\s", l)).strip()
+        answer = clean_output(f"{_intro(top_chunk, steps)}\n{body}", settings.ASSISTANT_MAX_ANSWER_CHARS)
     uncertainty = None
     if top_score < 6.0:
         uncertainty = "The closest manual sections only partly match your question; please confirm with your administrator."
@@ -318,5 +357,5 @@ def ask(db: Session, user: User, data: AskRequest, request_id: str) -> AskRespon
     logger.info("assistant.ask request=%s status=answered audience=%s provider=%s/%s sources=%d gaps=%d qlen=%d",
                 request_id, scope.audience, mode, provider_status, len(sources), len(gaps), len(question))
     return AskResponse(status="answered", answer=answer, steps=steps, sources=sources, config_gaps=gaps,
-                       uncertainty=uncertainty, escalation=" ".join(notes) or None,
+                       follow_ups=follow_ups_from(hits, question, _AUDIENCE_ROLES.get(scope.audience, ())), uncertainty=uncertainty, escalation=" ".join(notes) or None,
                        provider=ProviderInfo(mode=mode, status=provider_status), **base)
