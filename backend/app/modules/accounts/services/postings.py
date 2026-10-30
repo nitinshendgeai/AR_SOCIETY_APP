@@ -439,15 +439,13 @@ class AccountPostings:
              + count(OnlinePaymentSubmission, live_online, OnlinePaymentSubmission.id.not_in(posted("online_payment")))
              + count(OnlinePaymentSubmission, not_(live_online), OnlinePaymentSubmission.id.in_(posted("online_payment")))
              + count(VendorInvoice, VendorInvoice.is_active == True, VendorInvoice.id.not_in(posted("vendor_invoice"))))
-        paid_posted = (select(Voucher.source_id, func.sum(Voucher.amount).label("amount"))
-                       .where(Voucher.society_id == society_id, Voucher.source_type == "vendor_payment",
-                              live_posting())
-                       .group_by(Voucher.source_id).subquery())
-        n += (self.db.query(func.count(VendorInvoice.id))
-              .outerjoin(paid_posted, paid_posted.c.source_id == VendorInvoice.id)
-              .filter(VendorInvoice.society_id == society_id, VendorInvoice.is_active == True,
-                      VendorInvoice.paid_amount > func.coalesce(paid_posted.c.amount, 0))
-              .scalar())
+        # Payments are counted the way sync_society posts them: legacy payments (carried over from before payments
+        # were recorded one by one) are left alone, so they are not pending either.
+        own = and_(VendorPaymentTransaction.is_legacy == False)          # noqa: E712
+        n += (count(VendorPaymentTransaction, own, VendorPaymentTransaction.is_reversed == False,         # noqa: E712
+                    VendorPaymentTransaction.id.not_in(posted("vendor_payment")))
+              + count(VendorPaymentTransaction, own, VendorPaymentTransaction.is_reversed == True,        # noqa: E712
+                      VendorPaymentTransaction.id.in_(posted("vendor_payment"))))
         return n
 
     def pending_documents(self, society_id: UUID) -> List[dict]:
@@ -490,18 +488,16 @@ class AccountPostings:
                       VendorInvoice.id.not_in(posted("vendor_invoice"))):
             add("Vendor bill", v.invoice_number, "Recorded, but not in the books", v.total_amount, v.invoice_date,
                 v.vendor.company_name if v.vendor else None)
-        paid_posted = (select(Voucher.source_id, func.sum(Voucher.amount).label("amount"))
-                       .where(Voucher.society_id == society_id, Voucher.source_type == "vendor_payment",
-                              live_posting())
-                       .group_by(Voucher.source_id).subquery())
-        for v, in_books in (self.db.query(VendorInvoice, func.coalesce(paid_posted.c.amount, 0))
-                            .outerjoin(paid_posted, paid_posted.c.source_id == VendorInvoice.id)
-                            .filter(VendorInvoice.society_id == society_id, VendorInvoice.is_active == True,  # noqa: E712
-                                    VendorInvoice.paid_amount > func.coalesce(paid_posted.c.amount, 0)).all()):
-            add("Vendor payment", v.invoice_number,
-                f"Paid ₹{money(v.paid_amount)} on this bill, but ₹{money(in_books)} of it is in the books",
-                money(v.paid_amount) - money(in_books), v.paid_date,
-                v.vendor.company_name if v.vendor else None)
+        own = and_(VendorPaymentTransaction.is_legacy == False)          # noqa: E712
+        for p in rows(VendorPaymentTransaction, own, VendorPaymentTransaction.is_reversed == False,       # noqa: E712
+                      VendorPaymentTransaction.id.not_in(posted("vendor_payment"))):
+            add("Vendor payment", p.invoice.invoice_number if p.invoice else p.payment_number,
+                "Paid, but not in the books", p.amount, p.payment_date, p.vendor.company_name if p.vendor else None)
+        for p in rows(VendorPaymentTransaction, own, VendorPaymentTransaction.is_reversed == True,        # noqa: E712
+                      VendorPaymentTransaction.id.in_(posted("vendor_payment"))):
+            add("Vendor payment", p.invoice.invoice_number if p.invoice else p.payment_number,
+                "Reversed, but its entry is still in the books", p.amount, p.payment_date,
+                p.vendor.company_name if p.vendor else None)
         return out
 
     def _safe_sync_post(self, hook: str, obj, user: Optional[User]) -> bool:
