@@ -127,6 +127,32 @@ def bill_head(line, element_code: Optional[str] = None) -> str:
     return "Other Charges"
 
 
+# GST on a member's maintenance contribution: services of a membership organisation (SAC 999598), supplied where the
+# society's property stands, so within one state — CGST and SGST in equal halves.
+GST_SAC = "999598"
+
+
+def gst_details(society) -> List[tuple]:
+    """The SAC Code and Place of Supply rows of a tax invoice: the state is the society's, with the state code (the
+    first two digits of its GSTIN) when there is one."""
+    state = (society.state or "").strip() if society else ""
+    code = (society.gst_number or "").strip()[:2] if society and society.gst_number else ""
+    code = code if code.isdigit() else ""
+    place = f"{state} ({code})" if state and code else (state or (f"State code {code}" if code else ""))
+    return [("SAC Code", GST_SAC)] + ([("Place of Supply", place)] if place else [])
+
+
+def gst_rows(lines) -> List[tuple]:
+    """The tax rows of the heads table: 'CGST @ 9%' and 'SGST @ 9%' (each half of the tax, together exactly the tax)."""
+    tax = sum((Decimal(li.tax_amount) for li in lines), ZERO)
+    rates = {li.tax_percent.normalize() for li in lines if li.tax_amount}
+    half = (tax / 2).quantize(Decimal("0.01"))
+    if len(rates) == 1:
+        each = f"{next(iter(rates)) / 2:f}%"
+        return [(f"CGST @ {each}", half), (f"SGST @ {each}", tax - half)]
+    return [("CGST", half), ("SGST", tax - half)]
+
+
 # ── Formatting helpers ────────────────────────────────────────────────────────
 
 def _inr(v) -> str:
@@ -486,6 +512,7 @@ def bill_story(
         ("Due Date", _dm(bill.due_date)),
         ("Bill Period", period),
         *([("Virtual A/c No.(VAN)", escape(van))] if van else []),
+        *[(k, escape(v)) for k, v in (gst_details(society) if gst_charged else [])],
     ], [33 * mm, width * 0.5 - 12 - 33 * mm - 8])
     box = Table([[left, right]], colWidths=[width * 0.5, width * 0.5])
     box.setStyle(TableStyle([
@@ -504,9 +531,7 @@ def bill_story(
         by_head[bill_head(li, element_codes.get(li.description))] += Decimal(amount_of(li))
     heads = list(by_head.items())
     if gst_charged:
-        rates = {li.tax_percent.normalize() for li in lines if li.tax_amount}
-        label = f"GST @ {next(iter(rates)):f}%" if len(rates) == 1 else "GST"
-        heads.append((label, sum((Decimal(li.tax_amount) for li in lines), ZERO)))
+        heads += gst_rows(lines)
 
     current = sum((Decimal(li.total) for li in lines), ZERO)
     current_interest = (sum((Decimal(li.total) for li in bill.line_items if _is_interest(li)), ZERO)
@@ -763,6 +788,8 @@ def classic_bill_story(
         rows.append(("Area Carpet", f"{area} Sq. Feet"))
     if van:
         rows.append(("Virtual A/c No.", escape(van)))
+    if gst_charged:
+        rows += [(k, escape(v)) for k, v in gst_details(society)]
     right = _kv(rows, [28 * mm, width * 0.5 - 4 - 28 * mm])
     top = Table([[left, right]], colWidths=[width * 0.5, width * 0.5])
     top.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (0, 0), 2),
@@ -783,9 +810,7 @@ def classic_bill_story(
     others = sorted({element_of(head) for head in (element_names or element_codes)} - set(charged))
     heads = list(charged.items()) + [(name, ZERO) for name in others]
     if gst_charged:
-        rates = {li.tax_percent.normalize() for li in lines if li.tax_amount}
-        label = f"GST @ {next(iter(rates)):f}%" if len(rates) == 1 else "GST"
-        heads.append((label, sum((Decimal(li.tax_amount) for li in lines), ZERO)))
+        heads += gst_rows(lines)
 
     current = sum((Decimal(li.total) for li in lines), ZERO)
     current_interest = (sum((Decimal(li.total) for li in bill.line_items if _is_interest(li)), ZERO)

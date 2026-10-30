@@ -100,6 +100,7 @@ def test_bill_layout_heads_totals_and_notes(client, db):
         "Regn. No. MUM/HSG/TC/9876/2015 PLOT 7, SECTOR 3, NAVI MUMBAI, MAHARASHTRA 400703",  # "|" joins them
         "GSTIN: 27AAAAA0000A1Z5",
         "Maintenance Bill / Tax Invoice",           # the water head carries 18% GST
+        "SAC Code : 999598", "Place of Supply : Maharashtra (27)",
         "Name : Asha Rao", "Flat No. : Tower A 101", "Area sq ft : 437",
         f"Bill No. : {bill.invoice_number}", f"Bill Date : {bill.bill_date:%d-%b-%Y}",
         f"Due Date : {bill.due_date:%d-%b-%Y}",
@@ -108,7 +109,7 @@ def test_bill_layout_heads_totals_and_notes(client, db):
         # Maintenance + Water (monthly expenses) together; levies on their own heads
         "1 Maintenance Charges 2,800.00 2 Sinking Fund 100.00 3 Repair & Maintenance Fund 0.00 "
         "4 Property Tax 0.00 5 Non Occupancy Charges 0.00 6 Parking Charges 0.00 "
-        "7 Cheque Bounce Charges 0.00 8 In & Out Charges 0.00 9 Other Charges 50.00 10 GST @ 18% 54.00",
+        "7 Cheque Bounce Charges 0.00 8 In & Out Charges 0.00 9 Other Charges 50.00 10 CGST @ 9% 27.00 11 SGST @ 9% 27.00",
         "Current Bill Amount 3,004.00 Arrears/Advances 0.00 Current Interest/ Late Fees 0.00 "
         "Previous Interest/ Late Fees 0.00 Total Maintenance Payable Amount Rs. 3,004.00",
         "Notes * We recommend payment through NEFT, giving following details",
@@ -279,8 +280,8 @@ def test_the_details_box_keeps_each_column_inside_its_half(client, db):
     for table in (left, right):
         w, _ = table.wrap(width, 10_000)
         assert w <= inner + 0.01, (w, inner)
-    # the two long names are two lines, the rest one line each: the left block is taller than the right
-    assert left.wrap(width, 10_000)[1] > right.wrap(width, 10_000)[1]
+    # the two long names are two lines each, so the left block runs to more than the five lines of its other rows
+    assert left.wrap(width, 10_000)[1] > 5 * 12.1
 
 
 # ── The classic layout ────────────────────────────────────────────────────────
@@ -331,7 +332,7 @@ def test_classic_layout_lists_every_head_and_the_totals(client, db):
         "P a r t i c u l a r s Amount (in Rs.)",
         "Maintenance 2,500.00 Water 300.00",               # the heads as the society named them, not grouped
         "Festival Fund 0.00", "Legal Charges 0.00",         # heads not charged this time print 0.00
-        "GST @ 18% 54.00",
+        "CGST @ 9% 27.00", "SGST @ 9% 27.00", "SAC Code : 999598", "Place of Supply : Maharashtra",
         "Total : 2,854.00", "Arrears / Advance : 0.00", "Accumulated Interest : 0.00",
         "Current Interest / Late Fees : 0.00", "Grand Total : 2,854.00",
         "Rs. Two Thousand Eight Hundred Fifty Four only.",
