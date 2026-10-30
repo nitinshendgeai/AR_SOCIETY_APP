@@ -140,6 +140,7 @@ class AppShell extends ConsumerWidget {
   static String _firstSegment(String path) => path.split('/').firstWhere((p) => p.isNotEmpty, orElse: () => '');
 
   static List<String> _breadcrumbs((AppMenuCategory, AppMenuItem)? active, String location) {
+    if (location == AppRoutes.helpAssistant) return const ['Help'];
     if (active == null) return const ['Dashboard'];
     final sub = subPageLabel(location);
     return [active.$1.label, active.$2.label, if (sub != null && sub != active.$2.label) sub];

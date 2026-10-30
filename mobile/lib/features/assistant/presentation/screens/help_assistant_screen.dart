@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/help/help_launcher.dart';
 import 'package:ar_society_app/core/l10n/app_locale.dart';
@@ -25,7 +26,9 @@ class HelpAssistantScreen extends ConsumerWidget {
               icon: const Icon(Icons.menu_book_outlined, size: 18),
               label: Text(context.tr('User manual')),
             ),
-          if (status.hasValue && status.value!.enabled)
+          if (status.hasValue &&
+              status.value!.enabled &&
+              ref.watch(assistantChatProvider).messages.isNotEmpty)
             IconButton(
               tooltip: context.tr('Clear chat'),
               icon: const Icon(Icons.delete_sweep_outlined),
@@ -107,7 +110,9 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
     if (q.isEmpty) return;
     ref.read(assistantChatProvider.notifier).send(q);
     _input.clear();
-    _focus.requestFocus();
+    // The field keeps its focus when Enter was pressed (see onEditingComplete below); asking for it again there makes
+    // the browser drop its text box while Flutter still shows the field as focused, and typing then does nothing.
+    if (!_focus.hasFocus) _focus.requestFocus();
   }
 
   void _toEnd() => WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -204,11 +209,36 @@ class _Welcome extends StatelessWidget {
         for (final q in questions)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
+            // A full-width card, not a chip: the questions are long, and the theme's chips are the same grey as the page.
             child: Semantics(
               button: true,
               label: q,
-              child: ActionChip(
-                  label: Text(q, softWrap: true), onPressed: () => onPick(q)),
+              child: Material(
+                color: AppTheme.cardBg,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: AppTheme.border),
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => onPick(q),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    child: Row(children: [
+                      const Icon(Icons.chat_bubble_outline_rounded,
+                          size: 18, color: AppTheme.primary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child: Text(q,
+                              style: const TextStyle(
+                                  color: AppTheme.textPrimary))),
+                      const Icon(Icons.north_east_rounded,
+                          size: 16, color: AppTheme.textTertiary),
+                    ]),
+                  ),
+                ),
+              ),
             ),
           ),
       ]);
@@ -257,27 +287,47 @@ class _Composer extends StatelessWidget {
             border: Border(top: BorderSide(color: AppTheme.border))),
         child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Expanded(
-            child: TextField(
-              key: const Key('assistantInput'),
-              controller: controller,
-              focusNode: focus,
-              minLines: 1,
-              maxLines: 4,
-              maxLength: maxChars,
-              textInputAction: TextInputAction
-                  .send, // Enter sends; the field is not for long text
-              onSubmitted: sending ? null : (_) => onSend(),
-              decoration: InputDecoration(
-                hintText: context.tr('Type your question'),
-                counterText: '',
-                border: const OutlineInputBorder(),
-                isDense: true,
+            // Enter sends and Shift+Enter starts a new line. Handled as a key press: on the web a text-input "send"
+            // action makes the browser drop its text box, after which typing does nothing until the next click.
+            child: Focus(
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent &&
+                    (event.logicalKey == LogicalKeyboardKey.enter ||
+                        event.logicalKey == LogicalKeyboardKey.numpadEnter) &&
+                    !HardwareKeyboard.instance.isShiftPressed &&
+                    !controller.value.composing.isValid) {
+                  if (!sending) onSend();
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: TextField(
+                key: const Key('assistantInput'),
+                controller: controller,
+                focusNode: focus,
+                minLines: 1,
+                maxLines: 4,
+                maxLength: maxChars,
+                textInputAction:
+                    TextInputAction.send, // the phone keyboard's send key
+                onEditingComplete:
+                    () {}, // keep the focus (and the keyboard) after sending
+                onSubmitted: sending ? null : (_) => onSend(),
+                decoration: InputDecoration(
+                  hintText: context.tr('Type your question'),
+                  counterText: '',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
               ),
             ),
           ),
           const SizedBox(width: 8),
           IconButton.filled(
             key: const Key('assistantSend'),
+            style: IconButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                foregroundColor: Colors.white),
             tooltip: context.tr('Send'),
             onPressed: sending ? null : () => onSend(),
             icon: const Icon(Icons.send_rounded),
