@@ -25,7 +25,7 @@ payments already exist get them.
 import logging
 from datetime import date
 from decimal import Decimal
-from typing import Dict, Optional
+from typing import List, Dict, Optional
 from uuid import UUID
 
 from sqlalchemy import and_, func, not_, select
@@ -64,6 +64,8 @@ class AccountPostings:
         self.db = db
         self.accounts = accounts or AccountsService(db)
         self._element_codes: Dict[UUID, Dict[str, str]] = {}
+        # What sync_society tried to post and could not, with the reason, for the person who pressed "Post now"
+        self.failures: List[dict] = []
 
     # ── helpers ───────────────────────────────────────────────────────────────
 
@@ -467,6 +469,16 @@ class AccountPostings:
             }.get(hook, hook)
             AccountingPostingErrorService(self.db).record(obj.society_id, source_type, obj.id, hook, exc)
             logger.exception("[accounts] sync posting %s failed for %s", hook, obj.id)
+            number = (getattr(obj, "invoice_number", None) or getattr(obj, "payment_number", None)
+                      or getattr(obj, "receipt_number", None) or "")
+            vendor = getattr(getattr(obj, "invoice", None), "vendor", None) or getattr(obj, "vendor", None)
+            self.failures.append({
+                "type": {"maintenance_bill": "Maintenance bill", "payment_receipt": "Receipt",
+                         "online_payment": "Online payment", "vendor_invoice": "Vendor bill",
+                         "vendor_payment": "Vendor payment"}.get(source_type, source_type),
+                "number": number, "vendor": getattr(vendor, "company_name", None),
+                "message": str(getattr(exc, "detail", None) or exc) or type(exc).__name__,
+            })
             return False
 
     def sync_society(self, society_id: UUID, user: Optional[User] = None, dry_run: bool = False) -> dict:
@@ -475,6 +487,7 @@ class AccountPostings:
         counts what would change."""
         counts = {"bills": 0, "bills_cancelled": 0, "receipts": 0, "receipts_cancelled": 0,
                   "vendor_bills": 0, "vendor_payments": 0}
+        self.failures = []
         self.accounts.ensure_chart(society_id)
 
         def active_ids(source_type):
@@ -533,5 +546,8 @@ class AccountPostings:
                 if not dry_run:
                     self.reverse_vendor_payment(payment, payment.reversal_reason or "Payment reversed", user)
 
+        # `total` is what was attempted; `failed` of those could not be posted and stay on the pending list.
         counts["total"] = sum(counts.values())
+        counts["failed"] = len(self.failures)
+        counts["errors"] = list(self.failures)
         return counts

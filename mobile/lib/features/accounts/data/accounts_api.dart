@@ -521,6 +521,40 @@ class MembersLedger {
       );
 }
 
+/// A document "Post now" could not post, and why.
+class PostingFailure {
+  final String type; // Vendor bill, Maintenance bill, Receipt …
+  final String number;
+  final String? vendor;
+  final String message;
+  const PostingFailure({required this.type, required this.number, this.vendor, required this.message});
+
+  factory PostingFailure.fromJson(Map<String, dynamic> j) => PostingFailure(
+        type: j['type'] as String? ?? 'Document',
+        number: j['number'] as String? ?? '',
+        vendor: j['vendor'] as String?,
+        message: j['message'] as String? ?? 'Could not be posted',
+      );
+
+  String get label => [type, if (number.isNotEmpty) number, if ((vendor ?? '').isNotEmpty) 'of $vendor'].join(' ');
+}
+
+/// The outcome of "Post now": how many were tried, and which could not be posted.
+class PostingSyncResult {
+  final int total;
+  final List<PostingFailure> failures;
+  const PostingSyncResult({required this.total, this.failures = const []});
+
+  int get posted => total - failures.length;
+
+  factory PostingSyncResult.fromJson(Map<String, dynamic> j) => PostingSyncResult(
+        total: (j['total'] as num?)?.toInt() ?? 0,
+        failures: [
+          for (final e in (j['errors'] as List? ?? const [])) PostingFailure.fromJson(e as Map<String, dynamic>),
+        ],
+      );
+}
+
 class AccountsSummary {
   final String fy;
   final double cash;
@@ -1016,8 +1050,10 @@ class AccountsApi {
 
   /// Posts every bill, payment and vendor bill not yet in the books;
   /// returns how many vouchers were posted or cancelled.
-  Future<int> sync(String societyId) async =>
-      ((await _dio.post('/accounts/sync/$societyId')).data as Map<String, dynamic>)['total'] as int? ?? 0;
+  /// "Post now": posts every bill and payment that is not in the books yet. Returns what was tried and what could not
+  /// be posted (with the reason), so a document that the books refuse is not reported as posted.
+  Future<PostingSyncResult> sync(String societyId) async =>
+      PostingSyncResult.fromJson((await _dio.post('/accounts/sync/$societyId')).data as Map<String, dynamic>);
 
   /// Every financial year with entries up to the current one, newest first.
   Future<List<FinancialYear>> years(String societyId) async =>
