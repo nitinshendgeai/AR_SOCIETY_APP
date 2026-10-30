@@ -241,6 +241,9 @@ def test_post_now_says_what_could_not_be_posted_and_why(client, rig, monkeypatch
     bill = _bill(client, rig, v["id"], "5000", number="B-STUCK")           # the books refuse it: it stays unposted
     summary = lambda: client.get(f"{A}/summary/{rig['sid']}", headers=rig["admin"]).json()
     assert summary()["pending_postings"] == 1
+    listed = client.get(f"{A}/pending-postings/{rig['sid']}", headers=rig["admin"]).json()
+    assert listed["count"] == 1 and listed["items"][0]["number"] == "B-STUCK"
+    assert listed["items"][0]["type"] == "Vendor bill" and "not in the books" in listed["items"][0]["why"]
 
     r = client.post(f"{A}/sync/{rig['sid']}", headers=rig["admin"])
     assert r.status_code == 200, r.text
@@ -254,3 +257,4 @@ def test_post_now_says_what_could_not_be_posted_and_why(client, rig, monkeypatch
     r = client.post(f"{A}/sync/{rig['sid']}", headers=rig["admin"])
     assert r.json()["total"] == 1 and r.json()["failed"] == 0 and r.json()["errors"] == []
     assert summary()["pending_postings"] == 0
+    assert client.get(f"{A}/pending-postings/{rig['sid']}", headers=rig["admin"]).json() == {"count": 0, "items": []}

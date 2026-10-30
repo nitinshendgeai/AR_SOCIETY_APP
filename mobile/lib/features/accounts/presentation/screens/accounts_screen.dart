@@ -92,6 +92,34 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
     }
   }
 
+  Future<void> _showPending(String societyId) async {
+    try {
+      final items = await ref.read(accountsApiProvider).pendingPostings(societyId);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('${items.length} waiting for the books'),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                for (final i in items) ...[
+                  Text(i.label, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  Text(i.why, style: const TextStyle(fontSize: 12)),
+                  const SizedBox(height: 10),
+                ],
+              ]),
+            ),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+        ),
+      );
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    }
+  }
+
   /// What could not be posted, and why: these stay on the pending list until what is wrong with them is fixed.
   Future<void> _showFailures(PostingSyncResult r) => showDialog<void>(
         context: context,
@@ -183,6 +211,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                     count: s.pendingPostings,
                     busy: _syncing,
                     onSync: () => _sync(societyId),
+                    onDetails: () => _showPending(societyId),
                   ),
                   const SizedBox(height: 14),
                 ],
@@ -431,7 +460,8 @@ class _PendingBanner extends StatelessWidget {
   final int count;
   final bool busy;
   final VoidCallback onSync;
-  const _PendingBanner({required this.count, required this.busy, required this.onSync});
+  final VoidCallback onDetails;
+  const _PendingBanner({required this.count, required this.busy, required this.onSync, required this.onDetails});
 
   @override
   Widget build(BuildContext context) => Container(
@@ -451,7 +481,7 @@ class _PendingBanner extends StatelessWidget {
               style: const TextStyle(fontSize: 13),
             ),
           ),
-          const SizedBox(width: 8),
+          TextButton(onPressed: onDetails, child: const Text('See which')),
           FilledButton(
             onPressed: busy ? null : onSync,
             child: busy
