@@ -450,6 +450,60 @@ class AccountPostings:
               .scalar())
         return n
 
+    def pending_documents(self, society_id: UUID) -> List[dict]:
+        """The documents `pending_count` counts, one by one, each with why it is pending: what the banner on the
+        Accounts screen is made of. Kept in step with pending_count (a test holds the two equal)."""
+        def posted(source_type):
+            return select(Voucher.source_id).where(
+                Voucher.society_id == society_id, Voucher.source_type == source_type, live_posting())
+
+        def rows(model, *conditions):
+            return self.db.query(model).filter(model.society_id == society_id, *conditions).all()
+
+        out: List[dict] = []
+
+        def add(kind, number, why, amount=None, on=None, vendor=None):
+            out.append({"type": kind, "number": number or "", "why": why, "vendor": vendor,
+                        "amount": str(money(amount)) if amount is not None else None,
+                        "date": on.isoformat() if on else None})
+
+        live_bill = and_(MaintenanceBill.bill_status.in_(POSTED_BILL_STATUSES), MaintenanceBill.is_active == True)
+        live_receipt = and_(PaymentReceipt.is_reversed == False, PaymentReceipt.is_active == True)
+        live_online = and_(OnlinePaymentSubmission.status != ReconciliationStatus.REJECTED,
+                           OnlinePaymentSubmission.is_active == True)
+
+        for b in rows(MaintenanceBill, live_bill, MaintenanceBill.id.not_in(posted("maintenance_bill"))):
+            add("Maintenance bill", b.invoice_number, "Issued, but not in the books", b.total_amount, b.bill_date)
+        for b in rows(MaintenanceBill, not_(live_bill), MaintenanceBill.id.in_(posted("maintenance_bill"))):
+            add("Maintenance bill", b.invoice_number, "Cancelled, but its entry is still in the books",
+                b.total_amount, b.bill_date)
+        for r in rows(PaymentReceipt, live_receipt, PaymentReceipt.id.not_in(posted("payment_receipt"))):
+            add("Receipt", r.receipt_number, "Received, but not in the books", r.amount, r.payment_date)
+        for r in rows(PaymentReceipt, not_(live_receipt), PaymentReceipt.id.in_(posted("payment_receipt"))):
+            add("Receipt", r.receipt_number, "Reversed, but its entry is still in the books", r.amount, r.payment_date)
+        for o in rows(OnlinePaymentSubmission, live_online, OnlinePaymentSubmission.id.not_in(posted("online_payment"))):
+            add("Online payment", o.receipt_number, "Submitted, but not in the books", o.amount, o.payment_date)
+        for o in rows(OnlinePaymentSubmission, not_(live_online), OnlinePaymentSubmission.id.in_(posted("online_payment"))):
+            add("Online payment", o.receipt_number, "Rejected, but its entry is still in the books", o.amount,
+                o.payment_date)
+        for v in rows(VendorInvoice, VendorInvoice.is_active == True,                           # noqa: E712
+                      VendorInvoice.id.not_in(posted("vendor_invoice"))):
+            add("Vendor bill", v.invoice_number, "Recorded, but not in the books", v.total_amount, v.invoice_date,
+                v.vendor.company_name if v.vendor else None)
+        paid_posted = (select(Voucher.source_id, func.sum(Voucher.amount).label("amount"))
+                       .where(Voucher.society_id == society_id, Voucher.source_type == "vendor_payment",
+                              live_posting())
+                       .group_by(Voucher.source_id).subquery())
+        for v, in_books in (self.db.query(VendorInvoice, func.coalesce(paid_posted.c.amount, 0))
+                            .outerjoin(paid_posted, paid_posted.c.source_id == VendorInvoice.id)
+                            .filter(VendorInvoice.society_id == society_id, VendorInvoice.is_active == True,  # noqa: E712
+                                    VendorInvoice.paid_amount > func.coalesce(paid_posted.c.amount, 0)).all()):
+            add("Vendor payment", v.invoice_number,
+                f"Paid ₹{money(v.paid_amount)} on this bill, but ₹{money(in_books)} of it is in the books",
+                money(v.paid_amount) - money(in_books), v.paid_date,
+                v.vendor.company_name if v.vendor else None)
+        return out
+
     def _safe_sync_post(self, hook: str, obj, user: Optional[User]) -> bool:
         try:
             getattr(self, hook)(obj, user)

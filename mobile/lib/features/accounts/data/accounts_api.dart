@@ -521,6 +521,26 @@ class MembersLedger {
       );
 }
 
+/// A document that is waiting to go into the books, and why.
+class PendingPosting {
+  final String type;
+  final String number;
+  final String why;
+  final String? vendor;
+  final String? amount;
+  const PendingPosting({required this.type, required this.number, required this.why, this.vendor, this.amount});
+
+  factory PendingPosting.fromJson(Map<String, dynamic> j) => PendingPosting(
+        type: j['type'] as String? ?? '',
+        number: j['number'] as String? ?? '',
+        why: j['why'] as String? ?? '',
+        vendor: j['vendor'] as String?,
+        amount: j['amount'] as String?,
+      );
+
+  String get label => [type, if (number.isNotEmpty) number, if (vendor != null) vendor!].join(' · ');
+}
+
 /// A document "Post now" could not post, and why.
 class PostingFailure {
   final String type; // Vendor bill, Maintenance bill, Receipt …
@@ -1054,6 +1074,12 @@ class AccountsApi {
   /// be posted (with the reason), so a document that the books refuse is not reported as posted.
   Future<PostingSyncResult> sync(String societyId) async =>
       PostingSyncResult.fromJson((await _dio.post('/accounts/sync/$societyId')).data as Map<String, dynamic>);
+
+  /// The documents the "not in the books yet" banner counts, each with why it is waiting.
+  Future<List<PendingPosting>> pendingPostings(String societyId) async =>
+      ((await _dio.get('/accounts/pending-postings/$societyId')).data['items'] as List)
+          .map((e) => PendingPosting.fromJson(e as Map<String, dynamic>))
+          .toList();
 
   /// Every financial year with entries up to the current one, newest first.
   Future<List<FinancialYear>> years(String societyId) async =>

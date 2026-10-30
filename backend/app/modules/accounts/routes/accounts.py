@@ -665,6 +665,14 @@ def expenses_by_element_report(society_id: UUID, date_from: Optional[date] = Non
     return expenses_by_element(db, society_id, start, end)
 
 
+@router.get("/pending-postings/{society_id}")
+def pending_postings(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """The documents the Accounts banner counts, one by one, with why each is waiting."""
+    assert_society_access(user, society_id)
+    items = AccountPostings(db).pending_documents(society_id)
+    return {"count": len(items), "items": items}
+
+
 @router.post("/sync/{society_id}")
 def sync_postings(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Post every bill, payment and vendor bill not yet in the books."""
