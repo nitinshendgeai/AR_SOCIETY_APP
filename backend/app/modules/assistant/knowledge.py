@@ -78,6 +78,7 @@ class KnowledgeIndex:
     _idf: Dict[str, float] = field(default_factory=dict, repr=False)
     _tf: List[Counter] = field(default_factory=list, repr=False)
     _head_tf: List[Counter] = field(default_factory=list, repr=False)
+    _pairs: List[set] = field(default_factory=list, repr=False)
 
     def search(self, query: str, audience_roles: Tuple[str, ...] = (), top_k: int = TOP_K) -> List[Tuple[Chunk, float]]:
         q = [t for t in dict.fromkeys(tokenize(query))]
@@ -90,8 +91,9 @@ class KnowledgeIndex:
             if not matched:
                 continue
             score = sum(self._idf.get(t, 0.0) * ((1 + math.log(tf[t])) if tf.get(t) else 0.0)
-                        + 3.0 * self._idf.get(t, 0.0) * (1 if head.get(t) else 0) for t in matched)
+                        + 4.0 * self._idf.get(t, 0.0) * (1 if head.get(t) else 0) for t in matched)
             score *= len(matched) / len(q)                       # reward covering more of the question
+            score *= 1 + 0.25 * sum(1 for a, b in zip(q, q[1:]) if (a + " " + b) in self._pairs[i])   # neighbouring words together
             if audience_roles and any(r in chunk.roles for r in audience_roles):
                 score *= 1.15                                    # prefer the part written for this person's role
             scored.append((score, len(matched), chunk))
@@ -112,17 +114,22 @@ or our so that the their then there these this to us was we what when where whic
 could please tell about need want get make""".split())
 
 
+def _stem(t: str) -> str:
+    if len(t) > 4 and t.endswith("ies"):
+        t = t[:-3] + "y"
+    elif len(t) > 3 and t.endswith("s") and not t.endswith("ss"):
+        t = t[:-1]
+    if len(t) > 5 and t.endswith("ing"):
+        t = t[:-3]
+    elif len(t) > 4 and t.endswith("ed"):
+        t = t[:-2]
+    if len(t) > 4 and t.endswith("e"):
+        t = t[:-1]                              # generate / generating / generated all become "generat"
+    return t
+
+
 def tokenize(text: str) -> List[str]:
-    out = []
-    for t in re.findall(r"[a-z0-9]+", (text or "").lower()):
-        if t in _STOP or len(t) < 2:
-            continue
-        if len(t) > 4 and t.endswith("ies"):
-            t = t[:-3] + "y"
-        elif len(t) > 3 and t.endswith("s") and not t.endswith("ss"):
-            t = t[:-1]
-        out.append(t)
-    return out
+    return [_stem(t) for t in re.findall(r"[a-z0-9]+", (text or "").lower()) if t not in _STOP and len(t) >= 2]
 
 
 # ── Document → sections ──────────────────────────────────────────────────────
@@ -156,7 +163,8 @@ def markdown_sections(text: str) -> List[Section]:
     def flush():
         body = "\n".join(buf).strip()
         if body:
-            out.append((" › ".join(h for _, h in stack) or "Introduction", (), body))
+            heads = [h for lvl, h in stack if lvl > 1] or [h for _, h in stack]     # the document title is not a section
+            out.append((" › ".join(heads) or "Introduction", (), body))
         buf.clear()
 
     for line in text.splitlines():
@@ -321,6 +329,8 @@ def build_index(docs_root: Optional[Path] = None, documents: Tuple[ApprovedDocum
         head = Counter(tokenize(f"{c.title} {c.section}"))
         index._tf.append(tf)
         index._head_tf.append(head)
+        toks = tokenize(c.text)
+        index._pairs.append({a + " " + b for a, b in zip(toks, toks[1:])})
         df.update(set(tf) | set(head))
     total = max(len(chunks), 1)
     index._idf = {t: math.log(1 + total / n) for t, n in df.items()}
@@ -359,8 +369,25 @@ def extract_steps(chunk_text: str, limit: int = 8) -> List[str]:
     return [re.sub(r"[*_`]", "", s)[:300] for s in steps]
 
 
-def lead_text(chunk_text: str, limit: int = 450) -> str:
-    plain = re.sub(r"[*_`#>]", "", chunk_text)
-    plain = re.sub(r"\|[-: |]+\|", " ", plain)
-    plain = re.sub(r"\s+", " ", plain).strip()
-    return plain if len(plain) <= limit else plain[:limit].rsplit(" ", 1)[0] + "…"
+def lead_text(chunk_text: str, limit: int = 500) -> str:
+    """The start of a chunk as readable text: bullets and numbered table rows on their own lines, markdown marks
+    removed, cut at a line or sentence end."""
+    src = [l.strip() for l in chunk_text.splitlines()]
+    lines = []
+    for n, s in enumerate(src):
+        if not s or re.fullmatch(r"\|[-: |]+\|", s):
+            continue
+        if s.startswith("|"):
+            if n + 1 < len(src) and re.fullmatch(r"\|[-: |]+\|", src[n + 1]):
+                continue                                          # the table's header row
+            cells = [c.strip() for c in s.strip("|").split("|") if c.strip()]
+            s = (f"{cells[0]}. " + " — ".join(cells[1:])) if cells and cells[0].isdigit() else "• " + " — ".join(cells)
+        else:
+            s = re.sub(r"^[-*]\s+", "• ", s)
+        lines.append(re.sub(r"[*`#>]|(?<!\w)_|_(?!\w)", "", s))
+    out = "\n".join(lines)
+    if len(out) <= limit:
+        return out
+    cut = out[:limit]
+    boundary = max(cut.rfind("\n"), cut.rfind(". "))
+    return (cut[:boundary + 1] if boundary > limit // 2 else cut.rsplit(" ", 1)[0]).rstrip() + " …"

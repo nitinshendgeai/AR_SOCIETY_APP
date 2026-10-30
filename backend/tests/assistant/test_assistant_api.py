@@ -217,3 +217,35 @@ def test_rate_limit_is_per_user(client, world, monkeypatch):
     r = ask(client, h)
     assert r.status_code == 429 and int(r.headers["retry-after"]) >= 1
     assert ask(client, world.resident_b["headers"]).status_code == 200
+
+
+# ── suggestions follow the audience and are all answerable ───────────────────
+
+def test_suggested_questions_fit_the_audience_and_each_finds_a_manual_section():
+    from app.modules.assistant import knowledge, service
+    index = knowledge.get_index()
+    for audience in ("resident", "security", "staff", "supervisor", "manager", "committee", "admin", "platform_admin"):
+        qs = service.suggested_questions(audience)
+        assert qs
+        for q in qs:
+            assert index.search(q, service._AUDIENCE_ROLES[audience]), f"{audience}: no manual section for {q!r}"
+    assert not any("TDS" in q or "elements" in q for q in service.suggested_questions("resident"))
+
+
+def test_status_returns_the_audience_suggestions(client, world):
+    res = client.get(f"{API}/status", headers=world.resident_a["headers"]).json()
+    mgr = client.get(f"{API}/status", headers=world.manager_a["headers"]).json()
+    assert res["suggested_questions"] != mgr["suggested_questions"]
+    assert any("complaint" in q for q in res["suggested_questions"]) and any("TDS" in q for q in mgr["suggested_questions"])
+
+
+def test_a_follow_up_uses_the_previous_question_but_a_full_question_does_not(client, world, monkeypatch):
+    from app.modules.assistant import knowledge
+    seen = []
+    real = knowledge.KnowledgeIndex.search
+    monkeypatch.setattr(knowledge.KnowledgeIndex, "search", lambda self, q, *a, **k: (seen.append(q), real(self, q, *a, **k))[1])
+    h = world.manager_a["headers"]
+    hist = [{"role": "user", "content": "PREVIOUSTOPIC vouchers"}]
+    ask(client, h, "How do I add a vendor and set up TDS?", history=hist)
+    ask(client, h, "and then?", history=hist)
+    assert "PREVIOUSTOPIC" not in seen[0] and "PREVIOUSTOPIC" in seen[1]

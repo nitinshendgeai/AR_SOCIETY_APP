@@ -32,7 +32,7 @@ from app.modules.assistant.schemas import (
 
 logger = logging.getLogger(__name__)
 
-SUGGESTED_QUESTIONS = [
+_MANAGEMENT_QUESTIONS = [
     "How do I set up maintenance elements and link them to expense ledgers?",
     "What should I check before generating this month's maintenance bills?",
     "How do I add a vendor and set up TDS for them?",
@@ -40,6 +40,27 @@ SUGGESTED_QUESTIONS = [
     "Why is the month-end checklist showing pending vouchers?",
     "How does the chart of accounts get set up for a new society?",
 ]
+# Suggestions follow the person's audience, so a resident is not offered accounting set-up. Every one of them is checked
+# in the tests to find a manual section.
+SUGGESTED_BY_AUDIENCE = {
+    "resident": [
+        "How do I approve or reject a visitor?",
+        "How do I raise a complaint?",
+        "How do I book an amenity?",
+        "How do I register my vehicle?",
+    ],
+    "security": [
+        "How do I log a visitor at the gate?",
+        "How do I check a vehicle at the gate?",
+        "How do I log a parcel?",
+    ],
+    "staff": ["How do I see my duties for today?"],
+}
+
+
+def suggested_questions(audience: str) -> List[str]:
+    return SUGGESTED_BY_AUDIENCE.get(audience, _MANAGEMENT_QUESTIONS)
+
 
 ESCALATION = "Please ask your society manager or administrator, or contact DuxOS support."
 
@@ -121,6 +142,14 @@ def clean_text(s: str, limit: int) -> str:
     return re.sub(r"\s+", " ", _CTRL.sub(" ", s or "")).strip()[:limit]
 
 
+def clean_output(s: str, limit: int) -> str:
+    """Like clean_text but keeps line breaks, so a bulleted answer stays readable."""
+    s = _CTRL.sub(" ", (s or "").replace("\r", "").replace("\t", " ").replace("\x00", ""))
+    s = s.replace("\n", "\u0001")                      # _CTRL leaves \n alone; protect it from the space collapse
+    s = re.sub(r"[ \u00a0]+", " ", s).replace("\u0001", "\n")
+    return re.sub(r"\n{3,}", "\n\n", re.sub(r" ?\n ?", "\n", s)).strip()[:limit]
+
+
 _ENTITY_ID = (r"(\b(flat|unit|room|wing)\s*(no\.?|number)?\s*[a-z]?[-\s]?\d+\b|\b[a-z]-?\d{3,4}\b"
               r"|\b(vendor|resident|tenant|owner|member)\s+(named|called)\b)")
 _RECORD = (r"\b(dues|balance|outstanding|arrears|payments?|paid|salary|phone|mobile|contact|e-?mail|address|owner|"
@@ -141,8 +170,13 @@ def asks_for_records(question: str) -> bool:
     return bool(re.search(_VERB, q) and re.search(_ALL_OF, q) and re.search(_RECORD + r"|\bdefaulters\b|\blist\b", q))
 
 
-def _history_query(history, question_tokens: int) -> str:
-    if question_tokens >= 6:
+_FOLLOW_UP = re.compile(r"^\s*(and|also|what about|how about|then|why|so|it|that|this|those|them)\b", re.I)
+
+
+def _history_query(history, question: str, question_tokens: int) -> str:
+    """The person's previous question, but only when this one cannot stand alone ("and then?", "why?"). A complete
+    question is searched on its own: blending in an older topic would drag the answer towards it."""
+    if question_tokens > 3 and not _FOLLOW_UP.match(question):
         return ""
     for t in reversed(history):
         if t.role == "user":
@@ -171,7 +205,7 @@ def status(db: Session, user: User, request_id: str) -> StatusResponse:
         needs_target_society=scope.needs_target, index_version=index.version, document_count=len(index.documents),
         limits={"max_question_chars": settings.ASSISTANT_MAX_QUESTION_CHARS, "max_history_turns": settings.ASSISTANT_MAX_HISTORY_TURNS,
                 "rate_limit_per_minute": settings.ASSISTANT_RATE_LIMIT_PER_MINUTE},
-        suggested_questions=SUGGESTED_QUESTIONS,
+        suggested_questions=suggested_questions(scope.audience),
     )
 
 
@@ -226,7 +260,7 @@ def ask(db: Session, user: User, data: AskRequest, request_id: str) -> AskRespon
             escalation="For a specific record, open the relevant screen in the app (you will only see what your "
                        "role allows) or ask your society manager.")
 
-    query = question + " " + _history_query(history, len(knowledge.tokenize(question)))
+    query = question + " " + _history_query(history, question, len(knowledge.tokenize(question)))
     hits = index.search(query, _AUDIENCE_ROLES.get(scope.audience, ()))
 
     gaps: List[Finding] = []
@@ -254,8 +288,9 @@ def ask(db: Session, user: User, data: AskRequest, request_id: str) -> AskRespon
     steps: List[str] = []
     for chunk, _ in hits[:2]:
         steps = knowledge.extract_steps(chunk.text)
-        if steps:
+        if len(steps) >= 2:                              # a lone numbered line is not a procedure
             break
+        steps = []
 
     top_chunk, top_score = hits[0]
     answer, provider_status = None, info.status
@@ -265,7 +300,7 @@ def ask(db: Session, user: User, data: AskRequest, request_id: str) -> AskRespon
             out = prov.call_with_timeout(
                 impl, prov.ProviderRequest(question=question, excerpts=[c.text for c, _ in hits]),
                 settings.ASSISTANT_PROVIDER_TIMEOUT_SECONDS)
-            answer = clean_text(out, settings.ASSISTANT_MAX_ANSWER_CHARS)
+            answer = clean_output(out, settings.ASSISTANT_MAX_ANSWER_CHARS)
             if not answer or knowledge.looks_like_injection(answer):
                 answer, provider_status = None, "malformed"
             else:
@@ -273,8 +308,8 @@ def ask(db: Session, user: User, data: AskRequest, request_id: str) -> AskRespon
         except prov.ProviderError as exc:
             provider_status = str(exc) if str(exc) in ("timeout", "malformed") else "error"
     if answer is None:
-        answer = clean_text(f"From “{top_chunk.title} › {top_chunk.section}”: {knowledge.lead_text(top_chunk.text)}",
-                            settings.ASSISTANT_MAX_ANSWER_CHARS)
+        answer = clean_output(f"From “{top_chunk.title} › {top_chunk.section}”:\n{knowledge.lead_text(top_chunk.text)}",
+                              settings.ASSISTANT_MAX_ANSWER_CHARS)
     uncertainty = None
     if top_score < 6.0:
         uncertainty = "The closest manual sections only partly match your question; please confirm with your administrator."
