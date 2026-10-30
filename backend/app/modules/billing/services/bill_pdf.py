@@ -555,7 +555,9 @@ def bill_story(
         ("TOPPADDING", (0, last), (-1, last), 2.5), ("BOTTOMPADDING", (0, last), (-1, last), 2.5),
     ]))
     story.append(t)
-    story.append(Spacer(1, 5 * mm))
+    story.append(Spacer(1, 1.5 * mm))
+    story.append(Paragraph(f"<b>Amount payable in words:</b> {escape(rs_in_words(payable))}", S["cell"]))
+    story.append(Spacer(1, 3.5 * mm))
     working = _interest_working_table(bill, width)
     if working is not None:
         story += [working, Spacer(1, 5 * mm)]
@@ -811,7 +813,7 @@ def classic_bill_story(
 
     summary = [("Total :", current, False), ("Arrears / Advance :", arrears, False),
                ("Accumulated Interest :", prev_interest, False),
-               ("Interest on Principal Arrears of :", current_interest, False)]
+               ("Current Interest / Late Fees :", current_interest, False)]
     if discount:
         summary.append(("Less: Discount :", -discount, False))
     if round_off:

@@ -47,7 +47,7 @@ def test_receipt_on_billing_by_cheque(client, db):
         f"Receipt No.: {rec['receipt_number']} RECEIPT ON BILLING Date : 28/07/2026",
         "Received with thanks from ASHA RAO Tower A 101",
         "Rs. Two Thousand Eight Hundred Fifty Four only.",
-        "Vide Cash/Chq. Cheque No. 004512, UBI, Dahisar (E) Rs. 2,854.00",
+        "Vide: Cheque No. 004512, UBI, Dahisar (E) Rs. 2,854.00",
         f"Towards Bill No. {bill.invoice_number} Dated : {bill.bill_date:%d/%m/%Y}",
         "Subject to Realisation of Cheque",
         "For MB SOCIETY RC1", "HON. SECRETARY / TREASURER / CHAIRMAN",
@@ -60,7 +60,7 @@ def test_receipt_on_account(client, db):
     rec = _record(client, manager["headers"], flat2.id, amount="1500.00", purpose="parking")
     text = _receipt_text(db, rec["receipt_number"])
     for expected in ["RECEIPT ON ACCOUNT", "Received with thanks from VIK MEHTA Tower A 102",
-                     "Rs. One Thousand Five Hundred only.", "Vide Cash/Chq. Cash Rs. 1,500.00",
+                     "Rs. One Thousand Five Hundred only.", "Vide: Cash Rs. 1,500.00",
                      "On Account of Parking Charges, to be adjusted against the member's bills."]:
         assert expected in text, expected
     assert "Towards Bill" not in text and "Subject to Realisation" not in text

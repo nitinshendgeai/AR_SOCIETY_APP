@@ -132,7 +132,7 @@ def generate_payment_receipt_pdf(p: Payment, *, compress: bool = True) -> bytes:
         [Paragraph("Received with thanks from &nbsp;&nbsp; "
                    f"<b>{escape(member_name(flat, resident).upper())}</b>", S["cell"]), "", flat_box],
         [_p(rs_in_words(p.amount)), "", ""],
-        [_p(f"Vide Cash/Chq.   {payment_detail(p)}"), _p("Rs.", "small_r"), amt_box],
+        [_p(f"Vide:   {payment_detail(p)}"), _p("Rs.", "small_r"), amt_box],
         [_p(_towards(p, bill)), "", ""],
     ]
     if cheque:

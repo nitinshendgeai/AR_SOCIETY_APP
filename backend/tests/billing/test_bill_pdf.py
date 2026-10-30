@@ -333,7 +333,7 @@ def test_classic_layout_lists_every_head_and_the_totals(client, db):
         "Festival Fund 0.00", "Legal Charges 0.00",         # heads not charged this time print 0.00
         "GST @ 18% 54.00",
         "Total : 2,854.00", "Arrears / Advance : 0.00", "Accumulated Interest : 0.00",
-        "Interest on Principal Arrears of : 0.00", "Grand Total : 2,854.00",
+        "Current Interest / Late Fees : 0.00", "Grand Total : 2,854.00",
         "Rs. Two Thousand Eight Hundred Fifty Four only.",
         "Notes :", "1. Interest @ 12% p.a.", "NEFT to MB SOCIETY PDFL1",
         "A/c No. 520101046817693", "IFSC UBIN0904309",

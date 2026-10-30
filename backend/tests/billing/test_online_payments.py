@@ -90,7 +90,7 @@ def test_manager_can_submit_online_payment(client, db):
     assert r.status_code == 201
     body = r.json()
     assert body["status"] == "pending"
-    assert body["receipt_number"].startswith("OPS-")
+    assert body["receipt_number"].startswith("RCP-")
     assert body["flat_number"] == "A-101"
     assert body["wing_name"] == "Wing A"
     assert body["amount"] == "5500.00"
@@ -231,7 +231,7 @@ def test_export_csv(client, db):
     assert r.headers["content-type"].startswith("text/csv")
     text = r.content.decode("utf-8")
     assert "Receipt Number" in text
-    assert "OPS-" in text
+    assert "RCP-" in text
 
 
 def test_oversized_screenshot_rejected(client, db):

@@ -23,6 +23,31 @@ def _highest(db, number_col, society_col, society_id) -> int:
     return highest
 
 
+def financial_year_label(on: Optional[date] = None) -> str:
+    """'2026-27' — the April-March year `on` (default today) falls in, as societies keep their accounts."""
+    on = on or date.today()
+    start = on.year if on.month >= 4 else on.year - 1
+    return f"{start}-{str(start + 1)[-2:]}"
+
+
+def _next_number(db, prefix: str, society_id, *sources) -> str:
+    """'<prefix>-<financial year>-<5 digits>': one serial per society and financial year. `sources` are the
+    (number column, society column) pairs the series is shared across, so no two documents repeat a number."""
+    stem = f"{prefix}-{financial_year_label()}-"
+    highest = 0
+    for number_col, society_col in sources:
+        for (number,) in db.query(number_col).filter(society_col == society_id, number_col.like(f"{stem}%")):
+            digits = number.rsplit("-", 1)[-1]
+            if digits.isdigit():
+                highest = max(highest, int(digits))
+    return f"{stem}{str(highest + 1).zfill(5)}"
+
+
+# Receipts of both payment records share one series, so a member sees a single receipt book.
+_RECEIPT_SOURCES = ((PaymentReceipt.receipt_number, PaymentReceipt.society_id),
+                    (OnlinePaymentSubmission.receipt_number, OnlinePaymentSubmission.society_id))
+
+
 class FinancialPeriodRepo(BaseRepository[FinancialPeriod]):
     def __init__(self, db): super().__init__(FinancialPeriod, db)
     def get_by_society(self, sid: UUID) -> List[FinancialPeriod]:
@@ -76,9 +101,7 @@ class MaintenanceBillRepo(BaseRepository[MaintenanceBill]):
         ).order_by(MaintenanceBill.due_date).all()
 
     def next_invoice_number(self, sid: UUID) -> str:
-        from datetime import date as dt
-        y = dt.today().year
-        return f"INV-{y}-{str(_highest(self.db, MaintenanceBill.invoice_number, MaintenanceBill.society_id, sid)+1).zfill(5)}"
+        return _next_number(self.db, "INV", sid, (MaintenanceBill.invoice_number, MaintenanceBill.society_id))
 
 
 class PaymentReceiptRepo(BaseRepository[PaymentReceipt]):
@@ -95,9 +118,7 @@ class PaymentReceiptRepo(BaseRepository[PaymentReceipt]):
         ).order_by(PaymentReceipt.payment_date.desc()).offset(skip).limit(limit).all()
 
     def next_receipt_number(self, sid: UUID) -> str:
-        from datetime import date as dt
-        y = dt.today().year
-        return f"RCP-{y}-{str(_highest(self.db, PaymentReceipt.receipt_number, PaymentReceipt.society_id, sid)+1).zfill(5)}"
+        return _next_number(self.db, "RCP", sid, *_RECEIPT_SOURCES)
 
 
 class DueTrackerRepo(BaseRepository[DueTracker]):
@@ -147,9 +168,7 @@ class OnlinePaymentSubmissionRepo(BaseRepository[OnlinePaymentSubmission]):
                            OnlinePaymentSubmission.created_at.desc()).offset(skip).limit(limit).all()
 
     def next_receipt_number(self, sid: UUID) -> str:
-        from datetime import date as dt
-        y = dt.today().year
-        return f"OPS-{y}-{str(_highest(self.db, OnlinePaymentSubmission.receipt_number, OnlinePaymentSubmission.society_id, sid)+1).zfill(5)}"
+        return _next_number(self.db, "RCP", sid, *_RECEIPT_SOURCES)
 
 
 class BankStatementEntryRepo(BaseRepository[BankStatementEntry]):
