@@ -128,3 +128,32 @@ def test_the_correction_sets_flats_with_occupants_from_their_move_in_dates_and_l
     assert got == {"101": OccupancyStatus.OWNER_OCCUPIED, "102": OccupancyStatus.TENANT_OCCUPIED,
                    "103": OccupancyStatus.VACANT, "104": OccupancyStatus.OWNER_OCCUPIED,
                    "105": OccupancyStatus.TENANT_OCCUPIED}
+
+
+def _run_reset(db):
+    path = pathlib.Path(__file__).resolve().parents[2] / "alembic/versions/0f5a6b7c8d9e_reset_unoccupied_flats.py"
+    spec = importlib.util.spec_from_file_location("reset_unoccupied_flats", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    db.commit()
+    with Operations.context(MigrationContext.configure(db.connection())):
+        module.upgrade()
+    db.expire_all()
+
+
+def test_flats_with_nobody_on_record_are_set_to_vacant_and_the_rest_are_left(db, rig):
+    f = rig["flats"]
+    today = date.today()
+    f["101"].occupancy_status = OccupancyStatus.OWNER_OCCUPIED        # nobody on record      -> vacant
+    f["102"].occupancy_status = OccupancyStatus.TENANT_OCCUPIED       # let out, no tenant    -> vacant
+    f["103"].occupancy_status = OccupancyStatus.OWNER_OCCUPIED        # a resident has moved in -> stays
+    db.add(Resident(flat_id=f["103"].id, full_name="R103", move_in_date=today))
+    f["104"].occupancy_status = OccupancyStatus.VACANT                # already vacant       -> stays
+    f["105"].occupancy_status = OccupancyStatus.TENANT_OCCUPIED       # a tenant has moved in -> stays
+    db.add(Tenant(flat_id=f["105"].id, full_name="T105", move_in_date=today))
+    db.commit()
+
+    _run_reset(db)
+    got = {n: db.get(Flat, f[n].id).occupancy_status for n in f}
+    assert got == {"101": OccupancyStatus.VACANT, "102": OccupancyStatus.VACANT, "103": OccupancyStatus.OWNER_OCCUPIED,
+                   "104": OccupancyStatus.VACANT, "105": OccupancyStatus.TENANT_OCCUPIED}

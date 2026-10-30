@@ -4,6 +4,21 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-30 (flats with nobody on record are vacant)
+
+### fix: finish the one-time occupancy correction — flats with no resident or tenant on record are set to vacant
+
+Migration `0e4f5a6b7c8d` set every flat that has a resident or tenant on record from the move-in rule and, on purpose,
+left flats with nobody on record as they were. Migration `0f5a6b7c8d9e` now sets those to **vacant** too: a flat is
+occupied only when someone has moved in.
+
+**Billing effect.** A flat marked *tenant occupied* with no tenant on record carried the non-occupancy charge in
+billing; once vacant it no longer does. The migration prints each such flat (wing and number) so the tenant can be put on
+record (Tenants → Add or Import Tenants, with a move-in date), which makes the flat tenant occupied again and brings the
+charge back. The previous statuses are not kept.
+
+Tests: `tests/master/test_flat_occupancy_rule.py`.
+
 ## 2026-10-28 (flat occupancy follows the move-in date)
 
 ### fix: a flat's occupancy is decided by who has moved in, not by what was last recorded
