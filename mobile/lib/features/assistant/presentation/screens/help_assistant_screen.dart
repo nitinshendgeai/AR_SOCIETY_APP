@@ -8,7 +8,14 @@ import 'package:ar_society_app/features/assistant/data/assistant_api.dart';
 import 'package:ar_society_app/features/assistant/presentation/providers/assistant_providers.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 
-/// In-app help chat. Answers come from the approved manuals (with their sources); it never changes anything.
+const _aiGradient = LinearGradient(
+  colors: [AppTheme.primary, Color(0xFF7A5CFF)],
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+);
+
+/// In-app help chat. It looks and talks like an AI assistant, but every answer is taken from the approved manuals
+/// (with its sources) and it never changes anything.
 class HelpAssistantScreen extends ConsumerWidget {
   const HelpAssistantScreen({super.key});
 
@@ -18,13 +25,25 @@ class HelpAssistantScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppTheme.surface,
       appBar: AppBar(
-        title: Text(context.tr('Help assistant')),
+        title: Row(mainAxisSize: MainAxisSize.min, children: [
+          const _Avatar(size: 28),
+          const SizedBox(width: 10),
+          Flexible(
+              child: Text(context.tr('DuxOS Assistant'),
+                  maxLines: 1, overflow: TextOverflow.ellipsis)),
+        ]),
         actions: [
-          if (helpAvailable)
+          if (helpAvailable && MediaQuery.sizeOf(context).width >= 480)
             TextButton.icon(
               onPressed: () => openHelp(ref.read(currentUserProvider)),
               icon: const Icon(Icons.menu_book_outlined, size: 18),
               label: Text(context.tr('User manual')),
+            )
+          else if (helpAvailable)
+            IconButton(
+              tooltip: context.tr('User manual'),
+              icon: const Icon(Icons.menu_book_outlined),
+              onPressed: () => openHelp(ref.read(currentUserProvider)),
             ),
           if (status.hasValue &&
               status.value!.enabled &&
@@ -60,6 +79,23 @@ class HelpAssistantScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _Avatar extends StatelessWidget {
+  final double size;
+  const _Avatar({this.size = 32});
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+        child: Container(
+          width: size,
+          height: size,
+          decoration: const BoxDecoration(
+              shape: BoxShape.circle, gradient: _aiGradient),
+          child: Icon(Icons.auto_awesome_rounded,
+              size: size * 0.55, color: Colors.white),
+        ),
+      );
 }
 
 class _Notice extends StatelessWidget {
@@ -128,6 +164,10 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
     final chat = ref.watch(assistantChatProvider);
     ref.listen(assistantChatProvider, (_, __) => _toEnd());
     final s = widget.status;
+    final name = (ref.watch(currentUserProvider)?.fullName ?? '')
+        .trim()
+        .split(RegExp(r'\s+'))
+        .first;
     return SafeArea(
       child: Center(
         child: ConstrainedBox(
@@ -135,20 +175,6 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
               maxWidth:
                   820), // readable on wide web screens, full width on a phone
           child: Column(children: [
-            if (s.manualsOnly)
-              Container(
-                width: double.infinity,
-                color: AppTheme.primary.withValues(alpha: 0.06),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text(
-                  context.tr(
-                      'AI summaries are off. Answers are taken straight from the approved manuals.'),
-                  key: const Key('manualsOnlyBanner'),
-                  style: const TextStyle(
-                      fontSize: 12, color: AppTheme.textSecondary),
-                ),
-              ),
             if (s.needsTargetSociety)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -161,24 +187,39 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
               ),
             Expanded(
               child: chat.messages.isEmpty
-                  ? _Welcome(questions: s.suggestedQuestions, onPick: _send)
+                  ? _Welcome(
+                      name: name,
+                      questions: s.suggestedQuestions,
+                      onPick: _send)
                   : ListView.builder(
                       controller: _scroll,
                       padding: const EdgeInsets.all(16),
                       itemCount: chat.messages.length + (chat.sending ? 1 : 0),
                       itemBuilder: (_, i) {
                         if (i == chat.messages.length) return const _Typing();
-                        return _Bubble(message: chat.messages[i]);
+                        return _Bubble(
+                            key: ValueKey(chat.messages[i].id),
+                            message: chat.messages[i],
+                            onAsk: _send);
                       },
                     ),
             ),
+            if (s.manualsOnly)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  context.tr('Answers come from the approved DuxOS manuals.'),
+                  key: const Key('manualsOnlyBanner'),
+                  style: const TextStyle(
+                      fontSize: 11, color: AppTheme.textTertiary),
+                ),
+              ),
             _Composer(
-              controller: _input,
-              focus: _focus,
-              sending: chat.sending,
-              maxChars: s.maxQuestionChars,
-              onSend: _send,
-            ),
+                controller: _input,
+                focus: _focus,
+                sending: chat.sending,
+                maxChars: s.maxQuestionChars,
+                onSend: _send),
           ]),
         ),
       ),
@@ -187,25 +228,42 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
 }
 
 class _Welcome extends StatelessWidget {
+  final String name;
   final List<String> questions;
   final void Function(String) onPick;
-  const _Welcome({required this.questions, required this.onPick});
+  const _Welcome(
+      {required this.name, required this.questions, required this.onPick});
 
   @override
   Widget build(BuildContext context) =>
       ListView(padding: const EdgeInsets.all(16), children: [
-        Text(context.tr('Ask how to do something in DuxOS'),
-            style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary)),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
+        const Center(child: _Avatar(size: 56)),
+        const SizedBox(height: 14),
+        Text(
+          name.isEmpty
+              ? context.tr('Hi! I\'m your DuxOS assistant')
+              : '${context.tr('Hi')} $name! ${context.tr('I\'m your DuxOS assistant')}',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary),
+        ),
+        const SizedBox(height: 6),
         Text(
           context.tr(
-              'I explain the steps from the approved manuals. I cannot look up residents, dues or payments, and I never change anything.'),
+              'Ask me how to do anything in the app. I answer from the official DuxOS manuals. I can\'t look up residents, dues or payments, and I never change anything.'),
+          textAlign: TextAlign.center,
           style: const TextStyle(color: AppTheme.textSecondary),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
+        Text(context.tr('Try asking'),
+            style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textSecondary)),
+        const SizedBox(height: 8),
         for (final q in questions)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -216,9 +274,8 @@ class _Welcome extends StatelessWidget {
               child: Material(
                 color: AppTheme.cardBg,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: const BorderSide(color: AppTheme.border),
-                ),
+                    borderRadius: BorderRadius.circular(12),
+                    side: const BorderSide(color: AppTheme.border)),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
                   onTap: () => onPick(q),
@@ -244,26 +301,78 @@ class _Welcome extends StatelessWidget {
       ]);
 }
 
-class _Typing extends StatelessWidget {
+/// Three bouncing dots in an assistant bubble while the answer is on its way. Still (no motion) when the person has
+/// asked their device to reduce animation.
+class _Typing extends StatefulWidget {
   const _Typing();
 
   @override
+  State<_Typing> createState() => _TypingState();
+}
+
+class _TypingState extends State<_Typing> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 900));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) => Semantics(
+        key: const Key('assistantTyping'),
         liveRegion: true,
         label: 'Looking through the manuals',
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(children: [
-            const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2)),
-            const SizedBox(width: 10),
-            Text(context.tr('Looking through the manuals…'),
-                style: const TextStyle(color: AppTheme.textSecondary)),
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            const _Avatar(),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              decoration: BoxDecoration(
+                color: AppTheme.cardBg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: AnimatedBuilder(
+                animation: _c,
+                builder: (_, __) =>
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                  for (var i = 0; i < 3; i++)
+                    Container(
+                      margin: EdgeInsets.only(
+                          right: i < 2 ? 5 : 0, bottom: 4 * _bounce(i)),
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppTheme.textTertiary
+                              .withValues(alpha: 0.5 + 0.5 * _bounce(i))),
+                    ),
+                ]),
+              ),
+            ),
           ]),
         ),
       );
+
+  double _bounce(int i) {
+    final t = (_c.value - i * 0.15) % 1.0;
+    return t < 0.5 ? (t * 2) : (2 - t * 2); // 0 → 1 → 0
+  }
 }
 
 class _Composer extends StatelessWidget {
@@ -281,7 +390,7 @@ class _Composer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
         decoration: const BoxDecoration(
             color: AppTheme.cardBg,
             border: Border(top: BorderSide(color: AppTheme.border))),
@@ -314,10 +423,13 @@ class _Composer extends StatelessWidget {
                     () {}, // keep the focus (and the keyboard) after sending
                 onSubmitted: sending ? null : (_) => onSend(),
                 decoration: InputDecoration(
-                  hintText: context.tr('Type your question'),
+                  hintText: context.tr('Ask anything about DuxOS…'),
                   counterText: '',
-                  border: const OutlineInputBorder(),
                   isDense: true,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24)),
                 ),
               ),
             ),
@@ -330,7 +442,7 @@ class _Composer extends StatelessWidget {
                 foregroundColor: Colors.white),
             tooltip: context.tr('Send'),
             onPressed: sending ? null : () => onSend(),
-            icon: const Icon(Icons.send_rounded),
+            icon: const Icon(Icons.arrow_upward_rounded),
           ),
         ]),
       );
@@ -338,66 +450,82 @@ class _Composer extends StatelessWidget {
 
 class _Bubble extends ConsumerWidget {
   final ChatMessage message;
-  const _Bubble({required this.message});
+  final void Function([String?]) onAsk;
+  const _Bubble({super.key, required this.message, required this.onAsk});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isUser = message.role == ChatRole.user;
     final isError = message.role == ChatRole.error;
     final a = message.answer;
+    final maxW = MediaQuery.sizeOf(context).width * 0.9 > 640
+        ? 640.0
+        : MediaQuery.sizeOf(context).width * 0.9;
     final bg = isUser
         ? AppTheme.primary
         : (isError ? AppTheme.error.withValues(alpha: 0.08) : AppTheme.cardBg);
     final fg = isUser ? Colors.white : AppTheme.textPrimary;
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Semantics(
-        container: true,
-        label: isUser ? 'You asked' : (isError ? 'Error' : 'Assistant answer'),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          constraints: BoxConstraints(
-              maxWidth: MediaQuery.sizeOf(context).width * 0.9 > 640
-                  ? 640
-                  : MediaQuery.sizeOf(context).width * 0.9),
-          // A Material (not a decorated Container) so the expandable Steps/Sources rows can paint their ink.
-          child: Material(
-            color: bg,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-              side: isUser
-                  ? BorderSide.none
-                  : const BorderSide(color: AppTheme.border),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SelectableText(message.text, style: TextStyle(color: fg)),
-                    if (isError)
-                      TextButton.icon(
-                        key: const Key('assistantRetry'),
-                        onPressed: () => ref
-                            .read(assistantChatProvider.notifier)
-                            .retry(message.id),
-                        icon: const Icon(Icons.refresh_rounded, size: 18),
-                        label: Text(context.tr('Try again')),
-                      ),
-                    if (a != null) ..._answerExtras(context, a),
-                  ]),
-            ),
+
+    final bubble = Semantics(
+      container: true,
+      label: isUser ? 'You asked' : (isError ? 'Error' : 'Assistant answer'),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        constraints: BoxConstraints(maxWidth: maxW),
+        // A Material (not a decorated Container) so the expandable Steps/Sources rows can paint their ink.
+        child: Material(
+          color: bg,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: isUser
+                ? BorderSide.none
+                : const BorderSide(color: AppTheme.border),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (message.role == ChatRole.assistant)
+                _Reveal(
+                  text: message.text,
+                  style: TextStyle(color: fg),
+                  animate: message.animate,
+                  onDone: () => ref
+                      .read(assistantChatProvider.notifier)
+                      .markShown(message.id),
+                )
+              else
+                SelectableText(message.text, style: TextStyle(color: fg)),
+              if (isError)
+                TextButton.icon(
+                  key: const Key('assistantRetry'),
+                  onPressed: () => ref
+                      .read(assistantChatProvider.notifier)
+                      .retry(message.id),
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: Text(context.tr('Try again')),
+                ),
+              if (a != null) ..._answerExtras(context, a),
+            ]),
           ),
         ),
       ),
     );
+
+    if (isUser) return Align(alignment: Alignment.centerRight, child: bubble);
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const _Avatar(),
+      const SizedBox(width: 8),
+      Flexible(child: Align(alignment: Alignment.centerLeft, child: bubble)),
+    ]);
   }
 
   List<Widget> _answerExtras(BuildContext context, AssistantAnswer a) => [
         if (a.steps.isNotEmpty)
           ExpansionTile(
             key: const Key('assistantSteps'),
+            initiallyExpanded: true,
             tilePadding: EdgeInsets.zero,
             childrenPadding: const EdgeInsets.only(bottom: 8),
             title: Text('${context.tr('Steps')} (${a.steps.length})',
@@ -461,13 +589,112 @@ class _Bubble extends ConsumerWidget {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text('${s.title} › ${s.section}',
-                        style: const TextStyle(
-                            fontSize: 12, color: AppTheme.textSecondary)),
-                  ),
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text('${s.title} › ${s.section}',
+                          style: const TextStyle(
+                              fontSize: 12, color: AppTheme.textSecondary))),
                 ),
             ],
           ),
+        if (a.followUps.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final q in a.followUps)
+              Semantics(
+                button: true,
+                label: q,
+                child: Material(
+                  color: AppTheme.cardBg,
+                  shape: StadiumBorder(
+                      side: BorderSide(
+                          color: AppTheme.primary.withValues(alpha: 0.5))),
+                  child: InkWell(
+                    customBorder: const StadiumBorder(),
+                    onTap: () => onAsk(q),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 7),
+                      child: Text(q,
+                          style: const TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.primary,
+                              fontWeight: FontWeight.w500)),
+                    ),
+                  ),
+                ),
+              ),
+          ]),
+        ],
       ];
+}
+
+/// An answer that is typed out once when it arrives, then shown whole. Shown whole at once when the person has asked
+/// their device to reduce animation, and for any answer that has already been revealed.
+class _Reveal extends StatefulWidget {
+  final String text;
+  final TextStyle style;
+  final bool animate;
+  final VoidCallback onDone;
+  const _Reveal(
+      {required this.text,
+      required this.style,
+      required this.animate,
+      required this.onDone});
+
+  @override
+  State<_Reveal> createState() => _RevealState();
+}
+
+class _RevealState extends State<_Reveal> with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+  bool _started = false;
+  bool _instant = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // About 120 characters a second, never longer than 2.5 s.
+    final ms = (widget.text.length * 8).clamp(300, 2500);
+    _c = AnimationController(vsync: this, duration: Duration(milliseconds: ms));
+    _c.addStatusListener((s) {
+      if (s == AnimationStatus.completed) _done();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started || !widget.animate) return;
+    _started = true;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _instant = true;
+      _done();
+    } else {
+      _c.forward();
+    }
+  }
+
+  // Marking the answer as shown changes provider state, which is not allowed while a frame is being built.
+  void _done() => WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onDone();
+      });
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.animate || _instant || _c.isCompleted)
+      return SelectableText(widget.text, style: widget.style);
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (_, __) {
+        final n = (widget.text.length * _c.value).round();
+        return Text(widget.text.substring(0, n), style: widget.style);
+      },
+    );
+  }
 }

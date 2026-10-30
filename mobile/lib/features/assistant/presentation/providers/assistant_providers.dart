@@ -16,8 +16,13 @@ class ChatMessage {
   final String text;
   final AssistantAnswer? answer;
   final String? retryQuestion; // set on an error: the question to ask again
+  final bool
+      animate; // a new answer is revealed gradually once, then shown whole
   const ChatMessage(this.id, this.role, this.text,
-      {this.answer, this.retryQuestion});
+      {this.answer, this.retryQuestion, this.animate = false});
+
+  ChatMessage shown() =>
+      ChatMessage(id, role, text, answer: answer, retryQuestion: retryQuestion);
 }
 
 class ChatState {
@@ -95,7 +100,8 @@ class AssistantChat extends StateNotifier<ChatState> {
       if (!mounted) return;
       state = state.copyWith(messages: [
         ...state.messages,
-        ChatMessage(_next++, ChatRole.assistant, a.answer, answer: a)
+        ChatMessage(_next++, ChatRole.assistant, a.answer,
+            answer: a, animate: true)
       ], sending: false);
     } catch (e) {
       if (!mounted) return;
@@ -109,6 +115,13 @@ class AssistantChat extends StateNotifier<ChatState> {
         sending: false,
       );
     }
+  }
+
+  /// The answer has been revealed; from now on (scrolling back, rebuilding) it is drawn whole.
+  void markShown(int id) {
+    if (!state.messages.any((m) => m.id == id && m.animate)) return;
+    state = state.copyWith(
+        messages: [for (final m in state.messages) m.id == id ? m.shown() : m]);
   }
 
   void clear() {

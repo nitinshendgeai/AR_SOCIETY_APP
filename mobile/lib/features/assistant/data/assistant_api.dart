@@ -95,6 +95,7 @@ class AssistantAnswer {
   final List<String> steps;
   final List<AssistantSource> sources;
   final List<AssistantFinding> configGaps;
+  final List<String> followUps; // related questions from the same manuals
   final String? uncertainty;
   final String? escalation;
   final String providerStatus;
@@ -106,6 +107,7 @@ class AssistantAnswer {
     this.steps = const [],
     this.sources = const [],
     this.configGaps = const [],
+    this.followUps = const [],
     this.uncertainty,
     this.escalation,
     this.providerStatus = 'disabled',
@@ -128,6 +130,9 @@ class AssistantAnswer {
                 (m['topic'] ?? '').toString(),
                 (m['status'] ?? '').toString(),
                 (m['message'] ?? '').toString())),
+        followUps: [
+          for (final q in (j['follow_ups'] as List? ?? const [])) q.toString()
+        ],
         uncertainty: j['uncertainty']?.toString(),
         escalation: j['escalation']?.toString(),
         providerStatus: (j['provider']?['status'] ?? 'disabled').toString(),

@@ -53,6 +53,7 @@ class AskResponse(BaseModel):
     steps: List[str]
     sources: List[Source]
     config_gaps: List[Finding]
+    follow_ups: List[str] = Field(default_factory=list)      # related topics from the same manuals, as ready-to-ask questions
     uncertainty: Optional[str] = None
     escalation: Optional[str] = None
     provider: ProviderInfo
