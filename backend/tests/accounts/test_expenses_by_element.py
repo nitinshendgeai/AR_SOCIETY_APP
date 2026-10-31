@@ -44,18 +44,19 @@ def test_spend_adds_up_per_element_with_the_ledgers_behind_it(client, db):
     society, admin, manager, _ = _rig(db, "ee1")
     L = _ledgers(client, admin, society.id)
     _pay(client, admin, society.id, L, "security_charges", 30000, "bank")
-    _pay(client, admin, society.id, L, "cctv_maintenance", 1500)             # also counts towards Security
+    _pay(client, admin, society.id, L, "cctv_maintenance", 1500)             # counts towards its own CCTV element
     _pay(client, admin, society.id, L, "electricity", 8450, "bank")
     r = _report(client, admin, society.id)
     els = _by_name(r)
-    security = next(e for n, e in els.items() if "Security" in n)
-    assert security["total"] == "31500.00"
+    security = els["Security Services"]
+    assert security["total"] == "30000.00"
     assert {l["name"]: l["amount"] for l in security["ledgers"]}["Security Charges"] == "30000.00"
-    assert len(security["ledgers"]) >= 2
+    assert els["CCTV & Security Systems"]["total"] == "1500.00"
+    assert len(els["Common Electricity"]["ledgers"]) >= 1
     electricity = next(e for n, e in els.items() if "Electricity" in n)
     assert electricity["total"] == "8450.00"
     assert r["linked_total"] == "39950.00" and r["unlinked_total"] == "0.00" and r["total"] == "39950.00"
-    assert [e["total"] for e in r["elements"]][:2] == ["31500.00", "8450.00"]       # biggest first
+    assert [e["total"] for e in r["elements"]][:2] == ["30000.00", "8450.00"]       # biggest first
 
 
 def test_an_element_with_nothing_recorded_this_month_still_shows_at_zero(client, db):

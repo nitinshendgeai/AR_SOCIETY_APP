@@ -47,7 +47,9 @@ def test_standard_expense_ledgers_come_linked_to_their_elements(client, db):
     ledgers = _ledgers(client, admin, society.id)
     security = _element(client, manager, society.id, "security")
     assert ledgers["security_charges"]["maintenance_element_id"] == security["id"]
-    assert ledgers["cctv_maintenance"]["maintenance_element_name"] == security["name"]
+    for ledger, code in (("cctv_maintenance", "cctv"), ("pest_control", "pest_control"),
+                         ("fire_safety", "fire_safety"), ("lift_maintenance", "lift_maintenance")):
+        assert ledgers[ledger]["maintenance_element_id"] == _element(client, manager, society.id, code)["id"]
     assert ledgers["repairs_plumbing"]["maintenance_element_id"] is None
 
 
@@ -84,9 +86,12 @@ def test_a_relinked_ledger_moves_its_spend_to_the_new_element(client, db):
     security = _charge_from_element(client, manager, society.id, "security", default_amount="1")
     _bill(client, admin, society.id, "security", "12000.00", date.today())
     _bill(client, admin, society.id, "cctv", "6000.00", date.today())
+    cctv = _ledgers(client, admin, society.id)["cctv_maintenance"]
+    # CCTV has its own element by default; a society that wants it under Security re-links the ledger.
+    security_element = _element(client, manager, society.id, "security")
+    client.patch(f"{L}/{cctv['id']}", json={"maintenance_element_id": security_element["id"]}, headers=admin)
     s = client.get(f"{B}/charges/{society.id}/budget-suggestions", headers=manager).json()["suggestions"][0]
     assert s["spent"] == "18000.00"
-    cctv = _ledgers(client, admin, society.id)["cctv_maintenance"]
     client.patch(f"{L}/{cctv['id']}", json={"maintenance_element_id": None}, headers=admin)
     s = client.get(f"{B}/charges/{society.id}/budget-suggestions", headers=manager).json()
     assert s["suggestions"][0]["spent"] == "12000.00" and s["suggestions"][0]["charge_id"] == security["id"]

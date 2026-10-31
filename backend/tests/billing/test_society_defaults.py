@@ -30,7 +30,8 @@ def _assert_defaults(db, society_id):
     assert (by_code["sinking_fund"].default_basis.value, str(by_code["sinking_fund"].default_amount)) == \
         ("service_charge_pct", "0.25")
     assert {c for c, e in by_code.items() if e.is_service_charge} == {
-        "service_charges", "common_electricity", "lift_maintenance", "security", "housekeeping"}
+        "service_charges", "common_electricity", "lift_maintenance", "security", "housekeeping",
+        "fire_safety", "pest_control", "cctv"}
     ledgers = {a.system_key: a for a in db.query(Account).filter(Account.society_id == society_id,
                                                                  Account.system_key.isnot(None))}
     for key, code in LINKS.items():
