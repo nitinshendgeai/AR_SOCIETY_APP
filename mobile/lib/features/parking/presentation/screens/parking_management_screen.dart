@@ -103,7 +103,7 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
           : TabBarView(
               controller: _tab,
               children: [
-                _SlotsTab(societyId: societyId),
+                _SlotsTab(societyId: societyId, onAddZone: () => _showAddZoneDialog(context, societyId)),
                 _AllocationsTab(societyId: societyId),
                 _VehiclesTab(societyId: societyId),
                 ViolationsTab(societyId: societyId),
@@ -149,7 +149,7 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
       builder: (dialogContext) => AlertDialog(
         title: const Text('Add Parking Zone'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          FormFieldBox(label: 'Zone name (e.g. Basement)', child: TextField(controller: nameCtrl, autofocus: true,
+          FormFieldBox(label: 'Zone name (e.g. Tower Parking, Stack Parking)', child: TextField(controller: nameCtrl, autofocus: true,
               decoration: const InputDecoration())),
           const SizedBox(height: 10),
           FormFieldBox(label: 'Short code', child: TextField(controller: codeCtrl, decoration: const InputDecoration(hintText: 'Leave blank — made from the name'))),
@@ -236,7 +236,8 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
 
 class _SlotsTab extends ConsumerWidget {
   final String societyId;
-  const _SlotsTab({required this.societyId});
+  final VoidCallback onAddZone;
+  const _SlotsTab({required this.societyId, required this.onAddZone});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -268,10 +269,22 @@ class _SlotsTab extends ConsumerWidget {
           final slots = slotsAsync.valueOrNull ?? const <ParkingSlotEntity>[];
           return ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
-            itemCount: zones.length,
+            itemCount: zones.length + 1,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (_, i) {
-              final zone = zones[i];
+              // First row: add another zone (e.g. "Tower Parking", "Stack Parking") at any time.
+              if (i == 0) {
+                return Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('add-zone'),
+                    onPressed: onAddZone,
+                    icon: const Icon(Icons.add_location_alt_rounded, size: 18),
+                    label: const Text('Add Zone'),
+                  ),
+                );
+              }
+              final zone = zones[i - 1];
               final zoneSlots = slots.where((s) => s.zoneId == zone.id).toList();
               return _ZoneCard(zone: zone, slots: zoneSlots);
             },
