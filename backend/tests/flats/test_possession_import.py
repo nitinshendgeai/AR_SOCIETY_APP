@@ -88,3 +88,74 @@ def test_other_societies_flats_are_out_of_reach_and_residents_cannot_import(clie
     resident["user"].society_id = society.id
     db.commit()
     assert _post(client, resident["headers"], []).status_code == 403
+
+
+def _resident(db, society, flat, name="Owner", **kw):
+    from app.models.resident import Resident
+    r = Resident(flat_id=flat.id, full_name=name, **kw)
+    db.add(r)
+    db.commit()
+    return r
+
+
+def test_the_possession_date_is_also_the_move_in_of_the_flats_residents(client, db):
+    from datetime import timedelta
+    from app.models.flat import OccupancyStatus
+    society, h = _rig(db, "p5")
+    wing = make_wing(db, society.id, "Wing A")
+    flat = make_flat(db, wing.id, "101")
+    owner = _resident(db, society, flat)
+    family = _resident(db, society, flat, "Family")
+    moved = _resident(db, society, flat, "Already in", move_in_date=date(2024, 5, 5))
+    gone = _resident(db, society, flat, "Moved out", is_active=False)
+    assert flat.occupancy_status != OccupancyStatus.OWNER_OCCUPIED
+    r = _post(client, h, [{"wing": "Wing A", "flat_number": "101", "possession_date": "2025-01-29"}])
+    assert r.status_code == 200, r.text
+    row = r.json()[0]
+    assert row["status"] == "updated" and "2 residents marked as moved in on 29 Jan 2025" in row["message"]
+    for x in (owner, family, moved, gone, flat):
+        db.refresh(x)
+    assert owner.move_in_date == family.move_in_date == date(2025, 1, 29)
+    assert moved.move_in_date == date(2024, 5, 5)                     # a move-in already on record is kept
+    assert gone.move_in_date is None                                   # a deactivated resident is not moved in
+    assert flat.occupancy_status == OccupancyStatus.OWNER_OCCUPIED
+
+
+def test_sending_the_sheet_again_brings_earlier_imports_up_to_date_and_a_dry_run_writes_nothing(client, db):
+    from app.models.flat import OccupancyStatus
+    society, h = _rig(db, "p6")
+    wing = make_wing(db, society.id, "Wing A")
+    flat = make_flat(db, wing.id, "101")
+    flat.possession_date = date(2025, 1, 29)                         # imported earlier, before this rule existed
+    db.commit()
+    owner = _resident(db, society, flat)
+    dry = _post(client, h, [{"flat_number": "101", "possession_date": "2025-01-29"}], dry_run=True).json()[0]
+    assert dry["status"] == "updated" and "1 resident marked as moved in" in dry["message"]
+    db.refresh(owner)
+    assert owner.move_in_date is None
+    real = _post(client, h, [{"flat_number": "101", "possession_date": "2025-01-29"}]).json()[0]
+    assert real["status"] == "updated"
+    db.refresh(owner); db.refresh(flat)
+    assert owner.move_in_date == date(2025, 1, 29) and flat.occupancy_status == OccupancyStatus.OWNER_OCCUPIED
+    again = _post(client, h, [{"flat_number": "101", "possession_date": "2025-01-29"}]).json()[0]
+    assert again["status"] == "unchanged"                              # nothing left to do
+
+
+def test_a_let_out_flat_or_a_future_possession_date_moves_nobody_in(client, db):
+    from datetime import timedelta
+    from app.models.flat import OccupancyStatus
+    from app.models.tenant import Tenant
+    society, h = _rig(db, "p7")
+    wing = make_wing(db, society.id, "Wing A")
+    let_out, future = make_flat(db, wing.id, "101"), make_flat(db, wing.id, "102")
+    owner_a, owner_b = _resident(db, society, let_out), _resident(db, society, future)
+    db.add(Tenant(flat_id=let_out.id, full_name="Tenant"))
+    db.commit()
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    r = _post(client, h, [{"flat_number": "101", "possession_date": "2025-01-29"},
+                          {"flat_number": "102", "possession_date": tomorrow}]).json()
+    assert "has a tenant" in r[0]["message"] and "in the future" in r[1]["message"]
+    for x in (owner_a, owner_b, let_out, future):
+        db.refresh(x)
+    assert owner_a.move_in_date is None and owner_b.move_in_date is None
+    assert future.occupancy_status != OccupancyStatus.OWNER_OCCUPIED
