@@ -158,12 +158,25 @@ class ParkingManagementNotifier extends StateNotifier<ParkingActionState> {
     required String societyId,
     required String name,
     String? code,
+    double? monthlyRate,
   }) async {
     state = ParkingActionLoading();
-    final result = await _repo.createZone(societyId: societyId, name: name, code: code);
+    final result = await _repo.createZone(societyId: societyId, name: name, code: code, monthlyRate: monthlyRate);
     switch (result) {
       case ParkingSuccess():
         state = ParkingActionSuccess('Zone created');
+        _ref.invalidate(parkingZonesProvider(societyId));
+      case ParkingFailure(:final message):
+        state = ParkingActionError(message);
+    }
+  }
+
+  Future<void> setZoneRate({required String societyId, required String zoneId, double? monthlyRate}) async {
+    state = ParkingActionLoading();
+    final result = await _repo.updateZoneRate(zoneId: zoneId, monthlyRate: monthlyRate);
+    switch (result) {
+      case ParkingSuccess():
+        state = ParkingActionSuccess(monthlyRate == null ? 'Zone rate cleared' : 'Zone rate saved');
         _ref.invalidate(parkingZonesProvider(societyId));
       case ParkingFailure(:final message):
         state = ParkingActionError(message);

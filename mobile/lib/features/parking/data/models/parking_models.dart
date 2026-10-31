@@ -107,6 +107,7 @@ class ParkingZoneModel {
   final String name;
   final String? code;
   final int totalSlots;
+  final double? monthlyRate;
 
   const ParkingZoneModel({
     required this.id,
@@ -114,6 +115,7 @@ class ParkingZoneModel {
     required this.name,
     this.code,
     required this.totalSlots,
+    this.monthlyRate,
   });
 
   factory ParkingZoneModel.fromJson(Map<String, dynamic> j) => ParkingZoneModel(
@@ -122,10 +124,11 @@ class ParkingZoneModel {
         name: j['name'] as String,
         code: j['code'] as String?,
         totalSlots: j['total_slots'] as int? ?? 0,
+        monthlyRate: j['monthly_rate'] == null ? null : double.tryParse(j['monthly_rate'].toString()),
       );
 
   ParkingZoneEntity toEntity() => ParkingZoneEntity(
-        id: id, societyId: societyId, name: name, code: code, totalSlots: totalSlots,
+        id: id, societyId: societyId, name: name, code: code, totalSlots: totalSlots, monthlyRate: monthlyRate,
       );
 }
 

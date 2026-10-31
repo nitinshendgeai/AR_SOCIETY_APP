@@ -94,3 +94,83 @@ def test_the_rate_is_only_for_a_parking_head_and_can_be_changed_and_cleared(clie
     r = client.patch(f"{B}/charges/{head['id']}", headers=h, json={"basis": "fixed"})
     assert r.status_code == 200 and r.json()["two_wheeler_rate"] is None
     assert client.patch(f"{B}/charges/{head['id']}", headers=h, json={"two_wheeler_rate": "90"}).status_code == 422
+
+
+def test_a_zone_rate_prices_its_four_wheeler_slots(client, db):
+    """Tower and Stack zones carry their own monthly rate; a slot's own charge still wins, two-wheelers keep theirs,
+    and a zone without a rate falls back to the head's rate."""
+    from decimal import Decimal
+    society, flats, h, tower = _rig_slots(db, "zr1")
+    tower.monthly_rate = Decimal("800")
+    stack = ParkingZone(society_id=society.id, name="Stack", monthly_rate=Decimal("300"))
+    plain = ParkingZone(society_id=society.id, name="Open")
+    db.add_all([stack, plain])
+    db.flush()
+    _slot(db, society, tower, flats[0], "T1", VehicleType.CAR)
+    _slot(db, society, stack, flats[0], "S1", VehicleType.CAR)
+    _slot(db, society, tower, flats[0], "T2", VehicleType.CAR, own_charge=1000)      # its own charge wins
+    _slot(db, society, plain, flats[0], "O1", VehicleType.CAR)                       # no zone rate: head's rate
+    _slot(db, society, tower, flats[0], "B1", VehicleType.MOTORCYCLE)                # two-wheeler: head's own rate
+    db.commit()
+    _charge(client, h, society.id, "Parking", "parking", "500", charge_type="parking", two_wheeler_rate="150")
+    lines = _lines(_preview(client, h, _cycle(client, h, society.id)))
+    assert lines == {"Parking — cars": "2600.00",                    # 800 + 300 + 1000 + 500
+                     "Parking — two-wheelers": "150.00"}
+
+
+def test_zone_rate_can_be_set_and_cleared_through_the_api(client, db):
+    from tests.parking.test_parking import _create_zone
+    from tests.conftest import make_society, make_user
+    admin = make_user(db, "adm@zr.com", role="Society Admin")
+    society = make_society(db, "Zone Rate Society")
+    z = _create_zone(client, admin["headers"], society.id, "Tower Parking").json()
+    assert z["monthly_rate"] is None
+    r = client.patch(f"/api/v1/parking/zones/{z['id']}", json={"monthly_rate": "750"}, headers=admin["headers"])
+    assert r.status_code == 200 and r.json()["monthly_rate"] == "750.00"
+    r = client.patch(f"/api/v1/parking/zones/{z['id']}", json={"monthly_rate": None}, headers=admin["headers"])
+    assert r.status_code == 200 and r.json()["monthly_rate"] is None
+    r = client.patch(f"/api/v1/parking/zones/{z['id']}", json={"monthly_rate": "-5"}, headers=admin["headers"])
+    assert r.status_code == 422
+
+
+def _bike(db, society, flat, number, vehicle_type=VehicleType.MOTORCYCLE, active=True):
+    db.add(Vehicle(society_id=society.id, flat_id=flat.id, vehicle_number=f"MH14{number}", vehicle_type=vehicle_type,
+                   is_active=active))
+
+
+def test_a_registered_two_wheeler_without_a_slot_pays_the_fixed_rate_once_per_flat(client, db):
+    society, flats, h, zone = _rig_slots(db, "tw7")
+    _bike(db, society, flats[0], "0001")
+    _bike(db, society, flats[0], "0002", VehicleType.SCOOTER)          # a second one: still once for the flat
+    db.commit()
+    _charge(client, h, society.id, "Parking", "parking", "500", charge_type="parking", two_wheeler_rate="150")
+    p = _preview(client, h, _cycle(client, h, society.id))
+    assert [f["flat_label"] for f in p["flats"]] == ["A / 101"]       # the other flat has no vehicle: nothing to bill
+    assert _lines(p) == {"Parking — two-wheelers": "150.00"}      # no car line when nothing is owed for cars
+    assert p["flats"][0]["total"] == "150.00"
+
+
+def test_a_two_wheeler_that_holds_a_slot_is_not_charged_twice_and_a_car_slot_is_charged_beside_it(client, db):
+    society, flats, h, zone = _rig_slots(db, "tw8")
+    _slot(db, society, zone, flats[0], "B1", VehicleType.MOTORCYCLE)   # its allotted slot: charged through the slot
+    _slot(db, society, zone, flats[0], "C1", VehicleType.CAR)
+    _bike(db, society, flats[1], "0003")                               # flat 2: a bike with no slot
+    _slot(db, society, zone, flats[1], "C2", VehicleType.CAR)
+    db.commit()
+    _charge(client, h, society.id, "Parking", "parking", "500", charge_type="parking", two_wheeler_rate="150")
+    p = _preview(client, h, _cycle(client, h, society.id))
+    assert _lines(p, 0) == {"Parking — cars": "500.00", "Parking — two-wheelers": "150.00"}
+    assert _lines(p, 1) == {"Parking — cars": "500.00", "Parking — two-wheelers": "150.00"}
+
+
+def test_inactive_vehicles_cars_and_heads_without_a_two_wheeler_rate_add_nothing(client, db):
+    society, flats, h, zone = _rig_slots(db, "tw9")
+    _bike(db, society, flats[0], "0004", active=False)                 # deregistered bike
+    _bike(db, society, flats[0], "0005", VehicleType.CAR)              # a car on file, no slot
+    _bike(db, society, flats[1], "0006")                               # a bike, but the head has no two-wheeler rate
+    _slot(db, society, zone, flats[1], "C3", VehicleType.CAR)
+    db.commit()
+    _charge(client, h, society.id, "Parking", "parking", "500", charge_type="parking")
+    p = _preview(client, h, _cycle(client, h, society.id))
+    assert [f["flat_label"] for f in p["flats"]] == ["A / 201"]
+    assert _lines(p) == {"Parking": "500.00"}

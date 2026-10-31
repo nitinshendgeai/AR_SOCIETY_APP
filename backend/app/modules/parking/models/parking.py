@@ -5,7 +5,7 @@ Hierarchy:  Society → ParkingZone → ParkingFloor → ParkingSlot
 Workflows:  Slot Allocation, Visitor Parking, Violation Tracking, Access Logs
 """
 import enum
-from sqlalchemy import Column, String, Text, Integer, Boolean, DateTime, Date, Enum, ForeignKey
+from sqlalchemy import Column, String, Text, Integer, Numeric, Boolean, DateTime, Date, Enum, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.db.base import Base, TimestampMixin
@@ -77,6 +77,8 @@ class ParkingZone(Base, TimestampMixin):
     code        = Column(String(20), nullable=True)        # "B1", "OA"
     description = Column(Text, nullable=True)
     total_slots = Column(Integer, default=0, nullable=False)
+    # Monthly charge for one four-wheeler slot in this zone (e.g. Tower, Stack). None = the parking charge head's rate.
+    monthly_rate = Column(Numeric(10, 2), nullable=True)
 
     society = relationship("Society")
     floors  = relationship("ParkingFloor", back_populates="zone", cascade="all, delete-orphan")

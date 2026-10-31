@@ -103,7 +103,7 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
           : TabBarView(
               controller: _tab,
               children: [
-                _SlotsTab(societyId: societyId),
+                _SlotsTab(societyId: societyId, onAddZone: () => _showAddZoneDialog(context, societyId)),
                 _AllocationsTab(societyId: societyId),
                 _VehiclesTab(societyId: societyId),
                 ViolationsTab(societyId: societyId),
@@ -144,15 +144,20 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
   Future<void> _showAddZoneDialog(BuildContext context, String societyId) async {
     final nameCtrl = TextEditingController();
     final codeCtrl = TextEditingController();
+    final rateCtrl = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Add Parking Zone'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          FormFieldBox(label: 'Zone name (e.g. Basement)', child: TextField(controller: nameCtrl, autofocus: true,
+          FormFieldBox(label: 'Zone name (e.g. Tower Parking, Stack Parking)', child: TextField(controller: nameCtrl, autofocus: true,
               decoration: const InputDecoration())),
           const SizedBox(height: 10),
           FormFieldBox(label: 'Short code', child: TextField(controller: codeCtrl, decoration: const InputDecoration(hintText: 'Leave blank — made from the name'))),
+          const SizedBox(height: 10),
+          FormFieldBox(label: 'Monthly rate per car slot (₹)', child: TextField(controller: rateCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(hintText: 'Optional — blank uses the parking charge rate'))),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
@@ -164,10 +169,16 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
       if (context.mounted) AppToast.error(context, 'Enter a zone name');
       return;
     }
+    final rate = rateCtrl.text.trim().isEmpty ? null : double.tryParse(rateCtrl.text.trim());
+    if (ok == true && rateCtrl.text.trim().isNotEmpty && (rate == null || rate < 0)) {
+      if (context.mounted) AppToast.error(context, 'Enter a valid rate');
+      return;
+    }
     if (ok == true) {
       ref.read(parkingManagementProvider.notifier).createZone(
             societyId: societyId, name: nameCtrl.text.trim(),
             code: codeCtrl.text.trim().isEmpty ? null : codeCtrl.text.trim(),
+            monthlyRate: rate,
           );
     }
   }
@@ -236,7 +247,8 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
 
 class _SlotsTab extends ConsumerWidget {
   final String societyId;
-  const _SlotsTab({required this.societyId});
+  final VoidCallback onAddZone;
+  const _SlotsTab({required this.societyId, required this.onAddZone});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -268,12 +280,24 @@ class _SlotsTab extends ConsumerWidget {
           final slots = slotsAsync.valueOrNull ?? const <ParkingSlotEntity>[];
           return ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
-            itemCount: zones.length,
+            itemCount: zones.length + 1,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (_, i) {
-              final zone = zones[i];
+              // First row: add another zone (e.g. "Tower Parking", "Stack Parking") at any time.
+              if (i == 0) {
+                return Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('add-zone'),
+                    onPressed: onAddZone,
+                    icon: const Icon(Icons.add_location_alt_rounded, size: 18),
+                    label: const Text('Add Zone'),
+                  ),
+                );
+              }
+              final zone = zones[i - 1];
               final zoneSlots = slots.where((s) => s.zoneId == zone.id).toList();
-              return _ZoneCard(zone: zone, slots: zoneSlots);
+              return _ZoneCard(zone: zone, slots: zoneSlots, onEditRate: () => _editZoneRate(context, ref, societyId, zone));
             },
           );
         },
@@ -282,10 +306,43 @@ class _SlotsTab extends ConsumerWidget {
   }
 }
 
+/// Set or clear a zone's monthly rate for one car slot (what billing charges for its allotted slots).
+Future<void> _editZoneRate(BuildContext context, WidgetRef ref, String societyId, ParkingZoneEntity zone) async {
+  final ctrl = TextEditingController(text: zone.monthlyRate == null ? '' : zone.monthlyRate!.toStringAsFixed(2));
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text('${zone.name} rate'),
+      content: FormFieldBox(
+        label: 'Monthly rate per car slot (₹)',
+        child: TextField(
+          key: const ValueKey('zone-rate-field'),
+          controller: ctrl, autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(hintText: 'Blank = use the parking charge rate'),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+        ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Save')),
+      ],
+    ),
+  );
+  if (ok != true) return;
+  final text = ctrl.text.trim();
+  final rate = text.isEmpty ? null : double.tryParse(text);
+  if (text.isNotEmpty && (rate == null || rate < 0)) {
+    if (context.mounted) AppToast.error(context, 'Enter a valid rate');
+    return;
+  }
+  ref.read(parkingManagementProvider.notifier).setZoneRate(societyId: societyId, zoneId: zone.id, monthlyRate: rate);
+}
+
 class _ZoneCard extends StatelessWidget {
   final ParkingZoneEntity zone;
   final List<ParkingSlotEntity> slots;
-  const _ZoneCard({required this.zone, required this.slots});
+  final VoidCallback onEditRate;
+  const _ZoneCard({required this.zone, required this.slots, required this.onEditRate});
 
   @override
   Widget build(BuildContext context) {
@@ -301,6 +358,24 @@ class _ZoneCard extends StatelessWidget {
             Text('${slots.length} slot${slots.length == 1 ? '' : 's'}',
                 style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ]),
+          const SizedBox(height: 4),
+          InkWell(
+            key: ValueKey('zone-rate-${zone.id}'),
+            onTap: onEditRate,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(
+                  zone.monthlyRate == null
+                      ? 'Rate: parking charge rate'
+                      : 'Rate: ₹${zone.monthlyRate!.toStringAsFixed(zone.monthlyRate! % 1 == 0 ? 0 : 2)} / car slot / month',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.primary, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.edit_rounded, size: 14, color: AppTheme.primary),
+              ]),
+            ),
+          ),
           if (slots.isNotEmpty) ...[
             const SizedBox(height: 10),
             Wrap(

@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from uuid import UUID
 from datetime import date, datetime
+from decimal import Decimal
 from app.schemas.common import OrmBase, TimestampSchema
 from app.modules.parking.models.parking import (
     SlotType, SlotStatus, AllocationStatus, VisitorParkingStatus,
@@ -13,10 +14,16 @@ from app.utils.vehicle_number import normalize_vehicle_number
 class ZoneCreate(OrmBase):
     society_id: UUID; name: str; code: Optional[str] = None
     description: Optional[str] = None
+    monthly_rate: Optional[Decimal] = Field(default=None, ge=0, le=Decimal("99999999.99"))
+
+class ZoneUpdate(OrmBase):
+    """Only the rate can change today. `monthly_rate: null` clears it (the charge head's rate applies again)."""
+    monthly_rate: Optional[Decimal] = Field(default=None, ge=0, le=Decimal("99999999.99"))
 
 class ZoneOut(TimestampSchema):
     society_id: UUID; name: str; code: Optional[str]
     description: Optional[str]; total_slots: int
+    monthly_rate: Optional[Decimal] = None
 
 
 class FloorCreate(OrmBase):
