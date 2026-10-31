@@ -1097,6 +1097,16 @@ class MaintenanceBillingApi {
     return Uint8List.fromList(r.data!);
   }
 
+  /// Every bill of a cycle as its own PDF in one ZIP, each named Wing_Flat_Month_Year.pdf (cancelled bills left out).
+  Future<Uint8List> cycleBillsZip(String cycleId, {bool withReceipts = true}) async {
+    final r = await _dio.get<List<int>>(
+      '/billing/cycles/$cycleId/bills.zip',
+      queryParameters: {if (!withReceipts) 'with_receipts': false},
+      options: Options(responseType: ResponseType.bytes),
+    );
+    return Uint8List.fromList(r.data!);
+  }
+
   Future<Uint8List> billPdf(String billId, {bool withReceipts = true}) async {
     final r = await _dio.get<List<int>>(
       '/billing/bills/$billId/pdf',

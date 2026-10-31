@@ -12,6 +12,7 @@ import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 import 'package:ar_society_app/shared/widgets/app_form.dart';
+import 'package:ar_society_app/shared/utils/file_saver.dart' show saveFileBytes;
 
 enum _BillFilter { all, unpaid, overdue, paid, notIssued }
 
@@ -28,6 +29,7 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
   _BillFilter _filter = _BillFilter.all;
   String _search = '';
   bool _busy = false;
+  bool _zipping = false; // the ZIP of every bill is being made
   bool _withReceipts = true; // print each bill with the receipts towards the previous one
 
   void _refresh() => invalidateCycle(ref, widget.societyId, widget.cycleId);
@@ -107,6 +109,24 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
     }
   }
 
+  /// Every bill as its own PDF in one ZIP, each named Wing_Flat_Month_Year.pdf.
+  Future<void> _downloadZip(BillingCycle cycle) async {
+    setState(() => _zipping = true);
+    try {
+      final bytes = await ref
+          .read(maintenanceBillingApiProvider)
+          .cycleBillsZip(widget.cycleId, withReceipts: _withReceipts);
+      final name = 'Bills-${cycle.name.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')}.zip';
+      if (await saveFileBytes(bytes, name, mimeType: 'application/zip') && mounted) {
+        AppToast.success(context, '$name downloaded');
+      }
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    } finally {
+      if (mounted) setState(() => _zipping = false);
+    }
+  }
+
   bool _matches(MaintenanceBill b) {
     final passes = switch (_filter) {
       _BillFilter.all => true,
@@ -149,6 +169,22 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
               subject: 'Maintenance bills — ${cycle.name}',
               downloadLabel: 'Print all bills',
             ),
+            // One PDF per bill, named Wing_Flat_Month_Year.pdf, in a ZIP.
+            if (desktop)
+              AppBarTextAction(
+                icon: Icons.folder_zip_rounded,
+                label: 'Download ZIP',
+                onPressed: _zipping ? null : () => _downloadZip(cycle),
+              )
+            else
+              IconButton(
+                key: const Key('bills-zip'),
+                tooltip: 'Download every bill as a ZIP (Wing_Flat_Month_Year.pdf)',
+                icon: _zipping
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.folder_zip_rounded),
+                onPressed: _zipping ? null : () => _downloadZip(cycle),
+              ),
           ],
           if (desktop && cycle != null && cycle.canRegenerate)
             AppBarTextAction(

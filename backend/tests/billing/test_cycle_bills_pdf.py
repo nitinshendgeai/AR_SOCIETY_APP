@@ -66,3 +66,49 @@ def test_residents_and_other_societies_cannot_print_the_cycle(client, db):
 def test_flats_sort_as_people_expect():
     order = sorted(["1001", "101", "2A", "10", "102", "2", "B-1"], key=_flat_sort_key)
     assert order == ["2", "2A", "10", "101", "102", "1001", "B-1"]
+
+
+def test_the_bills_come_as_a_zip_of_pdfs_named_wing_flat_month_year(client, db):
+    import io
+    import zipfile
+    society, flat1, flat2, manager, resident, other, cycle_id = _generated_cycle(client, db, "zip1")
+    r = client.get(f"{B}/cycles/{cycle_id}/bills.zip", headers=manager["headers"])
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"] == "application/zip" and r.headers["x-bill-count"] == "2"
+    assert "attachment" in r.headers["content-disposition"] and ".zip" in r.headers["content-disposition"]
+    z = zipfile.ZipFile(io.BytesIO(r.content))
+    names = z.namelist()
+    assert len(names) == 2 and len(set(names)) == 2
+    cycle = client.get(f"{B}/cycles/{cycle_id}", headers=manager["headers"]).json()
+    bills = client.get(f"{B}/cycles/{cycle_id}/bills", headers=manager["headers"]).json()
+    for b in bills:
+        wing = "".join(c if c.isalnum() or c == "-" else "-" for c in b["wing_name"]).strip("-")
+        flat = "".join(c if c.isalnum() or c == "-" else "-" for c in b["flat_number"]).strip("-")
+        expected = [n for n in names if n.startswith(f"{wing}_{flat}_")]
+        assert len(expected) == 1, (names, wing, flat)
+        month_year = expected[0][len(f"{wing}_{flat}_"):-len(".pdf")]
+        month, year = month_year.split("_")
+        assert month.isalpha() and year.isdigit() and len(year) == 4
+    for n in names:
+        assert n.endswith(".pdf") and z.read(n).startswith(b"%PDF")
+        assert _pages(z.read(n)) >= 1
+
+
+def test_the_zip_follows_the_same_selection_and_access_rules_as_the_pdf(client, db):
+    society, flat1, flat2, manager, resident, other, cycle_id = _generated_cycle(client, db, "zip2")
+    url = f"{B}/cycles/{cycle_id}/bills.zip"
+    assert client.get(url, headers=manager["headers"], params={"status": "issued"}).status_code == 404
+    assert client.get(url, headers=manager["headers"], params={"status": "nonsense"}).status_code == 400
+    assert client.get(url, headers=manager["headers"], params={"wing_id": str(uuid.uuid4())}).status_code == 404
+    assert client.get(url, headers=resident["headers"]).status_code == 403
+
+
+def test_bill_file_names_are_wing_flat_month_year(db):
+    from datetime import date
+    from types import SimpleNamespace
+    from app.modules.billing.services.billing_service import BillingService
+    cycle = SimpleNamespace(cycle_start=date(2026, 10, 1))
+    bill = SimpleNamespace(flat=SimpleNamespace(flat_number="1001", wing=SimpleNamespace(name="A Wing")))
+    assert BillingService.bill_file_name(bill, cycle) == "A-Wing_1001_October_2026.pdf"
+    odd = SimpleNamespace(flat=SimpleNamespace(flat_number="B/12 ", wing=SimpleNamespace(name="Tower 2")))
+    assert BillingService.bill_file_name(odd, cycle) == "Tower-2_B-12_October_2026.pdf"

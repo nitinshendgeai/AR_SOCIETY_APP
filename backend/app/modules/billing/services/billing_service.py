@@ -1025,11 +1025,10 @@ class BillingService:
         return generate_maintenance_bill_pdf(bill, self.get_maintenance_settings(bill.society_id),
                                              **self._bill_print_context(bill, with_receipts=with_receipts))
 
-    def generate_cycle_bills_pdf(self, cycle_id: UUID, wing_id: Optional[UUID] = None,
-                                 status: Optional[str] = None, with_receipts: bool = True) -> tuple:
-        """Every bill of a cycle in one PDF, a bill to a page (more where a bill runs on), flat by flat in wing
-        order — what a society prints and hands round. Cancelled bills are left out unless asked for with `status`.
-        Returns (pdf bytes, number of bills)."""
+    def _cycle_print_items(self, cycle_id: UUID, wing_id: Optional[UUID], status: Optional[str],
+                           with_receipts: bool) -> tuple:
+        """The bills of a cycle to print, in wing and flat order, each with its print context: (cycle, items).
+        Cancelled bills are left out unless asked for with `status`."""
         cycle = self.get_cycle(cycle_id)
         bills = self.list_cycle_bills(cycle_id)
         if status:
@@ -1051,9 +1050,50 @@ class BillingService:
         names = self._element_names(cycle.society_id)
         items = [{"bill": b, "settings": settings, **self._bill_print_context(b, heads, with_receipts, names)}
                  for b in bills]
-        society = bills[0].society
+        return cycle, items
+
+    def generate_cycle_bills_pdf(self, cycle_id: UUID, wing_id: Optional[UUID] = None,
+                                 status: Optional[str] = None, with_receipts: bool = True) -> tuple:
+        """Every bill of a cycle in one PDF, a bill to a page (more where a bill runs on), flat by flat in wing
+        order — what a society prints and hands round. Cancelled bills are left out unless asked for with `status`.
+        Returns (pdf bytes, number of bills)."""
+        cycle, items = self._cycle_print_items(cycle_id, wing_id, status, with_receipts)
+        society = items[0]["bill"].society
         author = (society.name if society else None) or "Society"
-        return generate_bills_pdf(items, title=f"Maintenance bills — {cycle.name}", author=author), len(bills)
+        return generate_bills_pdf(items, title=f"Maintenance bills — {cycle.name}", author=author), len(items)
+
+    @staticmethod
+    def bill_file_name(bill: MaintenanceBill, cycle: BillingCycle) -> str:
+        """Wing_Flat_Month_Year.pdf for a bill (the month and year the cycle starts in), e.g. A-Wing_1001_October_2026.pdf.
+        Anything but letters, digits and dashes inside a part becomes a dash."""
+        def clean(text) -> str:
+            return "".join(c if c.isalnum() or c == "-" else "-" for c in str(text or "").strip()).strip("-") or "x"
+        wing = bill.flat.wing.name if bill.flat and bill.flat.wing else "Wing"
+        flat = bill.flat.flat_number if bill.flat else "Flat"
+        return f"{clean(wing)}_{clean(flat)}_{cycle.cycle_start:%B}_{cycle.cycle_start:%Y}.pdf"
+
+    def generate_cycle_bills_zip(self, cycle_id: UUID, wing_id: Optional[UUID] = None,
+                                 status: Optional[str] = None, with_receipts: bool = True) -> tuple:
+        """Every bill of a cycle as its own PDF inside one ZIP, each named Wing_Flat_Month_Year.pdf. Same selection
+        as the one-PDF print. Returns (zip bytes, number of bills)."""
+        import zipfile
+        from io import BytesIO
+        cycle, items = self._cycle_print_items(cycle_id, wing_id, status, with_receipts)
+        society = items[0]["bill"].society
+        author = (society.name if society else None) or "Society"
+        buf = BytesIO()
+        used: dict = {}
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for item in items:
+                name = self.bill_file_name(item["bill"], cycle)
+                n = used.get(name, 0)
+                used[name] = n + 1
+                if n:                                           # a flat with two bills in the selection: keep both
+                    name = f"{name[:-4]}_{n + 1}.pdf"
+                pdf = generate_bills_pdf([item], title=f"Maintenance bill — {item['bill'].invoice_number}",
+                                         author=author)
+                zf.writestr(name, pdf)
+        return buf.getvalue(), len(items)
 
     def _element_heads(self, society_id: UUID) -> dict:
         """{charge head name: standard element code} for a society."""
