@@ -74,6 +74,14 @@ def test_suggests_amounts_per_basis_from_recent_vendor_bills(client, db):
     _bill(client, admin, society.id, "plumbing", "5000.00", today)
     _bill(client, admin, society.id, "security", "99999.00", months_back(today, 14))  # outside the window
 
+    # CCTV has its own element by default; this society counts it under Security.
+    ledgers = {a["system_key"]: a for a in client.get(f"/api/v1/accounts/ledgers/{society.id}", headers=admin).json()}
+    security_element = next(e for e in client.get(f"/api/v1/billing/elements/{society.id}", headers=manager).json()
+                            if e["code"] == "security")
+    r = client.patch(f"/api/v1/accounts/ledgers/{ledgers['cctv_maintenance']['id']}",
+                     json={"maintenance_element_id": security_element["id"]}, headers=admin)
+    assert r.status_code == 200, r.text
+
     body = _suggestions(client, manager, society.id)
     assert body["months_covered"] == 3
     assert body["flat_count"] == 3

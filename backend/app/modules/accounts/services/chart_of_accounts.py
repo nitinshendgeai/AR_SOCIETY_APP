@@ -117,6 +117,7 @@ STANDARD_LEDGERS = [
     ("maintenance_expenses", "cctv_maintenance", "4109", "CCTV & Security Systems Maintenance", {}),
     ("maintenance_expenses", "generator_maintenance", "4110", "Generator (DG Set) Maintenance", {}),
     ("maintenance_expenses", "repairs_general", "4111", "Repairs & Maintenance — General", {}),
+    ("maintenance_expenses", "fire_safety", "4112", "Fire Safety & Fire Fighting (AMC)", {}),
     ("utility_expenses", "electricity", "4201", "Electricity Charges (Common Areas)", {}),
     ("utility_expenses", "water_charges", "4202", "Water Charges", {}),
     ("utility_expenses", "property_tax", "4203", "Property Tax", {}),
@@ -137,6 +138,9 @@ ELEMENT_LEDGER = {
     "lift_maintenance": "service_charges",
     "security": "service_charges",
     "housekeeping": "service_charges",
+    "fire_safety": "service_charges",
+    "pest_control": "service_charges",
+    "cctv": "service_charges",
     "property_tax": "property_tax_recovered",
     "water_charges": "water_recovered",
     "common_electricity": "electricity_recovered",
@@ -185,10 +189,11 @@ VENDOR_CATEGORY_LEDGER = {
 # committee can change or clear any link afterwards.
 DEFAULT_ELEMENT_LINKS = {
     "security_charges": "security",
-    "cctv_maintenance": "security",
+    "cctv_maintenance": "cctv",
     "housekeeping": "housekeeping",
     "garden": "housekeeping",
-    "pest_control": "housekeeping",
+    "pest_control": "pest_control",
+    "fire_safety": "fire_safety",
     "lift_maintenance": "lift_maintenance",
     "electricity": "common_electricity",
     "generator_maintenance": "common_electricity",
@@ -301,7 +306,6 @@ def seed_chart_of_accounts(db: Session, society_id, bank_settings=None) -> Dict[
     # The elements the ledgers count towards are the standard ones; make sure they exist (this links every unlinked standard ledger).
     from app.modules.billing.models.billing import MaintenanceElement
     from app.modules.billing.services.standard_elements import seed_standard_elements
-    if not db.query(MaintenanceElement.id).filter(MaintenanceElement.society_id == society_id).first():
-        seed_standard_elements(db, society_id)
+    seed_standard_elements(db, society_id)
     link_default_elements(db, society_id, {k: a for k, a in accounts.items() if k in created})
     return accounts
