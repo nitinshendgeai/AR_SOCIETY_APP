@@ -155,3 +155,19 @@ def test_printed_documents(client, db):
         "voucher_date": "2026-09-15", "reason": "Not mine to change", "entries": [
             {"account_id": L["electricity"]["id"], "debit": "1"},
             {"account_id": L["bank"]["id"], "credit": "1"}]}, headers=rh).status_code == 403
+
+
+def test_voucher_pdf_prints_dates_as_dd_mmm_yyyy():
+    import re
+    from types import SimpleNamespace
+    from app.modules.accounts.services.documents_pdf import render_voucher_pdf
+    v = {"voucher_number": "RV/2026-27/0006", "voucher_type": "receipt", "voucher_type_label": "Receipt",
+         "voucher_date": "2026-04-09", "amount": "15000", "narration": "", "reference": "",
+         "edited_at": "2026-04-10T10:00:00", "revisions": [],
+         "entries": [{"account_name": "Bank Account", "debit": "15000", "credit": "0"},
+                     {"account_name": "Advance Maintenance", "debit": "0", "credit": "15000"}]}
+    society = SimpleNamespace(name="S", address="", city="", state="", pincode="", registration_number="",
+                              gst_number="", pan_number="")
+    pdf = render_voucher_pdf(v, society, compress=False)
+    text = " ".join(" ".join(r.decode("latin1") for r in re.findall(rb"\((.*?)\) Tj", pdf)).split())
+    assert "Date: 09-Apr-2026" in text and "Revised on 10-Apr-2026" in text

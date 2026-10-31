@@ -70,11 +70,11 @@ def _drcr(v) -> str:
     return f"{_inr(abs(d))} {'Dr' if d > 0 else 'Cr'}"
 
 
-def _date(v) -> str:
+def _date(v, fmt: str = "%d-%m-%Y") -> str:
     if not v:
         return ""
     d = v if isinstance(v, date) else date.fromisoformat(str(v)[:10])
-    return d.strftime("%d-%m-%Y")
+    return d.strftime(fmt)
 
 
 def period_label(date_from: Optional[date], date_to: Optional[date]) -> str:
@@ -184,7 +184,7 @@ def render_voucher_pdf(v: dict, society, *, compress: bool = True) -> bytes:
     head = Table([[
         Paragraph(f"No.: <b>{escape(v['voucher_number'])}</b>", P["cell"]),
         Paragraph(f"<u>{escape(title)}</u>", P["title"]),
-        Paragraph(f"Date: <b>{_date(v['voucher_date'])}</b>", P["cell_r"]),
+        Paragraph(f"Date: <b>{_date(v['voucher_date'], '%d-%b-%Y')}</b>", P["cell_r"]),
     ]], colWidths=[width * 0.3, width * 0.4, width * 0.3])
     head.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 0),
                               ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
@@ -215,7 +215,7 @@ def render_voucher_pdf(v: dict, society, *, compress: bool = True) -> bytes:
         story += [Spacer(1, 1.5 * mm),
                   _p(f"CANCELLED{': ' + v['cancel_reason'] if v.get('cancel_reason') else ''}", "cancelled")]
     if v.get("edited_at"):
-        when = datetime.fromisoformat(v["edited_at"]).strftime("%d-%m-%Y")
+        when = datetime.fromisoformat(v["edited_at"]).strftime("%d-%b-%Y")
         story.append(_p(f"Revised on {when}{' by ' + v['edited_by_name'] if v.get('edited_by_name') else ''}"
                         f" ({len(v.get('revisions') or [])} earlier version(s) on record).", "note"))
 
