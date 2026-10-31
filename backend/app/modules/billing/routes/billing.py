@@ -589,6 +589,22 @@ def cycle_bills_pdf(cycle_id: UUID, wing_id: Optional[UUID] = None, status: Opti
     )
 
 
+@router.get("/cycles/{cycle_id}/bills.zip", dependencies=[Depends(manager_above)])
+def cycle_bills_zip(cycle_id: UUID, wing_id: Optional[UUID] = None, status: Optional[str] = None,
+                    with_receipts: bool = True, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Every bill of the cycle as its own PDF in one ZIP, each named Wing_Flat_Month_Year.pdf. Same options as
+    bills.pdf: one wing, one status, with or without the previous bill's receipts."""
+    svc = BillingService(db)
+    cycle = svc.get_cycle(cycle_id)
+    assert_society_access(user, cycle.society_id)
+    zip_bytes, count = svc.generate_cycle_bills_zip(cycle_id, wing_id, status, with_receipts)
+    safe = "".join(c if c.isalnum() or c in "-_" else "-" for c in cycle.name).strip("-") or "cycle"
+    return Response(
+        content=zip_bytes, media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename=Bills-{safe}.zip", "X-Bill-Count": str(count)},
+    )
+
+
 # ── Bills ─────────────────────────────────────────────────────────────────────
 def _is_overdue(b, today: date) -> bool:
     return (b.outstanding > 0 and b.due_date < today

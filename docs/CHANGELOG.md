@@ -4,6 +4,18 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-31 (Download every bill as a ZIP)
+
+### feat: all the bills of a cycle as a ZIP, one PDF per flat named Wing_Flat_Month_Year
+
+On a billing cycle, **Download ZIP** (a ZIP icon on a phone) saves every bill as its own PDF inside one ZIP, each named
+`Wing_Flat_Month_Year.pdf` (for example `A-Wing_1001_October_2026.pdf`; the month and year are those the cycle starts
+in, and anything in a wing or flat name other than letters, digits and dashes becomes a dash). It follows the same
+options as **Print all bills**: cancelled bills are left out, and the receipts toggle applies. API:
+`GET /billing/cycles/{id}/bills.zip` (optional `wing_id`, `status`, `with_receipts`).
+
+---
+
 ## 2026-10-31 (Parking zones: Add Zone and a rate per zone)
 
 ### feat: parking zones carry a monthly rate for their car slots
