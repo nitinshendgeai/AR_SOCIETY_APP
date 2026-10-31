@@ -37,7 +37,7 @@ from app.modules.billing.models.billing import (
     MaintenanceBill, OnlinePaymentSubmission, PaymentMode, PaymentReceipt, ReconciliationStatus,
 )
 from app.modules.billing.services.bill_pdf import (
-    ACCENT, FRAME, MODE_LABEL, S, _bill_month, _d, _inr, _p, flat_label, member_name, rs_in_words, sign_off,
+    ACCENT, FRAME, MODE_LABEL, S, _bill_month, _dm, _inr, _p, flat_label, member_name, rs_in_words, sign_off,
     society_header,
 )
 
@@ -72,7 +72,7 @@ def _towards(p: Payment, bill: Optional[MaintenanceBill]) -> str:
     set_off = _set_off(p)
     if len(set_off) == 1 and Decimal(set_off[0][1]) == Decimal(p.amount):
         bill = set_off[0][0]
-        return (f"Towards Bill No. {bill.invoice_number} Dated : {_d(bill.bill_date)} "
+        return (f"Towards Bill No. {bill.invoice_number} Dated : {_dm(bill.bill_date)} "
                 f"({_bill_month(bill)})")
     if set_off:
         parts = [f"Bill No. {b.invoice_number} ({_bill_month(b)}) Rs. {_inr(a)}" for b, a in set_off]
@@ -82,7 +82,7 @@ def _towards(p: Payment, bill: Optional[MaintenanceBill]) -> str:
             text += f"; Advance Rs. {_inr(left)}, to be adjusted against future bills"
         return text + "."
     if bill is not None:
-        return (f"Towards Bill No. {bill.invoice_number} Dated : {_d(bill.bill_date)} "
+        return (f"Towards Bill No. {bill.invoice_number} Dated : {_dm(bill.bill_date)} "
                 f"({_bill_month(bill)})")
     if getattr(p, "is_advance", False):
         return "Advance payment, to be adjusted against future bills."
@@ -128,7 +128,7 @@ def generate_payment_receipt_pdf(p: Payment, *, compress: bool = True) -> bytes:
     cheque = p.payment_mode == PaymentMode.CHEQUE
     rows = [
         [Paragraph(f"Receipt No.: &nbsp;&nbsp; <b>{escape(p.receipt_number)}</b>", S["cell"]), heading,
-         _p(f"Date :   {_d(p.payment_date)}", "cell_r")],
+         _p(f"Date :   {_dm(p.payment_date)}", "cell_r")],
         [Paragraph("Received with thanks from &nbsp;&nbsp; "
                    f"<b>{escape(member_name(flat, resident).upper())}</b>", S["cell"]), "", flat_box],
         [_p(rs_in_words(p.amount)), "", ""],

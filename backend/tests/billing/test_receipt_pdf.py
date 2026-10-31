@@ -44,11 +44,11 @@ def test_receipt_on_billing_by_cheque(client, db):
     text = _receipt_text(db, rec["receipt_number"])
     for expected in [
         "MB SOCIETY RC1", "Regn. No. BOM/WR/HSG/TC/10133/98-99",
-        f"Receipt No.: {rec['receipt_number']} RECEIPT ON BILLING Date : 28/07/2026",
+        f"Receipt No.: {rec['receipt_number']} RECEIPT ON BILLING Date : 28-Jul-2026",
         "Received with thanks from ASHA RAO Tower A 101",
         "Rs. Two Thousand Eight Hundred Fifty Four only.",
         "Vide: Cheque No. 004512, UBI, Dahisar (E) Rs. 2,854.00",
-        f"Towards Bill No. {bill.invoice_number} Dated : {bill.bill_date:%d/%m/%Y}",
+        f"Towards Bill No. {bill.invoice_number} Dated : {bill.bill_date:%d-%b-%Y}",
         "Subject to Realisation of Cheque",
         "For MB SOCIETY RC1", "HON. SECRETARY / TREASURER / CHAIRMAN",
     ]:
