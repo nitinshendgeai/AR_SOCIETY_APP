@@ -37,6 +37,78 @@ Future<void> deliverPdf(BuildContext context, Future<Uint8List> Function() load,
   }
 }
 
+/// How a PDF reaches the person: shown in a browser tab, handed to the share sheet (WhatsApp, e-mail, ...), or saved.
+enum PdfDelivery { open, share, download }
+
+/// [deliverPdf] for any of the three. Where the platform has no viewer to open a PDF in (the app on a phone), "open"
+/// hands it to the share sheet, whose apps include the phone's PDF viewers and e-mail.
+Future<void> deliverPdfAs(BuildContext context, Future<Uint8List> Function() load, String fileName, PdfDelivery how,
+    {String? subject}) async {
+  if (how == PdfDelivery.open && await openFileBytes(load, mimeType: 'application/pdf')) return;
+  if (!context.mounted) return;
+  await deliverPdf(context, load, fileName, share: how != PdfDelivery.download, subject: subject);
+}
+
+/// One button that opens a menu: Open, Share, Download. For a document with room for a full-width button.
+class PdfMenuButton extends StatefulWidget {
+  final Future<Uint8List> Function() load;
+  final String fileName;
+  final String? subject;
+  final String label;
+  final IconData icon;
+  const PdfMenuButton({
+    super.key,
+    required this.load,
+    required this.fileName,
+    this.subject,
+    this.label = 'Receipt',
+    this.icon = Icons.receipt_long_outlined,
+  });
+
+  @override
+  State<PdfMenuButton> createState() => _PdfMenuButtonState();
+}
+
+class _PdfMenuButtonState extends State<PdfMenuButton> {
+  bool _busy = false;
+
+  Future<void> _run(PdfDelivery how) async {
+    setState(() => _busy = true);
+    try {
+      await deliverPdfAs(context, widget.load, widget.fileName, how, subject: widget.subject);
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => MenuAnchor(
+        menuChildren: [
+          MenuItemButton(
+              leadingIcon: const Icon(Icons.open_in_new_rounded),
+              onPressed: () => _run(PdfDelivery.open),
+              child: const Text('Open')),
+          MenuItemButton(
+              leadingIcon: const Icon(Icons.ios_share_rounded),
+              onPressed: () => _run(PdfDelivery.share),
+              child: const Text('Share')),
+          MenuItemButton(
+              leadingIcon: const Icon(Icons.download_rounded),
+              onPressed: () => _run(PdfDelivery.download),
+              child: const Text('Download')),
+        ],
+        builder: (context, controller, _) => OutlinedButton.icon(
+          onPressed: _busy ? null : () => controller.isOpen ? controller.close() : controller.open(),
+          icon: _busy
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : Icon(widget.icon),
+          label: Text(widget.label),
+        ),
+      );
+}
+
 /// "Share" and "Download PDF" for an app bar: a labelled button on desktop,
 /// icons on a phone.
 class PdfActions extends StatefulWidget {

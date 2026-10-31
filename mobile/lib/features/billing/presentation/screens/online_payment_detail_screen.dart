@@ -1,9 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart' show PdfMenuButton;
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/billing/data/repositories/billing_repository.dart';
 import 'package:ar_society_app/features/billing/domain/entities/billing_entities.dart';
@@ -22,7 +24,6 @@ class OnlinePaymentDetailScreen extends ConsumerStatefulWidget {
 
 class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailScreen> {
   bool _updating = false;
-  bool _sharingReceipt = false;
 
   OnlinePaymentEntity? _findPayment(String societyId) {
     final list = ref.watch(onlinePaymentsProvider(societyId)).valueOrNull;
@@ -70,27 +71,13 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
     }
   }
 
-  Future<void> _shareReceipt(String receiptNumber) async {
-    setState(() => _sharingReceipt = true);
-    try {
-      final result = await ref.read(billingRepositoryProvider).getReceiptPdfBytes(widget.paymentId);
-      switch (result) {
-        case BillingSuccess(:final data):
-          // From memory, not a temp file, so it works on the web too.
-          final fileName = 'Receipt-$receiptNumber.pdf';
-          await Share.shareXFiles(
-            [XFile.fromData(data, name: fileName, mimeType: 'application/pdf')],
-            fileNameOverrides: [fileName],
-            subject: 'Payment Receipt',
-          );
-        case BillingFailure(:final message):
-          throw Exception(message);
-      }
-    } catch (e) {
-      if (mounted) showErrorToast(context, e);
-    } finally {
-      if (mounted) setState(() => _sharingReceipt = false);
-    }
+  /// The receipt's PDF, from memory rather than a temp file, so it works on the web too.
+  Future<Uint8List> _loadReceipt() async {
+    final result = await ref.read(billingRepositoryProvider).getReceiptPdfBytes(widget.paymentId);
+    return switch (result) {
+      BillingSuccess(:final data) => data,
+      BillingFailure(:final message) => throw Exception(message),
+    };
   }
 
   @override
@@ -147,12 +134,10 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
               );
             }),
           const SizedBox(height: 20),
-          OutlinedButton.icon(
-            onPressed: _sharingReceipt ? null : () => _shareReceipt(payment.receiptNumber),
-            icon: _sharingReceipt
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.receipt_long_outlined),
-            label: const Text('View / Share Receipt'),
+          PdfMenuButton(
+            load: _loadReceipt,
+            fileName: 'Receipt-${payment.receiptNumber}.pdf',
+            subject: 'Payment Receipt ${payment.receiptNumber}',
           ),
           if (payment.isPending) ...[
             const SizedBox(height: 20),
