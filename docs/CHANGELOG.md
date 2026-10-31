@@ -14,6 +14,10 @@ Format: `[YYYY-MM-DD] type: description`
 - **Billing:** an active car-slot allotment with no charge of its own now takes its zone's rate; a charge set on the
   allotment still wins, and a zone with no rate uses the parking charge head's rate as before. Two-wheelers are not
   affected (they keep the head's two-wheeler rate).
+- **Two-wheelers without a slot:** when a parking head has a two-wheeler rate, a flat with a registered, active
+  two-wheeler (motorcycle, scooter or bicycle) now pays that fixed rate **once per flat**, even if the bike has no
+  allotted slot. A flat whose two-wheeler already holds an allotted slot is charged through the slot, never twice.
+  Heads without a two-wheeler rate behave as before.
 - **API:** `monthly_rate` on zones, and `PATCH /parking/zones/{id}` to set or clear it (migration `1a6b7c8d9e0f`).
 
 ---

@@ -195,6 +195,7 @@ class MaintenanceCalculator:
         ).all()
         self.total_area = sum((Decimal(str(f.area_sqft)) for f in self.flats if f.area_sqft), ZERO)
         self.parking = self._parking_by_flat()
+        self.two_wheeler_flats = self._flats_with_two_wheeler()
         self.warnings: List[str] = []
         # Warnings the month-end checklist already shows (as rows with their own fix), so the preview can leave
         # them out of the plain warning list
@@ -325,6 +326,15 @@ class MaintenanceCalculator:
                 f"Approved expenses in the period on ledgers no maintenance element covers are not recovered by any "
                 f"charge head: {names}.")
 
+    def _flats_with_two_wheeler(self) -> set:
+        """Flats with a registered, active two-wheeler (motorcycle, scooter, bicycle). With the head's two-wheeler
+        rate set, such a flat pays it ONCE, whether or not the bike has a slot: one two-wheeler is allowed per flat."""
+        from app.models.vehicle import Vehicle
+        rows = self.db.query(Vehicle.flat_id, Vehicle.vehicle_type).filter(
+            Vehicle.society_id == self.society_id, Vehicle.is_active == True,       # noqa: E712
+            Vehicle.flat_id.isnot(None)).all()
+        return {fid for fid, vt in rows if getattr(vt, "value", vt) in TWO_WHEELER_TYPES}
+
     def _parking_by_flat(self) -> Dict[UUID, List[Tuple[Optional[int], bool]]]:
         """The slots each flat holds today, as (the slot's own monthly charge, held for a two-wheeler). A charge of
         None means the charge head's rate applies. A slot whose allotment hasn't begun or whose end date has passed
@@ -413,7 +423,8 @@ class MaintenanceCalculator:
             # % of the flat's service-charge lines already on this bill (those are for the months billed)
             return [(charge.name, money((service_base or ZERO) * (charge.default_amount or ZERO) / 100))]
         if (charge.basis == ChargeBasis.PARKING and charge.two_wheeler_rate is not None
-                and any(is_tw for _own, is_tw in self.parking.get(flat.id, []))):
+                and (any(is_tw for _own, is_tw in self.parking.get(flat.id, []))
+                     or flat.id in self.two_wheeler_flats)):
             cars, two_wheelers = self._parking_split(charge, flat)
             return [(f"{charge.name} — cars", money(cars * months)),
                     (f"{charge.name} — two-wheelers", money(two_wheelers * months))]
@@ -444,7 +455,8 @@ class MaintenanceCalculator:
 
     def _parking_split(self, charge: MaintenanceChargeConfig, flat: Flat) -> Tuple[Decimal, Decimal]:
         """A flat's parking per month, as (cars, two-wheelers). A slot's own charge wins; otherwise a two-wheeler
-        pays the head's two-wheeler rate when it has one, and every other slot the head's rate."""
+        pays the head's two-wheeler rate when it has one, and every other slot the head's rate. A flat with a registered
+        two-wheeler but none on an allotted slot pays the two-wheeler rate once."""
         rate = self._auto_rate.get(charge.id, charge.default_amount or ZERO)
         tw_rate = charge.two_wheeler_rate if charge.two_wheeler_rate is not None else rate
         cars = two_wheelers = ZERO
@@ -454,6 +466,11 @@ class MaintenanceCalculator:
                 two_wheelers += amount
             else:
                 cars += amount
+        if (charge.two_wheeler_rate is not None and flat.id in self.two_wheeler_flats
+                and not any(is_tw for _own, is_tw in self.parking.get(flat.id, []))):
+            # A registered two-wheeler with no slot of its own: the fixed two-wheeler rate, once per flat. A flat whose
+            # two-wheeler already holds an allotted slot is charged through that slot above, never twice.
+            two_wheelers += charge.two_wheeler_rate
         return cars, two_wheelers
 
     def _collect_warnings(self, flats_skipped: int) -> None:
