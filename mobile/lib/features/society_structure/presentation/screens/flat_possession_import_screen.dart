@@ -134,7 +134,14 @@ class _FlatPossessionImportScreenState extends ConsumerState<FlatPossessionImpor
             final o? when o['status'] == 'unchanged' => r.with_(_Status.unchanged, 'Already has this date'),
             final o? when o['status'] == 'updated' => r.with_(
                 final_ ? _Status.updated : _Status.ready,
-                o['previous'] == null ? 'Date will be added' : 'Replaces ${_fmt(DateTime.parse(o['previous'] as String))}'),
+                [
+                  if (o['previous'] == null)
+                    'Date will be added'
+                  else if (o['previous'] != r.payload?['possession_date'])
+                    'Replaces ${_fmt(DateTime.parse(o['previous'] as String))}',
+                  // Residents marked as moved in on this date, or why no one was
+                  if (o['message'] != null) o['message'] as String,
+                ].join(' · ')),
             _ => r.with_(_Status.error, 'Not imported'),
           },
     ];

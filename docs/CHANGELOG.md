@@ -4,6 +4,22 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-10-31 (Possession date import now sets the move-in)
+
+### feat: importing possession dates also marks the flat's residents as moved in
+
+Importing possession dates left residents without a move-in date, so flats stayed **vacant** (a possession date alone
+does not make a flat occupied). Now, for every row of the sheet, each active resident of the flat who has no move-in
+date is marked as **moved in on the possession date**, and the flat becomes owner occupied.
+
+- A move-in date already on record is never changed.
+- A flat with an active tenant is left alone (the owner is not living there), and a possession date in the future
+  moves nobody in. The import result says which.
+- It also runs where the possession date itself is unchanged, so **sending the same sheet again** brings flats
+  imported earlier up to date. The preview shows "N residents marked as moved in on <date>" for each flat.
+
+---
+
 ## 2026-10-31 (Download every bill as a ZIP)
 
 ### feat: all the bills of a cycle as a ZIP, one PDF per flat named Wing_Flat_Month_Year
