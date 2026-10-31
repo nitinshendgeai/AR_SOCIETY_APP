@@ -12,7 +12,7 @@ from app.modules.parking.models.parking import (
     SlotStatus, AllocationStatus, VisitorParkingStatus, AccessType, AccessMethod,
 )
 from app.modules.parking.schemas.parking import (
-    ZoneCreate, FloorCreate, SlotCreate, SlotUpdate,
+    ZoneCreate, ZoneUpdate, FloorCreate, SlotCreate, SlotUpdate,
     AllocationCreate, VisitorParkingCreate, ViolationCreate, ViolationFine, ViolationWaive, AccessLogCreate,
 )
 from app.modules.parking.repositories.parking_repo import (
@@ -111,6 +111,11 @@ class ParkingService:
             payload["code"] = short_code(data.name, [z.code for z in self.zone_repo.get_by_society(society_id)])
         zone_row = ParkingZone(**payload)
         return self.zone_repo.create(zone_row)
+
+    def update_zone(self, zone_id: UUID, data: ZoneUpdate, user: User) -> ParkingZone:
+        zone = self._scoped_or_404(self.zone_repo.get(zone_id), user, "Parking zone")
+        # Only the fields the caller sent: a null rate is a real value here (clears it), an absent one is not.
+        return self.zone_repo.update(zone, data.model_dump(exclude_unset=True))
 
     def list_zones(self, society_id: UUID, user: User) -> List[ParkingZone]:
         assert_society_access(user, society_id)

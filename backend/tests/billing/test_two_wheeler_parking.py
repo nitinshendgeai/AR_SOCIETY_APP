@@ -94,3 +94,40 @@ def test_the_rate_is_only_for_a_parking_head_and_can_be_changed_and_cleared(clie
     r = client.patch(f"{B}/charges/{head['id']}", headers=h, json={"basis": "fixed"})
     assert r.status_code == 200 and r.json()["two_wheeler_rate"] is None
     assert client.patch(f"{B}/charges/{head['id']}", headers=h, json={"two_wheeler_rate": "90"}).status_code == 422
+
+
+def test_a_zone_rate_prices_its_four_wheeler_slots(client, db):
+    """Tower and Stack zones carry their own monthly rate; a slot's own charge still wins, two-wheelers keep theirs,
+    and a zone without a rate falls back to the head's rate."""
+    from decimal import Decimal
+    society, flats, h, tower = _rig_slots(db, "zr1")
+    tower.monthly_rate = Decimal("800")
+    stack = ParkingZone(society_id=society.id, name="Stack", monthly_rate=Decimal("300"))
+    plain = ParkingZone(society_id=society.id, name="Open")
+    db.add_all([stack, plain])
+    db.flush()
+    _slot(db, society, tower, flats[0], "T1", VehicleType.CAR)
+    _slot(db, society, stack, flats[0], "S1", VehicleType.CAR)
+    _slot(db, society, tower, flats[0], "T2", VehicleType.CAR, own_charge=1000)      # its own charge wins
+    _slot(db, society, plain, flats[0], "O1", VehicleType.CAR)                       # no zone rate: head's rate
+    _slot(db, society, tower, flats[0], "B1", VehicleType.MOTORCYCLE)                # two-wheeler: head's own rate
+    db.commit()
+    _charge(client, h, society.id, "Parking", "parking", "500", charge_type="parking", two_wheeler_rate="150")
+    lines = _lines(_preview(client, h, _cycle(client, h, society.id)))
+    assert lines == {"Parking — cars": "2600.00",                    # 800 + 300 + 1000 + 500
+                     "Parking — two-wheelers": "150.00"}
+
+
+def test_zone_rate_can_be_set_and_cleared_through_the_api(client, db):
+    from tests.parking.test_parking import _create_zone
+    from tests.conftest import make_society, make_user
+    admin = make_user(db, "adm@zr.com", role="Society Admin")
+    society = make_society(db, "Zone Rate Society")
+    z = _create_zone(client, admin["headers"], society.id, "Tower Parking").json()
+    assert z["monthly_rate"] is None
+    r = client.patch(f"/api/v1/parking/zones/{z['id']}", json={"monthly_rate": "750"}, headers=admin["headers"])
+    assert r.status_code == 200 and r.json()["monthly_rate"] == "750.00"
+    r = client.patch(f"/api/v1/parking/zones/{z['id']}", json={"monthly_rate": None}, headers=admin["headers"])
+    assert r.status_code == 200 and r.json()["monthly_rate"] is None
+    r = client.patch(f"/api/v1/parking/zones/{z['id']}", json={"monthly_rate": "-5"}, headers=admin["headers"])
+    assert r.status_code == 422

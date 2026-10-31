@@ -328,11 +328,14 @@ class MaintenanceCalculator:
     def _parking_by_flat(self) -> Dict[UUID, List[Tuple[Optional[int], bool]]]:
         """The slots each flat holds today, as (the slot's own monthly charge, held for a two-wheeler). A charge of
         None means the charge head's rate applies. A slot whose allotment hasn't begun or whose end date has passed
-        isn't billed, even before the sweep that marks it expired has run. A slot is a two-wheeler's when the
+        isn't billed, even before the sweep that marks it expired has run. A four-wheeler slot with no charge of its
+        own takes its zone's monthly rate when the zone has one; two-wheelers keep the head's two-wheeler rate. A slot is a two-wheeler's when the
         vehicle it was allotted to is a motorcycle, scooter or bicycle; with no vehicle on it, it is a car's."""
-        from app.modules.parking.models.parking import ParkingAllocation, AllocationStatus
+        from app.modules.parking.models.parking import ParkingAllocation, ParkingSlot, AllocationStatus
         today = date.today()
-        rows = self.db.query(ParkingAllocation).options(joinedload(ParkingAllocation.vehicle)).filter(
+        rows = self.db.query(ParkingAllocation).options(
+            joinedload(ParkingAllocation.vehicle),
+            joinedload(ParkingAllocation.slot).joinedload(ParkingSlot.zone)).filter(
             ParkingAllocation.society_id == self.society_id,
             ParkingAllocation.status == AllocationStatus.ACTIVE,
             ParkingAllocation.flat_id.isnot(None),
@@ -343,7 +346,13 @@ class MaintenanceCalculator:
         by_flat: Dict[UUID, List[Tuple[Optional[int], bool]]] = defaultdict(list)
         for a in rows:
             vtype = getattr(a.vehicle.vehicle_type, "value", a.vehicle.vehicle_type) if a.vehicle else None
-            by_flat[a.flat_id].append((a.monthly_charge, vtype in TWO_WHEELER_TYPES))
+            is_tw = vtype in TWO_WHEELER_TYPES
+            own = a.monthly_charge
+            if own is None and not is_tw:
+                # The slot's zone (Tower, Stack...) may carry its own rate for a four-wheeler slot.
+                zone = a.slot.zone if a.slot else None
+                own = zone.monthly_rate if zone is not None else None
+            by_flat[a.flat_id].append((own, is_tw))
         return by_flat
 
     def _open_bills_by_flat(self, exclude_cycle_id: UUID) -> Dict[UUID, List[MaintenanceBill]]:

@@ -50,12 +50,20 @@ class ParkingRemoteDataSource {
     required String societyId,
     required String name,
     String? code,
+    double? monthlyRate,
   }) async {
     final r = await _dio.post('/parking/zones', data: {
       'society_id': societyId,
       'name': name,
       if (code != null && code.isNotEmpty) 'code': code,
+      if (monthlyRate != null) 'monthly_rate': monthlyRate.toString(),
     });
+    return ParkingZoneModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// PATCH /parking/zones/{id}: set the zone's monthly rate, or clear it with null.
+  Future<ParkingZoneModel> updateZoneRate({required String zoneId, double? monthlyRate}) async {
+    final r = await _dio.patch('/parking/zones/$zoneId', data: {'monthly_rate': monthlyRate?.toString()});
     return ParkingZoneModel.fromJson(r.data as Map<String, dynamic>);
   }
 

@@ -79,9 +79,19 @@ class ParkingRepository {
     required String societyId,
     required String name,
     String? code,
+    double? monthlyRate,
   }) async {
     try {
-      final m = await _ds.createZone(societyId: societyId, name: name, code: code);
+      final m = await _ds.createZone(societyId: societyId, name: name, code: code, monthlyRate: monthlyRate);
+      return ParkingSuccess(m.toEntity());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  Future<ParkingResult<ParkingZoneEntity>> updateZoneRate({required String zoneId, double? monthlyRate}) async {
+    try {
+      final m = await _ds.updateZoneRate(zoneId: zoneId, monthlyRate: monthlyRate);
       return ParkingSuccess(m.toEntity());
     } catch (e) {
       return _handle(e);

@@ -11,7 +11,7 @@ from app.core.dependencies import (
 from app.core.tenant_scope import assert_society_access
 from app.models.user import User
 from app.modules.parking.schemas.parking import (
-    ZoneCreate, ZoneOut, FloorCreate, FloorOut,
+    ZoneCreate, ZoneUpdate, ZoneOut, FloorCreate, FloorOut,
     SlotCreate, SlotUpdate, SlotOut,
     AllocationCreate, AllocationOut,
     VisitorParkingCreate, VisitorParkingOut,
@@ -32,6 +32,10 @@ any_member      = require_any_member
 @router.post("/zones", response_model=ZoneOut, status_code=201, dependencies=[Depends(admin_committee)])
 def create_zone(data: ZoneCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return ParkingService(db).create_zone(data, user)
+
+@router.patch("/zones/{zone_id}", response_model=ZoneOut, dependencies=[Depends(admin_committee)])
+def update_zone(zone_id: UUID, data: ZoneUpdate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return ParkingService(db).update_zone(zone_id, data, user)
 
 @router.get("/zones/{society_id}", response_model=List[ZoneOut], dependencies=[Depends(any_member)])
 def list_zones(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):

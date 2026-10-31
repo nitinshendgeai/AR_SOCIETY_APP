@@ -107,6 +107,8 @@ class ParkingZoneEntity {
   final String name;
   final String? code;
   final int totalSlots;
+  /// Monthly charge for one four-wheeler slot in this zone; null = the parking charge head's rate.
+  final double? monthlyRate;
 
   const ParkingZoneEntity({
     required this.id,
@@ -114,6 +116,7 @@ class ParkingZoneEntity {
     required this.name,
     this.code,
     required this.totalSlots,
+    this.monthlyRate,
   });
 }
 
