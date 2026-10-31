@@ -108,6 +108,17 @@ void main() {
     expect(find.text('Cancel bill and reverse payments'), findsNothing);   // a manager does not cancel bills
   });
 
+  testWidgets('any bill, paid or not, can be shared or downloaded as a printable PDF', (t) async {
+    await _open(t, 'Manager', _bill());
+    expect(find.byTooltip('Share PDF'), findsOneWidget);
+    expect(find.byTooltip('Download PDF'), findsOneWidget);
+  });
+
+  testWidgets('a paid bill is printable too', (t) async {
+    await _open(t, 'Society Admin', _bill(paid: '5000.00', isPaid: true));
+    expect(find.byTooltip('Download PDF'), findsOneWidget);
+  });
+
   testWidgets('the payment sheet asks which account the money leaves', (t) async {
     await _open(t, 'Manager', _bill());
     await t.tap(find.text('Record Payment'));

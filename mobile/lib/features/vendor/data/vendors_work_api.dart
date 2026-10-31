@@ -703,6 +703,13 @@ class VendorsWorkApi {
     return Uint8List.fromList(r.data!);
   }
 
+  /// A vendor's bill as a printable PDF: the vendor, amounts with GST and TDS, payments made, signature lines.
+  Future<Uint8List> vendorBillPdf(String invoiceId) async {
+    final r = await _dio.get<List<int>>('/vendors/invoices/$invoiceId/pdf',
+        options: Options(responseType: ResponseType.bytes));
+    return Uint8List.fromList(r.data!);
+  }
+
   /// A vendor's bill against a work order (booked to the work order's expense head).
   Future<void> recordBill({
     required String societyId,
