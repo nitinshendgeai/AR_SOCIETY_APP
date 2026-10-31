@@ -17,3 +17,6 @@ Future<bool> saveFileBytes(Uint8List bytes, String fileName, {required String mi
   if (!Platform.isAndroid && !Platform.isIOS) await File(path).writeAsBytes(bytes);
   return true;
 }
+
+/// No browser tab to show it in: the caller falls back to the share sheet.
+Future<bool> openFileBytes(Future<Uint8List> Function() load, {required String mimeType}) async => false;
