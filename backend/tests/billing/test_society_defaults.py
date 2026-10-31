@@ -7,8 +7,8 @@ from tests.conftest import make_user, place_in
 from tests.platform_admin.test_society_purge import P, _seed, make_superadmin
 
 LINKS = {
-    "security_charges": "security", "cctv_maintenance": "security", "housekeeping": "housekeeping",
-    "garden": "housekeeping", "pest_control": "housekeeping", "lift_maintenance": "lift_maintenance",
+    "security_charges": "security", "cctv_maintenance": "cctv", "housekeeping": "housekeeping",
+    "garden": "housekeeping", "pest_control": "pest_control", "fire_safety": "fire_safety", "lift_maintenance": "lift_maintenance",
     "electricity": "common_electricity", "generator_maintenance": "common_electricity",
     "water_charges": "water_charges", "property_tax": "property_tax", "insurance": "insurance",
     "lease_rent": "lease_rent_na_tax",
@@ -23,7 +23,7 @@ UNLINKED = ("repairs_building", "repairs_electrical", "repairs_plumbing", "repai
 
 def _assert_defaults(db, society_id):
     elements = {e.id: e for e in db.query(MaintenanceElement).filter_by(society_id=society_id)}
-    assert len(elements) == 14
+    assert len(elements) == 17
     by_code = {e.code: e for e in elements.values()}
     assert (by_code["repair_fund"].default_basis.value, str(by_code["repair_fund"].default_amount)) == \
         ("service_charge_pct", "0.75")
@@ -58,7 +58,7 @@ def test_cleaning_a_societys_data_restores_the_standard_books(client, db):
     # cleaning again does not duplicate anything
     assert client.post(f"{P}/societies/{a.id}/clean-data", json={"confirm": "DEF2"}, headers=h).status_code == 200
     db.expire_all()
-    assert db.query(MaintenanceElement).filter_by(society_id=a.id).count() == 14
+    assert db.query(MaintenanceElement).filter_by(society_id=a.id).count() == 17
 
 
 def test_a_society_created_by_the_platform_admin_starts_with_elements_and_links(client, db):

@@ -46,6 +46,18 @@ STANDARD_ELEMENTS = [
      "Bye-laws 66–67",
      "Lift running and AMC costs, borne equally by every flat in a building with a lift — "
      "whether or not they use it."),
+    ("fire_safety", "Fire Safety", ChargeType.MAINTENANCE, ChargeBasis.BUDGET_EQUAL, None, True,
+     "Bye-laws 66–67",
+     "Fire-fighting equipment, fire alarm and sprinkler AMC and refilling, usually paid yearly. "
+     "Billed as a monthly share: pick the recent 12-month average so the yearly cost is spread over the year."),
+    ("pest_control", "Pest Control", ChargeType.MAINTENANCE, ChargeBasis.BUDGET_EQUAL, None, True,
+     "Bye-laws 66–67",
+     "Pest control AMC / treatments, usually paid yearly or quarterly. Shared equally; "
+     "use the recent 12-month average to spread it monthly."),
+    ("cctv", "CCTV & Security Systems", ChargeType.MAINTENANCE, ChargeBasis.BUDGET_EQUAL, None, True,
+     "Bye-laws 66–67",
+     "CCTV, access control and intercom AMC, usually paid yearly. Shared equally; "
+     "use the recent 12-month average to spread it monthly."),
     ("security", "Security Services", ChargeType.MAINTENANCE, ChargeBasis.BUDGET_EQUAL, None, True,
      "Bye-laws 66–67", "Security agency charges. Shared equally."),
     ("housekeeping", "Housekeeping", ChargeType.MAINTENANCE, ChargeBasis.BUDGET_EQUAL, None, True,
@@ -65,10 +77,14 @@ STANDARD_ELEMENTS = [
 
 
 def seed_standard_elements(db: Session, society_id) -> List[MaintenanceElement]:
-    """Create the standard elements for a society that has none yet.
-    Caller commits."""
+    """Create the standard elements a society does not have yet (matched by
+    code, so a society seeded earlier gains newly added standard elements
+    without touching its existing ones). Caller commits."""
+    have = {c for (c,) in db.query(MaintenanceElement.code).filter(MaintenanceElement.society_id == society_id)}
     rows = []
     for order, (code, name, category, basis, amount, service, ref, desc) in enumerate(STANDARD_ELEMENTS):
+        if code in have:
+            continue
         el = MaintenanceElement(
             society_id=society_id, code=code, name=name, category=category,
             default_basis=basis, default_amount=amount, is_service_charge=service,
