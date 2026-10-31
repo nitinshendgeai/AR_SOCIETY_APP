@@ -11,7 +11,7 @@ import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show LedgerAccount, formatInr;
-import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart' show LedgerChooser;
+import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart' show LedgerChooser, PdfActions;
 import 'package:ar_society_app/features/vendor/data/vendors_work_api.dart' show BillPayment, PaymentTdsPreview;
 import 'package:ar_society_app/features/vendor/domain/entities/vendor_entities.dart';
 import 'package:ar_society_app/features/vendor/presentation/providers/vendor_providers.dart';
@@ -472,6 +472,12 @@ class _BillDetailSheet extends ConsumerWidget {
 
   bool get _hasPayments => (double.tryParse(invoice.paidAmount) ?? 0) > 0;
 
+  /// 'VendorBill-CP_26-27_118.pdf': the bill number with anything a file name can't hold made an underscore.
+  String get _pdfFileName {
+    final number = invoice.invoiceNumber.replaceAll(RegExp('[^A-Za-z0-9._-]+'), '_');
+    return 'VendorBill-$number.pdf';
+  }
+
   Future<void> _refreshAfter(WidgetRef ref) async {
     ref.invalidate(billPaymentsProvider(invoice.id));
     ref.invalidate(vendorOpenBillsProvider(invoice.vendorId));
@@ -627,6 +633,14 @@ class _BillDetailSheet extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: PdfActions(
+              load: () => ref.read(vendorsWorkApiProvider).vendorBillPdf(invoice.id),
+              fileName: _pdfFileName,
+              subject: 'Vendor bill ${invoice.invoiceNumber}',
+            ),
+          ),
           _row('Invoice No', invoice.invoiceNumber),
           _row('Invoice Date', '${invoice.invoiceDate.day}/${invoice.invoiceDate.month}/${invoice.invoiceDate.year}'),
           if (invoice.dueDate != null)

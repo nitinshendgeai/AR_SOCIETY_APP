@@ -831,6 +831,17 @@ def create_invoice(data: VendorInvoiceCreate, db: Session = Depends(get_db),
 def get_invoice(inv_id: UUID, db: Session = Depends(get_db), user: User = Depends(manager_above)):
     return _invoice_out(VendorService_(db).get_vendor_invoice(inv_id, user))
 
+@router.get("/invoices/{inv_id}/pdf")
+def invoice_pdf(inv_id: UUID, db: Session = Depends(get_db), user: User = Depends(manager_above)):
+    """The vendor bill to print: vendor, amounts with GST and TDS, payments made, and signature lines."""
+    from app.models.society import Society
+    from app.modules.vendor.services.vendor_bill_pdf import render_vendor_bill_pdf
+    inv = VendorService_(db).get_vendor_invoice(inv_id, user)
+    society = db.query(Society).filter(Society.id == inv.society_id).first()
+    filename = re.sub(r"[^A-Za-z0-9._-]+", "_", f"VendorBill-{inv.invoice_number}") + ".pdf"
+    return Response(content=render_vendor_bill_pdf(inv, society), media_type="application/pdf",
+                    headers={"Content-Disposition": f"inline; filename={filename}"})
+
 @router.get("/invoices/{inv_id}/payment-preview")
 def payment_preview(inv_id: UUID, amount: Decimal = Query(..., gt=0, max_digits=12, decimal_places=2),
                     paid_date: date = Query(default_factory=date.today),
