@@ -206,9 +206,14 @@ class MaintenanceChargeConfig(Base, TimestampMixin):
     # A parking head only: ₹ a month for a slot held for a two-wheeler (motorcycle, scooter, bicycle). Empty: a
     # two-wheeler pays the head's own rate, the same as a car.
     two_wheeler_rate   = Column(Numeric(10, 2), nullable=True)
+    # Zone-only head (e.g. Tower Parking AMC): billed ONLY to flats holding an active slot in this parking zone, and
+    # per slot held. Empty: every flat, as before. Fixed / equal-budget bases only (also in period mode).
+    parking_zone_id    = Column(UUID(as_uuid=True), ForeignKey("parking_zones.id", ondelete="SET NULL"),
+                                nullable=True, index=True)
 
     society      = relationship("Society")
     element      = relationship("MaintenanceElement")
+    parking_zone = relationship("ParkingZone")
 
     def __repr__(self):
         return f"<ChargeConfig {self.name} ₹{self.default_amount}>"

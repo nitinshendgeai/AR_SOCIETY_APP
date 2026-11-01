@@ -146,12 +146,26 @@ class BillingService:
                                 data.get("expense_mode"))
         self._check_one_auto_head(data["society_id"], data.get("auto_from_expenses"), data.get("element_id"))
         self._check_two_wheeler(data.get("two_wheeler_rate"), data.get("basis"))
+        self._check_parking_zone(data["society_id"], data.get("parking_zone_id"), data.get("basis"))
         config = MaintenanceChargeConfig(**data)
         self.charge_repo.create(config)
         self._audit(AuditAction.CREATE, config, "ChargeConfig", user,
                     new_values={"name": data.get("name"), "amount": str(data.get("default_amount"))})
         self.db.refresh(config)
         return config
+
+    def _check_parking_zone(self, society_id, zone_id, basis):
+        """A zone-only head (Tower Parking AMC...) bills the holders of slots in one zone of this society, per slot held:
+        it needs a fixed or equal-budget basis, which is what 'per slot' can mean."""
+        if not zone_id:
+            return
+        from app.modules.parking.models.parking import ParkingZone
+        zone = self.db.query(ParkingZone).filter(ParkingZone.id == zone_id, ParkingZone.society_id == society_id).first()
+        if zone is None:
+            raise HTTPException(422, "That parking zone does not belong to this society")
+        if (basis or ChargeBasis.FIXED) not in (ChargeBasis.FIXED, ChargeBasis.BUDGET_EQUAL):
+            raise HTTPException(422, "A parking-zone head must be fixed or an equal share of a budget "
+                                     "(it is charged per slot held in the zone)")
 
     @staticmethod
     def _check_two_wheeler(rate, basis):
@@ -287,6 +301,7 @@ class BillingService:
             self._check_one_auto_head(config.society_id, auto_after, config.element_id, exclude_id=config.id)
         new_basis = data.get("basis", config.basis) or ChargeBasis.FIXED
         self._check_two_wheeler(data.get("two_wheeler_rate"), new_basis)
+        self._check_parking_zone(config.society_id, data.get("parking_zone_id", config.parking_zone_id), new_basis)
         if new_basis != ChargeBasis.PARKING:
             data["two_wheeler_rate"] = None                # a head that leaves parking drops its two-wheeler rate
         for field, value in data.items():

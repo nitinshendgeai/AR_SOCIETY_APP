@@ -195,6 +195,7 @@ class MaintenanceCalculator:
         ).all()
         self.total_area = sum((Decimal(str(f.area_sqft)) for f in self.flats if f.area_sqft), ZERO)
         self.parking = self._parking_by_flat()
+        self.zone_slots = self._zone_slots()        # zone id -> {flat id: slots held} (zone-only heads)
         self.two_wheeler_flats = self._flats_with_two_wheeler()
         self.warnings: List[str] = []
         # Warnings the month-end checklist already shows (as rows with their own fix), so the preview can leave
@@ -280,6 +281,12 @@ class MaintenanceCalculator:
                 if period is None:
                     continue
                 share = min(Decimal(1), period[2] / whole) if whole else Decimal(1)
+                if charge.parking_zone_id:
+                    # Zone-only head: only the holders of slots in that zone, each weighted by its slots held
+                    slots = self._slots_in_zone(charge, flat)
+                    if slots:
+                        weights[flat.id] = slots * share
+                    continue
                 if area_based:
                     area = Decimal(str(flat.area_sqft)) if flat.area_sqft else ZERO
                     if area <= 0:
@@ -296,6 +303,8 @@ class MaintenanceCalculator:
                     f"included — approve them first if they should be billed.")
             if no_area:
                 self.warnings.append(f"{label}{no_area} flat(s) have no area set and carry none of this head.")
+            if charge.parking_zone_id and not weights:
+                self.warnings.append(f"{label}no flat holds a slot in its parking zone — nothing is billed for this head.")
             if taken > 0 and pool <= 0:
                 self._checklist_note(
                     f"{label}the approved expenses in {window} (₹{spent:,.2f}) are already covered by bills that were "
@@ -325,6 +334,30 @@ class MaintenanceCalculator:
             self._checklist_note(
                 f"Approved expenses in the period on ledgers no maintenance element covers are not recovered by any "
                 f"charge head: {names}.")
+
+    def _zone_slots(self) -> Dict[UUID, Dict[UUID, int]]:
+        """Slots each flat holds today, per parking zone: zone id -> {flat id: count}. A head tied to a zone (Tower
+        Parking AMC, parking-meter electricity...) is billed only to these flats, once per slot held."""
+        from app.modules.parking.models.parking import ParkingAllocation, ParkingSlot, AllocationStatus
+        if not any(c.parking_zone_id for c in self.charges):
+            return {}
+        today = date.today()
+        rows = self.db.query(ParkingSlot.zone_id, ParkingAllocation.flat_id).join(
+            ParkingSlot, ParkingSlot.id == ParkingAllocation.slot_id).filter(
+            ParkingAllocation.society_id == self.society_id,
+            ParkingAllocation.status == AllocationStatus.ACTIVE,
+            ParkingAllocation.flat_id.isnot(None),
+            ParkingAllocation.is_active == True,                                    # noqa: E712
+            ParkingAllocation.start_date <= today,
+            or_(ParkingAllocation.end_date.is_(None), ParkingAllocation.end_date >= today),
+        ).all()
+        out: Dict[UUID, Dict[UUID, int]] = defaultdict(lambda: defaultdict(int))
+        for zone_id, flat_id in rows:
+            out[zone_id][flat_id] += 1
+        return out
+
+    def _slots_in_zone(self, charge: MaintenanceChargeConfig, flat: Flat) -> int:
+        return self.zone_slots.get(charge.parking_zone_id, {}).get(flat.id, 0)
 
     def _flats_with_two_wheeler(self) -> set:
         """Flats with a registered, active two-wheeler (motorcycle, scooter, bicycle). With the head's two-wheeler
@@ -419,6 +452,8 @@ class MaintenanceCalculator:
         if is_period_head(charge):
             alloc = self.allocations.get(charge.id)
             return [(charge.name, alloc.amounts.get(flat.id, ZERO))] if alloc else []
+        if charge.parking_zone_id:
+            return [(charge.name, money(self._zone_amount(charge, flat, months)))]
         if charge.basis == ChargeBasis.SERVICE_CHARGE_PCT:
             # % of the flat's service-charge lines already on this bill (those are for the months billed)
             return [(charge.name, money((service_base or ZERO) * (charge.default_amount or ZERO) / 100))]
@@ -429,6 +464,18 @@ class MaintenanceCalculator:
             return [(f"{charge.name} — cars", money(cars * months)),
                     (f"{charge.name} — two-wheelers", money(two_wheelers * months))]
         return [(charge.name, money(self._charge_amount(charge, flat, months)))]
+
+    def _zone_amount(self, charge: MaintenanceChargeConfig, flat: Flat, months: Decimal) -> Decimal:
+        """A zone-only head (not billed from the period's actual expenses): per slot the flat holds in the zone. Fixed:
+        the rate per slot per month. Equal budget: the annual budget over every slot held in the zone."""
+        slots = self._slots_in_zone(charge, flat)
+        if not slots:
+            return ZERO
+        rate = self._auto_rate.get(charge.id, charge.default_amount or ZERO)
+        if (charge.basis or ChargeBasis.FIXED) == ChargeBasis.BUDGET_EQUAL:
+            total = sum(self.zone_slots.get(charge.parking_zone_id, {}).values())
+            return rate * slots / total / 12 * months if total else ZERO
+        return rate * slots * months
 
     def _charge_amount(self, charge: MaintenanceChargeConfig, flat: Flat, months: Decimal) -> Decimal:
         rate = self._auto_rate.get(charge.id, charge.default_amount or ZERO)
@@ -484,6 +531,9 @@ class MaintenanceCalculator:
             names = ", ".join(c.name for c in self.charges if c.basis == ChargeBasis.CONSTRUCTION_COST_PCT)
             self.warnings.append(
                 f"Set the construction cost per sq ft in Rules — {names} can't be calculated without it.")
+        for c in self.charges:
+            if c.parking_zone_id and not is_period_head(c) and not self.zone_slots.get(c.parking_zone_id):
+                self.warnings.append(f"{c.name}: no flat holds a slot in its parking zone — nothing is billed for this head.")
         if flats_skipped:
             self.warnings.append(f"{flats_skipped} flat(s) have nothing to bill and will be skipped.")
 

@@ -60,6 +60,7 @@ class ChargeConfigCreate(OrmBase):
     expense_months: int = Field(default=12, ge=1, le=36)
     expense_mode: Literal["trailing", "period"] = "trailing"
     two_wheeler_rate: Optional[Decimal] = Field(default=None, ge=0)
+    parking_zone_id: Optional[UUID] = None      # bill only the holders of slots in this parking zone
 
 class CycleCreate(OrmBase):
     society_id: UUID; name: str; cycle_start: date; cycle_end: date
@@ -174,6 +175,7 @@ class ChargeConfigUpdate(OrmBase):
     expense_months: Optional[int] = Field(default=None, ge=1, le=36)
     expense_mode: Optional[Literal["trailing", "period"]] = None
     two_wheeler_rate: Optional[Decimal] = Field(default=None, ge=0)     # null clears it
+    parking_zone_id: Optional[UUID] = None                              # null clears it
 
 
 def _charge_out(c) -> dict:
@@ -196,6 +198,8 @@ def _charge_out(c) -> dict:
         "expense_months": c.expense_months or 12,
         "expense_mode": c.expense_mode or "trailing",
         "two_wheeler_rate": str(c.two_wheeler_rate) if c.two_wheeler_rate is not None else None,
+        "parking_zone_id": str(c.parking_zone_id) if c.parking_zone_id else None,
+        "parking_zone_name": c.parking_zone.name if c.parking_zone else None,
         "is_active": c.is_active,
     }
 
