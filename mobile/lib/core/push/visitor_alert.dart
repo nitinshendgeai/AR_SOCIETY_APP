@@ -3,15 +3,21 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:ar_society_app/core/push/web_ring.dart';
 
 /// The sound and buzz of a visitor alert. On Android it plays the same ring the notification channel uses
 /// (MainActivity.kt, channel `ar_society/visitor_ring`); Flutter's own system alert sound is silent there.
-/// Elsewhere it falls back to the system alert sound, and a browser tab (no sound API here) is visual only.
+/// In a browser it plays the same ring from the open page (the person must have tapped the page once since it
+/// loaded, which browsers require; see [unlockWebAudio]). Elsewhere it falls back to the system alert sound.
 class VisitorRinger {
   static const _channel = MethodChannel('ar_society/visitor_ring');
 
   static Future<void> ring() async {
     HapticFeedback.vibrate();
+    if (kIsWeb) {
+      await playWebRing();
+      return;
+    }
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       try {
         await _channel.invokeMethod<void>('play');
@@ -24,7 +30,11 @@ class VisitorRinger {
   }
 
   static Future<void> stop() async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    if (kIsWeb) {
+      stopWebRing();
+      return;
+    }
+    if (defaultTargetPlatform != TargetPlatform.android) return;
     try {
       await _channel.invokeMethod<void>('stop');
     } catch (_) {}

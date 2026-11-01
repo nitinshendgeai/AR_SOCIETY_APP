@@ -4,6 +4,17 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-01 (The web app now rings for a visitor)
+
+### feat: the web app rings when a visitor is at the gate
+
+In the browser, a visitor at the gate only showed a notification with no ring. Now the open page plays the same ring as
+the Android app and shows the Review / Later alert, whether the tab is in front or in the background. A browser needs
+one tap or key press on the page since it loaded before it allows sound; a browser that is closed cannot ring (its
+notification now stays on screen until answered and vibrates). For a ring with everything closed, use the Android app.
+
+---
+
 ## 2026-11-01 (Push status in Society Settings)
 
 ### feat: see whether push notifications are on, and test them

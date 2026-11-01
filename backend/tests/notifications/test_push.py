@@ -102,6 +102,10 @@ def test_visitor_at_the_gate_is_pushed_to_the_flat_residents_devices(client, db,
     assert m["android"]["notification"]["channel_id"] == "visitor_alerts"
     assert m["android"]["notification"]["notification_priority"] == "PRIORITY_MAX"
     assert m["webpush"]["fcm_options"]["link"] == "https://society.duxos.in/#/visitors/pending"
+    # Web: delivered at once and kept on screen until answered (a browser cannot ring for a push)
+    assert m["webpush"]["headers"] == {"Urgency": "high"}
+    assert m["webpush"]["notification"]["requireInteraction"] is True
+    assert m["webpush"]["notification"]["tag"] == "visitor-at-gate" and m["webpush"]["notification"]["renotify"] is True
 
 
 def test_other_pushes_keep_the_default_chime(client, db, fcm):
@@ -230,3 +234,16 @@ def test_a_test_push_goes_to_the_callers_own_devices_only(client, db, fcm, monke
     monkeypatch.setattr(settings, "FIREBASE_SERVICE_ACCOUNT_JSON", "")
     assert client.post("/api/v1/notifications/push-test", headers=admin["headers"]).json() == {"enabled": False, "sent": 0}
     assert client.post("/api/v1/notifications/push-test", headers=resident["headers"]).status_code == 403
+
+
+def test_the_web_app_ships_the_ring_and_the_service_worker_tells_an_open_tab():
+    """A browser rings from the open page: it needs web/visitor_ring.wav, and the service worker must pass an urgent
+    push to the page (the page's web_ring_web.dart listens for source 'dux-push')."""
+    from pathlib import Path
+    mobile = Path(__file__).resolve().parents[3] / "mobile"
+    ring = mobile / "web" / "visitor_ring.wav"
+    assert ring.read_bytes()[:4] == b"RIFF" and 20_000 < ring.stat().st_size < 600_000
+    worker = (mobile / "web" / "firebase-messaging-sw.js").read_text()
+    assert "addEventListener('push'" in worker and "source: 'dux-push'" in worker and "'1'" in worker
+    page = (mobile / "lib" / "core" / "push" / "web_ring_web.dart").read_text()
+    assert "'dux-push'" in page and "visitor_ring.wav" in page

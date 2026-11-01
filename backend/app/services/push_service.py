@@ -119,6 +119,13 @@ class PushService:
         if route:
             # Web: the notification opens the app on that screen.
             message["webpush"] = {"fcm_options": {"link": f"{settings.WEB_APP_URL.rstrip('/')}/#{route}"}}
+        if urgent:
+            # A browser cannot ring for a push; the best it can do is stay on screen until answered, buzz, and be
+            # delivered at once. (An open tab rings through the page: web/firebase-messaging-sw.js, web_ring_web.dart.)
+            webpush = message.setdefault("webpush", {})
+            webpush["headers"] = {"Urgency": "high"}
+            webpush["notification"] = {"requireInteraction": True, "tag": "visitor-at-gate", "renotify": True,
+                                       "silent": False, "vibrate": [500, 250, 500, 250, 500]}
         return message
 
     @classmethod
