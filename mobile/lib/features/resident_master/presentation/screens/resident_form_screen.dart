@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
+import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_login_link.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
@@ -44,6 +45,7 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
   DateTime? _dateOfBirth;
   bool _recordMoveIn = false;
   DateTime? _moveInDate;
+  String? _userId; // the app login linked to this resident (edit only)
 
   bool get _isEdit => widget.resident != null;
 
@@ -67,6 +69,7 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
       _commPreference = r.commPreference;
       _dateOfBirth = r.dateOfBirth != null ? DateTime.tryParse(r.dateOfBirth!) : null;
       _selectedFlatId = r.flatId;
+      _userId = r.userId;
     } else if (widget.defaultFlat != null) {
       _selectedFlatId = widget.defaultFlat!.id;
       _selectedWingId = widget.defaultFlat!.wingId;
@@ -114,6 +117,8 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
         'emergency_contact_name': _emergencyNameCtrl.text.trim().isEmpty ? null : _emergencyNameCtrl.text.trim(),
         'emergency_contact_phone': _emergencyPhoneCtrl.text.trim().isEmpty ? null : _emergencyPhoneCtrl.text.trim(),
         'comm_preference': _commPreference.value,
+        // Only when it changed: a null here unlinks the login, an absent key leaves it alone.
+        if (_userId != widget.resident!.userId) 'user_id': _userId,
       };
       ref.read(residentFormProvider.notifier).update(widget.resident!.id, data);
     } else {
@@ -352,6 +357,13 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
                   ),
                 ),
             ],
+          ),
+        if (_isEdit)
+          FormSection(
+            title: 'App login',
+            description: 'The login this person signs in with. Their bills and visitor approvals appear only once '
+                'a login is linked to their record.',
+            children: [ResidentLoginLink(userId: _userId, onChanged: (id) => setState(() => _userId = id))],
           ),
         FormSection(
           title: 'Status',

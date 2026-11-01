@@ -4,6 +4,18 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-01 (Link a login to a resident)
+
+### feat: link, change or unlink a resident's app login from the Edit Resident screen
+
+A resident whose login was not linked to their record saw "Your login is not linked to a flat yet" on their dashboard,
+and the only fix was through the API. Edit Resident now has an **App login** section: it shows the linked login (name
+and mobile), **Link login** / **Change login** opens a searchable list of the society's logins (name, mobile, e-mail),
+and **Unlink** removes it. Saving sends the change only when it was changed. Only an admin can read the list of
+logins; anyone else sees a message to ask the society admin. The server already refused a login from another society.
+
+---
+
 ## 2026-10-31 (Possession date import now sets the move-in)
 
 ### feat: importing possession dates also marks the flat's residents as moved in
