@@ -38,6 +38,7 @@ import 'package:ar_society_app/features/staff/presentation/screens/staff_import_
 import 'package:ar_society_app/features/auth/presentation/screens/active_devices_screen.dart';
 import 'package:ar_society_app/features/parking/presentation/screens/gate_check_screen.dart';
 import 'package:ar_society_app/features/parking/presentation/screens/parking_management_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/resident_login_status_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_detail_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/staff_edit_screen.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
@@ -252,6 +253,7 @@ class AppRoutes {
   static const residentDetail     = '/residents/detail';
   static const residentForm       = '/residents/form';
   static const residentImport     = '/residents/import';
+  static const residentLoginStatus = '/residents/login-status';
   static const editMyProfile           = '/residents/me/edit';
   static const pendingResidentChanges  = '/residents/edit-requests/pending';
   static const shops              = '/shops';
@@ -1069,6 +1071,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 defaultFlat: extra?['flat'] as FlatModel?,
               );
             },
+          ),
+          GoRoute(
+            path: AppRoutes.residentLoginStatus,
+            builder: (_, __) => const ResidentLoginStatusScreen(),
           ),
           GoRoute(
             path: AppRoutes.residentImport,

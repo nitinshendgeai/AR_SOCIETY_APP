@@ -43,6 +43,7 @@ void main() {
       '/residents': 'residents',
       '/residents/detail': 'residents',
       '/residents/import': 'residents',
+      '/residents/login-status': 'residents',
       '/residents/edit-requests/pending': 'pending_resident_changes',
       '/residents/me/edit': null,                    // a member's own profile
       '/tenants/form': 'tenants',

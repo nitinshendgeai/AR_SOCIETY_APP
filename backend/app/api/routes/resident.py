@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Literal, Optional
 from uuid import UUID
 
 from app.db.session import get_db
@@ -9,6 +9,7 @@ from app.schemas.resident import ResidentCreate, ResidentUpdate, ResidentOut, Re
 from app.schemas.resident_edit_request import (
     ResidentEditRequestCreate, ResidentEditRequestOut, ResidentEditRequestReject,
 )
+from app.services.resident_login_status import NEEDS_ATTENTION, resident_login_status
 from app.services.resident_service import ResidentService
 from app.services.resident_edit_request_service import ResidentEditRequestService
 from app.core.dependencies import require_admin_committee, get_current_user
@@ -40,6 +41,24 @@ def list_residents(
         is_active=is_active, search=search, skip=skip, limit=limit,
     )
     return [hide_private(r, current_user, RESIDENT_PRIVATE_FIELDS) for r in rows]
+
+
+@router.get("/login-status", response_model=dict)
+def residents_login_status(
+    status: Optional[Literal["linked", "login_disabled", "login_unlinked", "no_login", "no_mobile",
+                             "needs_attention"]] = None,
+    search: Optional[str] = Query(None, description="Matches name, flat or mobile"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_committee),
+):
+    """Which active residents can sign in to the app and which cannot (and why): the "Residents without a login"
+    report. `status=needs_attention` is every resident who cannot sign in. The summary always counts the whole society."""
+    if current_user.society_id is None:
+        raise HTTPException(400, "Choose a society first")
+    data = resident_login_status(db, current_user.society_id, None if status == "needs_attention" else status, search)
+    if status == "needs_attention":
+        data["residents"] = [r for r in data["residents"] if r["status"] in NEEDS_ATTENTION]
+    return data
 
 
 @router.get("/me", response_model=ResidentOut)

@@ -213,6 +213,13 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
                 if (imported == true) _load();
               },
             ),
+          if (widget.filterFlat == null && (user?.isAdminOrCommittee ?? false))
+            IconButton(
+              key: const ValueKey('residents-login-report'),
+              icon: const Icon(Icons.link_off_rounded),
+              tooltip: 'Residents without a login',
+              onPressed: () => context.push(AppRoutes.residentLoginStatus),
+            ),
           IconButton(icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh', onPressed: _load),
           if (desktop && (user?.isAdminOrCommittee ?? false))
             HeaderActionButton(icon: Icons.person_add_rounded, label: 'Add Resident', onPressed: _addResident),
