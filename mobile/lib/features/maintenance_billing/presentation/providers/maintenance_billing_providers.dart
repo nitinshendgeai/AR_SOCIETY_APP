@@ -24,6 +24,10 @@ final cyclePreviewProvider = FutureProvider.autoDispose.family<CyclePreview, Str
   (ref, cycleId) => ref.watch(maintenanceBillingApiProvider).previewCycle(cycleId),
 );
 
+final towerParkingPreviewProvider = FutureProvider.autoDispose.family<TowerParkingPreview, String>(
+  (ref, cycleId) => ref.watch(maintenanceBillingApiProvider).towerParkingPreview(cycleId),
+);
+
 final billingCyclesProvider = FutureProvider.autoDispose.family<List<BillingCycle>, String>(
   (ref, societyId) => ref.watch(maintenanceBillingApiProvider).listCycles(societyId),
 );
