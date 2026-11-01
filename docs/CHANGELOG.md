@@ -4,6 +4,18 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-01 (Residents without a login)
+
+### feat: a report of which residents can sign in to the app
+
+**Residents → Residents without a login** (the link-off icon at the top of the list) says how many active residents can
+sign in and lists those who cannot, with the reason: **Login exists, not linked** (an active login has the resident's
+mobile number: open the resident and link it), **No login yet** (has a mobile number, no login), **No mobile number**,
+or **Login disabled**. Filter by reason, search by name, flat or mobile, tap a resident to open the edit form, and
+download the list as a spreadsheet. API: `GET /residents/login-status` (admin or committee). Tenants are not covered.
+
+---
+
 ## 2026-11-01 (The web app now rings for a visitor)
 
 ### feat: the web app rings when a visitor is at the gate
