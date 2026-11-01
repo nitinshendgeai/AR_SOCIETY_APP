@@ -7,6 +7,7 @@ import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/society_settings/data/models/society_settings_model.dart';
 import 'package:ar_society_app/features/society_settings/presentation/providers/society_settings_providers.dart';
+import 'package:ar_society_app/features/society_settings/presentation/push_status_card.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 class SocietySettingsScreen extends ConsumerWidget {
@@ -567,6 +568,12 @@ class _SecurityTabState extends ConsumerState<_SecurityTab>
                 onChanged: (v) => setState(() => _requireVisitorApproval = v),
               ),
             ],
+          ),
+          const FormSection(
+            title: 'Push notifications',
+            description: 'Whether phones are alerted, for example when a visitor is at the gate.',
+            columns: 1,
+            children: [PushStatusCard()],
           ),
           FormSection(
             title: 'Billing settings',

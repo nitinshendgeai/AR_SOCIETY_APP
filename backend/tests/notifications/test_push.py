@@ -194,3 +194,39 @@ def test_access_token_comes_from_a_jwt_signed_with_the_service_account_key(monke
     assert claims["scope"] == "https://www.googleapis.com/auth/firebase.messaging"
     # Cached for the next call.
     assert PushService._token(SERVICE_ACCOUNT) == "ya29.token"
+
+
+def test_push_status_says_whether_the_server_can_send_and_how_many_devices_are_registered(client, db, monkeypatch):
+    home, other = make_society(db, "Push Status Society"), make_society(db, "Other Push Status Society")
+    admin = make_user(db, "admin@pushstatus.com", role="Society Admin")
+    resident = make_user(db, "res@pushstatus.com")
+    stranger = make_user(db, "stranger@pushstatus.com")
+    place_in(db, admin, home); place_in(db, resident, home); place_in(db, stranger, other)
+    monkeypatch.setattr(settings, "FIREBASE_SERVICE_ACCOUNT_JSON", "")
+    _register(client, admin["headers"], "status-admin-phone-1", "android")
+    _register(client, resident["headers"], "status-resident-web-1", "web")
+    _register(client, stranger["headers"], "status-stranger-phone1", "android")      # another society: not counted
+    r = client.get("/api/v1/notifications/push-status", headers=admin["headers"])
+    assert r.status_code == 200, r.text
+    assert r.json() == {"enabled": False, "devices": 2, "platforms": {"android": 1, "web": 1}, "my_devices": 1}
+    monkeypatch.setattr(settings, "FIREBASE_SERVICE_ACCOUNT_JSON", json.dumps(SERVICE_ACCOUNT))
+    assert client.get("/api/v1/notifications/push-status", headers=admin["headers"]).json()["enabled"] is True
+    assert client.get("/api/v1/notifications/push-status", headers=resident["headers"]).status_code == 403
+
+
+def test_a_test_push_goes_to_the_callers_own_devices_only(client, db, fcm, monkeypatch):
+    sent, _ = fcm
+    home = make_society(db, "Push Test Society")
+    admin = make_user(db, "admin@pushtest.com", role="Society Admin")
+    resident = make_user(db, "res@pushtest.com")
+    place_in(db, admin, home); place_in(db, resident, home)
+    _register(client, admin["headers"], "test-admin-phone-token1", "android")
+    _register(client, admin["headers"], "test-admin-web-token-01", "web")
+    _register(client, resident["headers"], "test-resident-token-01", "android")
+    r = client.post("/api/v1/notifications/push-test", headers=admin["headers"])
+    assert r.status_code == 200 and r.json() == {"enabled": True, "sent": 2}
+    assert {m["token"] for m in sent} == {"test-admin-phone-token1", "test-admin-web-token-01"}
+    assert sent[0]["notification"]["title"] == "Test notification"
+    monkeypatch.setattr(settings, "FIREBASE_SERVICE_ACCOUNT_JSON", "")
+    assert client.post("/api/v1/notifications/push-test", headers=admin["headers"]).json() == {"enabled": False, "sent": 0}
+    assert client.post("/api/v1/notifications/push-test", headers=resident["headers"]).status_code == 403
