@@ -12,7 +12,7 @@ Fines & Charges now has **Add to many flats**. It adds the same additional charg
 charges*, ₹200) to **every rented flat** (tenant occupied), or to the flats you choose, in one go. It shows how many
 flats will get it before anything is saved. Each goes on the flat's next maintenance bill, and the flat's members are
 told. A flat that already has the same charge waiting (same title, amount and repeat) is skipped, so sending it twice
-does not double it. A title with "Non-occupancy" in it is booked to the Non-Occupancy Charges ledger. API:
+does not double it. **Choose rented flats** lists only the flats that are let out today (tenant occupied). A title with "Non-occupancy" in it is booked to the Non-Occupancy Charges ledger. API:
 `POST /billing/flat-charges/bulk` (`flat_ids` or `rented`, optional `wing_id`, `dry_run`).
 
 ---

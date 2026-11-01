@@ -379,7 +379,14 @@ class _BulkFlatChargeSheetState extends ConsumerState<_BulkFlatChargeSheet> {
     if (d != null) setState(() => done(d));
   }
 
+  /// Only flats that are let out today (tenant occupied) can be chosen.
+  static bool _isRented(FlatModel f) => f.isActive && f.occupancyStatus == 'tenant_occupied';
+
   Future<void> _chooseFlats(List<FlatModel> all) async {
+    if (all.isEmpty) {
+      AppToast.warning(context, 'No flat is marked rented (tenant occupied) right now');
+      return;
+    }
     final picked = await showAppSheet<Set<String>>(
       context: context,
       builder: (_) => _FlatMultiPicker(flats: all, selected: _flatIds),
@@ -461,7 +468,7 @@ class _BulkFlatChargeSheetState extends ConsumerState<_BulkFlatChargeSheet> {
           SegmentedButton<bool>(
             segments: const [
               ButtonSegment(value: true, label: Text('All rented flats'), icon: Icon(Icons.key_rounded)),
-              ButtonSegment(value: false, label: Text('Choose flats'), icon: Icon(Icons.checklist_rounded)),
+              ButtonSegment(value: false, label: Text('Choose rented flats'), icon: Icon(Icons.checklist_rounded)),
             ],
             selected: {_rented},
             onSelectionChanged: (s) => setState(() => _rented = s.first),
@@ -478,9 +485,9 @@ class _BulkFlatChargeSheetState extends ConsumerState<_BulkFlatChargeSheet> {
                 alignment: Alignment.centerLeft,
                 child: OutlinedButton.icon(
                   key: const ValueKey('bulk-choose-flats'),
-                  onPressed: () => _chooseFlats(list.where((f) => f.isActive).toList()),
+                  onPressed: () => _chooseFlats(list.where(_isRented).toList()),
                   icon: const Icon(Icons.checklist_rounded, size: 18),
-                  label: Text(_flatIds.isEmpty ? 'Choose flats' : '${_flatIds.length} flats chosen'),
+                  label: Text(_flatIds.isEmpty ? 'Choose from rented flats' : '${_flatIds.length} flats chosen'),
                 ),
               ),
             ),
@@ -585,8 +592,8 @@ class _FlatMultiPickerState extends State<_FlatMultiPicker> {
   Widget build(BuildContext context) {
     final shown = widget.flats.where((f) => _query.isEmpty || _label(f).toLowerCase().contains(_query)).toList();
     return AppSheetFrame(
-      title: 'Choose flats',
-      subtitle: '${_ticked.length} chosen',
+      title: 'Choose rented flats',
+      subtitle: '${widget.flats.length} rented flats · ${_ticked.length} chosen',
       scrollBody: false,
       pinned: SheetSearchField(hint: 'Search a flat', onChanged: (v) => setState(() => _query = v.trim().toLowerCase())),
       footer: ElevatedButton(onPressed: () => Navigator.pop(context, _ticked), child: const Text('Done')),
