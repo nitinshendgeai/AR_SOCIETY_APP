@@ -4,6 +4,18 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-01 (Push status in Society Settings)
+
+### feat: see whether push notifications are on, and test them
+
+**Society Settings → Security → Push notifications** now says whether the server can send push (the Firebase key is
+set), how many phones and browsers are registered (by platform, and how many are yours), and has **Send a test to my
+devices**. The test goes to the signed-in admin's own devices and says why when nothing was sent (push off on the
+server, or no device of theirs registered). API: `GET /notifications/push-status`, `POST /notifications/push-test`
+(admin or committee).
+
+---
+
 ## 2026-11-01 (Add a charge to many flats at once)
 
 ### feat: bulk additional charge, for all rented flats or chosen flats

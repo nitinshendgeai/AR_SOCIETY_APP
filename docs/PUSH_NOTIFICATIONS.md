@@ -78,6 +78,11 @@ Override the built-in values with `--dart-define=FIREBASE_API_KEY=…`,
 web service (the Dockerfile then also rewrites `firebase-config.js`).
 
 ## Checking it works
+The quickest check is **Society Settings → Security → Push notifications**: it says whether the server has the Firebase
+key (on or off), how many phones and browsers are registered, and **Send a test to my devices** pushes a test to your
+own devices (`GET /notifications/push-status`, `POST /notifications/push-test`; admin or committee only, nothing
+secret is returned).
+
 1. Sign in on the web app as a resident and click **Allow** when the browser
    asks about notifications.
 2. As the guard, log a visitor for that resident's flat.
