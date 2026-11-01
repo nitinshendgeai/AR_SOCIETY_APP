@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
@@ -10,7 +10,8 @@ from app.services.password_reset_service import PasswordResetService
 from app.models.password_reset_request import PasswordResetStatus
 from app.core.dependencies import require_admin
 from app.models.user import User
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from app.services.starting_password import set_starting_password
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -59,6 +60,26 @@ def create_user(
     sid = _society_id(current_user)
     user, temp_password = UserService(db).create(data, sid)
     return UserCreatedOut(**UserOut.from_orm_with_roles(user).model_dump(), temporary_password=temp_password)
+
+
+class StartingPasswordIn(BaseModel):
+    password: str = Field(min_length=8, max_length=128)
+    dry_run: bool = False
+
+
+@router.post("/starting-password", response_model=dict)
+def set_starting_password_for_residents(
+    data: StartingPasswordIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Give residents who have never signed in the same starting password, forced to change at first sign-in. Only
+    resident logins linked to an active resident, never used; admins, committee, staff and anyone who has signed in
+    are not touched. `dry_run` says who would be set and changes nothing. The password is never returned."""
+    if current_user.society_id is None:
+        raise HTTPException(status_code=400, detail="Choose a society first")
+    return set_starting_password(db, current_user.society_id, data.password, data.dry_run, current_user, request)
 
 
 # ── "Forgot password?" requests (declared before /{user_id}) ──────────────────
