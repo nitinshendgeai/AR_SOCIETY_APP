@@ -4,6 +4,22 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-01 (A starting password for residents who have never signed in)
+
+### feat: set one starting password for residents' logins that have never been used
+
+On **Residents without a login** the key icon sets one starting password (for example the one you hand out with the app
+link) for resident logins that have **never signed in**. Each must change it at first sign-in. It shows how many will be
+set before anything changes, then downloads the list of who got it (name, flat, mobile; never the password).
+
+It deliberately does **not** touch admins, committee, managers, guards, staff, platform admins, tenants' logins without
+a resident record, or any login that has already been signed in to. A shared starting password is guessable: until a
+resident signs in, anyone who knows it and their mobile number could sign in as them, so hand it out only to the
+residents and ask them to sign in soon. API: `POST /users/starting-password` (admin, `dry_run` supported, the password
+is never returned and is not written to the audit log).
+
+---
+
 ## 2026-11-01 (Residents without a login)
 
 ### feat: a report of which residents can sign in to the app

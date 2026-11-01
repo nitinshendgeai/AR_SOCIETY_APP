@@ -100,6 +100,84 @@ class _ResidentLoginStatusScreenState extends ConsumerState<ResidentLoginStatusS
     }
   }
 
+  /// Gives residents who have never signed in one starting password they must change at first sign-in. Says how many
+  /// would be set before doing anything, and leaves admins, committee, staff and anyone who has signed in alone.
+  Future<void> _startingPassword() async {
+    final ctrl = TextEditingController();
+    final password = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Set a starting password'),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text(
+            'Residents who have never signed in get this password and must change it the first time they sign in. '
+            'Admins, committee, staff and anyone who has already signed in are not changed.',
+            style: TextStyle(fontSize: 13, height: 1.4),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Until a resident signs in, anyone who knows this password and their mobile number could sign in as them.',
+            style: TextStyle(fontSize: 12, color: AppTheme.warning, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const ValueKey('starting-password-field'),
+            controller: ctrl,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'Starting password', helperText: 'At least 8 characters'),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Preview')),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (password == null) return;
+    if (password.length < 8) {
+      if (mounted) AppToast.warning(context, 'The password must be at least 8 characters');
+      return;
+    }
+    try {
+      final plan = Map<String, dynamic>.from((await ApiClient.instance
+              .post('/users/starting-password', data: {'password': password, 'dry_run': true})).data as Map);
+      final n = plan['set'] as int;
+      if (!mounted) return;
+      if (n == 0) {
+        AppToast.warning(context, 'Nobody to set: no resident login is waiting for a first sign-in');
+        return;
+      }
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Set it for these residents?'),
+          content: Text(
+              'The starting password will be set for $n resident${n == 1 ? '' : 's'} who have never signed in. '
+              '${plan['skipped_signed_in']} who have already signed in and ${plan['skipped_other_roles']} admin, '
+              'committee or staff logins are left as they are.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Back')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Set for $n')),
+          ],
+        ),
+      );
+      if (ok != true) return;
+      final done = Map<String, dynamic>.from((await ApiClient.instance
+              .post('/users/starting-password', data: {'password': password})).data as Map);
+      if (!mounted) return;
+      AppToast.success(context, 'Starting password set for ${done['set']} residents');
+      // The list to hand the password out with: who, which flat, which mobile number (never the password itself).
+      final people = (done['people'] as List).cast<Map>();
+      String cell(Object? v) => '"${'${v ?? ''}'.replaceAll('"', '""')}"';
+      final csv = ['Resident,Flat,Mobile', for (final p in people) [cell(p['name']), cell(p['flat']), cell(p['mobile'])].join(',')]
+          .join('\n');
+      await saveCsvFile(csv, 'residents_starting_password.csv');
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    }
+  }
+
   String _csv(List<ResidentLoginRow> rows) {
     String cell(String? v) => '"${(v ?? '').replaceAll('"', '""')}"';
     final lines = ['Flat,Resident,Type,Mobile,Status,Matching login'];
@@ -135,6 +213,12 @@ class _ResidentLoginStatusScreenState extends ConsumerState<ResidentLoginStatusS
                     AppToast.success(context, 'Downloaded');
                   }
                 },
+        ),
+        IconButton(
+          key: const ValueKey('starting-password'),
+          tooltip: 'Set a starting password',
+          icon: const Icon(Icons.key_rounded),
+          onPressed: _startingPassword,
         ),
         IconButton(
           tooltip: 'Refresh',
