@@ -9,6 +9,7 @@ import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
+import 'package:ar_society_app/features/parking/presentation/providers/parking_providers.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/billing_cycle_screen.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/flat_charges_tab.dart';
@@ -589,6 +590,7 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
   late String _expenseMode = widget.existing?.expenseMode ?? 'trailing';
   late final _monthsCtrl = TextEditingController(text: '${widget.existing?.expenseMonths ?? 12}');
   late final _twoWheelerCtrl = TextEditingController(text: widget.existing?.twoWheelerRate ?? '');
+  late String? _zoneId = widget.existing?.parkingZoneId;
   bool _saving = false;
 
   bool get _editing => widget.existing != null;
@@ -684,6 +686,8 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
     final twoWheeler = _basis == 'parking' && _twoWheelerCtrl.text.trim().isNotEmpty
         ? _twoWheelerCtrl.text.trim()
         : null;
+    // A parking-zone head (Tower Parking AMC...) is per slot, so it is fixed or an equal budget share only.
+    final zoneId = const {'fixed', 'budget_equal'}.contains(_basis) ? _zoneId : null;
     await _run(
       () => _editing
           ? api.updateChargeHead(widget.existing!.id, {
@@ -691,6 +695,7 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
               'is_service_charge': _service, 'gst_applicable': _gst, 'tax_percent': tax,
               'auto_from_expenses': auto, 'expense_months': months, 'expense_mode': mode,
               'two_wheeler_rate': twoWheeler,
+              'parking_zone_id': zoneId,
             })
           : api.createChargeHead(
               societyId: widget.societyId, elementId: _elementId,
@@ -698,6 +703,7 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
               basis: _basis, isServiceCharge: _service, gstApplicable: _gst, taxPercent: tax,
               autoFromExpenses: auto, expenseMonths: months, expenseMode: mode,
               twoWheelerRate: twoWheeler,
+              parkingZoneId: zoneId,
             ),
       _editing ? 'Charge head updated' : 'Charge head added',
     );
@@ -794,6 +800,27 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
             decoration: InputDecoration(),
             validator: _number,
           )),
+          if (_basis == 'fixed' || _basis == 'budget_equal') ...[
+            const SizedBox(height: 14),
+            Consumer(builder: (context, ref, _) {
+              final zones = ref.watch(parkingZonesProvider(widget.societyId)).valueOrNull ?? const [];
+              if (zones.isEmpty) return const SizedBox.shrink();
+              return FormFieldBox(label: 'Only for parking zone', child: DropdownButtonFormField<String?>(
+                key: ValueKey('zone-$_zoneId'),
+                initialValue: zones.any((z) => z.id == _zoneId) ? _zoneId : null,
+                isExpanded: true,
+                items: [
+                  const DropdownMenuItem<String?>(value: null, child: Text('All flats')),
+                  for (final z in zones) DropdownMenuItem<String?>(value: z.id, child: Text('${z.name} slot holders')),
+                ],
+                onChanged: (v) => setState(() => _zoneId = v),
+                decoration: const InputDecoration(
+                  helperText: 'Pick the Tower zone for tower parking AMC, meter electricity, wallet or fire AMC: '
+                      'only flats holding a slot there pay, per slot held',
+                ),
+              ));
+            }),
+          ],
           if (_basis == 'parking') ...[
             const SizedBox(height: 14),
             FormFieldBox(label: 'Two-wheeler rate per slot per month (₹)', child: TextFormField(

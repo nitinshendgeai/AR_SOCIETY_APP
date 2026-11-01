@@ -143,6 +143,9 @@ class ChargeHead {
   /// Parking head only: rate for a motorcycle/scooter/cycle slot. Empty
   /// means two-wheelers pay the same as a car.
   final String? twoWheelerRate;
+  /// A zone-only head (e.g. Tower Parking AMC) bills just the holders of slots in this parking zone, per slot.
+  final String? parkingZoneId;
+  final String? parkingZoneName;
   final bool isActive;
 
   const ChargeHead({
@@ -161,6 +164,8 @@ class ChargeHead {
     this.expenseMonths = 12,
     this.expenseMode = 'trailing',
     this.twoWheelerRate,
+    this.parkingZoneId,
+    this.parkingZoneName,
     this.isActive = true,
   });
 
@@ -188,6 +193,8 @@ class ChargeHead {
         expenseMonths: j['expense_months'] as int? ?? 12,
         expenseMode: j['expense_mode'] as String? ?? 'trailing',
         twoWheelerRate: j['two_wheeler_rate'] as String?,
+        parkingZoneId: j['parking_zone_id'] as String?,
+        parkingZoneName: j['parking_zone_name'] as String?,
         isActive: j['is_active'] as bool? ?? true,
       );
 }
@@ -909,6 +916,7 @@ class MaintenanceBillingApi {
     int expenseMonths = 12,
     String expenseMode = 'trailing',
     String? twoWheelerRate,
+    String? parkingZoneId,
   }) async {
     final r = await _dio.post('/billing/charges', data: {
       'society_id': societyId,
@@ -924,6 +932,7 @@ class MaintenanceBillingApi {
       'expense_months': expenseMonths,
       'expense_mode': expenseMode,
       if (twoWheelerRate != null) 'two_wheeler_rate': twoWheelerRate,
+      if (parkingZoneId != null) 'parking_zone_id': parkingZoneId,
     });
     return ChargeHead.fromJson(r.data as Map<String, dynamic>);
   }

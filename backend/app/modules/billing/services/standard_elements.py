@@ -65,6 +65,22 @@ STANDARD_ELEMENTS = [
     ("parking", "Parking Charges", ChargeType.PARKING, ChargeBasis.PARKING, None, False,
      "Bye-laws 66–67",
      "Per allotted parking slot, at the rate fixed by the general body."),
+    ("tower_parking_amc", "Tower Parking AMC", ChargeType.PARKING, ChargeBasis.FIXED, None, False,
+     None,
+     "Annual maintenance contract of the tower (mechanical) parking system. Charge it to a head tied to the Tower "
+     "parking zone: only the flats that own a tower slot share it, equally per slot."),
+    ("tower_parking_electricity", "Tower Parking Electricity", ChargeType.PARKING, ChargeBasis.FIXED, None, False,
+     None,
+     "Electricity bill of the tower parking's own meter. Tie the head to the Tower parking zone so only its slot "
+     "holders pay, equally per slot."),
+    ("tower_parking_wallet", "Tower Parking Wallet", ChargeType.PARKING, ChargeBasis.FIXED, None, False,
+     None,
+     "The wallet / prepaid payment made for running the tower parking. Tie the head to the Tower parking zone so only "
+     "its slot holders pay, equally per slot."),
+    ("tower_parking_fire_amc", "Tower Parking Fire AMC", ChargeType.PARKING, ChargeBasis.FIXED, None, False,
+     None,
+     "Fire-fighting AMC of the tower parking. Tie the head to the Tower parking zone so only its slot holders pay, "
+     "equally per slot."),
     ("insurance", "Building Insurance", ChargeType.OTHER, ChargeBasis.BUDGET_AREA, None, False,
      "Bye-laws 66–67", "Insurance premium for the society's buildings."),
     ("lease_rent_na_tax", "Lease Rent / NA Tax", ChargeType.OTHER, ChargeBasis.BUDGET_AREA, None, False,
