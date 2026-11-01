@@ -47,7 +47,13 @@ differently from the ordinary chime:
   sound later needs a new channel id. A phone on silent or Do Not Disturb stays quiet; that is the phone's setting.
 - **App open:** Android shows nothing for a push in the foreground, so the app rings itself (the same sound, repeated
   up to 3 times, plus a buzz) and puts a blocking alert on screen with **Review** (opens the approvals) and **Later**.
-  A browser tab shows the alert without sound.
+- **Web app (browser):** a browser cannot ring for a push notification, so the open page rings itself
+  (`web/visitor_ring.wav`, played by `web_ring_web.dart`), with the same alert. This works while the tab is open,
+  visible or in the background (the service worker, `web/firebase-messaging-sw.js`, tells the page when the tab is
+  hidden). Two limits come from the browser: the person must have **tapped or pressed a key on the page once since it
+  loaded** (browsers refuse sound otherwise), and a browser that is **closed** has no page to ring: it shows the
+  notification, which stays on screen until answered and vibrates where the device does, with whatever sound the
+  computer or phone gives a notification. For a ring that works with everything closed, use the Android app.
 - It is not a full-screen incoming-call screen over a locked phone; that needs more Android permissions and is a
   separate piece of work.
 

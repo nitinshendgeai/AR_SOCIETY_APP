@@ -14,6 +14,7 @@ import 'package:ar_society_app/core/layout/app_shell.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/push/push_notifications.dart';
 import 'package:ar_society_app/core/push/visitor_alert.dart';
+import 'package:ar_society_app/core/push/web_ring.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart' show pendingVisitorApprovalsProvider;
 
@@ -110,24 +111,35 @@ class ArSocietyApp extends ConsumerWidget {
     // Once signed in, register this device for push notifications.
     ref.listen<AuthState>(authProvider, (previous, next) {
       if (next is AuthAuthenticated && previous is! AuthAuthenticated) {
+        // Someone is waiting at the gate: ring and ask. [route] is where Review goes.
+        void raiseVisitorAlert(String title, String body, Object? route) {
+          final context = router.routerDelegate.navigatorKey.currentContext;
+          if (context == null) return;
+          showVisitorAlert(
+            context,
+            title: title,
+            body: body,
+            onReview: () => router.push(route is String && route.startsWith('/') ? route : '/visitors/pending'),
+          );
+        }
+
+        // A browser plays sound only after a tap on the page: the first tap after sign-in allows the ring, and a
+        // visitor push that reaches a tab left open in the background rings it too.
+        unlockWebAudio();
+        listenForBackgroundUrgent((title, body, route) {
+          ref.invalidate(pendingVisitorApprovalsProvider);
+          raiseVisitorAlert(title, body, route);
+        });
         PushNotifications.instance.register(
           openRoute: (route) => router.push(route),
           // A visitor logged while the app is open: show them right away
           // rather than on the next 15-second poll.
           onForegroundMessage: (message) {
             ref.invalidate(pendingVisitorApprovalsProvider);
-            // Someone is waiting at the gate: the OS shows nothing while the app is open, so ring and ask.
+            // The OS shows nothing while the app is open, so ring and ask.
             if (message.data['urgent'] == '1') {
-              final context = router.routerDelegate.navigatorKey.currentContext;
-              final route = message.data['route'];
-              if (context != null) {
-                showVisitorAlert(
-                  context,
-                  title: message.notification?.title ?? 'Visitor at the gate',
-                  body: message.notification?.body ?? '',
-                  onReview: () => router.push(route is String && route.startsWith('/') ? route : '/visitors/pending'),
-                );
-              }
+              raiseVisitorAlert(message.notification?.title ?? 'Visitor at the gate',
+                  message.notification?.body ?? '', message.data['route']);
             }
           },
         );
