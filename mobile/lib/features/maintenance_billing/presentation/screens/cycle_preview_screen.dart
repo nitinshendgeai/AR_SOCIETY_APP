@@ -5,6 +5,7 @@ import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
+import 'package:ar_society_app/features/maintenance_billing/presentation/screens/tower_parking_preview_screen.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/month_end_checklist.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
@@ -106,6 +107,17 @@ class _CyclePreviewScreenState extends ConsumerState<CyclePreviewScreen> {
                     note: 'avg ${formatRupees('$avg')}',
                   ),
                 ]),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TowerParkingPreviewScreen(cycleId: widget.cycleId, cycleName: widget.cycleName),
+                    ),
+                  ),
+                  icon: const Icon(Icons.local_parking_rounded),
+                  label: const Text('Tower parking bill preview'),
+                ),
                 const SizedBox(height: 10),
                 MonthEndChecklist(cycleId: widget.cycleId, preview: p),
                 for (final a in p.expenseAllocations) ...[

@@ -479,6 +479,57 @@ def get_cycle(cycle_id: UUID, db: Session = Depends(get_db), user: User = Depend
     assert_society_access(user, cycle.society_id)
     return _cycle_out(cycle)
 
+@router.get("/cycles/{cycle_id}/tower-parking-preview", dependencies=[Depends(manager_above)])
+def tower_parking_preview(cycle_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """The parking part of a cycle's bills, for the flats that hold slots in a zone with its own charge heads (Tower
+    Parking AMC, meter electricity, wallet, fire AMC...). Same calculation as the preview; nothing is written."""
+    from app.modules.parking.models.parking import ParkingZone
+    cycle = BillingService(db).get_cycle(cycle_id)
+    assert_society_access(user, cycle.society_id)
+    calc = BillingService(db).preview_cycle(cycle_id)
+    zone_heads: dict = {}
+    for c in calc.charges:
+        if c.parking_zone_id:
+            zone_heads.setdefault(c.parking_zone_id, []).append(c)
+    names = dict(db.query(ParkingZone.id, ParkingZone.name).filter(ParkingZone.id.in_(list(zone_heads))).all()) \
+        if zone_heads else {}
+    head_names = {c.name for heads in zone_heads.values() for c in heads}
+    flats, zone_totals = [], {}
+    for d in sorted(calc.drafts, key=lambda d: (d.flat.wing.name if d.flat.wing else "", d.flat.flat_number)):
+        for zone_id in zone_heads:
+            slots = calc.zone_slots.get(zone_id, {}).get(d.flat.id, 0)
+            if not slots:
+                continue
+            lines = [l for l in d.lines if l.charge_type == ChargeType.PARKING]
+            total = sum((l.total for l in lines), Decimal(0))
+            flats.append({
+                "flat_id": str(d.flat.id),
+                "flat_label": f"{d.flat.wing.name if d.flat.wing else ''} / {d.flat.flat_number}".strip(" /"),
+                "zone_id": str(zone_id), "zone_name": names.get(zone_id),
+                "slots": slots,
+                "lines": [{"description": l.description, "amount": str(l.amount),
+                           "tax_amount": str(l.tax_amount), "total": str(l.total),
+                           "is_zone_head": l.description in head_names} for l in lines],
+                "total": str(money(total)),
+            })
+            zt = zone_totals.setdefault(zone_id, {"holders": 0, "slots": 0, "total": Decimal(0)})
+            zt["holders"] += 1; zt["slots"] += slots; zt["total"] += total
+    return {
+        "cycle_id": str(cycle_id), "cycle_name": cycle.name,
+        "cycle_start": cycle.cycle_start.isoformat(), "cycle_end": cycle.cycle_end.isoformat(),
+        "months": cycle_months(calc.cycle),
+        "zones": [{"zone_id": str(zid), "zone_name": names.get(zid),
+                   "heads": [c.name for c in heads],
+                   "holders": zone_totals.get(zid, {}).get("holders", 0),
+                   "slots": zone_totals.get(zid, {}).get("slots", 0),
+                   "total": str(money(zone_totals.get(zid, {}).get("total", Decimal(0))))}
+                  for zid, heads in zone_heads.items()],
+        "flats": flats,
+        "total": str(money(sum((z["total"] for z in zone_totals.values()), Decimal(0)))),
+        "warnings": [w for w in calc.warnings if any(w.startswith(n) for n in head_names)],
+    }
+
+
 @router.get("/cycles/{cycle_id}/preview", dependencies=[Depends(manager_above)])
 def preview_cycle(cycle_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     cycle = BillingService(db).get_cycle(cycle_id)

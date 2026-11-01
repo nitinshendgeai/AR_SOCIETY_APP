@@ -508,6 +508,86 @@ class CyclePreview {
       );
 }
 
+/// The parking part of a cycle's bills for the holders of slots in a zone with its own charge heads (Tower Parking
+/// AMC, meter electricity, wallet, fire AMC...). A dry run: nothing is saved.
+class TowerParkingPreview {
+  final String cycleName;
+  final int months;
+  final String total;
+  final List<TowerZoneSummary> zones;
+  final List<TowerHolderPreview> flats;
+  final List<String> warnings;
+
+  const TowerParkingPreview({required this.cycleName, required this.months, required this.total,
+      required this.zones, required this.flats, this.warnings = const []});
+
+  factory TowerParkingPreview.fromJson(Map<String, dynamic> j) => TowerParkingPreview(
+        cycleName: j['cycle_name'] as String? ?? '',
+        months: j['months'] as int? ?? 1,
+        total: _str(j['total']),
+        zones: [for (final e in (j['zones'] as List? ?? const [])) TowerZoneSummary.fromJson(e as Map<String, dynamic>)],
+        flats: [for (final e in (j['flats'] as List? ?? const [])) TowerHolderPreview.fromJson(e as Map<String, dynamic>)],
+        warnings: [for (final w in (j['warnings'] as List? ?? const [])) w as String],
+      );
+}
+
+class TowerZoneSummary {
+  final String zoneId;
+  final String zoneName;
+  final List<String> heads;
+  final int holders;
+  final int slots;
+  final String total;
+
+  const TowerZoneSummary({required this.zoneId, required this.zoneName, required this.heads,
+      required this.holders, required this.slots, required this.total});
+
+  factory TowerZoneSummary.fromJson(Map<String, dynamic> j) => TowerZoneSummary(
+        zoneId: j['zone_id'] as String,
+        zoneName: j['zone_name'] as String? ?? 'Zone',
+        heads: [for (final h in (j['heads'] as List? ?? const [])) h as String],
+        holders: j['holders'] as int? ?? 0,
+        slots: j['slots'] as int? ?? 0,
+        total: _str(j['total']),
+      );
+}
+
+class TowerHolderPreview {
+  final String flatLabel;
+  final String zoneId;
+  final String zoneName;
+  final int slots;
+  final List<TowerLine> lines;
+  final String total;
+
+  const TowerHolderPreview({required this.flatLabel, required this.zoneId, required this.zoneName,
+      required this.slots, required this.lines, required this.total});
+
+  factory TowerHolderPreview.fromJson(Map<String, dynamic> j) => TowerHolderPreview(
+        flatLabel: j['flat_label'] as String? ?? '',
+        zoneId: j['zone_id'] as String? ?? '',
+        zoneName: j['zone_name'] as String? ?? 'Zone',
+        slots: j['slots'] as int? ?? 0,
+        lines: [for (final e in (j['lines'] as List? ?? const [])) TowerLine.fromJson(e as Map<String, dynamic>)],
+        total: _str(j['total']),
+      );
+}
+
+class TowerLine {
+  final String description;
+  final String total;
+  /// True for a zone-only head (Tower Parking AMC...); false for the general car-parking charge.
+  final bool isZoneHead;
+
+  const TowerLine({required this.description, required this.total, required this.isZoneHead});
+
+  factory TowerLine.fromJson(Map<String, dynamic> j) => TowerLine(
+        description: j['description'] as String? ?? '',
+        total: _str(j['total']),
+        isZoneHead: j['is_zone_head'] as bool? ?? false,
+      );
+}
+
 class BillingCycle {
   final String id;
   final String name;
@@ -1026,6 +1106,11 @@ class MaintenanceBillingApi {
   Future<CyclePreview> previewCycle(String cycleId) async {
     final r = await _dio.get('/billing/cycles/$cycleId/preview');
     return CyclePreview.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<TowerParkingPreview> towerParkingPreview(String cycleId) async {
+    final r = await _dio.get('/billing/cycles/$cycleId/tower-parking-preview');
+    return TowerParkingPreview.fromJson(r.data as Map<String, dynamic>);
   }
 
   Future<List<BillingCycle>> listCycles(String societyId) async =>
