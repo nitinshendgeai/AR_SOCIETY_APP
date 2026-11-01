@@ -21,6 +21,12 @@ void showFlatChargeSheet(BuildContext context, String societyId) => showAppSheet
       builder: (_) => _FlatChargeSheet(societyId: societyId),
     );
 
+/// Opens the form to add the same additional charge to many flats at once (all rented flats, or chosen ones).
+void showBulkFlatChargeSheet(BuildContext context, String societyId) => showAppSheet(
+      context: context,
+      builder: (_) => _BulkFlatChargeSheet(societyId: societyId),
+    );
+
 /// Fines and additional charges on individual flats. Each goes on the flat's
 /// next maintenance bill (a recurring one on every bill until it ends), and
 /// the flat's members are told when one is added. One that is still waiting
@@ -102,6 +108,16 @@ class FlatChargesTab extends ConsumerWidget {
                   'Use it for things like parking violations, damage to common property or a member\'s own '
                   'additional charges.',
                   style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('bulk-flat-charge'),
+                    onPressed: () => showBulkFlatChargeSheet(context, societyId),
+                    icon: const Icon(Icons.playlist_add_rounded, size: 18),
+                    label: const Text('Add to many flats'),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 if (charges.isEmpty)
@@ -323,6 +339,266 @@ class _FlatChargeSheetState extends ConsumerState<_FlatChargeSheet> {
           ),
         ]),
       ),
+    );
+  }
+}
+
+
+class _BulkFlatChargeSheet extends ConsumerStatefulWidget {
+  final String societyId;
+  const _BulkFlatChargeSheet({required this.societyId});
+
+  @override
+  ConsumerState<_BulkFlatChargeSheet> createState() => _BulkFlatChargeSheetState();
+}
+
+class _BulkFlatChargeSheetState extends ConsumerState<_BulkFlatChargeSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _title = TextEditingController(text: 'Non-occupancy charges');
+  final _amount = TextEditingController();
+  final _reason = TextEditingController();
+  bool _rented = true; // every rented (tenant occupied) flat, or the flats chosen below
+  final Set<String> _flatIds = {};
+  bool _gst = false;
+  bool _recurring = false;
+  DateTime _from = DateTime.now();
+  DateTime? _to;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _amount.dispose();
+    _reason.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pick(DateTime initial, ValueChanged<DateTime> done) async {
+    final d = await showDatePicker(
+        context: context, initialDate: initial, firstDate: DateTime(2000), lastDate: DateTime(2100));
+    if (d != null) setState(() => done(d));
+  }
+
+  Future<void> _chooseFlats(List<FlatModel> all) async {
+    final picked = await showAppSheet<Set<String>>(
+      context: context,
+      builder: (_) => _FlatMultiPicker(flats: all, selected: _flatIds),
+    );
+    if (picked != null) setState(() => _flatIds..clear()..addAll(picked));
+  }
+
+  Future<Map<String, dynamic>> _send({required bool dryRun}) =>
+      ref.read(maintenanceBillingApiProvider).createFlatChargesBulk(
+            societyId: widget.societyId,
+            flatIds: _rented ? null : _flatIds.toList(),
+            rented: _rented,
+            kind: 'extra',
+            title: _title.text.trim(),
+            reason: _reason.text.trim(),
+            amount: double.parse(_amount.text.trim()).toStringAsFixed(2),
+            gstApplicable: _gst,
+            effectiveDate: _from,
+            recurring: _recurring,
+            endDate: _to,
+            dryRun: dryRun,
+          );
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (!_rented && _flatIds.isEmpty) {
+      AppToast.warning(context, 'Choose at least one flat');
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final plan = await _send(dryRun: true);
+      final created = plan['created'] as int, skipped = plan['skipped'] as int;
+      if (created == 0) {
+        if (mounted) {
+          AppToast.warning(context, skipped > 0
+              ? 'Every one of those flats already has this charge waiting'
+              : 'No flats match: nothing to add');
+        }
+        return;
+      }
+      if (!mounted) return;
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Add this charge?'),
+          content: Text(
+              '"${_title.text.trim()}" · ${formatRupees(_amount.text.trim())} will be added to '
+              '$created flat${created == 1 ? '' : 's'}${skipped > 0 ? ' ($skipped already have it and are skipped)' : ''}. '
+              'Each goes on the flat\'s next maintenance bill.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Back')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Add to $created')),
+          ],
+        ),
+      );
+      if (ok != true) return;
+      final done = await _send(dryRun: false);
+      ref.invalidate(flatChargesProvider(widget.societyId));
+      if (mounted) {
+        AppToast.success(context, 'Added to ${done['created']} flat${done['created'] == 1 ? '' : 's'}');
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final flats = ref.watch(flatsBySocietyProvider);
+    return BillingSheetFrame(
+      title: 'Add Charge to Many Flats',
+      child: Form(
+        key: _formKey,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: true, label: Text('All rented flats'), icon: Icon(Icons.key_rounded)),
+              ButtonSegment(value: false, label: Text('Choose flats'), icon: Icon(Icons.checklist_rounded)),
+            ],
+            selected: {_rented},
+            onSelectionChanged: (s) => setState(() => _rented = s.first),
+          ),
+          const SizedBox(height: 8),
+          if (_rented)
+            const Text('Every flat marked tenant occupied (an active tenant who has moved in).',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary))
+          else
+            flats.when(
+              loading: () => const LinearProgressIndicator(),
+              error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+              data: (list) => Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  key: const ValueKey('bulk-choose-flats'),
+                  onPressed: () => _chooseFlats(list.where((f) => f.isActive).toList()),
+                  icon: const Icon(Icons.checklist_rounded, size: 18),
+                  label: Text(_flatIds.isEmpty ? 'Choose flats' : '${_flatIds.length} flats chosen'),
+                ),
+              ),
+            ),
+          const SizedBox(height: 14),
+          FormFieldBox(label: 'What is it for?', required: true, child: TextFormField(
+            controller: _title,
+            maxLength: 150,
+            decoration: const InputDecoration(
+              counterText: '',
+              helperText: 'A title with "Non-occupancy" is booked to the Non-Occupancy Charges ledger',
+            ),
+            validator: (v) => (v ?? '').trim().isEmpty ? 'Required' : null,
+          )),
+          const SizedBox(height: 14),
+          FormFieldBox(label: 'Amount per flat (₹)', required: true, child: TextFormField(
+            controller: _amount,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,8}(\.\d{0,2})?'))],
+            decoration: const InputDecoration(),
+            validator: (v) {
+              final n = double.tryParse((v ?? '').trim());
+              return n == null || n <= 0 ? 'Enter an amount above 0' : null;
+            },
+          )),
+          const SizedBox(height: 14),
+          FormFieldBox(label: 'Reason / details', child: TextFormField(
+            controller: _reason,
+            maxLength: 1000,
+            maxLines: 2,
+            decoration: const InputDecoration(helperText: 'Shown to the member'),
+          )),
+          const SizedBox(height: 6),
+          InkWell(
+            onTap: () => _pick(_from, (d) {
+              _from = d;
+              if (_to != null && _to!.isBefore(d)) _to = null;
+            }),
+            child: FormFieldBox(label: 'Applies from', child: InputDecorator(
+              decoration: const InputDecoration(suffixIcon: Icon(Icons.calendar_today_rounded, size: 18)),
+              child: Text(formatBillDate(_from)),
+            )),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('GST applicable'),
+            value: _gst,
+            onChanged: (v) => setState(() => _gst = v),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Repeats every bill'),
+            subtitle: const Text('Until you set an end date or cancel it'),
+            value: _recurring,
+            onChanged: (v) => setState(() {
+              _recurring = v;
+              if (!v) _to = null;
+            }),
+          ),
+          if (_recurring)
+            InkWell(
+              onTap: () => _pick(_to ?? _from, (d) => _to = d.isBefore(_from) ? _from : d),
+              child: FormFieldBox(label: 'Ends on (optional)', child: InputDecorator(
+                decoration: InputDecoration(
+                  suffixIcon: _to == null
+                      ? const Icon(Icons.calendar_today_rounded, size: 18)
+                      : IconButton(icon: const Icon(Icons.close_rounded, size: 18), onPressed: () => setState(() => _to = null)),
+                ),
+                child: Text(_to == null ? 'No end date' : formatBillDate(_to!)),
+              )),
+            ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            key: const ValueKey('bulk-flat-charge-save'),
+            onPressed: _saving ? null : _save,
+            child: _saving
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Review and add'),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+/// A searchable list of flats with a tick on each; returns the ticked flats' ids.
+class _FlatMultiPicker extends StatefulWidget {
+  final List<FlatModel> flats;
+  final Set<String> selected;
+  const _FlatMultiPicker({required this.flats, required this.selected});
+
+  @override
+  State<_FlatMultiPicker> createState() => _FlatMultiPickerState();
+}
+
+class _FlatMultiPickerState extends State<_FlatMultiPicker> {
+  late final Set<String> _ticked = {...widget.selected};
+  String _query = '';
+
+  String _label(FlatModel f) => '${f.wingName ?? ''} / ${f.flatNumber}';
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = widget.flats.where((f) => _query.isEmpty || _label(f).toLowerCase().contains(_query)).toList();
+    return AppSheetFrame(
+      title: 'Choose flats',
+      subtitle: '${_ticked.length} chosen',
+      scrollBody: false,
+      pinned: SheetSearchField(hint: 'Search a flat', onChanged: (v) => setState(() => _query = v.trim().toLowerCase())),
+      footer: ElevatedButton(onPressed: () => Navigator.pop(context, _ticked), child: const Text('Done')),
+      child: ListView(shrinkWrap: true, children: [
+        for (final f in shown)
+          CheckboxListTile(
+            dense: true,
+            value: _ticked.contains(f.id),
+            title: Text(_label(f)),
+            onChanged: (v) => setState(() => v == true ? _ticked.add(f.id) : _ticked.remove(f.id)),
+          ),
+      ]),
     );
   }
 }

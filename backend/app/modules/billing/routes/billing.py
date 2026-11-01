@@ -1243,6 +1243,44 @@ def create_flat_charge(data: FlatChargeCreate, request: Request, db: Session = D
     return _flat_charge_out(FlatChargeService(db).create(data.model_dump(), user, request))
 
 
+class FlatChargeBulk(OrmBase):
+    """The same fine or additional charge on many flats: the flats named in `flat_ids`, or (`rented`) every let-out flat,
+    optionally one wing's. `dry_run` only reports what would be added."""
+    society_id: UUID
+    flat_ids: Optional[List[UUID]] = None
+    rented: bool = False
+    wing_id: Optional[UUID] = None
+    kind: FlatChargeKind = FlatChargeKind.EXTRA
+    title: str = Field(max_length=150)
+    reason: Optional[str] = None
+    amount: Decimal = Field(gt=0, lt=Decimal(100_000_000), max_digits=12, decimal_places=2)
+    gst_applicable: bool = False
+    effective_date: date
+    recurring: bool = False
+    end_date: Optional[date] = None
+    dry_run: bool = False
+
+    _title = field_validator("title", mode="before")(val.line_max(150, required=True))
+    _reason = field_validator("reason", mode="before")(val.note_max(1000))
+    _dates = field_validator("effective_date", "end_date")(val.sane_date)
+
+    @model_validator(mode="after")
+    def _period(self):
+        if self.end_date and self.end_date < self.effective_date:
+            raise ValueError("The end date can't be before the effective date")
+        return self
+
+
+@router.post("/flat-charges/bulk")
+def create_flat_charges_bulk(data: FlatChargeBulk, request: Request, db: Session = Depends(get_db),
+                             user: User = Depends(manager_above)):
+    """The same fine or additional charge on many flats at once (named, or all let-out flats). Each goes on its
+    flat's next bill. A flat that already has it waiting is skipped. `dry_run` writes nothing."""
+    assert_society_access(user, data.society_id)
+    body = data.model_dump(exclude={"flat_ids", "rented", "wing_id", "dry_run"})
+    return FlatChargeService(db).create_bulk(body, data.flat_ids, data.rented, data.wing_id, data.dry_run, user, request)
+
+
 @router.get("/flat-charges/society/{society_id}")
 def list_flat_charges(society_id: UUID, status: Optional[FlatChargeStatus] = None, flat_id: Optional[UUID] = None,
                       skip: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=500),

@@ -4,6 +4,19 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-01 (Add a charge to many flats at once)
+
+### feat: bulk additional charge, for all rented flats or chosen flats
+
+Fines & Charges now has **Add to many flats**. It adds the same additional charge (for example *Non-occupancy
+charges*, ₹200) to **every rented flat** (tenant occupied), or to the flats you choose, in one go. It shows how many
+flats will get it before anything is saved. Each goes on the flat's next maintenance bill, and the flat's members are
+told. A flat that already has the same charge waiting (same title, amount and repeat) is skipped, so sending it twice
+does not double it. A title with "Non-occupancy" in it is booked to the Non-Occupancy Charges ledger. API:
+`POST /billing/flat-charges/bulk` (`flat_ids` or `rented`, optional `wing_id`, `dry_run`).
+
+---
+
 ## 2026-11-01 (Link a login to a resident)
 
 ### feat: link, change or unlink a resident's app login from the Edit Resident screen

@@ -1262,6 +1262,39 @@ class MaintenanceBillingApi {
     return FlatCharge.fromJson(r.data as Map<String, dynamic>);
   }
 
+  /// The same fine or extra charge on many flats: [flatIds], or every rented (tenant occupied) flat when [rented].
+  /// [dryRun] only reports what would be added: {flats, created, skipped, flat_labels, skipped_flats}.
+  Future<Map<String, dynamic>> createFlatChargesBulk({
+    required String societyId,
+    List<String>? flatIds,
+    bool rented = false,
+    required String kind,
+    required String title,
+    String? reason,
+    required String amount,
+    bool gstApplicable = false,
+    required DateTime effectiveDate,
+    bool recurring = false,
+    DateTime? endDate,
+    bool dryRun = false,
+  }) async {
+    final r = await _dio.post('/billing/flat-charges/bulk', data: {
+      'society_id': societyId,
+      if (!rented) 'flat_ids': flatIds,
+      'rented': rented,
+      'kind': kind,
+      'title': title,
+      if (reason != null && reason.isNotEmpty) 'reason': reason,
+      'amount': amount,
+      'gst_applicable': gstApplicable,
+      'effective_date': DateFormat('yyyy-MM-dd').format(effectiveDate),
+      'recurring': recurring,
+      if (recurring && endDate != null) 'end_date': DateFormat('yyyy-MM-dd').format(endDate),
+      'dry_run': dryRun,
+    });
+    return Map<String, dynamic>.from(r.data as Map);
+  }
+
   Future<FlatCharge> cancelFlatCharge(String id, String reason) async {
     final r = await _dio.post('/billing/flat-charges/$id/cancel', data: {'reason': reason});
     return FlatCharge.fromJson(r.data as Map<String, dynamic>);
