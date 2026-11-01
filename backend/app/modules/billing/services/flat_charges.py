@@ -48,6 +48,13 @@ class FlatChargeService:
         flat = self.db.get(Flat, data["flat_id"])
         if flat is None or not flat.is_active or not flat.wing or flat.wing.society_id != society_id:
             raise HTTPException(422, "Flat not found in this society")
+        charge = self._add(data, flat, society_id, user, request)
+        self.db.commit()
+        self.db.refresh(charge)
+        return charge
+
+    def _add(self, data: dict, flat: Flat, society_id: UUID, user: User, request=None) -> FlatCharge:
+        """One charge on one flat, flushed and its members told; the caller commits."""
         if data.get("end_date") and not data.get("recurring"):
             raise HTTPException(422, "An end date is for a recurring charge")
         charge = FlatCharge(
@@ -64,9 +71,69 @@ class FlatChargeService:
                          new_values={"flat": str(flat.id), "kind": charge.kind.value, "title": charge.title,
                                      "amount": str(charge.amount), "recurring": charge.recurring})
         self.notify_flat(charge)
-        self.db.commit()
-        self.db.refresh(charge)
         return charge
+
+    # ── The same charge on many flats ─────────────────────────────────────────────────────────────────────────────────
+
+    MAX_BULK_FLATS = 1000
+
+    def bulk_flats(self, society_id: UUID, flat_ids: Optional[List[UUID]], rented: bool,
+                   wing_id: Optional[UUID]) -> List[Flat]:
+        """The flats a bulk charge is for: the ones named, or every let-out (tenant occupied) flat, in one wing when
+        given. Each must be an active flat of this society."""
+        from app.models.flat import OccupancyStatus
+        from app.models.wing import Wing
+        if bool(flat_ids) == bool(rented):
+            raise HTTPException(422, "Choose the flats, or all rented flats, not both and not neither")
+        q = (self.db.query(Flat).join(Wing, Flat.wing_id == Wing.id)
+             .filter(Wing.society_id == society_id, Flat.is_active == True))        # noqa: E712
+        if flat_ids:
+            ids = set(flat_ids)
+            flats = q.filter(Flat.id.in_(ids)).all()
+            if len(flats) != len(ids):
+                raise HTTPException(422, "Some of those flats are not in this society")
+        else:
+            if wing_id is not None:
+                q = q.filter(Flat.wing_id == wing_id)
+            flats = q.filter(Flat.occupancy_status == OccupancyStatus.TENANT_OCCUPIED).all()
+        if len(flats) > self.MAX_BULK_FLATS:
+            raise HTTPException(422, f"At most {self.MAX_BULK_FLATS} flats at a time")
+        return sorted(flats, key=lambda f: ((f.wing.name if f.wing else ""), f.flat_number))
+
+    @staticmethod
+    def flat_label(flat: Flat) -> str:
+        return f"{flat.wing.name} / {flat.flat_number}" if flat.wing else flat.flat_number
+
+    def create_bulk(self, data: dict, flat_ids: Optional[List[UUID]], rented: bool, wing_id: Optional[UUID],
+                    dry_run: bool, user: User, request=None) -> dict:
+        """The same fine or additional charge on many flats at once. A flat that already has the same charge waiting
+        for its next bill (same kind, title, amount and repeat) is skipped, so sending it twice does not double it.
+        `dry_run` says what would happen and writes nothing. One commit for all."""
+        society_id = resolve_create_society_id(user, data["society_id"])
+        if data.get("end_date") and not data.get("recurring"):
+            raise HTTPException(422, "An end date is for a recurring charge")
+        flats = self.bulk_flats(society_id, flat_ids, rented, wing_id)
+        title = (data["title"] or "").strip().lower()
+        waiting = [] if not flats else self.db.query(FlatCharge).filter(
+            FlatCharge.society_id == society_id, FlatCharge.is_active == True,       # noqa: E712
+            FlatCharge.status == FlatChargeStatus.ACTIVE, FlatCharge.kind == data["kind"],
+            FlatCharge.flat_id.in_([f.id for f in flats])).all()
+        already = {c.flat_id for c in waiting
+                   if (c.title or "").strip().lower() == title and Decimal(c.amount) == Decimal(data["amount"])
+                   and bool(c.recurring) == bool(data.get("recurring"))}
+        created, skipped = [], []
+        for flat in flats:
+            label = self.flat_label(flat)
+            if flat.id in already:
+                skipped.append({"flat": label, "reason": "Already has this charge waiting for its next bill"})
+                continue
+            created.append(label)
+            if not dry_run:
+                self._add({**data, "society_id": society_id}, flat, society_id, user, request)
+        if not dry_run:
+            self.db.commit()
+        return {"dry_run": dry_run, "flats": len(flats), "created": len(created), "skipped": len(skipped),
+                "flat_labels": created, "skipped_flats": skipped}
 
     def notify_flat(self, charge: FlatCharge) -> None:
         """Everyone in the flat with a login is told."""
