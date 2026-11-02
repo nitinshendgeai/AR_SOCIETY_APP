@@ -151,18 +151,36 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
     if (!_focus.hasFocus) _focus.requestFocus();
   }
 
-  void _toEnd() => WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scroll.hasClients) {
-          _scroll.animateTo(_scroll.position.maxScrollExtent,
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut);
-        }
-      });
+  final _lastKey = GlobalKey();
+
+  /// A new answer is scrolled to its first line (a long answer must be read from the top); a question you just asked,
+  /// and the typing dots, are scrolled into view at the bottom.
+  void _follow(ChatState? prev, ChatState next) {
+    if (prev != null &&
+        prev.messages.length == next.messages.length &&
+        prev.sending == next.sending) return;
+    final last = next.messages.isEmpty ? null : next.messages.last;
+    final newReply =
+        last != null && last.role != ChatRole.user && !next.sending;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final ctx = _lastKey.currentContext;
+      if (newReply && ctx != null) {
+        Scrollable.ensureVisible(ctx,
+            alignment: 0.0,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut);
+      } else if (_scroll.hasClients) {
+        _scroll.animateTo(_scroll.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final chat = ref.watch(assistantChatProvider);
-    ref.listen(assistantChatProvider, (_, __) => _toEnd());
+    ref.listen(assistantChatProvider, _follow);
     final s = widget.status;
     final name = (ref.watch(currentUserProvider)?.fullName ?? '')
         .trim()
@@ -197,10 +215,13 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
                       itemCount: chat.messages.length + (chat.sending ? 1 : 0),
                       itemBuilder: (_, i) {
                         if (i == chat.messages.length) return const _Typing();
-                        return _Bubble(
+                        final bubble = _Bubble(
                             key: ValueKey(chat.messages[i].id),
                             message: chat.messages[i],
                             onAsk: _send);
+                        return i == chat.messages.length - 1
+                            ? KeyedSubtree(key: _lastKey, child: bubble)
+                            : bubble;
                       },
                     ),
             ),
@@ -458,45 +479,52 @@ class _Bubble extends ConsumerWidget {
     final isUser = message.role == ChatRole.user;
     final isError = message.role == ChatRole.error;
     final a = message.answer;
-    final maxW = MediaQuery.sizeOf(context).width * 0.9 > 640
-        ? 640.0
+    final maxW = MediaQuery.sizeOf(context).width * 0.9 > 680
+        ? 680.0
         : MediaQuery.sizeOf(context).width * 0.9;
     final bg = isUser
         ? AppTheme.primary
-        : (isError ? AppTheme.error.withValues(alpha: 0.08) : AppTheme.cardBg);
-    final fg = isUser ? Colors.white : AppTheme.textPrimary;
+        : (isError ? AppTheme.errorSoft : AppTheme.cardBg);
 
     final bubble = Semantics(
       container: true,
       label: isUser ? 'You asked' : (isError ? 'Error' : 'Assistant answer'),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: const EdgeInsets.only(bottom: 14),
         constraints: BoxConstraints(maxWidth: maxW),
-        // A Material (not a decorated Container) so the expandable Steps/Sources rows can paint their ink.
         child: Material(
           color: bg,
+          elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(16),
+              topRight: const Radius.circular(16),
+              bottomLeft: Radius.circular(isUser ? 16 : 4),
+              bottomRight: Radius.circular(isUser ? 4 : 16),
+            ),
             side: isUser
                 ? BorderSide.none
                 : const BorderSide(color: AppTheme.border),
           ),
           clipBehavior: Clip.antiAlias,
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               if (message.role == ChatRole.assistant)
                 _Reveal(
                   text: message.text,
-                  style: TextStyle(color: fg),
                   animate: message.animate,
                   onDone: () => ref
                       .read(assistantChatProvider.notifier)
                       .markShown(message.id),
                 )
               else
-                SelectableText(message.text, style: TextStyle(color: fg)),
+                SelectableText(message.text,
+                    style: TextStyle(
+                        fontSize: 15,
+                        height: 1.4,
+                        color: isUser ? Colors.white : AppTheme.textPrimary)),
               if (isError)
                 TextButton.icon(
                   key: const Key('assistantRetry'),
@@ -522,82 +550,98 @@ class _Bubble extends ConsumerWidget {
   }
 
   List<Widget> _answerExtras(BuildContext context, AssistantAnswer a) => [
-        if (a.steps.isNotEmpty)
-          ExpansionTile(
+        if (a.steps.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _Section(
             key: const Key('assistantSteps'),
-            initiallyExpanded: true,
-            tilePadding: EdgeInsets.zero,
-            childrenPadding: const EdgeInsets.only(bottom: 8),
-            title: Text('${context.tr('Steps')} (${a.steps.length})',
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-            children: [
+            icon: Icons.format_list_numbered_rounded,
+            title: context.tr('Steps'),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               for (var i = 0; i < a.steps.length; i++)
-                Align(
-                    alignment: Alignment.centerLeft,
-                    child: Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: SelectableText('${i + 1}. ${a.steps[i]}'))),
-            ],
+                _StepRow(number: i + 1, text: a.steps[i]),
+            ]),
           ),
+        ],
         if (a.configGaps.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Text(context.tr('Setup checks'),
-              style: const TextStyle(fontWeight: FontWeight.w600)),
-          for (final f in a.configGaps)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child:
-                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Icon(
-                    f.status == 'gap'
-                        ? Icons.warning_amber_rounded
-                        : Icons.info_outline_rounded,
-                    size: 16,
-                    color: f.status == 'gap'
-                        ? AppTheme.warning
-                        : AppTheme.textSecondary),
-                const SizedBox(width: 6),
-                Expanded(
-                    child:
-                        Text(f.message, style: const TextStyle(fontSize: 13))),
-              ]),
-            ),
+          const SizedBox(height: 12),
+          _Section(
+            key: const Key('assistantChecks'),
+            icon: Icons.fact_check_outlined,
+            title: context.tr('Setup checks for your society'),
+            tint: a.configGaps.any((f) => f.status == 'gap')
+                ? AppTheme.warningSoft
+                : null,
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              for (final f in a.configGaps)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                            f.status == 'gap'
+                                ? Icons.warning_amber_rounded
+                                : Icons.info_outline_rounded,
+                            size: 16,
+                            color: f.status == 'gap'
+                                ? AppTheme.warning
+                                : AppTheme.textSecondary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                            child: Text(f.message,
+                                style: const TextStyle(
+                                    fontSize: 13, height: 1.35))),
+                      ]),
+                ),
+            ]),
+          ),
         ],
         if (a.uncertainty != null)
           Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(a.uncertainty!,
-                  style: const TextStyle(
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                      color: AppTheme.textSecondary))),
+            padding: const EdgeInsets.only(top: 10),
+            child: Text(a.uncertainty!,
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    color: AppTheme.textSecondary)),
+          ),
         if (a.escalation != null)
           Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(a.escalation!,
-                  style: const TextStyle(
-                      fontSize: 12, color: AppTheme.textSecondary))),
-        if (a.sources.isNotEmpty)
-          ExpansionTile(
-            key: const Key('assistantSources'),
-            tilePadding: EdgeInsets.zero,
-            childrenPadding: const EdgeInsets.only(bottom: 8),
-            title: Text('${context.tr('Sources')} (${a.sources.length})',
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-            children: [
-              for (final s in a.sources)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Text('${s.title} › ${s.section}',
-                          style: const TextStyle(
-                              fontSize: 12, color: AppTheme.textSecondary))),
-                ),
-            ],
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(a.escalation!,
+                style: const TextStyle(
+                    fontSize: 12, color: AppTheme.textSecondary)),
           ),
-        if (a.followUps.isNotEmpty) ...[
+        if (a.sources.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(context.tr('Sources'),
+              style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                  color: AppTheme.textTertiary)),
           const SizedBox(height: 4),
+          for (final s in a.sources)
+            Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child:
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Padding(
+                    padding: EdgeInsets.only(top: 1),
+                    child: Icon(Icons.menu_book_outlined,
+                        size: 13, color: AppTheme.textTertiary)),
+                const SizedBox(width: 6),
+                Expanded(
+                    child: Text('${s.title} › ${s.section}',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppTheme.textSecondary))),
+              ]),
+            ),
+        ],
+        if (a.followUps.isNotEmpty) ...[
+          const SizedBox(height: 12),
           Wrap(spacing: 8, runSpacing: 8, children: [
             for (final q in a.followUps)
               Semantics(
@@ -625,21 +669,118 @@ class _Bubble extends ConsumerWidget {
               ),
           ]),
         ],
+        const SizedBox(height: 6),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            key: const Key('assistantCopy'),
+            style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                foregroundColor: AppTheme.textSecondary,
+                textStyle: const TextStyle(fontSize: 12)),
+            onPressed: () async {
+              final text = [
+                message.text,
+                if (a.steps.isNotEmpty) ...[
+                  for (var i = 0; i < a.steps.length; i++)
+                    '${i + 1}. ${a.steps[i]}'
+                ],
+                if (a.sources.isNotEmpty)
+                  'Source: ${a.sources.first.title} › ${a.sources.first.section}',
+              ].join('\n');
+              await Clipboard.setData(ClipboardData(text: text));
+              if (context.mounted) {
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(SnackBar(
+                      content: Text(context.tr('Copied')),
+                      duration: const Duration(seconds: 2)));
+              }
+            },
+            icon: const Icon(Icons.copy_rounded, size: 14),
+            label: Text(context.tr('Copy')),
+          ),
+        ),
       ];
 }
 
-/// An answer that is typed out once when it arrives, then shown whole. Shown whole at once when the person has asked
-/// their device to reduce animation, and for any answer that has already been revealed.
+/// A titled block inside an answer (Steps, Setup checks) on a soft background.
+class _Section extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Widget child;
+  final Color? tint;
+  const _Section(
+      {super.key,
+      required this.icon,
+      required this.title,
+      required this.child,
+      this.tint});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+        decoration: BoxDecoration(
+            color: tint ?? AppTheme.surface,
+            borderRadius: BorderRadius.circular(10)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, size: 16, color: AppTheme.primary),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(title,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary)),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          child,
+        ]),
+      );
+}
+
+class _StepRow extends StatelessWidget {
+  final int number;
+  final String text;
+  const _StepRow({required this.number, required this.text});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 22,
+            height: 22,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.primary.withValues(alpha: 0.12)),
+            child: Text('$number',
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.primary)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+              child: SelectableText(text,
+                  style: const TextStyle(fontSize: 14, height: 1.4))),
+        ]),
+      );
+}
+
+/// The answer's text: a short lead-in line in muted type, then the body. Typed out once when it arrives, then shown
+/// whole. Shown whole at once when the person has asked their device to reduce animation, and for any answer that
+/// has already been revealed.
 class _Reveal extends StatefulWidget {
   final String text;
-  final TextStyle style;
   final bool animate;
   final VoidCallback onDone;
   const _Reveal(
-      {required this.text,
-      required this.style,
-      required this.animate,
-      required this.onDone});
+      {required this.text, required this.animate, required this.onDone});
 
   @override
   State<_Reveal> createState() => _RevealState();
@@ -685,16 +826,30 @@ class _RevealState extends State<_Reveal> with SingleTickerProviderStateMixin {
     super.dispose();
   }
 
+  static const _lead =
+      TextStyle(fontSize: 13, height: 1.35, color: AppTheme.textSecondary);
+  static const _body =
+      TextStyle(fontSize: 15, height: 1.45, color: AppTheme.textPrimary);
+
+  TextSpan _spans(String visible) {
+    // The first line is the lead-in ("Here's what the guide says under ...") when more text follows it.
+    final nl = visible.indexOf('\n');
+    if (nl <= 0 || !widget.text.startsWith("Here's"))
+      return TextSpan(text: visible, style: _body);
+    return TextSpan(children: [
+      TextSpan(text: visible.substring(0, nl + 1), style: _lead),
+      TextSpan(text: visible.substring(nl + 1), style: _body),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!widget.animate || _instant || _c.isCompleted)
-      return SelectableText(widget.text, style: widget.style);
+      return SelectableText.rich(_spans(widget.text));
     return AnimatedBuilder(
       animation: _c,
-      builder: (_, __) {
-        final n = (widget.text.length * _c.value).round();
-        return Text(widget.text.substring(0, n), style: widget.style);
-      },
+      builder: (_, __) => Text.rich(_spans(
+          widget.text.substring(0, (widget.text.length * _c.value).round()))),
     );
   }
 }

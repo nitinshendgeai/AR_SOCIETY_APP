@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -243,29 +244,20 @@ void main() {
       await t.pumpAndSettle();
       expect(find.text('Open Maintenance Billing and create the cycle.'),
           findsOneWidget);
-      expect(find.text('Steps (2)'), findsOneWidget);
-      expect(find.text('Sources (1)'), findsOneWidget);
-      expect(find.text('2 elements have no ledger linked.'), findsOneWidget);
-      expect(
-          find.text('Please confirm with your administrator.'), findsOneWidget);
-      expect(
-          find.text(
-              'Maintenance Billing — Complete Guide › Make and issue a bill'),
-          findsNothing); // collapsed
-
-      await t.ensureVisible(find.byKey(const Key('assistantSources')));
-      await t.tap(find.text('Sources (1)'));
-      await t.pumpAndSettle();
+      // Steps are numbered rows, the sources are listed (nothing is hidden behind a tap), the checks have a card.
+      expect(find.text('Steps'), findsOneWidget);
+      expect(find.text('Create the cycle'), findsOneWidget);
+      expect(find.text('Preview it'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget); // the second step's number
+      expect(find.text('Sources'), findsOneWidget);
       expect(
           find.text(
               'Maintenance Billing — Complete Guide › Make and issue a bill'),
           findsOneWidget);
-      expect(find.text('1. Create the cycle'),
-          findsOneWidget); // steps are open as soon as the answer arrives
-      await t.tap(find.text('Steps (2)'));
-      await t.pumpAndSettle();
-      expect(find.text('1. Create the cycle'),
-          findsNothing); // and can be folded away
+      expect(find.text('Setup checks for your society'), findsOneWidget);
+      expect(find.text('2 elements have no ledger linked.'), findsOneWidget);
+      expect(
+          find.text('Please confirm with your administrator.'), findsOneWidget);
     });
 
     testWidgets(
@@ -276,13 +268,13 @@ void main() {
       await t.pumpAndSettle();
       await _ask(t, 'how do I bill?');
       expect(find.textContaining('offline'), findsOneWidget);
-      expect(find.text('how do I bill?'), findsOneWidget);
+      expect(find.text('how do I bill?', skipOffstage: false), findsOneWidget);
 
       api.failWith = null;
       await t.tap(find.byKey(const Key('assistantRetry')));
       await t.pumpAndSettle();
       expect(find.textContaining('offline'), findsNothing);
-      expect(find.text('how do I bill?'),
+      expect(find.text('how do I bill?', skipOffstage: false),
           findsOneWidget); // still shown once, not duplicated
       expect(find.text('Open Maintenance Billing and create the cycle.'),
           findsOneWidget);
@@ -366,6 +358,29 @@ void main() {
 
 void _moreTests() {
   group('assistant look and feel', () {
+    testWidgets('an answer can be copied', (t) async {
+      String? copied;
+      t.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData')
+          copied = (call.arguments as Map)['text'] as String;
+        return null;
+      });
+      addTearDown(() => t.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null));
+      await t.pumpWidget(_app(_FakeApi()));
+      await t.pumpAndSettle();
+      await _ask(t, 'how do I bill?');
+      await t.ensureVisible(find.byKey(const Key('assistantCopy')));
+      await t.tap(find.byKey(const Key('assistantCopy')));
+      await t.pumpAndSettle();
+      expect(
+          copied, contains('Open Maintenance Billing and create the cycle.'));
+      expect(copied, contains('1. Create the cycle'));
+      expect(copied, contains('Source: Maintenance Billing — Complete Guide'));
+      expect(find.text('Copied'), findsOneWidget);
+    });
+
     testWidgets('a follow-up question under an answer is asked when tapped',
         (t) async {
       final api = _FakeApi();

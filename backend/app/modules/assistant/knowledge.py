@@ -29,6 +29,7 @@ class ApprovedDocument:
     path: str          # relative to the docs directory
     title: str
     kind: str          # "md" | "html"
+    weight: float = 1.0   # how much to trust it for a person's question; developer-oriented documents rank lower
 
 
 # Adding a document here is a reviewed change (see docs/HELP_ASSISTANT.md, "Knowledge sources").
@@ -39,8 +40,8 @@ APPROVED_DOCUMENTS: Tuple[ApprovedDocument, ...] = (
     ApprovedDocument("GUIDES/MAINTENANCE_BILLING_COMPLETE_GUIDE.md", "Maintenance Billing — Complete Guide", "md"),
     ApprovedDocument("GUIDES/MAINTENANCE_ELEMENT_WISE_MANUAL.md", "Maintenance Billing — Element-wise Help Manual", "md"),
     ApprovedDocument("GUIDES/VENDOR_MASTERS_COMPLETE_GUIDE.md", "Vendors, Work Orders and Contracts — Complete Guide", "md"),
-    ApprovedDocument("MODULES/ACCOUNTS.md", "Accounts Module", "md"),
-    ApprovedDocument("ACCOUNTING_PROCEDURE.md", "Accounting Procedure", "md"),
+    ApprovedDocument("MODULES/ACCOUNTS.md", "Accounts Module", "md", 0.7),
+    ApprovedDocument("ACCOUNTING_PROCEDURE.md", "Accounting Procedure", "md", 0.85),
 )
 
 # Text that tries to instruct the assistant. A chunk matching any of these is never indexed.
@@ -51,6 +52,9 @@ _INJECTION = re.compile(
     r"|act\s+as\s+(an?\s+)?(admin|root|superuser)",
     re.IGNORECASE,
 )
+
+
+_DEV_HEADING = re.compile(r"\.py\b|\bAPI\b|/api/|\bendpoints?\b", re.IGNORECASE)
 
 
 def looks_like_injection(text: str) -> bool:
@@ -66,6 +70,7 @@ class Chunk:
     roles: Tuple[str, ...]
     text: str
     order: int = 0
+    weight: float = 1.0
 
 
 @dataclass
@@ -79,6 +84,7 @@ class KnowledgeIndex:
     _tf: List[Counter] = field(default_factory=list, repr=False)
     _head_tf: List[Counter] = field(default_factory=list, repr=False)
     _pairs: List[set] = field(default_factory=list, repr=False)
+    _leaf_tokens: List[set] = field(default_factory=list, repr=False)
 
     def search(self, query: str, audience_roles: Tuple[str, ...] = (), top_k: int = TOP_K) -> List[Tuple[Chunk, float]]:
         q = [t for t in dict.fromkeys(tokenize(query))]
@@ -87,18 +93,33 @@ class KnowledgeIndex:
         scored = []
         for i, chunk in enumerate(self.chunks):
             tf, head = self._tf[i], self._head_tf[i]
-            matched = [t for t in q if tf.get(t) or head.get(t)]
-            if not matched:
+            total, covered, head_hits = 0.0, 0, 0
+            for t in q:
+                best = 0.0
+                for alt, w in ((t, 1.0), *((a, 0.75) for a in _ALTS.get(t, ()))):
+                    idf = self._idf.get(alt, 0.0)
+                    part = (idf * (1 + math.log(tf[alt])) if tf.get(alt) else 0.0) + (4.0 * idf if head.get(alt) else 0.0)
+                    if part * w > best:
+                        best = part * w
+                    if head.get(alt):
+                        head_hits += 1
+                if best > 0:
+                    covered += 1
+                    total += best
+            if not covered:
                 continue
-            score = sum(self._idf.get(t, 0.0) * ((1 + math.log(tf[t])) if tf.get(t) else 0.0)
-                        + 4.0 * self._idf.get(t, 0.0) * (1 if head.get(t) else 0) for t in matched)
-            score *= len(matched) / len(q)                       # reward covering more of the question
-            score *= 1 + 0.25 * sum(1 for a, b in zip(q, q[1:]) if (a + " " + b) in self._pairs[i])   # neighbouring words together
+            leaf = self._leaf_tokens[i]
+            leaf_cover = (len(leaf & set(q).union(*(set(_ALTS.get(t, ())) for t in q))) / len(leaf)) if leaf else 0.0
+            score = total * (covered / len(q)) * (1 + 0.6 * leaf_cover)   # covering the question and the section's own title
+            score *= 1 + 0.25 * sum(1 for a, b in zip(q, q[1:]) if (a + " " + b) in self._pairs[i])
+            score *= chunk.weight
             if audience_roles and any(r in chunk.roles for r in audience_roles):
-                score *= 1.15                                    # prefer the part written for this person's role
-            scored.append((score, len(matched), chunk))
-        need = 1 if len(q) == 1 else 2
-        scored = [s for s in scored if s[1] >= need]
+                score *= 1.3                                     # prefer the part written for this person's role
+            elif audience_roles and set(audience_roles) <= _FRONTLINE and "all" not in chunk.roles:
+                score *= 0.75                                    # a resident is not first shown the guard's, staff's or manager's page
+            # one matching word is enough only when it is in the section's heading
+            if covered >= min(2, len(q)) or head_hits:
+                scored.append((score, covered, chunk))
         scored.sort(key=lambda s: (-s[0], s[2].order))
         picked, used = [], 0
         for score, _, chunk in scored:
@@ -109,9 +130,11 @@ class KnowledgeIndex:
         return picked
 
 
+_FRONTLINE = frozenset({"resident", "guard", "staff"})
+
 _STOP = frozenset("""a an and are as at be but by can do does did for from has have how i if in into is it its me my of on
 or our so that the their then there these this to us was we what when where which who why will with would you your should
-could please tell about need want get make""".split())
+could please about need want get make list give""".split())
 
 
 def _stem(t: str) -> str:
@@ -130,6 +153,45 @@ def _stem(t: str) -> str:
 
 def tokenize(text: str) -> List[str]:
     return [_stem(t) for t in re.findall(r"[a-z0-9]+", (text or "").lower()) if t not in _STOP and len(t) >= 2]
+
+
+
+# Everyday words people use for what the manuals call something else. Words in one group stand in for each other when
+# searching (a little weaker than the exact word). This is vocabulary only: it never adds a rule or a fact.
+_SYNONYM_GROUPS = [
+    "complain complaint problem issue leak leakage grievance",
+    "guest visitor visit caller relative",
+    "courier delivery parcel package",
+    "clubhouse club hall amenity booking book gym pool function",
+    "maid cook driver helper domestic servant",
+    "phone mobile contact email",
+    "pay payment upi online",
+    "defaulter overdue outstanding unpaid arrears due",
+    "asset equipment machine",
+    "attendance punch",
+    "wing tower building block",
+    "notice announcement circular",
+    "vote poll survey",
+    "noc certificate clearance",
+    "password login signin credential",
+    "expense spend cost",
+    "owner tenant member resident",
+    "stock inventory store item",
+    "vendor supplier contractor",
+    "add register create enrol",
+    "tell inform announce notify circulate notice",
+    "hire engage repair fix plumber electrician carpenter painter work order",
+    "login user account role",
+    "forget forgot forgotten missed miss",
+    "generate make issue prepare create raise",
+    "update change edit modify correct detail profile",
+]
+
+_ALTS: Dict[str, Tuple[str, ...]] = {}
+for _g in _SYNONYM_GROUPS:
+    _stems = list(dict.fromkeys(tokenize(_g)))
+    for _t in _stems:
+        _ALTS[_t] = tuple(dict.fromkeys(_ALTS.get(_t, ()) + tuple(x for x in _stems if x != _t)))
 
 
 # ── Document → sections ──────────────────────────────────────────────────────
@@ -253,6 +315,8 @@ class _GuideParser(HTMLParser):
                     self._sec_title = t
                 else:
                     self._sub = t
+        elif tag in ("b", "strong") and "".join(self._text).strip() in ("Note", "Tip", "Warning", "Important", "Good to know"):
+            self._text.append(": ")                              # <b>Note</b>text would read "Notetext"
         elif tag == "li":
             self._in_li = False
             prefix = f"{self._ol[-1]}. " if self._ol else "- "
@@ -315,22 +379,25 @@ def build_index(docs_root: Optional[Path] = None, documents: Tuple[ApprovedDocum
             for part in _split_long(body):
                 if len(part) < 40:
                     continue
+                if _DEV_HEADING.search(path):
+                    continue                                     # code-level sections of developer documents
                 if looks_like_injection(part) or looks_like_injection(path):
                     index.quarantined += 1
                     continue
                 n += 1
-                chunks.append(Chunk(f"{doc.path}#{n}", doc.path, doc.title, path, roles or ("all",), part, order))
+                chunks.append(Chunk(f"{doc.path}#{n}", doc.path, doc.title, path, roles or ("all",), part, order, doc.weight))
                 order += 1
     index.version = digest.hexdigest()[:12]
     index.chunks = chunks
     df: Counter = Counter()
     for c in chunks:
         tf = Counter(tokenize(c.text))
-        head = Counter(tokenize(f"{c.title} {c.section}"))
+        head = Counter(tokenize(c.section))
         index._tf.append(tf)
         index._head_tf.append(head)
         toks = tokenize(c.text)
         index._pairs.append({a + " " + b for a, b in zip(toks, toks[1:])})
+        index._leaf_tokens.append(set(tokenize(c.section.split(" › ")[-1])))
         df.update(set(tf) | set(head))
     total = max(len(chunks), 1)
     index._idf = {t: math.log(1 + total / n) for t, n in df.items()}
@@ -369,25 +436,68 @@ def extract_steps(chunk_text: str, limit: int = 8) -> List[str]:
     return [re.sub(r"[*_`]", "", s)[:300] for s in steps]
 
 
-def lead_text(chunk_text: str, limit: int = 500) -> str:
-    """The start of a chunk as readable text: bullets and numbered table rows on their own lines, markdown marks
-    removed, cut at a line or sentence end."""
+_ITEM_START = re.compile(r"^(\d+[.)]\s|[-*•]\s|\|)")
+
+
+def _clean_lines(chunk_text: str) -> List[str]:
+    """Readable lines: a paragraph the manual wrapped over several lines is joined into one; bullets, numbered steps and
+    table rows stay on their own lines; markdown marks are removed."""
     src = [l.strip() for l in chunk_text.splitlines()]
-    lines = []
+    lines: List[str] = []
+    continuing = False                                            # the previous line is plain text of the same paragraph
     for n, s in enumerate(src):
-        if not s or re.fullmatch(r"\|[-: |]+\|", s):
+        if not s:
+            continuing = False
+            continue
+        if re.fullmatch(r"\|[-: |]+\|", s):
             continue
         if s.startswith("|"):
             if n + 1 < len(src) and re.fullmatch(r"\|[-: |]+\|", src[n + 1]):
                 continue                                          # the table's header row
             cells = [c.strip() for c in s.strip("|").split("|") if c.strip()]
             s = (f"{cells[0]}. " + " — ".join(cells[1:])) if cells and cells[0].isdigit() else "• " + " — ".join(cells)
-        else:
+            continuing = False
+        elif _ITEM_START.match(s):
             s = re.sub(r"^[-*]\s+", "• ", s)
+            continuing = True                                     # a bullet's own wrapped lines follow it
+        elif continuing and lines:
+            lines[-1] = lines[-1] + " " + re.sub(r"[*`#>]|(?<!\w)_|_(?!\w)", "", s)
+            continue
+        else:
+            continuing = True
         lines.append(re.sub(r"[*`#>]|(?<!\w)_|_(?!\w)", "", s))
-    out = "\n".join(lines)
-    if len(out) <= limit:
-        return out
-    cut = out[:limit]
-    boundary = max(cut.rfind("\n"), cut.rfind(". "))
-    return (cut[:boundary + 1] if boundary > limit // 2 else cut.rsplit(" ", 1)[0]).rstrip() + " …"
+    return lines
+
+
+def lead_text(chunk_text: str, limit: int = 500, query: str = "") -> str:
+    """A readable excerpt of a chunk: bullets and numbered table rows on their own lines, markdown marks removed. With a
+    query, a long chunk is shown from the sentence that best matches it (with its opening line for context) instead of
+    from its start. Cut at a sentence or line end."""
+    lines = _clean_lines(chunk_text)
+    if len("\n".join(lines)) <= limit:
+        return "\n".join(lines)
+    units: List[Tuple[int, str]] = []                             # (line number, sentence or whole bullet)
+    for n, line in enumerate(lines):
+        parts = [line] if _ITEM_START.match(line) or line.startswith("•") else re.split(r"(?<=[.!?])\s+(?=[A-Z0-9“\"(])", line)
+        units += [(n, p) for p in parts if p]
+    start = 0
+    q = set(tokenize(query))
+    if q:
+        q = q | {a for t in q for a in _ALTS.get(t, ())}
+        scores = [len(q & set(tokenize(u))) for _, u in units]
+        if max(scores) > 0:
+            start = scores.index(max(scores))
+            if start > 0 and units[start - 1][1].rstrip().endswith(":"):
+                start -= 1
+    intro = 0 < start and len(units[0][1]) <= 160 and units[0][1].rstrip().endswith(":")
+    chosen = ([units[0]] if intro else []) + units[start:]            # an opening line that introduces a list stays
+    out, prev = "", None
+    for n, u in chosen:
+        piece = u if prev is None else (("\n" if n != prev else " ") + u)
+        if len(out) + len(piece) > limit:
+            break
+        out += piece
+        prev = n
+    if not out:                                                  # a single unit longer than the limit
+        out = chosen[0][1][:limit].rsplit(" ", 1)[0]
+    return out.rstrip() + (" …" if len(out) < len("\n".join(u for _, u in chosen)) else "")

@@ -170,9 +170,6 @@ def asks_for_records(question: str) -> bool:
     return bool(re.search(_VERB, q) and re.search(_ALL_OF, q) and re.search(_RECORD + r"|\bdefaulters\b|\blist\b", q))
 
 
-_FOLLOW_UP = re.compile(r"^\s*(and|also|what about|how about|then|why|so|it|that|this|those|them)\b", re.I)
-
-
 def _leaf(section: str) -> str:
     return section.split(" › ")[-1].strip()
 
@@ -188,32 +185,38 @@ def _intro(chunk, steps) -> str:
 _VAGUE_HEADINGS = {"who does what", "introduction", "quick answers", "good to know", "notes", "overview", "contents", "tips"}
 
 
-def follow_ups_from(hits, asked: str, audience_roles: Tuple[str, ...] = ()) -> List[str]:
-    """Other sections the search found, offered as questions to ask next. Each is the section's own heading, so asking
-    it finds that section again."""
-    out, out_topics, seen = [], [], {_leaf(hits[0][0].section).lower()}
-    top_score = hits[0][1]
-    for chunk, score in hits[1:]:
-        if score < 0.65 * top_score:                      # a weak match is not a useful "next question"
-            continue
+def follow_ups_from(index, top, asked: str, audience_roles: Tuple[str, ...] = ()) -> List[str]:
+    """What to read next: the neighbouring sections of the manual the answer came from, as ready-to-ask questions. Each
+    is the section's own heading, so asking it finds that section again. Sections written for another role, code-level
+    headings and vague ones ("Who does what") are left out."""
+    near = [c for c in index.chunks
+            if c.document == top.document and c.chunk_id != top.chunk_id and 0 < abs(c.order - top.order) <= 3]
+    near.sort(key=lambda c: (abs(c.order - top.order), c.order < top.order))     # closest first, later sections before earlier
+    out, seen = [], {_leaf(top.section).lower()}
+    for chunk in near:
         if audience_roles and not ({"all", *audience_roles} & set(chunk.roles)):
-            continue                                      # a section written for another role (e.g. staff-only duties)
-        topic = re.sub(r"^((\d+\.)*\d+[.)]?|Step \d+\s*[—-]|Part \d+\s*[—-])\s*", "", _leaf(chunk.section)).strip()
-        if topic.lower() in seen or topic.lower() in _VAGUE_HEADINGS or len(topic) < 12 or len(topic) > 70 or topic.lower() in asked.lower() or re.search(r"\bapi\b|/api/", topic, re.I) \
-                or any(topic.lower() in o.lower() or o.lower() in topic.lower() for o in out_topics):
             continue
-        seen.add(topic.lower())
-        out_topics.append(topic)
+        topic = re.sub(r"^((\d+\.)*\d+[.)]?|Step \d+\s*[—-]|Part \d+\s*[—-])\s*", "", _leaf(chunk.section)).strip()
+        low = topic.lower()
+        if (low in seen or low in _VAGUE_HEADINGS or not 12 <= len(topic) <= 70 or low in asked.lower()
+                or re.search(r"\bapi\b|/api/|\.py\b", topic, re.I) or topic == chunk.title or topic.startswith("For ")
+                or any(low in o or o in low for o in seen)):
+            continue
+        seen.add(low)
         out.append(f"Tell me about {topic}")
         if len(out) == 3:
             break
     return out
 
 
+_FOLLOW_UP = re.compile(r"^\s*(and|also|what about|how about|then|it|that|this|those|them|same)\b", re.I)
+
+
 def _history_query(history, question: str, question_tokens: int) -> str:
-    """The person's previous question, but only when this one cannot stand alone ("and then?", "why?"). A complete
-    question is searched on its own: blending in an older topic would drag the answer towards it."""
-    if question_tokens > 3 and not _FOLLOW_UP.match(question):
+    """The person's previous question, but only when this one cannot stand alone ("and then?", "what about the
+    other one?", a single word). A complete question is searched on its own: blending in an older topic would drag
+    the answer towards it."""
+    if question_tokens > 1 and not (question_tokens <= 4 and _FOLLOW_UP.match(question)):
         return ""
     for t in reversed(history):
         if t.role == "user":
@@ -291,6 +294,7 @@ def ask(db: Session, user: User, data: AskRequest, request_id: str) -> AskRespon
 
     if asks_for_records(question):
         return AskResponse(status="restricted", steps=[], sources=[], config_gaps=[], provider=info, **base,
+            follow_ups=suggested_questions(scope.audience)[:3],
             answer="I can't look up or list individual residents, dues, payments, vendors or other records. I only "
                    "explain how things work from the approved manuals.",
             uncertainty=None,
@@ -304,29 +308,32 @@ def ask(db: Session, user: User, data: AskRequest, request_id: str) -> AskRespon
     notes: List[str] = []
     if data.include_diagnostics:
         if scope.can_diagnose and scope.society_id is not None:
-            topics = diagnostics.topics_for_question(question) or list(diagnostics.TOPICS)
-            gaps = [f for f in run_checks(db, scope, topics) if f.status != "ok"]
+            topics = diagnostics.topics_for_question(question)       # none when the question is about something else
+            gaps = [f for f in run_checks(db, scope, topics) if f.status != "ok"] if topics else []
         else:
             notes.append("Live configuration checks need manager-level access, so none were run.")
 
     if not hits:
         logger.info("assistant.ask request=%s status=insufficient audience=%s qlen=%d", request_id, scope.audience, len(question))
         return AskResponse(status="insufficient_evidence", steps=[], sources=[], config_gaps=gaps, provider=info, **base,
+            follow_ups=suggested_questions(scope.audience)[:3],
             answer="I couldn't find this in the approved DuxOS manuals, so I won't guess.",
             uncertainty="No manual section matched your question closely enough.",
             escalation=" ".join(notes + [ESCALATION]))
 
     sources, seen = [], set()
-    for chunk, _ in hits:
-        key = (chunk.document, chunk.section)
-        if key not in seen:
+    best = hits[0][1]
+    for chunk, score in hits:
+        if score < 0.5 * best:                           # list only the sections that really back the answer
+            continue
+        label = "Overview" if chunk.section == chunk.title else chunk.section
+        key = (chunk.document, label)
+        if key not in seen and len(sources) < 3:
             seen.add(key)
-            sources.append(Source(title=chunk.title, section=chunk.section, document=chunk.document, chunk_id=chunk.chunk_id))
-    steps: List[str] = []
-    for chunk, _ in hits[:2]:
-        steps = knowledge.extract_steps(chunk.text)
-        if len(steps) >= 2:                              # a lone numbered line is not a procedure
-            break
+            sources.append(Source(title=chunk.title, section=label, document=chunk.document, chunk_id=chunk.chunk_id))
+    # Steps only from the section the answer is about: another section's procedure under this answer would mislead.
+    steps = knowledge.extract_steps(hits[0][0].text)
+    if len(steps) < 2:                                   # a lone numbered line is not a procedure
         steps = []
 
     top_chunk, top_score = hits[0]
@@ -345,7 +352,7 @@ def ask(db: Session, user: User, data: AskRequest, request_id: str) -> AskRespon
         except prov.ProviderError as exc:
             provider_status = str(exc) if str(exc) in ("timeout", "malformed") else "error"
     if answer is None:
-        body = knowledge.lead_text(top_chunk.text)
+        body = knowledge.lead_text(top_chunk.text, query=question)
         if len(steps) >= 2:                              # the steps are listed under the answer; do not say them twice
             body = "\n".join(l for l in body.splitlines() if not re.match(r"^\d+\.\s", l)).strip()
         answer = clean_output(f"{_intro(top_chunk, steps)}\n{body}", settings.ASSISTANT_MAX_ANSWER_CHARS)
@@ -357,5 +364,5 @@ def ask(db: Session, user: User, data: AskRequest, request_id: str) -> AskRespon
     logger.info("assistant.ask request=%s status=answered audience=%s provider=%s/%s sources=%d gaps=%d qlen=%d",
                 request_id, scope.audience, mode, provider_status, len(sources), len(gaps), len(question))
     return AskResponse(status="answered", answer=answer, steps=steps, sources=sources, config_gaps=gaps,
-                       follow_ups=follow_ups_from(hits, question, _AUDIENCE_ROLES.get(scope.audience, ())), uncertainty=uncertainty, escalation=" ".join(notes) or None,
+                       follow_ups=follow_ups_from(index, top_chunk, question, _AUDIENCE_ROLES.get(scope.audience, ())), uncertainty=uncertainty, escalation=" ".join(notes) or None,
                        provider=ProviderInfo(mode=mode, status=provider_status), **base)

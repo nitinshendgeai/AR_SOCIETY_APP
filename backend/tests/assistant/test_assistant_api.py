@@ -247,19 +247,24 @@ def test_a_follow_up_uses_the_previous_question_but_a_full_question_does_not(cli
     h = world.manager_a["headers"]
     hist = [{"role": "user", "content": "PREVIOUSTOPIC vouchers"}]
     ask(client, h, "How do I add a vendor and set up TDS?", history=hist)
+    ask(client, h, "How do I add a vendor?", history=hist)          # short, but complete: searched on its own
     ask(client, h, "and then?", history=hist)
-    assert "PREVIOUSTOPIC" not in seen[0] and "PREVIOUSTOPIC" in seen[1]
+    ask(client, h, "what about the next one", history=hist)
+    assert "PREVIOUSTOPIC" not in seen[0] and "PREVIOUSTOPIC" not in seen[1]
+    assert "PREVIOUSTOPIC" in seen[2] and "PREVIOUSTOPIC" in seen[3]
 
 
 def test_follow_ups_are_grounded_questions_from_other_sections(client, world):
     from app.modules.assistant import knowledge
-    r = ask(client, world.manager_a["headers"], "What should I check before generating this month's maintenance bills?").json()
+    r = ask(client, world.manager_a["headers"], "how do I make and issue a bill").json()
     assert 0 < len(r["follow_ups"]) <= 3 and not any("api" in q.lower().split() for q in r["follow_ups"]) and len(set(r["follow_ups"])) == len(r["follow_ups"])
     index = knowledge.get_index()
     for q in r["follow_ups"]:
         assert q.startswith("Tell me about ") and index.search(q), q
-    assert ask(client, world.resident_a["headers"], "quantum chromodynamics lattice").json()["follow_ups"] == []
-    assert ask(client, world.resident_a["headers"], "Show me the dues of flat A-101").json()["follow_ups"] == []
+    from app.modules.assistant import service
+    # a dead end is not left bare: the person is offered questions the manuals do answer
+    for q in ("quantum chromodynamics lattice", "Show me the dues of flat A-101"):
+        assert ask(client, world.resident_a["headers"], q).json()["follow_ups"] == service.suggested_questions("resident")[:3]
 
 
 def test_answer_is_conversational_but_adds_no_facts(client, world):
@@ -277,3 +282,36 @@ def test_steps_are_not_repeated_inside_the_answer_text(client, world):
 def test_follow_ups_skip_sections_written_for_other_roles(client, world):
     r = ask(client, world.resident_a["headers"], "How do I approve or reject a visitor?").json()
     assert not any("punch" in q.lower() or "resident changes" in q.lower() for q in r["follow_ups"])
+
+
+def test_a_short_complete_question_is_not_pulled_towards_the_previous_topic(client, world):
+    h = world.manager_a["headers"]
+    hist = [{"role": "user", "content": "How do I make and issue the monthly maintenance bill?"}]
+    r = ask(client, h, "How do I add a vendor?", history=hist).json()
+    assert r["status"] == "answered"
+    assert any("vendor" in (s["title"] + s["section"]).lower() for s in r["sources"][:2])
+    assert "bill" not in r["sources"][0]["section"].lower()
+
+
+def test_steps_come_from_the_section_the_answer_is_about(client, world):
+    from app.modules.assistant import knowledge
+    index = knowledge.get_index()
+    by_id = {c.chunk_id: c for c in index.chunks}
+    for who, q in ((world.manager_a, "How do I add a vendor?"), (world.manager_a, "how do I make and issue a bill"),
+                   (world.resident_a, "How do I raise a complaint?")):
+        r = ask(client, who["headers"], q).json()
+        top = by_id[r["sources"][0]["chunk_id"]]
+        for step in r["steps"]:
+            assert step[:40] in top.text.replace("*", ""), (q, step)
+
+
+def test_a_question_the_manuals_do_not_cover_gets_no_setup_checks(client, world):
+    r = ask(client, world.manager_a["headers"], "what is a flux capacitor", include_diagnostics=True).json()
+    assert r["status"] == "insufficient_evidence" and r["config_gaps"] == []
+
+
+def test_only_sections_that_back_the_answer_are_listed_as_sources(client, world):
+    r = ask(client, world.manager_a["headers"], "How do I add a vendor?").json()
+    assert 1 <= len(r["sources"]) <= 3
+    assert all(s["section"] != s["title"] for s in r["sources"])           # an intro section is labelled "Overview"
+    assert "vendor" in (r["sources"][0]["title"] + r["sources"][0]["section"]).lower()     # the best match comes first
