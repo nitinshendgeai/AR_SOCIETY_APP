@@ -35,6 +35,8 @@ from typing import Optional
 
 router = APIRouter(prefix="/billing", tags=["Maintenance Billing & Finance"])
 
+MAX_STATEMENT_BYTES = 8_000_000      # a bank statement PDF or CSV
+
 # The whole maintenance module (periods, charge heads and elements, cycles,
 # bills, payments, dues, interest rules) is open to Manager and above: the
 # society's manager runs billing day to day, not only the committee.
@@ -1039,13 +1041,36 @@ async def import_bank_statement(
     society_id: UUID, statement: UploadFile = File(...),
     include_debits: bool = Query(False, description="Keep the statement's debits too (to reconcile payments)"),
     bank_account_id: Optional[UUID] = Query(None, description="The bank ledger the statement belongs to"),
+    detail: bool = Query(False, description="Answer with {entries, summary} instead of just the entries"),
     db: Session = Depends(get_db), user: User = Depends(get_current_user),
 ):
-    csv_bytes = await statement.read()
-    entries = BillingService(db).import_bank_statement_csv(
-        society_id, csv_bytes.decode("utf-8-sig"), user,
-        include_debits=include_debits, bank_account_id=bank_account_id)
-    return [_bank_entry_out(e) for e in entries]
+    """Import a bank statement: the generic CSV (Date, Description, Amount or Debit/Credit, optional Reference), or the
+    bank's own "Account Statement" PDF. A PDF is read, then proved against its own running balances and printed
+    totals before anything is stored; one that does not add up is refused whole."""
+    data = await statement.read(MAX_STATEMENT_BYTES + 1)
+    if len(data) > MAX_STATEMENT_BYTES:
+        raise HTTPException(413, "The statement file is too large")
+    service = BillingService(db)
+    if data[:5] == b"%PDF-":
+        from starlette.concurrency import run_in_threadpool
+        from app.modules.billing.services.bank_statement_pdf import StatementError, parse_statement_pdf
+        assert_society_access(user, society_id)
+        try:
+            parsed = await run_in_threadpool(parse_statement_pdf, data)
+        except StatementError as e:
+            raise HTTPException(422, str(e))
+        entries, summary = service.import_bank_statement_pdf(
+            society_id, parsed, user, include_debits=include_debits, bank_account_id=bank_account_id)
+    else:
+        try:
+            text = data.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            raise HTTPException(422, "This file is neither a PDF statement nor a CSV in UTF-8")
+        entries = service.import_bank_statement_csv(
+            society_id, text, user, include_debits=include_debits, bank_account_id=bank_account_id)
+        summary = {"file_type": "csv", "imported": len(entries), "skipped_duplicates": 0}
+    out = [_bank_entry_out(e) for e in entries]
+    return {"entries": out, "summary": summary} if detail else out
 
 @router.get("/bank-reconciliation/society/{society_id}", dependencies=[Depends(manager_above)])
 def list_bank_statement_entries(

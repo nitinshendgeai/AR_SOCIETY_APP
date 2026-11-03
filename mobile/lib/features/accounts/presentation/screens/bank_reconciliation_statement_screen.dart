@@ -93,17 +93,17 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
   }
 
   Future<void> _import(String societyId) async {
-    final result =
-        await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['csv'], withData: true);
+    final result = await FilePicker.platform
+        .pickFiles(type: FileType.custom, allowedExtensions: ['pdf', 'csv'], withData: true);
     final picked = result?.files.single;
     if (picked == null) return;
     final bytes = picked.bytes ?? (picked.path != null ? await File(picked.path!).readAsBytes() : null);
     if (bytes == null) return;
     await _run(societyId, () async {
-      final n = await ref
+      final imported = await ref
           .read(bankReconciliationApiProvider)
-          .importStatement(societyId, csvBytes: bytes, fileName: picked.name, accountId: _accountId);
-      return 'Imported $n ${n == 1 ? 'row' : 'rows'} from the statement';
+          .importStatement(societyId, bytes: bytes, fileName: picked.name, accountId: _accountId);
+      return imported.message(formatAccountsDate);
     });
   }
 
@@ -313,7 +313,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
         child: Align(
           alignment: Alignment.centerLeft,
           child: Text(
-              'CSV columns: Date, Description, Amount (negative = debit) or Debit and Credit, Reference optional',
+              'Import your bank\'s Account Statement (PDF), or a CSV with Date, Description, Amount (negative = debit) or Debit and Credit, Reference optional',
               style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
         ),
       ),

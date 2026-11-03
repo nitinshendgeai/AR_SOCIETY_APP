@@ -105,9 +105,11 @@ class _FakeApi extends BankReconciliationApi {
   }
 
   @override
-  Future<int> importStatement(String societyId,
-          {required Uint8List csvBytes, required String fileName, String? accountId}) async =>
-      ++imported;
+  Future<StatementImportResult> importStatement(String societyId,
+      {required Uint8List bytes, required String fileName, String? accountId}) async {
+    imported++;
+    return const StatementImportResult(imported: 1);
+  }
 }
 
 LedgerAccount _bank(String id, String name, {bool def = false}) => LedgerAccount.fromJson({

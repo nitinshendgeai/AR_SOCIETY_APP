@@ -186,17 +186,20 @@ class BankReconciliationApi {
     return [for (final e in r.data as List) StatementRow.fromJson(e as Map<String, dynamic>)];
   }
 
-  /// Imports the bank's CSV (credits and debits) for one bank ledger.
-  Future<int> importStatement(String societyId,
-      {required Uint8List csvBytes, required String fileName, String? accountId}) async {
+  /// Imports the bank's statement (credits and debits) for one bank ledger: the bank's own "Account Statement" PDF, or
+  /// a CSV. A PDF that does not add up is refused by the server and nothing is stored.
+  Future<StatementImportResult> importStatement(String societyId,
+      {required Uint8List bytes, required String fileName, String? accountId}) async {
+    final isPdf = fileName.toLowerCase().endsWith('.pdf');
     final r = await _dio.post(
       '/billing/bank-reconciliation/society/$societyId/import',
-      queryParameters: {'include_debits': true, if (accountId != null) 'bank_account_id': accountId},
+      queryParameters: {'include_debits': true, 'detail': true, if (accountId != null) 'bank_account_id': accountId},
       data: FormData.fromMap({
-        'statement': MultipartFile.fromBytes(csvBytes, filename: fileName, contentType: DioMediaType.parse('text/csv')),
+        'statement': MultipartFile.fromBytes(bytes,
+            filename: fileName, contentType: DioMediaType.parse(isPdf ? 'application/pdf' : 'text/csv')),
       }),
     );
-    return (r.data as List).length;
+    return StatementImportResult.fromJson(r.data as Map<String, dynamic>);
   }
 
   Future<List<BrsLine>> suggestions(String societyId, String rowId) async {
@@ -221,5 +224,49 @@ class BankReconciliationApi {
 
   Future<void> ignore(String rowId, String? reason) async {
     await _dio.post('/billing/bank-reconciliation/$rowId/ignore', data: {if (reason != null) 'reason': reason});
+  }
+}
+
+/// What an imported statement added, in words for the person who imported it.
+class StatementImportResult {
+  final int imported;
+  final int skippedDuplicates;
+  final bool isPdf;
+  final bool totalsChecked;
+  final DateTime? periodFrom;
+  final DateTime? periodTo;
+  const StatementImportResult({
+    required this.imported,
+    this.skippedDuplicates = 0,
+    this.isPdf = false,
+    this.totalsChecked = false,
+    this.periodFrom,
+    this.periodTo,
+  });
+
+  factory StatementImportResult.fromJson(Map<String, dynamic> j) {
+    final s = Map<String, dynamic>.from(j['summary'] as Map? ?? const {});
+    return StatementImportResult(
+      imported: (s['imported'] as num?)?.toInt() ?? (j['entries'] as List? ?? const []).length,
+      skippedDuplicates: (s['skipped_duplicates'] as num?)?.toInt() ?? 0,
+      isPdf: s['file_type'] == 'pdf',
+      totalsChecked: s['totals_checked'] == true,
+      periodFrom: DateTime.tryParse('${s['period_from'] ?? ''}'),
+      periodTo: DateTime.tryParse('${s['period_to'] ?? ''}'),
+    );
+  }
+
+  String message(String Function(DateTime) formatDate) {
+    final lines = '$imported ${imported == 1 ? 'line' : 'lines'}';
+    final dupes = '$skippedDuplicates already imported';
+    final head = imported == 0 && skippedDuplicates > 0
+        ? 'Nothing new: all $skippedDuplicates lines in this statement were already imported'
+        : 'Imported $lines from the statement';
+    return [
+      head,
+      if (periodFrom != null && periodTo != null) '${formatDate(periodFrom!)} to ${formatDate(periodTo!)}',
+      if (imported > 0 && skippedDuplicates > 0) dupes,
+      if (totalsChecked) 'totals checked against the statement',
+    ].join(' · ');
   }
 }
