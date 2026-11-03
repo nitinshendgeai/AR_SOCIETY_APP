@@ -1448,6 +1448,69 @@ class BillingService:
             raise HTTPException(422, "No valid credit rows found in the uploaded statement")
         return self.import_bank_statement(society_id, rows, user)
 
+    def import_bank_statement_pdf(self, society_id: UUID, statement, user: User, include_debits: bool = False,
+                                  bank_account_id: Optional[UUID] = None) -> "tuple[List[BankStatementEntry], dict]":
+        """Imports a bank's own "Account Statement" PDF, already read and checked against its own balances and totals
+        (see bank_statement_pdf.py). Returns the entries added and a summary the app shows.
+
+        * The statement's account number must be the chosen bank ledger's, when the ledger has one on file; with no
+          ledger chosen, the society's bank ledger carrying that number is used.
+        * Credits are kept, and debits too with `include_debits` (as for a CSV).
+        * A line already imported (same bank reference, date, amount and direction in the same ledger) is skipped, so
+          a monthly statement that overlaps the last one adds only what is new.
+        """
+        assert_society_access(user, society_id)
+        from app.modules.accounts.services.bank_reconciliation import BankReconciliationService
+        brs = BankReconciliationService(self.db)
+
+        def digits(number: Optional[str]) -> str:
+            return re.sub(r"\D", "", number or "").lstrip("0")
+
+        def last4(number: Optional[str]) -> str:               # only the last four digits are ever quoted back
+            return re.sub(r"\D", "", number or "")[-4:].rjust(4, "0")
+
+        ledger = brs.bank_account(society_id, bank_account_id) if bank_account_id is not None else None
+        if ledger is None and statement.account_number:
+            ledger = next((a for a in brs.bank_accounts(society_id)
+                           if digits(a.bank_account_number) and digits(a.bank_account_number) == digits(statement.account_number)), None)
+        if (ledger is not None and digits(ledger.bank_account_number) and digits(statement.account_number)
+                and digits(ledger.bank_account_number) != digits(statement.account_number)):
+            raise HTTPException(
+                422, f"This statement is for the account ending {last4(statement.account_number)}, but the bank "
+                     f"ledger chosen ('{ledger.name}') is the account ending {last4(ledger.bank_account_number)}. "
+                     "Choose the matching bank ledger. Nothing was imported.")
+        ledger_id = ledger.id if ledger is not None else None
+
+        wanted = [r for r in statement.rows if r.direction == "credit" or include_debits]
+        known = set()
+        if wanted:
+            existing = self.db.query(BankStatementEntry).filter(
+                BankStatementEntry.society_id == society_id, BankStatementEntry.bank_account_id == ledger_id,
+                BankStatementEntry.txn_date >= min(r.txn_date for r in wanted),
+                BankStatementEntry.txn_date <= max(r.txn_date for r in wanted)).all()
+            known = {(e.txn_date, e.amount, e.direction, e.reference) for e in existing}
+        rows, duplicates = [], 0
+        for r in wanted:
+            key = (r.txn_date, r.amount, r.direction, r.reference)
+            if r.reference and key in known:
+                duplicates += 1
+                continue
+            known.add(key)
+            rows.append({"txn_date": r.txn_date, "description": r.description[:500], "reference": r.reference,
+                         "amount": r.amount, "direction": r.direction, "bank_account_id": ledger_id})
+        entries = self.import_bank_statement(society_id, rows, user) if rows else []
+        summary = {
+            "file_type": "pdf", "bank": statement.bank, "period_from": statement.from_date.isoformat() if statement.from_date else None,
+            "period_to": statement.to_date.isoformat() if statement.to_date else None,
+            "statement_lines": len(statement.rows), "imported": len(entries), "skipped_duplicates": duplicates,
+            "skipped_debits": 0 if include_debits else sum(1 for r in statement.rows if r.direction == "debit"),
+            "opening_balance": str(statement.opening_balance), "closing_balance": str(statement.closing_balance),
+            "total_debits": str(statement.total_debits), "total_credits": str(statement.total_credits),
+            "totals_checked": statement.printed_total_debits is not None and statement.printed_total_credits is not None,
+            "bank_ledger": ledger.name if ledger is not None else None,
+        }
+        return entries, summary
+
     def import_bank_statement(self, society_id: UUID, rows: List[dict], user: User) -> List[BankStatementEntry]:
         assert_society_access(user, society_id)
         entries = []

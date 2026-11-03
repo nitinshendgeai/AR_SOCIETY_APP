@@ -33,7 +33,7 @@ class _BankReconciliationScreenState extends ConsumerState<BankReconciliationScr
   Future<void> _importStatement(String societyId) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['csv'],
+      allowedExtensions: ['pdf', 'csv'],
       withData: true,
     );
     final picked = result?.files.single;
@@ -116,7 +116,7 @@ class _BankReconciliationScreenState extends ConsumerState<BankReconciliationScr
             const Spacer(),
             const Icon(Icons.info_outline_rounded, size: 16, color: AppTheme.textSecondary),
             const SizedBox(width: 6),
-            const Text('CSV columns: Date, Description, Amount (Reference optional)',
+            const Text('Bank statement PDF, or CSV: Date, Description, Amount (Reference optional)',
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ]),
           rows: rows,
@@ -224,7 +224,7 @@ class _BankReconciliationScreenState extends ConsumerState<BankReconciliationScr
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'CSV needs columns: Date, Description, Amount (Reference optional)',
+                  'Bank statement PDF, or CSV with Date, Description, Amount (Reference optional)',
                   style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
                 ),
               ),

@@ -128,7 +128,7 @@ class BillingRemoteDataSource {
   }
 
   /// POST /billing/bank-reconciliation/society/{society_id}/import
-  /// (multipart CSV upload — Date, Description, Amount, optional Reference)
+  /// (multipart upload: the bank's statement PDF, or a CSV — Date, Description, Amount, optional Reference)
   Future<List<BankStatementEntryModel>> importBankStatement(
     String societyId, {
     required Uint8List csvBytes,
@@ -136,7 +136,7 @@ class BillingRemoteDataSource {
   }) async {
     final formData = FormData.fromMap({
       'statement': MultipartFile.fromBytes(csvBytes, filename: fileName,
-          contentType: DioMediaType.parse('text/csv')),
+          contentType: DioMediaType.parse(fileName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'text/csv')),
     });
     final r = await _dio.post(
       '/billing/bank-reconciliation/society/$societyId/import',

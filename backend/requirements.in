@@ -36,3 +36,6 @@ uharfbuzz
 
 # Asset register import from Excel (.xlsx)
 openpyxl
+
+# Bank statement PDFs (the bank reconciliation reads the bank's own "Account Statement" PDF)
+pdfminer.six

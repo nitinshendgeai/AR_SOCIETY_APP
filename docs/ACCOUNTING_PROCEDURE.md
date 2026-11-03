@@ -111,7 +111,28 @@ Vendors: `GET /vendors/invoices/vendor/{vendor_id}/open` (bills still to pay), `
 Bank reconciliation: `GET /accounts/bank-reconciliation/{society_id}?account_id=&as_on=` (the statement),
 `.../cleared`, `POST .../clear` and `.../unclear` (`entry_ids`, `cleared_date`), `POST .../auto-match`,
 `GET .../rows/{row_id}/suggestions`, `POST .../rows/{row_id}/match` (`entry_id`) and `/unmatch`. The statement is imported with
-`POST /billing/bank-reconciliation/society/{society_id}/import?include_debits=true&bank_account_id=`.
+`POST /billing/bank-reconciliation/society/{society_id}/import?include_debits=true&bank_account_id=` (add `&detail=true` to
+get `{entries, summary}` instead of just the entries).
+
+### Importing the bank's statement (PDF or CSV)
+
+**Import statement** takes the bank's own **Account Statement PDF** (the table of TXN Date, Value Date, Description,
+ReferenceNo/ChequeNo, Tr. Mode, Branch Code, Debit, Credit and Balance that a co-operative bank prints for a current account), or a
+CSV with Date, Description, Amount (or Debit and Credit) and an optional Reference.
+
+For a PDF the app reads the table by column, then **proves it against the statement itself before storing anything**: every line's
+running balance must follow from the line before it (opening balance plus credits less debits, which is also how a debit is told
+from a credit), and the debits, the credits and the closing balance must equal the totals the statement prints on its last page.
+If anything does not agree, the whole file is refused with a message and nothing is imported.
+
+- The statement's account number must be the chosen bank ledger's account number when the ledger has one on file (only the last
+  four digits are ever shown in a message). With no ledger chosen, the bank ledger carrying that number is used.
+- Credits are always imported; debits too when the bank reconciliation asks for them (it does).
+- A line already imported (same bank reference, date, amount and direction in the same ledger) is skipped, so a statement that
+  overlaps the last one adds only what is new, and importing the same file twice adds nothing. The result says how many were skipped.
+- Each line keeps the bank's reference number (or reference/cheque number) and its description, with the bank's wrapped lines joined
+  back together. Matching to the books is then done as before (**Auto-match**, or by hand).
+- The PDF reader is the `pdfminer.six` package. Files up to 8 MB are accepted.
 
 ## Entering vouchers fast (computer)
 
