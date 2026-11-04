@@ -313,7 +313,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
         child: Align(
           alignment: Alignment.centerLeft,
           child: Text(
-              'Import your bank\'s Account Statement (PDF), or a CSV with Date, Description, Amount (negative = debit) or Debit and Credit, Reference optional',
+              'Import your bank\'s statement (any bank\'s text PDF), or a CSV with Date, Description, Amount (negative = debit) or Debit and Credit, Reference optional',
               style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
         ),
       ),

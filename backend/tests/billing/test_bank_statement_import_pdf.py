@@ -139,8 +139,13 @@ def test_a_statement_that_does_not_add_up_stores_nothing(client, db):
 def test_things_that_are_not_a_readable_statement_are_refused_plainly(client, db):
     society, manager, _ = _rig(db, "pdf5")
     h = manager["headers"]
-    notstatement = _post(client, society.id, h, build_statement_pdf(sample_rows(), drop_title=True))
-    assert notstatement.status_code == 422 and "Account Statement" in notstatement.json()["detail"]
+    from fpdf import FPDF
+    receipt = FPDF(unit="pt", format="A4")
+    receipt.add_page()
+    receipt.set_font("Helvetica", size=10)
+    receipt.text(40, 60, "Receipt for maintenance, flat A-101, amount paid 5,500.00 on 05-01-2026")
+    notstatement = _post(client, society.id, h, bytes(receipt.output()))
+    assert notstatement.status_code == 422 and "No transaction table" in notstatement.json()["detail"]
     broken = _post(client, society.id, h, b"%PDF-1.4\nnot really a pdf")
     assert broken.status_code == 422 and "could not be read" in broken.json()["detail"]
     binary = _post(client, society.id, h, b"\xff\xfe\x00\x01 not text", name="x.bin")
@@ -172,3 +177,53 @@ def test_the_csv_import_is_unchanged(client, db):
     d = client.post(IMPORT.format(sid=society.id), params={"detail": "true"}, headers=manager["headers"],
                     files={"statement": ("s.csv", io.BytesIO(csv_text.encode()), "text/csv")}).json()
     assert d["summary"]["file_type"] == "csv" and len(d["entries"]) == 1
+
+
+# ── statements from other banks' layouts, through the same import ────────────
+
+from tests.billing.bank_pdf_layouts import LAYOUTS, build_layout_pdf       # noqa: E402
+
+
+def _layout_pdf(name, rows=None, **kw):
+    return build_layout_pdf(LAYOUTS[name], rows or sample_rows(), opening=kw.pop("opening", "1000000.00"), **kw)
+
+
+def test_other_banks_layouts_import_through_the_same_screen(client, db):
+    for n, name in enumerate(LAYOUTS):
+        society, manager, _ = _rig(db, f"lay{n}")
+        r = _post(client, society.id, manager["headers"], _layout_pdf(name), include_debits="true", detail="true")
+        assert r.status_code == 201, (name, r.text)
+        body = r.json()
+        assert body["summary"]["statement_lines"] == len(sample_rows()) == body["summary"]["imported"], name
+        assert body["summary"]["balances_checked"] is True
+        assert {e["direction"] for e in body["entries"]} == {"credit", "debit"}
+
+
+def test_a_statement_with_no_references_is_deduplicated_by_what_each_line_says(client, db):
+    society, manager, _ = _rig(db, "noref")
+    h = manager["headers"]
+    twin = [row("02-Oct-2026", "TO CASH SELF", "x", debit="15000.00", mode="To Csh") for _ in range(2)]
+    rows = [row("01-Oct-2026", "NEFT CR SAMPLE PAYER", "x", credit="5000.00")] + twin
+    first = _post(client, society.id, h, _layout_pdf("no_reference", rows), include_debits="true", detail="true").json()
+    assert first["summary"]["imported"] == 3                          # two identical lines on one day are both real
+    again = _post(client, society.id, h, _layout_pdf("no_reference", rows), include_debits="true", detail="true").json()
+    assert again["summary"]["imported"] == 0 and again["summary"]["skipped_duplicates"] == 3
+    # a later statement that repeats one of them and has a third identical line adds only the third
+    more = rows + [row("02-Oct-2026", "TO CASH SELF", "x", debit="15000.00", mode="To Csh")]
+    third = _post(client, society.id, h, _layout_pdf("no_reference", more), include_debits="true", detail="true").json()
+    assert third["summary"]["imported"] == 1 and third["summary"]["skipped_duplicates"] == 3
+    assert _count(db, society.id) == 4
+
+
+def test_a_masked_account_number_is_matched_by_the_digits_it_shows(client, db):
+    society, _, _ = _rig(db, "mask")
+    admin = make_user(db, "admin@mask.com", role="Society Admin")
+    admin["user"].society_id = society.id
+    db.commit()
+    h, sid = admin["headers"], str(society.id)
+    L = _ledgers(client, h, sid)
+    assert client.patch(f"{ACC}/ledgers/{L['bank']['id']}", json={"bank_account_number": "9999 8888 0123"}, headers=h).status_code == 200
+    ok = _post(client, sid, h, _layout_pdf("retail_a", account="XXXXXXXX0123"), detail="true")
+    assert ok.status_code == 201 and ok.json()["summary"]["bank_ledger"] == L["bank"]["name"], ok.text
+    bad = _post(client, sid, h, _layout_pdf("retail_a", rows=sample_rows()[:6], account="XXXXXXXX0456"), bank_account_id=L["bank"]["id"])
+    assert bad.status_code == 422 and "ending 0456" in bad.json()["detail"]

@@ -89,8 +89,8 @@ def test_files_that_are_not_this_statement_are_refused_with_a_plain_message():
         parse_statement_pdf(b"Date,Description,Amount\n2026-01-01,x,1\n")
     with pytest.raises(StatementError, match="could not be read"):
         parse_statement_pdf(b"%PDF-1.4\nthis is not really a pdf")
-    with pytest.raises(StatementError, match="not a bank 'Account Statement'"):
-        parse_statement_pdf(build_statement_pdf(sample_rows(), drop_title=True))
+    # a statement does not need a particular title: only a table of dated lines with amounts and balances
+    assert len(parse_statement_pdf(build_statement_pdf(sample_rows(), drop_title=True)).rows) == len(sample_rows())
     from app.modules.billing.services.bank_statement_pdf import MAX_PDF_BYTES
     with pytest.raises(StatementError, match="too large"):
         parse_statement_pdf(b"%PDF-" + b"0" * MAX_PDF_BYTES)
