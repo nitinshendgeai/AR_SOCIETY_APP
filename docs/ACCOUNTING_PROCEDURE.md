@@ -116,21 +116,30 @@ get `{entries, summary}` instead of just the entries).
 
 ### Importing the bank's statement (PDF or CSV)
 
-**Import statement** takes the bank's own **Account Statement PDF** (the table of TXN Date, Value Date, Description,
-ReferenceNo/ChequeNo, Tr. Mode, Branch Code, Debit, Credit and Balance that a co-operative bank prints for a current account), or a
-CSV with Date, Description, Amount (or Debit and Credit) and an optional Reference.
+**Import statement** takes a **bank statement PDF from any bank**, or a CSV with Date, Description, Amount (or Debit and Credit)
+and an optional Reference. The PDF's layout does not have to be one the app has seen: the app finds the statement's table by
+its column headings (Date or Txn Date, Value Date, Description or Narration or Particulars, Chq/Ref No, Debit or Withdrawal or
+Dr, Credit or Deposit or Cr, or a single Amount column with Dr/Cr marks, and Balance), also when a heading is split over two
+lines, and reads each line of the table. It must be a **text PDF downloaded from net banking**; a scan or photo has no text to
+read, and a password-protected file must be saved without the password first.
 
-For a PDF the app reads the table by column, then **proves it against the statement itself before storing anything**: every line's
-running balance must follow from the line before it (opening balance plus credits less debits, which is also how a debit is told
-from a credit), and the debits, the credits and the closing balance must equal the totals the statement prints on its last page.
-If anything does not agree, the whole file is refused with a message and nothing is imported.
+The app then **proves the reading against the statement itself before storing anything**:
 
-- The statement's account number must be the chosen bank ledger's account number when the ledger has one on file (only the last
-  four digits are ever shown in a message). With no ledger chosen, the bank ledger carrying that number is used.
+- every line's running balance must follow from the line before it (opening balance plus credits less debits). This also tells a
+  debit from a credit when the statement does not mark them, and a line marked one way but moving the balance the other way is refused;
+- the debits, the credits and the closing balance must equal the totals and closing balance the statement prints, where it prints them;
+- a statement with no running balance and no totals cannot be checked, so it is refused.
+
+If anything does not agree, the whole file is refused with a message and nothing is imported (use the CSV instead).
+
+- The statement's account number must be the chosen bank ledger's account number when the ledger has one on file (a masked
+  number such as XXXXXXXX1234 is compared by the digits it shows; only the last four digits are ever shown in a message). With no
+  ledger chosen, the bank ledger carrying that number is used.
 - Credits are always imported; debits too when the bank reconciliation asks for them (it does).
-- A line already imported (same bank reference, date, amount and direction in the same ledger) is skipped, so a statement that
-  overlaps the last one adds only what is new, and importing the same file twice adds nothing. The result says how many were skipped.
-- Each line keeps the bank's reference number (or reference/cheque number) and its description, with the bank's wrapped lines joined
+- A line already imported (the same bank reference; or, where the bank prints none, the same description, date, amount and
+  direction) is skipped, once per stored copy, so a statement that overlaps the last one adds only what is new, importing the
+  same file twice adds nothing, and two genuinely identical lines in one statement are both kept. The result says how many were skipped.
+- Each line keeps the bank's reference (or reference/cheque number) and its description, with the bank's wrapped lines joined
   back together. Matching to the books is then done as before (**Auto-match**, or by hand).
 - The PDF reader is the `pdfminer.six` package. Files up to 8 MB are accepted.
 

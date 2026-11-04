@@ -233,6 +233,7 @@ class StatementImportResult {
   final int skippedDuplicates;
   final bool isPdf;
   final bool totalsChecked;
+  final bool balancesChecked;
   final DateTime? periodFrom;
   final DateTime? periodTo;
   const StatementImportResult({
@@ -240,6 +241,7 @@ class StatementImportResult {
     this.skippedDuplicates = 0,
     this.isPdf = false,
     this.totalsChecked = false,
+    this.balancesChecked = false,
     this.periodFrom,
     this.periodTo,
   });
@@ -251,6 +253,7 @@ class StatementImportResult {
       skippedDuplicates: (s['skipped_duplicates'] as num?)?.toInt() ?? 0,
       isPdf: s['file_type'] == 'pdf',
       totalsChecked: s['totals_checked'] == true,
+      balancesChecked: s['balances_checked'] == true,
       periodFrom: DateTime.tryParse('${s['period_from'] ?? ''}'),
       periodTo: DateTime.tryParse('${s['period_to'] ?? ''}'),
     );
@@ -266,7 +269,12 @@ class StatementImportResult {
       head,
       if (periodFrom != null && periodTo != null) '${formatDate(periodFrom!)} to ${formatDate(periodTo!)}',
       if (imported > 0 && skippedDuplicates > 0) dupes,
-      if (totalsChecked) 'totals checked against the statement',
+      if (totalsChecked && balancesChecked)
+        'balances and totals checked against the statement'
+      else if (totalsChecked)
+        'totals checked against the statement'
+      else if (balancesChecked)
+        'balances checked against the statement',
     ].join(' · ');
   }
 }

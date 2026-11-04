@@ -13,13 +13,14 @@ void main() {
           'imported': 97,
           'skipped_duplicates': 3,
           'totals_checked': true,
+          'balances_checked': true,
           'period_from': '2026-10-01',
           'period_to': '2026-11-03',
         },
       });
       expect(r.isPdf, isTrue);
       expect(r.message(_fmt),
-          'Imported 97 lines from the statement · 1/10/2026 to 3/11/2026 · 3 already imported · totals checked against the statement');
+          'Imported 97 lines from the statement · 1/10/2026 to 3/11/2026 · 3 already imported · balances and totals checked against the statement');
     });
 
     test('a statement that was already imported says nothing is new', () {
@@ -28,6 +29,14 @@ void main() {
         'summary': {'file_type': 'pdf', 'imported': 0, 'skipped_duplicates': 106, 'totals_checked': true},
       });
       expect(r.message(_fmt), startsWith('Nothing new: all 106 lines in this statement were already imported'));
+    });
+
+    test('a statement without a totals line says its balances were checked', () {
+      final r = StatementImportResult.fromJson({
+        'entries': [],
+        'summary': {'file_type': 'pdf', 'imported': 5, 'balances_checked': true, 'totals_checked': false},
+      });
+      expect(r.message(_fmt), 'Imported 5 lines from the statement · balances checked against the statement');
     });
 
     test('a CSV (no period, nothing checked) and a single line read plainly', () {
