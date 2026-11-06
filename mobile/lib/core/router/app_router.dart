@@ -127,6 +127,7 @@ import 'package:ar_society_app/features/resident_master/presentation/screens/res
 import 'package:ar_society_app/features/resident_master/presentation/screens/resident_form_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/resident_import_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/edit_my_profile_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/my_home_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/pending_resident_changes_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_list_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_import_screen.dart';
@@ -255,6 +256,7 @@ class AppRoutes {
   static const residentForm       = '/residents/form';
   static const residentImport     = '/residents/import';
   static const residentLoginStatus = '/residents/login-status';
+  static const myHome                  = '/residents/me';
   static const editMyProfile           = '/residents/me/edit';
   static const pendingResidentChanges  = '/residents/edit-requests/pending';
   static const shops              = '/shops';
@@ -1086,6 +1088,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.residentImport,
             builder: (_, __) => const ResidentImportScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.myHome,
+            builder: (_, __) => const MyHomeScreen(),
           ),
           GoRoute(
             path: AppRoutes.editMyProfile,

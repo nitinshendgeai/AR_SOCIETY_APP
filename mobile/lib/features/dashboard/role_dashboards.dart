@@ -967,6 +967,8 @@ class ResidentDashboardScreen extends ConsumerWidget {
             const _QuickActionChip(icon: Icons.receipt_long_rounded, label: 'My Bills', route: AppRoutes.myBills),
           if (canEditInfo)
             const _QuickActionChip(icon: Icons.edit_note_rounded, label: 'Edit My Info', route: AppRoutes.editMyProfile),
+          if (canEditInfo)
+            const _QuickActionChip(icon: Icons.home_work_rounded, label: 'My Home', route: AppRoutes.myHome),
         ]),
         const SizedBox(height: 18),
         _OperationalPanel(title: 'Recent updates', children: [
