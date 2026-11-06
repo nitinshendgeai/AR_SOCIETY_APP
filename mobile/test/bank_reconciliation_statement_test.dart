@@ -389,9 +389,9 @@ void main() {
     expect(find.text('Totals agree: ready to match.'), findsOneWidget);
     await t.tap(find.byKey(const ValueKey('match-selected')));
     await t.pumpAndSettle();
-    expect(api.selectedMatches, [
-      (['r1'], ['e-PV/2026-27/0007'])
-    ]);
+    expect(api.selectedMatches, hasLength(1));
+    expect(api.selectedMatches.single.$1, ['r1']); // the bank rows ticked
+    expect(api.selectedMatches.single.$2, ['e-PV/2026-27/0007']); // the books' entries ticked
   });
 
   testWidgets('Match tab: totals that differ say by how much and cannot be matched', (t) async {
