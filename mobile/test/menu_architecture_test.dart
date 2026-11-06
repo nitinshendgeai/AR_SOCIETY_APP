@@ -58,7 +58,7 @@ void main() {
         'Finance & Maintenance': [
           'Maintenance Billing', 'Maintenance Elements', 'Online Payments', 'Defaulters', 'Vendor Bills', 'Bank Reconciliation',
         ],
-        'Accounts & Financial Reports': ['Accounts', 'Gateway of Accounts'],
+        'Accounts & Financial Reports': ['Accounts'],
         'Administration & Settings': [
           'Users & Roles', 'Permission Matrix', 'Forms Matrix', 'Society Settings', 'Automatic tasks', 'Setup Wizard',
         ],
@@ -69,7 +69,7 @@ void main() {
 
     test('no duplicate labels, routes or icons; every item has a route', () {
       final items = [for (final c in appMenuCategories) ...c.items];
-      expect(items.length, 41); // the 40 that existed, plus the Vendor Master
+      expect(items.length, 40); // the Accounts and Gateway entries were merged into one
       expect(items.map((i) => i.label).toSet().length, items.length, reason: 'duplicate label');
       expect(items.map((i) => i.route).toSet().length, items.length, reason: 'duplicate route');
       expect(items.map((i) => i.icon.codePoint).toSet().length, items.length, reason: 'duplicate icon');
@@ -95,9 +95,9 @@ void main() {
       }
     });
 
-    test('the Accounts group opens the existing landing page and Gateway, nothing new', () {
+    test('the Accounts group has a single entry; the Gateway is reached from inside it', () {
       final accounts = appMenuCategories.firstWhere((c) => c.label == 'Accounts & Financial Reports');
-      expect(accounts.items.map((i) => i.route), [AppRoutes.accounts, AppRoutes.accountsGateway]);
+      expect(accounts.items.map((i) => i.route), [AppRoutes.accounts]);
       expect(accounts.items.map((i) => i.formCode).toSet(), {'accounts'});
     });
   });
@@ -110,7 +110,7 @@ void main() {
         'Accounts & Financial Reports', 'Administration & Settings',
       ]);
       expect(t['Administration & Settings'], contains('Users & Roles'));
-      expect(t.values.expand((x) => x).length, 38);
+      expect(t.values.expand((x) => x).length, 37);
     });
 
     test('Committee has no Users, Permission Matrix or Forms Matrix', () {
@@ -123,7 +123,7 @@ void main() {
       expect(t['People & Residents'], ['Staff']);
       expect(t['Property & Parking'], ['Assets']);
       expect(t.containsKey('Administration & Settings'), isFalse);
-      expect(t['Accounts & Financial Reports'], ['Accounts', 'Gateway of Accounts']);
+      expect(t['Accounts & Financial Reports'], ['Accounts']);
     });
 
     test('Resident: own bills first, community screens, own profile; nothing administrative', () {
@@ -132,7 +132,7 @@ void main() {
       expect(t['Payments'], ['My Bills']);
       expect(t['Profile & Help'], ['Edit My Info']);
       final all = t.values.expand((x) => x).toSet();
-      for (final admin in ['Residents', 'Accounts', 'Gateway of Accounts', 'Users & Roles', 'Online Payments', 'Staff']) {
+      for (final admin in ['Residents', 'Accounts', 'Users & Roles', 'Online Payments', 'Staff']) {
         expect(all, isNot(contains(admin)));
       }
     });
@@ -217,14 +217,14 @@ void main() {
       await boot(t, _user('Society Admin'), _admin, start: '/admin');
       expect(find.text('Residents'), findsOneWidget);            // People & Residents, the first group
       expect(find.text('Wings'), findsNothing);                 // the others stay closed
-      expect(find.text('Gateway of Accounts'), findsNothing);
+      expect(find.text('Accounts'), findsNothing);
     });
 
     testWidgets('shows the groups; only the group of the current page starts open', (t) async {
       await boot(t, _user('Society Admin'), _admin, start: '/residents');
       expect(open('People & Residents') && open('Accounts & Financial Reports') && open('Administration & Settings'), isTrue);
       expect(find.text('Residents'), findsWidgets);              // its group is open (also in the breadcrumb)
-      expect(find.text('Gateway of Accounts'), findsNothing);    // another group is closed
+      expect(find.text('Accounts'), findsNothing);    // another group is closed
       expect(find.text('Users & Roles'), findsNothing);
     });
 
@@ -232,15 +232,15 @@ void main() {
       final router = await boot(t, _user('Society Admin'), _admin, start: '/residents');
       await t.tap(find.byKey(const Key('nav-group-Accounts & Financial Reports')));
       await t.pumpAndSettle();
-      expect(find.text('Gateway of Accounts'), findsOneWidget);
+      expect(find.text('Accounts'), findsOneWidget);
       await t.tap(find.byKey(const Key('nav-group-Accounts & Financial Reports')));
       await t.pumpAndSettle();
-      expect(find.text('Gateway of Accounts'), findsNothing);
+      expect(find.text('Accounts'), findsNothing);
 
       // Going to a page in a closed group opens that group.
       router.go('/accounts/gateway');
       await t.pumpAndSettle();
-      expect(find.text('Gateway of Accounts'), findsWidgets);
+      expect(find.text('Accounts'), findsWidgets);
       expect(find.text('Users & Roles'), findsNothing);
     });
 
@@ -253,13 +253,11 @@ void main() {
     testWidgets('the current page is the selected entry; a page below it keeps its parent selected', (t) async {
       await boot(t, _user('Society Admin'), _admin, start: '/accounts/day-book');
       expect(selected(t, 'Accounts'), isTrue);
-      expect(selected(t, 'Gateway of Accounts'), isFalse);
     });
 
-    testWidgets('the Gateway entry is selected on the Gateway, not Accounts', (t) async {
+    testWidgets('the Accounts entry stays selected on the Gateway page', (t) async {
       await boot(t, _user('Society Admin'), _admin, start: '/accounts/gateway');
-      expect(selected(t, 'Gateway of Accounts'), isTrue);
-      expect(selected(t, 'Accounts'), isFalse);
+      expect(selected(t, 'Accounts'), isTrue);
     });
 
     testWidgets('a page opened from Accounts adds a third crumb; the entry itself does not', (t) async {
@@ -298,10 +296,12 @@ void main() {
     });
 
     testWidgets('a menu entry navigates to its route', (t) async {
-      final router = await boot(t, _user('Society Admin'), _admin, start: '/accounts');
-      await t.tap(find.text('Gateway of Accounts').first);
+      final router = await boot(t, _user('Society Admin'), _admin, start: '/residents');
+      await t.tap(find.byKey(const Key('nav-group-Accounts & Financial Reports')));
       await t.pumpAndSettle();
-      expect(router.routeInformationProvider.value.uri.path, '/accounts/gateway');
+      await t.tap(find.text('Accounts').first);
+      await t.pumpAndSettle();
+      expect(router.routeInformationProvider.value.uri.path, '/accounts');
     });
 
     testWidgets('collapsing the sidebar leaves an icon rail with every entry reachable by tooltip', (t) async {
@@ -312,7 +312,7 @@ void main() {
       await t.pumpAndSettle();
       expect(find.byKey(const Key('nav-group-People & Residents')), findsNothing);
       expect(find.byType(Tooltip), findsWidgets);
-      expect(find.byTooltip('Gateway of Accounts'), findsOneWidget);
+      expect(find.byTooltip('Accounts'), findsOneWidget);
     });
 
     testWidgets('a long menu scrolls while the brand and Collapse stay in place', (t) async {
