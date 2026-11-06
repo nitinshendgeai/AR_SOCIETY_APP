@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities.dart';
@@ -12,7 +13,10 @@ import 'package:ar_society_app/features/resident_master/presentation/providers/r
 
 class CreateVisitorScreen extends ConsumerStatefulWidget {
   final String societyId;
-  const CreateVisitorScreen({super.key, required this.societyId});
+
+  /// A past visitor to invite again: their name, mobile, type and purpose are filled in.
+  final VisitorEntity? repeatFrom;
+  const CreateVisitorScreen({super.key, required this.societyId, this.repeatFrom});
 
   @override
   ConsumerState<CreateVisitorScreen> createState() => _CreateVisitorScreenState();
@@ -27,10 +31,25 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
   String? _wingId;
   String? _flatId;
   bool _isLoading    = false;
+  DateTime? _expectedAt;
+
+  /// A resident adding a visitor is inviting a guest to their own flat: the screen says so, offers an expected time,
+  /// and the entry is approved straight away (no one else needs to confirm it).
+  bool get _invite {
+    final u = ref.read(currentUserProvider);
+    return u != null && !(u.isSecurity || u.isAdminOrCommittee || u.isManager || u.isStaff);
+  }
 
   @override
   void initState() {
     super.initState();
+    final r = widget.repeatFrom;
+    if (r != null) {
+      _nameCtrl.text = r.name;
+      _mobileCtrl.text = r.mobile;
+      _purposeCtrl.text = r.purpose ?? '';
+      _type = r.visitorType;
+    }
     // A resident expecting a visitor almost always means their own flat
     if (ref.read(currentUserProvider)?.isResident ?? false) _prefillMyFlat();
   }
@@ -60,18 +79,21 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final invite = _invite;
     return AppFormPage(
-      title: 'Log Visitor',
-      subtitle: 'The resident of the flat is asked to approve entry',
+      title: invite ? 'Invite a guest' : 'Log Visitor',
+      subtitle: invite
+          ? 'The gate will let them in without calling you'
+          : 'The resident of the flat is asked to approve entry',
       formKey: _formKey,
-      submitLabel: 'Log Visitor',
+      submitLabel: invite ? 'Invite guest' : 'Log Visitor',
       submitIcon: Icons.person_add_rounded,
       saving: _isLoading,
       onSubmit: _submit,
       children: [
         FormSection(
           title: 'Visitor',
-          description: 'Who is at the gate.',
+          description: invite ? 'Who is coming.' : 'Who is at the gate.',
           children: [
             FormFieldBox(
               label: 'Visitor name',
@@ -117,6 +139,15 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
                 decoration: const InputDecoration(hintText: 'e.g. Meeting, delivery, repair work (optional)'),
               ),
             ),
+            if (invite)
+              FormFieldBox(
+                label: 'Expected arrival',
+                child: OutlinedButton.icon(
+                  onPressed: _pickExpected,
+                  icon: const Icon(Icons.schedule_rounded, size: 18),
+                  label: Text(_expectedAt == null ? 'Any time today (optional)' : DateFormat('EEE d MMM, h:mm a').format(_expectedAt!)),
+                ),
+              ),
           ],
         ),
         FormSection(
@@ -173,6 +204,20 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
     );
   }
 
+  Future<void> _pickExpected() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _expectedAt ?? now,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 90)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_expectedAt ?? now));
+    if (time == null || !mounted) return;
+    setState(() => _expectedAt = DateTime(date.year, date.month, date.day, time.hour, time.minute));
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
@@ -184,16 +229,28 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
       'society_id': widget.societyId,
       'flat_id': _flatId,
       if (_purposeCtrl.text.trim().isNotEmpty) 'purpose': _purposeCtrl.text.trim(),
+      if (_expectedAt != null) 'expected_arrival': _expectedAt!.toUtc().toIso8601String(),
     });
 
     setState(() => _isLoading = false);
 
     if (!mounted) return;
 
+    // An invited guest is approved at once by the resident who invited them. If that is refused (the flat's contact is
+    // someone else) the entry stays pending and says so.
+    var approved = false;
+    if (result is VisitorSuccess<VisitorEntity> && _invite) {
+      final r = await ref.read(visitorRepositoryProvider).approveVisitor(result.data.id);
+      approved = r is VisitorSuccess;
+      if (!mounted) return;
+    }
+
     switch (result) {
       case VisitorSuccess():
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Visitor logged successfully'),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_invite
+              ? (approved ? 'Guest invited. The gate has them on the list' : 'Guest added. Approve them under Approvals')
+              : 'Visitor logged successfully'),
           backgroundColor: AppTheme.success,
           behavior: SnackBarBehavior.floating,
         ));

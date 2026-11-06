@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities.dart' show VisitorEntity;
 import 'package:ar_society_app/features/automation/presentation/screens/automation_screen.dart';
 import 'package:ar_society_app/features/certificates/presentation/screens/certificates_screen.dart';
 import 'package:ar_society_app/features/gate_extras/presentation/screens/domestic_help_screen.dart';
@@ -643,10 +644,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           // Visitor routes (specific paths before parameterised)
           GoRoute(
             path: AppRoutes.visitorsCreate,
-            builder: (_, state) => CreateVisitorScreen(
-              societyId: state.extra as String? ??
-                  state.uri.queryParameters['societyId'] ?? sessionSocietyId(),
-            ),
+            builder: (_, state) {
+              // The extra is the society id, or a past visitor being invited again.
+              final extra = state.extra;
+              return CreateVisitorScreen(
+                societyId: (extra is String ? extra : null) ??
+                    (extra is VisitorEntity ? extra.societyId : null) ??
+                    state.uri.queryParameters['societyId'] ?? sessionSocietyId(),
+                repeatFrom: extra is VisitorEntity ? extra : null,
+              );
+            },
           ),
           GoRoute(
             path: AppRoutes.visitorsMy,
