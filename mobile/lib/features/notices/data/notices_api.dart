@@ -166,6 +166,8 @@ class EmergencyAlertItem {
   final String? location;
   final DateTime triggeredAt;
   final String? triggeredBy;
+  final String? triggeredById;
+  final bool isSos;
   final bool active;
   final DateTime? resolvedAt;
   final String? resolutionNotes;
@@ -179,6 +181,8 @@ class EmergencyAlertItem {
     this.location,
     required this.triggeredAt,
     this.triggeredBy,
+    this.triggeredById,
+    this.isSos = false,
     this.active = true,
     this.resolvedAt,
     this.resolutionNotes,
@@ -193,6 +197,8 @@ class EmergencyAlertItem {
         location: j['location'] as String?,
         triggeredAt: _dt(j['triggered_at']) ?? DateTime.now(),
         triggeredBy: j['triggered_by_name'] as String?,
+        triggeredById: j['triggered_by'] as String?,
+        isSos: j['is_sos'] as bool? ?? false,
         active: (j['status'] as String? ?? 'active') == 'active',
         resolvedAt: _dt(j['resolved_at']),
         resolutionNotes: j['resolution_notes'] as String?,
@@ -267,6 +273,17 @@ class NoticesApi {
         'notify_committee': committee,
       }))
           .data as Map<String, dynamic>);
+
+  /// A resident's panic button: tells security and the committee. Pressing it again returns the one already out.
+  Future<EmergencyAlertItem> raiseSos({required String type, String? description}) async =>
+      EmergencyAlertItem.fromJson((await _dio.post('/notices/emergency/sos', data: {
+        'alert_type': type,
+        if (description != null && description.isNotEmpty) 'description': description,
+      }))
+          .data as Map<String, dynamic>);
+
+  /// The resident who raised an SOS ends it.
+  Future<void> cancelSos(String id) => _dio.post('/notices/emergency/sos/$id/cancel');
 
   Future<void> resolveAlert(String id, {String? notes}) =>
       _dio.post('/notices/emergency/$id/resolve', data: {if (notes != null && notes.isNotEmpty) 'notes': notes});

@@ -63,6 +63,10 @@ class AlertCreate(OrmBase):
     notify_all_residents: bool = True; notify_security: bool = True
     notify_committee: bool = True
 
+class SosCreate(OrmBase):
+    alert_type: AlertType = AlertType.MEDICAL
+    description: Optional[str] = None
+
 class AlertResolveRequest(OrmBase):
     notes: Optional[str] = None
 
@@ -147,6 +151,18 @@ def trigger_alert(data: AlertCreate, request: Request, db: Session = Depends(get
                   user: User = Depends(alert_raisers)):
     svc = NoticeService(db)
     return svc.alert_out(svc.trigger_emergency_alert(data.model_dump(), user, request))
+
+@router.post("/emergency/sos", status_code=201)
+def raise_sos(data: SosCreate, request: Request, db: Session = Depends(get_db), user: User = Depends(any_member)):
+    """A resident's panic button: tells security and the committee, not the whole society."""
+    svc = NoticeService(db)
+    return svc.alert_out(svc.raise_sos(user, data.alert_type, data.description, request))
+
+@router.post("/emergency/sos/{alert_id}/cancel")
+def cancel_sos(alert_id: UUID, db: Session = Depends(get_db), user: User = Depends(any_member)):
+    """The resident who raised an SOS ends it."""
+    svc = NoticeService(db)
+    return svc.alert_out(svc.cancel_sos(alert_id, user))
 
 @router.post("/emergency/{alert_id}/resolve")
 def resolve_alert(alert_id: UUID, data: AlertResolveRequest, db: Session = Depends(get_db),

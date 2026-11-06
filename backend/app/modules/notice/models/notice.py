@@ -6,7 +6,7 @@ Workflows:
   Emergency Alert: TRIGGERED → ACKNOWLEDGED/RESOLVED
 """
 import enum
-from sqlalchemy import Column, String, Text, Boolean, DateTime, Date, Integer, Enum, ForeignKey
+from sqlalchemy import Column, String, Text, Boolean, DateTime, Date, Integer, Enum, ForeignKey, false
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from app.db.base import Base, TimestampMixin
@@ -189,6 +189,8 @@ class EmergencyAlert(Base, TimestampMixin):
     resolution_notes = Column(Text, nullable=True)
 
     # Channel readiness (future: push, SMS, WhatsApp)
+    # A resident's own SOS: seen by security and the committee (and the resident who raised it), not by the whole society.
+    is_sos               = Column(Boolean, default=False, server_default=false(), nullable=False)
     notify_all_residents = Column(Boolean, default=True, nullable=False)
     notify_security      = Column(Boolean, default=True, nullable=False)
     notify_committee     = Column(Boolean, default=True, nullable=False)

@@ -30,6 +30,7 @@ import 'package:ar_society_app/features/resident_master/data/models/resident_mas
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart' show myResidentProvider, myFlatsProvider, selectedFlatIdProvider;
 import 'package:ar_society_app/core/layout/app_sheet.dart';
 import 'package:ar_society_app/features/notices/data/notices_api.dart' show NoticeItem;
+import 'package:ar_society_app/features/notices/presentation/widgets/sos_sheet.dart';
 import 'package:ar_society_app/features/notices/presentation/providers/notices_providers.dart' show noticeBoardProvider;
 
 /// Whether this society has the optional service switched on (the platform owner may switch some off).
@@ -879,6 +880,44 @@ class ResidentDashboardScreen extends ConsumerWidget {
               const _QuickActionChip(icon: Icons.payments_rounded, label: 'Pay bills', route: AppRoutes.myBills),
           ]);
         }),
+        const SizedBox(height: 12),
+        // An emergency is one tap away, on the home screen.
+        Semantics(
+          button: true,
+          label: 'SOS. Tell security and the committee you need help',
+          excludeSemantics: true,
+          onTap: () => showSosSheet(context),
+          child: InkWell(
+            key: const Key('sos-button'),
+            onTap: () => showSosSheet(context),
+            borderRadius: BorderRadius.circular(AppTheme.radiusM),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.error.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                border: Border.all(color: AppTheme.error.withOpacity(0.4)),
+              ),
+              child: Row(children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(color: AppTheme.error, shape: BoxShape.circle),
+                  child: const Icon(Icons.sos_rounded, color: Colors.white, size: 22),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('SOS', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppTheme.error)),
+                    Text('Need help now? Tell security and the committee.',
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  ]),
+                ),
+                const Icon(Icons.chevron_right_rounded, color: AppTheme.error),
+              ]),
+            ),
+          ),
+        ),
         const SizedBox(height: 18),
         const _SectionLabel('Society services'),
         const SizedBox(height: 10),

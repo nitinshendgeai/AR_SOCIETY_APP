@@ -27,7 +27,7 @@ from app.models.tenant import Tenant
 from app.models.user import User, UserRole, UserStatus
 from app.models.wing import Wing
 from app.modules.notice.models.notice import (
-    Announcement, AlertStatus, AudienceType, CommunicationLog, EmergencyAlert, Notice, NoticeAcknowledgement,
+    Announcement, AlertStatus, AlertType, AudienceType, CommunicationLog, EmergencyAlert, Notice, NoticeAcknowledgement,
     NoticeStatus,
 )
 from app.services.audit_service import AuditService
@@ -416,6 +416,68 @@ class NoticeService:
         alert.reached = reached
         return alert
 
+    SOS_TYPES = {AlertType.MEDICAL, AlertType.FIRE, AlertType.SECURITY_THREAT, AlertType.OTHER}
+
+    def raise_sos(self, user: User, alert_type: AlertType, description: Optional[str], request=None) -> EmergencyAlert:
+        """A resident's panic button. Reaches security and the committee, not the whole society. One live SOS per person:
+        pressing it again returns the one already out, so it cannot be used to flood the team."""
+        if user.society_id is None:
+            raise HTTPException(403, "Not part of a society")
+        if alert_type not in self.SOS_TYPES:
+            raise HTTPException(422, "Choose medical, fire, security or other")
+        live = self.db.query(EmergencyAlert).filter(
+            EmergencyAlert.society_id == user.society_id, EmergencyAlert.triggered_by == user.id,
+            EmergencyAlert.is_sos == True, EmergencyAlert.status == AlertStatus.ACTIVE).first()  # noqa: E712
+        if live is not None:
+            return live
+        flat = (self.db.query(Flat).join(Resident, Resident.flat_id == Flat.id)
+                .filter(Resident.user_id == user.id, Resident.is_active == True).first()  # noqa: E712
+                or self.db.query(Flat).join(Tenant, Tenant.flat_id == Flat.id)
+                .filter(Tenant.user_id == user.id, Tenant.is_active == True).first())  # noqa: E712
+        where = None
+        if flat is not None:
+            wing = self.db.query(Wing).filter(Wing.id == flat.wing_id).first()
+            where = f"{wing.name}-{flat.flat_number}" if wing else flat.flat_number
+        who = user.full_name or user.email or "A resident"
+        alert = EmergencyAlert(
+            society_id=user.society_id, triggered_by=user.id, triggered_at=datetime.utcnow(),
+            alert_type=alert_type, is_sos=True,
+            title=f"SOS from {where or who}",
+            description=" · ".join(x for x in (f"{who} needs help", (description or "").strip() or None) if x),
+            location=where,
+            notify_all_residents=False, notify_security=True, notify_committee=True)
+        self.db.add(alert)
+        self.db.flush()
+        self._audit(AuditAction.CREATE, alert, "EmergencyAlert", user, request,
+                    new_values={"sos": True, "type": alert_type.value, "location": where})
+        reached = 0
+        for p in self.profiles(user.society_id).values():
+            if p.user_id == user.id or not (p.roles & (SECURITY_ROLES | COMMITTEE_ROLES)):
+                continue
+            self.db.add(Notification(user_id=p.user_id, title=f"SOS: {alert.title}", body=alert.description,
+                                     type=NotificationType.ALERT, channel=NotificationChannel.IN_APP,
+                                     module="emergency", entity_id=str(alert.id), status=NotificationStatus.SENT))
+            reached += 1
+        self.db.commit()
+        self.db.refresh(alert)
+        alert.reached = reached
+        return alert
+
+    def cancel_sos(self, alert_id: UUID, user: User) -> EmergencyAlert:
+        """The resident who raised an SOS ends it ("I am safe")."""
+        alert = self.db.query(EmergencyAlert).filter(EmergencyAlert.id == alert_id).first()
+        if alert is None or not alert.is_sos or alert.triggered_by != user.id:
+            raise HTTPException(404, "Alert not found")
+        if alert.status != AlertStatus.ACTIVE:
+            raise HTTPException(409, f"Alert is already {alert.status.value}")
+        alert.status = AlertStatus.RESOLVED
+        alert.resolved_at = datetime.utcnow()
+        alert.resolved_by = user.id
+        alert.resolution_notes = "Ended by the resident who raised it"
+        self.db.commit()
+        self.db.refresh(alert)
+        return alert
+
     def resolve_emergency_alert(self, alert_id: UUID, notes: str, user: User) -> EmergencyAlert:
         alert = self._scoped_or_404(self.db.query(EmergencyAlert).filter(EmergencyAlert.id == alert_id).first(),
                                     user, "Alert")
@@ -431,10 +493,16 @@ class NoticeService:
 
     def get_active_alerts(self, society_id: UUID, user: User) -> List[EmergencyAlert]:
         assert_society_access(user, society_id)
-        return self.db.query(EmergencyAlert).filter(
+        rows = self.db.query(EmergencyAlert).filter(
             EmergencyAlert.society_id == society_id, EmergencyAlert.status == AlertStatus.ACTIVE,
             EmergencyAlert.is_active == True,
         ).order_by(EmergencyAlert.triggered_at.desc()).all()
+        # A resident's SOS is for the people who answer it, and the resident who raised it - not every neighbour.
+        if user.society_id is not None and any(a.is_sos for a in rows):
+            roles = self.profiles(society_id, user.id).get(user.id, Profile(user.id)).roles
+            if not roles & (SECURITY_ROLES | COMMITTEE_ROLES | {"Manager"}):
+                rows = [a for a in rows if not a.is_sos or a.triggered_by == user.id]
+        return rows
 
     def get_alert_history(self, society_id: UUID, user: User) -> List[EmergencyAlert]:
         assert_society_access(user, society_id)
@@ -449,6 +517,7 @@ class NoticeService:
             "triggered_at": a.triggered_at.isoformat() + "Z", "triggered_by_name": by.full_name if by else None,
             "resolved_at": a.resolved_at.isoformat() + "Z" if a.resolved_at else None,
             "resolution_notes": a.resolution_notes, "reached": getattr(a, "reached", None),
+            "is_sos": bool(a.is_sos), "triggered_by": str(a.triggered_by) if a.triggered_by else None,
         }
 
     # ── Communication logs ────────────────────────────────────────────────────
