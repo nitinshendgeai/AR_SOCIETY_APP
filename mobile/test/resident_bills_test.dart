@@ -78,7 +78,7 @@ void main() {
     expect(find.text('Total due'), findsOneWidget);
     expect(find.textContaining('2 unpaid bills'), findsOneWidget);
     expect(find.textContaining('1 overdue'), findsOneWidget);
-    expect(find.text('Overdue'), findsOneWidget);                 // the group heading
+    expect(find.text('Overdue'), findsNWidgets(2));               // the group heading, and the overdue bill's own status
     expect(find.text('To Pay'), findsOneWidget);
     expect(find.text('History'), findsOneWidget);
     expect(find.textContaining('Overdue by 10 days'), findsWidgets);

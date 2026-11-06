@@ -16,6 +16,7 @@ import 'package:ar_society_app/features/billing/domain/entities/billing_entities
 import 'package:ar_society_app/features/billing/presentation/providers/billing_providers.dart';
 import 'package:ar_society_app/features/billing/presentation/screens/online_payment_detail_screen.dart';
 import 'package:ar_society_app/features/billing/presentation/screens/online_payment_submit_screen.dart';
+import 'package:ar_society_app/features/maintenance_billing/presentation/screens/payment_claims_screen.dart' show ResidentClaimsBanner;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
@@ -79,6 +80,7 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
     return RefreshIndicator(
       onRefresh: () => ref.read(onlinePaymentsProvider(societyId).notifier).refresh(),
       child: ListView(padding: const EdgeInsets.fromLTRB(24, 8, 24, 32), children: [
+        ResidentClaimsBanner(societyId: societyId, padding: const EdgeInsets.only(bottom: 14)),
         _SetOffBanner(societyId: societyId, padding: const EdgeInsets.only(bottom: 14)),
         if (paymentsAsync.hasValue) ...[
           KpiGrid(cards: [
@@ -179,6 +181,7 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
             ),
       body: desktop ? _table(societyId, paymentsAsync) : Column(
         children: [
+          ResidentClaimsBanner(societyId: societyId, padding: const EdgeInsets.fromLTRB(16, 12, 16, 0)),
           _SetOffBanner(societyId: societyId, padding: const EdgeInsets.fromLTRB(16, 12, 16, 0)),
           paymentsAsync.when(
             loading: () => const SizedBox.shrink(),

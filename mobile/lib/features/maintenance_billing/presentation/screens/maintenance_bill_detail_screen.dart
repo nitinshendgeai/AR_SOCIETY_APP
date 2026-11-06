@@ -7,6 +7,7 @@ import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/billing/domain/entities/billing_entities.dart' show paymentModeLabel;
 import 'package:ar_society_app/features/billing/presentation/screens/online_payment_submit_screen.dart';
+import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/pay_widgets.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/billing_cycle_screen.dart' show billStatusColor;
@@ -224,10 +225,19 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
               if (!widget.canManage && bill.canRecordPayment) ...[
                 const SizedBox(height: 16),
                 const Text(
-                  'Pay the society office by UPI, bank transfer, cheque or cash. '
-                  'Your bill updates here once the payment is recorded.',
+                  'Pay the society, then tell the office. Your bill updates here once they have checked the payment.',
                   style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),
+                const SizedBox(height: 8),
+                Row(children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => showHowToPaySheet(context, bill: bill),
+                      icon: const Icon(Icons.payments_rounded, size: 18),
+                      label: const Text('Pay this bill'),
+                    ),
+                  ),
+                ]),
               ],
             ],
           ),

@@ -8,6 +8,7 @@ import 'package:ar_society_app/features/maintenance_billing/presentation/provide
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/billing_cycle_screen.dart'
     show BillTile, billStatusColor;
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/maintenance_bill_detail_screen.dart';
+import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/pay_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
@@ -70,6 +71,8 @@ class MyBillsScreen extends ConsumerWidget {
                   const SizedBox(height: 14),
                 ],
                 _DueHero(summary: summary, open: open),
+                const SizedBox(height: 16),
+                const PaymentClaimsStrip(),
                 const SizedBox(height: 20),
                 if (isDesktopLayout(context) && summary.bills.isNotEmpty)
                   AppDataTable<MaintenanceBill>(
@@ -186,9 +189,20 @@ class _DueHero extends StatelessWidget {
             ],
             const SizedBox(height: 10),
             const Text(
-              'Pay the society office by UPI, bank transfer, cheque or cash. The bill updates here once the payment is recorded, and the receipt appears on the bill.',
+              'Pay the society, then tell the office. Your bill is marked paid and the receipt appears on it once they have checked the payment.',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4),
             ),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  key: const Key('how-to-pay'),
+                  onPressed: () => showHowToPaySheet(context, bill: open.length == 1 ? open.first : null),
+                  icon: const Icon(Icons.payments_rounded, size: 18),
+                  label: const Text('Pay now'),
+                ),
+              ),
+            ]),
           ],
         ]),
       ),
