@@ -9,7 +9,7 @@ import 'package:ar_society_app/features/resident_master/presentation/providers/r
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/vehicle_form_sheet.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart' show flatByIdProvider;
-import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/app_form.dart' show AppPage;
 
 /// A resident's own place in the society: their flat, who else lives in it, and the vehicles registered to it.
 /// Residents can register a vehicle for their flat; changing or removing one is for the society office, which the
