@@ -189,6 +189,9 @@ class VoucherEntry(Base, TimestampMixin):
     # Only meaningful on a bank ledger's lines; empty until the bank statement shows it.
     cleared_date = Column(Date, nullable=True, index=True)
     cleared_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    # When several lines of the books were cleared together by ONE bank statement row (a deposit slip of cheques), the row
+    # they belong to. Empty for a 1:1 match. Not a foreign key: the statement row points back at one of these lines.
+    matched_row_id = Column(UUID(as_uuid=True), nullable=True, index=True)
 
     voucher = relationship("Voucher", back_populates="entries")
     account = relationship("Account")

@@ -71,6 +71,7 @@ class _FakeApi extends BankReconciliationApi {
   final uncleared = <List<String>>[];
   final matches = <(String, String)>[];
   final booked = <(String, String)>[];
+  final selectedMatches = <(List<String>, List<String>)>[];
   final balances = <(DateTime, double)>[];
   var autoMatched = 0;
   var imported = 0;
@@ -101,6 +102,10 @@ class _FakeApi extends BankReconciliationApi {
 
   @override
   Future<void> match(String societyId, String rowId, String entryId) async => matches.add((rowId, entryId));
+
+  @override
+  Future<void> matchSelected(String societyId, {required List<String> rowIds, required List<String> entryIds}) async =>
+      selectedMatches.add((rowIds, entryIds));
 
   @override
   Future<void> book(String societyId, String rowId, String ledgerId, {String? narration}) async =>
@@ -358,6 +363,49 @@ void main() {
     await t.tap(find.byKey(const ValueKey('book-row')));
     await t.pumpAndSettle();
     expect(api.booked, [('b1', 'bc')]);
+  });
+
+  testWidgets('Match tab: two grids; ticking an entry and a bank row of the same total enables Match selected', (t) async {
+    _phone(t);
+    final api = _FakeApi(rowList: [_row('r1'), _row('r2', credit: true)]); // r1: debit 2000, r2: credit 2000
+    await t.pumpWidget(_screen(api));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Match'));
+    await t.pumpAndSettle();
+    expect(find.text('Our bank entries (2)'), findsOneWidget);
+    expect(find.text('Bank statement rows (2)'), findsOneWidget);
+    FilledButton button() => t.widget<FilledButton>(find.byKey(const ValueKey('match-selected')));
+    expect(button().onPressed, isNull); // nothing ticked
+
+    await t.tap(find.byKey(const ValueKey('match-entry-e-PV/2026-27/0007'))); // payment 2,000
+    await t.tap(find.byKey(const ValueKey('match-row-r2'))); // a bank CREDIT of 2,000
+    await t.pumpAndSettle();
+    expect(find.textContaining('A bank credit belongs to a deposit'), findsOneWidget);
+    expect(button().onPressed, isNull);
+
+    await t.tap(find.byKey(const ValueKey('match-row-r2'))); // untick it
+    await t.tap(find.byKey(const ValueKey('match-row-r1'))); // the bank DEBIT of 2,000
+    await t.pumpAndSettle();
+    expect(find.text('Totals agree: ready to match.'), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('match-selected')));
+    await t.pumpAndSettle();
+    expect(api.selectedMatches, [
+      (['r1'], ['e-PV/2026-27/0007'])
+    ]);
+  });
+
+  testWidgets('Match tab: totals that differ say by how much and cannot be matched', (t) async {
+    _phone(t);
+    final api = _FakeApi(rowList: [_row('r1')]);
+    await t.pumpWidget(_screen(api));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Match'));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('match-entry-e-RV/2026-27/0012'))); // a deposit of 5,000
+    await t.tap(find.byKey(const ValueKey('match-row-r1'))); // a debit of 2,000
+    await t.pumpAndSettle();
+    expect(t.widget<FilledButton>(find.byKey(const ValueKey('match-selected'))).onPressed, isNull);
+    expect(api.selectedMatches, isEmpty);
   });
 
   testWidgets('without a bank ledger there is nothing to reconcile and it says how to start', (t) async {

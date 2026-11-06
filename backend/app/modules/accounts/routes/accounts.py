@@ -697,6 +697,11 @@ class MatchLineIn(BaseModel):
     entry_id: UUID
 
 
+class MatchSelectedIn(BaseModel):
+    row_ids: List[UUID] = Field(min_length=1, max_length=200)
+    entry_ids: List[UUID] = Field(min_length=1, max_length=200)
+
+
 class StatementBalanceIn(BaseModel):
     account_id: Optional[UUID] = None
     as_on: date
@@ -775,6 +780,14 @@ def bank_statement_row_unmatch(society_id: UUID, row_id: UUID, db: Session = Dep
                                user: User = Depends(get_current_user)):
     assert_society_access(user, society_id)
     return _statement_row_out(BankReconciliationService(db).unmatch(society_id, row_id, user))
+
+
+@router.post("/bank-reconciliation/{society_id}/match-selected", dependencies=[Depends(require_admin_committee)])
+def bank_reconciliation_match_selected(society_id: UUID, data: MatchSelectedIn, db: Session = Depends(get_db),
+                                       user: User = Depends(get_current_user)):
+    """Match the lines of the books and the bank statement rows the treasurer ticked (same side, same total)."""
+    assert_society_access(user, society_id)
+    return BankReconciliationService(db).match_selected(society_id, data.row_ids, data.entry_ids, user)
 
 
 @router.put("/bank-reconciliation/{society_id}/statement-balance", dependencies=[Depends(require_admin_committee)])

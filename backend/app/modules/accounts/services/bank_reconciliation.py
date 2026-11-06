@@ -274,11 +274,22 @@ class BankReconciliationService:
         return len(rows)
 
     def unclear(self, society_id: UUID, entry_ids: List[UUID], user: User) -> int:
-        """Take back a clearing made by mistake. A line matched to a statement row is released from it too."""
+        """Take back a clearing made by mistake. A line matched to a statement row is released from it too -- and when
+        several lines were cleared together by one row, the whole group goes back."""
         rows = self._lines_to_clear(society_id, entry_ids)
+        group_rows = {e.matched_row_id for e in rows if e.matched_row_id}
+        if group_rows:
+            have = {e.id for e in rows}
+            rows += [e for e in self.db.query(VoucherEntry).filter(VoucherEntry.matched_row_id.in_(group_rows))
+                     .options(joinedload(VoucherEntry.voucher)).all() if e.id not in have]
         for e in rows:
-            e.cleared_date = e.cleared_by = None
+            e.cleared_date = e.cleared_by = e.matched_row_id = None
             for row in self.db.query(BankStatementEntry).filter(BankStatementEntry.matched_entry_id == e.id):
+                row.match_status, row.matched_entry_id = BankStatementMatchStatus.UNMATCHED, None
+                row.matched_by = row.matched_at = None
+        for row_id in group_rows:
+            row = self.db.get(BankStatementEntry, row_id)
+            if row is not None:
                 row.match_status, row.matched_entry_id = BankStatementMatchStatus.UNMATCHED, None
                 row.matched_by = row.matched_at = None
         self._audit(rows[0].voucher, user, uncleared=[e.voucher.voucher_number for e in rows])
@@ -389,6 +400,53 @@ class BankReconciliationService:
             self.confirm_match(society_id, row.id, UUID(pick["entry_id"]), user)
             matched += 1
         return {"matched": matched, "left_for_a_person": left}
+
+    def match_selected(self, society_id: UUID, row_ids: List[UUID], entry_ids: List[UUID], user: User) -> dict:
+        """Match what the treasurer ticked on both sides: lines of the books and rows of the bank statement. The two
+        sides must be the same money: credits against deposits, debits against payments, and the same total.
+        One row can clear several lines (a deposit slip of cheques) and several rows can clear one line (a payment the
+        bank took in parts), but not several against several -- that cannot be told apart later."""
+        row_ids, entry_ids = list(dict.fromkeys(row_ids)), list(dict.fromkeys(entry_ids))
+        if not row_ids or not entry_ids:
+            raise HTTPException(422, "Tick at least one line of the books and one row of the bank statement")
+        if len(row_ids) > 1 and len(entry_ids) > 1:
+            raise HTTPException(422, "Match one bank row to several lines of the books, or several bank rows to one "
+                                     "line -- not several on both sides at once")
+        rows = [self._line(society_id, rid) for rid in row_ids]
+        for r in rows:
+            if r.match_status != BankStatementMatchStatus.UNMATCHED:
+                raise HTTPException(409, f"The bank row of {r.txn_date:%d %b %Y} ({r.amount}) is already {r.match_status.value}")
+        entries = self._lines_to_clear(society_id, entry_ids)
+        for e in entries:
+            if e.cleared_date is not None:
+                raise HTTPException(409, f"{e.voucher.voucher_number} is already reconciled")
+        credit = rows[0].direction == "credit"
+        if any((r.direction == "credit") != credit for r in rows):
+            raise HTTPException(422, "Tick bank credits or bank debits, not both together")
+        if any(bool(money(e.debit)) != credit for e in entries):
+            raise HTTPException(422, "A bank credit is matched to deposits in the books, and a bank debit to payments")
+        accounts = {e.account_id for e in entries}
+        if len(accounts) != 1 or any(r.bank_account_id and r.bank_account_id not in accounts for r in rows):
+            raise HTTPException(422, "The lines and the bank rows must belong to the same bank account")
+        rows_total = sum((money(r.amount) for r in rows), ZERO)
+        books_total = sum((money(e.debit if credit else e.credit) for e in entries), ZERO)
+        if rows_total != books_total:
+            raise HTTPException(422, f"The bank rows total {rows_total} but the lines of the books total {books_total} "
+                                     f"-- they differ by {abs(rows_total - books_total)}")
+        account_id = next(iter(accounts))
+        bank_day = max(r.txn_date for r in rows)
+        grouped = len(entries) > 1
+        for e in entries:
+            e.cleared_date, e.cleared_by = max(bank_day, e.voucher.voucher_date), user.id
+            e.matched_row_id = rows[0].id if grouped else None
+            self._after_cleared(e, e.cleared_date, user)
+        for r in rows:
+            r.match_status, r.matched_entry_id = BankStatementMatchStatus.MATCHED, entries[0].id
+            r.matched_by, r.matched_at, r.bank_account_id = user.id, datetime.utcnow(), account_id
+        self._audit(entries[0].voucher, user, matched_statement_rows=[str(r.id) for r in rows],
+                    cleared=[e.voucher.voucher_number for e in entries], amount=str(rows_total))
+        self.db.commit()
+        return {"rows": len(rows), "lines": len(entries), "amount": str(rows_total)}
 
     def book_row(self, society_id: UUID, line_id: UUID, ledger_id: UUID, user: User,
                  narration: Optional[str] = None) -> BankStatementEntry:

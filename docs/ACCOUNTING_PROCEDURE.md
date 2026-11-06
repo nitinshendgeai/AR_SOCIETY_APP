@@ -89,6 +89,11 @@ a transaction of the society is ignored with a reason. *Cleared* lists what is c
   it and cleared at once). Whatever is left after those is shown as *unexplained*: check that the whole statement is uploaded
   and that *As on* is the statement's last day. For a CSV (which has no balance) use **Enter balance** to type the closing
   balance for that day.
+- **Match by hand (two grids):** the *Match* tab shows *Our bank entries* (not yet cleared) beside the *Bank statement rows*
+  (not yet matched). Tick what belongs together; when the totals are equal, **Match selected** clears them. Credits go with
+  deposits, debits with payments. One bank row may clear several entries (a deposit slip of cheques), or several bank rows one
+  entry (a payment the bank took in parts) - not several against several. Taking the match back (*Take back* on the row, or
+  *Undo* on any of the entries) releases the whole group. A search box filters both lists by amount, reference or name.
 - Reconcile each bank ledger separately; cash has no statement. Opening balances count as cleared.
 - Only approved, live vouchers appear: a payment waiting for approval, a rejected or a cancelled one is not on it.
 - **Clear a line** by hand (with the date on the bank statement), or **import the statement** (CSV with Date, Description,
@@ -122,7 +127,7 @@ Bank reconciliation: `GET /accounts/bank-reconciliation/{society_id}?account_id=
 `.../cleared`, `POST .../clear` and `.../unclear` (`entry_ids`, `cleared_date`), `POST .../auto-match`,
 `GET .../rows/{row_id}/suggestions`, `POST .../rows/{row_id}/match` (`entry_id`) and `/unmatch`,
 `POST .../rows/{row_id}/book` (`account_id` of the ledger, optional `narration`: records a bank-only row in the books, cleared at once),
-`PUT .../statement-balance` (`account_id`, `as_on`, `balance`). The statement answers also with `statement_balance`, `difference`,
+`POST .../match-selected` (`row_ids`, `entry_ids`: the two grids), `PUT .../statement-balance` (`account_id`, `as_on`, `balance`). The statement answers also with `statement_balance`, `difference`,
 `unexplained`, `status` (`reconciled | bank_items_to_book | difference | no_statement_balance`) and `bank_only_rows`; `?bank_balance=`
 checks it against a typed figure without storing it. The statement is imported with
 `POST /billing/bank-reconciliation/society/{society_id}/import?include_debits=true&bank_account_id=` (add `&detail=true` to
