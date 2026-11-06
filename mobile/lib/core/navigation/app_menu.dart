@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/config/edition.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 
@@ -108,7 +109,12 @@ const residentPaymentsLabel = 'Payments';
 /// committee, manager, security) land on the society-wide Visitors and
 /// Complaints lists, everyone else on their own; admin, committee and
 /// managers get the staff register rather than the Staff Portal.
-List<AppMenuCategory> visibleMenuCategories(Set<String> grantedFormCodes, {UserEntity? user}) {
+///
+/// In the field (APK) edition only the screens in [AppEdition.fieldFormCodes] are kept; [fieldEdition] overrides
+/// the compiled-in edition (for tests).
+List<AppMenuCategory> visibleMenuCategories(Set<String> grantedFormCodes, {UserEntity? user, bool? fieldEdition}) {
+  final field = fieldEdition ?? AppEdition.isField;
+  final allowed = field ? grantedFormCodes.intersection(AppEdition.fieldFormCodes) : grantedFormCodes;
   final visible = appMenuCategories
       // The society screens need a society; a platform admin has none, so they see only the console.
       .where((category) => user?.isPlatformAdmin != true || category.label == 'Platform')
@@ -116,7 +122,7 @@ List<AppMenuCategory> visibleMenuCategories(Set<String> grantedFormCodes, {UserE
             category.label,
             category.icon,
             category.items
-                .where((item) => grantedFormCodes.contains(item.formCode))
+                .where((item) => allowed.contains(item.formCode))
                 .map((item) => _resolveFor(item, user))
                 .toList(),
           ))

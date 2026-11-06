@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:ar_society_app/core/config/edition.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/push/push_notifications.dart';
@@ -70,6 +71,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     switch (result) {
       case AuthSuccess(:final data):
         debugPrint('[AUTH_STATE] checkSession → AuthAuthenticated(${data.email})');
+        if (!await _allowedInThisEdition(data)) return;
         state = AuthAuthenticated(data);
         if (!data.mustChangePassword && await BiometricPreference.isEnabled()) {
           _ref.read(biometricLockProvider.notifier).lock();
@@ -93,11 +95,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
       case AuthSuccess(:final data):
         debugPrint('[AUTH_STATE] login → AuthAuthenticated(${data.email}) '
             'roles=${data.roles} mustChange=${data.mustChangePassword}');
+        if (!await _allowedInThisEdition(data)) return;
         state = AuthAuthenticated(data);
       case AuthFailure(:final message):
         debugPrint('[AUTH_STATE] login → AuthError($message)');
         state = AuthError(message);
     }
+  }
+
+  /// The field (APK) build is for residents, security, technical and gym staff; anyone else is signed out with a
+  /// pointer to the web app. Always true in the full build. Returns false (and sets the error) when turned away.
+  Future<bool> _allowedInThisEdition(UserEntity user) async {
+    if (!AppEdition.isField || AppEdition.allowsUser(user)) return true;
+    await _repo.logout();
+    state = AuthError(AppEdition.webOnlyMessage);
+    return false;
   }
 
   /// Back from the "choose a society" step to the sign-in form.

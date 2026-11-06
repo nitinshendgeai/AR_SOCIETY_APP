@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/config/edition.dart';
 
 /// Client-side route access, driven by the same server-granted form codes the menu uses
 /// (`GET /roles/forms/mine`, see app_menu.dart), so the menu and the address bar agree.
@@ -90,6 +91,7 @@ RouteDenial? routeDenial({
   required String home,
   required bool platformAdmin,
   required Set<String>? granted,
+  bool? fieldEdition,
 }) {
   final p = _normalize(path);
   if (platformAdmin) return null;                          // the platform console has its own guards
@@ -97,6 +99,11 @@ RouteDenial? routeDenial({
     return p == home ? null : RouteDenial(home, notify: false);
   }
   final code = formCodeForPath(p);
+  // The field (APK) build leaves management screens to the web app, whatever the person is granted.
+  if (code != null && (fieldEdition ?? AppEdition.isField) && !AppEdition.fieldFormCodes.contains(code)) {
+    if (_normalize(home) == p || formCodeForPath(home) != null) return null;
+    return RouteDenial(home, notify: true);
+  }
   if (code == null || granted == null || granted.contains(code)) return null;
   // Never send someone to a place that would send them straight back.
   if (_normalize(home) == p || formCodeForPath(home) != null) return null;
