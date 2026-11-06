@@ -397,7 +397,8 @@ void main() {
     testWidgets('Resident only sees Visitors and Complaints, not admin/master links', (tester) async {
       await openDrawer(tester, const ResidentDashboardScreen(), _makeUser(role: 'Resident'), _residentFormCodes);
 
-      expect(find.text('Complaints'), findsOneWidget);
+      // The home screen has its own Complaints tile, so look inside the drawer for the menu entry.
+      expect(find.descendant(of: find.byType(Drawer), matching: find.text('Complaints')), findsOneWidget);
       expect(find.text('Residents'), findsNothing);
       expect(find.text('Tenants'), findsNothing);
       expect(find.text('Users & Roles'), findsNothing);
