@@ -458,7 +458,11 @@ class BillTile extends StatelessWidget {
   final MaintenanceBill bill;
   final bool showFlat;
   final VoidCallback onTap;
-  const BillTile({super.key, required this.bill, required this.onTap, this.showFlat = false});
+
+  /// An extra line under the bill number (for a resident: "Overdue by 4 days", "Due in 3 days", what is paid so far).
+  final String? note;
+  final Color? noteColor;
+  const BillTile({super.key, required this.bill, required this.onTap, this.showFlat = false, this.note, this.noteColor});
 
   @override
   Widget build(BuildContext context) {
@@ -475,7 +479,14 @@ class BillTile extends StatelessWidget {
       child: ListTile(
         onTap: onTap,
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: note == null
+            ? Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis)
+            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 2),
+                Text(note!,
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: noteColor ?? AppTheme.textSecondary)),
+              ]),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
