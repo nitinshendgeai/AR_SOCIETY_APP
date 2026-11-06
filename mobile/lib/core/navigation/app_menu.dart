@@ -77,11 +77,11 @@ const appMenuCategories = [
     AppMenuItem('vendor_bills', 'Vendor Bills', Icons.request_page_rounded, AppRoutes.vendorBills),
     AppMenuItem('bank_reconciliation', 'Bank Reconciliation', Icons.account_balance_rounded, AppRoutes.bankReconciliation),
   ]),
-  // Both entries open existing screens (the landing page and the keyboard Gateway); the groups
-  // inside them (transactions, books, receivables, setup, reports) live on those screens.
+  // One entry only: the Accounts landing page and the keyboard Gateway of Accounts list the same
+  // screens, so two menu entries just confused people. The Gateway is still reached from the
+  // Gateway button on the Accounts page and with Alt+G.
   AppMenuCategory('Accounts & Financial Reports', Icons.menu_book_rounded, [
     AppMenuItem('accounts', 'Accounts', Icons.account_balance_wallet_rounded, AppRoutes.accounts),
-    AppMenuItem('accounts', 'Gateway of Accounts', Icons.apps_rounded, AppRoutes.accountsGateway),
   ]),
   AppMenuCategory('Administration & Settings', Icons.admin_panel_settings_rounded, [
     AppMenuItem('users_roles', 'Users & Roles', Icons.people_rounded, AppRoutes.usersList),
