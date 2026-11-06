@@ -132,3 +132,76 @@ def test_references_agree_by_cheque_number_or_utr_in_the_banks_text():
     assert _ref_agrees(bank_row(None, "NEFT-HDFCN52026100312345-SOCIETY"), "HDFCN52026100312345")   # UTR inside the narration
     assert not _ref_agrees(bank_row(None, "NEFT-HDFCN52026100312345"), "1234")                       # too short to trust inside text
     assert not _ref_agrees(bank_row("999", "CHQ PAID"), "123")
+
+
+# ── ticking both grids by hand ───────────────────────────────────────────────
+
+def _csv_rows(client, db, tag, csv_text):
+    society, _f, admin, _m, L = _books(client, db, tag)
+    h, sid, bank = admin["headers"], str(society.id), L["bank"]["id"]
+    assert _import(client, sid, h, csv_text, include_debits="true", bank_account_id=bank).status_code == 201
+    return h, sid, bank, L, {r["description"]: r["id"] for r in _rows(client, h, sid)}
+
+
+def _match_selected(client, h, sid, rows, entries, expect=200):
+    r = client.post(f"{API}/bank-reconciliation/{sid}/match-selected", json={"row_ids": rows, "entry_ids": entries}, headers=h)
+    assert r.status_code == expect, r.text
+    return r
+
+
+def test_one_bank_credit_clears_a_deposit_slip_of_several_cheques_and_taking_it_back_releases_them_all(client, db):
+    society, _f, admin, _m, L = _books(client, db, "bp5")
+    h, sid, bank = admin["headers"], str(society.id), L["bank"]["id"]
+    _deposit(client, h, sid, L, 3000, "2026-10-01")
+    _deposit(client, h, sid, L, 2000, "2026-10-02")
+    assert _import(client, sid, h, "Date,Description,Amount\n2026-10-03,CASH DEP SLIP,5000.00\n",
+                   include_debits="true", bank_account_id=bank).status_code == 201
+    (stmt_row,) = _rows(client, h, sid)
+    brs = _brs(client, h, sid, "2026-10-31", bank)
+    entries = [l["entry_id"] for l in brs["deposits_not_cleared"]]
+    assert len(entries) == 2
+
+    # the wrong total is refused with the difference; so is one side only
+    _match_selected(client, h, sid, [stmt_row["id"]], entries[:1], expect=422)
+    _match_selected(client, h, sid, [], entries, expect=422)
+    _match_selected(client, h, sid, [stmt_row["id"]], entries)
+    brs = _brs(client, h, sid, "2026-10-31", bank)
+    assert brs["uncleared_count"] == 0 and _rows(client, h, sid)[0]["match_status"] == "matched"
+
+    # taking back the row (or any one line) releases everything the row cleared
+    assert client.post(f"{API}/bank-reconciliation/{sid}/rows/{stmt_row['id']}/unmatch", headers=h).status_code == 200
+    assert _brs(client, h, sid, "2026-10-31", bank)["uncleared_count"] == 2
+    assert _rows(client, h, sid)[0]["match_status"] == "unmatched"
+
+
+def test_several_bank_rows_clear_one_line_and_a_mismatch_is_refused(client, db):
+    society, _f, admin, _m, L = _books(client, db, "bp6")
+    h, sid, bank = admin["headers"], str(society.id), L["bank"]["id"]
+    _cheque(client, h, sid, L, 3000, "2026-10-01")
+    _deposit(client, h, sid, L, 700, "2026-10-01")
+    assert _import(client, sid, h, "Date,Description,Amount\n2026-10-04,PART ONE,-1000.00\n2026-10-05,PART TWO,-2000.00\n"
+                   "2026-10-05,SOME CREDIT,700.00\n", include_debits="true", bank_account_id=bank).status_code == 201
+    by = {r["description"]: r["id"] for r in _rows(client, h, sid)}
+    brs = _brs(client, h, sid, "2026-10-31", bank)
+    pay, dep = brs["payments_not_cleared"][0]["entry_id"], brs["deposits_not_cleared"][0]["entry_id"]
+
+    _match_selected(client, h, sid, [by["PART ONE"]], [pay], expect=422)                    # 1000 against 3000
+    _match_selected(client, h, sid, [by["SOME CREDIT"]], [pay], expect=422)                 # a credit against a payment
+    _match_selected(client, h, sid, [by["PART ONE"], by["SOME CREDIT"]], [pay], expect=422)  # credits and debits mixed
+    _match_selected(client, h, sid, [by["PART ONE"], by["PART TWO"]], [pay, dep], expect=422)   # several on both sides
+    done = _match_selected(client, h, sid, [by["PART ONE"], by["PART TWO"]], [pay]).json()
+    assert done == {"rows": 2, "lines": 1, "amount": "3000.00"}
+    _match_selected(client, h, sid, [by["PART ONE"]], [pay], expect=409)                    # already matched
+    assert _brs(client, h, sid, "2026-10-31", bank)["uncleared_count"] == 1
+    # taking the line back frees both rows
+    assert client.post(f"{API}/bank-reconciliation/{sid}/unclear", json={"entry_ids": [pay]}, headers=h).status_code == 200
+    assert {r["match_status"] for r in _rows(client, h, sid) if r["description"].startswith("PART")} == {"unmatched"}
+
+
+def test_only_admin_or_committee_matches_by_hand(client, db):
+    society, _f, admin, manager, L = _books(client, db, "bp7")
+    h, sid = admin["headers"], str(society.id)
+    r = client.post(f"{API}/bank-reconciliation/{sid}/match-selected", headers=manager["headers"],
+                    json={"row_ids": ["00000000-0000-0000-0000-000000000001"],
+                          "entry_ids": ["00000000-0000-0000-0000-000000000002"]})
+    assert r.status_code == 403

@@ -25,6 +25,8 @@ import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 ///    against the balance the bank's own statement closes with (read from the uploaded PDF, or typed). Upload the
 ///    statement here; tick the lines the bank has cleared and say on which day; record the bank's own charges and
 ///    interest in the books from the "in the bank, not in your books" list.
+///  * **Match** — two grids side by side: our bank entries not yet cleared, and the bank statement's rows not yet matched.
+///    Tick what belongs together; when the totals are equal, *Match selected* clears them.
 ///  * **Bank rows** — the rows of the imported bank statement (credits and debits), matched to the books' own lines.
 ///  * **Cleared** — what has been cleared, with Undo for a mistake.
 class BankReconciliationStatementScreen extends ConsumerStatefulWidget {
@@ -38,6 +40,11 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
   String? _accountId;
   DateTime _asOn = DateTime.now();
   final _picked = <String>{};
+  // the Match tab: lines of the books and rows of the bank statement ticked by hand
+  final _pickedEntries = <String>{};
+  final _pickedRows = <String>{};
+  final _today = DateTime.now();
+  String _gridSearch = '';
   String? _rowFilter = 'unmatched';
   bool _busy = false;
 
@@ -47,7 +54,11 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
     ref.invalidate(clearedLinesProvider);
     ref.invalidate(statementRowsProvider(societyId));
     ref.invalidate(rowSuggestionsProvider);
-    setState(() => _picked.clear());
+    setState(() {
+      _picked.clear();
+      _pickedEntries.clear();
+      _pickedRows.clear();
+    });
   }
 
   Future<void> _run(String societyId, Future<String> Function() action) async {
@@ -178,11 +189,11 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
     }
 
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: AppPage(
         title: 'Bank Reconciliation',
         subtitle: 'Match the bank statement with the books',
-        bottom: const TabBar(tabs: [Tab(text: 'Statement'), Tab(text: 'Bank rows'), Tab(text: 'Cleared')]),
+        bottom: const TabBar(tabs: [Tab(text: 'Statement'), Tab(text: 'Match'), Tab(text: 'Bank rows'), Tab(text: 'Cleared')]),
         actions: [
           IconButton(icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh', onPressed: () => _refresh(societyId)),
         ],
@@ -201,6 +212,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
                   Expanded(
                     child: TabBarView(children: [
                       _statementTab(societyId),
+                      _matchTab(societyId),
                       _rowsTab(societyId),
                       _clearedTab(societyId),
                     ]),
@@ -229,6 +241,8 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
                 onChanged: (v) => setState(() {
                   _accountId = v;
                   _picked.clear();
+                  _pickedEntries.clear();
+                  _pickedRows.clear();
                 }),
               ),
             ),
@@ -355,6 +369,167 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
             FilledButton(
               onPressed: _busy ? null : () => _clearPicked(societyId, b),
               child: const Text('Mark cleared'),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  // ── Match: two grids ───────────────────────────────────────────────────────
+
+  bool _hit(List<String?> parts, double amount) {
+    final q = _gridSearch.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    return parts.any((p) => (p ?? '').toLowerCase().contains(q)) || amount.toStringAsFixed(2).contains(q);
+  }
+
+  Widget _matchTab(String societyId) {
+    final brs = ref.watch(bankReconciliationProvider((societyId: societyId, accountId: _accountId, asOn: _today)));
+    final rowsAsync = ref.watch(statementRowsProvider(societyId));
+    Widget failed(Object e) =>
+        ListView(padding: const EdgeInsets.all(16), children: [AppErrorBanner(message: friendlyErrorMessage(e))]);
+    return brs.when(
+      loading: () => const AppLoader(),
+      error: (e, _) => failed(e),
+      data: (b) => rowsAsync.when(
+        loading: () => const AppLoader(),
+        error: (e, _) => failed(e),
+        data: (all) {
+          final entries = [...b.paymentsNotCleared, ...b.depositsNotCleared]..sort((a, c) => a.date.compareTo(c.date));
+          final rows = all
+              .where((r) => r.isUnmatched && (r.bankAccountId == null || r.bankAccountId == _accountId))
+              .toList()
+            ..sort((a, c) => a.txnDate.compareTo(c.txnDate));
+          final shownEntries = entries
+              .where((l) => _hit([l.voucherNumber, l.party, l.narration, l.reference], l.amount))
+              .toList();
+          final shownRows = rows.where((r) => _hit([r.description, r.reference], r.amount)).toList();
+          final entriesPanel = _GridPanel(
+            title: 'Our bank entries',
+            count: entries.length,
+            empty: 'Nothing waiting: every entry has been cleared',
+            children: [
+              for (final l in shownEntries)
+                CheckboxListTile(
+                  key: ValueKey('match-entry-${l.entryId}'),
+                  dense: true,
+                  value: _pickedEntries.contains(l.entryId),
+                  onChanged: (v) => setState(() => v == true ? _pickedEntries.add(l.entryId) : _pickedEntries.remove(l.entryId)),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: Text('${l.voucherNumber}${l.party == null ? '' : ' · ${l.party}'}',
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text(
+                      [
+                        formatAccountsDate(l.date),
+                        if ((l.reference ?? '').isNotEmpty) l.reference!,
+                        if ((l.narration ?? '').isNotEmpty) l.narration!,
+                      ].join(' · '),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
+                  secondary: Text('${l.isDeposit ? '' : '− '}${formatInr(l.amount)}',
+                      style: TextStyle(fontWeight: FontWeight.w700, color: l.isDeposit ? AppTheme.success : AppTheme.textPrimary)),
+                ),
+            ],
+          );
+          final rowsPanel = _GridPanel(
+            title: 'Bank statement rows',
+            count: rows.length,
+            empty: 'No unmatched rows: upload the bank statement on the Statement tab',
+            children: [
+              for (final r in shownRows)
+                CheckboxListTile(
+                  key: ValueKey('match-row-${r.id}'),
+                  dense: true,
+                  value: _pickedRows.contains(r.id),
+                  onChanged: (v) => setState(() => v == true ? _pickedRows.add(r.id) : _pickedRows.remove(r.id)),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: Text(r.description, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  subtitle: Text([formatAccountsDate(r.txnDate), if ((r.reference ?? '').isNotEmpty) r.reference!].join(' · ')),
+                  secondary: Text('${r.isCredit ? '' : '− '}${formatInr(r.amount)}',
+                      style: TextStyle(fontWeight: FontWeight.w700, color: r.isCredit ? AppTheme.success : AppTheme.textPrimary)),
+                ),
+            ],
+          );
+          return Column(children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: TextField(
+                key: const ValueKey('grid-search'),
+                decoration: const InputDecoration(
+                    hintText: 'Search both lists: amount, reference, name',
+                    prefixIcon: Icon(Icons.search_rounded),
+                    isDense: true),
+                onChanged: (v) => setState(() => _gridSearch = v),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: LayoutBuilder(
+                  builder: (_, c) => c.maxWidth >= 720
+                      ? Row(children: [Expanded(child: entriesPanel), const SizedBox(width: 8), Expanded(child: rowsPanel)])
+                      : Column(children: [Expanded(child: entriesPanel), const SizedBox(height: 8), Expanded(child: rowsPanel)]),
+                ),
+              ),
+            ),
+            _matchBar(societyId, entries, rows),
+          ]);
+        },
+      ),
+    );
+  }
+
+  /// The totals of what is ticked on each side, and Match selected once they agree.
+  Widget _matchBar(String societyId, List<BrsLine> entries, List<StatementRow> rows) {
+    final selE = entries.where((l) => _pickedEntries.contains(l.entryId)).toList();
+    final selR = rows.where((r) => _pickedRows.contains(r.id)).toList();
+    int cents(double v) => (v * 100).round();
+    final eTotal = selE.fold<int>(0, (s, l) => s + cents(l.amount));
+    final rTotal = selR.fold<int>(0, (s, r) => s + cents(r.amount));
+    String? problem;
+    if (selE.isEmpty || selR.isEmpty) {
+      problem = 'Tick the entries on one side and the bank rows they belong to on the other.';
+    } else if (selE.any((l) => l.isDeposit != selE.first.isDeposit) || selR.any((r) => r.isCredit != selR.first.isCredit)) {
+      problem = 'Tick deposits with bank credits, or payments with bank debits, not both together.';
+    } else if (selE.first.isDeposit != selR.first.isCredit) {
+      problem = 'A bank credit belongs to a deposit, and a bank debit to a payment.';
+    } else if (selE.length > 1 && selR.length > 1) {
+      problem = 'Match one bank row to several entries, or several bank rows to one entry.';
+    } else if (eTotal != rTotal) {
+      problem = 'The totals differ by ${formatInr((eTotal - rTotal).abs() / 100)}.';
+    }
+    final ok = problem == null;
+    return Material(
+      elevation: 8,
+      color: Colors.white,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          child: Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Entries ${selE.length} · ${formatInr(eTotal / 100)}    Bank rows ${selR.length} · ${formatInr(rTotal / 100)}',
+                    key: const ValueKey('match-totals'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(problem ?? 'Totals agree: ready to match.',
+                    key: const ValueKey('match-hint'),
+                    style: TextStyle(fontSize: 12, color: ok ? AppTheme.success : AppTheme.textSecondary)),
+              ]),
+            ),
+            const SizedBox(width: 12),
+            FilledButton(
+              key: const ValueKey('match-selected'),
+              onPressed: !ok || _busy
+                  ? null
+                  : () => _run(societyId, () async {
+                        await ref.read(bankReconciliationApiProvider).matchSelected(societyId,
+                            rowIds: [for (final r in selR) r.id], entryIds: [for (final l in selE) l.entryId]);
+                        return '${selE.length} ${selE.length == 1 ? 'entry' : 'entries'} matched with '
+                            '${selR.length} bank ${selR.length == 1 ? 'row' : 'rows'}';
+                      }),
+              child: const Text('Match selected'),
             ),
           ]),
         ),
@@ -512,6 +687,40 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
                 );
               },
             ),
+    );
+  }
+}
+
+/// One of the two grids of the Match tab: a titled card with a scrolling list of tick rows.
+class _GridPanel extends StatelessWidget {
+  final String title;
+  final int count;
+  final String empty;
+  final List<Widget> children;
+  const _GridPanel({required this.title, required this.count, required this.empty, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+          child: Text('$title ($count)', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: children.isEmpty
+              ? Center(
+                  child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(empty,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary))))
+              : ListView(children: children),
+        ),
+      ]),
     );
   }
 }

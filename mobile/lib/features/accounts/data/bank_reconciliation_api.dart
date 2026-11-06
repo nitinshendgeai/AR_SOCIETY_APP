@@ -257,6 +257,13 @@ class BankReconciliationApi {
         matched: (r.data['matched'] as num).toInt(), leftForAPerson: (r.data['left_for_a_person'] as num).toInt());
   }
 
+  /// Matches the lines of the books and the bank statement rows the treasurer ticked (same side, same total): one bank
+  /// row may clear several lines, or several rows one line.
+  Future<void> matchSelected(String societyId, {required List<String> rowIds, required List<String> entryIds}) async {
+    await _dio.post('/accounts/bank-reconciliation/$societyId/match-selected',
+        data: {'row_ids': rowIds, 'entry_ids': entryIds});
+  }
+
   /// Keeps the closing balance the bank statement shows on a day (a PDF import stores it by itself).
   Future<void> setStatementBalance(String societyId,
       {required String accountId, required DateTime asOn, required double balance}) async {

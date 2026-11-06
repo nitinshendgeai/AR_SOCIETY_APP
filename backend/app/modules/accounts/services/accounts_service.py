@@ -770,12 +770,19 @@ class AccountsService:
         return voucher
 
     def _release_statement_rows(self, voucher: Voucher) -> None:
-        """A bank statement row matched to a line of a voucher that no longer stands is free to be matched again."""
+        """A bank statement row matched to a line of a voucher that no longer stands is free to be matched again; so are
+        the other lines that row cleared together with it."""
         from app.modules.billing.models.billing import BankStatementEntry, BankStatementMatchStatus
         ids = [e.id for e in voucher.entries]
         if not ids:
             return
-        for row in self.db.query(BankStatementEntry).filter(BankStatementEntry.matched_entry_id.in_(ids)):
+        rows = list(self.db.query(BankStatementEntry).filter(BankStatementEntry.matched_entry_id.in_(ids)))
+        group_ids = {e.matched_row_id for e in voucher.entries if e.matched_row_id}
+        if group_ids:
+            rows += list(self.db.query(BankStatementEntry).filter(BankStatementEntry.id.in_(group_ids)))
+            for e in self.db.query(VoucherEntry).filter(VoucherEntry.matched_row_id.in_(group_ids)):
+                e.cleared_date = e.cleared_by = e.matched_row_id = None
+        for row in rows:
             row.match_status, row.matched_entry_id = BankStatementMatchStatus.UNMATCHED, None
             row.matched_by = row.matched_at = None
 

@@ -4,6 +4,18 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-06 (Bank reconciliation: two grids to tick)
+
+### feat: a Match tab with our bank entries beside the bank statement rows
+
+Bank Reconciliation has a new **Match** tab: *Our bank entries* (not yet cleared) on one side and the *Bank statement rows*
+(not yet matched) on the other (stacked on a phone). Tick what belongs together; the bar shows both totals and **Match selected**
+works when they are equal. One bank row can clear several entries (a deposit slip of cheques) and several bank rows can clear one
+entry; taking either back releases the whole group. API: `POST /accounts/bank-reconciliation/{society}/match-selected`.
+New column `voucher_entries.matched_row_id` (migration `4d9e0f1a2b3c`).
+
+---
+
 ## 2026-11-06 (Bank reconciliation: proof against the bank statement)
 
 ### feat: upload the statement, see Reconciled or the exact difference, and book the bank's own items
