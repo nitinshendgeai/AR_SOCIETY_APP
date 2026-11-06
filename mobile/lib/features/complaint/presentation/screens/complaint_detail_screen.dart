@@ -6,6 +6,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/complaint/domain/entities/complaint_entities.dart';
 import 'package:ar_society_app/features/complaint/presentation/providers/complaint_providers.dart';
+import 'package:ar_society_app/features/complaint/presentation/widgets/complaint_progress.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
@@ -335,6 +336,10 @@ class _ComplaintDetailScreenState
                     ],
                   ),
                 ),
+                const SizedBox(height: 12),
+
+                // Where it stands, in plain words.
+                ComplaintProgressCard(complaint: complaint),
                 const SizedBox(height: 12),
 
                 // Workflow actions — assign / status transitions / reopen,
