@@ -4,6 +4,23 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-06 (Bank reconciliation: proof against the bank statement)
+
+### feat: upload the statement, see Reconciled or the exact difference, and book the bank's own items
+
+The *Statement* tab of Bank Reconciliation now starts with **Upload bank statement**: the PDF (any bank) is read and checked as
+before, its **closing balance is kept**, what can only mean one entry of the books is matched automatically, and the page moves to
+the statement's last day and shows the standard proof - balance per the books, plus payments and less deposits not yet cleared,
+against the balance the bank statement shows: **Reconciled**, or the difference. A difference made up of the bank's own items
+(charges, interest, direct credits) lists them under **In the bank, not in your books**; **Record in books** posts a Receipt or
+Payment for the row (Bank Charges / Interest suggested), cleared at once. Anything the bank's items do not explain is shown as
+unexplained. For a CSV, **Enter balance** types the closing balance. Matching also recognises a cheque number printed with leading
+zeros (000123 = 123) and a UTR inside the bank's narration. API: `PUT /accounts/bank-reconciliation/{society}/statement-balance`,
+`POST .../rows/{row}/book`, and `statement_balance / difference / unexplained / status / bank_only_rows` on the statement.
+New table `bank_statement_balances` (migration `3c8d9e0f1a2b`).
+
+---
+
 ## 2026-11-01 (A starting password for residents who have never signed in)
 
 ### feat: set one starting password for residents' logins that have never been used

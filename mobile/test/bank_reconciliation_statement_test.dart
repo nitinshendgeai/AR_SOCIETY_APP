@@ -31,7 +31,9 @@ Map<String, dynamic> _line(String no, String amount, String direction,
       'reference_matches': refMatch,
     };
 
-BankReconciliation _brs({bool cleared = false}) => BankReconciliation.fromJson({
+BankReconciliation _brs({bool cleared = false}) => BankReconciliation.fromJson(_brsJson(cleared: cleared));
+
+Map<String, dynamic> _brsJson({bool cleared = false}) => {
       'account_id': 'sbi',
       'account_name': 'SBI Savings',
       'as_on': '2026-10-25',
@@ -43,7 +45,7 @@ BankReconciliation _brs({bool cleared = false}) => BankReconciliation.fromJson({
       'deposits_not_cleared_total': cleared ? '0.00' : '5000.00',
       'balance_per_bank': cleared ? '103000.00' : '100000.00',
       'unmatched_statement_rows': 1,
-    });
+    };
 
 StatementRow _row(String id, {String status = 'unmatched', String? account = 'sbi', bool credit = false}) =>
     StatementRow.fromJson({
@@ -68,6 +70,8 @@ class _FakeApi extends BankReconciliationApi {
   final clearCalls = <(List<String>, DateTime)>[];
   final uncleared = <List<String>>[];
   final matches = <(String, String)>[];
+  final booked = <(String, String)>[];
+  final balances = <(DateTime, double)>[];
   var autoMatched = 0;
   var imported = 0;
 
@@ -99,6 +103,15 @@ class _FakeApi extends BankReconciliationApi {
   Future<void> match(String societyId, String rowId, String entryId) async => matches.add((rowId, entryId));
 
   @override
+  Future<void> book(String societyId, String rowId, String ledgerId, {String? narration}) async =>
+      booked.add((rowId, ledgerId));
+
+  @override
+  Future<void> setStatementBalance(String societyId,
+          {required String accountId, required DateTime asOn, required double balance}) async =>
+      balances.add((asOn, balance));
+
+  @override
   Future<AutoMatchResult> autoMatch(String societyId, {String? accountId}) async {
     autoMatched++;
     return const AutoMatchResult(matched: 2, leftForAPerson: 1);
@@ -119,6 +132,19 @@ LedgerAccount _bank(String id, String name, {bool def = false}) => LedgerAccount
       'is_bank': true,
       'is_default_bank': def,
       'is_system': false,
+      'is_active': true,
+      'opening_balance': '0',
+      'opening_type': 'dr',
+    });
+
+LedgerAccount _ledger(String id, String name, {String? key}) => LedgerAccount.fromJson({
+      'id': id,
+      'group_id': 'g',
+      'name': name,
+      'system_key': key,
+      'is_bank': false,
+      'is_cash': false,
+      'is_system': true,
       'is_active': true,
       'opening_balance': '0',
       'opening_type': 'dr',
@@ -259,6 +285,79 @@ void main() {
     expect(api.uncleared, [
       ['e-PV/2026-27/0003']
     ]);
+  });
+
+  testWidgets('a bank statement balance that agrees says Reconciled', (t) async {
+    _phone(t);
+    final api = _FakeApi(
+        brs: BankReconciliation.fromJson({
+      ..._brsJson(cleared: true),
+      'statement_balance': '103000.00',
+      'statement_balance_source': 'pdf',
+      'difference': '0.00',
+      'unexplained': '0.00',
+      'status': 'reconciled',
+    }));
+    await t.pumpWidget(_screen(api));
+    await t.pumpAndSettle();
+    expect(find.text('Balance as per the bank statement'), findsOneWidget);
+    expect(find.textContaining('Reconciled — the books agree with the bank statement'), findsOneWidget);
+    expect(find.text('Enter balance'), findsNothing);
+  });
+
+  testWidgets('without a statement balance it offers to enter one, and saves it for the day', (t) async {
+    _phone(t);
+    final api = _FakeApi();
+    await t.pumpWidget(_screen(api));
+    await t.pumpAndSettle();
+    expect(find.textContaining('Not checked against the bank statement yet'), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('enter-statement-balance')));
+    await t.pumpAndSettle();
+    await t.enterText(find.byKey(const ValueKey('statement-balance-field')), '1,00,000');
+    await t.tap(find.text('Save'));
+    await t.pumpAndSettle();
+    expect(api.balances, hasLength(1));
+    expect(api.balances.single.$2, 100000);
+  });
+
+  testWidgets('a difference that is the bank\'s own items lists them, and Record in books sends the row to the ledger',
+      (t) async {
+    _phone(t);
+    final api = _FakeApi(
+        brs: BankReconciliation.fromJson({
+      ..._brsJson(cleared: true),
+      'statement_balance': '102975.00',
+      'statement_balance_source': 'pdf',
+      'difference': '25.00',
+      'unexplained': '0.00',
+      'status': 'bank_items_to_book',
+      'bank_only_rows': [
+        {
+          'id': 'b1',
+          'txn_date': '2026-10-20',
+          'description': 'SMS CHARGES',
+          'reference': 'SMS1',
+          'amount': '25.00',
+          'direction': 'debit',
+          'match_status': 'unmatched',
+        }
+      ],
+    }));
+    await t.pumpWidget(_screen(api, ledgers: [
+      _bank('sbi', 'SBI Savings', def: true),
+      _ledger('bc', 'Bank Charges', key: 'bank_charges'),
+      _ledger('misc', 'Miscellaneous Expenses'),
+    ]));
+    await t.pumpAndSettle();
+    expect(find.text('In the bank, not in your books'), findsOneWidget);
+    expect(find.textContaining('exactly the bank\'s own items'), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('row-b1')));
+    await t.pumpAndSettle();
+    expect(find.text('Not in your books yet?'), findsOneWidget);
+    expect(find.text('Bank Charges'), findsOneWidget); // a bank debit is offered to Bank Charges
+    await t.tap(find.byKey(const ValueKey('book-row')));
+    await t.pumpAndSettle();
+    expect(api.booked, [('b1', 'bc')]);
   });
 
   testWidgets('without a bank ledger there is nothing to reconcile and it says how to start', (t) async {

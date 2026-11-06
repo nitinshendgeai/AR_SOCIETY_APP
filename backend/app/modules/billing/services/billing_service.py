@@ -1517,6 +1517,18 @@ class BillingService:
             rows.append({"txn_date": r.txn_date, "description": r.description[:500], "reference": r.reference,
                          "amount": r.amount, "direction": r.direction, "bank_account_id": ledger_id})
         entries = self.import_bank_statement(society_id, rows, user) if rows else []
+        # the balance the statement itself closes with: what the Bank Reconciliation Statement is checked against
+        proved_on = None
+        balance_ledger = ledger if ledger is not None else (
+            brs.bank_accounts(society_id)[0] if len(brs.bank_accounts(society_id)) == 1 else None)
+        if balance_ledger is not None and statement.rows and statement.closing_balance is not None:
+            last = max(r.txn_date for r in statement.rows)
+            proved_on = min(max(last, statement.to_date or last), date.today())
+            if proved_on >= last:
+                brs.set_statement_balance(society_id, balance_ledger.id, proved_on, statement.closing_balance, user,
+                                          source="pdf")
+            else:
+                proved_on = None
         summary = {
             "file_type": "pdf", "bank": statement.bank, "period_from": statement.from_date.isoformat() if statement.from_date else None,
             "period_to": statement.to_date.isoformat() if statement.to_date else None,
@@ -1527,6 +1539,7 @@ class BillingService:
             "totals_checked": statement.printed_total_debits is not None and statement.printed_total_credits is not None,
             "balances_checked": statement.balances_checked,
             "bank_ledger": ledger.name if ledger is not None else None,
+            "statement_date": proved_on.isoformat() if proved_on else None,
         }
         return entries, summary
 

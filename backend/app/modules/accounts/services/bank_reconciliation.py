@@ -17,7 +17,13 @@ Opening balances are taken as cleared. Only a bank ledger is reconciled — cash
 Statement rows (BankStatementEntry, imported from the bank's CSV, credits *and* debits) are matched to those lines by
 amount and nearby date; confirming a match is what clears the line. A line that is a resident's online payment also
 moves that payment from PENDING to RECONCILED, which is the same confirmation the billing screen gives.
+
+The proof is the last step: the balance the bank's own statement shows (read from the imported PDF, or typed) must equal
+"balance as per the bank" above. If it does not, the difference is the bank's own items the books do not have yet
+(charges, interest, direct credits) -- which are recorded in the books from the statement row -- and whatever is left
+after that is shown as unexplained, never hidden.
 """
+import re
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional
@@ -31,7 +37,7 @@ from app.models.user import User
 from app.modules.accounts.models.accounts import Account, Voucher, VoucherEntry
 from app.modules.accounts.services.accounts_service import ZERO, AccountsService, money, signed_opening
 from app.modules.billing.models.billing import (
-    BankStatementEntry, BankStatementMatchStatus, OnlinePaymentSubmission, ReconciliationStatus,
+    BankStatementBalance, BankStatementEntry, BankStatementMatchStatus, OnlinePaymentSubmission, ReconciliationStatus,
 )
 from app.services.audit_service import AuditService
 
@@ -42,8 +48,22 @@ DEBIT_WINDOW_BEFORE, DEBIT_WINDOW_AFTER = 90, 5
 AUTO_WINDOW_DAYS = 3
 
 
+def _squash(text: Optional[str]) -> str:
+    """A reference without spaces, dashes or leading zeros: banks print cheque 123 as 000123 and a UTR in capitals."""
+    return re.sub(r"[^a-z0-9]", "", (text or "").lower()).lstrip("0")
+
+
 def _same_ref(a: Optional[str], b: Optional[str]) -> bool:
-    return bool(a and b and a.strip().lower() == b.strip().lower())
+    return bool(_squash(a) and _squash(a) == _squash(b))
+
+
+def _ref_agrees(row: BankStatementEntry, voucher_ref: Optional[str]) -> bool:
+    """The bank's reference is the voucher's cheque / UTR number: the same number, or (for a transfer, where the bank
+    prints the UTR inside the narration) a reference of six or more characters found in the bank's text."""
+    if _same_ref(row.reference, voucher_ref):
+        return True
+    ref = _squash(voucher_ref)
+    return len(ref) >= 6 and ref in _squash(f"{row.reference or ''}{row.description or ''}")
 
 
 class BankReconciliationService:
@@ -97,8 +117,10 @@ class BankReconciliationService:
 
     # ── The statement ─────────────────────────────────────────────────────────
 
-    def statement(self, society_id: UUID, account_id: Optional[UUID] = None, as_on: Optional[date] = None) -> dict:
-        """The Bank Reconciliation Statement of one bank ledger as on a date (default today)."""
+    def statement(self, society_id: UUID, account_id: Optional[UUID] = None, as_on: Optional[date] = None,
+                  bank_balance: Optional[Decimal] = None) -> dict:
+        """The Bank Reconciliation Statement of one bank ledger as on a date (default today), checked against the balance
+        the bank's statement shows that day: the one given, else the one stored from the imported PDF / typed in."""
         as_on = as_on or date.today()
         account = self.bank_account(society_id, account_id)
         book = signed_opening(account) + self.accounts._movements(
@@ -118,7 +140,7 @@ class BankReconciliationService:
             BankStatementEntry.society_id == society_id, BankStatementEntry.is_active == True,  # noqa: E712
             BankStatementEntry.match_status == BankStatementMatchStatus.UNMATCHED,
             (BankStatementEntry.bank_account_id == account.id) | BankStatementEntry.bank_account_id.is_(None)).count())
-        return {
+        out = {
             "account_id": str(account.id), "account_name": account.name, "bank_name": account.bank_name,
             "as_on": as_on.isoformat(),
             "balance_per_books": str(money(book)),
@@ -129,6 +151,71 @@ class BankReconciliationService:
             "balance_per_bank": str(money(per_bank)),
             "uncleared_count": len(pending), "unmatched_statement_rows": unmatched,
         }
+        out.update(self._proof(society_id, account, as_on, money(per_bank), bank_balance))
+        return out
+
+    def _bank_only_rows(self, society_id: UUID, account: Account, as_on: date) -> List[BankStatementEntry]:
+        """Statement rows up to the date that are in no line of the books (not matched): the bank's own charges,
+        interest and direct credits, or a transaction the society has not entered yet."""
+        return (self.db.query(BankStatementEntry).filter(
+            BankStatementEntry.society_id == society_id, BankStatementEntry.is_active == True,  # noqa: E712
+            BankStatementEntry.match_status != BankStatementMatchStatus.MATCHED,
+            BankStatementEntry.txn_date <= as_on,
+            (BankStatementEntry.bank_account_id == account.id) | BankStatementEntry.bank_account_id.is_(None))
+            .order_by(BankStatementEntry.txn_date, BankStatementEntry.created_at).all())
+
+    def _proof(self, society_id: UUID, account: Account, as_on: date, per_bank: Decimal,
+               typed: Optional[Decimal]) -> dict:
+        """Balance per the bank's statement, the difference from the computed balance, and what explains it."""
+        stored = (self.db.query(BankStatementBalance).filter(
+            BankStatementBalance.bank_account_id == account.id, BankStatementBalance.as_on == as_on).first())
+        latest = (self.db.query(BankStatementBalance).filter(BankStatementBalance.bank_account_id == account.id)
+                  .order_by(BankStatementBalance.as_on.desc()).first())
+        bank_only = self._bank_only_rows(society_id, account, as_on)
+        credits = sum((r.amount for r in bank_only if r.direction == "credit"), ZERO)
+        debits = sum((r.amount for r in bank_only if r.direction != "credit"), ZERO)
+        todo = [r for r in bank_only if r.match_status == BankStatementMatchStatus.UNMATCHED]
+        proof = {
+            "statement_balance": None, "statement_balance_source": None, "difference": None, "unexplained": None,
+            "status": "no_statement_balance",
+            "latest_statement": {"as_on": latest.as_on.isoformat(), "balance": str(money(latest.balance))}
+            if latest else None,
+            "bank_only_rows": [{
+                "id": str(r.id), "txn_date": r.txn_date.isoformat(), "description": r.description,
+                "reference": r.reference, "amount": str(r.amount), "direction": r.direction,
+                "match_status": r.match_status.value} for r in todo],
+            "bank_only_credits": str(credits), "bank_only_debits": str(debits),
+        }
+        balance, source = (money(typed), "typed") if typed is not None else (
+            (money(stored.balance), stored.source) if stored else (None, None))
+        if balance is None:
+            return proof
+        difference = per_bank - balance
+        # the bank holds credits the books lack (the books are short by them) and has paid debits the books lack
+        unexplained = difference + credits - debits
+        proof.update(statement_balance=str(balance), statement_balance_source=source,
+                     difference=str(money(difference)), unexplained=str(money(unexplained)),
+                     status="reconciled" if difference == ZERO else (
+                         "bank_items_to_book" if unexplained == ZERO else "difference"))
+        return proof
+
+    def set_statement_balance(self, society_id: UUID, account_id: Optional[UUID], as_on: date, balance: Decimal,
+                              user: Optional[User], source: str = "manual", commit: bool = True) -> BankStatementBalance:
+        """Keep the balance the bank statement shows on a day (replacing an earlier one for the same day)."""
+        account = self.bank_account(society_id, account_id)
+        if as_on > date.today():
+            raise HTTPException(422, "The bank statement can't show a balance in the future")
+        row = (self.db.query(BankStatementBalance).filter(
+            BankStatementBalance.bank_account_id == account.id, BankStatementBalance.as_on == as_on).first())
+        if row is None:
+            row = BankStatementBalance(society_id=society_id, bank_account_id=account.id, as_on=as_on)
+            self.db.add(row)
+        row.balance, row.source, row.entered_by = money(balance), source, user.id if user else None
+        if commit:
+            self.db.commit()
+        else:
+            self.db.flush()
+        return row
 
     def cleared_lines(self, society_id: UUID, account_id: Optional[UUID] = None, date_from: Optional[date] = None,
                       date_to: Optional[date] = None) -> List[dict]:
@@ -241,11 +328,11 @@ class BankReconciliationService:
             found += q.all()
 
         def rank(e: VoucherEntry):
-            ref = _same_ref(row.reference, e.voucher.reference)
+            ref = _ref_agrees(row, e.voucher.reference)
             return (not ref, abs((e.voucher.voucher_date - row.txn_date).days))
 
         found.sort(key=rank)
-        return [{**self._line_out(e), "reference_matches": _same_ref(row.reference, e.voucher.reference)}
+        return [{**self._line_out(e), "reference_matches": _ref_agrees(row, e.voucher.reference)}
                 for e in found]
 
     def confirm_match(self, society_id: UUID, line_id: UUID, entry_id: UUID, user: User) -> BankStatementEntry:
@@ -302,6 +389,48 @@ class BankReconciliationService:
             self.confirm_match(society_id, row.id, UUID(pick["entry_id"]), user)
             matched += 1
         return {"matched": matched, "left_for_a_person": left}
+
+    def book_row(self, society_id: UUID, line_id: UUID, ledger_id: UUID, user: User,
+                 narration: Optional[str] = None) -> BankStatementEntry:
+        """Record a bank-only statement row in the books -- bank charges, interest, a direct credit -- the way a
+        treasurer does it from the bank statement: a Receipt (money in) or Payment (money out) against the other ledger
+        the row belongs to, dated the day the bank did it, and cleared at once because the bank has already done it."""
+        row = self._line(society_id, line_id)
+        if row.match_status == BankStatementMatchStatus.MATCHED:
+            raise HTTPException(409, "This statement row is already matched to the books")
+        bank = self.bank_account(society_id, row.bank_account_id)
+        other = self.db.query(Account).filter(Account.id == ledger_id).first()
+        if not other or other.society_id != society_id or not other.is_active:
+            raise HTTPException(422, "Choose a ledger of this society")
+        if other.is_cash_or_bank:
+            raise HTTPException(422, "Choose the ledger the money belongs to (bank charges, interest ...), not a cash or "
+                                     "bank ledger")
+        chart = self.accounts.ensure_chart(society_id)
+        if other.id in (chart["members_dues"].id, chart["sundry_creditors"].id):
+            raise HTTPException(422, f"{other.name} is not booked from here: a resident's payment or a vendor's bill is "
+                                     "entered through its own screen, then matched to this row")
+        credit = row.direction == "credit"
+        amount = money(row.amount)
+        vtype = "receipt" if credit else "payment"
+        lines = self.accounts._manual_lines(society_id, vtype, [
+            {"account_id": bank.id, ("debit" if credit else "credit"): amount},
+            {"account_id": other.id, ("credit" if credit else "debit"): amount}])
+        note = (narration or "").strip() or f"Per bank statement: {row.description}"
+        voucher = self.accounts.build_voucher(
+            society_id, vtype, row.txn_date, lines, narration=note[:500], reference=(row.reference or None),
+            user=user, approval_status="approved",
+            approval_note="Recorded from the bank statement: the bank has already done it")
+        voucher.approved_at, voucher.approved_by = datetime.utcnow(), user.id
+        entry = next(e for e in voucher.entries if e.account_id == bank.id)
+        entry.cleared_date, entry.cleared_by = row.txn_date, user.id
+        row.match_status, row.matched_entry_id = BankStatementMatchStatus.MATCHED, entry.id
+        row.matched_by, row.matched_at, row.bank_account_id = user.id, datetime.utcnow(), bank.id
+        row.ignore_reason = None
+        self._audit(voucher, user, booked_statement_row=str(row.id), amount=str(amount), ledger=other.name,
+                    voucher_number=voucher.voucher_number)
+        self.db.commit()
+        self.db.refresh(row)
+        return row
 
     def unmatch(self, society_id: UUID, line_id: UUID, user: User) -> BankStatementEntry:
         row = self._line(society_id, line_id)
