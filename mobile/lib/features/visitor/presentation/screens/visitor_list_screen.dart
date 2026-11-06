@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart' show currentUserProvider;
+import 'package:ar_society_app/features/visitor/data/repositories/visitor_repository.dart' show VisitorSuccess, VisitorFailure;
 import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart';
 import 'package:ar_society_app/features/visitor/presentation/widgets/pending_visitors_banner.dart';
+import 'package:ar_society_app/features/visitor/presentation/widgets/gate_pass.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
@@ -19,7 +22,10 @@ class VisitorListScreen extends ConsumerStatefulWidget {
   final String societyId;
   /// 1 opens on "Inside Now" (the gate's check-out view).
   final int initialTab;
-  const VisitorListScreen({super.key, this.isMy = false, this.societyId = '', this.initialTab = 0});
+
+  /// Opens the "verify guest code" box straight away (the security dashboard's Verify Code shortcut).
+  final bool verifyOnOpen;
+  const VisitorListScreen({super.key, this.isMy = false, this.societyId = '', this.initialTab = 0, this.verifyOnOpen = false});
 
   @override
   ConsumerState<VisitorListScreen> createState() => _VisitorListScreenState();
@@ -41,7 +47,10 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
   void initState() {
     super.initState();
     _tabs = TabController(length: widget.isMy ? 3 : 2, vsync: this, initialIndex: widget.isMy ? 0 : widget.initialTab);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _reload();
+      if (widget.verifyOnOpen && !widget.isMy) _verifyCode();
+    });
   }
 
   @override
@@ -59,6 +68,67 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
     final societyId = widget.societyId.isNotEmpty ? widget.societyId : (ref.read(currentUserProvider)?.societyId ?? '');
     final logged = await context.push<bool>('/visitors/create', extra: societyId);
     if (logged == true) _reload();
+  }
+
+  /// The guard keys in the code a guest reads out; if it is good, show who it is and offer to check them in.
+  Future<void> _verifyCode() async {
+    final ctrl = TextEditingController();
+    final code = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Verify guest code'),
+        content: TextField(
+          key: const Key('verify-code-field'),
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+          style: const TextStyle(fontSize: 28, letterSpacing: 6, fontWeight: FontWeight.w700),
+          textAlign: TextAlign.center,
+          decoration: const InputDecoration(hintText: '6-digit code'),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Verify')),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (code == null || code.trim().length < 4 || !mounted) return;
+    final result = await ref.read(visitorRepositoryProvider).verifyPass(code.trim());
+    if (!mounted) return;
+    switch (result) {
+      case VisitorSuccess(:final data):
+        final checkIn = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            icon: const Icon(Icons.verified_rounded, color: AppTheme.success, size: 36),
+            title: const Text('Valid code'),
+            content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(data.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text([data.mobile, if (data.flatLabel != null) 'Visiting ${data.flatLabel}'].join('  ·  ')),
+              if (data.purpose != null) Text(data.purpose!, style: const TextStyle(color: AppTheme.textSecondary)),
+            ]),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Not now')),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.success),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Check in'),
+              ),
+            ],
+          ),
+        );
+        if (checkIn == true) ref.read(visitorActionProvider.notifier).checkIn(data.id);
+      case VisitorFailure(:final message):
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(message),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+        ));
+    }
   }
 
   Future<void> _inviteAgain(VisitorEntity v) async {
@@ -98,6 +168,12 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
             tooltip: 'Refresh',
             onPressed: _reload,
           ),
+          if (!widget.isMy)
+            IconButton(
+              icon: const Icon(Icons.pin_outlined),
+              tooltip: 'Verify guest code',
+              onPressed: _verifyCode,
+            ),
           if (desktop && !widget.isMy)
             HeaderActionButton(icon: Icons.person_add_rounded, label: 'Log Visitor', onPressed: _logVisitor),
         ],
@@ -380,6 +456,17 @@ class _VisitorCard extends ConsumerWidget {
                     style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ),
             ]),
+          ],
+          if (!showActions && visitor.passCode != null && visitor.status == VisitorStatus.approved) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: () => showGatePass(context, visitor),
+                icon: const Icon(Icons.pin_outlined, size: 18),
+                label: Text('Gate code ${visitor.passCode}'),
+              ),
+            ),
           ],
           if (onInviteAgain != null && visitor.status == VisitorStatus.checkedOut) ...[
             const SizedBox(height: 8),

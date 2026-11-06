@@ -53,6 +53,24 @@ class VisitorRepository {
     }
   }
 
+  Future<VisitorResult<VisitorEntity>> inviteVisitor(Map<String, dynamic> data) async {
+    try {
+      final m = await _ds.inviteVisitor(data);
+      return VisitorSuccess(m.toEntity());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  Future<VisitorResult<VisitorEntity>> verifyPass(String code) async {
+    try {
+      final m = await _ds.verifyPass(code);
+      return VisitorSuccess(m.toEntity());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
   // ── Actions ────────────────────────────────────────────────────────────────
 
   Future<VisitorResult<VisitorEntity>> approveVisitor(String id,

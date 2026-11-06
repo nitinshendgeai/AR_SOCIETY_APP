@@ -134,6 +134,9 @@ class VisitorEntity {
   final DateTime? approvedAt;
   final String? rejectionReason;
   final String? qrToken;
+
+  /// The 6-digit code an invited guest reads out at the gate; null once used or for a visitor the guard logged.
+  final String? passCode;
   final VisitorVehicleEntity? vehicle;
   final List<VisitorLogEntity> logs;
   final DateTime createdAt;
@@ -157,6 +160,7 @@ class VisitorEntity {
     this.approvedAt,
     this.rejectionReason,
     this.qrToken,
+    this.passCode,
     this.vehicle,
     required this.logs,
     required this.createdAt,

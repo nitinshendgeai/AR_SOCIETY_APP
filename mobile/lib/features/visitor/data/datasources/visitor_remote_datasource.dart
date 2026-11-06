@@ -15,6 +15,18 @@ class VisitorRemoteDataSource {
     return VisitorModel.fromJson(r.data as Map<String, dynamic>);
   }
 
+  /// POST /visitors/invite - a resident or tenant invites a guest to their own flat (approved, with a gate code).
+  Future<VisitorModel> inviteVisitor(Map<String, dynamic> data) async {
+    final r = await _dio.post('/visitors/invite', data: data);
+    return VisitorModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// POST /visitors/verify-pass - the guard keys in the code a guest reads out.
+  Future<VisitorModel> verifyPass(String code) async {
+    final r = await _dio.post('/visitors/verify-pass', data: {'code': code});
+    return VisitorModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
   // ── Actions ────────────────────────────────────────────────────────────────
 
   /// POST /visitors/{id}/approve

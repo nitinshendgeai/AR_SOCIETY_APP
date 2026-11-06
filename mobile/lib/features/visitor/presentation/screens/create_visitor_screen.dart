@@ -6,6 +6,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities.dart';
 import 'package:ar_society_app/features/visitor/data/repositories/visitor_repository.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart';
+import 'package:ar_society_app/features/visitor/presentation/widgets/gate_pass.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
@@ -83,7 +84,7 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
     return AppFormPage(
       title: invite ? 'Invite a guest' : 'Log Visitor',
       subtitle: invite
-          ? 'The gate will let them in without calling you'
+          ? 'They get a gate code. Share it so the guard lets them in without calling you'
           : 'The resident of the flat is asked to approve entry',
       formKey: _formKey,
       submitLabel: invite ? 'Invite guest' : 'Log Visitor',
@@ -150,6 +151,7 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
               ),
           ],
         ),
+        if (!invite)
         FormSection(
           title: 'Visiting',
           description: 'The flat being visited. Its resident approves or refuses entry.',
@@ -222,38 +224,43 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
-    final result = await ref.read(visitorRepositoryProvider).createVisitor({
-      'name': _nameCtrl.text.trim(),
-      'mobile': _mobileCtrl.text.trim(),
-      'visitor_type': _type.name,
-      'society_id': widget.societyId,
-      'flat_id': _flatId,
-      if (_purposeCtrl.text.trim().isNotEmpty) 'purpose': _purposeCtrl.text.trim(),
-      if (_expectedAt != null) 'expected_arrival': _expectedAt!.toUtc().toIso8601String(),
-    });
+    final repo = ref.read(visitorRepositoryProvider);
+    // A resident or tenant invites a guest to their own flat (approved at once, with a gate code); the gate and the
+    // office log visitors who are already standing there.
+    final result = _invite
+        ? await repo.inviteVisitor({
+            'name': _nameCtrl.text.trim(),
+            'mobile': _mobileCtrl.text.trim(),
+            'visitor_type': _type.name,
+            if (_flatId != null) 'flat_id': _flatId,
+            if (_purposeCtrl.text.trim().isNotEmpty) 'purpose': _purposeCtrl.text.trim(),
+            if (_expectedAt != null) 'expected_arrival': _expectedAt!.toUtc().toIso8601String(),
+          })
+        : await repo.createVisitor({
+            'name': _nameCtrl.text.trim(),
+            'mobile': _mobileCtrl.text.trim(),
+            'visitor_type': _type.name,
+            'society_id': widget.societyId,
+            'flat_id': _flatId,
+            if (_purposeCtrl.text.trim().isNotEmpty) 'purpose': _purposeCtrl.text.trim(),
+          });
 
     setState(() => _isLoading = false);
 
     if (!mounted) return;
 
-    // An invited guest is approved at once by the resident who invited them. If that is refused (the flat's contact is
-    // someone else) the entry stays pending and says so.
-    var approved = false;
-    if (result is VisitorSuccess<VisitorEntity> && _invite) {
-      final r = await ref.read(visitorRepositoryProvider).approveVisitor(result.data.id);
-      approved = r is VisitorSuccess;
-      if (!mounted) return;
-    }
-
     switch (result) {
-      case VisitorSuccess():
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(_invite
-              ? (approved ? 'Guest invited. The gate has them on the list' : 'Guest added. Approve them under Approvals')
-              : 'Visitor logged successfully'),
-          backgroundColor: AppTheme.success,
-          behavior: SnackBarBehavior.floating,
-        ));
+      case VisitorSuccess(:final data):
+        if (_invite) {
+          await showGatePass(context, data);
+          if (!mounted) return;
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Visitor logged successfully'),
+            backgroundColor: AppTheme.success,
+            behavior: SnackBarBehavior.floating,
+          ));
+        }
         Navigator.pop(context, true);
       case VisitorFailure(:final message):
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(

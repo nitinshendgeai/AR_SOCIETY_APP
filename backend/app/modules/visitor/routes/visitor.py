@@ -13,7 +13,7 @@ from app.core.tenant_scope import assert_society_access
 from app.modules.visitor.schemas.visitor import (
     VisitorCreate, VisitorOut, VisitorApproveRequest,
     VisitorRejectRequest, VisitorCheckInRequest, VisitorCheckOutRequest,
-    GateCreate, GateOut,
+    GateCreate, GateOut, VisitorInvite, VerifyPassRequest,
 )
 from app.modules.visitor.services.visitor_service import VisitorService
 
@@ -51,6 +51,27 @@ def create_visitor(
 ):
     """Security guard logs a new visitor at the gate."""
     return VisitorService(db).create_visitor(data, current_user, request)
+
+
+@router.post("/invite", response_model=VisitorOut, status_code=201)
+def invite_visitor(
+    data:    VisitorInvite,
+    request: Request,
+    db:      Session = Depends(get_db),
+    current_user: User = Depends(resident_or_above),
+):
+    """A resident or tenant invites a guest to their own flat: approved at once, with a gate pass (code + QR token)."""
+    return VisitorService(db).invite_visitor(data, current_user, request)
+
+
+@router.post("/verify-pass", response_model=VisitorOut)
+def verify_pass(
+    data: VerifyPassRequest,
+    db:   Session = Depends(get_db),
+    current_user: User = Depends(security_or_admin),
+):
+    """The guard keys in the code a guest reads out; returns the approved visitor it belongs to (then check them in)."""
+    return VisitorService(db).verify_pass(data.code, current_user)
 
 
 @router.post("/{visitor_id}/approve", response_model=VisitorOut)

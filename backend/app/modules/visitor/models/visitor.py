@@ -89,9 +89,11 @@ class Visitor(Base, TimestampMixin):
     # Guard who logged
     logged_by          = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
-    # QR pass (future)
+    # Gate pass: a long token (for a QR code) and a short code the guest reads out at the gate. Both are cleared when the
+    # visitor checks in or out, so a pass works once.
     qr_token           = Column(String(255), nullable=True, unique=True, index=True)
     qr_expires_at      = Column(DateTime, nullable=True)
+    pass_code          = Column(String(8), nullable=True, index=True)
 
     # Relationships
     society      = relationship("Society")

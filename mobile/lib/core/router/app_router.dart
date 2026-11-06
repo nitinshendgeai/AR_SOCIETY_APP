@@ -671,6 +671,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               isMy: false,
               societyId: state.pathParameters['societyId']!,
               initialTab: state.uri.queryParameters['tab'] == 'inside' ? 1 : 0,
+              verifyOnOpen: state.uri.queryParameters['verify'] == '1',
             ),
           ),
           // Notice board (everyone) and one notice

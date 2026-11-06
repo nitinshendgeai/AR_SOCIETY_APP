@@ -773,6 +773,7 @@ class SecurityDashboardScreen extends ConsumerWidget {
             ),
             _QuickActionChip(icon: Icons.login_rounded, label: 'Check In', route: visitorLog),
             _QuickActionChip(icon: Icons.logout_rounded, label: 'Check Out', route: '$visitorLog?tab=inside'),
+            _QuickActionChip(icon: Icons.pin_outlined, label: 'Verify Code', route: '$visitorLog?verify=1'),
           ]),
           const SizedBox(height: 8),
         ],
