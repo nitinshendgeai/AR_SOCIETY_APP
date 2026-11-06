@@ -359,9 +359,8 @@ class _QuickActionChip extends StatelessWidget {
   final String label;
   final String? route;
   final VoidCallback? onTap;
-  final int badge;
 
-  const _QuickActionChip({required this.icon, required this.label, this.route, this.onTap, this.badge = 0});
+  const _QuickActionChip({required this.icon, required this.label, this.route, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -373,7 +372,7 @@ class _QuickActionChip extends StatelessWidget {
       child: Semantics(
         button: true,
         enabled: enabled,
-        label: badge > 0 ? '$label, $badge waiting' : label,
+        label: label,
         excludeSemantics: true,
         onTap: action,
         child: Opacity(
@@ -388,12 +387,7 @@ class _QuickActionChip extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
                 decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM), border: Border.all(color: AppTheme.border)),
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Badge(
-                    isLabelVisible: badge > 0,
-                    label: Text('$badge'),
-                    backgroundColor: AppTheme.error,
-                    child: Icon(icon, color: AppTheme.primary),
-                  ),
+                  Icon(icon, color: AppTheme.primary),
                   const SizedBox(height: 6),
                   Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
                 ]),
