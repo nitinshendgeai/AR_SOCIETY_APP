@@ -37,7 +37,7 @@ class _FakeRepo extends VisitorRepository {
   Future<VisitorResult<List<VisitorEntity>>> getMyVisitors() async => VisitorSuccess(mine);
 
   @override
-  Future<VisitorResult<List<VisitorEntity>>> listSocietyVisitors(String societyId) async => VisitorSuccess(const []);
+  Future<VisitorResult<List<VisitorEntity>>> listSocietyVisitors(String societyId, {int limit = 50}) async => VisitorSuccess(const []);
 
   @override
   Future<VisitorResult<List<VisitorEntity>>> getPendingApprovals() async => VisitorSuccess(const []);
