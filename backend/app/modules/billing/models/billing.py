@@ -755,6 +755,21 @@ class BankStatementEntry(Base, TimestampMixin):
 
 
 
+class BankStatementBalance(Base, TimestampMixin):
+    """The balance a bank statement itself shows for one bank ledger on a day — what the Bank Reconciliation Statement is
+    checked against. Read from an imported PDF's closing balance, or typed by the treasurer (a CSV has none)."""
+    __tablename__ = "bank_statement_balances"
+    __table_args__ = (UniqueConstraint("bank_account_id", "as_on", name="uq_bank_statement_balance_day"),)
+
+    society_id      = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    bank_account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True)
+    as_on           = Column(Date, nullable=False)
+    # Money in the account as the bank shows it (a credit balance is positive).
+    balance         = Column(Numeric(14, 2), nullable=False)
+    source          = Column(String(10), nullable=False, default="manual", server_default="manual")  # pdf | manual
+    entered_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+
 # ── Actual-expense allocation snapshot ────────────────────────────────────────
 
 class BillingExpenseAllocation(Base, TimestampMixin):

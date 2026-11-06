@@ -21,8 +21,10 @@ import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 /// The treasurer's monthly bank reconciliation against the books. Three tabs:
 ///
 ///  * **Statement** — the Bank Reconciliation Statement of one bank ledger as on a date: the balance in the books, the
-///    payments and deposits the bank has not cleared yet, and the balance the bank statement should show. Tick the lines
-///    the bank has cleared and say on which day.
+///    payments and deposits the bank has not cleared yet, and the balance the bank statement should show, checked
+///    against the balance the bank's own statement closes with (read from the uploaded PDF, or typed). Upload the
+///    statement here; tick the lines the bank has cleared and say on which day; record the bank's own charges and
+///    interest in the books from the "in the bank, not in your books" list.
 ///  * **Bank rows** — the rows of the imported bank statement (credits and debits), matched to the books' own lines.
 ///  * **Cleared** — what has been cleared, with Undo for a mistake.
 class BankReconciliationStatementScreen extends ConsumerStatefulWidget {
@@ -100,10 +102,61 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
     final bytes = picked.bytes ?? (picked.path != null ? await File(picked.path!).readAsBytes() : null);
     if (bytes == null) return;
     await _run(societyId, () async {
-      final imported = await ref
-          .read(bankReconciliationApiProvider)
-          .importStatement(societyId, bytes: bytes, fileName: picked.name, accountId: _accountId);
-      return imported.message(formatAccountsDate);
+      final api = ref.read(bankReconciliationApiProvider);
+      final imported = await api.importStatement(societyId, bytes: bytes, fileName: picked.name, accountId: _accountId);
+      var message = imported.message(formatAccountsDate);
+      // reconcile as on the day the statement closes, and match what can only mean one entry of the books
+      final on = imported.statementDate;
+      if (on != null && mounted) {
+        final today = DateTime.now();
+        setState(() => _asOn = on.isAfter(today) ? today : DateTime(on.year, on.month, on.day));
+      }
+      if (imported.imported > 0) {
+        final r = await api.autoMatch(societyId, accountId: _accountId);
+        if (r.matched > 0) message += ' · ${r.matched} matched with your books automatically';
+      }
+      return message;
+    });
+  }
+
+  /// The closing balance the bank statement shows on the "as on" day, typed in (a PDF import stores it by itself).
+  Future<void> _enterBalance(String societyId, BankReconciliation b) async {
+    final accountId = _accountId;
+    if (accountId == null) return;
+    final c = TextEditingController(text: b.statementBalance?.toStringAsFixed(2) ?? '');
+    final value = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Balance on the bank statement'),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('The closing balance the bank\'s statement shows on ${formatAccountsDate(_asOn)}.',
+              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          const SizedBox(height: 12),
+          TextField(
+            key: const ValueKey('statement-balance-field'),
+            controller: c,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(prefixText: '₹ '),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              final n = double.tryParse(c.text.replaceAll(',', '').trim());
+              if (n != null) Navigator.pop(ctx, n);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (value == null || !mounted) return;
+    await _run(societyId, () async {
+      await ref.read(bankReconciliationApiProvider).setStatementBalance(societyId,
+          accountId: accountId, asOn: DateTime(_asOn.year, _asOn.month, _asOn.day), balance: value);
+      return 'Statement balance saved';
     });
   }
 
@@ -202,7 +255,22 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
           data: (b) => Column(children: [
             Expanded(
               child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
-                _SummaryCard(b),
+                _uploadBar(societyId),
+                _SummaryCard(b, onEnterBalance: _busy ? null : () => _enterBalance(societyId, b)),
+                if (b.bankOnlyRows.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 18),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('In the bank, not in your books',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 2),
+                      const Text(
+                          'Charges, interest or credits the bank made on its own. Tap one to record it in the books, or to match it to an entry.',
+                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      const SizedBox(height: 8),
+                      for (final r in b.bankOnlyRows) _RowTile(row: r, onTap: () => _openRow(societyId, r)),
+                    ]),
+                  ),
                 if (b.isFullyCleared)
                   const Padding(
                     padding: EdgeInsets.only(top: 12),
@@ -230,6 +298,23 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
           ]),
         );
   }
+
+  /// Step one of a reconciliation: hand over the bank's statement. It is read, checked, matched and compared.
+  Widget _uploadBar(String societyId) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          FilledButton.tonalIcon(
+            key: const ValueKey('upload-statement'),
+            onPressed: _busy ? null : () => _import(societyId),
+            icon: const Icon(Icons.upload_file_rounded),
+            label: const Text('Upload bank statement'),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+              'Any bank\'s PDF (downloaded from net banking) or a CSV. It is read, checked, matched with your books and compared with the balance below.',
+              style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
+        ]),
+      );
 
   Widget _lines(String title, String hint, List<BrsLine> lines) => Padding(
         padding: const EdgeInsets.only(top: 18),
@@ -435,7 +520,63 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
 /// statement shows.
 class _SummaryCard extends StatelessWidget {
   final BankReconciliation b;
-  const _SummaryCard(this.b);
+  final VoidCallback? onEnterBalance;
+  const _SummaryCard(this.b, {this.onEnterBalance});
+
+  /// The proof: does the balance the bank's statement shows agree with the balance worked out above?
+  Widget _check() {
+    if (!b.hasStatementBalance) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Row(children: [
+          const Expanded(
+              child: Text('Not checked against the bank statement yet — upload it, or enter its closing balance.',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary))),
+          TextButton(
+              key: const ValueKey('enter-statement-balance'), onPressed: onEnterBalance, child: const Text('Enter balance')),
+        ]),
+      );
+    }
+    final (color, soft, icon, text) = switch (b.status) {
+      'reconciled' => (
+          AppTheme.success,
+          AppTheme.successSoft,
+          Icons.check_circle_rounded,
+          'Reconciled — the books agree with the bank statement.'
+        ),
+      'bank_items_to_book' => (
+          AppTheme.warning,
+          AppTheme.warningSoft,
+          Icons.pending_rounded,
+          'Differs by ${formatInr((b.difference ?? 0).abs())} — exactly the bank\'s own items listed below. Record them in the books to finish.'
+        ),
+      _ => (
+          AppTheme.error,
+          AppTheme.errorSoft,
+          Icons.error_outline_rounded,
+          '${formatInr((b.unexplained ?? 0).abs())} is still unexplained after the bank\'s own items. Check that the whole statement is uploaded and that "As on" is the statement\'s last day.'
+        ),
+    };
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      const SizedBox(height: 6),
+      _row('Balance as per the bank statement', b.statementBalance!),
+      Container(
+        key: const ValueKey('reconciliation-verdict'),
+        margin: const EdgeInsets.only(top: 6),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: soft, borderRadius: BorderRadius.circular(10)),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 13, height: 1.35))),
+        ]),
+      ),
+      Align(
+        alignment: Alignment.centerRight,
+        child: TextButton(onPressed: onEnterBalance, child: const Text('Change statement balance')),
+      ),
+    ]);
+  }
 
   Widget _row(String label, double amount, {bool bold = false, String sign = ''}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -462,6 +603,7 @@ class _SummaryCard extends StatelessWidget {
           const SizedBox(height: 6),
           const Text('This should equal the closing balance on the bank\'s statement for the same day.',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          _check(),
         ]),
       ),
     );
@@ -581,7 +723,7 @@ class _RowSheetState extends ConsumerState<_RowSheet> {
                   context,
                   title: 'Ignore this row?',
                   message:
-                      'Use this for bank charges, interest or anything that is not in the books. It stays on record.',
+                      'Use this only for a row that is not the society\'s money. Bank charges and interest belong in the books: record them instead. It stays on record.',
                   action: 'Ignore',
                 );
                 if (reason == null || !mounted) return;
@@ -589,7 +731,20 @@ class _RowSheetState extends ConsumerState<_RowSheet> {
               },
         child: const Text('Not in the books — ignore this row'),
       ),
-      child: suggestions.when(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        _suggestionList(suggestions, api, row),
+        _BookIt(
+          societyId: widget.societyId,
+          row: row,
+          busy: _busy,
+          onBook: (ledgerId) => _do(() => api.book(widget.societyId, row.id, ledgerId), 'Recorded in the books and cleared'),
+        ),
+      ]),
+    );
+  }
+
+  Widget _suggestionList(AsyncValue<List<BrsLine>> suggestions, BankReconciliationApi api, StatementRow row) {
+    return suggestions.when(
         loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: AppLoader()),
         error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
         data: (list) => list.isEmpty
@@ -624,6 +779,69 @@ class _RowSheetState extends ConsumerState<_RowSheet> {
                     ),
                   ),
               ]),
+    );
+  }
+}
+
+/// Records a row the bank made on its own (charges, interest, a direct credit) in the books, against the ledger it
+/// belongs to. The bank has already done it, so the entry is cleared at once.
+class _BookIt extends ConsumerStatefulWidget {
+  final String societyId;
+  final StatementRow row;
+  final bool busy;
+  final ValueChanged<String> onBook;
+  const _BookIt({required this.societyId, required this.row, required this.busy, required this.onBook});
+
+  @override
+  ConsumerState<_BookIt> createState() => _BookItState();
+}
+
+class _BookItState extends ConsumerState<_BookIt> {
+  String? _ledgerId;
+
+  @override
+  Widget build(BuildContext context) {
+    final credit = widget.row.isCredit;
+    final all = ref.watch(ledgersProvider(widget.societyId)).valueOrNull ?? const <LedgerAccount>[];
+    final options = all
+        .where((l) =>
+            l.isActive && !l.isBank && !l.isCash && l.systemKey != 'members_dues' && l.systemKey != 'sundry_creditors')
+        .toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    if (options.isEmpty) return const SizedBox.shrink();
+    // the usual home of a bank's own debit is bank charges, and of its own credit the savings interest
+    _ledgerId ??= options.where((l) => l.systemKey == (credit ? 'interest_sb' : 'bank_charges')).firstOrNull?.id;
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            const Text('Not in your books yet?', style: TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(
+                credit
+                    ? 'Interest or a credit the bank made on its own. Record it as received into:'
+                    : 'Charges or a payment the bank made on its own. Record it as paid to:',
+                style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.35)),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              key: ValueKey('book-ledger-$_ledgerId'),
+              initialValue: _ledgerId,
+              isExpanded: true,
+              menuMaxHeight: 320,
+              hint: const Text('Choose a ledger'),
+              items: [for (final l in options) DropdownMenuItem(value: l.id, child: Text(l.name, overflow: TextOverflow.ellipsis))],
+              onChanged: (v) => setState(() => _ledgerId = v),
+            ),
+            const SizedBox(height: 10),
+            FilledButton(
+              key: const ValueKey('book-row'),
+              onPressed: widget.busy || _ledgerId == null ? null : () => widget.onBook(_ledgerId!),
+              child: const Text('Record in books'),
+            ),
+          ]),
+        ),
       ),
     );
   }

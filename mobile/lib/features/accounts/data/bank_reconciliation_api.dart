@@ -69,6 +69,18 @@ class BankReconciliation {
   final double depositsNotClearedTotal;
   final double balancePerBank;
   final int unmatchedStatementRows;
+
+  /// The balance the bank's own statement shows on this day (from the imported PDF, or typed in), and how this
+  /// statement compares with it. [status]: reconciled | bank_items_to_book | difference | no_statement_balance.
+  final double? statementBalance;
+  final String? statementBalanceSource;
+  final double? difference;
+  final double? unexplained;
+  final String status;
+  final List<StatementRow> bankOnlyRows;
+  final double bankOnlyCredits;
+  final double bankOnlyDebits;
+  final DateTime? latestStatementAsOn;
   const BankReconciliation({
     required this.accountId,
     required this.accountName,
@@ -80,7 +92,19 @@ class BankReconciliation {
     required this.depositsNotClearedTotal,
     required this.balancePerBank,
     this.unmatchedStatementRows = 0,
+    this.statementBalance,
+    this.statementBalanceSource,
+    this.difference,
+    this.unexplained,
+    this.status = 'no_statement_balance',
+    this.bankOnlyRows = const [],
+    this.bankOnlyCredits = 0,
+    this.bankOnlyDebits = 0,
+    this.latestStatementAsOn,
   });
+
+  bool get hasStatementBalance => statementBalance != null;
+  bool get isReconciled => status == 'reconciled';
 
   bool get isFullyCleared => paymentsNotCleared.isEmpty && depositsNotCleared.isEmpty;
 
@@ -99,6 +123,17 @@ class BankReconciliation {
         depositsNotClearedTotal: _num(j['deposits_not_cleared_total']),
         balancePerBank: _num(j['balance_per_bank']),
         unmatchedStatementRows: (j['unmatched_statement_rows'] as num?)?.toInt() ?? 0,
+        statementBalance: j['statement_balance'] == null ? null : _num(j['statement_balance']),
+        statementBalanceSource: j['statement_balance_source'] as String?,
+        difference: j['difference'] == null ? null : _num(j['difference']),
+        unexplained: j['unexplained'] == null ? null : _num(j['unexplained']),
+        status: j['status'] as String? ?? 'no_statement_balance',
+        bankOnlyRows: [
+          for (final r in (j['bank_only_rows'] as List? ?? const [])) StatementRow.fromJson(r as Map<String, dynamic>)
+        ],
+        bankOnlyCredits: _num(j['bank_only_credits']),
+        bankOnlyDebits: _num(j['bank_only_debits']),
+        latestStatementAsOn: _date((j['latest_statement'] as Map?)?['as_on']),
       );
 }
 
@@ -222,6 +257,19 @@ class BankReconciliationApi {
         matched: (r.data['matched'] as num).toInt(), leftForAPerson: (r.data['left_for_a_person'] as num).toInt());
   }
 
+  /// Keeps the closing balance the bank statement shows on a day (a PDF import stores it by itself).
+  Future<void> setStatementBalance(String societyId,
+      {required String accountId, required DateTime asOn, required double balance}) async {
+    await _dio.put('/accounts/bank-reconciliation/$societyId/statement-balance',
+        data: {'account_id': accountId, 'as_on': _iso(asOn), 'balance': balance.toStringAsFixed(2)});
+  }
+
+  /// Records a bank-only row (charges, interest, a direct credit) in the books against [ledgerId]; it is cleared at once.
+  Future<void> book(String societyId, String rowId, String ledgerId, {String? narration}) async {
+    await _dio.post('/accounts/bank-reconciliation/$societyId/rows/$rowId/book',
+        data: {'account_id': ledgerId, if (narration != null && narration.trim().isNotEmpty) 'narration': narration.trim()});
+  }
+
   Future<void> ignore(String rowId, String? reason) async {
     await _dio.post('/billing/bank-reconciliation/$rowId/ignore', data: {if (reason != null) 'reason': reason});
   }
@@ -236,6 +284,9 @@ class StatementImportResult {
   final bool balancesChecked;
   final DateTime? periodFrom;
   final DateTime? periodTo;
+
+  /// The day the statement's closing balance was stored for (the reconciliation is checked as on this day).
+  final DateTime? statementDate;
   const StatementImportResult({
     required this.imported,
     this.skippedDuplicates = 0,
@@ -244,6 +295,7 @@ class StatementImportResult {
     this.balancesChecked = false,
     this.periodFrom,
     this.periodTo,
+    this.statementDate,
   });
 
   factory StatementImportResult.fromJson(Map<String, dynamic> j) {
@@ -256,6 +308,7 @@ class StatementImportResult {
       balancesChecked: s['balances_checked'] == true,
       periodFrom: DateTime.tryParse('${s['period_from'] ?? ''}'),
       periodTo: DateTime.tryParse('${s['period_to'] ?? ''}'),
+      statementDate: DateTime.tryParse('${s['statement_date'] ?? ''}'),
     );
   }
 

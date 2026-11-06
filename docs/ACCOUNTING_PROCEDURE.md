@@ -79,6 +79,16 @@ the bank ledger with the day the bank cleared it leaves the **Bank Reconciliatio
 for that account and matches each to a line of the books (*Match*), or *Auto-match* the unambiguous ones; a row that is not
 a transaction of the society is ignored with a reason. *Cleared* lists what is cleared, with *Undo*.
 
+- **The simple way:** choose the bank and tap **Upload bank statement** on the *Statement* tab. The app reads the PDF (any bank),
+  checks it adds up, stores its closing balance, matches what can only mean one entry of the books, and shows the result as
+  on the statement's last day: **Reconciled**, or the difference and what explains it.
+- **The proof (standard BRS logic):** *Balance as per the books* + payments not yet cleared − deposits not yet cleared must equal
+  the *balance the bank statement shows*. If it does not, the difference is the bank's own items the books lack (charges,
+  interest, direct credits), listed under **In the bank, not in your books**: open one and **Record in books** (a Receipt or
+  Payment against the ledger you choose - Bank Charges / Interest on Savings Bank are suggested - dated the day the bank did
+  it and cleared at once). Whatever is left after those is shown as *unexplained*: check that the whole statement is uploaded
+  and that *As on* is the statement's last day. For a CSV (which has no balance) use **Enter balance** to type the closing
+  balance for that day.
 - Reconcile each bank ledger separately; cash has no statement. Opening balances count as cleared.
 - Only approved, live vouchers appear: a payment waiting for approval, a rejected or a cancelled one is not on it.
 - **Clear a line** by hand (with the date on the bank statement), or **import the statement** (CSV with Date, Description,
@@ -110,7 +120,11 @@ Vendors: `GET /vendors/invoices/vendor/{vendor_id}/open` (bills still to pay), `
 
 Bank reconciliation: `GET /accounts/bank-reconciliation/{society_id}?account_id=&as_on=` (the statement),
 `.../cleared`, `POST .../clear` and `.../unclear` (`entry_ids`, `cleared_date`), `POST .../auto-match`,
-`GET .../rows/{row_id}/suggestions`, `POST .../rows/{row_id}/match` (`entry_id`) and `/unmatch`. The statement is imported with
+`GET .../rows/{row_id}/suggestions`, `POST .../rows/{row_id}/match` (`entry_id`) and `/unmatch`,
+`POST .../rows/{row_id}/book` (`account_id` of the ledger, optional `narration`: records a bank-only row in the books, cleared at once),
+`PUT .../statement-balance` (`account_id`, `as_on`, `balance`). The statement answers also with `statement_balance`, `difference`,
+`unexplained`, `status` (`reconciled | bank_items_to_book | difference | no_statement_balance`) and `bank_only_rows`; `?bank_balance=`
+checks it against a typed figure without storing it. The statement is imported with
 `POST /billing/bank-reconciliation/society/{society_id}/import?include_debits=true&bank_account_id=` (add `&detail=true` to
 get `{entries, summary}` instead of just the entries).
 
@@ -140,7 +154,9 @@ If anything does not agree, the whole file is refused with a message and nothing
   direction) is skipped, once per stored copy, so a statement that overlaps the last one adds only what is new, importing the
   same file twice adds nothing, and two genuinely identical lines in one statement are both kept. The result says how many were skipped.
 - Each line keeps the bank's reference (or reference/cheque number) and its description, with the bank's wrapped lines joined
-  back together. Matching to the books is then done as before (**Auto-match**, or by hand).
+  back together. Matching to the books is then done as before (**Auto-match**, or by hand). A bank's reference agrees with a
+  voucher's when the numbers are the same ignoring spaces, dashes and leading zeros (cheque 000123 = 123), or when a voucher's
+  UTR of six or more characters appears in the bank's narration. The statement's closing balance is stored for its last day.
 - The PDF reader is the `pdfminer.six` package. Files up to 8 MB are accepted.
 
 ## Entering vouchers fast (computer)
