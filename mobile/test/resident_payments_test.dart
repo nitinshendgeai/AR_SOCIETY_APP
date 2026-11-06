@@ -136,7 +136,7 @@ void main() {
       await tester.pumpWidget(_app(api, ClaimPaymentScreen(bill: _bill())));
       await tester.pumpAndSettle();
 
-      expect(find.text('Bill INV-1'), findsOneWidget);
+      expect(find.text('Payment for INV-1'), findsOneWidget);
       expect(tester.widget<TextFormField>(find.byKey(const Key('claim-amount'))).controller!.text, '5500.00');
 
       await tester.tap(find.text('UPI'));

@@ -94,7 +94,6 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
         ],
       ),
     );
-    ctrl.dispose();
     if (code == null || code.trim().length < 4 || !mounted) return;
     final result = await ref.read(visitorRepositoryProvider).verifyPass(code.trim());
     if (!mounted) return;

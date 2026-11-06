@@ -146,7 +146,6 @@ class _ClaimCardState extends ConsumerState<_ClaimCard> {
       ),
     );
     final text = note.text.trim();
-    note.dispose();
     if (ok != true) return;
     setState(() => _busy = true);
     try {
@@ -185,7 +184,6 @@ class _ClaimCardState extends ConsumerState<_ClaimCard> {
       ),
     );
     final text = reason.text.trim();
-    reason.dispose();
     if (ok != true) return;
     setState(() => _busy = true);
     try {
@@ -234,12 +232,17 @@ class _ClaimCardState extends ConsumerState<_ClaimCard> {
           const Spacer(),
           OutlinedButton(
             key: const Key('claim-reject'),
-            style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error),
+            style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error, minimumSize: const Size(0, 44)),
             onPressed: _busy ? null : _reject,
             child: const Text('Reject'),
           ),
           const SizedBox(width: 8),
-          ElevatedButton(key: const Key('claim-confirm'), onPressed: _busy ? null : _confirm, child: const Text('Confirm')),
+          ElevatedButton(
+            key: const Key('claim-confirm'),
+            style: ElevatedButton.styleFrom(minimumSize: const Size(0, 44)),
+            onPressed: _busy ? null : _confirm,
+            child: const Text('Confirm'),
+          ),
         ]),
       ]),
     );

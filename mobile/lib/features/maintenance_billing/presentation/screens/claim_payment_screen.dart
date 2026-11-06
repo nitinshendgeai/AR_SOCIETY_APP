@@ -123,7 +123,7 @@ class _ClaimPaymentScreenState extends ConsumerState<ClaimPaymentScreen> {
       onSubmit: _saving ? null : _submit,
       children: [
         FormSection(
-          title: 'Payment',
+          title: bill == null ? 'Payment' : 'Payment for ${bill.invoiceNumber}',
           description: 'The office checks this against the bank, then your bill is marked paid and a receipt is issued.',
           children: [
             FormFieldBox(
