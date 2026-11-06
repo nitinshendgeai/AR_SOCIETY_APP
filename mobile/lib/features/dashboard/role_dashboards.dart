@@ -861,6 +861,23 @@ class ResidentDashboardScreen extends ConsumerWidget {
           ),
         ],
         if (_on(user, 'visitors')) const PendingVisitorsBanner(padding: EdgeInsets.only(top: 14)),
+        const SizedBox(height: 14),
+        // The three things a resident does most, one tap from the home screen.
+        Builder(builder: (context) {
+          final societyId = user?.societyId;
+          return _chipRow([
+            if (_on(user, 'visitors') && granted('visitors'))
+              _QuickActionChip(
+                icon: Icons.person_add_alt_1_rounded,
+                label: 'Invite guest',
+                onTap: societyId == null ? null : () => context.push(AppRoutes.visitorsCreate, extra: societyId),
+              ),
+            if (_on(user, 'complaints') && granted('complaints'))
+              const _QuickActionChip(icon: Icons.add_comment_rounded, label: 'Raise complaint', route: AppRoutes.complaintsCreate),
+            if (canSeeBills)
+              const _QuickActionChip(icon: Icons.payments_rounded, label: 'Pay bills', route: AppRoutes.myBills),
+          ]);
+        }),
         const SizedBox(height: 18),
         const _SectionLabel('Society services'),
         const SizedBox(height: 10),

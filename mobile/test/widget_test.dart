@@ -322,6 +322,9 @@ void main() {
       await tester.pump();
 
       expect(find.text('Society services'), findsOneWidget);
+      expect(find.text('Invite guest'), findsOneWidget);
+      expect(find.text('Raise complaint'), findsOneWidget);
+      expect(find.text('Pay bills'), findsOneWidget);
       for (final label in ['Visitors', 'Complaints', 'Notices', 'Amenities']) {
         expect(find.text(label), findsOneWidget, reason: label);
       }
@@ -348,6 +351,7 @@ void main() {
       expect(find.text('My Bills'), findsNothing);
       expect(find.text('Edit My Info'), findsNothing);
       expect(find.text('Maintenance'), findsNothing);
+      expect(find.text('Pay bills'), findsNothing);
     });
   });
 
