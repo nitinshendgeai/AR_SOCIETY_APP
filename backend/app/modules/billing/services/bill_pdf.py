@@ -60,6 +60,8 @@ S = {
                               alignment=TA_CENTER),
     "society_name": ParagraphStyle("society_name", parent=_base, fontName="Helvetica-Bold", fontSize=18, leading=23,
                                    alignment=TA_CENTER, textColor=ACCENT),
+    "society_name_compact": ParagraphStyle("society_name_compact", parent=_base, fontName="Helvetica-Bold", fontSize=14,
+                                           leading=17, alignment=TA_CENTER, textColor=ACCENT),
     "centre": ParagraphStyle("centre", parent=_base, fontSize=9, leading=12, alignment=TA_CENTER),
     "centre_b": ParagraphStyle("centre_b", parent=_base, fontName="Helvetica-Bold", fontSize=9.5, leading=13,
                                alignment=TA_CENTER),
@@ -317,12 +319,15 @@ def _payments(bill: MaintenanceBill) -> list:
         if a.released_at is None and a.payment.is_active and a.payment.status != ReconciliationStatus.REJECTED]
 
 
-def society_header(society, width) -> List:
+def society_header(society, width, compact: bool = False) -> List:
     """The letterhead, every line centred on a grey band over a red rule:
     the society's name, then Regn. No. and PAN (and GSTIN, on a tax
-    invoice), then the address."""
+    invoice), then the address.
+
+    `compact` is the same letterhead in a tighter size, for the printed duty and checklist sheets, which have to fit a
+    whole round on one page (the bills keep the full size)."""
     name = society.name if society else "Society"
-    rows = [[Paragraph(escape(name.upper()), S["society_name"])]]
+    rows = [[Paragraph(escape(name.upper()), S["society_name_compact" if compact else "society_name"])]]
     ids = []
     if society and society.registration_number:
         ids.append(f"Regn. No. {escape(society.registration_number)}")
@@ -339,12 +344,13 @@ def society_header(society, width) -> List:
         address = f"{address} {society.pincode}".strip()
     if address:
         rows.append([Paragraph(escape(address.upper()), S["centre"])])
+    outer, gap = (6, 1) if compact else (12, 3)
     band = Table(rows, colWidths=[width])
     band.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), BAND),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("TOPPADDING", (0, 0), (-1, 0), 12), ("BOTTOMPADDING", (0, -1), (-1, -1), 12),
-        ("TOPPADDING", (0, 1), (-1, -1), 1.5), ("BOTTOMPADDING", (0, 0), (-1, -2), 3),
+        ("TOPPADDING", (0, 0), (-1, 0), outer), ("BOTTOMPADDING", (0, -1), (-1, -1), outer),
+        ("TOPPADDING", (0, 1), (-1, -1), gap / 2), ("BOTTOMPADDING", (0, 0), (-1, -2), gap),
     ]))
     return [band, HRFlowable(width="100%", thickness=2.5, color=RED, spaceBefore=0, spaceAfter=0)]
 

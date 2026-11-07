@@ -4,6 +4,16 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-07 (Printed duty and checklist sheets fit on one page again)
+
+### fix: a compact letterhead for the printed duty and checklist sheets
+
+The bigger centred letterhead made for the maintenance bill also pushed the longest standard checklist (Plumber, daily round)
+onto a second page. The bills keep the full letterhead; the printed duty sheets, blank checklist sheets and floor-wise sheets
+use the same letterhead in a tighter size (name 14 pt instead of 18 pt, less padding), so a round fits on one page again.
+
+---
+
 ## 2026-11-07 (Match tab: bank lines and app lines in different colours)
 
 ### feat: the two grids of Bank Reconciliation → Match are told apart by colour
