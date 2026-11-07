@@ -4,12 +4,13 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from app.modules.accounts.services.outstanding import bucket_of
+from app.utils.local_time import local_today, zone
 from tests.billing.test_defaulters import _two_cycles
 from tests.billing.test_maintenance_billing import _rig
 from tests.conftest import make_user
 
 A = "/api/v1/accounts"
-TODAY = date.today()
+TODAY = local_today(zone(None))     # the society's own date (the report ages dues against it), not the server's
 
 
 def test_buckets_are_days_past_the_due_date():

@@ -13,6 +13,7 @@ import 'package:ar_society_app/features/society_structure/presentation/providers
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show tableMoney;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
+import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart' show formatRupees;
 
 /// FMC Manager (or Admin/Committee) records a resident's payment: select
 /// Wing → Flat; the payment settles the flat's open bills oldest first
@@ -245,7 +246,7 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
                 for (final b in billsAsync.value!)
                   DropdownMenuItem(
                     value: b.id,
-                    child: Text('${b.invoiceNumber} — ₹${b.outstanding} due'),
+                    child: Text('${b.invoiceNumber} — ${formatRupees(b.outstanding)} due'),
                   ),
               ],
               onChanged: (v) => setState(() => _billId = v),

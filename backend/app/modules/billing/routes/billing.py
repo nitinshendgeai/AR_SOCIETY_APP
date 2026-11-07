@@ -10,6 +10,7 @@ from app.core.tenant_scope import assert_society_access
 from fastapi.responses import Response, StreamingResponse
 from io import BytesIO
 from sqlalchemy.orm import Session
+from app.utils.local_time import society_today
 
 from app.db.session import get_db
 from app.core.dependencies import (
@@ -491,13 +492,14 @@ def set_cycle_due_date(cycle_id: UUID, data: CycleDueDate, request: Request, db:
 @router.get("/cycles/{society_id}", dependencies=[Depends(manager_above)])
 def list_cycles(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     assert_society_access(user, society_id)
-    return [_cycle_out(c) for c in BillingService(db).list_cycles(society_id)]
+    today = society_today(db, society_id)
+    return [_cycle_out(c, today) for c in BillingService(db).list_cycles(society_id)]
 
 @router.get("/cycles/detail/{cycle_id}", dependencies=[Depends(manager_above)])
 def get_cycle(cycle_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     cycle = BillingService(db).get_cycle(cycle_id)
     assert_society_access(user, cycle.society_id)
-    return _cycle_out(cycle)
+    return _cycle_out(cycle, society_today(db, cycle.society_id))
 
 @router.get("/cycles/{cycle_id}/tower-parking-preview", dependencies=[Depends(manager_above)])
 def tower_parking_preview(cycle_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
@@ -1146,7 +1148,7 @@ def _defaulters_payload(db: Session, society_id: UUID, min_months: int, include_
         AGE_BUCKETS, MemberDues, bill_label, member_contact, months_before,
     )
 
-    as_of = date.today()
+    as_of = society_today(db, society_id)
     cutoff = months_before(as_of, min_months)
     dues = MemberDues(db).flats(society_id, as_of)
     settings = BillingService(db).get_maintenance_settings(society_id)

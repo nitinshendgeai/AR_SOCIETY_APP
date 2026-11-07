@@ -72,3 +72,13 @@ def on_duty_clause(tz: ZoneInfo, now_utc: datetime = None):
                  StaffAttendance.check_in_time >= now_utc - timedelta(hours=OVERNIGHT_SHIFT_HOURS)),
         ),
     )
+
+
+def society_today(db, society_id) -> date:
+    """Today on a society's own clock. The server runs on UTC, so its date is a day behind India's for the first
+    5½ hours of every Indian day; anything dated "today" by the society (a voucher, a due date) must be compared
+    with this, not with `date.today()`."""
+    from app.models.society import Society
+    society = db.query(Society).filter(Society.id == society_id).first()
+    return local_today(zone(getattr(society, "timezone", None)))
+

@@ -157,6 +157,59 @@ class AppErrorBanner extends StatelessWidget {
   }
 }
 
+// ── Load error with a way forward ─────────────────────────────────────────────
+//
+// A screen whose data failed to load says so in plain words and offers "Try again", rather than leaving red text
+// and no way to recover except leaving the screen. Scrolls (inside a RefreshIndicator the pull-down also works).
+class AppErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const AppErrorState({super.key, required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, box) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: box.maxHeight.isFinite ? box.maxHeight : 0),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Semantics(
+                liveRegion: true,
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(color: AppTheme.errorSoft, borderRadius: BorderRadius.circular(AppTheme.radiusL)),
+                    child: const Icon(Icons.cloud_off_rounded, size: 30, color: AppTheme.error),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('This could not be loaded',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                  const SizedBox(height: 6),
+                  Text(message,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4)),
+                  const SizedBox(height: 20),
+                  OutlinedButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text('Try again'),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ── Primary Button ────────────────────────────────────────────────────────────
 
 class AppPrimaryButton extends StatelessWidget {

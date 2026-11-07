@@ -195,12 +195,7 @@ class _DefaultersScreenState extends ConsumerState<DefaultersScreen> {
         onRefresh: () async => ref.invalidate(defaultersProvider(key)),
         child: async.when(
           loading: () => const SkeletonList(),
-          error: (e, _) => ListView(children: [
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-            ),
-          ]),
+          error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(defaultersProvider(key))),
           data: (r) {
             final q = _q.toLowerCase();
             final rows = r.flats

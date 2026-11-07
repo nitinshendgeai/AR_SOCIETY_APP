@@ -17,6 +17,7 @@ from app.modules.accounts.services.accounts_service import money
 from app.modules.billing.services.bill_pdf import flat_label
 from app.modules.billing.services.defaulters import MemberDues, bill_label, member_contact
 from app.modules.vendor.models.vendor import VendorInvoice
+from app.utils.local_time import society_today
 
 ZERO = Decimal("0.00")
 
@@ -59,7 +60,7 @@ class OutstandingService:
         self.db = db
 
     def report(self, society_id: UUID, kind: str, as_of: Optional[date] = None) -> dict:
-        as_of = as_of or date.today()
+        as_of = as_of or society_today(self.db, society_id)      # the society's date, as the Defaulters list uses
         if kind == "receivable":
             parties = self._receivable(society_id, as_of)
         else:

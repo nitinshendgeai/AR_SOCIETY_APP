@@ -101,12 +101,7 @@ class MaintenanceElementsScreen extends ConsumerWidget {
         onRefresh: () async => ref.invalidate(maintenanceElementsProvider(key)),
         child: elementsAsync.when(
           loading: () => const AppLoader(),
-          error: (e, _) => ListView(children: [
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-            ),
-          ]),
+          error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(maintenanceElementsProvider(key))),
           data: (elements) {
             final active = elements.where((e) => e.isActive).toList();
             final inactive = elements.where((e) => !e.isActive).toList();

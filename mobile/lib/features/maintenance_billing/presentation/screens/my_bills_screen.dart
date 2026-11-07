@@ -51,12 +51,12 @@ class MyBillsScreen extends ConsumerWidget {
         },
         child: billsAsync.when(
           loading: () => const SkeletonList(),
-          error: (e, _) => ListView(children: [
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-            ),
-          ]),
+          error: (e, _) => AppErrorState(
+              message: friendlyErrorMessage(e),
+              onRetry: () {
+                ref.invalidate(myBillsProvider);
+                ref.invalidate(myBillsForFlatProvider);
+              }),
           data: (summary) {
             final open = summary.bills.where((b) => amountOf(b.outstanding) > 0).toList();
             final settled = summary.bills.where((b) => amountOf(b.outstanding) <= 0).toList();

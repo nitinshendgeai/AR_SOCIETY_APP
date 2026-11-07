@@ -13,6 +13,7 @@ import 'package:ar_society_app/features/society_structure/presentation/providers
 import 'package:ar_society_app/shared/utils/csv_file.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart' show formatRupees;
 
 enum _Status { ready, error, recorded }
 
@@ -352,7 +353,7 @@ class _Tile extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Row ${row.line}: ${name.isEmpty ? '(no flat)' : 'Flat $name'}${row.amount.isEmpty ? '' : ' — ₹${row.amount}'}',
+            Text('Row ${row.line}: ${name.isEmpty ? '(no flat)' : 'Flat $name'}${row.amount.isEmpty ? '' : ' — ${formatRupees(row.amount)}'}',
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
             if (meta.isNotEmpty) Text(meta, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
             if (row.message != null) Text(row.message!, style: TextStyle(fontSize: 11, color: color)),

@@ -12,6 +12,13 @@ double amountOf(String v) => double.tryParse(v) ?? 0;
 final _rupees = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
 String formatRupees(String v) => _rupees.format(amountOf(v));
 
+/// Whole percent collected, rounded down: 99.6% collected is "99%", not "100%" while money is still outstanding
+/// (the dashboard's collection card does the same).
+int collectedPercent(double collected, double billed) {
+  if (billed <= 0) return 0;
+  return collected >= billed ? 100 : (collected / billed * 100).floor();
+}
+
 String formatBillDate(DateTime d) => DateFormat('d MMM yyyy').format(d);
 
 /// How a charge head becomes a per-flat amount (backend ChargeBasis). The
