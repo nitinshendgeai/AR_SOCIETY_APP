@@ -20,7 +20,7 @@ import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// The two sides of the Match tab are told apart by colour everywhere they appear: the society's own entries (the books)
 /// are blue, the bank's statement rows are purple (the Match grids, the Bank rows tab, and the books' entries offered
-/// for a bank row). Money in keeps its green amount on either side.
+/// for a bank row and listed as Cleared). Money in keeps its green amount on either side.
 const _appColor = AppTheme.primary;
 const _appSoft = AppTheme.primarySoft;
 const _bankColor = AppTheme.secondary;
@@ -707,33 +707,74 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
               title: 'Nothing cleared yet',
               subtitle: 'Lines you mark as cleared, or match to the bank statement, are listed here.',
             )
-          : ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              itemCount: lines.length,
-              itemBuilder: (_, i) {
-                final l = lines[i];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    title: Text('${l.voucherNumber}${l.party == null ? '' : ' · ${l.party}'}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text(
-                        '${l.isDeposit ? 'Deposit' : 'Payment'} ${formatInr(l.amount)} · cleared ${l.clearedDate == null ? '' : formatAccountsDate(l.clearedDate!)}'),
-                    trailing: TextButton(
-                      onPressed: _busy
-                          ? null
-                          : () => _run(societyId, () async {
-                                await ref.read(bankReconciliationApiProvider).unclear(societyId, [l.entryId]);
-                                return '${l.voucherNumber} is not cleared again';
-                              }),
-                      child: const Text('Undo'),
-                    ),
-                  ),
-                );
-              },
-            ),
+          : Column(children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: _SideBanner(
+                    icon: Icons.menu_book_rounded,
+                    text: 'Entries from your books that the bank has cleared',
+                    accent: _appColor,
+                    soft: _appSoft),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                  itemCount: lines.length,
+                  itemBuilder: (_, i) {
+                    final l = lines[i];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      clipBehavior: Clip.antiAlias,
+                      child: DecoratedBox(
+                        decoration: const BoxDecoration(border: Border(left: BorderSide(color: _appColor, width: 3))),
+                        child: ListTile(
+                          key: ValueKey('cleared-${l.entryId}'),
+                          title: Text('${l.voucherNumber}${l.party == null ? '' : ' · ${l.party}'}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w600)),
+                          subtitle: Text(
+                              '${l.isDeposit ? 'Deposit' : 'Payment'} ${formatInr(l.amount)} · cleared ${l.clearedDate == null ? '' : formatAccountsDate(l.clearedDate!)}'),
+                          trailing: TextButton(
+                            style: TextButton.styleFrom(foregroundColor: _appColor),
+                            onPressed: _busy
+                                ? null
+                                : () => _run(societyId, () async {
+                                      await ref.read(bankReconciliationApiProvider).unclear(societyId, [l.entryId]);
+                                      return '${l.voucherNumber} is not cleared again';
+                                    }),
+                            child: const Text('Undo'),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ]),
+    );
+  }
+}
+
+/// A one-line coloured banner saying which side of the reconciliation a list belongs to (books: blue, bank: purple).
+class _SideBanner extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color accent;
+  final Color soft;
+  const _SideBanner({required this.icon, required this.text, required this.accent, required this.soft});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+          color: soft, borderRadius: BorderRadius.circular(10), border: Border.all(color: accent.withValues(alpha: 0.5))),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(children: [
+        Icon(icon, size: 20, color: accent),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: accent))),
+      ]),
     );
   }
 }

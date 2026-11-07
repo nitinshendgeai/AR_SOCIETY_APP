@@ -28,6 +28,16 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-07 (Cleared tab in the app colour)
+
+### feat: the Cleared tab is blue like the books side of the Match tab
+
+The **Cleared** tab lists entries of your books, so it has the blue "Entries from your books that the bank has cleared" banner,
+a blue bar down the side of every entry and a blue Undo, matching the blue side of the Match tab and the "Entries in your
+books" in the match sheet.
+
+---
+
 ## 2026-11-07 (Printed duty and checklist sheets fit on one page again)
 
 ### fix: a compact letterhead for the printed duty and checklist sheets
