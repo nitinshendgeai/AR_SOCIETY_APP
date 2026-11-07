@@ -30,8 +30,10 @@ from app.modules.accounts.services.documents_pdf import (
 from app.modules.accounts.services.reports_pdf import render_report_pdf
 from app.modules.accounts.services.outstanding import OutstandingService
 from app.modules.accounts.services.registers import RegistersService
+from app.modules.accounts.services.more_registers import REGISTERS, MoreRegistersService, register_to_csv
 from app.modules.accounts.services.registers_pdf import (
     render_bills_register_pdf, render_cash_bank_pdf, render_invoice_register_pdf, render_outstanding_pdf,
+    render_register_pdf,
 )
 from app.modules.billing.services.bill_pdf import flat_label, member_name
 
@@ -377,6 +379,37 @@ def bills_register(society_id: UUID, date_from: Optional[date] = None, date_to: 
     if format == "pdf":
         return _pdf(render_bills_register_pdf(reg, _society(db, society_id)),
                     f"Bills-Register-{_span(date_from, date_to)}.pdf")
+    return reg
+
+
+@router.get("/registers/{kind}/{society_id}")
+def more_register(kind: str, society_id: UUID, date_from: Optional[date] = None, date_to: Optional[date] = None,
+                  status: Optional[str] = None, q: Optional[str] = None,
+                  month: Optional[str] = Query(None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$"),
+                  format: str = Query("json", pattern="^(json|pdf|csv)$"),
+                  db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """The rental, receipts and staff attendance registers, in one shape (columns, rows, totals) the app draws and the
+    PDF and spreadsheet reuse. `kind`: rental | receipts | attendance. `status` filters (a department for attendance);
+    receipts take a date range, attendance a `month` (2026-11). ?format=pdf or csv: the printout or the spreadsheet."""
+    if kind not in REGISTERS:
+        raise HTTPException(404, "No such register")
+    assert_society_access(user, society_id)
+    svc = MoreRegistersService(db)
+    try:
+        if kind == "rental":
+            reg = svc.rental_register(society_id, status, q)
+        elif kind == "receipts":
+            reg = svc.receipts_register(society_id, date_from, date_to, status, q)
+        else:
+            reg = svc.attendance_register(society_id, month, status, q)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    span = month if kind == "attendance" else _span(date_from, date_to)
+    if format == "pdf":
+        return _pdf(render_register_pdf(reg, _society(db, society_id)), f"{reg['title'].replace(' ', '-')}-{span}.pdf")
+    if format == "csv":
+        return Response(content=register_to_csv(reg), media_type="text/csv",
+                        headers={"Content-Disposition": f"attachment; filename={reg['title'].replace(' ', '-')}-{span}.csv"})
     return reg
 
 

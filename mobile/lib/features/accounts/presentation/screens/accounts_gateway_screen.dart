@@ -51,6 +51,8 @@ class AccountsGatewayScreen extends ConsumerWidget {
             onOpen: () => go(AppRoutes.accountsInvoices)),
         GatewayItem(label: 'Bills Register', letter: 'L', icon: Icons.inventory_2_rounded,
             onOpen: () => go(AppRoutes.accountsBills)),
+        GatewayItem(label: 'All Registers', letter: 'G', icon: Icons.library_books_rounded,
+            onOpen: () => go(AppRoutes.accountsRegisters)),
         GatewayItem(label: 'Monthly Expenses', letter: 'M', icon: Icons.event_repeat_rounded,
             onOpen: () => go(AppRoutes.accountsRecurring)),
       ]),

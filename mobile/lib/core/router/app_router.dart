@@ -90,6 +90,8 @@ import 'package:ar_society_app/features/accounts/presentation/screens/ledger_sta
 import 'package:ar_society_app/features/accounts/presentation/screens/approvals_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/cash_bank_book_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/invoice_bill_registers_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/more_register_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/registers_hub_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/outstanding_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/members_ledger_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/expense_form_screen.dart';
@@ -228,6 +230,10 @@ class AppRoutes {
   static const accountsBankRecon  = '/accounts/bank-reconciliation';
   static const accountsInvoices   = '/accounts/registers/invoices';
   static const accountsBills      = '/accounts/registers/bills';
+  static const accountsRegisters  = '/accounts/registers';
+  static const accountsRegisterRental     = '/accounts/registers/rental';
+  static const accountsRegisterReceipts   = '/accounts/registers/receipts';
+  static const accountsRegisterAttendance = '/accounts/registers/attendance';
   static const accountsReceivable = '/accounts/outstanding/receivable';
   static const accountsPayable    = '/accounts/outstanding/payable';
   static const accountsApprovals  = '/accounts/approvals';
@@ -907,6 +913,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             (AppRoutes.accountsBankRecon, (_) => const BankReconciliationStatementScreen()),
             (AppRoutes.accountsInvoices, (_) => const InvoiceRegisterScreen()),
             (AppRoutes.accountsBills, (_) => const BillsRegisterScreen()),
+            (AppRoutes.accountsRegisters, (_) => const RegistersHubScreen()),
+            (AppRoutes.accountsRegisterRental, (_) => const MoreRegisterScreen(kind: 'rental')),
+            (AppRoutes.accountsRegisterReceipts, (_) => const MoreRegisterScreen(kind: 'receipts')),
+            (AppRoutes.accountsRegisterAttendance, (_) => const MoreRegisterScreen(kind: 'attendance')),
             (AppRoutes.accountsReceivable, (_) => const OutstandingScreen(initialKind: 'receivable')),
             (AppRoutes.accountsPayable, (_) => const OutstandingScreen(initialKind: 'payable')),
             (AppRoutes.accountsApprovals, (_) => const ApprovalsScreen()),

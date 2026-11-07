@@ -41,7 +41,7 @@ void main() {
       final sections = await build(t);
       expect({for (final s in sections) s.title: [for (final i in s.items) i.label]}, {
         'Transactions': ['Receipt', 'Payment', 'Contra (cash / bank transfer)', 'Journal', 'Expense'],
-        'Books & Registers': ['Day Book', 'Cash & Bank Book', 'Bank Reconciliation', 'Invoice Register', 'Bills Register', 'Monthly Expenses'],
+        'Books & Registers': ['Day Book', 'Cash & Bank Book', 'Bank Reconciliation', 'Invoice Register', 'Bills Register', 'All Registers', 'Monthly Expenses'],
         'Receivables & Payables': [
           'Outstanding Receivable (members)', 'Outstanding Payable (vendors)', "Members' Ledger", 'Vendor Bills', 'Approvals',
         ],
@@ -52,7 +52,7 @@ void main() {
         ],
       });
       final items = [for (final s in sections) ...s.items];
-      expect(items.length, 24); // nothing dropped from before the regrouping
+      expect(items.length, 25); // nothing dropped from before the regrouping
       expect(items.map((i) => i.letter).toSet().length, items.length);
       expect(items.map((i) => i.label).toSet().length, items.length);
     });
@@ -75,9 +75,9 @@ void main() {
       expect(all.firstWhere((i) => i.label == 'Approvals').badge, '2 waiting');
       final without = [for (final s in await build(t, granted: {'accounts'})) ...s.items];
       expect(without.any((i) => i.label == 'Vendor Bills'), isFalse);
-      expect(without.length, 23);
+      expect(without.length, 24);
       final withGrant = [for (final s in await build(t, granted: {'accounts', 'vendor_bills'})) ...s.items];
-      expect(withGrant.length, 24);
+      expect(withGrant.length, 25);
     });
   });
 

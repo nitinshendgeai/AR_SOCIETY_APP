@@ -80,6 +80,9 @@ void main() {
       '/vendors/work-orders/w1': 'vendors',
       '/accounts': 'accounts',
       '/accounts/ledger/a1': 'accounts',
+      '/accounts/registers': 'accounts',
+      '/accounts/registers/rental': 'accounts',
+      '/accounts/registers/attendance': 'accounts',
       '/assets/a1': 'assets',
       '/stores/i1': 'inventory',
       '/visitors/pending': null,                      // member screens are left to the backend

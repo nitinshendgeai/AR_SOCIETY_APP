@@ -156,3 +156,28 @@ def render_outstanding_pdf(rep: dict, society, *, compress: bool = True) -> byte
     sub = ("Maintenance dues from members" if receivable else "Bills received from vendors and not yet paid") + \
         f" · aged from the due date · as on {_date(rep['as_of'])}"
     return _build(title, sub, society, lambda w: [_table(rows, columns, w, total)])
+
+
+def render_register_pdf(reg: dict, society, *, compress: bool = True) -> bytes:
+    """Any register in the shared shape of more_registers.py (rental, receipts, staff attendance...): the columns it
+    names, its rows, then its totals, on landscape A4. Columns of width 0 share what the others leave."""
+    columns = reg["columns"]
+
+    def parts(width):
+        fixed = sum(c["width"] for c in columns) * mm
+        flexible = [c for c in columns if not c["width"]]
+        share = max((width - fixed) / len(flexible), 12 * mm) if flexible else 0
+        widths = [c["width"] * mm if c["width"] else share for c in columns]
+        scale = min(1.0, width / sum(widths)) if sum(widths) else 1.0        # never wider than the page
+        widths = [w * scale for w in widths]
+        head = [_p(c["label"], "th_r" if c["right"] else "th") for c in columns]
+        body = [head] + [[_p(r.get(c["key"], ""), "td_r" if c["right"] else "td") for c in columns] for r in reg["rows"]]
+        if not reg["rows"]:
+            body.append([_p("Nothing to show.", "note")] + [""] * (len(columns) - 1))
+        out = [_grid(body, widths), Spacer(1, 4 * mm)]
+        totals = "   ·   ".join(f"{t['label']}: {t['value']}" for t in reg["totals"])
+        if totals:
+            out.append(_p(totals, "td_b"))
+        return out
+
+    return _build(reg["title"], reg["subtitle"], society, parts)
