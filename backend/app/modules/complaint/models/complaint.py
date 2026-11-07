@@ -159,3 +159,8 @@ class ComplaintStatusHistory(Base, TimestampMixin):
 
     complaint  = relationship("Complaint", back_populates="status_history")
     changed_by_user = relationship("User", foreign_keys=[changed_by])
+
+
+# Composite indexes for the hot list / dashboard queries (alembic 9b4c5d6e7f80). Keep in step with that migration.
+from sqlalchemy import Index, text  # noqa: E402
+Index("ix_complaints_soc_status_created", Complaint.society_id, Complaint.status, Complaint.created_at)

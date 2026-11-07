@@ -59,3 +59,8 @@ class AgreementTracker(Base, TimestampMixin):
 
     def __repr__(self):
         return f"<AgreementTracker flat={self.flat_id} {self.start_date}→{self.end_date} [{self.status}]>"
+
+
+# Composite indexes for the hot list / dashboard queries (alembic 9b4c5d6e7f80). Keep in step with that migration.
+from sqlalchemy import Index, text  # noqa: E402
+Index("ix_agreements_soc_status_end", AgreementTracker.society_id, AgreementTracker.status, AgreementTracker.end_date)

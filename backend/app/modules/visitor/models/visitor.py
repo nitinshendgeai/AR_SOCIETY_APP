@@ -152,3 +152,9 @@ class VisitorLog(Base, TimestampMixin):
 
     def __repr__(self):
         return f"<VisitorLog {self.action} visitor={self.visitor_id}>"
+
+
+# Composite indexes for the hot list / dashboard queries (alembic 9b4c5d6e7f80). Keep in step with that migration.
+from sqlalchemy import Index, text  # noqa: E402
+Index("ix_visitors_soc_status", Visitor.society_id, Visitor.status)
+Index("ix_visitors_soc_created", Visitor.society_id, Visitor.created_at.desc())
