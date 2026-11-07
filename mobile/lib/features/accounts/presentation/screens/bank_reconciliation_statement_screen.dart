@@ -20,7 +20,7 @@ import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// The two sides of the Match tab are told apart by colour everywhere they appear: the society's own entries (the books)
 /// are blue, the bank's statement rows are purple (the Match grids, the Bank rows tab, and the books' entries offered
-/// for a bank row and listed as Cleared). Money in keeps its green amount on either side.
+/// for a bank row, listed as Cleared, and the payments and deposits not yet cleared on the Statement tab). Money in keeps its green amount on either side.
 const _appColor = AppTheme.primary;
 const _appSoft = AppTheme.primarySoft;
 const _bankColor = AppTheme.secondary;
@@ -283,8 +283,9 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
                   Padding(
                     padding: const EdgeInsets.only(top: 18),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      // rows of the bank statement: the bank colour (purple)
                       const Text('In the bank, not in your books',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _bankColor)),
                       const SizedBox(height: 2),
                       const Text(
                           'Charges, interest or credits the bank made on its own. Tap one to record it in the books, or to match it to an entry.',
@@ -341,7 +342,8 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
   Widget _lines(String title, String hint, List<BrsLine> lines) => Padding(
         padding: const EdgeInsets.only(top: 18),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          // entries of your books: the app colour (blue)
+          Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _appColor)),
           const SizedBox(height: 2),
           Text(hint, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           const SizedBox(height: 8),
@@ -953,17 +955,22 @@ class _LineTile extends StatelessWidget {
     final who = line.party ?? line.narration;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      child: CheckboxListTile(
-        key: ValueKey('line-${line.voucherNumber}'),
-        value: picked,
-        onChanged: (v) => onChanged(v ?? false),
-        controlAffinity: ListTileControlAffinity.leading,
-        title: Text(line.voucherNumber, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle:
-            Text('$details${who == null || who.isEmpty ? '' : '\n$who'}', maxLines: 3, overflow: TextOverflow.ellipsis),
-        secondary: Text(formatInr(line.amount),
-            style: TextStyle(
-                fontWeight: FontWeight.w700, color: line.isDeposit ? AppTheme.success : AppTheme.textPrimary)),
+      clipBehavior: Clip.antiAlias,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(border: Border(left: BorderSide(color: _appColor, width: 3))),
+        child: CheckboxListTile(
+          key: ValueKey('line-${line.voucherNumber}'),
+          value: picked,
+          activeColor: _appColor,
+          onChanged: (v) => onChanged(v ?? false),
+          controlAffinity: ListTileControlAffinity.leading,
+          title: Text(line.voucherNumber, style: const TextStyle(fontWeight: FontWeight.w600)),
+          subtitle:
+              Text('$details${who == null || who.isEmpty ? '' : '\n$who'}', maxLines: 3, overflow: TextOverflow.ellipsis),
+          secondary: Text(formatInr(line.amount),
+              style: TextStyle(
+                  fontWeight: FontWeight.w700, color: line.isDeposit ? AppTheme.success : AppTheme.textPrimary)),
+        ),
       ),
     );
   }

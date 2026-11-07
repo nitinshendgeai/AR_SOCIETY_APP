@@ -4,6 +4,16 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-07 (Statement tab in the same two colours)
+
+### feat: the Statement tab's lines are blue, the bank's own items purple
+
+On the Statement tab, *Payments not yet cleared* and *Deposits not yet cleared* are entries of your books, so their headings,
+a bar down the side of every line and the tick boxes are blue; *In the bank, not in your books* (rows of the bank statement) has
+a purple heading above its purple rows. Every tab of Bank Reconciliation now shows the books in blue and the bank in purple.
+
+---
+
 ## 2026-11-07 (Dashboard figures match the screens they lead to)
 
 ### fix: the dashboard numbers are the ones on the Defaulters, Complaints, Staff and Approvals screens
