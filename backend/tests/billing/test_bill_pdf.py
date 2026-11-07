@@ -488,3 +488,81 @@ def test_contingency_fund_prints_on_its_own_line(client, db):
     assert "1 Maintenance Charges 2,500.00" in text and "4 Contingency Fund 121.00" in text
     assert "Other Charges 0.00" in text             # not lumped into Other Charges
     assert "Current Bill Amount 2,621.00" in text
+
+
+# ── The boxed layout ──────────────────────────────────────────────────────────
+
+def _boxed(client, db, tag, **settings):
+    society, flat1, flat2, manager, resident, other, cycle_id = _generated_cycle(client, db, tag)
+    r = client.put(f"/api/v1/billing/maintenance-settings/{society.id}",
+                   json={"bill_layout": "boxed", **settings}, headers=manager["headers"])
+    assert r.status_code == 200, r.text
+    assert r.json()["bill_layout"] == "boxed"
+    client.post(f"/api/v1/billing/cycles/{cycle_id}/issue-all", headers=manager["headers"])
+    bill = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=flat1.id).one()
+    return society, flat1, manager, bill
+
+
+def test_boxed_layout_follows_the_reference_page(client, db):
+    society, flat1, manager, bill = _boxed(
+        client, db, "pdfx1", bank_name="Indian Bank", bank_account_number="8212833058", bank_ifsc="IDIB000D088",
+        bank_account_name="MB Society pdfx1 CHS Ltd", interest_rate_pct="21", bill_notes="Area mentioned in the bill is carpet area")
+    society.registration_number = "MUM/WRO/HSG/TC/16082/2021-22/2022"
+    society.contact_email = "office@example.com"
+    flat1.area_sqft = 600
+    db.commit()
+    db.expire_all()
+    bill, text = _bill_pdf(db, bill.id)
+    for expected in [
+        "MB SOCIETY PDFX1", "E-Mail : office@example.com", "Registration No. : MUM/WRO/HSG/TC/16082/2021-22/2022",
+        "To,", "Tower A 101 Asha Rao", "Flat No. : Tower A 101",
+        f"Bill No. : {bill.invoice_number}", "Area (SqFt.) : 600", f"Date : {bill.bill_date.day}-{bill.bill_date:%b-%y}",
+        f"Due Date : {bill.due_date.day}-{bill.due_date:%b-%y}", "Billing Period :",
+        "Sr. No. P A R T I C U L A R S Amount (INR)",
+        "1 Maintenance 2,500.00 2 Water 300.00",          # the heads as named, numbered, only those charged
+        "Total 2,854.00", "Grand Total Rs. 2,854.00",
+        "Amount In Words : INR Two Thousand Eight Hundred Fifty Four Only.",
+        "Note : Maintenance Charges From", "Company's Bank Details", "Bank Name : Indian Bank",
+        "A/c No. : 8212833058", "IFS Code : IDIB000D088",
+        "Terms & Conditions :", "1. PLEASE PAY BY A/C PAYEE CHEQUE ONLY IN FAVOUR OF - MB SOCIETY PDFX1 CHS LTD",
+        "2. INTEREST WILL BE CHARGED @ 21% P.A. ON OUTSTANDING MAINTENANCE",
+        "3. IN CASE OF ANY DISCREPANCY IN BILL CONTACT COMMITTEE WITHIN 7 DAYS FROM DATE OF BILL",
+        "4. AREA MENTIONED IN THE BILL IS CARPET AREA",
+        "This is a Computer Generated Invoice. No Need for Signature",
+    ]:
+        assert expected in text, expected
+    assert "Festival Fund" not in text and "Legal Charges" not in text      # heads not charged are left out
+    assert "R E C E I P T" not in text                                      # the flat's first bill: nothing to receipt
+
+
+def test_boxed_layout_prints_the_receipt_for_the_previous_bill(client, db):
+    society, flat1, manager, first = _boxed(client, db, "pdfx2")
+    db.add(PaymentReceipt(society_id=society.id, bill_id=first.id, flat_id=flat1.id, receipt_number="1",
+                          payment_date=date(2026, 4, 10), amount=Decimal("2000.00"),
+                          payment_mode=PaymentMode.CHEQUE, cheque_number="531615", bank_name="The Greater Bombay Co-Op Bank"))
+    first.paid_amount = Decimal("2000.00")
+    first.outstanding = first.total_amount - first.paid_amount
+    db.commit()
+    second_cycle = _cycle(client, manager["headers"], society.id, name="Nov 2026").json()["id"]
+    assert client.post(f"/api/v1/billing/cycles/{second_cycle}/generate-bills", headers=manager["headers"]).status_code == 200
+    second = db.query(MaintenanceBill).filter_by(cycle_id=UUID(second_cycle), flat_id=flat1.id).one()
+    _, text = _bill_pdf(db, second.id)
+    for expected in [
+        "R E C E I P T", "Receipt No. : 1", "Receipt Date : 10-4-2026",
+        "Received with thanks From Tower A 101 Asha Rao Unit No. : Tower A 101 Sum of Rs. 2,000.00 ( Two Thousand Only )",
+        "By Cheque No. 531615 Dated 10-Apr-26 Drawn on The Greater Bombay Co-Op Bank",
+        f"Against Ref No Bill /{first.invoice_number}", "Total Receipt : 2,000.00", "Subject to realization of Cheque",
+    ]:
+        assert expected in text, expected
+
+
+def test_boxed_layout_in_the_bulk_print(client, db):
+    from app.modules.billing.services.bill_pdf import generate_bills_pdf
+    society, flat1, manager, bill = _boxed(client, db, "pdfx3")
+    svc = BillingService(db)
+    bills = svc.list_cycle_bills(bill.cycle_id)
+    settings = svc.get_maintenance_settings(society.id)
+    pdf = generate_bills_pdf([{"bill": b, "settings": settings, **svc._bill_print_context(b)} for b in bills],
+                             title="t", author="a", compress=False)
+    text = " ".join(_text(pdf).replace("|", " ").split())
+    assert text.count("P A R T I C U L A R S") == len(bills) >= 2
