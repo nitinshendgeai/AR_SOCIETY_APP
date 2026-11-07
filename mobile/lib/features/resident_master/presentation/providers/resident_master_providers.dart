@@ -13,13 +13,19 @@ class ResidentListInitial extends ResidentListState {}
 class ResidentListLoading extends ResidentListState {}
 class ResidentListLoaded extends ResidentListState {
   final List<ResidentModel> residents;
-  ResidentListLoaded(this.residents);
+  /// A full page came back, so there may be more on the server.
+  final bool hasMore;
+  final bool loadingMore;
+  ResidentListLoaded(this.residents, {this.hasMore = false, this.loadingMore = false});
 }
 class ResidentListError extends ResidentListState {
   final String message;
   final int? statusCode;
   ResidentListError(this.message, {this.statusCode});
 }
+
+/// Rows fetched per request; the list shows them all by asking for the next page.
+const int kPeoplePageSize = 50;
 
 class ResidentListNotifier extends StateNotifier<ResidentListState> {
   final ResidentMasterRepository _repo;
@@ -51,8 +57,25 @@ class ResidentListNotifier extends StateNotifier<ResidentListState> {
       flatId: flatId, wingId: wingId, movedIn: movedIn, residentType: residentType, isActive: isActive, search: search,
     );
     switch (result) {
-      case RmSuccess(:final data): state = ResidentListLoaded(data);
+      case RmSuccess(:final data): state = ResidentListLoaded(data, hasMore: data.length >= kPeoplePageSize);
       case RmFailure(:final message, :final statusCode): state = ResidentListError(message, statusCode: statusCode);
+    }
+  }
+
+  /// Adds the next page to what is already shown, with the filters in force.
+  Future<void> loadMore() async {
+    final current = state;
+    if (current is! ResidentListLoaded || !current.hasMore || current.loadingMore) return;
+    state = ResidentListLoaded(current.residents, hasMore: true, loadingMore: true);
+    final result = await _repo.listResidents(
+      flatId: _lastFlatId, wingId: _lastWingId, movedIn: _lastMovedIn, residentType: _lastResidentType,
+      isActive: _lastIsActive, search: _lastSearch, skip: current.residents.length, limit: kPeoplePageSize,
+    );
+    switch (result) {
+      case RmSuccess(:final data):
+        state = ResidentListLoaded([...current.residents, ...data], hasMore: data.length >= kPeoplePageSize);
+      case RmFailure():
+        state = ResidentListLoaded(current.residents, hasMore: true);   // keep what is shown; the button can be tried again
     }
   }
 
@@ -245,7 +268,10 @@ class TenantListInitial extends TenantListState {}
 class TenantListLoading extends TenantListState {}
 class TenantListLoaded extends TenantListState {
   final List<TenantModel> tenants;
-  TenantListLoaded(this.tenants);
+  /// A full page came back, so there may be more on the server.
+  final bool hasMore;
+  final bool loadingMore;
+  TenantListLoaded(this.tenants, {this.hasMore = false, this.loadingMore = false});
 }
 class TenantListError extends TenantListState {
   final String message;
@@ -290,8 +316,25 @@ class TenantListNotifier extends StateNotifier<TenantListState> {
       kycVerified: kycVerified, isActive: isActive, search: search,
     );
     switch (result) {
-      case RmSuccess(:final data): state = TenantListLoaded(data);
+      case RmSuccess(:final data): state = TenantListLoaded(data, hasMore: data.length >= kPeoplePageSize);
       case RmFailure(:final message, :final statusCode): state = TenantListError(message, statusCode: statusCode);
+    }
+  }
+
+  /// Adds the next page to what is already shown, with the filters in force.
+  Future<void> loadMore() async {
+    final current = state;
+    if (current is! TenantListLoaded || !current.hasMore || current.loadingMore) return;
+    state = TenantListLoaded(current.tenants, hasMore: true, loadingMore: true);
+    final result = await _repo.listTenants(
+      flatId: _lastFlatId, wingId: _lastWingId, movedIn: _lastMovedIn, agreement: _lastAgreement, police: _lastPolice,
+      kycVerified: _lastKyc, isActive: _lastIsActive, search: _lastSearch, skip: current.tenants.length, limit: kPeoplePageSize,
+    );
+    switch (result) {
+      case RmSuccess(:final data):
+        state = TenantListLoaded([...current.tenants, ...data], hasMore: data.length >= kPeoplePageSize);
+      case RmFailure():
+        state = TenantListLoaded(current.tenants, hasMore: true);
     }
   }
 

@@ -103,6 +103,7 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
       child: ListView(padding: const EdgeInsets.fromLTRB(24, 8, 24, 32), children: [
         AppDataTable<TenantModel>(
           toolbar: _filters(),
+          pageSize: 50,
           rows: state is TenantListLoaded ? state.tenants : const [],
           loading: state is TenantListLoading || state is TenantListInitial,
           error: state is TenantListError ? state.message : null,
@@ -156,6 +157,13 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
             ),
           ],
         ),
+        if (state is TenantListLoaded && state.hasMore)
+          LoadMoreButton(
+            buttonKey: const ValueKey('tenants-load-more'),
+            shown: state.tenants.length,
+            loading: state.loadingMore,
+            onPressed: () => ref.read(tenantListProvider.notifier).loadMore(),
+          ),
       ]),
     );
   }
@@ -331,7 +339,7 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
                   ElevatedButton(onPressed: _load, child: const Text('Retry')),
                 ]),
               ),
-            TenantListLoaded(:final tenants) => tenants.isEmpty
+            TenantListLoaded(:final tenants, :final hasMore, :final loadingMore) => tenants.isEmpty
                 ? const RmEmptyState(
                     icon: Icons.groups_2_outlined,
                     title: 'No tenants found',
@@ -341,9 +349,16 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
                     onRefresh: () async => _load(),
                     child: ListView.separated(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-                      itemCount: tenants.length,
+                      itemCount: tenants.length + (hasMore ? 1 : 0),
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (_, i) => _TenantCard(tenant: tenants[i], flat: flatsById[tenants[i].flatId]),
+                      itemBuilder: (_, i) => i == tenants.length
+                          ? LoadMoreButton(
+                              buttonKey: const ValueKey('tenants-load-more'),
+                              shown: tenants.length,
+                              loading: loadingMore,
+                              onPressed: () => ref.read(tenantListProvider.notifier).loadMore(),
+                            )
+                          : _TenantCard(tenant: tenants[i], flat: flatsById[tenants[i].flatId]),
                     ),
                   ),
           },

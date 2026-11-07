@@ -4,6 +4,18 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-07 (Residents and Tenants lists show everyone, 50 at a time)
+
+### fix: the Residents and Tenants lists stopped at the first 50
+
+- The lists asked the server for 50 rows and had no way to ask for more, so a society with more than 50 residents or
+  tenants could not see the rest (or find them without searching). Both lists now show **Showing 50, load the next 50**
+  under the last row while the server has more, and keep adding 50 at a time until everyone is there. Search and all the
+  filters apply to the whole list, and loading more keeps the filters you have set. The desktop table pages 50 rows per
+  page as well.
+
+---
+
 ## 2026-11-07 (Filters on the Residents, Tenants, Flats and Staff lists)
 
 ### feat: filter the lists the way you check them
