@@ -448,6 +448,24 @@ void main() {
     expect(purpleBar, isTrue); // a purple bar down the side of every bank row
   });
 
+  testWidgets('Cleared tab: the books\' entries are blue like the app side of the Match tab', (t) async {
+    _phone(t);
+    final l = BrsLine.fromJson({..._line('PV/2026-27/0003', '900.00', 'payment'), 'cleared_date': '2026-10-10'});
+    await t.pumpWidget(_screen(_FakeApi(clearedList: [l])));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Cleared'));
+    await t.pumpAndSettle();
+    expect(find.text('Entries from your books that the bank has cleared'), findsOneWidget);
+    expect(t.widget<Icon>(find.byIcon(Icons.menu_book_rounded)).color, AppTheme.primary);
+    final blueBar = t
+        .widgetList<DecoratedBox>(find.ancestor(of: find.byKey(const ValueKey('cleared-e-PV/2026-27/0003')), matching: find.byType(DecoratedBox)))
+        .any((d) {
+      final b = d.decoration;
+      return b is BoxDecoration && b.border is Border && (b.border! as Border).left.color == AppTheme.primary;
+    });
+    expect(blueBar, isTrue); // a blue bar down the side of every cleared entry
+  });
+
   testWidgets('without a bank ledger there is nothing to reconcile and it says how to start', (t) async {
     _phone(t);
     await t.pumpWidget(_screen(_FakeApi(), ledgers: const []));
