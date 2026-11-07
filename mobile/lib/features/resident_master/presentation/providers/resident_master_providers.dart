@@ -29,15 +29,26 @@ class ResidentListNotifier extends StateNotifier<ResidentListState> {
   bool? _lastIsActive = true;
   String? _lastSearch;
   String? _lastFlatId;
+  String? _lastWingId;
+  bool? _lastMovedIn;
 
-  Future<void> load({String? residentType, bool? isActive = true, String? search, String? flatId}) async {
+  Future<void> load({
+    String? residentType,
+    bool? isActive = true,
+    String? search,
+    String? flatId,
+    String? wingId,
+    bool? movedIn,
+  }) async {
     _lastResidentType = residentType;
     _lastIsActive = isActive;
     _lastSearch = search;
     _lastFlatId = flatId;
+    _lastWingId = wingId;
+    _lastMovedIn = movedIn;
     state = ResidentListLoading();
     final result = await _repo.listResidents(
-      flatId: flatId, residentType: residentType, isActive: isActive, search: search,
+      flatId: flatId, wingId: wingId, movedIn: movedIn, residentType: residentType, isActive: isActive, search: search,
     );
     switch (result) {
       case RmSuccess(:final data): state = ResidentListLoaded(data);
@@ -52,7 +63,7 @@ class ResidentListNotifier extends StateNotifier<ResidentListState> {
   // re-fetches, since the list screen's _load() only runs from initState).
   Future<void> refresh() => load(
         residentType: _lastResidentType, isActive: _lastIsActive,
-        search: _lastSearch, flatId: _lastFlatId,
+        search: _lastSearch, flatId: _lastFlatId, wingId: _lastWingId, movedIn: _lastMovedIn,
       );
 }
 
@@ -249,13 +260,35 @@ class TenantListNotifier extends StateNotifier<TenantListState> {
   bool? _lastIsActive = true;
   String? _lastSearch;
   String? _lastFlatId;
+  String? _lastWingId;
+  bool? _lastMovedIn;
+  String? _lastAgreement;
+  String? _lastPolice;
+  bool? _lastKyc;
 
-  Future<void> load({bool? isActive = true, String? search, String? flatId}) async {
+  Future<void> load({
+    bool? isActive = true,
+    String? search,
+    String? flatId,
+    String? wingId,
+    bool? movedIn,
+    String? agreement,
+    String? police,
+    bool? kycVerified,
+  }) async {
     _lastIsActive = isActive;
     _lastSearch = search;
     _lastFlatId = flatId;
+    _lastWingId = wingId;
+    _lastMovedIn = movedIn;
+    _lastAgreement = agreement;
+    _lastPolice = police;
+    _lastKyc = kycVerified;
     state = TenantListLoading();
-    final result = await _repo.listTenants(flatId: flatId, isActive: isActive, search: search);
+    final result = await _repo.listTenants(
+      flatId: flatId, wingId: wingId, movedIn: movedIn, agreement: agreement, police: police,
+      kycVerified: kycVerified, isActive: isActive, search: search,
+    );
     switch (result) {
       case RmSuccess(:final data): state = TenantListLoaded(data);
       case RmFailure(:final message, :final statusCode): state = TenantListError(message, statusCode: statusCode);
@@ -263,7 +296,10 @@ class TenantListNotifier extends StateNotifier<TenantListState> {
   }
 
   // See ResidentListNotifier.refresh() — same fix, same reason.
-  Future<void> refresh() => load(isActive: _lastIsActive, search: _lastSearch, flatId: _lastFlatId);
+  Future<void> refresh() => load(
+        isActive: _lastIsActive, search: _lastSearch, flatId: _lastFlatId, wingId: _lastWingId,
+        movedIn: _lastMovedIn, agreement: _lastAgreement, police: _lastPolice, kycVerified: _lastKyc,
+      );
 }
 
 final tenantListProvider = StateNotifierProvider<TenantListNotifier, TenantListState>((ref) {

@@ -138,7 +138,8 @@ class _FakeDataSource extends ResidentMasterRemoteDataSource {
 
   @override
   Future<List<ResidentModel>> listResidents({
-    String? flatId, String? residentType, bool? isActive, String? search, int skip = 0, int limit = 50,
+    String? flatId, String? wingId, String? residentType, bool? isActive, bool? movedIn, String? search,
+    int skip = 0, int limit = 50,
   }) async => residents;
 
   @override
@@ -155,7 +156,8 @@ class _FakeDataSource extends ResidentMasterRemoteDataSource {
 
   @override
   Future<List<TenantModel>> listTenants({
-    String? flatId, bool? isActive, String? search, int skip = 0, int limit = 50,
+    String? flatId, String? wingId, bool? isActive, bool? movedIn, String? agreement, String? police,
+    bool? kycVerified, String? search, int skip = 0, int limit = 50,
   }) async => tenants;
 
   @override
@@ -956,7 +958,8 @@ class _ThrowingResidentListDataSource extends ResidentMasterRemoteDataSource {
 
   @override
   Future<List<ResidentModel>> listResidents({
-    String? flatId, String? residentType, bool? isActive, String? search, int skip = 0, int limit = 50,
+    String? flatId, String? wingId, String? residentType, bool? isActive, bool? movedIn, String? search,
+    int skip = 0, int limit = 50,
   }) async {
     throw DioException(
       requestOptions: RequestOptions(path: '/residents/'),

@@ -24,6 +24,16 @@ class StaffListScreen extends ConsumerStatefulWidget {
 class _StaffListScreenState extends ConsumerState<StaffListScreen> {
   String _search = '';
   String? _departmentFilter;
+  String? _statusFilter;
+
+  static const _statusOptions = <(String?, String)>[
+    (null, 'Any status'),
+    ('active', 'Active'),
+    ('probation', 'Probation'),
+    ('on_leave', 'On leave'),
+    ('inactive', 'Inactive'),
+    ('terminated', 'Terminated'),
+  ];
 
   static const _departments = [
     null,
@@ -141,6 +151,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
   }
 
   List<StaffEntity> _filtered(List<StaffEntity> allStaff) => allStaff.where((s) {
+        if (_statusFilter != null && s.status != _statusFilter) return false;
         if (_search.isEmpty) return true;
         return s.fullName.toLowerCase().contains(_search) ||
             s.employeeCode.toLowerCase().contains(_search) ||
@@ -182,6 +193,24 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
                     ref.read(staffListProvider.notifier).load(societyId, department: dept);
                   }
                 },
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 34,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _statusOptions.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, i) {
+              final (value, label) = _statusOptions[i];
+              return AppFilterPill(
+                key: ValueKey('staff-status-${value ?? 'any'}'),
+                label: label,
+                selected: value == _statusFilter,
+                onTap: () => setState(() => _statusFilter = value),
               );
             },
           ),

@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Literal, Optional
 from uuid import UUID
 
 from app.db.session import get_db
@@ -35,7 +35,13 @@ def import_tenants_file(data: TenantImportRequest, db: Session = Depends(get_db)
 @router.get("/", response_model=List[TenantOut])
 def list_tenants(
     flat_id: Optional[UUID] = None,
+    wing_id: Optional[UUID] = None,
     is_active: Optional[bool] = True,
+    moved_in: Optional[bool] = Query(None, description="true: living there now; false: no move-in date yet"),
+    agreement: Optional[Literal["running", "expiring", "expired", "none"]] = Query(
+        None, description="By the agreement's end date: running, expiring (within 30 days), expired, none on record"),
+    police: Optional[Literal["pending", "submitted", "verified", "rejected"]] = None,
+    kyc_verified: Optional[bool] = None,
     search: Optional[str] = None,
     skip: int = 0,
     limit: int = 50,
@@ -44,6 +50,7 @@ def list_tenants(
 ):
     rows = TenantService(db).list(
         current_user, flat_id=flat_id, is_active=is_active, search=search, skip=skip, limit=limit,
+        wing_id=wing_id, moved_in=moved_in, agreement=agreement, police=police, kyc_verified=kyc_verified,
     )
     return [hide_private(t, current_user, TENANT_PRIVATE_FIELDS) for t in rows]
 

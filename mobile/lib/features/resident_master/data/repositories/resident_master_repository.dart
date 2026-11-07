@@ -49,15 +49,17 @@ class ResidentMasterRepository {
 
   Future<RmResult<List<ResidentModel>>> listResidents({
     String? flatId,
+    String? wingId,
     String? residentType,
     bool? isActive,
+    bool? movedIn,
     String? search,
     int skip = 0,
     int limit = 50,
   }) async {
     try {
       return RmSuccess(await _ds.listResidents(
-        flatId: flatId, residentType: residentType, isActive: isActive,
+        flatId: flatId, wingId: wingId, residentType: residentType, isActive: isActive, movedIn: movedIn,
         search: search, skip: skip, limit: limit,
       ));
     } catch (e) {
@@ -151,14 +153,20 @@ class ResidentMasterRepository {
 
   Future<RmResult<List<TenantModel>>> listTenants({
     String? flatId,
+    String? wingId,
     bool? isActive,
+    bool? movedIn,
+    String? agreement,
+    String? police,
+    bool? kycVerified,
     String? search,
     int skip = 0,
     int limit = 50,
   }) async {
     try {
       return RmSuccess(await _ds.listTenants(
-        flatId: flatId, isActive: isActive, search: search, skip: skip, limit: limit,
+        flatId: flatId, wingId: wingId, isActive: isActive, movedIn: movedIn, agreement: agreement, police: police,
+        kycVerified: kycVerified, search: search, skip: skip, limit: limit,
       ));
     } catch (e) {
       return _handle(e);

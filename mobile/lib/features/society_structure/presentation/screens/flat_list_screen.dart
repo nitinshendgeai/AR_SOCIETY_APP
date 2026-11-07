@@ -24,6 +24,9 @@ class FlatListScreen extends ConsumerStatefulWidget {
 class _FlatListScreenState extends ConsumerState<FlatListScreen> {
   final _search = TextEditingController();
   String? _occupancyFilter;
+  String? _wingId; // a wing, floor or type picked here; a list opened from a wing or floor is already narrowed to it
+  int? _floor;
+  String? _type;
 
   static const _occupancyOptions = [
     'all', 'vacant', 'owner_occupied', 'tenant_occupied'
@@ -47,6 +50,9 @@ class _FlatListScreenState extends ConsumerState<FlatListScreen> {
       if (_occupancyFilter != null && _occupancyFilter != 'all') {
         if (f.occupancyStatus != _occupancyFilter) return false;
       }
+      if (_wingId != null && f.wingId != _wingId) return false;
+      if (_floor != null && f.floor != _floor) return false;
+      if (_type != null && f.flatType != _type) return false;
       if (q.isEmpty) return true;
       return f.flatNumber.toLowerCase().contains(q) ||
           (f.wingName?.toLowerCase().contains(q) ?? false) ||
@@ -62,6 +68,46 @@ class _FlatListScreenState extends ConsumerState<FlatListScreen> {
           if (widget.filterFloor != null) 'floor': widget.filterFloor,
         },
       );
+
+  /// Wing, floor and flat type, each offering only what the society's flats actually have.
+  Widget _pickers() {
+    final flats = ref.watch(flatsBySocietyProvider).valueOrNull ?? const <FlatModel>[];
+    final wings = <String, String>{for (final f in flats) f.wingId: f.wingName ?? ''}..removeWhere((_, n) => n.isEmpty);
+    final wingList = wings.entries.toList()..sort((a, b) => a.value.compareTo(b.value));
+    final floors = {for (final f in flats) if (f.floor != null) f.floor!}.toList()..sort();
+    final types = {for (final f in flats) if ((f.flatType ?? '').isNotEmpty) f.flatType!}.toList()..sort();
+    Widget picker<T>(String key, String label, T? value, List<DropdownMenuItem<T?>> items, ValueChanged<T?> onChanged) =>
+        Expanded(
+          child: DropdownButtonFormField<T?>(
+            key: ValueKey(key),
+            initialValue: value,
+            isExpanded: true,
+            decoration: InputDecoration(labelText: label, isDense: true),
+            items: items,
+            onChanged: onChanged,
+          ),
+        );
+    return Row(children: [
+      if (widget.filterWing == null) ...[
+        picker<String>('flats-filter-wing', 'Wing', wings.containsKey(_wingId) ? _wingId : null, [
+          const DropdownMenuItem<String?>(value: null, child: Text('All wings')),
+          for (final w in wingList) DropdownMenuItem<String?>(value: w.key, child: Text(w.value)),
+        ], (v) => setState(() => _wingId = v)),
+        const SizedBox(width: 8),
+      ],
+      if (widget.filterFloor == null) ...[
+        picker<int>('flats-filter-floor', 'Floor', floors.contains(_floor) ? _floor : null, [
+          const DropdownMenuItem<int?>(value: null, child: Text('All floors')),
+          for (final n in floors) DropdownMenuItem<int?>(value: n, child: Text('Floor $n')),
+        ], (v) => setState(() => _floor = v)),
+        const SizedBox(width: 8),
+      ],
+      picker<String>('flats-filter-type', 'Type', types.contains(_type) ? _type : null, [
+        const DropdownMenuItem<String?>(value: null, child: Text('All types')),
+        for (final t in types) DropdownMenuItem<String?>(value: t, child: Text(t)),
+      ], (v) => setState(() => _type = v)),
+    ]);
+  }
 
   Widget _filters() => Column(children: [
       TextField(
@@ -80,6 +126,8 @@ class _FlatListScreenState extends ConsumerState<FlatListScreen> {
               : null,
         ),
       ),
+      const SizedBox(height: 8),
+      _pickers(),
       const SizedBox(height: 8),
       SingleChildScrollView(
         scrollDirection: Axis.horizontal,

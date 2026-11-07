@@ -50,6 +50,8 @@ class ResidentRepository(BaseRepository[Resident]):
         skip: int = 0,
         limit: int = 50,
         search_contacts: bool = True,
+        wing_id: Optional[UUID] = None,
+        moved_in: Optional[bool] = None,
     ) -> List[Resident]:
         # Always joined (not just when scoping by society_id) — flat_id/wing_id
         # are both non-nullable on Resident/Flat, and the ordering below needs
@@ -61,6 +63,12 @@ class ResidentRepository(BaseRepository[Resident]):
             q = q.filter(Wing.society_id == society_id)
         if flat_id is not None:
             q = q.filter(Resident.flat_id == flat_id)
+        if wing_id is not None:
+            q = q.filter(Flat.wing_id == wing_id)
+        if moved_in is True:                    # living there now: a move-in date and no move-out
+            q = q.filter(Resident.move_in_date.isnot(None), Resident.move_out_date.is_(None))
+        elif moved_in is False:                 # on record, but no move-in date yet
+            q = q.filter(Resident.move_in_date.is_(None))
         if resident_type is not None:
             q = q.filter(Resident.resident_type == resident_type)
         if is_active is not None:

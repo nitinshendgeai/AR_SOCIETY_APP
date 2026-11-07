@@ -8,6 +8,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
+import 'package:ar_society_app/features/resident_master/presentation/widgets/people_filters.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
@@ -31,6 +32,9 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
   Timer? _debounce;
   String? _typeFilter;
   bool? _activeFilter = true;
+  String? _wingId;
+  String? _flatId; // chosen in the filter; a list opened from one flat (filterFlat) is already that flat's
+  bool? _movedIn;
 
   static const _typeOptions = [
     (null, 'All'),
@@ -58,7 +62,9 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
           residentType: _typeFilter,
           isActive: _activeFilter,
           search: _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim(),
-          flatId: widget.filterFlat?.id,
+          flatId: widget.filterFlat?.id ?? _flatId,
+          wingId: widget.filterFlat == null ? _wingId : null,
+          movedIn: _movedIn,
         );
   }
 
@@ -140,6 +146,31 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
           filled: true,
           fillColor: AppTheme.cardBg,
         ),
+      ),
+      const SizedBox(height: 10),
+      if (widget.filterFlat == null) ...[
+        WingFlatFilter(
+          wingId: _wingId,
+          flatId: _flatId,
+          onChanged: (wing, flat) {
+            setState(() {
+              _wingId = wing;
+              _flatId = flat;
+            });
+            _load();
+          },
+        ),
+        const SizedBox(height: 10),
+      ],
+      FilterChoiceRow<bool>(
+        label: 'Move-in',
+        keyPrefix: 'filter-moved-in',
+        options: movedInOptions,
+        value: _movedIn,
+        onChanged: (v) {
+          setState(() => _movedIn = v);
+          _load();
+        },
       ),
       const SizedBox(height: 10),
       Row(children: [
