@@ -192,3 +192,16 @@ def test_cancelled_bill_excluded_from_cycle_totals(client, db):
     cycle = client.get(f"/api/v1/billing/cycles/detail/{cycle_id}", headers=manager["headers"]).json()
     assert cycle["bills_count"] == 1
     assert cycle["total_billed"] == "2854.00"
+
+
+def test_changing_a_cycles_due_date_moves_its_bills_too(client, db):
+    society, flat1, flat2, manager, resident, other, cycle_id = _generated_cycle(client, db, "dd1")
+    h = manager["headers"]
+    r = client.patch(f"/api/v1/billing/cycles/{cycle_id}/due-date", json={"due_date": "2026-11-10"}, headers=h)
+    assert r.status_code == 200, r.text
+    assert r.json()["due_date"] == "2026-11-10"
+    from uuid import UUID
+    from app.modules.billing.models.billing import MaintenanceBill
+    db.expire_all()
+    bills = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id)).all()
+    assert bills and all(b.due_date == date(2026, 11, 10) for b in bills)

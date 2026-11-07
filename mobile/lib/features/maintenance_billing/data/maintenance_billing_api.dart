@@ -1141,6 +1141,13 @@ class MaintenanceBillingApi {
     return BillingCycle.fromJson(r.data as Map<String, dynamic>);
   }
 
+  /// Corrects a cycle's due date; the bills of the cycle follow.
+  Future<BillingCycle> setCycleDueDate(String cycleId, DateTime dueDate) async {
+    final r = await _dio.patch('/billing/cycles/$cycleId/due-date',
+        data: {'due_date': dueDate.toIso8601String().split('T').first});
+    return BillingCycle.fromJson(r.data as Map<String, dynamic>);
+  }
+
   /// Making or issuing every bill of a society takes longer than the 15 seconds an ordinary request is given.
   static final _longRunning = Options(receiveTimeout: const Duration(minutes: 3));
 

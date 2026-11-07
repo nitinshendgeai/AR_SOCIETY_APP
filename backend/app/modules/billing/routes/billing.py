@@ -70,6 +70,9 @@ class CycleCreate(OrmBase):
     due_date: date; frequency: CycleFrequency = CycleFrequency.MONTHLY
     period_id: Optional[UUID] = None; notes: Optional[str] = None
 
+class CycleDueDate(OrmBase):
+    due_date: date
+
 class CancelBillRequest(OrmBase):
     reason: str
 
@@ -470,6 +473,12 @@ def create_cycle(data: CycleCreate, request: Request, db: Session = Depends(get_
     if data.cycle_end < data.cycle_start:
         raise HTTPException(422, "Cycle end date must be on or after the start date")
     return _cycle_out(BillingService(db).create_cycle(data.model_dump(), user, request))
+
+@router.patch("/cycles/{cycle_id}/due-date", dependencies=[Depends(manager_above)])
+def set_cycle_due_date(cycle_id: UUID, data: CycleDueDate, request: Request, db: Session = Depends(get_db),
+                       user: User = Depends(get_current_user)):
+    """Correct the due date of a cycle and of all its bills."""
+    return _cycle_out(BillingService(db).set_cycle_due_date(cycle_id, data.due_date, user, request))
 
 @router.get("/cycles/{society_id}", dependencies=[Depends(manager_above)])
 def list_cycles(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):

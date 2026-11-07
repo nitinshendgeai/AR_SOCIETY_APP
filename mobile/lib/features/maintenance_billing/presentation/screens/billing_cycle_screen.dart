@@ -81,6 +81,21 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
     });
   }
 
+  Future<void> _changeDueDate(BillingCycle cycle) async {
+    final picked = await showDatePicker(
+      context: context,
+      helpText: 'Due date for every bill of ${cycle.name}',
+      initialDate: cycle.dueDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(DateTime.now().year + 2, 12, 31),
+    );
+    if (picked == null || picked == cycle.dueDate) return;
+    await _run(() async {
+      await ref.read(maintenanceBillingApiProvider).setCycleDueDate(widget.cycleId, picked);
+      if (mounted) AppToast.success(context, 'Due date changed to ${formatBillDate(picked)}');
+    });
+  }
+
   Future<void> _regenerate(BillingCycle cycle) async {
     final ok = await _confirm(
       'Regenerate the unissued bills?',
@@ -191,6 +206,13 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
               icon: Icons.restart_alt_rounded,
               label: 'Regenerate bills',
               onPressed: _busy ? null : () => _regenerate(cycle),
+            ),
+          if (cycle != null)
+            IconButton(
+              key: const Key('cycle-due-date'),
+              tooltip: 'Change the due date of this cycle and its bills',
+              icon: const Icon(Icons.event_rounded),
+              onPressed: _busy ? null : () => _changeDueDate(cycle),
             ),
           IconButton(icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh', onPressed: _refresh),
           if (desktop && action != null)
