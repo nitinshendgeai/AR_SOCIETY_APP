@@ -431,6 +431,23 @@ void main() {
     expect(tick('match-row-r1'), AppTheme.secondary);
   });
 
+  testWidgets('Bank rows tab: the rows are purple like the bank side of the Match tab', (t) async {
+    _phone(t);
+    await t.pumpWidget(_screen(_FakeApi(rowList: [_row('r1')])));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Bank rows'));
+    await t.pumpAndSettle();
+    expect(find.text('Rows from the bank statement'), findsOneWidget);
+    expect(t.widget<Icon>(find.byIcon(Icons.account_balance_rounded)).color, AppTheme.secondary);
+    final purpleBar = t
+        .widgetList<DecoratedBox>(find.ancestor(of: find.byKey(const ValueKey('row-r1')), matching: find.byType(DecoratedBox)))
+        .any((d) {
+      final b = d.decoration;
+      return b is BoxDecoration && b.border is Border && (b.border! as Border).left.color == AppTheme.secondary;
+    });
+    expect(purpleBar, isTrue); // a purple bar down the side of every bank row
+  });
+
   testWidgets('without a bank ledger there is nothing to reconcile and it says how to start', (t) async {
     _phone(t);
     await t.pumpWidget(_screen(_FakeApi(), ledgers: const []));
