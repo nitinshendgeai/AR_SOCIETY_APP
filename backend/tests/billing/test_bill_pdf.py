@@ -65,6 +65,8 @@ def test_monthly_expenses_share_one_head_and_levies_keep_their_own():
     assert head("Cheque Bounce Charges") == "Cheque Bounce Charges"
     assert head("In & Out Charges") == "In & Out Charges"
     assert head("Festival Fund") == "Other Charges"
+    assert head("Contingency Fund") == "Contingency Fund"
+    assert head("Reserve", ChargeType.OTHER, "contingency_fund") == "Contingency Fund"
     assert head("Legal Charges", ChargeType.OTHER, "education_fund") == "Maintenance Charges"
 
 
@@ -109,8 +111,8 @@ def test_bill_layout_heads_totals_and_notes(client, db):
         "No Head Amount (Rs.)",
         # Maintenance + Water (monthly expenses) together; levies on their own heads
         "1 Maintenance Charges 2,800.00 2 Sinking Fund 100.00 3 Repair & Maintenance Fund 0.00 "
-        "4 Property Tax 0.00 5 Non Occupancy Charges 0.00 6 Parking Charges 0.00 "
-        "7 Cheque Bounce Charges 0.00 8 In & Out Charges 0.00 9 Other Charges 50.00 10 CGST @ 9% 27.00 11 SGST @ 9% 27.00",
+        "4 Contingency Fund 0.00 5 Property Tax 0.00 6 Non Occupancy Charges 0.00 7 Parking Charges 0.00 "
+        "8 Cheque Bounce Charges 0.00 9 In & Out Charges 0.00 10 Other Charges 50.00 11 CGST @ 9% 27.00 12 SGST @ 9% 27.00",
         "Current Bill Amount 3,004.00 Arrears/Advances 0.00 Current Interest/ Late Fees 0.00 "
         "Previous Interest/ Late Fees 0.00 Total Maintenance Payable Amount Rs. 3,004.00",
         "Notes * We recommend payment through NEFT, giving following details",
@@ -472,3 +474,17 @@ def test_the_compact_letterhead_is_the_same_letterhead_in_less_height():
     compact_height, compact_lines = height(True)
     assert compact_lines == full_lines == 3                    # name, Regn. No. | PAN, address: nothing dropped
     assert compact_height < full_height - 10                   # clearly shorter, not a rounding difference
+
+
+def test_contingency_fund_prints_on_its_own_line(client, db):
+    society, flat1, flat2, manager, resident, other = _rig(db, "pdfcf")
+    h = manager["headers"]
+    _charge(client, h, society.id, amount="2500.00")
+    _charge(client, h, society.id, name="Contingency Fund", amount="121.00", charge_type="other")
+    cycle_id = _cycle(client, h, society.id).json()["id"]
+    assert client.post(f"/api/v1/billing/cycles/{cycle_id}/generate-bills", headers=h).status_code == 200
+    bill_id = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=flat1.id).one().id
+    _, text = _bill_pdf(db, bill_id)
+    assert "1 Maintenance Charges 2,500.00" in text and "4 Contingency Fund 121.00" in text
+    assert "Other Charges 0.00" in text             # not lumped into Other Charges
+    assert "Current Bill Amount 2,621.00" in text

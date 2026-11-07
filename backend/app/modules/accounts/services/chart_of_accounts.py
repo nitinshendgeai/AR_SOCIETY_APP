@@ -148,6 +148,7 @@ ELEMENT_LEDGER = {
     "lease_rent_na_tax": "lease_rent_recovered",
     "repair_fund": "repair_fund",
     "sinking_fund": "sinking_fund",
+    "contingency_fund": "reserve_fund",
     "education_fund": "education_fund",
     "parking": "parking_charges",
     "amenities": "amenities_income",
