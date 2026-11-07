@@ -106,7 +106,8 @@ void main() {
     final asked = <MoreRegisterKey>[];
     await tester.pumpWidget(_app('rental', _rental, asked));
     await tester.pumpAndSettle();
-    expect(find.text('Ravi Tenant'), findsOneWidget);
+    expect(find.text('A 101'), findsOneWidget);                          // a card is headed by the unit
+    expect(find.text('Tenant: Ravi Tenant'), findsOneWidget);
     expect(find.text('Rent: 20000.00'), findsOneWidget);
     expect(asked.last.status, isNull);
 
