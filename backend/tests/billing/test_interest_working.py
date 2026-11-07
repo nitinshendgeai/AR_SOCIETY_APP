@@ -26,8 +26,10 @@ def _second_bill(client, db, tag, **waiver):
 
 
 def _pdf_text(db, bill, with_receipts=True):
+    from tests.billing.test_bill_pdf import _with_layout
     svc = BillingService(db)
-    pdf = generate_maintenance_bill_pdf(bill, svc.get_maintenance_settings(bill.society_id), compress=False,
+    settings = _with_layout(svc.get_maintenance_settings(bill.society_id), "standard")   # the layout these asserts read
+    pdf = generate_maintenance_bill_pdf(bill, settings, compress=False,
                                         **svc._bill_print_context(bill, with_receipts=with_receipts))
     return " ".join(_text(pdf).replace("|", " ").split())
 

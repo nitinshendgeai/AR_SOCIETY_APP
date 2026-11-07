@@ -425,7 +425,7 @@ def _settings_out(st) -> dict:
         "bank_ifsc": st.bank_ifsc,
         "upi_id": st.upi_id,
         "bill_notes": st.bill_notes,
-        "bill_layout": st.bill_layout or "standard",
+        "bill_layout": st.bill_layout or "boxed",
         "billing_start_date": st.billing_start_date.isoformat() if st.billing_start_date else None,
         "auto_approve_admin_expenses": bool(st.auto_approve_admin_expenses),
         "round_to_rupee": bool(st.round_to_rupee),

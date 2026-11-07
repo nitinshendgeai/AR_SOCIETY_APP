@@ -115,6 +115,7 @@ def default_settings(society_id) -> MaintenanceSettings:
         interest_rate_pct=Decimal(12), interest_grace_days=0,
         non_occupancy_pct=ZERO, gst_enabled=False,
         gst_rate_pct=Decimal(18), gst_threshold_monthly=Decimal(7500), round_to_rupee=False,
+        bill_layout="boxed",
     )
 
 
