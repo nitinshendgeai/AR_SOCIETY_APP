@@ -19,7 +19,8 @@ import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// The two sides of the Match tab are told apart by colour everywhere they appear: the society's own entries (the books)
-/// are blue, the bank's statement rows are purple. Money in keeps its green amount on either side.
+/// are blue, the bank's statement rows are purple (the Match grids, the Bank rows tab, and the books' entries offered
+/// for a bank row). Money in keeps its green amount on either side.
 const _appColor = AppTheme.primary;
 const _appSoft = AppTheme.primarySoft;
 const _bankColor = AppTheme.secondary;
@@ -571,6 +572,22 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
     final rowsAsync = ref.watch(statementRowsProvider(societyId));
     return Column(children: [
       Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+        child: Container(
+          decoration: BoxDecoration(
+              color: _bankSoft, borderRadius: BorderRadius.circular(10), border: Border.all(color: _bankColor.withValues(alpha: 0.5))),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: const Row(children: [
+            Icon(Icons.account_balance_rounded, size: 20, color: _bankColor),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text('Rows from the bank statement',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _bankColor)),
+            ),
+          ]),
+        ),
+      ),
+      Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
         child: Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
           for (final (value, label) in const [
@@ -581,6 +598,8 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
           ])
             ChoiceChip(
               label: Text(label, style: const TextStyle(fontSize: 12)),
+              selectedColor: _bankSoft,
+              checkmarkColor: _bankColor,
               selected: _rowFilter == value,
               onSelected: (_) => setState(() => _rowFilter = value),
             ),
@@ -923,7 +942,10 @@ class _RowTile extends StatelessWidget {
     };
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
+      clipBehavior: Clip.antiAlias,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(border: Border(left: BorderSide(color: _bankColor, width: 3))),
+        child: ListTile(
         key: ValueKey('row-${row.id}'),
         onTap: onTap,
         leading: Icon(row.isCredit ? Icons.south_west_rounded : Icons.north_east_rounded,
@@ -938,6 +960,7 @@ class _RowTile extends StatelessWidget {
           const SizedBox(height: 4),
           StatusPill(row.matchStatus[0].toUpperCase() + row.matchStatus.substring(1), color),
         ]),
+      ),
       ),
     );
   }
@@ -1023,12 +1046,16 @@ class _RowSheetState extends ConsumerState<_RowSheet> {
                 ),
               )
             : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                const Text('Could be', style: TextStyle(fontWeight: FontWeight.w700)),
+                const Text('Could be', style: TextStyle(fontWeight: FontWeight.w700, color: _appColor)),
+                const Text('Entries in your books', style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
                 const SizedBox(height: 8),
                 for (final l in list)
                   Card(
                     margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
+                    clipBehavior: Clip.antiAlias,
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(border: Border(left: BorderSide(color: _appColor, width: 3))),
+                      child: ListTile(
                       title: Text('${l.voucherNumber}${l.party == null ? '' : ' · ${l.party}'}',
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                       subtitle:
@@ -1042,6 +1069,7 @@ class _RowSheetState extends ConsumerState<_RowSheet> {
                                 _do(() => api.match(widget.societyId, row.id, l.entryId), '${l.voucherNumber} cleared'),
                         child: const Text('Match'),
                       ),
+                    ),
                     ),
                   ),
               ]),
