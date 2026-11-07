@@ -27,11 +27,11 @@ from app.modules.accounts.services.accounts_service import AccountsService
 from app.modules.accounts.services.recurring_expenses import RecurringExpenseService
 from app.modules.amenity.models.amenity import AmenityBooking, BookingStatus
 from app.modules.billing.models.billing import BillingCycle
-from app.modules.billing.repositories.billing_repo import MaintenanceBillRepo
 from app.modules.billing.routes.billing import _cycle_out
-from app.modules.complaint.models.complaint import Complaint, ComplaintStatus
+from app.modules.billing.services.defaulters import MemberDues, months_before
+from app.modules.complaint.models.complaint import OPEN_STATUSES, Complaint
 from app.modules.inventory.services.inventory_service import InventoryService
-from app.modules.staff.models.staff import LeaveStatus, StaffAttendance, StaffLeave
+from app.modules.staff.models.staff import LeaveStatus, Staff, StaffAttendance, StaffLeave
 from app.modules.vendor.models.vendor import VendorInvoice
 from app.modules.visitor.models.visitor import Visitor, VisitorStatus
 from app.utils.local_time import local_today, to_local, utc_naive, zone
@@ -39,8 +39,9 @@ from app.utils.local_time import local_today, to_local, utc_naive, zone
 logger = logging.getLogger(__name__)
 
 ZERO = Decimal(0)
-OPEN_COMPLAINTS = (ComplaintStatus.OPEN, ComplaintStatus.ASSIGNED,
-                   ComplaintStatus.IN_PROGRESS, ComplaintStatus.REOPENED)
+# A flat is a defaulter when part of its dues has been outstanding longer than this many months after the due date.
+# It is the Defaulters screen's own default, so the dashboard and that screen show the same flats.
+DEFAULT_MONTHS = 3
 
 
 def _money(v) -> str:
@@ -59,6 +60,7 @@ class DashboardService:
     def __init__(self, db: Session):
         self.db = db
         self.errors: list = []      # names of the blocks that failed in this call
+        self._dues_cache: dict = {}
 
     # ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -71,19 +73,26 @@ class DashboardService:
             self.errors.append(name)
             return default
 
+    def _member_dues(self, society_id: UUID, today: date) -> list:
+        """Every flat with dues, once per call: the money card and the defaulters row both read it."""
+        key = (society_id, today)
+        if key not in self._dues_cache:
+            self._dues_cache[key] = MemberDues(self.db).flats(society_id, today)
+        return self._dues_cache[key]
+
     def _flats(self, society_id: UUID):
         return (self.db.query(Flat).join(Wing, Flat.wing_id == Wing.id)
                 .filter(Wing.society_id == society_id, Flat.is_active == True))
 
     # ── Blocks ───────────────────────────────────────────────────────────────
 
-    def _collection(self, society_id: UUID) -> Optional[dict]:
+    def _collection(self, society_id: UUID, today: date) -> Optional[dict]:
         cycles = (self.db.query(BillingCycle)
                   .filter(BillingCycle.society_id == society_id, BillingCycle.is_active == True)
                   .order_by(BillingCycle.cycle_start.desc()).limit(6).all())
         if not cycles:
             return None
-        rows = [_cycle_out(c) for c in cycles]            # newest first
+        rows = [_cycle_out(c, today) for c in cycles]     # newest first
         latest = rows[0]
         billed, collected = Decimal(latest["total_billed"]), Decimal(latest["total_collected"])
         return {
@@ -92,7 +101,8 @@ class DashboardService:
             "billed": _money(billed),
             "collected": _money(collected),
             "outstanding": latest["total_outstanding"],
-            "percent": int((collected / billed * 100).to_integral_value()) if billed > 0 else 0,
+            # Whole percent, rounded down: 99.6% collected must not read "100%" while money is still outstanding.
+            "percent": (100 if collected >= billed else int(collected / billed * 100)) if billed > 0 else 0,
             "bills": latest["bills_count"],
             "paid_bills": latest["paid_count"],
             "overdue_bills": latest["overdue_count"],
@@ -100,11 +110,15 @@ class DashboardService:
                       for r in reversed(rows)],           # oldest first, for a chart
         }
 
-    def _money_block(self, society_id: UUID) -> Optional[dict]:
+    def _money_block(self, society_id: UUID, today: date) -> Optional[dict]:
         s = AccountsService(self.db).summary(society_id)
+        # What members owe is worked out from their unpaid bills, less money paid on account - the very figure the
+        # Defaulters screen (and the outstanding report) total up, which is where this card leads. The books' own
+        # Members' Dues balance is on the Accounts screen.
+        dues = sum((fd.total for fd in self._member_dues(society_id, today)), ZERO)
         return {
             "cash": _money(s["cash"]), "bank": _money(s["bank"]),
-            "members_dues": _money(s["members_dues"]), "creditors": _money(s["creditors"]),
+            "members_dues": _money(dues), "creditors": _money(s["creditors"]),
             "fy": s["fy"], "fy_income": _money(s["fy_income"]), "fy_expense": _money(s["fy_expense"]),
         }
 
@@ -125,6 +139,12 @@ class DashboardService:
             "visitors_inside": int(base.filter(Visitor.status == VisitorStatus.CHECKED_IN).scalar() or 0),
         }
 
+    def _staff(self, society_id: UUID) -> dict:
+        """Active staff, all of them (the staff list screen pages its rows, so counting its first page would stop at 50)."""
+        n = (self.db.query(func.count(Staff.id))
+             .filter(Staff.society_id == society_id, Staff.is_active == True).scalar())  # noqa: E712
+        return {"active": int(n or 0)}
+
     def _gate_today(self, society_id: UUID, tz) -> dict:
         """What the gate needs: visitors logged today, how many were let in today, and who is inside now."""
         start = utc_naive(datetime.combine(local_today(tz), datetime.min.time(), tzinfo=tz))
@@ -144,9 +164,12 @@ class DashboardService:
                 items.append({"key": key, "count": int(count), "severity": severity, **extra})
 
         # Money
-        overdue = MaintenanceBillRepo(db).get_overdue(society_id)
-        add("overdue_bills", len({b.flat_id for b in overdue}), "high",
-            amount=_money(sum((b.outstanding for b in overdue), ZERO)))
+        # Defaulters: the flats the Defaulters screen lists by default (dues outstanding over DEFAULT_MONTHS months
+        # after the due date) and what they owe in all - its own "Defaulters" card, figure for figure.
+        cutoff = months_before(today, DEFAULT_MONTHS)
+        defaulters = [fd for fd in self._member_dues(society_id, today) if fd.overdue_beyond(cutoff) > 0]
+        add("overdue_bills", len(defaulters), "high",
+            amount=_money(sum((fd.total for fd in defaulters), ZERO)), months=DEFAULT_MONTHS)
         vendor_due = (db.query(VendorInvoice)
                       .filter(VendorInvoice.society_id == society_id, VendorInvoice.is_paid == False,
                               VendorInvoice.is_active == True,
@@ -172,8 +195,8 @@ class DashboardService:
 
         # Services
         now = datetime.utcnow()
-        open_q = db.query(Complaint).filter(Complaint.society_id == society_id,
-                                            Complaint.status.in_(OPEN_COMPLAINTS))
+        open_q = db.query(Complaint).filter(Complaint.society_id == society_id, Complaint.is_active == True,  # noqa: E712
+                                            Complaint.status.in_(OPEN_STATUSES))
         add("complaints_old", open_q.filter(Complaint.created_at < now - timedelta(days=7)).count(), "high")
         add("complaints_open", open_q.count(), "info")
         add("amenity_requests", db.query(func.count(AmenityBooking.id)).filter(
@@ -181,9 +204,15 @@ class DashboardService:
             AmenityBooking.status == BookingStatus.PENDING).scalar(), "medium")
 
         # Staff
-        add("punch_approvals", db.query(func.count(StaffAttendance.id)).filter(
-            StaffAttendance.society_id == society_id, StaffAttendance.is_active == True,
-            StaffAttendance.is_approved == False).scalar(), "medium")
+        # Punch-ins and punch-outs waiting for approval: both lists on the Approvals screen.
+        punches = db.query(func.count(StaffAttendance.id)).filter(
+            StaffAttendance.society_id == society_id, StaffAttendance.is_active == True,  # noqa: E712
+            StaffAttendance.is_approved == False).scalar() or 0  # noqa: E712
+        punches += db.query(func.count(StaffAttendance.id)).filter(
+            StaffAttendance.society_id == society_id, StaffAttendance.is_active == True,  # noqa: E712
+            StaffAttendance.check_out_time.isnot(None),
+            StaffAttendance.is_checkout_approved == False).scalar() or 0  # noqa: E712
+        add("punch_approvals", punches, "medium")
         add("leave_requests", db.query(func.count(StaffLeave.id)).filter(
             StaffLeave.society_id == society_id, StaffLeave.is_active == True,
             StaffLeave.status == LeaveStatus.PENDING).scalar(), "medium")
@@ -226,10 +255,11 @@ class DashboardService:
         today = local_today(tz)
         body = {
             "as_of": today.isoformat(),
-            "collection": self._block("collection", lambda: self._collection(society_id)),
-            "money": None if "accounts" in off else self._block("money", lambda: self._money_block(society_id)),
+            "collection": self._block("collection", lambda: self._collection(society_id, today)),
+            "money": None if "accounts" in off else self._block("money", lambda: self._money_block(society_id, today)),
             "occupancy": self._block("occupancy", lambda: self._occupancy(society_id)),
             "today": None if "visitors" in off else self._block("today", lambda: self._today(society_id, tz)),
+            "staff": None if "staff" in off else self._block("staff", lambda: self._staff(society_id)),
             "attention": self._block("attention", lambda: self._attention(society_id, today), []),
         }
         body["errors"] = list(self.errors)      # [] when every block loaded

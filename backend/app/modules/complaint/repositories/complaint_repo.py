@@ -38,6 +38,14 @@ class ComplaintRepository(BaseRepository[Complaint]):
             Complaint.is_active  == True,
         ).all()
 
+    def count_open(self, society_id: UUID) -> int:
+        from app.modules.complaint.models.complaint import OPEN_STATUSES
+        return self.db.query(Complaint).filter(
+            Complaint.society_id == society_id,
+            Complaint.status.in_(OPEN_STATUSES),
+            Complaint.is_active == True,
+        ).count()
+
     def next_complaint_number(self, society_id: UUID) -> str:
         """The society's next number: one more than its highest, so it can't
         repeat after a gap. Numbers run per society."""

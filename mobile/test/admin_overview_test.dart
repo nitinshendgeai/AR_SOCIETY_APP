@@ -29,6 +29,7 @@ Map<String, dynamic> _json({bool collection = true, List<Map<String, dynamic>> a
       },
       'occupancy': {'flats': 5, 'occupied': 3, 'vacant': 2, 'residents': 4},
       'today': {'visitors_today': 1, 'visitors_inside': 1},
+      'staff': {'active': 2},
       'attention': attention,
     };
 
@@ -42,7 +43,7 @@ Widget _wrap(Future<DashboardOverview> Function() load) => ProviderScope(
           data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(0.7)),
           child: child!,
         ),
-        home: const Scaffold(body: SingleChildScrollView(child: AdminOverview(societyId: 's1', activeStaff: '2'))),
+        home: const Scaffold(body: SingleChildScrollView(child: AdminOverview(societyId: 's1'))),
       ),
     );
 
@@ -57,7 +58,7 @@ void main() {
   testWidgets('shows collection, the things waiting on the office, money and today', (t) async {
     phone(t);
     await t.pumpWidget(_wrap(() async => DashboardOverview.fromJson(_json(attention: [
-          {'key': 'overdue_bills', 'count': 2, 'severity': 'high', 'amount': '51650'},
+          {'key': 'overdue_bills', 'count': 2, 'severity': 'high', 'amount': '51650', 'months': 3},
           {'key': 'complaints_open', 'count': 1, 'severity': 'info'},
           {'key': 'something_new_from_a_newer_server', 'count': 9, 'severity': 'high'},
         ]))));
@@ -67,12 +68,13 @@ void main() {
     expect(find.text('₹13,025'), findsOneWidget);
     expect(find.text('22%'), findsOneWidget);
     expect(find.text('Oct 26'), findsOneWidget);                      // short cycle label
-    expect(find.text('2 flats have overdue maintenance (₹51,650)'), findsOneWidget);
+    expect(find.text('2 flats have maintenance dues outstanding over 3 months (₹51,650)'), findsOneWidget);
     expect(find.text('1 open complaint'), findsOneWidget);
     expect(find.textContaining('newer_server'), findsNothing);        // unknown keys are skipped, not shown
     expect(find.text('Needs attention'), findsOneWidget);
     expect(find.text('3 of 5 flats occupied'), findsOneWidget);
     expect(find.text('Active staff'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);                           // the server's count, not a page of a list
   });
 
   testWidgets('no billing cycle and nothing waiting', (t) async {

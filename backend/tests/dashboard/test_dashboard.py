@@ -26,10 +26,11 @@ def test_empty_society_has_every_block_and_nothing_to_attend_to(client, db):
     r = _get(client, _admin(db, "dash.empty@t.com", society), society)
     assert r.status_code == 200, r.text
     body = r.json()
-    assert set(body) == {"as_of", "collection", "money", "occupancy", "today", "attention", "errors"}
+    assert set(body) == {"as_of", "collection", "money", "occupancy", "today", "staff", "attention", "errors"}
     assert body["collection"] is None                      # no billing cycle yet
     assert body["occupancy"] == {"flats": 0, "occupied": 0, "vacant": 0, "residents": 0}
     assert body["today"] == {"visitors_today": 0, "visitors_inside": 0}
+    assert body["staff"] == {"active": 0}
     assert body["attention"] == []
     assert body["money"]["fy_income"] == "0"
 
@@ -99,7 +100,7 @@ def test_a_failing_block_does_not_blank_the_page(client, db, monkeypatch):
     from app.modules.dashboard.services import dashboard_service as ds
     society = make_society(db, "Dash Fail")
     admin = _admin(db, "dash.fail@t.com", society)
-    monkeypatch.setattr(ds.DashboardService, "_money_block", lambda self, sid: 1 / 0)
+    monkeypatch.setattr(ds.DashboardService, "_money_block", lambda self, sid, today: 1 / 0)
     r = _get(client, admin, society)
     assert r.status_code == 200
     assert r.json()["money"] is None
@@ -121,7 +122,7 @@ def test_a_failing_collection_block_is_reported(client, db, monkeypatch):
     from app.modules.dashboard.services import dashboard_service as ds
     society = make_society(db, "Dash Coll Fail")
     admin = _admin(db, "dash.coll@t.com", society)
-    monkeypatch.setattr(ds.DashboardService, "_collection", lambda self, sid: 1 / 0)
+    monkeypatch.setattr(ds.DashboardService, "_collection", lambda self, sid, today: 1 / 0)
     body = _get(client, admin, society).json()
     assert body["collection"] is None
     # The service rolls back after a failed block; in this test's single outer transaction that also drops the
@@ -228,3 +229,112 @@ def test_a_failing_gate_block_is_reported(client, db, monkeypatch):
     body = _gate(client, guard, society).json()
     assert body["today"] is None
     assert body["errors"] == ["today"]
+
+
+# ── The figures are the ones on the screens they lead to ─────────────────────────────────────────────
+
+def _staff(db, society, n, active=True):
+    from app.modules.staff.models.staff import Staff, StaffDepartment, StaffStatus
+    s = Staff(society_id=society.id, employee_code=f"D{society.id.hex[:4]}{n}", full_name=f"Staff {n}",
+              mobile=f"97{n:08d}", department=StaffDepartment.SECURITY, status=StaffStatus.ACTIVE, is_active=active)
+    db.add(s)
+    return s
+
+
+def test_active_staff_is_every_active_member_not_one_page(client, db):
+    """The staff list is paged (50 a page), so counting what it returned stopped at 50."""
+    society = make_society(db, "Dash Staff")
+    admin = _admin(db, "dash.staff@t.com", society)
+    for n in range(55):
+        _staff(db, society, n)
+    _staff(db, society, 900, active=False)      # left; not counted
+    db.commit()
+    assert _get(client, admin, society).json()["staff"] == {"active": 55}
+
+
+def test_defaulters_and_members_owe_match_the_defaulters_screen(client, db):
+    """The "defaulters" row and the "Members owe" card show the Defaulters screen's own totals."""
+    from decimal import Decimal
+    from tests.billing.test_defaulters import _two_cycles
+    society, _f1, _f2, manager, _res = _two_cycles(client, db, "dsh1")
+    screen = client.get(f"/api/v1/billing/defaulters/{society.id}", headers=manager["headers"]).json()["summary"]
+    assert screen["defaulters"] == 1 and screen["flats_with_dues"] == 2         # the rig: one over 3 months, one under
+
+    admin = _admin(db, "dash.dues@t.com", society)
+    body = _get(client, admin, society).json()
+    row = _attention(body)["overdue_bills"]
+    assert row["count"] == screen["defaulters"]
+    assert Decimal(row["amount"]) == Decimal(screen["defaulters_outstanding"])
+    assert row["months"] == screen["min_months"] == 3
+    assert Decimal(body["money"]["members_dues"]) == Decimal(screen["total_outstanding"])
+
+
+def test_open_complaints_mean_the_same_everywhere(client, db):
+    """Open, assigned, in progress and reopened are open; resolved, closed, rejected and deleted ones are not. The
+    admin dashboard and the manager's count agree."""
+    from app.modules.complaint.models.complaint import Complaint, ComplaintCategory, ComplaintStatus
+    society = make_society(db, "Dash Open")
+    admin = _admin(db, "dash.open@t.com", society)
+    manager = make_user(db, "dash.open.mgr@t.com", role="Manager")
+    manager["user"].society_id = society.id
+    for n, status in enumerate(ComplaintStatus):
+        db.add(Complaint(society_id=society.id, complaint_number=f"O-{n}", title=status.value, description="d",
+                         category=list(ComplaintCategory)[0], raised_by=admin["user"].id, status=status))
+    db.add(Complaint(society_id=society.id, complaint_number="O-X", title="deleted", description="d",
+                     category=list(ComplaintCategory)[0], raised_by=admin["user"].id,
+                     status=ComplaintStatus.OPEN, is_active=False))
+    db.commit()
+
+    on_dashboard = _attention(_get(client, admin, society).json())["complaints_open"]["count"]
+    r = client.get(f"/api/v1/complaints/society/{society.id}/open-count", headers=manager["headers"])
+    assert r.status_code == 200, r.text
+    assert on_dashboard == r.json()["open"] == 4
+
+
+def test_open_complaint_count_is_refused_to_residents_and_other_societies(client, db):
+    society = make_society(db, "Dash Open Scope")
+    other = make_society(db, "Dash Open Scope B")
+    resident = make_user(db, "dash.open.res@t.com", role="Resident")
+    resident["user"].society_id = society.id
+    manager = make_user(db, "dash.open.m2@t.com", role="Manager")
+    manager["user"].society_id = society.id
+    db.commit()
+    assert client.get(f"/api/v1/complaints/society/{society.id}/open-count", headers=resident["headers"]).status_code == 403
+    assert client.get(f"/api/v1/complaints/society/{other.id}/open-count", headers=manager["headers"]).status_code in (403, 404)
+
+
+def test_punches_waiting_include_punch_outs(client, db):
+    """The row leads to the Approvals screen, which lists punch-ins and punch-outs awaiting approval."""
+    from app.modules.staff.models.staff import StaffAttendance
+    society = make_society(db, "Dash Punch")
+    admin = _admin(db, "dash.punch@t.com", society)
+    a, b = _staff(db, society, 1), _staff(db, society, 2)
+    db.flush()
+    today = date.today()
+    db.add(StaffAttendance(society_id=society.id, staff_id=a.id, attendance_date=today,
+                           check_in_time=datetime.utcnow(), is_approved=False))
+    db.add(StaffAttendance(society_id=society.id, staff_id=b.id, attendance_date=today,
+                           check_in_time=datetime.utcnow(), check_out_time=datetime.utcnow(),
+                           is_approved=True, is_checkout_approved=False))
+    db.commit()
+    assert _attention(_get(client, admin, society).json())["punch_approvals"]["count"] == 2
+
+
+def test_collection_percent_never_rounds_up_to_a_full_100(client, db):
+    from decimal import Decimal
+    from app.modules.billing.models.billing import MaintenanceBill
+    from tests.billing.test_maintenance_billing import _charge, _cycle, _rig
+    society, flat1, flat2, manager, _r, _o = _rig(db, "dsh2")
+    h = manager["headers"]
+    _charge(client, h, society.id, amount="1000.00")
+    cycle_id = _cycle(client, h, society.id).json()["id"]
+    assert client.post(f"/api/v1/billing/cycles/{cycle_id}/generate-bills", headers=h).status_code == 200
+    assert client.post(f"/api/v1/billing/cycles/{cycle_id}/issue-all", headers=h).status_code == 200
+    bill = db.query(MaintenanceBill).filter_by(flat_id=flat1.id).one()
+    other = db.query(MaintenanceBill).filter_by(flat_id=flat2.id).one()
+    bill.paid_amount = bill.total_amount
+    other.paid_amount = other.total_amount - Decimal("1.00")            # one rupee short: 99.95%
+    db.commit()
+    admin = _admin(db, "dash.pct@t.com", society)
+    c = _get(client, admin, society).json()["collection"]
+    assert Decimal(c["outstanding"]) > 0 and c["percent"] == 99

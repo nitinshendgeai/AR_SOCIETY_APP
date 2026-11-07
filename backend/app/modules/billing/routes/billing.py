@@ -444,9 +444,9 @@ def update_maintenance_settings(society_id: UUID, data: MaintenanceSettingsUpdat
 
 
 # ── Billing Cycles ────────────────────────────────────────────────────────────
-def _cycle_out(cy) -> dict:
+def _cycle_out(cy, today: Optional[date] = None) -> dict:
     live = [b for b in cy.bills if b.is_active and b.bill_status != BillStatus.CANCELLED]
-    today = date.today()
+    today = today or date.today()
     return {
         "id": str(cy.id),
         "society_id": str(cy.society_id),
