@@ -4,6 +4,24 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-07 (Filters on the Residents, Tenants, Flats and Staff lists)
+
+### feat: filter the lists the way you check them
+
+- **Residents:** filter by **wing** and **flat** (a flat's list opens once a wing is chosen) and by **move-in**: moved in
+  (living there now) or not moved in yet. These sit with the existing type, active and search filters.
+- **Tenants:** the same wing, flat and move-in filters, and under **More filters**: **agreement** (running, expiring
+  in 30 days, expired, no end date), **police verification** (pending, submitted, verified, rejected) and **KYC**
+  (verified or not). Filters combine. They are applied by the server, so they cover every tenant, not just the first
+  page. API: `GET /residents/` takes `wing_id` and `moved_in`; `GET /tenants/` takes `wing_id`, `moved_in`,
+  `agreement`, `police` and `kyc_verified`.
+- **Flats:** pick a **wing**, a **floor** and a **flat type** beside the existing occupancy chips and search.
+- **Staff:** a **status** filter (active, probation, on leave, inactive, terminated) beside the department filter.
+
+Shops (occupancy) and Assets (category, status) already had their filters.
+
+---
+
 ## 2026-11-07 (Registers: rental, receipts and staff attendance)
 
 ### feat: three new registers, and one page to open them all

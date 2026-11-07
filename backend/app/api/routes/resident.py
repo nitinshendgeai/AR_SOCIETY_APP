@@ -28,8 +28,10 @@ def create_resident(data: ResidentCreate, db: Session = Depends(get_db),
 @router.get("/", response_model=List[ResidentOut])
 def list_residents(
     flat_id: Optional[UUID] = None,
+    wing_id: Optional[UUID] = None,
     resident_type: Optional[ResidentType] = None,
     is_active: Optional[bool] = True,
+    moved_in: Optional[bool] = Query(None, description="true: living there now; false: no move-in date yet"),
     search: Optional[str] = Query(None, description="Matches name, phone, or email"),
     skip: int = 0,
     limit: int = 50,
@@ -38,7 +40,7 @@ def list_residents(
 ):
     rows = ResidentService(db).list(
         current_user, flat_id=flat_id, resident_type=resident_type,
-        is_active=is_active, search=search, skip=skip, limit=limit,
+        is_active=is_active, search=search, skip=skip, limit=limit, wing_id=wing_id, moved_in=moved_in,
     )
     return [hide_private(r, current_user, RESIDENT_PRIVATE_FIELDS) for r in rows]
 

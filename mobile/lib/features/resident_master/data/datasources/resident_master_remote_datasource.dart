@@ -16,17 +16,21 @@ class ResidentMasterRemoteDataSource {
     return ResidentModel.fromJson(r.data as Map<String, dynamic>);
   }
 
-  /// GET /residents/?flat_id=&resident_type=&is_active=&search=&skip=&limit=
+  /// GET /residents/?flat_id=&wing_id=&resident_type=&is_active=&moved_in=&search=&skip=&limit=
   Future<List<ResidentModel>> listResidents({
     String? flatId,
+    String? wingId,
     String? residentType,
     bool? isActive,
+    bool? movedIn,
     String? search,
     int skip = 0,
     int limit = 50,
   }) async {
     final r = await _dio.get('/residents/', queryParameters: {
       if (flatId != null) 'flat_id': flatId,
+      if (wingId != null) 'wing_id': wingId,
+      if (movedIn != null) 'moved_in': movedIn,
       if (residentType != null) 'resident_type': residentType,
       if (isActive != null) 'is_active': isActive,
       if (search != null && search.isNotEmpty) 'search': search,
@@ -106,16 +110,26 @@ class ResidentMasterRemoteDataSource {
     return TenantModel.fromJson(r.data as Map<String, dynamic>);
   }
 
-  /// GET /tenants/?flat_id=&is_active=&search=&skip=&limit=
+  /// GET /tenants/?flat_id=&wing_id=&is_active=&moved_in=&agreement=&police=&kyc_verified=&search=&skip=&limit=
   Future<List<TenantModel>> listTenants({
     String? flatId,
+    String? wingId,
     bool? isActive,
+    bool? movedIn,
+    String? agreement,
+    String? police,
+    bool? kycVerified,
     String? search,
     int skip = 0,
     int limit = 50,
   }) async {
     final r = await _dio.get('/tenants/', queryParameters: {
       if (flatId != null) 'flat_id': flatId,
+      if (wingId != null) 'wing_id': wingId,
+      if (movedIn != null) 'moved_in': movedIn,
+      if (agreement != null) 'agreement': agreement,
+      if (police != null) 'police': police,
+      if (kycVerified != null) 'kyc_verified': kycVerified,
       if (isActive != null) 'is_active': isActive,
       if (search != null && search.isNotEmpty) 'search': search,
       'skip': skip,

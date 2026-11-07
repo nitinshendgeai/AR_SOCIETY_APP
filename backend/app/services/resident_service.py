@@ -166,6 +166,8 @@ class ResidentService:
         search: Optional[str] = None,
         skip: int = 0,
         limit: int = 50,
+        wing_id: Optional[UUID] = None,
+        moved_in: Optional[bool] = None,
     ) -> List[ResidentOut]:
         if flat_id is not None:
             # Confirm the flat itself is in-scope before filtering by it —
@@ -177,6 +179,7 @@ class ResidentService:
             society_id=current_user.society_id, flat_id=flat_id,
             resident_type=resident_type, is_active=is_active, search=search,
             skip=skip, limit=limit, search_contacts=can_search_contacts(current_user),
+            wing_id=wing_id, moved_in=moved_in,
         )
         return [self._enrich(r) for r in residents]
 

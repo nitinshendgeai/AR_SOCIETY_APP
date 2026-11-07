@@ -8,6 +8,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
+import 'package:ar_society_app/features/resident_master/presentation/widgets/people_filters.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
@@ -31,6 +32,33 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
   final _searchCtrl = TextEditingController();
   Timer? _debounce;
   bool? _activeFilter = true;
+  String? _wingId;
+  String? _flatId; // chosen in the filter; a list opened from one flat (filterFlat) is already that flat's
+  bool? _movedIn;
+  String? _agreement; // running | expiring | expired | none
+  String? _police; // pending | submitted | verified | rejected
+  bool? _kyc;
+  bool _moreFilters = false; // agreement, police verification and KYC fold away to leave the list room on a phone
+
+  int get _moreActive => (_agreement != null ? 1 : 0) + (_police != null ? 1 : 0) + (_kyc != null ? 1 : 0);
+
+  static const _agreementOptions = <(String?, String)>[
+    (null, 'All'),
+    ('running', 'Running'),
+    ('expiring', 'Expiring in 30 days'),
+    ('expired', 'Expired'),
+    ('none', 'No end date'),
+  ];
+
+  static const _policeOptions = <(String?, String)>[
+    (null, 'All'),
+    ('pending', 'Pending'),
+    ('submitted', 'Submitted'),
+    ('verified', 'Verified'),
+    ('rejected', 'Rejected'),
+  ];
+
+  static const _kycOptions = <(bool?, String)>[(null, 'All'), (true, 'Verified'), (false, 'Not verified')];
 
   @override
   void initState() {
@@ -49,7 +77,12 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
     ref.read(tenantListProvider.notifier).load(
           isActive: _activeFilter,
           search: _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim(),
-          flatId: widget.filterFlat?.id,
+          flatId: widget.filterFlat?.id ?? _flatId,
+          wingId: widget.filterFlat == null ? _wingId : null,
+          movedIn: _movedIn,
+          agreement: _agreement,
+          police: _police,
+          kycVerified: _kyc,
         );
   }
 
@@ -146,6 +179,76 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
           fillColor: AppTheme.cardBg,
         ),
       ),
+      const SizedBox(height: 10),
+      if (widget.filterFlat == null) ...[
+        WingFlatFilter(
+          wingId: _wingId,
+          flatId: _flatId,
+          onChanged: (wing, flat) {
+            setState(() {
+              _wingId = wing;
+              _flatId = flat;
+            });
+            _load();
+          },
+        ),
+        const SizedBox(height: 10),
+      ],
+      FilterChoiceRow<bool>(
+        label: 'Move-in',
+        keyPrefix: 'filter-moved-in',
+        options: movedInOptions,
+        value: _movedIn,
+        onChanged: (v) {
+          setState(() => _movedIn = v);
+          _load();
+        },
+      ),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          key: const ValueKey('tenant-more-filters'),
+          onPressed: () => setState(() => _moreFilters = !_moreFilters),
+          icon: Icon(_moreFilters ? Icons.expand_less_rounded : Icons.tune_rounded, size: 18),
+          label: Text(_moreFilters
+              ? 'Fewer filters'
+              : _moreActive > 0 ? 'More filters ($_moreActive on)' : 'More filters: agreement, police, KYC'),
+        ),
+      ),
+      if (_moreFilters) ...[
+        FilterChoiceRow<String>(
+          label: 'Agreement',
+          keyPrefix: 'filter-agreement',
+          options: _agreementOptions,
+          value: _agreement,
+          onChanged: (v) {
+            setState(() => _agreement = v);
+            _load();
+          },
+        ),
+        const SizedBox(height: 8),
+        FilterChoiceRow<String>(
+          label: 'Police',
+          keyPrefix: 'filter-police',
+          options: _policeOptions,
+          value: _police,
+          onChanged: (v) {
+            setState(() => _police = v);
+            _load();
+          },
+        ),
+        const SizedBox(height: 8),
+        FilterChoiceRow<bool>(
+          label: 'KYC',
+          keyPrefix: 'filter-kyc',
+          options: _kycOptions,
+          value: _kyc,
+          onChanged: (v) {
+            setState(() => _kyc = v);
+            _load();
+          },
+        ),
+      ],
       const SizedBox(height: 10),
       Align(
         alignment: Alignment.centerLeft,

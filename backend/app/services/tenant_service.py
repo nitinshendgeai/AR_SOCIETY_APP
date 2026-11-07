@@ -111,6 +111,11 @@ class TenantService:
         search: Optional[str] = None,
         skip: int = 0,
         limit: int = 50,
+        wing_id: Optional[UUID] = None,
+        moved_in: Optional[bool] = None,
+        agreement: Optional[str] = None,
+        police: Optional[str] = None,
+        kyc_verified: Optional[bool] = None,
     ) -> List[TenantOut]:
         if flat_id is not None:
             flat = self.flat_repo.get(flat_id, society_id=current_user.society_id)
@@ -120,6 +125,7 @@ class TenantService:
             society_id=current_user.society_id, flat_id=flat_id,
             is_active=is_active, search=search, skip=skip, limit=limit,
             search_contacts=can_search_contacts(current_user),
+            wing_id=wing_id, moved_in=moved_in, agreement=agreement, police=police, kyc_verified=kyc_verified,
         )
         return [self._enrich(t) for t in tenants]
 

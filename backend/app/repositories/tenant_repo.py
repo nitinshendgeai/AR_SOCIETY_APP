@@ -1,11 +1,17 @@
+from datetime import date, timedelta
 from typing import List, Optional
 from uuid import UUID
+from sqlalchemy import func
 from sqlalchemy.orm import Session
-from app.models.tenant import Tenant
+from app.models.tenant import PoliceVerificationStatus, Tenant
 from app.models.resident import Resident
 from app.models.flat import Flat
 from app.models.wing import Wing
 from app.repositories.base import BaseRepository
+
+
+# An agreement ending within this many days is "expiring" (the tenant list shows it in amber).
+AGREEMENT_EXPIRING_DAYS = 30
 
 
 class TenantRepository(BaseRepository[Tenant]):
@@ -45,15 +51,42 @@ class TenantRepository(BaseRepository[Tenant]):
         skip: int = 0,
         limit: int = 50,
         search_contacts: bool = True,
+        wing_id: Optional[UUID] = None,
+        moved_in: Optional[bool] = None,
+        agreement: Optional[str] = None,
+        police: Optional[str] = None,
+        kyc_verified: Optional[bool] = None,
     ) -> List[Tenant]:
         q = self.db.query(Tenant)
-        if society_id is not None:
-            q = q.join(Flat, Tenant.flat_id == Flat.id).join(Wing, Flat.wing_id == Wing.id) \
-                 .filter(Wing.society_id == society_id)
+        if society_id is not None or wing_id is not None:
+            q = q.join(Flat, Tenant.flat_id == Flat.id).join(Wing, Flat.wing_id == Wing.id)
+            if society_id is not None:
+                q = q.filter(Wing.society_id == society_id)
+            if wing_id is not None:
+                q = q.filter(Flat.wing_id == wing_id)
         if flat_id is not None:
             q = q.filter(Tenant.flat_id == flat_id)
         if is_active is not None:
             q = q.filter(Tenant.is_active == is_active)
+        if moved_in is True:                    # living there now: a move-in date and no move-out
+            q = q.filter(Tenant.move_in_date.isnot(None), Tenant.move_out_date.is_(None))
+        elif moved_in is False:                 # on record, but no move-in date yet
+            q = q.filter(Tenant.move_in_date.is_(None))
+        if agreement:
+            # The same four states the tenant list shows by the agreement's end date (red once past, amber in the last
+            # 30 days): running, expiring (within 30 days), expired, or no end date on record.
+            end = func.coalesce(Tenant.agreement_end_date, Tenant.lease_end_date)
+            today = date.today()
+            q = q.filter({
+                "none": end.is_(None),
+                "expired": end < today,
+                "expiring": (end >= today) & (end <= today + timedelta(days=AGREEMENT_EXPIRING_DAYS)),
+                "running": end > today + timedelta(days=AGREEMENT_EXPIRING_DAYS),
+            }[agreement])
+        if police:
+            q = q.filter(Tenant.police_verification_status == PoliceVerificationStatus(police))
+        if kyc_verified is not None:
+            q = q.filter(Tenant.kyc_verified == kyc_verified)
         if search:
             like = f"%{search}%"
             if search_contacts:
