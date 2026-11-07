@@ -466,6 +466,40 @@ void main() {
     expect(blueBar, isTrue); // a blue bar down the side of every cleared entry
   });
 
+  testWidgets('Statement tab: the books\' lines are blue and the bank\'s own items are purple', (t) async {
+    _phone(t);
+    final api = _FakeApi(
+        brs: BankReconciliation.fromJson({
+      ..._brsJson(),
+      'bank_only_rows': [
+        {
+          'id': 'b1',
+          'txn_date': '2026-10-20',
+          'description': 'SMS CHARGES',
+          'amount': '25.00',
+          'direction': 'debit',
+          'match_status': 'unmatched',
+        }
+      ],
+    }));
+    await t.pumpWidget(_screen(api));
+    await t.pumpAndSettle();
+    Color? titleColor(String text) => t.widget<Text>(find.text(text)).style?.color;
+    expect(titleColor('Payments not yet cleared'), AppTheme.primary);
+    expect(titleColor('Deposits not yet cleared'), AppTheme.primary);
+    expect(titleColor('In the bank, not in your books'), AppTheme.secondary);
+    bool leftBar(String key, Color color) => t
+        .widgetList<DecoratedBox>(find.ancestor(of: find.byKey(ValueKey(key)), matching: find.byType(DecoratedBox)))
+        .any((d) {
+      final b = d.decoration;
+      return b is BoxDecoration && b.border is Border && (b.border! as Border).left.color == color;
+    });
+    expect(leftBar('line-PV/2026-27/0007', AppTheme.primary), isTrue); // a payment of the books: blue bar
+    expect(leftBar('line-RV/2026-27/0012', AppTheme.primary), isTrue); // a deposit of the books: blue bar
+    expect(leftBar('row-b1', AppTheme.secondary), isTrue); // the bank's own item: purple bar
+    expect(t.widget<CheckboxListTile>(find.byKey(const ValueKey('line-PV/2026-27/0007'))).activeColor, AppTheme.primary);
+  });
+
   testWidgets('without a bank ledger there is nothing to reconcile and it says how to start', (t) async {
     _phone(t);
     await t.pumpWidget(_screen(_FakeApi(), ledgers: const []));
