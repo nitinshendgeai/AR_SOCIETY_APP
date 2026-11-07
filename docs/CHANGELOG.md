@@ -14,6 +14,16 @@ use the same letterhead in a tighter size (name 14 pt instead of 18 pt, less pad
 
 ---
 
+## 2026-11-07 (Bank rows tab in the bank colour)
+
+### feat: the Bank rows tab is purple like the bank side of the Match tab
+
+The **Bank rows** tab has a purple "Rows from the bank statement" header, a purple bar down the side of every row (also in the
+"In the bank, not in your books" list on the Statement tab) and purple filter chips. In the sheet a row opens, the entries of
+your books it could be are blue ("Entries in your books"), so the two sides look the same everywhere.
+
+---
+
 ## 2026-11-07 (Match tab: bank lines and app lines in different colours)
 
 ### feat: the two grids of Bank Reconciliation → Match are told apart by colour
