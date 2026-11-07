@@ -6,6 +6,7 @@ from uuid import UUID
 from app.models.notification import Notification
 from app.modules.billing.models.billing import MaintenanceBill
 from app.modules.billing.services.defaulters import months_before
+from app.utils.local_time import society_today
 from tests.billing.test_maintenance_billing import _charge, _cycle, _rig
 
 API = "/api/v1/billing/defaulters"
@@ -25,7 +26,7 @@ def _two_cycles(client, db, tag):
         assert client.post(f"/api/v1/billing/cycles/{cycle_id}/generate-bills", headers=h).status_code == 200
         assert client.post(f"/api/v1/billing/cycles/{cycle_id}/issue-all", headers=h).status_code == 200
         ids.append(cycle_id)
-    today = date.today()
+    today = society_today(db, society.id)        # the society's date, which is what the list ages the dues against
     for flat, days in ((flat1, 200), (flat2, 40)):
         bill = db.query(MaintenanceBill).filter_by(cycle_id=UUID(ids[0]), flat_id=flat.id).one()
         bill.due_date = today - timedelta(days=days)

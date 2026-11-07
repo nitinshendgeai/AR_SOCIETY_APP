@@ -17,6 +17,8 @@ Format: `[YYYY-MM-DD] type: description`
 - **Bill rows** show "due" beside what is still to pay, so a part-paid bill does not read like its total.
 - **Date** - the Defaulters list and the billing cycle views work out "today" on the society's own clock, as the dashboard
   does, so they agree on what is overdue in the hours when the server's date is a day behind.
+- **Spend by Maintenance Element** - the report's default end date is the society's today. It was the server's, so from
+  midnight to 5:30 am in India a voucher dated "today" fell after the end date and the report showed 0 for it.
 
 ---
 

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.dependencies import get_current_user, require_admin_committee, require_manager_above
 from app.core.tenant_scope import assert_society_access, resolve_create_society_id
+from app.utils.local_time import society_today
 from app.db.session import get_db
 from app.models.flat import Flat
 from app.models.society import Society
@@ -691,7 +692,7 @@ def expenses_by_element_report(society_id: UUID, date_from: Optional[date] = Non
     ledger, plus spend on expense ledgers that no element covers. Reads the books, so every voucher, vendor bill and
     journal counts."""
     assert_society_access(user, society_id)
-    today = date.today()
+    today = society_today(db, society_id)          # the society's date, which is also the date its vouchers carry
     start = date_from or today.replace(day=1)
     end = date_to or today
     if end < start:

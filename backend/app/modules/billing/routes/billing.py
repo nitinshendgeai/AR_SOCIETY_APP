@@ -10,6 +10,7 @@ from app.core.tenant_scope import assert_society_access
 from fastapi.responses import Response, StreamingResponse
 from io import BytesIO
 from sqlalchemy.orm import Session
+from app.utils.local_time import society_today
 
 from app.db.session import get_db
 from app.core.dependencies import (
@@ -444,15 +445,6 @@ def update_maintenance_settings(society_id: UUID, data: MaintenanceSettingsUpdat
 
 
 # ── Billing Cycles ────────────────────────────────────────────────────────────
-def _society_today(db: Session, society_id: UUID) -> date:
-    """Today on the society's own clock (the server's date can be a day behind for hours each night), so the
-    billing screens, the Defaulters list and the dashboard agree on what is overdue."""
-    from app.models.society import Society
-    from app.utils.local_time import local_today, zone
-    society = db.query(Society).filter(Society.id == society_id).first()
-    return local_today(zone(getattr(society, "timezone", None)))
-
-
 def _cycle_out(cy, today: Optional[date] = None) -> dict:
     live = [b for b in cy.bills if b.is_active and b.bill_status != BillStatus.CANCELLED]
     # Bills made but not yet sent to residents (GENERATED) are a preview: nobody owes them yet. The cycle's own
@@ -500,14 +492,14 @@ def set_cycle_due_date(cycle_id: UUID, data: CycleDueDate, request: Request, db:
 @router.get("/cycles/{society_id}", dependencies=[Depends(manager_above)])
 def list_cycles(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     assert_society_access(user, society_id)
-    today = _society_today(db, society_id)
+    today = society_today(db, society_id)
     return [_cycle_out(c, today) for c in BillingService(db).list_cycles(society_id)]
 
 @router.get("/cycles/detail/{cycle_id}", dependencies=[Depends(manager_above)])
 def get_cycle(cycle_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     cycle = BillingService(db).get_cycle(cycle_id)
     assert_society_access(user, cycle.society_id)
-    return _cycle_out(cycle, _society_today(db, cycle.society_id))
+    return _cycle_out(cycle, society_today(db, cycle.society_id))
 
 @router.get("/cycles/{cycle_id}/tower-parking-preview", dependencies=[Depends(manager_above)])
 def tower_parking_preview(cycle_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
@@ -1156,7 +1148,7 @@ def _defaulters_payload(db: Session, society_id: UUID, min_months: int, include_
         AGE_BUCKETS, MemberDues, bill_label, member_contact, months_before,
     )
 
-    as_of = _society_today(db, society_id)
+    as_of = society_today(db, society_id)
     cutoff = months_before(as_of, min_months)
     dues = MemberDues(db).flats(society_id, as_of)
     settings = BillingService(db).get_maintenance_settings(society_id)
