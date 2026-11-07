@@ -476,7 +476,7 @@ def bill_story(
         ("Flat No.", escape(flat_label(flat))),
         *([("Area sq ft", area)] if area else []),            # a row with nothing to show is left out
         *([("Mobile No", escape(phone))] if phone else []),
-        ("Mail ID", escape(email)),
+        *([("Mail ID", escape(email))] if email else []),
     ], [24 * mm, width * 0.5 - 12 - 24 * mm - 8])
     van = flat.virtual_account_number if flat else None
     right = _kv([
