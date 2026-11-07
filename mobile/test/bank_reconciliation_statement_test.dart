@@ -408,6 +408,29 @@ void main() {
     expect(api.selectedMatches, isEmpty);
   });
 
+  testWidgets('Match tab: our entries and the bank rows are told apart by colour and by a label', (t) async {
+    _phone(t);
+    await t.pumpWidget(_screen(_FakeApi(rowList: [_row('r1')])));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Match'));
+    await t.pumpAndSettle();
+    expect(find.text('From your books'), findsOneWidget);
+    expect(find.text('From the bank statement'), findsOneWidget);
+    Color iconColor(IconData i) => t.widget<Icon>(find.byIcon(i)).color!;
+    final books = iconColor(Icons.menu_book_rounded);
+    final bank = iconColor(Icons.account_balance_rounded);
+    expect(books, AppTheme.primary); // blue: the society's own entries
+    expect(bank, AppTheme.secondary); // purple: the bank's rows
+    expect(books, isNot(bank));
+    // a ticked box takes its side's colour
+    await t.tap(find.byKey(const ValueKey('match-entry-e-PV/2026-27/0007')));
+    await t.tap(find.byKey(const ValueKey('match-row-r1')));
+    await t.pumpAndSettle();
+    Color tick(String key) => t.widget<CheckboxListTile>(find.byKey(ValueKey(key))).activeColor!;
+    expect(tick('match-entry-e-PV/2026-27/0007'), AppTheme.primary);
+    expect(tick('match-row-r1'), AppTheme.secondary);
+  });
+
   testWidgets('without a bank ledger there is nothing to reconcile and it says how to start', (t) async {
     _phone(t);
     await t.pumpWidget(_screen(_FakeApi(), ledgers: const []));

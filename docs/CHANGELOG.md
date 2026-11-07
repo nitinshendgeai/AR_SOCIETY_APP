@@ -4,6 +4,16 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-07 (Match tab: bank lines and app lines in different colours)
+
+### feat: the two grids of Bank Reconciliation → Match are told apart by colour
+
+*Our bank entries* (from your books) are blue with a book icon and *Bank statement rows* (from the bank statement) are purple
+with a bank icon: the panel header, its border, a bar down the side of every line and its tick box. The totals bar at the
+bottom uses the same two colours. Money in stays green on both sides.
+
+---
+
 ## 2026-11-07 (Petty cash: float, daily expenses, cash count and a petty cash book)
 
 ### feat: petty cash kept properly, posted to the books and to each expense head
