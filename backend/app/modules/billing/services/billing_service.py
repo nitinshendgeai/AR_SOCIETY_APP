@@ -450,6 +450,22 @@ class BillingService:
         self.db.refresh(cycle)
         return cycle
 
+    def set_cycle_due_date(self, cycle_id: UUID, due_date: date, user: User, request=None) -> BillingCycle:
+        """Change a cycle's due date, and the due date printed on and charged against each of its bills that still
+        stands (cancelled bills keep theirs). Interest on late payment counts from the bill's due date."""
+        cycle = self.get_cycle(cycle_id)
+        assert_society_access(user, cycle.society_id)
+        old = cycle.due_date
+        cycle.due_date = due_date
+        for bill in cycle.bills:
+            if bill.bill_status != BillStatus.CANCELLED:
+                bill.due_date = due_date
+        self._audit(AuditAction.UPDATE, cycle, "BillingCycle", user, request,
+                    old_values={"due_date": str(old)}, new_values={"due_date": str(due_date)})
+        self.db.commit()
+        self.db.refresh(cycle)
+        return cycle
+
     def list_cycles(self, society_id: UUID) -> List[BillingCycle]:
         return self.cycle_repo.get_by_society(society_id)
 
