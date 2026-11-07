@@ -109,6 +109,8 @@ void main() {
   });
 
   testWidgets('the Tenants list filters by move-in, agreement, police verification and KYC', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(900, 1400));   // the filter rows need room; the default window is tiny
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final ds = _Recorder();
     await tester.pumpWidget(_app(ds, const TenantListScreen()));
     await tester.pumpAndSettle();
