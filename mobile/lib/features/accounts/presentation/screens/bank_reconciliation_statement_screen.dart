@@ -18,6 +18,13 @@ import 'package:ar_society_app/shared/widgets/app_data_table.dart' show StatusPi
 import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
+/// The two sides of the Match tab are told apart by colour everywhere they appear: the society's own entries (the books)
+/// are blue, the bank's statement rows are purple. Money in keeps its green amount on either side.
+const _appColor = AppTheme.primary;
+const _appSoft = AppTheme.primarySoft;
+const _bankColor = AppTheme.secondary;
+const _bankSoft = Color(0xFFEFEEFB);
+
 /// The treasurer's monthly bank reconciliation against the books. Three tabs:
 ///
 ///  * **Statement** — the Bank Reconciliation Statement of one bank ledger as on a date: the balance in the books, the
@@ -407,6 +414,10 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
           final shownRows = rows.where((r) => _hit([r.description, r.reference], r.amount)).toList();
           final entriesPanel = _GridPanel(
             title: 'Our bank entries',
+            subtitle: 'From your books',
+            icon: Icons.menu_book_rounded,
+            accent: _appColor,
+            soft: _appSoft,
             count: entries.length,
             empty: 'Nothing waiting: every entry has been cleared',
             children: [
@@ -414,6 +425,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
                 CheckboxListTile(
                   key: ValueKey('match-entry-${l.entryId}'),
                   dense: true,
+                  activeColor: _appColor,
                   value: _pickedEntries.contains(l.entryId),
                   onChanged: (v) => setState(() => v == true ? _pickedEntries.add(l.entryId) : _pickedEntries.remove(l.entryId)),
                   controlAffinity: ListTileControlAffinity.leading,
@@ -434,6 +446,10 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
           );
           final rowsPanel = _GridPanel(
             title: 'Bank statement rows',
+            subtitle: 'From the bank statement',
+            icon: Icons.account_balance_rounded,
+            accent: _bankColor,
+            soft: _bankSoft,
             count: rows.length,
             empty: 'No unmatched rows: upload the bank statement on the Statement tab',
             children: [
@@ -441,6 +457,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
                 CheckboxListTile(
                   key: ValueKey('match-row-${r.id}'),
                   dense: true,
+                  activeColor: _bankColor,
                   value: _pickedRows.contains(r.id),
                   onChanged: (v) => setState(() => v == true ? _pickedRows.add(r.id) : _pickedRows.remove(r.id)),
                   controlAffinity: ListTileControlAffinity.leading,
@@ -510,8 +527,19 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
           child: Row(children: [
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Entries ${selE.length} · ${formatInr(eTotal / 100)}    Bank rows ${selR.length} · ${formatInr(rTotal / 100)}',
-                    key: const ValueKey('match-totals'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                Text.rich(
+                  TextSpan(children: [
+                    TextSpan(
+                        text: 'Entries ${selE.length} · ${formatInr(eTotal / 100)}',
+                        style: const TextStyle(color: _appColor)),
+                    const TextSpan(text: '    '),
+                    TextSpan(
+                        text: 'Bank rows ${selR.length} · ${formatInr(rTotal / 100)}',
+                        style: const TextStyle(color: _bankColor)),
+                  ]),
+                  key: const ValueKey('match-totals'),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(height: 2),
                 Text(problem ?? 'Totals agree: ready to match.',
                     key: const ValueKey('match-hint'),
@@ -694,22 +722,47 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
 /// One of the two grids of the Match tab: a titled card with a scrolling list of tick rows.
 class _GridPanel extends StatelessWidget {
   final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color accent;
+  final Color soft;
   final int count;
   final String empty;
   final List<Widget> children;
-  const _GridPanel({required this.title, required this.count, required this.empty, required this.children});
+  const _GridPanel({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.accent,
+    required this.soft,
+    required this.count,
+    required this.empty,
+    required this.children,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12), side: BorderSide(color: accent.withValues(alpha: 0.5))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
-          child: Text('$title ($count)', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+        Container(
+          color: soft,
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+          child: Row(children: [
+            Icon(icon, size: 20, color: accent),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('$title ($count)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: accent)),
+                Text(subtitle, style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
+              ]),
+            ),
+          ]),
         ),
-        const Divider(height: 1),
+        Divider(height: 1, color: accent.withValues(alpha: 0.5)),
         Expanded(
           child: children.isEmpty
               ? Center(
@@ -718,7 +771,11 @@ class _GridPanel extends StatelessWidget {
                       child: Text(empty,
                           textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary))))
-              : ListView(children: children),
+              : ListView(children: [
+                  for (final c in children)
+                    DecoratedBox(
+                        decoration: BoxDecoration(border: Border(left: BorderSide(color: accent, width: 3))), child: c),
+                ]),
         ),
       ]),
     );
