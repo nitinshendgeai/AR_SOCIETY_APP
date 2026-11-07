@@ -281,8 +281,9 @@ def test_the_details_box_keeps_each_column_inside_its_half(client, db):
     for table in (left, right):
         w, _ = table.wrap(width, 10_000)
         assert w <= inner + 0.01, (w, inner)
-    # the two long names are two lines each, so the left block runs to more than the five lines of its other rows
-    assert left.wrap(width, 10_000)[1] > 5 * 12.1
+    # the two long names are two lines each, so the left block runs to more than the four lines it would take if they
+    # did not wrap (rows with nothing to show - area, mobile, e-mail - are left out)
+    assert left.wrap(width, 10_000)[1] > 4 * 12.1
 
 
 # ── The classic layout ────────────────────────────────────────────────────────
@@ -444,7 +445,11 @@ def test_area_and_mobile_rows_are_left_out_when_missing(client, db):
     db.commit()
     _, text = _bill_pdf(db, bill_id)
     assert "Area sq ft" not in text and "Mobile No" not in text and "Flat No. : " in text
-    flat1.area_sqft, res.phone = 372, "9867859011"
+    res.email = None
     db.commit()
     _, text = _bill_pdf(db, bill_id)
-    assert "Area sq ft : 372" in text and "Mobile No : 9867859011" in text
+    assert "Mail ID" not in text
+    flat1.area_sqft, res.phone, res.email = 372, "9867859011", "a@b.com"
+    db.commit()
+    _, text = _bill_pdf(db, bill_id)
+    assert "Area sq ft : 372" in text and "Mobile No : 9867859011" in text and "Mail ID : a@b.com" in text
