@@ -86,7 +86,10 @@ void main() {
     await t.pumpWidget(_wrap(() async => DashboardOverview.fromJson(j)));
     await t.pumpAndSettle();
     expect(find.text('2 bills are generated but not issued yet, so not counted here.'), findsOneWidget);
+  });
 
+  testWidgets('with every bill issued there is no "not issued yet" note', (t) async {
+    phone(t);
     await t.pumpWidget(_wrap(() async => DashboardOverview.fromJson(_json())));
     await t.pumpAndSettle();
     expect(find.textContaining('not issued yet'), findsNothing);
