@@ -122,8 +122,11 @@ void main() {
   });
 
   testWidgets('the Registers page lists every register once', (tester) async {
+    tester.view.physicalSize = const Size(800, 1600);   // all seven tiles fit; a list builds only what is on screen
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(const MaterialApp(home: RegistersHubScreen()));
-    for (final id in ['invoices', 'bills', 'cash', 'receipts', 'rental', 'attendance']) {
+    for (final id in ['invoices', 'bills', 'cash', 'receipts', 'rental', 'attendance', 'petty_cash']) {
       expect(find.byKey(ValueKey('register-$id')), findsOneWidget, reason: id);
     }
     expect(find.text('Rental Register'), findsOneWidget);

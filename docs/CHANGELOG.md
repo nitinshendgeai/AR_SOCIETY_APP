@@ -4,6 +4,32 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-07 (Petty cash: float, daily expenses, cash count and a petty cash book)
+
+### feat: petty cash kept properly, posted to the books and to each expense head
+
+- **Accounts → Petty Cash** (shortcut Q): the box at a glance (what the books say is in it, what is free to spend, spent
+  today and this month, the float, the limit, who holds the cash) and the actions below.
+- **Top up from bank**: moves money from the bank into Petty Cash as a **Contra voucher** (Dr Petty Cash, Cr Bank). The
+  page suggests the amount that brings the box back to the float.
+- **Add expenses**: a day's small expenses in one entry. Each line is its own expense head, amount and note, so each
+  counts under that head (and its maintenance element in *Spend by Element*). It is saved as **one Payment voucher**
+  (Dr each head, Cr Petty Cash) and follows the society's ordinary approval rule for payments: the manager enters, an
+  admin or committee member approves. Expenses waiting for approval are already set aside, so the same cash can't be
+  spent twice.
+- **Rules**: nothing can be spent beyond what the box holds; one expense can't exceed the **limit** the admin sets
+  (a bigger one is paid from the bank with Add Expense); only expense heads can be charged; no future dates.
+- **Count the cash**: enter what is physically in the box; the page shows the difference from the books as you type and
+  records a shortage or excess. A count only records; it posts nothing, since writing a difference off is a decision.
+- **Float and limit** (admin / committee): the float to top up to, the most for one expense, and who holds the cash.
+- **Petty Cash Book** (also under *Accounts → All Registers*): day by day, opening cash, received, spent (and on what),
+  closing, the cash counted and the difference. Printable and downloadable like the other registers.
+- API: `GET /accounts/petty-cash/{society}`, `PUT .../settings`, `POST /accounts/petty-cash/top-up`, `.../expenses`,
+  `.../counts`, `GET .../counts`, and `GET /accounts/registers/petty_cash/{society}`. New tables `petty_cash_settings`
+  and `petty_cash_counts` (migration `8b3c4d5e6f7a`).
+
+---
+
 ## 2026-11-07 (Residents and Tenants lists show everyone, 50 at a time)
 
 ### fix: the Residents and Tenants lists stopped at the first 50

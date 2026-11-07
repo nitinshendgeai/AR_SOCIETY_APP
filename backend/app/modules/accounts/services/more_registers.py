@@ -306,4 +306,5 @@ def register_to_csv(reg: dict) -> str:
 
 
 REGISTERS: Dict[str, str] = {"rental": "rental_register", "receipts": "receipts_register",
-                             "attendance": "attendance_register"}
+                             "attendance": "attendance_register",
+                             "petty_cash": "petty_cash_book"}

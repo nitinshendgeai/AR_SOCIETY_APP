@@ -39,6 +39,8 @@ class AccountsGatewayScreen extends ConsumerWidget {
             onOpen: () => go(newVoucherRoute('journal'))),
         GatewayItem(label: 'Expense', letter: 'E', icon: Icons.shopping_bag_outlined,
             onOpen: () => go(AppRoutes.accountsExpenseNew)),
+        GatewayItem(label: 'Petty Cash', letter: 'Q', icon: Icons.payments_outlined,
+            onOpen: () => go(AppRoutes.accountsPettyCash)),
       ]),
       GatewaySection('Books & Registers', [
         GatewayItem(label: 'Day Book', letter: 'D', icon: Icons.receipt_long_rounded,

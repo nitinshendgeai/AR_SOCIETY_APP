@@ -38,6 +38,21 @@ Spend by Element**: per element the net spend (debits − credits, cancelled vou
 elements with nothing recorded (shown so a missed month is visible), and `unlinked` — spend on heads no element covers,
 each with a *Link…* action. Monthly bills are entered by hand each month; there is no recurring-voucher generator.
 
+## Petty cash (`services/petty_cash.py`, migration `8b3c4d5e6f7a`)
+Petty cash is an imprest: a float drawn from the bank into the **Petty Cash** ledger (2303, a cash ledger), small expenses
+paid out of it, and a top-up when it runs low. Everything goes through the books:
+- **Top-up** (`POST /accounts/petty-cash/top-up`): a Contra voucher, Dr Petty Cash, Cr the bank (default bank unless chosen).
+- **Expenses** (`POST /accounts/petty-cash/expenses`): up to 50 lines `{expense_account_id, amount, note}` become **one Payment
+  voucher** (Dr each head, Cr Petty Cash) through the usual manual-voucher path, so the maker/checker approval rule
+  applies. Refused: a non-expense head, an amount over the society's limit for one expense, a total above what is free
+  (balance less petty cash already committed by payments still pending), a future date, a closed year.
+- **Counts** (`POST /accounts/petty-cash/counts`): the physical cash against the books' balance on that date; stored as
+  `petty_cash_counts` (difference = counted − book). Posts nothing.
+- **Settings** (`PUT /accounts/petty-cash/{society}/settings`, admin/committee): `float_amount`, `expense_limit`,
+  `custodian_name` in `petty_cash_settings`; the overview's `top_up_needed` is float − balance.
+- **Petty Cash Book**: register kind `petty_cash` (`GET /accounts/registers/petty_cash/{society}?date_from&date_to`, JSON,
+  PDF or CSV): per day opening, received, spent (and on what), closing, counted and the difference.
+
 ## Recurring monthly expenses (`services/recurring_expenses.py`, migration `1b8c9d0e1f2a`)
 The expenses paid every month (the security agency, housekeeping, the lift contract, electricity). A **template**
 (`recurring_expenses`) holds the name, the expense head, an amount (blank when the bill changes every month), the day it

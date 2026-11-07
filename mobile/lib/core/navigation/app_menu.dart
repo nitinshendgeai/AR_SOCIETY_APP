@@ -207,6 +207,8 @@ String? subPageLabel(String path) {
     AppRoutes.accountsInvoices: 'Invoice Register',
     AppRoutes.accountsBills: 'Bills Register',
     AppRoutes.accountsRecurring: 'Monthly Expenses',
+    AppRoutes.accountsPettyCash: 'Petty Cash',
+    AppRoutes.accountsRegisterPettyCash: 'Petty Cash Book',
     AppRoutes.accountsReceivable: 'Outstanding Receivable',
     AppRoutes.accountsPayable: 'Outstanding Payable',
     AppRoutes.accountsMembers: "Members' Ledger",

@@ -21,6 +21,8 @@ class RegistersHubScreen extends StatelessWidget {
         Icons.key_rounded, AppRoutes.accountsRegisterRental),
     ('attendance', 'Staff Attendance Register', "A month's present, absent, half day and leave for each staff member",
         Icons.event_available_rounded, AppRoutes.accountsRegisterAttendance),
+    ('petty_cash', 'Petty Cash Book', 'Day by day: opening cash, money received, expenses by head, closing and the cash counted',
+        Icons.payments_outlined, AppRoutes.accountsRegisterPettyCash),
   ];
 
   @override
