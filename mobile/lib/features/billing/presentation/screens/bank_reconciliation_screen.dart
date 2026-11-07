@@ -13,6 +13,7 @@ import 'package:ar_society_app/core/layout/app_sheet.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 import 'package:ar_society_app/shared/widgets/app_form.dart';
+import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart' show formatRupees;
 
 /// FMC Manager/Admin/Committee: import a bank statement (CSV) and match
 /// its credit rows against payments residents said they made, closing the
@@ -318,7 +319,7 @@ class _EntryCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         onTap: onTap,
-        title: Text('₹${entry.amount} — ${entry.description}',
+        title: Text('${formatRupees(entry.amount)} — ${entry.description}',
             maxLines: 1, overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(
@@ -407,7 +408,7 @@ class _BankMatchEntrySheetState extends ConsumerState<BankMatchEntrySheet> {
 
     final entry = widget.entry;
     return AppSheetFrame(
-      title: '₹${entry.amount}',
+      title: formatRupees(entry.amount),
       subtitle: '${entry.description}\n'
           '${entry.txnDate.day}/${entry.txnDate.month}/${entry.txnDate.year}'
           '${entry.reference != null ? ' · Ref ${entry.reference}' : ''}',

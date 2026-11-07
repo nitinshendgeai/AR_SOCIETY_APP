@@ -21,6 +21,7 @@ import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 import 'package:ar_society_app/shared/widgets/app_form.dart';
+import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart' show formatRupees;
 
 /// FMC Manager/Admin/Committee: list of resident payment screenshots
 /// captured for bank reconciliation.
@@ -230,8 +231,8 @@ class _OnlinePaymentsListScreenState extends ConsumerState<OnlinePaymentsListScr
           Expanded(
             child: paymentsAsync.when(
               loading: () => const SkeletonList(),
-              error: (e, _) => Center(
-                  child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
+              error: (e, _) => AppErrorState(
+                  message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(onlinePaymentsProvider(societyId))),
               data: (payments) {
                 final filtered = _statusFilter == null
                     ? payments
@@ -370,7 +371,7 @@ class _PaymentCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         onTap: onTap,
-        title: Text('₹${payment.amount} — ${payment.wingName ?? ''} ${payment.flatNumber ?? ''}'.trim(),
+        title: Text('${formatRupees(payment.amount)} — ${payment.wingName ?? ''} ${payment.flatNumber ?? ''}'.trim(),
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(
             '${payment.receiptNumber} · '

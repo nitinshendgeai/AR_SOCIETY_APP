@@ -4,6 +4,22 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-07 (Billing: load errors, amounts, dates)
+
+### fix: Billing screens recover from a failed load, show amounts the Indian way and agree on today's date
+
+- **Try again** - when the cycles list, a cycle, a bill, My Bills, the Defaulters list, online payments, payment claims or
+  the maintenance elements fail to load, the screen says so in plain words with a "Try again" button (it was red text with
+  no way to recover but leaving the screen).
+- **Amounts** - the online payments list and detail, the bank reconciliation list and sheet, the bill payment picker and the
+  advance import preview showed raw numbers (`₹25000.00`); they now read `₹25,000.00`.
+- **Collected %** on the Cycles tab rounds down, like the dashboard (99.6% is not "100%").
+- **Bill rows** show "due" beside what is still to pay, so a part-paid bill does not read like its total.
+- **Date** - the Defaulters list and the billing cycle views work out "today" on the society's own clock, as the dashboard
+  does, so they agree on what is overdue in the hours when the server's date is a day behind.
+
+---
+
 ## 2026-11-07 (Statement tab in the same two colours)
 
 ### feat: the Statement tab's lines are blue, the bank's own items purple

@@ -386,3 +386,20 @@ def test_my_open_complaints_count_is_not_limited_to_the_newest_page(client, db):
     r = client.get("/api/v1/complaints/me/open-count", headers=resident["headers"])
     assert r.status_code == 200, r.text
     assert r.json() == {"open": 55}                              # past the 50 of one page; not resolved, not someone else's
+
+
+def test_defaulters_screen_and_dashboard_use_the_societys_own_date(client, db):
+    """On a clock far from the server's (here UTC+14) both read the society's today, not the server's."""
+    from app.utils.local_time import local_today, zone
+    from tests.billing.test_defaulters import _two_cycles
+    society, _f1, _f2, manager, _res = _two_cycles(client, db, "dsh4")
+    society.timezone = "Pacific/Kiritimati"
+    db.commit()
+    expected = local_today(zone("Pacific/Kiritimati")).isoformat()
+
+    screen = client.get(f"/api/v1/billing/defaulters/{society.id}", headers=manager["headers"]).json()["summary"]
+    assert screen["as_of"] == expected
+    admin = _admin(db, "dash.tz@t.com", society)
+    assert _get(client, admin, society).json()["as_of"] == expected
+    cycles = client.get(f"/api/v1/billing/cycles/{society.id}", headers=manager["headers"])
+    assert cycles.status_code == 200

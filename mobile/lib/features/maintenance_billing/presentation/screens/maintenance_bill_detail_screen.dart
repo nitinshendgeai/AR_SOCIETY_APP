@@ -169,11 +169,8 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
       bottomNavigationBar: billAsync.valueOrNull == null ? null : _actions(billAsync.value!),
       body: billAsync.when(
         loading: () => const AppLoader(),
-        error: (e, _) => Center(
-            child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-        )),
+        error: (e, _) => AppErrorState(
+            message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(maintenanceBillProvider(widget.billId))),
         data: (bill) => RefreshIndicator(
           onRefresh: () async => _refresh(bill),
           child: ListView(

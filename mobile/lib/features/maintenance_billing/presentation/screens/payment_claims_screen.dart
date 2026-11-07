@@ -69,9 +69,8 @@ class PaymentClaimsScreen extends ConsumerWidget {
         onRefresh: () async => ref.invalidate(pendingPaymentClaimsProvider(societyId)),
         child: claims.when(
           loading: () => const SkeletonList(),
-          error: (e, _) => ListView(children: [
-            Padding(padding: const EdgeInsets.all(24), child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
-          ]),
+          error: (e, _) => AppErrorState(
+              message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(pendingPaymentClaimsProvider(societyId))),
           data: (list) => list.isEmpty
               ? ListView(children: const [
                   Padding(

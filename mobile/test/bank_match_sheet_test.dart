@@ -44,7 +44,7 @@ void main() {
     ]));
     await tester.pumpAndSettle();
 
-    expect(find.text('₹4500.00'), findsOneWidget);
+    expect(find.text('₹4,500.00'), findsOneWidget);
     expect(find.textContaining('UPI/9876/Asha Kulkarni'), findsOneWidget);
     expect(find.textContaining('8/10/2026'), findsOneWidget);
     expect(find.text('Suggested matches'), findsOneWidget);
