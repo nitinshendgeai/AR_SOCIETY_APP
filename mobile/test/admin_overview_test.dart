@@ -74,7 +74,9 @@ void main() {
     expect(find.text('Needs attention'), findsOneWidget);
     expect(find.text('3 of 5 flats occupied'), findsOneWidget);
     expect(find.text('Active staff'), findsOneWidget);
-    expect(find.text('2'), findsOneWidget);                           // the server's count, not a page of a list
+    // The number in the Active staff tile is the server's count (other tiles and counters may also read 2).
+    final staffTile = find.ancestor(of: find.text('Active staff'), matching: find.byType(Column)).first;
+    expect(find.descendant(of: staffTile, matching: find.text('2')), findsOneWidget);
   });
 
   testWidgets('bills made but not issued are said to be left out of the collection figures', (t) async {
