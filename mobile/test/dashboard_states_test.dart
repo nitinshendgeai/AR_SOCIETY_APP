@@ -157,7 +157,7 @@ void main() {
       // pending check-in, punch-out, absent, late, open complaints, duty queue
       expect(find.text(_retryNote), findsNWidgets(6));
       expect(find.text('0'), findsNothing);
-      expect(find.text('--'), findsNWidgets(7));      // the six above and Total Staff (still loading)
+      expect(find.text('--'), findsNWidgets(7));      // the six above and Total Staff (its summary failed too)
     });
 
     testWidgets('tapping a failed approvals card reloads the approvals', (t) async {
@@ -178,13 +178,14 @@ void main() {
         staffListProvider.overrideWith((ref) => _FakeStaffList()),
         openComplaintsCountProvider('s1').overrideWith((ref) async => 0),
         societyDutiesProvider('s1').overrideWith((ref) async => const <DutyEntity>[]),
-        attendanceSummaryProvider('s1').overrideWith((ref) async => {'absent': 0, 'late': 0}),
+        attendanceSummaryProvider('s1').overrideWith((ref) async => {'absent': 0, 'late': 0, 'total_staff': 3}),
         billingCyclesProvider('s1').overrideWith((ref) async => const []),
       ]));
       await _settle(t);
 
       expect(find.text(_retryNote), findsNothing);
       expect(find.text('0'), findsNWidgets(6));
+      expect(find.text('3'), findsOneWidget);          // Total Staff, from the same summary as Absent and Late
     });
   });
 

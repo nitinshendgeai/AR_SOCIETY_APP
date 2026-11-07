@@ -202,10 +202,10 @@ final openComplaintsCountProvider =
 // ── My open complaints count (resident dashboard) ─────────────────────────────
 
 final myOpenComplaintsCountProvider = FutureProvider.autoDispose<int>((ref) async {
-  const done = {ComplaintStatus.resolved, ComplaintStatus.closed, ComplaintStatus.rejected};
-  final result = await ref.read(complaintRepositoryProvider).listMyComplaints();
+  // The server counts every one of my open complaints; the list it pages (50 at a time) is not read for this.
+  final result = await ref.read(complaintRepositoryProvider).myOpenComplaintsCount();
   return switch (result) {
-    ComplaintSuccess(:final data) => data.where((c) => !done.contains(c.status)).length,
+    ComplaintSuccess(:final data) => data,
     ComplaintFailure(:final message) => throw Exception(message),
   };
 });

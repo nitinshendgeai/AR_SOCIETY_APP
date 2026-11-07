@@ -14,6 +14,30 @@ a purple heading above its purple rows. Every tab of Bank Reconciliation now sho
 
 ---
 
+## 2026-11-07 (Dashboard figures match the screens they lead to)
+
+### fix: the dashboard numbers are the ones on the Defaulters, Complaints, Staff and Approvals screens
+
+- **Defaulters** - the "flats have dues outstanding over 3 months" row (was "overdue maintenance") shows the Defaulters
+  screen's own count and amount. Before, it counted any flat with a bill past due, before set-off of money paid on account.
+- **Members owe** - worked out from the unpaid bills, the Defaulters screen's "all with dues" total, instead of the books'
+  Members' Dues balance (which stays on the Accounts screen).
+- **Open complaints** - one meaning everywhere: open, assigned, in progress or reopened, and not deleted. The manager's card
+  counted only "open", and now opens the society's list instead of the complaints assigned to the manager.
+- **Active staff** and the manager's **Total staff** - every active member. They counted the first page of the staff list,
+  so they stopped at 50.
+- **Punches waiting for approval** - punch-outs as well as punch-ins, as the Approvals screen lists them.
+- **Collection** - the percentage rounds down, so 99.6% collected no longer reads "100%" with money still outstanding; the
+  overdue-bill count uses the society's own date.
+- **Bills made but not yet issued** are left out of "billed" and "outstanding" on the dashboards, the manager's
+  Maintenance cards and the Billing screen's header (nobody owes them yet); the collection card says how many are waiting
+  to be issued. A cycle's own card still shows its full preview total.
+- **My open complaints** (resident dashboard) - counted by the server, not from the newest 50 complaints.
+- Also: pull down to refresh the admin, committee and manager dashboards; the visitor figures open the visitor log; the
+  greeting card says good morning/afternoon/evening with a readable date; the unused "being built" home screen is removed.
+
+---
+
 ## 2026-11-07 (Cleared tab in the app colour)
 
 ### feat: the Cleared tab is blue like the books side of the Match tab

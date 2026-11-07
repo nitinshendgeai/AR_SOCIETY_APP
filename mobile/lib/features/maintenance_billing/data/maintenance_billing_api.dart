@@ -606,6 +606,12 @@ class BillingCycle {
   final String totalCollected;
   final String totalOutstanding;
 
+  /// The same three figures for bills already sent to residents; bills made but not yet issued are a preview that
+  /// nobody owes. The headers and dashboards add these up; the cycle's own card keeps the totals above.
+  final String issuedBilled;
+  final String issuedCollected;
+  final String issuedOutstanding;
+
   const BillingCycle({
     required this.id,
     required this.name,
@@ -623,7 +629,12 @@ class BillingCycle {
     this.totalBilled = '0',
     this.totalCollected = '0',
     this.totalOutstanding = '0',
-  });
+    String? issuedBilled,
+    String? issuedCollected,
+    String? issuedOutstanding,
+  })  : issuedBilled = issuedBilled ?? totalBilled,
+        issuedCollected = issuedCollected ?? totalCollected,
+        issuedOutstanding = issuedOutstanding ?? totalOutstanding;
 
   /// Bills exist but none have been sent to residents yet.
   bool get awaitingIssue => generatedCount > 0;
@@ -648,6 +659,10 @@ class BillingCycle {
         totalBilled: _str(j['total_billed']),
         totalCollected: _str(j['total_collected']),
         totalOutstanding: _str(j['total_outstanding']),
+        // An older server that does not send the issued figures gets the totals.
+        issuedBilled: j['issued_billed'] == null ? null : _str(j['issued_billed']),
+        issuedCollected: j['issued_collected'] == null ? null : _str(j['issued_collected']),
+        issuedOutstanding: j['issued_outstanding'] == null ? null : _str(j['issued_outstanding']),
       );
 }
 

@@ -140,6 +140,23 @@ def list_open_complaints(
     return ComplaintService(db).list_open(society_id)
 
 
+@router.get("/society/{society_id}/open-count")
+def open_complaints_count(
+    society_id: UUID,
+    db:   Session = Depends(get_db),
+    user: User    = Depends(manager_or_above),
+):
+    """The number of complaints still being dealt with, the same figure the admin dashboard shows."""
+    assert_society_access(user, society_id)
+    return {"open": ComplaintService(db).open_count(society_id)}
+
+
+@router.get("/me/open-count")
+def my_open_complaints_count(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """How many of my complaints are still being dealt with (the resident dashboard's figure)."""
+    return {"open": ComplaintService(db).my_open_count(user.id)}
+
+
 @router.get("/me/complaints", response_model=List[ComplaintListOut])
 def my_complaints(
     skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200),

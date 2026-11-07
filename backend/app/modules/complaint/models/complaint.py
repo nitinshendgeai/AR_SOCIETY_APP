@@ -30,6 +30,11 @@ class ComplaintStatus(str, enum.Enum):
     REJECTED    = "rejected"
 
 
+# "Open" means still being dealt with: every status before resolved/closed/rejected. One definition, used by the
+# dashboards (admin, committee, manager) and the resident's own count, so they all show the same number.
+OPEN_STATUSES = (ComplaintStatus.OPEN, ComplaintStatus.ASSIGNED, ComplaintStatus.IN_PROGRESS, ComplaintStatus.REOPENED)
+
+
 class ComplaintCategory(str, enum.Enum):
     PLUMBING     = "plumbing"
     ELECTRICAL   = "electrical"

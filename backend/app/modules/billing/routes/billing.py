@@ -366,7 +366,7 @@ class MaintenanceSettingsUpdate(OrmBase):
     upi_id: Optional[str] = Field(None, max_length=100)
     bill_notes: Optional[str] = Field(None, max_length=1000)
     # How the bill prints: the standard layout, or the classic one (every head on its own line, a receipt slip at the foot)
-    bill_layout: Optional[Literal["standard", "classic"]] = None
+    bill_layout: Optional[Literal["standard", "classic", "boxed"]] = None
     # Billing in this app starts on (empty clears it: every cycle then bills its own period only)
     billing_start_date: Optional[date] = None
     # Post a payment entered by an admin / committee member as approved at once (no second approver)
@@ -444,9 +444,13 @@ def update_maintenance_settings(society_id: UUID, data: MaintenanceSettingsUpdat
 
 
 # ── Billing Cycles ────────────────────────────────────────────────────────────
-def _cycle_out(cy) -> dict:
+def _cycle_out(cy, today: Optional[date] = None) -> dict:
     live = [b for b in cy.bills if b.is_active and b.bill_status != BillStatus.CANCELLED]
-    today = date.today()
+    # Bills made but not yet sent to residents (GENERATED) are a preview: nobody owes them yet. The cycle's own
+    # totals below include them (so the cycle can be checked before it is issued); the `issued_*` figures leave them
+    # out and are what the dashboards and the Billing screen's header add up.
+    issued = [b for b in live if b.bill_status != BillStatus.GENERATED]
+    today = today or date.today()
     return {
         "id": str(cy.id),
         "society_id": str(cy.society_id),
@@ -465,6 +469,10 @@ def _cycle_out(cy) -> dict:
         "total_billed": str(sum((b.total_amount for b in live), Decimal(0))),
         "total_collected": str(sum((b.paid_amount for b in live), Decimal(0))),
         "total_outstanding": str(sum((b.outstanding for b in live), Decimal(0))),
+        "issued_count": len(issued),
+        "issued_billed": str(sum((b.total_amount for b in issued), Decimal(0))),
+        "issued_collected": str(sum((b.paid_amount for b in issued), Decimal(0))),
+        "issued_outstanding": str(sum((b.outstanding for b in issued), Decimal(0))),
     }
 
 @router.post("/cycles", status_code=201, dependencies=[Depends(manager_above)])

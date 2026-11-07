@@ -29,7 +29,7 @@ ACTIVE_STAFF = (StaffStatus.ACTIVE, StaffStatus.PROBATION, StaffStatus.ON_LEAVE)
 
 # The dashboard's own "needs attention" keys, as checklist lines: (category, link, title for a count).
 _FROM_DASHBOARD: Dict[str, tuple] = {
-    "overdue_bills": ("accounts", "defaulters", "{n} flat(s) have overdue maintenance bills"),
+    "overdue_bills": ("accounts", "defaulters", "{n} flat(s) have maintenance dues outstanding for over 3 months"),
     "vendor_bills_overdue": ("accounts", "vendors", "{n} vendor bill(s) are past their due date"),
     "recurring_due": ("accounts", "recurring", "{n} recurring expense(s) are due to be booked"),
     "agreements_expired": ("residents", "tenants", "{n} rent agreement(s) have expired"),

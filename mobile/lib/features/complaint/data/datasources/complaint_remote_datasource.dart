@@ -38,12 +38,21 @@ class ComplaintRemoteDataSource {
         .toList();
   }
 
-  /// GET /complaints/society/{societyId}/open
-  Future<List<ComplaintListModel>> listOpenComplaints(String societyId) async {
-    final r = await _dio.get('/complaints/society/$societyId/open');
-    return (r.data as List)
-        .map((e) => ComplaintListModel.fromJson(e as Map<String, dynamic>))
-        .toList();
+  /// GET /complaints/society/{societyId}/open-count - how many are still being dealt with (open, assigned, in
+  /// progress or reopened): the same number the admin dashboard shows.
+  Future<int> openComplaintsCount(String societyId) async {
+    final r = await _dio.get('/complaints/society/$societyId/open-count');
+    final n = (r.data as Map<String, dynamic>)['open'];
+    if (n is! num) throw const FormatException('The open-complaints count is missing from the reply.');
+    return n.toInt();
+  }
+
+  /// GET /complaints/me/open-count - how many of my complaints are still being dealt with (all of them).
+  Future<int> myOpenComplaintsCount() async {
+    final r = await _dio.get('/complaints/me/open-count');
+    final n = (r.data as Map<String, dynamic>)['open'];
+    if (n is! num) throw const FormatException('The open-complaints count is missing from the reply.');
+    return n.toInt();
   }
 
   /// GET /complaints/me/complaints?skip&limit

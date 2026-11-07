@@ -10,5 +10,6 @@ void main() {
   test('the chosen layout is read from the rules', () {
     expect(MaintenanceRules.fromJson({'bill_layout': 'classic'}).billLayout, 'classic');
     expect(MaintenanceRules.fromJson({'bill_layout': 'standard'}).billLayout, 'standard');
+    expect(MaintenanceRules.fromJson({'bill_layout': 'boxed'}).billLayout, 'boxed');
   });
 }
