@@ -66,6 +66,7 @@ Widget _app(_Recorder ds, Widget home) => ProviderScope(
     );
 
 void main() {
+  pagingTests();
   testWidgets('the Residents list asks the server for a moved-in or not-yet-moved-in filter', (tester) async {
     final ds = _Recorder();
     await tester.pumpWidget(_app(ds, const ResidentListScreen()));
@@ -140,5 +141,60 @@ void main() {
     await tester.pumpAndSettle();
     expect(ds.tenantCalls.last['agreement'], isNull);
     expect(ds.tenantCalls.last['police'], 'pending');                     // the others stay
+  });
+}
+
+
+/// A server holding [total] people, handing them out the way the real one does: `skip` then at most `limit`.
+class _Paged extends ResidentMasterRemoteDataSource {
+  _Paged(this.total) : super(dio: Dio());
+  final int total;
+  final skips = <int>[];
+
+  @override
+  Future<List<ResidentModel>> listResidents({
+    String? flatId, String? wingId, String? residentType, bool? isActive, bool? movedIn, String? search,
+    int skip = 0, int limit = 50,
+  }) async {
+    skips.add(skip);
+    final end = (skip + limit) > total ? total : skip + limit;
+    return [
+      for (var i = skip; i < end; i++)
+        ResidentModel(id: 'r$i', flatId: 'f1', fullName: 'Person $i', residentType: ResidentType.owner, isPrimary: true, isActive: true),
+    ];
+  }
+}
+
+void pagingTests() {
+  test('the Residents list loads 50 at a time until every resident has been fetched', () async {
+    final ds = _Paged(120);
+    final n = ResidentListNotifier(ResidentMasterRepository(ds: ds));
+    await n.load();
+    var s = n.state as ResidentListLoaded;
+    expect(s.residents.length, 50);
+    expect(s.hasMore, isTrue);
+
+    await n.loadMore();
+    s = n.state as ResidentListLoaded;
+    expect(s.residents.length, 100);
+    expect(s.hasMore, isTrue);
+
+    await n.loadMore();
+    s = n.state as ResidentListLoaded;
+    expect(s.residents.length, 120);
+    expect(s.hasMore, isFalse);                                  // a short page means that was the last
+    expect(ds.skips, [0, 50, 100]);
+    expect({for (final r in s.residents) r.id}.length, 120);     // nobody twice, nobody missing
+
+    await n.loadMore();                                          // nothing more to ask for
+    expect(ds.skips.length, 3);
+  });
+
+  test('a list of exactly one page has nothing more to load', () async {
+    final n = ResidentListNotifier(ResidentMasterRepository(ds: _Paged(30)));
+    await n.load();
+    final s = n.state as ResidentListLoaded;
+    expect(s.residents.length, 30);
+    expect(s.hasMore, isFalse);
   });
 }

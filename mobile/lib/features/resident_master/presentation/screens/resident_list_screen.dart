@@ -85,6 +85,7 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
       child: ListView(padding: const EdgeInsets.fromLTRB(24, 8, 24, 32), children: [
         AppDataTable<ResidentModel>(
           toolbar: _filters(),
+          pageSize: 50,
           rows: state is ResidentListLoaded ? state.residents : const [],
           loading: state is ResidentListLoading || state is ResidentListInitial,
           error: state is ResidentListError ? state.message : null,
@@ -122,6 +123,13 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
             ),
           ],
         ),
+        if (state is ResidentListLoaded && state.hasMore)
+          LoadMoreButton(
+            buttonKey: const ValueKey('residents-load-more'),
+            shown: state.residents.length,
+            loading: state.loadingMore,
+            onPressed: () => ref.read(residentListProvider.notifier).loadMore(),
+          ),
       ]),
     );
   }
@@ -287,7 +295,7 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
                   ],
                 ),
               ),
-            ResidentListLoaded(:final residents) => residents.isEmpty
+            ResidentListLoaded(:final residents, :final hasMore, :final loadingMore) => residents.isEmpty
                 ? const RmEmptyState(
                     icon: Icons.people_outline_rounded,
                     title: 'No residents found',
@@ -297,9 +305,16 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
                     onRefresh: () async => _load(),
                     child: ListView.separated(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-                      itemCount: residents.length,
+                      itemCount: residents.length + (hasMore ? 1 : 0),
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (_, i) => _ResidentCard(resident: residents[i], flat: flatsById[residents[i].flatId]),
+                      itemBuilder: (_, i) => i == residents.length
+                          ? LoadMoreButton(
+                              buttonKey: const ValueKey('residents-load-more'),
+                              shown: residents.length,
+                              loading: loadingMore,
+                              onPressed: () => ref.read(residentListProvider.notifier).loadMore(),
+                            )
+                          : _ResidentCard(resident: residents[i], flat: flatsById[residents[i].flatId]),
                     ),
                   ),
           },

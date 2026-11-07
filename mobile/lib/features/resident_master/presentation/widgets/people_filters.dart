@@ -109,3 +109,28 @@ int _natural(String a, String b) {
 
 /// The "moved in" choices shared by the Residents and Tenants lists.
 const movedInOptions = <(bool?, String)>[(null, 'All'), (true, 'Moved in'), (false, 'Not moved in')];
+
+
+/// "Show the next 50" under a list that has more rows on the server than it has fetched.
+class LoadMoreButton extends StatelessWidget {
+  final int shown;
+  final bool loading;
+  final VoidCallback onPressed;
+  final Key? buttonKey;
+  const LoadMoreButton({super.key, required this.shown, required this.loading, required this.onPressed, this.buttonKey});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Center(
+          child: loading
+              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+              : OutlinedButton.icon(
+                  key: buttonKey,
+                  onPressed: onPressed,
+                  icon: const Icon(Icons.expand_more_rounded),
+                  label: Text('Showing $shown, load the next 50'),
+                ),
+        ),
+      );
+}
