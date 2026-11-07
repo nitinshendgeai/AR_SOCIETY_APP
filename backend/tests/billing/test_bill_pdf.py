@@ -37,11 +37,25 @@ def test_amounts_use_indian_grouping_and_words():
     assert rs_in_words(3155) == "Rs. Three Thousand One Hundred Fifty Five only."
 
 
-def _bill_pdf(db, bill_id):
+class _WithLayout:
+    """The society's settings, printed in the given layout: most tests below are about the Standard layout, but a society
+    that has not chosen one now prints Boxed. `layout=None` prints whichever the society has stored."""
+    def __init__(self, base, layout):
+        self._base, self.bill_layout = base, layout
+
+    def __getattr__(self, name):
+        return getattr(self._base, name)
+
+
+def _with_layout(settings, layout):
+    return _WithLayout(settings, layout) if layout else settings
+
+
+def _bill_pdf(db, bill_id, layout="standard"):
     """The bill and its text; wrapped lines re-joined, runs of spaces collapsed."""
     svc = BillingService(db)
     bill = svc.get_bill(bill_id)
-    pdf = generate_maintenance_bill_pdf(bill, svc.get_maintenance_settings(bill.society_id),
+    pdf = generate_maintenance_bill_pdf(bill, _with_layout(svc.get_maintenance_settings(bill.society_id), layout),
                                         compress=False, **svc._bill_print_context(bill))
     return bill, " ".join(_text(pdf).replace("|", " ").split())
 
@@ -275,7 +289,8 @@ def test_the_details_box_keeps_each_column_inside_its_half(client, db):
     svc = BillingService(db)
     bill = svc.get_bill(bill.id)
     width = A4[0] - PAGE_MARGINS["leftMargin"] - PAGE_MARGINS["rightMargin"]
-    story = bill_story(bill, svc.get_maintenance_settings(bill.society_id), width, **svc._bill_print_context(bill))
+    story = bill_story(bill, _with_layout(svc.get_maintenance_settings(bill.society_id), "standard"), width,
+                       **svc._bill_print_context(bill))
     box = next(f for f in story if getattr(f, "_cellvalues", None) and len(f._cellvalues[0]) == 2
                and hasattr(f._cellvalues[0][0], "_cellvalues"))
     left, right = box._cellvalues[0]
@@ -302,14 +317,19 @@ def _classic(client, db, tag, **settings):
     return society, flat1, manager, bill, cycle_id
 
 
-def test_the_layout_is_a_setting_standard_unless_chosen(client, db):
+def test_the_layout_is_a_setting_boxed_unless_chosen(client, db):
     society, flat1, flat2, manager, resident, other, cycle_id = _generated_cycle(client, db, "pdfl0")
     h = manager["headers"]
-    assert client.get(f"/api/v1/billing/maintenance-settings/{society.id}", headers=h).json()["bill_layout"] == "standard"
+    assert client.get(f"/api/v1/billing/maintenance-settings/{society.id}", headers=h).json()["bill_layout"] == "boxed"
     assert client.put(f"/api/v1/billing/maintenance-settings/{society.id}", json={"bill_layout": "fancy"},
                       headers=h).status_code == 422
     bill = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=flat1.id).one()
-    _, text = _bill_pdf(db, bill.id)
+    _, text = _bill_pdf(db, bill.id, layout=None)               # a society that never chose prints Boxed
+    assert "P A R T I C U L A R S" in text and "Terms & Conditions :" in text
+    # ... and can go back to Standard
+    assert client.put(f"/api/v1/billing/maintenance-settings/{society.id}", json={"bill_layout": "standard"},
+                      headers=h).json()["bill_layout"] == "standard"
+    _, text = _bill_pdf(db, bill.id, layout=None)
     assert "Maintenance Bill" in text and "Notes *" in text.replace("Notes * ", "Notes *")   # the standard layout
 
 
@@ -361,7 +381,7 @@ def test_classic_layout_prints_the_previous_bills_receipt_slip(client, db):
     second_cycle = _cycle(client, manager["headers"], society.id, name="Nov 2026").json()["id"]
     assert client.post(f"/api/v1/billing/cycles/{second_cycle}/generate-bills", headers=manager["headers"]).status_code == 200
     second = db.query(MaintenanceBill).filter_by(cycle_id=UUID(second_cycle), flat_id=flat1.id).one()
-    _, text = _bill_pdf(db, second.id)
+    _, text = _bill_pdf(db, second.id, layout=None)
     for expected in [
         "RECEIPT for Previous Bill", "Receipt No.: 10905", "Date : 28/09/2026",
         "Received with thanks from Asha Rao", "Tower A 101",
@@ -372,7 +392,7 @@ def test_classic_layout_prints_the_previous_bills_receipt_slip(client, db):
     ]:
         assert expected in text, expected
     # the flat's first bill has nothing to receipt
-    _, first_text = _bill_pdf(db, first.id)
+    _, first_text = _bill_pdf(db, first.id, layout=None)
     assert "RECEIPT for Previous Bill" not in first_text
 
 
@@ -381,7 +401,7 @@ def test_classic_layout_puts_each_owner_on_a_line_and_in_the_box(client, db):
     bill.resident.full_name = "Mukesh B. Ashar & Meena M. Ashar"
     db.commit()
     db.expire_all()
-    _, text = _bill_pdf(db, bill.id)
+    _, text = _bill_pdf(db, bill.id, layout=None)
     assert "Name : Mukesh B. Ashar Meena M. Ashar FLAT NO" in text
 
 
@@ -512,7 +532,7 @@ def test_boxed_layout_follows_the_reference_page(client, db):
     flat1.area_sqft = 600
     db.commit()
     db.expire_all()
-    bill, text = _bill_pdf(db, bill.id)
+    bill, text = _bill_pdf(db, bill.id, layout=None)
     for expected in [
         "MB SOCIETY PDFX1", "E-Mail : office@example.com", "Registration No. : MUM/WRO/HSG/TC/16082/2021-22/2022",
         "To,", "Tower A 101 Asha Rao", "Flat No. : Tower A 101",
@@ -546,7 +566,7 @@ def test_boxed_layout_prints_the_receipt_for_the_previous_bill(client, db):
     second_cycle = _cycle(client, manager["headers"], society.id, name="Nov 2026").json()["id"]
     assert client.post(f"/api/v1/billing/cycles/{second_cycle}/generate-bills", headers=manager["headers"]).status_code == 200
     second = db.query(MaintenanceBill).filter_by(cycle_id=UUID(second_cycle), flat_id=flat1.id).one()
-    _, text = _bill_pdf(db, second.id)
+    _, text = _bill_pdf(db, second.id, layout=None)
     for expected in [
         "R E C E I P T", "Receipt No. : 1", "Receipt Date : 10-4-2026",
         "Received with thanks From Tower A 101 Asha Rao Unit No. : Tower A 101 Sum of Rs. 2,000.00 ( Two Thousand Only )",
