@@ -452,6 +452,9 @@ def bill_story(
 ) -> List:
     """The flowables of one printed bill (the letterhead down to the receipts towards the previous bill), in the layout
     the society chose (`MaintenanceSettings.bill_layout`)."""
+    if settings is not None and getattr(settings, "bill_layout", None) == "boxed":
+        return boxed_bill_story(bill, settings, width, element_codes=element_codes, element_names=element_names,
+                                accumulated_interest=accumulated_interest, previous_bill=previous_bill)
     if settings is not None and getattr(settings, "bill_layout", None) == "classic":
         return classic_bill_story(bill, settings, width, element_codes=element_codes, element_names=element_names,
                                   accumulated_interest=accumulated_interest, previous_bill=previous_bill)
@@ -855,6 +858,266 @@ def classic_bill_story(
                       Spacer(1, 3 * mm)]
     block.append(sign_off(society_name, width, ""))
     story.append(KeepTogether(block))
+    return story
+
+
+# ── The boxed layout ──────────────────────────────────────────────────────────
+# One framed page: the society's name over a line of address and e-mail, the member and bill details side by side, the
+# particulars (only the heads charged this time, each on its own numbered line) with the totals, the amount in words,
+# the bank details beside the billing-period note, numbered terms, and the receipt(s) for what was paid against the
+# previous bill. The layout many societies that bill quarterly print.
+
+def inr_words(v) -> str:
+    """The boxed bill's style: 11790 -> 'INR Eleven Thousand Seven Hundred Ninety Only.'"""
+    rupees, paise = _split(v)
+    words = f"INR {_indian_words(rupees)}"
+    if paise:
+        words += f" and Paise {_indian_words(paise)}"
+    return words + " Only."
+
+
+def _short_date(value: Optional[date]) -> str:
+    """1-Jul-26"""
+    return f"{value.day}-{value:%b-%y}" if value else "-"
+
+
+def _period_note(start: date, end: date) -> str:
+    if (start.year, start.month) == (end.year, end.month):
+        return f"Maintenance Charges For {start:%B %Y}"
+    return f"Maintenance Charges From {start:%B %Y} to {end:%B %Y}"
+
+
+def _paid_by(payment) -> str:
+    """'By Cheque No. 531615 Dated 10-Apr-26 Drawn on <bank>' / 'By Cash' / 'By UPI Ref ... Dated ...'."""
+    dated = f"Dated {_short_date(payment.payment_date)}"
+    if payment.payment_mode == PaymentMode.CASH:
+        return "By Cash"
+    ref = getattr(payment, "cheque_number", None) or payment.transaction_ref or ""
+    if payment.payment_mode == PaymentMode.CHEQUE:
+        out = f"By Cheque No. {ref} {dated}".replace("  ", " ")
+        return out + (f" Drawn on {payment.bank_name}" if payment.bank_name else "")
+    mode = MODE_LABEL.get(payment.payment_mode, payment.payment_mode.value)
+    return " ".join(x for x in [f"By {mode}", f"Ref {ref}" if ref else "", dated] if x)
+
+
+def boxed_bill_story(
+    bill: MaintenanceBill,
+    settings: Optional[MaintenanceSettings],
+    width: float,
+    *,
+    element_codes: Optional[Dict[str, str]] = None,
+    element_names: Optional[Dict[str, str]] = None,
+    accumulated_interest: Decimal = ZERO,
+    previous_bill: Optional[MaintenanceBill] = None,
+) -> List:
+    """The flowables of one bill in the boxed layout: the same figures as the other layouts, laid out as one framed page."""
+    element_names = element_names or {}
+    society = bill.society
+    society_name = society.name if society else "Society"
+    flat = bill.flat
+    van = flat.virtual_account_number if flat else None
+    gst_charged = (bill.tax_amount or 0) > 0
+    LINE = colors.black
+
+    st = {
+        "name": ParagraphStyle("bx_name", parent=_base, fontName="Helvetica-Bold", fontSize=15, leading=19,
+                               alignment=TA_CENTER),
+        "addr": ParagraphStyle("bx_addr", parent=_base, fontSize=7, leading=9, alignment=TA_CENTER),
+        "reg": ParagraphStyle("bx_reg", parent=_base, fontSize=8.5, leading=11, alignment=TA_CENTER),
+        "t": ParagraphStyle("bx_t", parent=_base, fontSize=9, leading=11.5),
+        "tb": ParagraphStyle("bx_tb", parent=_base, fontName="Helvetica-Bold", fontSize=9, leading=11.5),
+        "tr": ParagraphStyle("bx_tr", parent=_base, fontSize=9, leading=11.5, alignment=TA_RIGHT),
+        "trb": ParagraphStyle("bx_trb", parent=_base, fontName="Helvetica-Bold", fontSize=9, leading=11.5,
+                              alignment=TA_RIGHT),
+        "tc": ParagraphStyle("bx_tc", parent=_base, fontSize=9, leading=11.5, alignment=TA_CENTER),
+        "hd": ParagraphStyle("bx_hd", parent=_base, fontName="Helvetica-Bold", fontSize=9, leading=11.5,
+                             alignment=TA_CENTER),
+        "small": ParagraphStyle("bx_small", parent=_base, fontSize=7.5, leading=9.5),
+        "smallb": ParagraphStyle("bx_smallb", parent=_base, fontName="Helvetica-Bold", fontSize=7.5, leading=9.5),
+        "terms": ParagraphStyle("bx_terms", parent=_base, fontSize=8, leading=10.5),
+    }
+
+    def P(text, style="t"):
+        return Paragraph(text, st[style])
+
+    def frame(rows, widths, extra=()):
+        t = Table(rows, colWidths=widths)
+        t.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 0.9, LINE), ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                               ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                               ("TOPPADDING", (0, 0), (-1, -1), 1.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5), *extra]))
+        return t
+
+    story: List = []
+
+    # ── Letterhead ──
+    address = ", ".join(x for x in [
+        (society.address or "").strip() if society else "", society.city if society else None,
+        society.state if society else None] if x)
+    if society and society.pincode:
+        address = f"{address} {society.pincode}".strip()
+    line2 = " , ".join(x for x in [
+        address.upper(), f"E-Mail : {society.contact_email}" if society and society.contact_email else ""] if x)
+    rows = [[P(escape(society_name.upper()), "name")]]
+    if line2:
+        rows.append([P(escape(line2), "addr")])
+    ids = [x for x in [f"Registration No. : {society.registration_number}" if society and society.registration_number else "",
+                       f"PAN : {society.pan_number}" if society and society.pan_number else "",
+                       f"GSTIN : {society.gst_number}" if society and society.gst_number else ""] if x]
+    if ids:
+        rows.append([P(escape("   |   ".join(ids)), "reg")])
+    story.append(frame(rows, [width], [("TOPPADDING", (0, 0), (-1, 0), 4)]))
+    if bill.bill_status.value == "cancelled":
+        story += [Paragraph("<font color='#B91C1C'><b>CANCELLED</b></font>", S["cell_c"])]
+
+    # ── To / bill details ──
+    cycle = bill.cycle
+    p_start = (bill.period_start or cycle.cycle_start) if cycle else bill.bill_date
+    p_end = (bill.period_end or cycle.cycle_end) if cycle else bill.bill_date
+    area = f"{flat.area_sqft:,.0f}" if flat and flat.area_sqft else ""
+    names = " & ".join(member_names(flat, bill.resident))
+    label = flat_label(flat)
+    left = Table([[P("To,", "tb")], [P(f"{escape(label)} {escape(names)}", "tb")], [""],
+                  [P(f"Flat No.  &nbsp;&nbsp;: &nbsp;<b>{escape(label)}</b>")]],
+                 colWidths=[width * 0.5 - 8])
+    left.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                              ("TOPPADDING", (0, 0), (-1, -1), 0.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 0.5)]))
+    right_rows = [("Bill No.", escape(bill.invoice_number)), ("Date", _short_date(bill.bill_date)),
+                  ("Due Date", _short_date(bill.due_date))]
+    if area:
+        right_rows.insert(1, ("Area (SqFt.)", area))
+    if van:
+        right_rows.append(("Virtual A/c No.", escape(van)))
+    if gst_charged:
+        right_rows += [(k, escape(v)) for k, v in gst_details(society)]
+    right_rows.append(("Billing Period", f"{_short_date(p_start)} to {_short_date(p_end)}"))
+    right = Table([[P(k, "tb"), P(":"), P(v)] for k, v in right_rows],
+                  colWidths=[26 * mm, 3 * mm, width * 0.5 - 26 * mm - 3 * mm - 8])
+    right.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                               ("TOPPADDING", (0, 0), (-1, -1), 0.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 0.5)]))
+    story.append(frame([[left, right]], [width * 0.5, width * 0.5]))
+
+    # ── Particulars ──
+    lines = [li for li in bill.line_items if not _is_interest(li)]
+    amount_of = (lambda li: li.amount) if gst_charged else (lambda li: li.total)
+    charged: Dict[str, Decimal] = {}
+    for li in lines:
+        name = element_names.get(li.description, li.description)
+        charged[name] = charged.get(name, ZERO) + Decimal(amount_of(li))
+    heads = [(n, a) for n, a in charged.items() if a]            # only what is charged this time
+    if gst_charged:
+        heads += gst_rows(lines)
+
+    current = sum((Decimal(li.total) for li in lines), ZERO)
+    current_interest = (sum((Decimal(li.total) for li in bill.line_items if _is_interest(li)), ZERO)
+                        + Decimal(bill.penalty_amount or 0))
+    arrears_total = Decimal(bill.previous_dues or 0)
+    prev_interest = min(max(Decimal(accumulated_interest or 0), ZERO), max(arrears_total, ZERO))
+    arrears = arrears_total - prev_interest
+    discount = Decimal(bill.discount_amount or 0)
+    round_off = Decimal(bill.round_off or 0)
+    payable = current + arrears + current_interest + prev_interest - discount + round_off
+
+    no_w, amt_w = 12 * mm, 40 * mm
+    data = [[P("Sr.<br/>No.", "hd"), Paragraph("P A R T I C U L A R S", st["hd"]), P("Amount (INR)", "hd")]]
+    data += [[P(str(i), "tc"), P(escape(name)), P(_inr(amount), "tr")] for i, (name, amount) in enumerate(heads, 1)]
+    body_end = len(data) - 1
+    filler = max(3 * mm, 92 * mm - 4.9 * mm * len(heads))        # keeps the totals toward the foot of the page
+    data.append(["", "", ""])
+    summary = [("Total", current, True)]
+    for label_, amount_ in [("Arrears / Advance", arrears), ("Accumulated Interest", prev_interest),
+                            ("Current Interest / Late Fees", current_interest)]:
+        if amount_:
+            summary.append((label_, amount_, False))
+    if discount:
+        summary.append(("Less: Discount", -discount, False))
+    if round_off:
+        summary.append(("Round off", round_off, False))
+    first_summary = len(data)
+    for label_, amount_, bold in summary:
+        data.append([P(label_, "trb" if bold else "tr"), "", P(_inr(amount_), "trb" if bold else "tr")])
+    data.append([P("Grand Total", "trb"), "", P(f"Rs. {_inr(payable)}", "trb")])
+    heights = [None] * len(data)
+    heights[body_end + 1] = filler
+    t = Table(data, colWidths=[no_w, width - no_w - amt_w, amt_w], rowHeights=heights)
+    t.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 0.9, LINE), ("LINEBELOW", (0, 0), (-1, 0), 0.9, LINE),
+        ("LINEAFTER", (0, 0), (0, first_summary - 1), 0.9, LINE),
+        ("LINEBEFORE", (2, 0), (2, -1), 0.9, LINE),
+        *[("SPAN", (0, r), (1, r)) for r in range(first_summary, len(data))],
+        ("LINEABOVE", (0, len(data) - 1), (-1, len(data) - 1), 0.9, LINE),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 1), ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+        ("TOPPADDING", (0, 0), (-1, 0), 2), ("BOTTOMPADDING", (0, 0), (-1, 0), 2),
+        ("TOPPADDING", (0, len(data) - 1), (-1, len(data) - 1), 3), ("BOTTOMPADDING", (0, len(data) - 1), (-1, len(data) - 1), 3),
+    ]))
+    story += [t, frame([[P(f"<b>Amount In Words : {escape(inr_words(payable))}</b>")]], [width])]
+
+    working = _interest_working_table(bill, width)
+    if working is not None:
+        story += [Spacer(1, 2 * mm), working, Spacer(1, 2 * mm)]
+
+    # ── Billing-period note, and the bank details ──
+    note = Paragraph(f"<b>Note : {_period_note(p_start, p_end)}</b>", st["smallb"])
+    bank_rows = []
+    if settings:
+        if van:
+            bank_rows.append(("Virtual A/c No.", van))
+        elif settings.bank_account_number:
+            bank_rows.append(("A/c No.", settings.bank_account_number))
+        if settings.bank_name:
+            bank_rows.insert(0, ("Bank Name", settings.bank_name))
+        if settings.bank_ifsc:
+            bank_rows.append(("IFS Code", settings.bank_ifsc))
+        if settings.upi_id:
+            bank_rows.append(("UPI ID", settings.upi_id))
+    if bank_rows:
+        bank = Table([[P("Company's Bank Details", "t"), "", ""]] + [
+            [P(k, "small"), P(":", "small"), P(f"<b>{escape(v)}</b>", "small")] for k, v in bank_rows],
+            colWidths=[26 * mm, 3 * mm, width * 0.55 - 29 * mm])
+        bank.setStyle(TableStyle([("SPAN", (0, 0), (-1, 0)), ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                                  ("TOPPADDING", (0, 0), (-1, -1), 0.3), ("BOTTOMPADDING", (0, 0), (-1, -1), 0.3)]))
+        story.append(frame([[note, bank]], [width * 0.45, width * 0.55]))
+    else:
+        story.append(frame([[note]], [width]))
+
+    # ── Terms & Conditions ──
+    pay_to = ((settings.bank_account_name if settings else None) or society_name).upper()
+    terms = [f"PLEASE PAY BY A/C PAYEE CHEQUE ONLY IN FAVOUR OF - {escape(pay_to)}"]
+    rate = Decimal(settings.interest_rate_pct) if settings and settings.interest_rate_pct is not None else None
+    if rate and rate > 0:
+        grace = settings.interest_grace_days or 0
+        terms.append(f"INTEREST WILL BE CHARGED @ {rate.normalize():f}% P.A. ON OUTSTANDING MAINTENANCE"
+                     + (f" (GRACE PERIOD {grace} DAYS)" if grace else ""))
+    terms.append("IN CASE OF ANY DISCREPANCY IN BILL CONTACT COMMITTEE WITHIN 7 DAYS FROM DATE OF BILL")
+    if settings and settings.bill_notes:
+        terms += [escape(x.strip()).upper() for x in settings.bill_notes.splitlines() if x.strip()]
+    story.append(frame([[P("<b>Terms &amp; Conditions :</b>", "t")]] + [
+        [Paragraph(f"<b>{i}.</b>&nbsp;&nbsp;{x}", st["terms"])] for i, x in enumerate(terms, 1)], [width],
+        [("TOPPADDING", (0, 1), (-1, -1), 0.5), ("BOTTOMPADDING", (0, 1), (-1, -1), 0.5)]))
+
+    # ── Receipt(s) for what was paid against the previous bill ──
+    if previous_bill is not None:
+        paid = sorted(_payments(previous_bill), key=lambda pa: (pa[0].payment_date, pa[0].receipt_number))[-3:]
+        for payment, amount in paid:
+            cheque = payment.payment_mode == PaymentMode.CHEQUE
+            rows = [
+                [Paragraph("<b>R E C E I P T</b>", st["hd"])],
+                [Table([[P(f"<b>Receipt No. :</b> {escape(payment.receipt_number)}", "t"),
+                         P(f"<b>Receipt Date :</b> {payment.payment_date.day}-{payment.payment_date.month}-"
+                           f"{payment.payment_date.year}", "tr")]], colWidths=[width * 0.5 - 8, width * 0.5 - 8],
+                       style=[("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                              ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0)])],
+                [P(f"Received with thanks From <b>{escape(label)} {escape(names)}</b> Unit No. :<b>{escape(label)}</b> "
+                   f"Sum of Rs. <b>{_inr(amount)}</b> ( {escape(inr_words(amount).replace('INR ', '').rstrip('.'))} ) "
+                   f"{escape(_paid_by(payment))} Against Ref No Bill /{escape(previous_bill.invoice_number)}")],
+                [P(f"Total Receipt &nbsp;&nbsp;&nbsp;&nbsp;: <b>{_inr(amount)}</b>")],
+                [P("Subject to realization of Cheque" if cheque else "")],
+            ]
+            story.append(frame(rows, [width]))
+
+    story.append(Spacer(1, 1.5 * mm))
+    story.append(Paragraph("<b>This is a Computer Generated Invoice. No Need for Signature</b>", S["foot"]))
     return story
 
 

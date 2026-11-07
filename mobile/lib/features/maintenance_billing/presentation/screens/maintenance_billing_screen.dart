@@ -1469,7 +1469,10 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
             'Standard groups the charges under a fixed list of heads (Maintenance Charges, Sinking Fund, Repair & '
                 'Maintenance Fund...). Classic prints every maintenance element on its own line (a charge head appears under the '
                 'name of its element, and heads of one element add up), with the totals and the amount in '
-                'words, numbered notes, and the receipt for the previous bill at the foot above the signature line. It '
+                'words, numbered notes, and the receipt for the previous bill at the foot above the signature line. Boxed '
+                'prints one framed page: the member and bill details side by side, only the heads charged this time, the '
+                'bank details beside the billing-period note, numbered terms, and the receipt for what was paid against '
+                'the previous bill. It '
                 'applies to every bill printed from now on, including bills already made.',
             [
               FormFieldBox(
@@ -1481,6 +1484,7 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
                   items: const [
                     DropdownMenuItem(value: 'standard', child: Text('Standard: heads grouped')),
                     DropdownMenuItem(value: 'classic', child: Text('Classic: element by element')),
+                    DropdownMenuItem(value: 'boxed', child: Text('Boxed: one framed page with receipt')),
                   ],
                   onChanged: (v) => setState(() => _billLayout = v ?? 'standard'),
                 ),
