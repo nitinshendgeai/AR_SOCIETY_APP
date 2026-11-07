@@ -96,7 +96,7 @@ MODE_LABEL = {
 # bill_head(); heads with nothing charged print 0.00.
 MAINTENANCE = "Maintenance Charges"
 BILL_HEADS = [
-    MAINTENANCE, "Sinking Fund", "Repair & Maintenance Fund", "Property Tax",
+    MAINTENANCE, "Sinking Fund", "Repair & Maintenance Fund", "Contingency Fund", "Property Tax",
     "Non Occupancy Charges", "Parking Charges", "Cheque Bounce Charges", "In & Out Charges",
     "Other Charges",
 ]
@@ -119,6 +119,8 @@ def bill_head(line, element_code: Optional[str] = None) -> str:
         return "Sinking Fund"
     if line.charge_type == ChargeType.REPAIR_FUND or element_code == "repair_fund":
         return "Repair & Maintenance Fund"
+    if element_code == "contingency_fund" or "contingency fund" in desc:
+        return "Contingency Fund"
     if "non-occupancy" in desc or "non occupancy" in desc:
         return "Non Occupancy Charges"
     if line.charge_type == ChargeType.PARKING or element_code == "parking":

@@ -42,6 +42,12 @@ STANDARD_ELEMENTS = [
      "0.25% of each flat's monthly service charges, kept for major structural repairs or reconstruction. The bye-law "
      "minimum is 0.25% a year of the architect-certified construction cost (excluding land); a society that levies "
      "it that way switches the basis to % of construction cost."),
+    ("contingency_fund", "Contingency Fund", ChargeType.OTHER, ChargeBasis.PER_SQFT, None, False,
+     "General body resolution",
+     "A reserve the general body resolves to build up through the monthly bill, for unbudgeted costs, unpaid dues "
+     "and contract or rate increases. No rate is fixed by the bye-laws: enter the rate and basis (per sq ft or "
+     "equally per flat) the general body approved. It prints as its own line on the bill and is credited to the "
+     "Reserve Fund, never to income."),
     ("lift_maintenance", "Lift Maintenance", ChargeType.MAINTENANCE, ChargeBasis.BUDGET_EQUAL, None, True,
      "Bye-laws 66–67",
      "Lift running and AMC costs, borne equally by every flat in a building with a lift — "

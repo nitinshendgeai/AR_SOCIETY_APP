@@ -23,7 +23,7 @@ UNLINKED = ("repairs_building", "repairs_electrical", "repairs_plumbing", "repai
 
 def _assert_defaults(db, society_id):
     elements = {e.id: e for e in db.query(MaintenanceElement).filter_by(society_id=society_id)}
-    assert len(elements) == 21
+    assert len(elements) == 22
     by_code = {e.code: e for e in elements.values()}
     assert (by_code["repair_fund"].default_basis.value, str(by_code["repair_fund"].default_amount)) == \
         ("service_charge_pct", "0.75")
@@ -59,7 +59,7 @@ def test_cleaning_a_societys_data_restores_the_standard_books(client, db):
     # cleaning again does not duplicate anything
     assert client.post(f"{P}/societies/{a.id}/clean-data", json={"confirm": "DEF2"}, headers=h).status_code == 200
     db.expire_all()
-    assert db.query(MaintenanceElement).filter_by(society_id=a.id).count() == 21
+    assert db.query(MaintenanceElement).filter_by(society_id=a.id).count() == 22
 
 
 def test_a_society_created_by_the_platform_admin_starts_with_elements_and_links(client, db):
