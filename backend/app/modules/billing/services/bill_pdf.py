@@ -470,11 +470,12 @@ def bill_story(
     p_start = (bill.period_start or cycle.cycle_start) if cycle else None
     p_end = (bill.period_end or cycle.cycle_end) if cycle else None
     period = f"{_dm(p_start)} to {_dm(p_end)}" if cycle else ""
+    phone = (m.phone or "").strip() if m else ""
     left = _kv([
         ("Name", "<br/>".join(f"<b>{escape(n)}</b>" for n in member_names(flat, bill.resident))),
         ("Flat No.", escape(flat_label(flat))),
-        ("Area sq ft", area),
-        ("Mobile No", escape(m.phone or "") if m else ""),
+        *([("Area sq ft", area)] if area else []),            # a row with nothing to show is left out
+        *([("Mobile No", escape(phone))] if phone else []),
         ("Mail ID", escape(email)),
     ], [24 * mm, width * 0.5 - 12 - 24 * mm - 8])
     van = flat.virtual_account_number if flat else None

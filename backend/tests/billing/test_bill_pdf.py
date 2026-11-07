@@ -434,3 +434,17 @@ def test_the_elements_names_come_from_the_maintenance_elements_master(client, db
     assert svc._element_names(society.id)["Tanker water"] == water["name"]
     assert svc._bill_print_context(svc.get_bill(db.query(MaintenanceBill).first().id))["element_names"]["Tanker water"] \
         == water["name"]
+
+
+def test_area_and_mobile_rows_are_left_out_when_missing(client, db):
+    society, flat1, flat2, manager, resident, other, cycle_id = _generated_cycle(client, db, "pdf9")
+    bill_id = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=flat1.id).one().id
+    res = db.query(Resident).filter_by(flat_id=flat1.id, is_active=True).first()
+    flat1.area_sqft, res.phone = None, None
+    db.commit()
+    _, text = _bill_pdf(db, bill_id)
+    assert "Area sq ft" not in text and "Mobile No" not in text and "Flat No. : " in text
+    flat1.area_sqft, res.phone = 372, "9867859011"
+    db.commit()
+    _, text = _bill_pdf(db, bill_id)
+    assert "Area sq ft : 372" in text and "Mobile No : 9867859011" in text
