@@ -235,3 +235,8 @@ class AmenityUsageLog(Base, TimestampMixin):
     extra_charges = Column(Float, nullable=True)
 
     booking = relationship("AmenityBooking", back_populates="usage_log")
+
+
+# Composite indexes for the hot list / dashboard queries (alembic 9b4c5d6e7f80). Keep in step with that migration.
+from sqlalchemy import Index, text  # noqa: E402
+Index("ix_amenity_bookings_soc_pending", AmenityBooking.society_id, postgresql_where=text("status = 'pending'"), sqlite_where=text("status = 'pending'"))

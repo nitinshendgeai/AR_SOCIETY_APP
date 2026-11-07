@@ -31,3 +31,8 @@ class PasswordResetRequest(Base, TimestampMixin):
 
     user     = relationship("User", foreign_keys=[user_id])
     resolver = relationship("User", foreign_keys=[resolved_by])
+
+
+# Composite indexes for the hot list / dashboard queries (alembic 9b4c5d6e7f80). Keep in step with that migration.
+from sqlalchemy import Index, text  # noqa: E402
+Index("ix_password_reset_soc_status", PasswordResetRequest.society_id, PasswordResetRequest.status)

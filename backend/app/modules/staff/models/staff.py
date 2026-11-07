@@ -467,3 +467,10 @@ class StaffLeaveBalance(Base, TimestampMixin):
 
     society = relationship("Society")
     staff   = relationship("Staff")
+
+
+# Composite indexes for the hot list / dashboard queries (alembic 9b4c5d6e7f80). Keep in step with that migration.
+from sqlalchemy import Index, text  # noqa: E402
+Index("ix_staff_leaves_soc_pending", StaffLeave.society_id, postgresql_where=text("status = 'pending' AND is_active"), sqlite_where=text("status = 'pending' AND is_active"))
+Index("ix_staff_attendance_soc_unapproved", StaffAttendance.society_id, postgresql_where=text("is_approved = false AND is_active"), sqlite_where=text("is_approved = false AND is_active"))
+Index("ix_staff_attendance_staff_date", StaffAttendance.staff_id, StaffAttendance.attendance_date)

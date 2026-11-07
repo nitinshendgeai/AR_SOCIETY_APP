@@ -34,3 +34,8 @@ class ResidentEditRequest(Base, TimestampMixin):
 
     def __repr__(self):
         return f"<ResidentEditRequest resident={self.resident_id} status={self.status}>"
+
+
+# Composite indexes for the hot list / dashboard queries (alembic 9b4c5d6e7f80). Keep in step with that migration.
+from sqlalchemy import Index, text  # noqa: E402
+Index("ix_resident_edit_req_soc_status", ResidentEditRequest.society_id, ResidentEditRequest.status)

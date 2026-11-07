@@ -861,3 +861,11 @@ class PaymentClaim(Base, TimestampMixin):
 
     def __repr__(self):
         return f"<PaymentClaim ₹{self.amount} [{self.status}]>"
+
+
+# Composite indexes for the hot list / dashboard queries (alembic 9b4c5d6e7f80). Keep in step with that migration.
+from sqlalchemy import Index, text  # noqa: E402
+Index("ix_bills_soc_status_due", MaintenanceBill.society_id, MaintenanceBill.bill_status, MaintenanceBill.due_date, postgresql_where=text("is_active"), sqlite_where=text("is_active"))
+Index("ix_bills_flat_billdate", MaintenanceBill.flat_id, MaintenanceBill.bill_date.desc(), postgresql_where=text("is_active"), sqlite_where=text("is_active"))
+Index("ix_receipts_soc_flat_paydate", PaymentReceipt.society_id, PaymentReceipt.flat_id, PaymentReceipt.payment_date.desc())
+Index("ix_onlinepay_soc_flat_status", OnlinePaymentSubmission.society_id, OnlinePaymentSubmission.flat_id, OnlinePaymentSubmission.status)

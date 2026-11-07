@@ -53,3 +53,8 @@ class Notification(Base, TimestampMixin):
 
     def __repr__(self):
         return f"<Notification {self.type} to user={self.user_id} status={self.status}>"
+
+
+# Composite indexes for the hot list / dashboard queries (alembic 9b4c5d6e7f80). Keep in step with that migration.
+from sqlalchemy import Index, text  # noqa: E402
+Index("ix_notif_module_entity_created", Notification.module, Notification.entity_id, Notification.created_at.desc())

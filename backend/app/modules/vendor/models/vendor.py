@@ -597,3 +597,8 @@ class Quotation(Base, TimestampMixin):
     work_order = relationship("WorkOrder", back_populates="quotations")
     contract   = relationship("AMCContract", back_populates="quotations")
     vendor     = relationship("Vendor")
+
+
+# Composite indexes for the hot list / dashboard queries (alembic 9b4c5d6e7f80). Keep in step with that migration.
+from sqlalchemy import Index, text  # noqa: E402
+Index("ix_vendor_invoices_soc_unpaid_due", VendorInvoice.society_id, VendorInvoice.due_date, postgresql_where=text("is_paid = false AND is_active"), sqlite_where=text("is_paid = false AND is_active"))
