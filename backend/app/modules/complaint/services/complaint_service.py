@@ -452,6 +452,10 @@ class ComplaintService:
     def list_assigned_to_me(self, user_id: UUID, skip: int = 0, limit: int = 50) -> List[Complaint]:
         return self.repo.get_assigned_to(user_id, skip, limit)
 
+    def my_open_count(self, user_id: UUID) -> int:
+        """How many of my own complaints are still being dealt with - all of them, not just the newest page."""
+        return self.repo.count_open_by_resident(user_id)
+
     def open_count(self, society_id: UUID) -> int:
         """How many complaints are still being dealt with (open, assigned, in progress or reopened)."""
         return self.repo.count_open(society_id)

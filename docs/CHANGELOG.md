@@ -19,6 +19,10 @@ Format: `[YYYY-MM-DD] type: description`
 - **Punches waiting for approval** - punch-outs as well as punch-ins, as the Approvals screen lists them.
 - **Collection** - the percentage rounds down, so 99.6% collected no longer reads "100%" with money still outstanding; the
   overdue-bill count uses the society's own date.
+- **Bills made but not yet issued** are left out of "billed" and "outstanding" on the dashboards, the manager's
+  Maintenance cards and the Billing screen's header (nobody owes them yet); the collection card says how many are waiting
+  to be issued. A cycle's own card still shows its full preview total.
+- **My open complaints** (resident dashboard) - counted by the server, not from the newest 50 complaints.
 - Also: pull down to refresh the admin, committee and manager dashboards; the visitor figures open the visitor log; the
   greeting card says good morning/afternoon/evening with a readable date; the unused "being built" home screen is removed.
 

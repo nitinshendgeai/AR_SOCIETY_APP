@@ -92,6 +92,14 @@ class ComplaintRepository {
     }
   }
 
+  Future<ComplaintResult<int>> myOpenComplaintsCount() async {
+    try {
+      return ComplaintSuccess(await _ds.myOpenComplaintsCount());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
   Future<ComplaintResult<int>> openComplaintsCount(String societyId) async {
     try {
       return ComplaintSuccess(await _ds.openComplaintsCount(societyId));

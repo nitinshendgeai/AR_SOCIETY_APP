@@ -38,6 +38,14 @@ class ComplaintRepository(BaseRepository[Complaint]):
             Complaint.is_active  == True,
         ).all()
 
+    def count_open_by_resident(self, user_id: UUID) -> int:
+        from app.modules.complaint.models.complaint import OPEN_STATUSES
+        return self.db.query(Complaint).filter(
+            Complaint.raised_by == user_id,
+            Complaint.status.in_(OPEN_STATUSES),
+            Complaint.is_active == True,
+        ).count()
+
     def count_open(self, society_id: UUID) -> int:
         from app.modules.complaint.models.complaint import OPEN_STATUSES
         return self.db.query(Complaint).filter(

@@ -47,6 +47,14 @@ class ComplaintRemoteDataSource {
     return n.toInt();
   }
 
+  /// GET /complaints/me/open-count - how many of my complaints are still being dealt with (all of them).
+  Future<int> myOpenComplaintsCount() async {
+    final r = await _dio.get('/complaints/me/open-count');
+    final n = (r.data as Map<String, dynamic>)['open'];
+    if (n is! num) throw const FormatException('The open-complaints count is missing from the reply.');
+    return n.toInt();
+  }
+
   /// GET /complaints/me/complaints?skip&limit
   Future<List<ComplaintListModel>> listMyComplaints({
     int skip = 0,

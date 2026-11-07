@@ -30,6 +30,8 @@ class CollectionBlock {
   final String cycleName;
   final double billed, collected, outstanding;
   final int percent, bills, paidBills, overdueBills;
+  /// Bills made for the cycle but not yet sent to residents; they are not counted in the figures above.
+  final int draftBills;
   final List<CollectionTrendPoint> trend;
   CollectionBlock(Map<String, dynamic> j)
       : cycleName = j['cycle_name'] as String? ?? '',
@@ -40,6 +42,7 @@ class CollectionBlock {
         bills = (j['bills'] as num?)?.toInt() ?? 0,
         paidBills = (j['paid_bills'] as num?)?.toInt() ?? 0,
         overdueBills = (j['overdue_bills'] as num?)?.toInt() ?? 0,
+        draftBills = (j['draft_bills'] as num?)?.toInt() ?? 0,
         trend = [for (final p in (j['trend'] as List? ?? const [])) CollectionTrendPoint(p as Map<String, dynamic>)];
 }
 
@@ -360,6 +363,16 @@ class _CollectionCard extends StatelessWidget {
           _Fact('Bills paid', '${cl.paidBills} of ${cl.bills}', AppTheme.textPrimary),
           if (cl.overdueBills > 0) _Fact('Overdue', '${cl.overdueBills}', AppTheme.error),
         ]),
+        if (cl.draftBills > 0) ...[
+          const SizedBox(height: 10),
+          Row(children: [
+            const Icon(Icons.schedule_send_rounded, size: 16, color: AppTheme.textSecondary),
+            const SizedBox(width: 6),
+            Expanded(
+                child: Text('${_n(cl.draftBills, 'bill is', 'bills are')} generated but not issued yet, so not counted here.',
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.3))),
+          ]),
+        ],
         if (cl.trend.length > 1) ...[
           const SizedBox(height: 18),
           const Text('Last cycles', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),

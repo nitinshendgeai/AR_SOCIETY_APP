@@ -1298,8 +1298,8 @@ class ManagerDashboardScreen extends ConsumerWidget {
     String cycleSum(String Function(BillingCycle c) field) => cycles == null
         ? '--'
         : formatRupees('${cycles.fold<double>(0, (sum, c) => sum + amountOf(field(c)))}');
-    final maintenanceDues = cycleSum((c) => c.totalOutstanding);
-    final maintenanceCollected = cycleSum((c) => c.totalCollected);
+    final maintenanceDues = cycleSum((c) => c.issuedOutstanding);       // issued bills, as the Billing screen's header
+    final maintenanceCollected = cycleSum((c) => c.issuedCollected);
 
     return _DashboardShell(
       title: 'Manager Dashboard',

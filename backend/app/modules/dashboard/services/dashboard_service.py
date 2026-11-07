@@ -94,19 +94,22 @@ class DashboardService:
             return None
         rows = [_cycle_out(c, today) for c in cycles]     # newest first
         latest = rows[0]
-        billed, collected = Decimal(latest["total_billed"]), Decimal(latest["total_collected"])
+        # Issued bills only: bills made but not yet sent to residents are not owed by anyone, so they are neither
+        # "billed" nor "outstanding". How many are waiting to be issued is said alongside (`draft_bills`).
+        billed, collected = Decimal(latest["issued_billed"]), Decimal(latest["issued_collected"])
         return {
             "cycle_name": latest["name"],
             "due_date": latest["due_date"],
             "billed": _money(billed),
             "collected": _money(collected),
-            "outstanding": latest["total_outstanding"],
+            "outstanding": latest["issued_outstanding"],
             # Whole percent, rounded down: 99.6% collected must not read "100%" while money is still outstanding.
             "percent": (100 if collected >= billed else int(collected / billed * 100)) if billed > 0 else 0,
-            "bills": latest["bills_count"],
+            "bills": latest["issued_count"],
+            "draft_bills": latest["generated_count"],
             "paid_bills": latest["paid_count"],
             "overdue_bills": latest["overdue_count"],
-            "trend": [{"name": r["name"], "billed": r["total_billed"], "collected": r["total_collected"]}
+            "trend": [{"name": r["name"], "billed": r["issued_billed"], "collected": r["issued_collected"]}
                       for r in reversed(rows)],           # oldest first, for a chart
         }
 

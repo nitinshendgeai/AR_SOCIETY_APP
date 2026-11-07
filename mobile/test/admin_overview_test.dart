@@ -77,6 +77,19 @@ void main() {
     expect(find.text('2'), findsOneWidget);                           // the server's count, not a page of a list
   });
 
+  testWidgets('bills made but not issued are said to be left out of the collection figures', (t) async {
+    phone(t);
+    final j = _json();
+    (j['collection'] as Map<String, dynamic>)['draft_bills'] = 2;
+    await t.pumpWidget(_wrap(() async => DashboardOverview.fromJson(j)));
+    await t.pumpAndSettle();
+    expect(find.text('2 bills are generated but not issued yet, so not counted here.'), findsOneWidget);
+
+    await t.pumpWidget(_wrap(() async => DashboardOverview.fromJson(_json())));
+    await t.pumpAndSettle();
+    expect(find.textContaining('not issued yet'), findsNothing);
+  });
+
   testWidgets('no billing cycle and nothing waiting', (t) async {
     phone(t);
     await t.pumpWidget(_wrap(() async => DashboardOverview.fromJson(_json(collection: false))));

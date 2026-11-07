@@ -338,3 +338,51 @@ def test_collection_percent_never_rounds_up_to_a_full_100(client, db):
     admin = _admin(db, "dash.pct@t.com", society)
     c = _get(client, admin, society).json()["collection"]
     assert Decimal(c["outstanding"]) > 0 and c["percent"] == 99
+
+
+def test_collection_counts_issued_bills_only(client, db):
+    """Bills made but not yet sent to residents are owed by nobody: they are not "billed" or "outstanding" on the
+    dashboard, and the card says how many are waiting to be issued."""
+    from decimal import Decimal
+    from tests.billing.test_maintenance_billing import _charge, _cycle, _rig
+    society, _f1, _f2, manager, _r, _o = _rig(db, "dsh3")
+    h = manager["headers"]
+    _charge(client, h, society.id, amount="1000.00")
+    cycle_id = _cycle(client, h, society.id).json()["id"]
+    assert client.post(f"/api/v1/billing/cycles/{cycle_id}/generate-bills", headers=h).status_code == 200
+    admin = _admin(db, "dash.draft@t.com", society)
+
+    drafts = _get(client, admin, society).json()["collection"]
+    assert Decimal(drafts["billed"]) == 0 and Decimal(drafts["outstanding"]) == 0
+    assert drafts["bills"] == 0 and drafts["draft_bills"] == 2
+    cycle = client.get(f"/api/v1/billing/cycles/detail/{cycle_id}", headers=h).json()
+    assert Decimal(cycle["total_billed"]) > 0                    # the cycle itself still shows the preview
+    assert Decimal(cycle["issued_billed"]) == 0
+
+    assert client.post(f"/api/v1/billing/cycles/{cycle_id}/issue-all", headers=h).status_code == 200
+    issued = _get(client, admin, society).json()["collection"]
+    assert Decimal(issued["billed"]) == Decimal(cycle["total_billed"])
+    assert Decimal(issued["outstanding"]) == Decimal(cycle["total_billed"])
+    assert issued["bills"] == 2 and issued["draft_bills"] == 0
+
+
+def test_my_open_complaints_count_is_not_limited_to_the_newest_page(client, db):
+    from app.modules.complaint.models.complaint import Complaint, ComplaintCategory, ComplaintStatus
+    society = make_society(db, "Dash My Open")
+    resident = make_user(db, "dash.myopen@t.com", role="Resident")
+    resident["user"].society_id = society.id
+    other = make_user(db, "dash.myopen2@t.com", role="Resident")
+    other["user"].society_id = society.id
+    db.commit()
+    cat = list(ComplaintCategory)[0]
+    for n in range(55):
+        db.add(Complaint(society_id=society.id, complaint_number=f"M-{n}", title="t", description="d", category=cat,
+                         raised_by=resident["user"].id, status=ComplaintStatus.OPEN))
+    db.add(Complaint(society_id=society.id, complaint_number="M-R", title="t", description="d", category=cat,
+                     raised_by=resident["user"].id, status=ComplaintStatus.RESOLVED))
+    db.add(Complaint(society_id=society.id, complaint_number="M-O", title="t", description="d", category=cat,
+                     raised_by=other["user"].id, status=ComplaintStatus.OPEN))
+    db.commit()
+    r = client.get("/api/v1/complaints/me/open-count", headers=resident["headers"])
+    assert r.status_code == 200, r.text
+    assert r.json() == {"open": 55}                              # past the 50 of one page; not resolved, not someone else's

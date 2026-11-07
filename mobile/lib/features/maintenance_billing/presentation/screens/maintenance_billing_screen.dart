@@ -120,9 +120,11 @@ class _CyclesTab extends ConsumerWidget {
           ),
         ]),
         data: (cycles) {
-          final billed = cycles.fold<double>(0, (s, c) => s + amountOf(c.totalBilled));
-          final collected = cycles.fold<double>(0, (s, c) => s + amountOf(c.totalCollected));
-          final outstanding = cycles.fold<double>(0, (s, c) => s + amountOf(c.totalOutstanding));
+          // Bills already sent to residents; ones made but not yet issued are not owed by anyone (each cycle's row
+          // says how many are "to issue").
+          final billed = cycles.fold<double>(0, (s, c) => s + amountOf(c.issuedBilled));
+          final collected = cycles.fold<double>(0, (s, c) => s + amountOf(c.issuedCollected));
+          final outstanding = cycles.fold<double>(0, (s, c) => s + amountOf(c.issuedOutstanding));
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
             children: [
