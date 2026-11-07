@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:ar_society_app/shared/widgets/dux_logo.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -35,6 +36,15 @@ import 'package:ar_society_app/features/notices/presentation/providers/notices_p
 
 /// Whether this society has the optional service switched on (the platform owner may switch some off).
 bool _on(UserEntity? u, String key) => u == null || u.hasService(key);
+
+/// Reloads the server overview and waits for it, so the pull-down spinner stays until the new figures are in.
+/// A failed reload is not thrown here: the overview shows its own "could not be loaded" and try-again.
+Future<void> _reloadOverview(WidgetRef ref, String societyId) async {
+  ref.invalidate(dashboardOverviewProvider(societyId));
+  try {
+    await ref.read(dashboardOverviewProvider(societyId).future);
+  } catch (_) {}
+}
 
 /// A row of quick actions that leaves out the null ones (services switched off for this society).
 Widget _chipRow(List<Widget?> chips) {
@@ -95,7 +105,10 @@ class _DashboardShell extends ConsumerWidget {
   final String title;
   final List<Widget> children;
 
-  const _DashboardShell({required this.title, required this.children});
+  /// Pull down to reload the figures; null for a dashboard whose figures reload another way.
+  final Future<void> Function()? onRefresh;
+
+  const _DashboardShell({required this.title, required this.children, this.onRefresh});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -159,16 +172,22 @@ class _DashboardShell extends ConsumerWidget {
           ),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        children: [
-          const _BiometricEnrollTrigger(),
-          // Sections arrive one after another rather than all at once.
-          for (var i = 0; i < children.length; i++) AppReveal(index: i, child: children[i]),
-        ],
+      body: _refreshable(
+        ListView(
+          // Always scrollable, so a short dashboard can still be pulled down to refresh.
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          children: [
+            const _BiometricEnrollTrigger(),
+            // Sections arrive one after another rather than all at once.
+            for (var i = 0; i < children.length; i++) AppReveal(index: i, child: children[i]),
+          ],
+        ),
       ),
     );
   }
+
+  Widget _refreshable(Widget list) => onRefresh == null ? list : RefreshIndicator(onRefresh: onRefresh!, child: list);
 
   Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
     final ok = await showDialog<bool>(
@@ -272,11 +291,14 @@ class _GreetingCard extends ConsumerWidget {
 
   const _GreetingCard({required this.user, required this.subtitle});
 
+  /// "Good morning" / "Good afternoon" / "Good evening" for the hour on the person's own clock.
+  static String greetingFor(int hour) => hour < 12 ? 'Good morning' : (hour < 17 ? 'Good afternoon' : 'Good evening');
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final today = DateTime.now();
+    final now = DateTime.now();
     final societyAsync = ref.watch(societyInfoProvider);
-    final societyName = societyAsync.valueOrNull?.name ?? '—';
+    final societyName = societyAsync.valueOrNull?.name;
 
     return Container(
       width: double.infinity,
@@ -292,19 +314,18 @@ class _GreetingCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Welcome back', style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12)),
+          Text(greetingFor(now.hour), style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 13)),
           const SizedBox(height: 2),
           Text(user?.fullName ?? 'Society User', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
           Text(subtitle, style: TextStyle(color: Colors.white.withOpacity(0.88), fontSize: 13)),
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              _chip('Society', societyName),
-              _chip('Role', user?.roles.firstOrNull ?? 'Member'),
-              _chip('Date', '${today.day}/${today.month}/${today.year}'),
+              if (societyName != null) _chip(Icons.apartment_rounded, societyName),
+              _chip(Icons.calendar_today_rounded, DateFormat('EEE, d MMM y').format(now)),
             ],
           ),
         ],
@@ -312,10 +333,14 @@ class _GreetingCard extends ConsumerWidget {
     );
   }
 
-  Widget _chip(String label, String value) => Container(
+  Widget _chip(IconData icon, String text) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(color: Colors.white.withOpacity(0.12), borderRadius: BorderRadius.circular(999)),
-        child: Text('$label: $value', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+        decoration: BoxDecoration(color: Colors.white.withOpacity(0.14), borderRadius: BorderRadius.circular(999)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 13, color: Colors.white),
+          const SizedBox(width: 6),
+          Flexible(child: Text(text, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600))),
+        ]),
       );
 }
 
@@ -588,24 +613,17 @@ class AdminDashboardScreen extends ConsumerWidget {
       );
     }
 
-    // The overview numbers come from one server call (AdminOverview); only the
-    // active-staff count is read here.
-    final staffListState = ref.watch(staffListProvider);
-    if (societyId != null && _on(user, 'staff') && staffListState is StaffListInitial) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(staffListProvider.notifier).load(societyId);
-      });
-    }
-    final activeStaff = !_on(user, 'staff') ? null : (staffListState is StaffListLoaded ? '${staffListState.staff.length}' : '--');
+    // Every overview number, the active-staff count included, comes from one server call (AdminOverview).
     final societyComplaints = societyId == null ? AppRoutes.complaints : AppRoutes.complaintsSociety.replaceFirst(':societyId', societyId);
 
     return _DashboardShell(
       title: 'Society Overview',
+      onRefresh: societyId == null ? null : () => _reloadOverview(ref, societyId),
       children: [
         _GreetingCard(user: user, subtitle: 'Society Admin · Operational dashboard'),
         const SizedBox(height: 18),
         trialBanner,
-        if (societyId != null) AdminOverview(societyId: societyId, activeStaff: activeStaff),
+        if (societyId != null) AdminOverview(societyId: societyId),
         const SizedBox(height: 18),
         const _SectionLabel('Quick Actions'),
         const SizedBox(height: 10),
@@ -650,20 +668,13 @@ class CommitteeDashboardScreen extends ConsumerWidget {
 
     // The committee sees the same overview as the admin: one request to the same endpoint (which already allows
     // committee), so the money, collection and "needs attention" figures are the server's, and identical.
-    final staffListState = ref.watch(staffListProvider);
-    if (societyId != null && _on(user, 'staff') && staffListState is StaffListInitial) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(staffListProvider.notifier).load(societyId);
-      });
-    }
-    final activeStaff = !_on(user, 'staff') ? null : (staffListState is StaffListLoaded ? '${staffListState.staff.length}' : '--');
-
     return _DashboardShell(
       title: '$who Dashboard',
+      onRefresh: societyId == null ? null : () => _reloadOverview(ref, societyId),
       children: [
         _GreetingCard(user: user, subtitle: '${who == 'Committee' ? 'Committee Member' : 'Committee $who'} · Governance overview'),
         const SizedBox(height: 18),
-        if (societyId != null) AdminOverview(societyId: societyId, activeStaff: activeStaff),
+        if (societyId != null) AdminOverview(societyId: societyId),
         const SizedBox(height: 18),
         const _SectionLabel('Quick Actions'),
         const SizedBox(height: 10),
@@ -1249,15 +1260,6 @@ class ManagerDashboardScreen extends ConsumerWidget {
       });
     }
 
-    final staffListState = ref.watch(staffListProvider);
-    if (societyId != null && _on(user, 'staff') && staffListState is StaffListInitial) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(staffListProvider.notifier).load(societyId);
-      });
-    }
-
-    final totalStaff = staffListState is StaffListLoaded ? '${staffListState.staff.length}' : '--';
-
     // Every number below comes from the server. While a request is loading or has failed the card says so
     // (and a failed one can be tapped to try again); it is never shown as 0.
     final noSociety = AsyncValue<int>.error(Exception('no society'), StackTrace.empty);
@@ -1270,6 +1272,10 @@ class ManagerDashboardScreen extends ConsumerWidget {
         ? ref.watch(attendanceSummaryProvider(societyId))
         : AsyncValue<Map<String, dynamic>>.error(Exception('no society'), StackTrace.empty);
     final summary = summaryAsync.valueOrNull ?? const <String, dynamic>{};
+    // Total staff from the same summary as Absent and Late, so present + absent adds up to it (the staff list is
+    // paged, so counting its first page stops at 50).
+    final totalStaff = _summaryCount(summaryAsync, 'total_staff').when(
+        data: (n) => '$n', loading: () => '…', error: (_, __) => '--');
     void retrySummary() { if (societyId != null) ref.invalidate(attendanceSummaryProvider(societyId)); }
 
     // Open complaints count
@@ -1292,8 +1298,8 @@ class ManagerDashboardScreen extends ConsumerWidget {
     String cycleSum(String Function(BillingCycle c) field) => cycles == null
         ? '--'
         : formatRupees('${cycles.fold<double>(0, (sum, c) => sum + amountOf(field(c)))}');
-    final maintenanceDues = cycleSum((c) => c.totalOutstanding);
-    final maintenanceCollected = cycleSum((c) => c.totalCollected);
+    final maintenanceDues = cycleSum((c) => c.issuedOutstanding);       // issued bills, as the Billing screen's header
+    final maintenanceCollected = cycleSum((c) => c.issuedCollected);
 
     return _DashboardShell(
       title: 'Manager Dashboard',
@@ -1352,7 +1358,10 @@ class ManagerDashboardScreen extends ConsumerWidget {
                 count: openComplaints,
                 color: (n) => n > 0 ? AppTheme.error : AppTheme.success,
                 retry: () { if (societyId != null) ref.invalidate(openComplaintsCountProvider(societyId)); },
-                onTap: () => context.push(AppRoutes.complaintsAssigned),
+                // The number is the whole society's, so it opens the society's list (not just mine).
+                onTap: societyId == null
+                    ? null
+                    : () => context.push(AppRoutes.complaintsSociety.replaceFirst(':societyId', societyId)),
               ),
             if (_on(user, 'staff'))
               _countCard(

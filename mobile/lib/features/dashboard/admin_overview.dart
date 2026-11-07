@@ -30,6 +30,8 @@ class CollectionBlock {
   final String cycleName;
   final double billed, collected, outstanding;
   final int percent, bills, paidBills, overdueBills;
+  /// Bills made for the cycle but not yet sent to residents; they are not counted in the figures above.
+  final int draftBills;
   final List<CollectionTrendPoint> trend;
   CollectionBlock(Map<String, dynamic> j)
       : cycleName = j['cycle_name'] as String? ?? '',
@@ -40,6 +42,7 @@ class CollectionBlock {
         bills = (j['bills'] as num?)?.toInt() ?? 0,
         paidBills = (j['paid_bills'] as num?)?.toInt() ?? 0,
         overdueBills = (j['overdue_bills'] as num?)?.toInt() ?? 0,
+        draftBills = (j['draft_bills'] as num?)?.toInt() ?? 0,
         trend = [for (final p in (j['trend'] as List? ?? const [])) CollectionTrendPoint(p as Map<String, dynamic>)];
 }
 
@@ -60,21 +63,26 @@ class AttentionItem {
   final int count;
   final String severity; // high | medium | info
   final double amount;
+  /// For the defaulters row: how many months past the due date the dues have to be to count.
+  final int months;
   AttentionItem(Map<String, dynamic> j)
       : key = j['key'] as String,
         count = (j['count'] as num?)?.toInt() ?? 0,
         severity = j['severity'] as String? ?? 'info',
-        amount = _num(j['amount']);
+        amount = _num(j['amount']),
+        months = (j['months'] as num?)?.toInt() ?? 3;
 }
 
 class DashboardOverview {
   final CollectionBlock? collection;
   final MoneyBlock? money;
   final int flats, occupied, vacant, residents, visitorsToday, visitorsInside;
-  final bool hasOccupancy, hasToday;
+  final bool hasOccupancy, hasToday, hasStaff;
+  /// Active staff, from the server (null when the Staff service is off or the figure failed).
+  final int? activeStaff;
   final List<AttentionItem> attention;
 
-  /// Blocks the server could not work out (`collection`, `money`, `occupancy`, `today`, `attention`). Their
+  /// Blocks the server could not work out (`collection`, `money`, `occupancy`, `today`, `staff`, `attention`). Their
   /// absence or emptiness is a failure to load, not a real "nothing here" - the screen says so and offers a retry.
   final Set<String> errors;
   bool failed(String block) => errors.contains(block);
@@ -87,6 +95,8 @@ class DashboardOverview {
         occupied = ((j['occupancy'] as Map?)?['occupied'] as num?)?.toInt() ?? 0,
         vacant = ((j['occupancy'] as Map?)?['vacant'] as num?)?.toInt() ?? 0,
         residents = ((j['occupancy'] as Map?)?['residents'] as num?)?.toInt() ?? 0,
+        hasStaff = j['staff'] != null,
+        activeStaff = ((j['staff'] as Map?)?['active'] as num?)?.toInt(),
         hasToday = j['today'] != null,
         visitorsToday = ((j['today'] as Map?)?['visitors_today'] as num?)?.toInt() ?? 0,
         visitorsInside = ((j['today'] as Map?)?['visitors_inside'] as num?)?.toInt() ?? 0,
@@ -112,7 +122,7 @@ String _n(int n, String one, [String? many]) => '$n ${n == 1 ? one : (many ?? '$
 
 final Map<String, _Attn> _attn = {
   'overdue_bills': _Attn(Icons.warning_amber_rounded,
-      (a) => '${_n(a.count, 'flat has', 'flats have')} overdue maintenance (${_inr(a.amount)})',
+      (a) => '${_n(a.count, 'flat has', 'flats have')} maintenance dues outstanding over ${a.months} months (${_inr(a.amount)})',
       (c, _) => c.go(AppRoutes.defaulters)),
   'vendor_bills_overdue': _Attn(Icons.storefront_rounded,
       (a) => '${_n(a.count, 'vendor bill')} overdue (${_inr(a.amount)})', (c, _) => c.go(AppRoutes.vendorBills)),
@@ -154,9 +164,7 @@ Color _severityColor(String s) => switch (s) {
 /// society today. One request; each block shows only what the server could work out.
 class AdminOverview extends ConsumerWidget {
   final String societyId;
-  /// The active-staff count, or null when the Staff service is switched off for this society.
-  final String? activeStaff;
-  const AdminOverview({super.key, required this.societyId, required this.activeStaff});
+  const AdminOverview({super.key, required this.societyId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -179,7 +187,6 @@ class AdminOverview extends ConsumerWidget {
       data: (o) => _Body(
           o: o,
           societyId: societyId,
-          activeStaff: activeStaff,
           onRetry: () => ref.invalidate(dashboardOverviewProvider(societyId))),
     );
   }
@@ -188,9 +195,8 @@ class AdminOverview extends ConsumerWidget {
 class _Body extends StatelessWidget {
   final DashboardOverview o;
   final String societyId;
-  final String? activeStaff;
   final VoidCallback onRetry;
-  const _Body({required this.o, required this.societyId, required this.activeStaff, required this.onRetry});
+  const _Body({required this.o, required this.societyId, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -227,7 +233,7 @@ class _Body extends StatelessWidget {
         const SizedBox(height: 20),
         const _Label('Society today'),
         const SizedBox(height: 10),
-        _Glance(o: o, activeStaff: activeStaff, onRetry: onRetry),
+        _Glance(o: o, societyId: societyId, onRetry: onRetry),
       ]);
     });
   }
@@ -357,6 +363,16 @@ class _CollectionCard extends StatelessWidget {
           _Fact('Bills paid', '${cl.paidBills} of ${cl.bills}', AppTheme.textPrimary),
           if (cl.overdueBills > 0) _Fact('Overdue', '${cl.overdueBills}', AppTheme.error),
         ]),
+        if (cl.draftBills > 0) ...[
+          const SizedBox(height: 10),
+          Row(children: [
+            const Icon(Icons.schedule_send_rounded, size: 16, color: AppTheme.textSecondary),
+            const SizedBox(width: 6),
+            Expanded(
+                child: Text('${_n(cl.draftBills, 'bill is', 'bills are')} generated but not issued yet, so not counted here.',
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.3))),
+          ]),
+        ],
         if (cl.trend.length > 1) ...[
           const SizedBox(height: 18),
           const Text('Last cycles', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
@@ -575,14 +591,14 @@ class _MoneyRow extends StatelessWidget {
 
 class _Glance extends StatelessWidget {
   final DashboardOverview o;
-  final String? activeStaff;
+  final String societyId;
   final VoidCallback onRetry;
-  const _Glance({required this.o, required this.activeStaff, required this.onRetry});
+  const _Glance({required this.o, required this.societyId, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
     final fraction = o.flats == 0 ? 0.0 : o.occupied / o.flats;
-    final partial = o.failed('occupancy') || o.failed('today');
+    final partial = o.failed('occupancy') || o.failed('today') || o.failed('staff');
     return _Frame(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (partial) ...[
@@ -593,11 +609,13 @@ class _Glance extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                   child: Text(
-                      o.failed('occupancy') && o.failed('today')
-                          ? 'Occupancy and visitor figures could not be loaded.'
-                          : o.failed('occupancy')
-                              ? 'Occupancy and resident figures could not be loaded.'
-                              : 'Visitor figures could not be loaded.',
+                      o.failed('staff') && !o.failed('occupancy') && !o.failed('today')
+                          ? 'The staff figure could not be loaded.'
+                          : o.failed('occupancy') && o.failed('today')
+                              ? 'Occupancy and visitor figures could not be loaded.'
+                              : o.failed('occupancy')
+                                  ? 'Occupancy and resident figures could not be loaded.'
+                                  : 'Visitor figures could not be loaded.',
                       style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
               TextButton(onPressed: onRetry, child: const Text('Try again')),
             ]),
@@ -627,11 +645,14 @@ class _Glance extends StatelessWidget {
           if (o.hasOccupancy)
             _Stat(Icons.people_rounded, '${o.residents}', 'Residents', () => context.go(AppRoutes.residentsList)),
           if (o.hasToday) ...[
-            _Stat(Icons.meeting_room_rounded, '${o.visitorsToday}', 'Visitors today', null),
-            _Stat(Icons.login_rounded, '${o.visitorsInside}', 'Inside now', null),
+            // The visitor log is where these two numbers come from.
+            _Stat(Icons.meeting_room_rounded, '${o.visitorsToday}', 'Visitors today',
+                () => context.go(AppRoutes.visitorsSociety.replaceFirst(':societyId', societyId))),
+            _Stat(Icons.login_rounded, '${o.visitorsInside}', 'Inside now',
+                () => context.go(AppRoutes.visitorsSociety.replaceFirst(':societyId', societyId))),
           ],
-          if (activeStaff != null)
-            _Stat(Icons.badge_rounded, activeStaff!, 'Active staff', () => context.go(AppRoutes.staffList)),
+          if (o.activeStaff != null)
+            _Stat(Icons.badge_rounded, '${o.activeStaff}', 'Active staff', () => context.go(AppRoutes.staffList)),
         ]),
       ]),
     );
