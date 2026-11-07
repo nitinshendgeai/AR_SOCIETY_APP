@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ar_society_app/features/accounts/data/more_registers_api.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/more_register_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/registers_hub_screen.dart';
+import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
+import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 
 MoreRegister _attendance() => MoreRegister.fromJson({
       'kind': 'attendance',
@@ -57,6 +59,8 @@ MoreRegister _rental() => MoreRegister.fromJson({
 
 Widget _app(String kind, MoreRegister Function() build, List<MoreRegisterKey> asked) => ProviderScope(
       overrides: [
+        currentUserProvider.overrideWithValue(
+            const UserEntity(id: 'u', email: 'u@t.com', fullName: 'U', roles: ['Society Admin'], societyId: 's1')),
         moreRegisterProvider.overrideWith((ref, key) async {
           asked.add(key);
           return build();
@@ -82,17 +86,20 @@ void main() {
     expect(asked.first.month, isNotNull);                              // a month register always asks for a month
   });
 
-  testWidgets('the month arrows ask for the month before and after', (tester) async {
+  testWidgets('the month arrows move to the month before and after, and ask the server for it', (tester) async {
     final asked = <MoreRegisterKey>[];
     await tester.pumpWidget(_app('attendance', _attendance, asked));
     await tester.pumpAndSettle();
-    final first = asked.last.month!;
+    String shown() => tester.widget<Text>(find.byKey(const ValueKey('register-month'))).data!;
+    final first = shown();
+    final firstAsked = asked.last.month!;
     await tester.tap(find.byKey(const ValueKey('register-month-prev')));
     await tester.pumpAndSettle();
-    expect(asked.last.month, isNot(first));
+    expect(shown(), isNot(first));
+    expect(asked.last.month, isNot(firstAsked));
     await tester.tap(find.byKey(const ValueKey('register-month-next')));
     await tester.pumpAndSettle();
-    expect(asked.last.month, first);
+    expect(shown(), first);
   });
 
   testWidgets('a status chip asks the server for that status, and a search narrows it', (tester) async {

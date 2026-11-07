@@ -75,9 +75,9 @@ void main() {
       expect(all.firstWhere((i) => i.label == 'Approvals').badge, '2 waiting');
       final without = [for (final s in await build(t, granted: {'accounts'})) ...s.items];
       expect(without.any((i) => i.label == 'Vendor Bills'), isFalse);
-      expect(without.length, 23);
+      expect(without.length, 24);
       final withGrant = [for (final s in await build(t, granted: {'accounts', 'vendor_bills'})) ...s.items];
-      expect(withGrant.length, 24);
+      expect(withGrant.length, 25);
     });
   });
 
