@@ -97,8 +97,9 @@ def test_bill_layout_heads_totals_and_notes(client, db):
     cycle = bill.cycle
     for expected in [
         "MB SOCIETY PDF1",
-        "Regn. No. MUM/HSG/TC/9876/2015 PLOT 7, SECTOR 3, NAVI MUMBAI, MAHARASHTRA 400703",  # "|" joins them
-        "GSTIN: 27AAAAA0000A1Z5",
+        # letterhead: name, then Regn. No. | PAN | GSTIN, then the address, each on its own centred line
+        "MB SOCIETY PDF1 Regn. No. MUM/HSG/TC/9876/2015 GSTIN: 27AAAAA0000A1Z5 "
+        "PLOT 7, SECTOR 3, NAVI MUMBAI, MAHARASHTRA 400703",
         "Maintenance Bill / Tax Invoice",           # the water head carries 18% GST
         "SAC Code : 999598", "Place of Supply : Maharashtra (27)",
         "Name : Asha Rao", "Flat No. : Tower A 101", "Area sq ft : 437",
