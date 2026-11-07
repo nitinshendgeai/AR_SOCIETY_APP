@@ -354,7 +354,8 @@ class _NewCycleSheetState extends ConsumerState<_NewCycleSheet> {
   void _setPeriod(DateTime monthStart) {
     _start = monthStart;
     _end = DateTime(monthStart.year, monthStart.month + 1, 0);
-    _due = DateTime(monthStart.year, monthStart.month, 10);
+    // Due on the 10th of the month after the billing month (Oct 2026 bill → 10 Nov 2026).
+    _due = DateTime(monthStart.year, monthStart.month + 1, 10);
   }
 
   Future<void> _pick(DateTime current, void Function(DateTime) apply) async {

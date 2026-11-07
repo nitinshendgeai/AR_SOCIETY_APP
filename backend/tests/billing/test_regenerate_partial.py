@@ -95,11 +95,10 @@ def test_an_issued_bill_stays_and_the_others_share_the_rest_of_the_expenses(clie
     assert sorted(a.pool_amount for a in allocations) == [D("4000.00"), D("6000.00")]
     assert sorted(a.eligible_flats for a in allocations) == [2, 3]
     assert all(li.allocation_id for b in live.values() for li in b.line_items if li.description == head["name"])
-    # Invoice numbers are not left with gaps beyond the replaced ones, and each printed bill states its working.
-    _bill_obj, text = _bill_pdf(db, live["101"].id)
-    assert "not on bills already issued" in text and "Rs. 8,000.00 in all" in text
-    _bill_obj, text = _bill_pdf(db, big_id)
-    assert "Rs. 4,000.00 in all" in text
+    # Invoice numbers are not left with gaps beyond the replaced ones; the printed bills carry no working note.
+    for bill_id in (live["101"].id, big_id):
+        _bill_obj, text = _bill_pdf(db, bill_id)
+        assert "actual expenses" not in text
 
 
 def test_a_cancelled_issued_bill_is_made_again_and_takes_its_share_back(client, db):

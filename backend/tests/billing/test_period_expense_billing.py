@@ -228,16 +228,16 @@ def test_cancelling_every_bill_of_a_cycle_frees_its_period(client, db):
 
 # ── The printed bill ──────────────────────────────────────────────────────────
 
-def test_the_printed_bill_states_the_actual_expense_working_from_the_snapshot(client, db):
+def test_the_printed_bill_carries_no_expense_working_note(client, db):
+    """Housekeeping / security / common electricity are billed on actual expenses, but the bill shows only the share
+    in the Maintenance Charges head - no 'society's actual expenses ... Your share' note under it."""
     society, admin, manager, head, cycle_id, *_ = _setup(client, db, "b1")
     _bill(client, admin, society.id, "housekeeping", "10000.01", date.today())
     client.post(f"{B}/cycles/{cycle_id}/generate-bills", headers=manager)
     bill = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id)).join(MaintenanceBill.flat).filter_by(flat_number="201").one()
     _, text = _bill_pdf(db, bill.id)
-    assert head["name"] in text and "actual expenses" in text
-    assert "Rs. 10,000.01 in all" in text and "in proportion to flat area" in text and "3 flat(s)" in text
-    assert "Your share: Rs. 5,000.01" in text
-    assert "add up to exactly Rs. 10,000.01" in text
+    assert "actual expenses" not in text and "Your share" not in text
+    assert "5,000.01" in text                       # the flat's share is still in the amounts
 
 
 def test_a_bill_without_period_expenses_prints_no_statement(client, db):

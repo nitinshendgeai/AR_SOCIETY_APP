@@ -58,7 +58,11 @@ _base = ParagraphStyle("base", fontName="Helvetica", fontSize=9, leading=11.5, t
 S = {
     "society": ParagraphStyle("society", parent=_base, fontName="Helvetica-Bold", fontSize=15, leading=19,
                               alignment=TA_CENTER),
-    "centre": ParagraphStyle("centre", parent=_base, fontSize=9, leading=11.5, alignment=TA_CENTER),
+    "society_name": ParagraphStyle("society_name", parent=_base, fontName="Helvetica-Bold", fontSize=18, leading=23,
+                                   alignment=TA_CENTER, textColor=ACCENT),
+    "centre": ParagraphStyle("centre", parent=_base, fontSize=9, leading=12, alignment=TA_CENTER),
+    "centre_b": ParagraphStyle("centre_b", parent=_base, fontName="Helvetica-Bold", fontSize=9.5, leading=13,
+                               alignment=TA_CENTER),
     "centre_small": ParagraphStyle("centre_small", parent=_base, fontSize=8, alignment=TA_CENTER, textColor=MUTED),
     "title": ParagraphStyle("title", parent=_base, fontName="Helvetica-Bold", fontSize=13, leading=16,
                             alignment=TA_CENTER),
@@ -314,32 +318,33 @@ def _payments(bill: MaintenanceBill) -> list:
 
 
 def society_header(society, width) -> List:
-    """The letterhead: a grey band with the society's name, Regn. No.,
-    address and GSTIN/PAN, over a red rule."""
+    """The letterhead, every line centred on a grey band over a red rule:
+    the society's name, then Regn. No. and PAN (and GSTIN, on a tax
+    invoice), then the address."""
     name = society.name if society else "Society"
-    rows = [[_p(name.upper(), "society")]]
+    rows = [[Paragraph(escape(name.upper()), S["society_name"])]]
+    ids = []
+    if society and society.registration_number:
+        ids.append(f"Regn. No. {escape(society.registration_number)}")
+    if society and society.pan_number:
+        ids.append(f"PAN: {escape(society.pan_number)}")
+    if society and society.gst_number:
+        ids.append(f"GSTIN: {escape(society.gst_number)}")
+    if ids:
+        rows.append([Paragraph("&nbsp;&nbsp;|&nbsp;&nbsp;".join(ids), S["centre_b"])])
     address = ", ".join(x for x in [
         (society.address or "").strip() if society else "", society.city if society else None,
         society.state if society else None] if x)
     if society and society.pincode:
         address = f"{address} {society.pincode}".strip()
-    line = " | ".join(x for x in [
-        f"Regn. No. {society.registration_number}" if society and society.registration_number else "",
-        address.upper()] if x)
-    if line:
-        rows.append([_p(line, "centre")])
-    ids = []
-    if society and society.gst_number:
-        ids.append(f"GSTIN: {society.gst_number}")
-    if society and society.pan_number:
-        ids.append(f"PAN: {society.pan_number}")
-    if ids:
-        rows.append([_p("   |   ".join(ids), "centre")])
+    if address:
+        rows.append([Paragraph(escape(address.upper()), S["centre"])])
     band = Table(rows, colWidths=[width])
     band.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), BAND),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("TOPPADDING", (0, 0), (-1, 0), 12), ("BOTTOMPADDING", (0, -1), (-1, -1), 12),
-        ("TOPPADDING", (0, 1), (-1, -1), 1), ("BOTTOMPADDING", (0, 0), (-1, -2), 2),
+        ("TOPPADDING", (0, 1), (-1, -1), 1.5), ("BOTTOMPADDING", (0, 0), (-1, -2), 3),
     ]))
     return [band, HRFlowable(width="100%", thickness=2.5, color=RED, spaceBefore=0, spaceAfter=0)]
 
@@ -379,39 +384,6 @@ def _kv(rows, widths) -> Table:
 # ── The bill ──────────────────────────────────────────────────────────────────
 
 PAGE_MARGINS = dict(leftMargin=12 * mm, rightMargin=12 * mm, topMargin=8 * mm, bottomMargin=10 * mm)
-
-
-def _expense_statements(bill: MaintenanceBill) -> List[str]:
-    """One note for each head on this bill that was worked out from the society's actual expenses of a period: what
-    was spent, how it was shared and the flat's share. Only for lines tied to a recorded allocation (the snapshot made
-    when the bills were generated) - the printed working is the stored one, never a recomputation."""
-    seen, out = set(), []
-    for li in bill.line_items:
-        alloc = getattr(li, "allocation", None)
-        if alloc is None or alloc.id in seen:
-            continue
-        seen.add(alloc.id)
-        mine = sum((Decimal(l.amount or 0) for l in bill.line_items if l.allocation_id == alloc.id), ZERO)
-        if alloc.method == "area":
-            how = f"in proportion to flat area (Rs. {Decimal(alloc.rate):,.4f} per sq ft for the full period)"
-        else:
-            how = f"equally between flats (Rs. {Decimal(alloc.rate):,.4f} per flat for the full period)"
-        what = f" on {escape(alloc.element_name)}" if alloc.element_name else ""
-        spent = sum((Decimal(src.amount or 0) for src in alloc.sources), ZERO)
-        if spent > Decimal(alloc.pool_amount):
-            # Made again after other bills of the cycle were issued: only what those bills did not take is shared.
-            out.append(
-                f"<b>{escape(alloc.charge_name)}</b> is the society's actual expenses{what} from "
-                f"{alloc.period_start:%d %b %Y} to {alloc.period_end:%d %b %Y}: Rs. {_inr(spent)} in all, of which "
-                f"Rs. {_inr(alloc.pool_amount)} was not on bills already issued. That balance is shared {how} over "
-                f"{alloc.eligible_flats} flat(s). Your share: Rs. {_inr(mine)}.")
-            continue
-        out.append(
-            f"<b>{escape(alloc.charge_name)}</b> is the society's actual expenses{what} from "
-            f"{alloc.period_start:%d %b %Y} to {alloc.period_end:%d %b %Y}: Rs. {_inr(alloc.pool_amount)} in all, "
-            f"shared {how} over {alloc.eligible_flats} flat(s). Your share: Rs. {_inr(mine)}. Shares are rounded to the "
-            f"paisa so that the shares add up to exactly Rs. {_inr(alloc.pool_amount)}.")
-    return out
 
 
 def generate_maintenance_bill_pdf(
@@ -498,11 +470,12 @@ def bill_story(
     p_start = (bill.period_start or cycle.cycle_start) if cycle else None
     p_end = (bill.period_end or cycle.cycle_end) if cycle else None
     period = f"{_dm(p_start)} to {_dm(p_end)}" if cycle else ""
+    phone = (m.phone or "").strip() if m else ""
     left = _kv([
         ("Name", "<br/>".join(f"<b>{escape(n)}</b>" for n in member_names(flat, bill.resident))),
         ("Flat No.", escape(flat_label(flat))),
-        ("Area sq ft", area),
-        ("Mobile No", escape(m.phone or "") if m else ""),
+        *([("Area sq ft", area)] if area else []),            # a row with nothing to show is left out
+        *([("Mobile No", escape(phone))] if phone else []),
         ("Mail ID", escape(email)),
     ], [24 * mm, width * 0.5 - 12 - 24 * mm - 8])
     van = flat.virtual_account_number if flat else None
@@ -611,7 +584,6 @@ def bill_story(
         grace = settings.interest_grace_days or 0
         notes.append(f"Interest @ {rate.normalize():f}% p.a. will be charged on dues not paid by the due date"
                      + (f" (grace period {grace} days)." if grace else "."))
-    notes += _expense_statements(bill)
     notes.append("Any queries related to the bill should be raised within 7 days of bill issuance "
                  "to the society office.")
     notes.append("Outstanding dues are subject to final audit.")
@@ -675,7 +647,6 @@ def _classic_notes(bill: MaintenanceBill, settings: Optional[MaintenanceSettings
             line += f", or UPI <b>{escape(settings.upi_id)}</b>"
         notes.append(line + ".")
     notes.append("Receipts are subject to realisation of the cheque.")
-    notes += _expense_statements(bill)
     notes.append("Outstanding dues are subject to final audit.")
     if settings and settings.bill_notes:
         notes += [escape(line.strip()) for line in settings.bill_notes.splitlines() if line.strip()]
