@@ -13,6 +13,7 @@ import 'package:ar_society_app/features/billing/presentation/providers/billing_p
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show tableMoney;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
+import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart' show formatRupees;
 
 class OnlinePaymentDetailScreen extends ConsumerStatefulWidget {
   final String paymentId;
@@ -101,7 +102,7 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
               padding: const EdgeInsets.all(16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 _row('Flat', '${payment.wingName ?? '-'} / ${payment.flatNumber ?? '-'}'),
-                _row('Amount', '₹${payment.amount}'),
+                _row('Amount', formatRupees(payment.amount)),
                 if (!payment.isOnBill) _row('On Account Of', onlinePaymentPurposeLabel(payment.purpose)),
                 _row('Payment Date',
                     '${payment.paymentDate.day}/${payment.paymentDate.month}/${payment.paymentDate.year}'),

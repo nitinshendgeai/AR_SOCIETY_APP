@@ -232,8 +232,7 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
                   : null,
       body: cycleAsync.when(
         loading: () => const AppLoader(),
-        error: (e, _) => Center(
-            child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
+        error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: _refresh),
         data: (cycle) => RefreshIndicator(
           onRefresh: () async => _refresh(),
           child: CustomScrollView(slivers: [
@@ -260,8 +259,7 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
                 ],
                 error: (e, _) => [
                   SliverFillRemaining(
-                    child: Center(child: Text(friendlyErrorMessage(e),
-                        style: const TextStyle(color: AppTheme.error))),
+                    child: AppErrorState(message: friendlyErrorMessage(e), onRetry: _refresh),
                   ),
                 ],
                 data: (bills) {
@@ -513,8 +511,9 @@ class BillTile extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
+            // What is still to pay says "due"; a settled or cancelled bill shows what it was for.
             Text(
-              formatRupees(showBalance ? bill.outstanding : bill.totalAmount),
+              showBalance ? '${formatRupees(bill.outstanding)} due' : formatRupees(bill.totalAmount),
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),

@@ -113,12 +113,8 @@ class _CyclesTab extends ConsumerWidget {
       },
       child: cyclesAsync.when(
         loading: () => const AppLoader(),
-        error: (e, _) => ListView(children: [
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-          ),
-        ]),
+        error: (e, _) => AppErrorState(
+            message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(billingCyclesProvider(societyId))),
         data: (cycles) {
           // Bills already sent to residents; ones made but not yet issued are not owed by anyone (each cycle's row
           // says how many are "to issue").
@@ -138,7 +134,7 @@ class _CyclesTab extends ConsumerWidget {
                   label: 'Collected',
                   value: formatRupees('$collected'),
                   color: AppTheme.success,
-                  note: billed > 0 ? '${(collected / billed * 100).toStringAsFixed(0)}% of billed' : null,
+                  note: billed > 0 ? '${collectedPercent(collected, billed)}% of billed' : null,
                 ),
                 KpiCard(
                   icon: Icons.pending_actions_rounded,
