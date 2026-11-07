@@ -453,3 +453,22 @@ def test_area_and_mobile_rows_are_left_out_when_missing(client, db):
     db.commit()
     _, text = _bill_pdf(db, bill_id)
     assert "Area sq ft : 372" in text and "Mobile No : 9867859011" in text and "Mail ID : a@b.com" in text
+
+
+def test_the_compact_letterhead_is_the_same_letterhead_in_less_height():
+    """The printed duty and checklist sheets use the compact letterhead so a whole round fits on one page; the bills keep
+    the full size. Same lines, centred, in a shorter band."""
+    from reportlab.lib.units import mm
+    from app.modules.billing.services.bill_pdf import society_header
+    society = SimpleNamespace(name="Sample Heights CHS", registration_number="REG/123", pan_number="ABCDE1234F",
+                              gst_number=None, address="Plot 4, Main Road", city="Pune", state="MH", pincode="411001")
+    width = 186 * mm
+
+    def height(compact):
+        band = society_header(society, width, compact=compact)[0]
+        return band.wrap(width, 1000)[1], len(band._cellvalues)
+
+    full_height, full_lines = height(False)
+    compact_height, compact_lines = height(True)
+    assert compact_lines == full_lines == 3                    # name, Regn. No. | PAN, address: nothing dropped
+    assert compact_height < full_height - 10                   # clearly shorter, not a rounding difference

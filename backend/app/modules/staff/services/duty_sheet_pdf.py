@@ -160,7 +160,7 @@ def render_duty_sheets(society, tz: ZoneInfo, pages: List[dict], *, compress: bo
         staff, day, duties = page["staff"], page["date"], page["duties"]
         if number:
             story.append(PageBreak())
-        story += society_header(society, width)
+        story += society_header(society, width, compact=True)
         story += [Spacer(1, 3 * mm), Paragraph("DAILY DUTY SHEET", P["title"]),
                   Paragraph("Tick each item when it is done and write a remark if anything is wrong. "
                             "Sign at the bottom. * means the item must be done.", P["hint"]),
@@ -190,7 +190,7 @@ def render_blank_template_sheet(society, tz: ZoneInfo, template, *, compress: bo
     doc = _document(buf, society, template.name, compress)
     width = doc.width
     printed = datetime.now(tz).strftime("%d %b %Y %H:%M")
-    story = society_header(society, width)
+    story = society_header(society, width, compact=True)
     story += [Spacer(1, 3 * mm), Paragraph(escape(template.name.upper()), P["title"]),
               Paragraph("Tick each item when it is done and write a remark if anything is wrong. "
                         "Sign at the bottom. * means the item must be done.", P["hint"]),
@@ -251,7 +251,7 @@ def _floor_grid(columns, floors, width) -> Table:
 
 
 def _floor_page(society, width, printed, *, title, who_rows, columns, wing, footer):
-    story = society_header(society, width)
+    story = society_header(society, width, compact=True)
     story += [Spacer(1, 3 * mm), Paragraph(escape(title.upper()), P["title"]),
               Paragraph("Tick each column when it is done on that floor, then write the time and your initials. "
                         "* means the item must be done on every floor.", P["hint"]),
