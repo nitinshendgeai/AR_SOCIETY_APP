@@ -96,6 +96,7 @@ import 'package:ar_society_app/features/accounts/presentation/screens/outstandin
 import 'package:ar_society_app/features/accounts/presentation/screens/members_ledger_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/expense_form_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/recurring_expenses_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/petty_cash_screen.dart';
 import 'package:ar_society_app/features/amenities/presentation/screens/amenities_screen.dart';
 import 'package:ar_society_app/features/platform/presentation/screens/platform_console_screen.dart';
 import 'package:ar_society_app/features/platform/presentation/screens/platform_society_screen.dart';
@@ -234,6 +235,8 @@ class AppRoutes {
   static const accountsRegisterRental     = '/accounts/registers/rental';
   static const accountsRegisterReceipts   = '/accounts/registers/receipts';
   static const accountsRegisterAttendance = '/accounts/registers/attendance';
+  static const accountsRegisterPettyCash  = '/accounts/registers/petty-cash';
+  static const accountsPettyCash          = '/accounts/petty-cash';
   static const accountsReceivable = '/accounts/outstanding/receivable';
   static const accountsPayable    = '/accounts/outstanding/payable';
   static const accountsApprovals  = '/accounts/approvals';
@@ -917,6 +920,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             (AppRoutes.accountsRegisterRental, (_) => const MoreRegisterScreen(kind: 'rental')),
             (AppRoutes.accountsRegisterReceipts, (_) => const MoreRegisterScreen(kind: 'receipts')),
             (AppRoutes.accountsRegisterAttendance, (_) => const MoreRegisterScreen(kind: 'attendance')),
+            (AppRoutes.accountsRegisterPettyCash, (_) => const MoreRegisterScreen(kind: 'petty_cash')),
+            (AppRoutes.accountsPettyCash, (_) => const PettyCashScreen()),
             (AppRoutes.accountsReceivable, (_) => const OutstandingScreen(initialKind: 'receivable')),
             (AppRoutes.accountsPayable, (_) => const OutstandingScreen(initialKind: 'payable')),
             (AppRoutes.accountsApprovals, (_) => const ApprovalsScreen()),

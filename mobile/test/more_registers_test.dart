@@ -123,7 +123,7 @@ void main() {
 
   testWidgets('the Registers page lists every register once', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: RegistersHubScreen()));
-    for (final id in ['invoices', 'bills', 'cash', 'receipts', 'rental', 'attendance']) {
+    for (final id in ['invoices', 'bills', 'cash', 'receipts', 'rental', 'attendance', 'petty_cash']) {
       expect(find.byKey(ValueKey('register-$id')), findsOneWidget, reason: id);
     }
     expect(find.text('Rental Register'), findsOneWidget);

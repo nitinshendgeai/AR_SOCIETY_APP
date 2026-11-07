@@ -19,6 +19,7 @@ from app.modules.accounts.models.posting_errors import AccountingPostingError
 from app.modules.accounts.services.accounts_service import AccountsService, dr_cr, fiscal_year, money
 from app.modules.accounts.services.bank_reconciliation import BankReconciliationService
 from app.modules.accounts.services.expense_by_element import expenses_by_element
+from app.modules.accounts.services.petty_cash import PettyCashService
 from app.modules.accounts.services.recurring_expenses import RecurringExpenseService, first_of
 from app.modules.accounts.services.postings import AccountPostings
 from app.modules.accounts.services.posting_errors import AccountingPostingErrorService
@@ -389,7 +390,7 @@ def more_register(kind: str, society_id: UUID, date_from: Optional[date] = None,
                   format: str = Query("json", pattern="^(json|pdf|csv)$"),
                   db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """The rental, receipts and staff attendance registers, in one shape (columns, rows, totals) the app draws and the
-    PDF and spreadsheet reuse. `kind`: rental | receipts | attendance. `status` filters (a department for attendance);
+    PDF and spreadsheet reuse. `kind`: rental | receipts | attendance | petty_cash. `status` filters (a department for attendance);
     receipts take a date range, attendance a `month` (2026-11). ?format=pdf or csv: the printout or the spreadsheet."""
     if kind not in REGISTERS:
         raise HTTPException(404, "No such register")
@@ -400,6 +401,8 @@ def more_register(kind: str, society_id: UUID, date_from: Optional[date] = None,
             reg = svc.rental_register(society_id, status, q)
         elif kind == "receipts":
             reg = svc.receipts_register(society_id, date_from, date_to, status, q)
+        elif kind == "petty_cash":
+            reg = PettyCashService(db).book_register(society_id, date_from, date_to)
         else:
             reg = svc.attendance_register(society_id, month, status, q)
     except ValueError as exc:
@@ -994,3 +997,90 @@ def skip_recurring_expense(recurring_id: UUID, data: RecurringSkipIn, request: R
                            db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     RecurringExpenseService(db).skip(recurring_id, data.month, data.reason, user, request)
     return {"skipped": first_of(data.month).isoformat()}
+
+
+# ── Petty cash ────────────────────────────────────────────────────────────────
+
+class PettyCashSettingsIn(BaseModel):
+    """Only fields sent change; send null to clear one."""
+    float_amount: Optional[Decimal] = Field(default=None, ge=0)
+    expense_limit: Optional[Decimal] = Field(default=None, ge=0)
+    custodian_name: Optional[str] = Field(default=None, max_length=150)
+
+
+class PettyCashTopUpIn(BaseModel):
+    society_id: UUID
+    amount: Decimal = Field(gt=0)
+    voucher_date: Optional[date] = None                 # default: today
+    from_account_id: Optional[UUID] = None              # default: the society's default bank
+    reference: Optional[str] = Field(default=None, max_length=100)
+    note: Optional[str] = None
+
+
+class PettyCashItemIn(BaseModel):
+    expense_account_id: UUID
+    amount: Decimal = Field(gt=0)
+    note: Optional[str] = None
+
+
+class PettyCashExpensesIn(BaseModel):
+    society_id: UUID
+    voucher_date: Optional[date] = None                 # default: today
+    reference: Optional[str] = Field(default=None, max_length=100)
+    items: List[PettyCashItemIn] = Field(min_length=1, max_length=50)
+
+
+class PettyCashCountIn(BaseModel):
+    society_id: UUID
+    counted_amount: Decimal = Field(ge=0)
+    count_date: Optional[date] = None                   # default: today
+    note: Optional[str] = None
+
+
+@router.get("/petty-cash/{society_id}")
+def petty_cash_overview(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """The petty cash box: what the books say is in it, what is free to spend, the float and the limit."""
+    assert_society_access(user, society_id)
+    return PettyCashService(db).overview(society_id)
+
+
+@router.put("/petty-cash/{society_id}/settings", dependencies=[Depends(require_admin_committee)])
+def petty_cash_settings(society_id: UUID, data: PettyCashSettingsIn, request: Request, db: Session = Depends(get_db),
+                        user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
+    PettyCashService(db).update_settings(society_id, data.model_dump(exclude_unset=True), user, request)
+    return PettyCashService(db).overview(society_id)
+
+
+@router.post("/petty-cash/top-up", status_code=201)
+def petty_cash_top_up(data: PettyCashTopUpIn, request: Request, db: Session = Depends(get_db),
+                      user: User = Depends(get_current_user)):
+    """Move money from the bank into the petty cash box (a Contra voucher)."""
+    assert_society_access(user, data.society_id)
+    v = PettyCashService(db).top_up(data.society_id, data.model_dump(), user, request)
+    return _voucher_out(v)
+
+
+@router.post("/petty-cash/expenses", status_code=201)
+def petty_cash_expenses(data: PettyCashExpensesIn, request: Request, db: Session = Depends(get_db),
+                        user: User = Depends(get_current_user)):
+    """A day's petty expenses as one Payment voucher: each against its own expense head, all paid from petty cash.
+    It follows the society's usual approval rule for payments."""
+    assert_society_access(user, data.society_id)
+    v = PettyCashService(db).spend(data.society_id, data.model_dump(), user, request)
+    return _voucher_out(v)
+
+
+@router.post("/petty-cash/counts", status_code=201)
+def petty_cash_count(data: PettyCashCountIn, request: Request, db: Session = Depends(get_db),
+                     user: User = Depends(get_current_user)):
+    """Record the cash counted in the box; the answer says whether it tallies with the books."""
+    assert_society_access(user, data.society_id)
+    row = PettyCashService(db).count(data.society_id, data.model_dump(), user, request)
+    return PettyCashService._count_out(row)
+
+
+@router.get("/petty-cash/{society_id}/counts")
+def petty_cash_counts(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    assert_society_access(user, society_id)
+    return PettyCashService(db).counts(society_id)

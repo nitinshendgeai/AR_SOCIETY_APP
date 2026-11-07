@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart';
+import 'package:ar_society_app/features/accounts/data/petty_cash_api.dart';
 import 'package:ar_society_app/features/accounts/data/recurring_api.dart';
 import 'package:ar_society_app/features/accounts/data/registers_api.dart';
 
@@ -100,6 +101,8 @@ void invalidateBooks(WidgetRef ref) {
   ref.invalidate(ledgersProvider);
   ref.invalidate(recurringListProvider);
   ref.invalidate(recurringDueProvider);
+  ref.invalidate(pettyCashProvider);
+  ref.invalidate(pettyCashCountsProvider);
   ref.invalidate(nextVoucherNumberProvider);
 }
 
@@ -107,6 +110,18 @@ void invalidateBooks(WidgetRef ref) {
 final nextVoucherNumberProvider =
     FutureProvider.autoDispose.family<String, (String, String, DateTime)>(
   (ref, k) => ref.watch(accountsApiProvider).nextVoucherNumber(k.$1, k.$2, k.$3),
+);
+
+final pettyCashApiProvider = Provider<PettyCashApi>((_) => PettyCashApi());
+
+/// The petty cash box: balance, what is free to spend, the float and the limit.
+final pettyCashProvider = FutureProvider.autoDispose.family<PettyCash, String>(
+  (ref, societyId) => ref.watch(pettyCashApiProvider).overview(societyId),
+);
+
+/// The cash counts made so far, newest first.
+final pettyCashCountsProvider = FutureProvider.autoDispose.family<List<PettyCashCount>, String>(
+  (ref, societyId) => ref.watch(pettyCashApiProvider).counts(societyId),
 );
 
 final recurringApiProvider = Provider<RecurringApi>((_) => RecurringApi());

@@ -33,7 +33,7 @@ class _MoreRegisterScreenState extends ConsumerState<MoreRegisterScreen> {
   MoreRegisterKey _key(String societyId, MoreRegister? reg) {
     final (from, to) = _period.range;
     final usesMonth = reg?.usesMonth ?? widget.kind == 'attendance';
-    final usesPeriod = reg?.usesPeriod ?? widget.kind == 'receipts';
+    final usesPeriod = reg?.usesPeriod ?? widget.kind == 'receipts' || widget.kind == 'petty_cash';
     return (
       kind: widget.kind,
       societyId: societyId,
