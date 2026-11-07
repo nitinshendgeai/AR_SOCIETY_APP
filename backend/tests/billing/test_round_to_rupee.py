@@ -8,6 +8,7 @@ from uuid import UUID
 from app.modules.accounts.models.accounts import Voucher
 from app.modules.billing.models.billing import MaintenanceBill
 from app.modules.billing.services.bill_pdf import generate_maintenance_bill_pdf
+from tests.billing.test_bill_pdf import _with_layout
 from app.modules.billing.services.billing_service import BillingService
 from app.modules.billing.services.maintenance_calculator import round_to_rupee
 from tests.accounts.test_accounts import _balance
@@ -98,18 +99,23 @@ def test_rounding_down_posts_a_debit_to_rounding_off(client, db):
 def test_the_printed_bill_shows_the_round_off_and_a_whole_rupee_total(client, db):
     _s, _h, _c, bill = _issued(client, db, "rr7", "1234.56")
     svc = BillingService(db)
-    pdf = generate_maintenance_bill_pdf(bill, svc.get_maintenance_settings(bill.society_id), compress=False,
-                                        **svc._bill_print_context(bill))
+    pdf = generate_maintenance_bill_pdf(bill, _with_layout(svc.get_maintenance_settings(bill.society_id), "standard"),
+                                        compress=False, **svc._bill_print_context(bill))
     text = " ".join(_text(pdf).replace("|", " ").split())
     assert "Round off 0.44" in text
     assert "Total Maintenance Payable Amount Rs. 1,235.00" in text
+    # the Boxed layout (what a society prints unless it chose another) shows the same round-off and whole-rupee total
+    pdf = generate_maintenance_bill_pdf(bill, svc.get_maintenance_settings(bill.society_id), compress=False,
+                                        **svc._bill_print_context(bill))
+    boxed = " ".join(_text(pdf).replace("|", " ").split())
+    assert "Round off 0.44" in boxed and "Grand Total Rs. 1,235.00" in boxed
 
 
 def test_a_bill_without_rounding_prints_no_round_off_line(client, db):
     _s, _h, _c, bill = _issued(client, db, "rr8", "1234.56", rounding=False)
     svc = BillingService(db)
-    pdf = generate_maintenance_bill_pdf(bill, svc.get_maintenance_settings(bill.society_id), compress=False,
-                                        **svc._bill_print_context(bill))
+    pdf = generate_maintenance_bill_pdf(bill, _with_layout(svc.get_maintenance_settings(bill.society_id), "standard"),
+                                        compress=False, **svc._bill_print_context(bill))
     text = " ".join(_text(pdf).replace("|", " ").split())
     assert "Round off" not in text and "Rs. 1,234.56" in text
 
