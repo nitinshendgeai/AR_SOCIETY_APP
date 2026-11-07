@@ -4,6 +4,29 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-07 (Registers: rental, receipts and staff attendance)
+
+### feat: three new registers, and one page to open them all
+
+**Accounts → Gateway → All Registers** (shortcut **G**) lists every register: the Invoice, Bills and Cash & Bank
+registers that already existed, and three new ones.
+
+- **Rental Register**: every flat and shop let out, with tenant, mobile, agreement number and dates, days left,
+  rent, deposit, who arranged it (direct or agent), police verification and status (Running, Expiring in 60 days,
+  Expired, No dates). Totals of rent per month and deposits held. Past tenants can be shown too.
+- **Receipts Register**: every payment received from members (date, receipt number, flat, member, what for, mode,
+  reference, amount), the bills each was set off against and any advance left, with its review status. Filter by period
+  and status.
+- **Staff Attendance Register**: a month grid per staff member (P present, A absent, H half day, L leave, OT overtime,
+  WO off duty; approved leave fills the days that have no mark), with days present, half, leave and absent, hours and
+  overtime, and a filter by department.
+
+Each can be searched, printed (landscape A4 with the society's letterhead) or downloaded as a spreadsheet. They share
+one shape on the server (`GET /accounts/registers/{rental|receipts|attendance}/{society}`, `format=json|pdf|csv`) and
+one screen in the app, so another register is one more method on the server. Manager and above, as the other books.
+
+---
+
 ## 2026-11-06 (Bank reconciliation: two grids to tick)
 
 ### feat: a Match tab with our bank entries beside the bank statement rows
