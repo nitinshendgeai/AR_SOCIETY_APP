@@ -310,6 +310,29 @@ void main() {
       expect(find.text('My Bills'), findsOneWidget);
     });
 
+    testWidgets('shows the society services as tiles, only the ones the resident is granted', (tester) async {
+      tester.view.physicalSize = const Size(800, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(_wrapWithUser(const ResidentDashboardScreen(), _makeUser(role: 'Resident'),
+          formCodes: const ['visitors', 'complaints', 'notices', 'amenities', 'my_bills']));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Society services'), findsOneWidget);
+      expect(find.text('Invite guest'), findsOneWidget);
+      expect(find.text('Raise complaint'), findsOneWidget);
+      expect(find.text('Pay bills'), findsOneWidget);
+      for (final label in ['Visitors', 'Complaints', 'Notices', 'Amenities']) {
+        expect(find.text(label), findsOneWidget, reason: label);
+      }
+      for (final label in ['Parcels', 'Daily help', 'Meetings', 'Polls', 'Documents', 'Certificates']) {
+        expect(find.text(label), findsNothing, reason: '$label is not granted');
+      }
+    });
+
     testWidgets('a Tenant is not offered My Bills or Edit My Info (they work from a resident record)', (tester) async {
       // A Tenant is granted the member screens only; the bills and the profile edit would be empty or fail for them.
       // The quick actions sit below the first screen; a taller screen makes the list build them.
@@ -328,6 +351,7 @@ void main() {
       expect(find.text('My Bills'), findsNothing);
       expect(find.text('Edit My Info'), findsNothing);
       expect(find.text('Maintenance'), findsNothing);
+      expect(find.text('Pay bills'), findsNothing);
     });
   });
 
@@ -373,7 +397,8 @@ void main() {
     testWidgets('Resident only sees Visitors and Complaints, not admin/master links', (tester) async {
       await openDrawer(tester, const ResidentDashboardScreen(), _makeUser(role: 'Resident'), _residentFormCodes);
 
-      expect(find.text('Complaints'), findsOneWidget);
+      // The home screen has its own Complaints tile, so look inside the drawer for the menu entry.
+      expect(find.descendant(of: find.byType(Drawer), matching: find.text('Complaints')), findsOneWidget);
       expect(find.text('Residents'), findsNothing);
       expect(find.text('Tenants'), findsNothing);
       expect(find.text('Users & Roles'), findsNothing);

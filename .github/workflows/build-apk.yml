@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK (field edition)
 
 on:
   push:
@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build:
-    name: Build release APK
+    name: Build release APK (residents, security, technical and gym staff)
     runs-on: ubuntu-latest
 
     steps:
@@ -39,6 +39,9 @@ jobs:
         working-directory: mobile
         run: flutter pub get
 
+      # The APK is the "field" edition: residents, security, technical and gym staff only. Accounts, services and
+      # operations stay on the web app (see mobile/lib/core/config/edition.dart). Same package id as before, so it
+      # installs over the earlier full-app APK.
       - name: Build release APK
         working-directory: mobile
         env:
@@ -47,7 +50,8 @@ jobs:
         run: |
           flutter build apk --release \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
-            --dart-define=APP_ENV=production
+            --dart-define=APP_ENV=production \
+            --dart-define=APP_EDITION=field
 
       - name: Rename APK
         working-directory: mobile

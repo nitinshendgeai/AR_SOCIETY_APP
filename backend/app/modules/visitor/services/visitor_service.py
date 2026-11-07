@@ -19,7 +19,9 @@ from app.modules.visitor.models.visitor import (
     Visitor, VisitorVehicle, VisitorLog, Gate,
     VisitorStatus, VisitorType,
 )
-from app.modules.visitor.schemas.visitor import VisitorCreate, VisitorApproveRequest, VisitorRejectRequest
+from app.modules.visitor.schemas.visitor import (
+    VisitorCreate, VisitorApproveRequest, VisitorRejectRequest, VisitorInvite,
+)
 from app.modules.visitor.repositories.visitor_repo import VisitorRepository, VisitorLogRepository, GateRepository
 from app.models.user import User
 from app.models.flat import Flat, OccupancyStatus
@@ -214,6 +216,75 @@ class VisitorService:
         self.db.refresh(visitor)
         return visitor
 
+    # ── Guest passes ──────────────────────────────────────────────────────────
+
+    PASS_VALID_HOURS = 12     # a pass works until this long after the guest was expected
+
+    def _new_pass_code(self, society_id: UUID) -> str:
+        """A 6-digit code no other live pass in this society is using right now."""
+        now = datetime.utcnow()
+        live = {c for (c,) in self.db.query(Visitor.pass_code).filter(
+            Visitor.society_id == society_id, Visitor.pass_code.isnot(None),
+            Visitor.qr_expires_at > now)}
+        for _ in range(50):
+            code = f"{secrets.randbelow(1_000_000):06d}"
+            if code not in live:
+                return code
+        raise HTTPException(status_code=503, detail="Could not make a gate code; try again")
+
+    def invite_visitor(self, data: VisitorInvite, resident: User, request: Optional[Request] = None) -> Visitor:
+        """A resident or tenant invites a guest to their own flat. The guest is approved straight away (the person who
+        would approve is the one inviting) and gets a gate pass the guard can verify."""
+        own = self._own_flat_ids(resident)
+        if not own:
+            raise HTTPException(status_code=403, detail="Only a resident or tenant of a flat can invite guests")
+        flat_id = data.flat_id or (next(iter(own)) if len(own) == 1 else None)
+        if flat_id is None:
+            raise HTTPException(status_code=422, detail="Say which flat the guest is visiting")
+        if flat_id not in own:
+            raise HTTPException(status_code=403, detail="You can invite guests only to your own flat")
+        flat = self._flat_in_society_or_422(flat_id, resident.society_id)
+
+        existing = self.repo.get_active_by_mobile(data.mobile, resident.society_id)
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Visitor with mobile {data.mobile} already has an active entry (status: {existing.status.value})")
+
+        now = datetime.utcnow()
+        arrival = data.expected_arrival.replace(tzinfo=None) if data.expected_arrival and data.expected_arrival.tzinfo \
+            else data.expected_arrival
+        visitor = Visitor(
+            name=data.name, mobile=data.mobile, visitor_type=data.visitor_type, purpose=data.purpose,
+            society_id=resident.society_id, flat_id=flat.id, resident_id=resident.id, logged_by=resident.id,
+            status=VisitorStatus.APPROVED, expected_arrival=arrival,
+            approved_by=resident.id, approved_at=now,
+            qr_token=secrets.token_urlsafe(32),
+            qr_expires_at=max(now, arrival or now) + timedelta(hours=self.PASS_VALID_HOURS),
+        )
+        visitor.pass_code = self._new_pass_code(resident.society_id)
+        self.db.add(visitor)
+        self.db.flush()
+        self._log(visitor.id, "INVITED", resident, notes="Invited by the resident; gate pass issued")
+        self._audit(AuditAction.CREATE, visitor, resident, request,
+                    new_values={"name": visitor.name, "mobile": visitor.mobile, "status": "approved", "invited": True})
+        self.db.commit()
+        self.db.refresh(visitor)
+        return visitor
+
+    def verify_pass(self, code: str, guard: User) -> Visitor:
+        """The guard keys in the code a guest reads out. Returns the approved visitor it belongs to, or 404 for a code
+        that is wrong, already used, or past its time (one answer for all three, so codes cannot be probed)."""
+        if guard.society_id is None:
+            raise HTTPException(status_code=403, detail="Not part of a society")
+        visitor = self.db.query(Visitor).filter(
+            Visitor.society_id == guard.society_id, Visitor.pass_code == code.strip(),
+            Visitor.status == VisitorStatus.APPROVED, Visitor.qr_expires_at > datetime.utcnow(),
+        ).first()
+        if visitor is None:
+            raise HTTPException(status_code=404, detail="That code is not valid. It may be wrong, used, or expired")
+        return visitor
+
     def approve_visitor(self, visitor_id: UUID, data: VisitorApproveRequest,
                         approver: User, request: Optional[Request] = None) -> Visitor:
         visitor = self._get_or_404(visitor_id, approver)
@@ -295,6 +366,7 @@ class VisitorService:
 
         visitor.status        = VisitorStatus.CHECKED_IN
         visitor.checked_in_at = datetime.utcnow()
+        visitor.pass_code     = None   # a pass works once
         if gate_id:
             visitor.gate_id = gate_id
 
@@ -316,6 +388,7 @@ class VisitorService:
         visitor.status         = VisitorStatus.CHECKED_OUT
         visitor.checked_out_at = datetime.utcnow()
         visitor.qr_token       = None  # invalidate QR on exit
+        visitor.pass_code      = None
 
         self._log(visitor.id, "CHECKED_OUT", guard, gate_id=gate_id, notes=notes)
         self._audit(AuditAction.UPDATE, visitor, guard, request,

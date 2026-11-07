@@ -29,6 +29,9 @@ import 'package:ar_society_app/features/society_structure/presentation/providers
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart' show ResidentModel;
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart' show myResidentProvider, myFlatsProvider, selectedFlatIdProvider;
 import 'package:ar_society_app/core/layout/app_sheet.dart';
+import 'package:ar_society_app/features/notices/data/notices_api.dart' show NoticeItem;
+import 'package:ar_society_app/features/notices/presentation/widgets/sos_sheet.dart';
+import 'package:ar_society_app/features/notices/presentation/providers/notices_providers.dart' show noticeBoardProvider;
 
 /// Whether this society has the optional service switched on (the platform owner may switch some off).
 bool _on(UserEntity? u, String key) => u == null || u.hasService(key);
@@ -357,9 +360,8 @@ class _QuickActionChip extends StatelessWidget {
   final String label;
   final String? route;
   final VoidCallback? onTap;
-  final int badge;
 
-  const _QuickActionChip({required this.icon, required this.label, this.route, this.onTap, this.badge = 0});
+  const _QuickActionChip({required this.icon, required this.label, this.route, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -371,7 +373,7 @@ class _QuickActionChip extends StatelessWidget {
       child: Semantics(
         button: true,
         enabled: enabled,
-        label: badge > 0 ? '$label, $badge waiting' : label,
+        label: label,
         excludeSemantics: true,
         onTap: action,
         child: Opacity(
@@ -386,12 +388,7 @@ class _QuickActionChip extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
                 decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM), border: Border.all(color: AppTheme.border)),
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Badge(
-                    isLabelVisible: badge > 0,
-                    label: Text('$badge'),
-                    backgroundColor: AppTheme.error,
-                    child: Icon(icon, color: AppTheme.primary),
-                  ),
+                  Icon(icon, color: AppTheme.primary),
                   const SizedBox(height: 6),
                   Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
                 ]),
@@ -777,6 +774,7 @@ class SecurityDashboardScreen extends ConsumerWidget {
             ),
             _QuickActionChip(icon: Icons.login_rounded, label: 'Check In', route: visitorLog),
             _QuickActionChip(icon: Icons.logout_rounded, label: 'Check Out', route: '$visitorLog?tab=inside'),
+            _QuickActionChip(icon: Icons.pin_outlined, label: 'Verify Code', route: '$visitorLog?verify=1'),
           ]),
           const SizedBox(height: 8),
         ],
@@ -865,6 +863,88 @@ class ResidentDashboardScreen extends ConsumerWidget {
           ),
         ],
         if (_on(user, 'visitors')) const PendingVisitorsBanner(padding: EdgeInsets.only(top: 14)),
+        const SizedBox(height: 14),
+        // The three things a resident does most, one tap from the home screen.
+        Builder(builder: (context) {
+          final societyId = user?.societyId;
+          return _chipRow([
+            if (_on(user, 'visitors') && granted('visitors'))
+              _QuickActionChip(
+                icon: Icons.person_add_alt_1_rounded,
+                label: 'Invite guest',
+                onTap: societyId == null ? null : () => context.push(AppRoutes.visitorsCreate, extra: societyId),
+              ),
+            if (_on(user, 'complaints') && granted('complaints'))
+              const _QuickActionChip(icon: Icons.add_comment_rounded, label: 'Raise complaint', route: AppRoutes.complaintsCreate),
+            if (canSeeBills)
+              const _QuickActionChip(icon: Icons.payments_rounded, label: 'Pay bills', route: AppRoutes.myBills),
+          ]);
+        }),
+        const SizedBox(height: 12),
+        // An emergency is one tap away, on the home screen.
+        Semantics(
+          button: true,
+          label: 'SOS. Tell security and the committee you need help',
+          excludeSemantics: true,
+          onTap: () => showSosSheet(context),
+          child: InkWell(
+            key: const Key('sos-button'),
+            onTap: () => showSosSheet(context),
+            borderRadius: BorderRadius.circular(AppTheme.radiusM),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.error.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                border: Border.all(color: AppTheme.error.withOpacity(0.4)),
+              ),
+              child: Row(children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(color: AppTheme.error, shape: BoxShape.circle),
+                  child: const Icon(Icons.sos_rounded, color: Colors.white, size: 22),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('SOS', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppTheme.error)),
+                    Text('Need help now? Tell security and the committee.',
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  ]),
+                ),
+                const Icon(Icons.chevron_right_rounded, color: AppTheme.error),
+              ]),
+            ),
+          ),
+        ),
+        const SizedBox(height: 18),
+        const _SectionLabel('Society services'),
+        const SizedBox(height: 10),
+        _ServiceGrid(tiles: [
+          if (_on(user, 'visitors') && granted('visitors'))
+            _ServiceTile(Icons.meeting_room_rounded, 'Visitors', AppRoutes.visitorsMy, badge: waiting),
+          if (_on(user, 'gate_extras') && granted('parcels'))
+            const _ServiceTile(Icons.local_shipping_rounded, 'Parcels', AppRoutes.parcels),
+          if (_on(user, 'gate_extras') && granted('domestic_help'))
+            const _ServiceTile(Icons.cleaning_services_rounded, 'Daily help', AppRoutes.domesticHelp),
+          if (_on(user, 'complaints') && granted('complaints'))
+            const _ServiceTile(Icons.report_problem_rounded, 'Complaints', AppRoutes.complaints),
+          if (_on(user, 'notices') && granted('notices'))
+            const _ServiceTile(Icons.campaign_rounded, 'Notices', AppRoutes.notices),
+          if (_on(user, 'amenities') && granted('amenities'))
+            const _ServiceTile(Icons.pool_rounded, 'Amenities', AppRoutes.amenities),
+          if (_on(user, 'governance') && granted('meetings'))
+            const _ServiceTile(Icons.groups_rounded, 'Meetings', AppRoutes.meetings),
+          if (_on(user, 'governance') && granted('polls'))
+            const _ServiceTile(Icons.how_to_vote_rounded, 'Polls', AppRoutes.polls),
+          if (_on(user, 'governance') && granted('documents'))
+            const _ServiceTile(Icons.folder_open_rounded, 'Documents', AppRoutes.documents),
+          if (_on(user, 'certificates') && granted('certificates'))
+            const _ServiceTile(Icons.verified_outlined, 'Certificates', AppRoutes.certificates),
+        ]),
+        if (_on(user, 'notices') && granted('notices') && user?.societyId != null)
+          _NoticeBoardPreview(societyId: user!.societyId!),
         const SizedBox(height: 18),
         const _SectionLabel('Summary'),
         const SizedBox(height: 10),
@@ -920,28 +1000,15 @@ class ResidentDashboardScreen extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 18),
-        const _SectionLabel('Quick Actions'),
+        const _SectionLabel('My account'),
         const SizedBox(height: 10),
         _chipRow([
-          if (_on(user, 'complaints'))
-            const _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaint', route: AppRoutes.complaints),
-          if (canEditInfo)
-            const _QuickActionChip(icon: Icons.edit_note_rounded, label: 'Edit My Info', route: AppRoutes.editMyProfile),
-          if (_on(user, 'visitors'))
-            const _QuickActionChip(icon: Icons.person_rounded, label: 'Visitors', route: AppRoutes.visitorsMy),
-        ]),
-        const SizedBox(height: 8),
-        // "Society Info" was deliberately removed here — Society Settings is
-        // Admin/Committee-only (see the Forms Matrix default grants), and
-        // this dashboard shortcut used to bypass that: it opened the same
-        // fully-editable settings screen with no read-only mode, so a
-        // Resident could see (and be shown Save controls for) fields they
-        // aren't allowed to change, only failing with a 403 on tapping Save.
-        _chipRow([
-          if (_on(user, 'visitors'))
-            _QuickActionChip(icon: Icons.pending_actions_rounded, label: 'Approvals', route: AppRoutes.visitorsPending, badge: waiting),
           if (canSeeBills)
             const _QuickActionChip(icon: Icons.receipt_long_rounded, label: 'My Bills', route: AppRoutes.myBills),
+          if (canEditInfo)
+            const _QuickActionChip(icon: Icons.edit_note_rounded, label: 'Edit My Info', route: AppRoutes.editMyProfile),
+          if (canEditInfo)
+            const _QuickActionChip(icon: Icons.home_work_rounded, label: 'My Home', route: AppRoutes.myHome),
         ]),
         const SizedBox(height: 18),
         _OperationalPanel(title: 'Recent updates', children: [
@@ -974,6 +1041,116 @@ class ResidentDashboardScreen extends ConsumerWidget {
         ]),
         const SizedBox(height: 18),
       ],
+    );
+  }
+}
+
+/// One service on the resident home: a big icon and a short name, like the service grids in MyGate / NoBrokerHood.
+class _ServiceTile {
+  final IconData icon;
+  final String label;
+  final String route;
+  final int badge;
+  const _ServiceTile(this.icon, this.label, this.route, {this.badge = 0});
+}
+
+/// The resident's services as a grid of icon tiles, four to a row on a phone.
+class _ServiceGrid extends StatelessWidget {
+  final List<_ServiceTile> tiles;
+  const _ServiceGrid({required this.tiles});
+
+  @override
+  Widget build(BuildContext context) {
+    if (tiles.isEmpty) return const SizedBox.shrink();
+    return GridView(
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 110,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        mainAxisExtent: 92 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0),
+      ),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        for (final t in tiles)
+          Semantics(
+            button: true,
+            label: t.badge > 0 ? '${t.label}, ${t.badge} waiting' : t.label,
+            excludeSemantics: true,
+            onTap: () => context.push(t.route),
+            child: PressableScale(
+              child: InkWell(
+                onTap: () => context.push(t.route),
+                borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardBg,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Badge(
+                      isLabelVisible: t.badge > 0,
+                      label: Text('${t.badge}'),
+                      backgroundColor: AppTheme.error,
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary.withOpacity(0.10),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(t.icon, color: AppTheme.primary, size: 22),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(t.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// The latest notices for this resident, urgent first, so the notice board is on the home screen.
+/// Draws nothing while loading, on a failure, or when there are none (the Notices tile is still there).
+class _NoticeBoardPreview extends ConsumerWidget {
+  final String societyId;
+  const _NoticeBoardPreview({required this.societyId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notices = ref.watch(noticeBoardProvider(societyId)).valueOrNull ?? const <NoticeItem>[];
+    if (notices.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 18),
+      child: _OperationalPanel(title: 'Notice board', children: [
+        for (final n in notices.take(3))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: InkWell(
+              onTap: () => context.push(AppRoutes.noticeDetail.replaceFirst(':id', n.id)),
+              child: _InfoTile(
+                icon: Icons.campaign_rounded,
+                title: n.category,
+                value: n.title,
+                color: n.priority == 'urgent' ? AppTheme.error : AppTheme.primary,
+              ),
+            ),
+          ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(onPressed: () => context.push(AppRoutes.notices), child: const Text('See all notices')),
+        ),
+      ]),
     );
   }
 }

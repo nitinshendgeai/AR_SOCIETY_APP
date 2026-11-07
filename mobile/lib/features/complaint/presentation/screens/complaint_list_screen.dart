@@ -6,6 +6,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/complaint/domain/entities/complaint_entities.dart';
 import 'package:ar_society_app/features/complaint/presentation/providers/complaint_providers.dart';
+import 'package:ar_society_app/features/complaint/presentation/widgets/complaint_progress.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
@@ -97,7 +98,10 @@ class _ComplaintListTile extends StatelessWidget {
   final ComplaintListEntity complaint;
   final VoidCallback onTap;
 
-  const _ComplaintListTile({required this.complaint, required this.onTap});
+  /// A resident's own list says where each complaint stands in a line under the title.
+  final bool showNote;
+
+  const _ComplaintListTile({required this.complaint, required this.onTap, this.showNote = false});
 
   @override
   Widget build(BuildContext context) {
@@ -134,6 +138,13 @@ class _ComplaintListTile extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
+          if (showNote) ...[
+            const SizedBox(height: 4),
+            Text(
+              complaintListNote(complaint, DateTime.now()),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: complaint.status.color),
+            ),
+          ],
           const SizedBox(height: 8),
           Row(
             children: [
@@ -193,6 +204,9 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
   // Desktop table toolbar (client-side over the loaded list).
   String _query = '';
   ComplaintStatus? _statusFilter;
+
+  // A resident's own list: complaints still being dealt with, or the finished ones.
+  bool _showDone = false;
 
   Future<void> _newComplaint() async {
     final sid = (widget.societyId?.isNotEmpty == true)
@@ -372,14 +386,55 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
           ),
         );
       }
+      final split = widget.isMy && !widget.assignedToMe;
+      final all = state.complaints;
+      final active = all.where((c) => complaintIsActive(c.status)).toList();
+      final done = all.where((c) => !complaintIsActive(c.status)).toList();
+      final shown = split ? (_showDone ? done : active) : all;
+      final chips = split
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Wrap(spacing: 8, children: [
+                ChoiceChip(
+                  label: Text('Active (${active.length})'),
+                  selected: !_showDone,
+                  onSelected: (_) => setState(() => _showDone = false),
+                ),
+                ChoiceChip(
+                  label: Text('Done (${done.length})'),
+                  selected: _showDone,
+                  onSelected: (_) => setState(() => _showDone = true),
+                ),
+              ]),
+            )
+          : null;
+      if (split && shown.isEmpty) {
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+          child: Column(children: [
+            chips!,
+            EmptyState(
+              icon: _showDone ? Icons.history_rounded : Icons.check_circle_outline_rounded,
+              title: _showDone ? 'Nothing finished yet' : 'Nothing pending',
+              subtitle: _showDone
+                  ? 'Complaints that are resolved or closed appear here'
+                  : 'All your complaints are sorted. Tap "New Complaint" to raise one',
+            ),
+          ]),
+        );
+      }
       return ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-        itemCount: state.complaints.length,
+        itemCount: shown.length + (chips == null ? 0 : 1),
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (_, i) {
-          final c = state.complaints[i];
+          if (chips != null && i == 0) return chips;
+          final c = shown[i - (chips == null ? 0 : 1)];
           return _ComplaintListTile(
             complaint: c,
+            showNote: widget.isMy,
             onTap: () => context.push('/complaints/${c.id}'),
           );
         },

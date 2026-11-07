@@ -818,3 +818,46 @@ class BillingExpenseSource(Base, TimestampMixin):
     amount         = Column(Numeric(14, 2), nullable=False)       # debits less credits on that ledger in that voucher
 
     allocation = relationship("BillingExpenseAllocation", back_populates="sources")
+
+
+# ── PaymentClaim ─────────────────────────────────────────────────────────────
+
+class PaymentClaim(Base, TimestampMixin):
+    """
+    A resident saying "I paid": the amount, date and UPI / bank reference, with a screenshot, for the society office to
+    check against its bank. Nothing is recorded in the books by a claim. When the office confirms it, the payment is
+    recorded through the same path as a payment the office enters itself (OnlinePaymentSubmission, with its receipt and
+    allocation), and `submission_id` points at it; when it is rejected, the reason is kept for the resident to read.
+    """
+    __tablename__ = "payment_claims"
+
+    society_id   = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    flat_id      = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="CASCADE"), nullable=False, index=True)
+    bill_id      = Column(UUID(as_uuid=True), ForeignKey("maintenance_bills.id", ondelete="SET NULL"), nullable=True, index=True)
+    claimed_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    reviewed_by  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    submission_id = Column(UUID(as_uuid=True), ForeignKey("online_payment_submissions.id", ondelete="SET NULL"), nullable=True)
+
+    amount          = Column(Numeric(12, 2), nullable=False)
+    payment_date    = Column(Date, nullable=False)
+    payment_mode    = Column(String(20), nullable=False)          # a PaymentMode value
+    transaction_ref = Column(String(100), nullable=True, index=True)
+    bank_name       = Column(String(100), nullable=True)
+    notes           = Column(Text, nullable=True)
+
+    status       = Column(String(20), default="pending", nullable=False, index=True)   # pending | confirmed | rejected
+    reviewed_at  = Column(DateTime, nullable=True)
+    review_notes = Column(Text, nullable=True)
+
+    screenshot_data      = Column(LargeBinary, nullable=True)
+    screenshot_mime_type = Column(String(50), nullable=True)
+    screenshot_file_name = Column(String(255), nullable=True)
+
+    flat       = relationship("Flat")
+    bill       = relationship("MaintenanceBill")
+    claimer    = relationship("User", foreign_keys=[claimed_by])
+    reviewer   = relationship("User", foreign_keys=[reviewed_by])
+    submission = relationship("OnlinePaymentSubmission")
+
+    def __repr__(self):
+        return f"<PaymentClaim ₹{self.amount} [{self.status}]>"

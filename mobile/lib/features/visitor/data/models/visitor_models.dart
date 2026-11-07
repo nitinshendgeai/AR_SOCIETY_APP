@@ -95,6 +95,7 @@ class VisitorModel {
   final String? approvedAt;
   final String? rejectionReason;
   final String? qrToken;
+  final String? passCode;
   final VisitorVehicleModel? vehicle;
   final List<VisitorLogModel> logs;
   final String createdAt;
@@ -118,6 +119,7 @@ class VisitorModel {
     this.approvedAt,
     this.rejectionReason,
     this.qrToken,
+    this.passCode,
     this.vehicle,
     required this.logs,
     required this.createdAt,
@@ -142,6 +144,7 @@ class VisitorModel {
         approvedAt: j['approved_at'] as String?,
         rejectionReason: j['rejection_reason'] as String?,
         qrToken: j['qr_token'] as String?,
+        passCode: j['pass_code'] as String?,
         vehicle: j['vehicle'] != null
             ? VisitorVehicleModel.fromJson(j['vehicle'] as Map<String, dynamic>)
             : null,
@@ -172,6 +175,7 @@ class VisitorModel {
         approvedAt: parseStampOrNull(approvedAt),
         rejectionReason: rejectionReason,
         qrToken: qrToken,
+        passCode: passCode,
         vehicle: vehicle?.toEntity(),
         logs: logs.map((l) => l.toEntity()).toList(),
         createdAt: parseStamp(createdAt),

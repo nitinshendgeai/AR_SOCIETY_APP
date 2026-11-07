@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities.dart' show VisitorEntity;
 import 'package:ar_society_app/features/automation/presentation/screens/automation_screen.dart';
 import 'package:ar_society_app/features/certificates/presentation/screens/certificates_screen.dart';
 import 'package:ar_society_app/features/gate_extras/presentation/screens/domestic_help_screen.dart';
@@ -126,6 +127,7 @@ import 'package:ar_society_app/features/resident_master/presentation/screens/res
 import 'package:ar_society_app/features/resident_master/presentation/screens/resident_form_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/resident_import_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/edit_my_profile_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/my_home_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/pending_resident_changes_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_list_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_import_screen.dart';
@@ -254,6 +256,7 @@ class AppRoutes {
   static const residentForm       = '/residents/form';
   static const residentImport     = '/residents/import';
   static const residentLoginStatus = '/residents/login-status';
+  static const myHome                  = '/residents/me';
   static const editMyProfile           = '/residents/me/edit';
   static const pendingResidentChanges  = '/residents/edit-requests/pending';
   static const shops              = '/shops';
@@ -643,10 +646,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           // Visitor routes (specific paths before parameterised)
           GoRoute(
             path: AppRoutes.visitorsCreate,
-            builder: (_, state) => CreateVisitorScreen(
-              societyId: state.extra as String? ??
-                  state.uri.queryParameters['societyId'] ?? sessionSocietyId(),
-            ),
+            builder: (_, state) {
+              // The extra is the society id, or a past visitor being invited again.
+              final extra = state.extra;
+              return CreateVisitorScreen(
+                societyId: (extra is String ? extra : null) ??
+                    (extra is VisitorEntity ? extra.societyId : null) ??
+                    state.uri.queryParameters['societyId'] ?? sessionSocietyId(),
+                repeatFrom: extra is VisitorEntity ? extra : null,
+              );
+            },
           ),
           GoRoute(
             path: AppRoutes.visitorsMy,
@@ -662,6 +671,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               isMy: false,
               societyId: state.pathParameters['societyId']!,
               initialTab: state.uri.queryParameters['tab'] == 'inside' ? 1 : 0,
+              verifyOnOpen: state.uri.queryParameters['verify'] == '1',
             ),
           ),
           // Notice board (everyone) and one notice
@@ -1079,6 +1089,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.residentImport,
             builder: (_, __) => const ResidentImportScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.myHome,
+            builder: (_, __) => const MyHomeScreen(),
           ),
           GoRoute(
             path: AppRoutes.editMyProfile,

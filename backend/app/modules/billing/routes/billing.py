@@ -28,6 +28,7 @@ from app.modules.billing.services.budget_suggestions import suggest_budgets
 from app.modules.billing.services.period_expenses import cycle_readiness
 from app.modules.billing.services.flat_charges import FlatChargeService
 from app.modules.billing.services.interest_waivers import InterestWaiverService
+from app.modules.billing.services.payment_claims import PaymentClaimService
 from app.modules.billing.services.advance_import import AdvanceImportRequest, import_advances
 from app.modules.billing.services.allocations import PaymentAllocator, allocated, payment_counts, unapplied
 from app.schemas.common import OrmBase, TimestampSchema
@@ -1386,3 +1387,77 @@ def list_interest_waivers(society_id: UUID, status: Optional[str] = Query(None, 
 def cancel_interest_waiver(waiver_id: UUID, data: FlatChargeCancel, request: Request, db: Session = Depends(get_db),
                            user: User = Depends(require_admin_committee)):
     return _waiver_out(InterestWaiverService(db).cancel(waiver_id, data.reason, user, request))
+
+
+# ── Resident payment claims ("I have paid") ───────────────────────────────────
+# A resident reports a payment with its reference and screenshot; the office checks it against the bank and confirms
+# (which records it through the same path as a payment the office enters) or rejects it with a reason.
+
+class ClaimConfirm(OrmBase):
+    deposit_account_id: Optional[UUID] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
+class ClaimReject(OrmBase):
+    reason: str = Field(min_length=1, max_length=500)
+
+@router.get("/payment-info", dependencies=[Depends(any_member)])
+def payment_info(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Where to pay: the society's UPI id and bank details, as printed on every bill."""
+    return PaymentClaimService(db).payment_info(user)
+
+@router.post("/payment-claims", status_code=201, dependencies=[Depends(any_member)])
+def create_payment_claim(
+    amount: Decimal = Form(...),
+    payment_date: date = Form(...),
+    payment_mode: PaymentMode = Form(...),
+    flat_id: Optional[UUID] = Form(None),
+    bill_id: Optional[UUID] = Form(None),
+    transaction_ref: Optional[str] = Form(None, max_length=100),
+    bank_name: Optional[str] = Form(None, max_length=100),
+    notes: Optional[str] = Form(None, max_length=500),
+    screenshot: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    data = mime = name = None
+    if screenshot is not None and screenshot.filename:
+        mime = screenshot.content_type or "application/octet-stream"
+        data = screenshot.file.read(MAX_SCREENSHOT_BYTES + 1)
+        name = screenshot.filename
+    svc = PaymentClaimService(db)
+    return svc.out(svc.create(
+        user, amount=amount, payment_date=payment_date, payment_mode=payment_mode, flat_id=flat_id, bill_id=bill_id,
+        transaction_ref=transaction_ref, bank_name=bank_name, notes=notes,
+        screenshot_bytes=data, screenshot_mime_type=mime, screenshot_file_name=name))
+
+@router.get("/payment-claims/mine", dependencies=[Depends(any_member)])
+def my_payment_claims(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    svc = PaymentClaimService(db)
+    return [svc.out(c) for c in svc.mine(user)]
+
+@router.get("/payment-claims/society/{society_id}", dependencies=[Depends(manager_above)])
+def society_payment_claims(society_id: UUID, status: Optional[Literal["pending", "confirmed", "rejected"]] = None,
+                           db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    svc = PaymentClaimService(db)
+    return [svc.out(c) for c in svc.list_for_society(society_id, user, status)]
+
+@router.get("/payment-claims/{claim_id}/screenshot", dependencies=[Depends(any_member)])
+def payment_claim_screenshot(claim_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    svc = PaymentClaimService(db)
+    office = _user_has_permission(user, "manager_above")
+    claim = svc.get_for(claim_id, user, office=office)
+    if not claim.screenshot_data:
+        raise HTTPException(404, "No screenshot was attached")
+    return Response(content=claim.screenshot_data, media_type=claim.screenshot_mime_type or "application/octet-stream")
+
+@router.post("/payment-claims/{claim_id}/confirm", dependencies=[Depends(manager_above)])
+def confirm_payment_claim(claim_id: UUID, data: ClaimConfirm, db: Session = Depends(get_db),
+                          user: User = Depends(get_current_user)):
+    svc = PaymentClaimService(db)
+    return svc.out(svc.confirm(claim_id, user, deposit_account_id=data.deposit_account_id, notes=data.notes))
+
+@router.post("/payment-claims/{claim_id}/reject", dependencies=[Depends(manager_above)])
+def reject_payment_claim(claim_id: UUID, data: ClaimReject, db: Session = Depends(get_db),
+                         user: User = Depends(get_current_user)):
+    svc = PaymentClaimService(db)
+    return svc.out(svc.reject(claim_id, user, data.reason))

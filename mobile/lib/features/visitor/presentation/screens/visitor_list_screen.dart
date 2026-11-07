@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart' show currentUserProvider;
+import 'package:ar_society_app/features/visitor/data/repositories/visitor_repository.dart' show VisitorSuccess, VisitorFailure;
 import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart';
 import 'package:ar_society_app/features/visitor/presentation/widgets/pending_visitors_banner.dart';
+import 'package:ar_society_app/features/visitor/presentation/widgets/gate_pass.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
@@ -17,7 +22,10 @@ class VisitorListScreen extends ConsumerStatefulWidget {
   final String societyId;
   /// 1 opens on "Inside Now" (the gate's check-out view).
   final int initialTab;
-  const VisitorListScreen({super.key, this.isMy = false, this.societyId = '', this.initialTab = 0});
+
+  /// Opens the "verify guest code" box straight away (the security dashboard's Verify Code shortcut).
+  final bool verifyOnOpen;
+  const VisitorListScreen({super.key, this.isMy = false, this.societyId = '', this.initialTab = 0, this.verifyOnOpen = false});
 
   @override
   ConsumerState<VisitorListScreen> createState() => _VisitorListScreenState();
@@ -38,8 +46,11 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 2, vsync: this, initialIndex: widget.initialTab);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
+    _tabs = TabController(length: widget.isMy ? 3 : 2, vsync: this, initialIndex: widget.isMy ? 0 : widget.initialTab);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _reload();
+      if (widget.verifyOnOpen && !widget.isMy) _verifyCode();
+    });
   }
 
   @override
@@ -53,8 +64,75 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
     // this screen isn't rebuilt by that pop (same widget
     // instance), so without awaiting it the newly logged visitor
     // wouldn't appear until a manual pull-to-refresh.
-    final logged = await context.push<bool>('/visitors/create', extra: widget.societyId);
+    // The resident's own list is not tied to a society id; the signed-in person's society is the one to use.
+    final societyId = widget.societyId.isNotEmpty ? widget.societyId : (ref.read(currentUserProvider)?.societyId ?? '');
+    final logged = await context.push<bool>('/visitors/create', extra: societyId);
     if (logged == true) _reload();
+  }
+
+  /// The guard keys in the code a guest reads out; if it is good, show who it is and offer to check them in.
+  Future<void> _verifyCode() async {
+    final ctrl = TextEditingController();
+    final code = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Verify guest code'),
+        content: TextField(
+          key: const Key('verify-code-field'),
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+          style: const TextStyle(fontSize: 28, letterSpacing: 6, fontWeight: FontWeight.w700),
+          textAlign: TextAlign.center,
+          decoration: const InputDecoration(hintText: '6-digit code'),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Verify')),
+        ],
+      ),
+    );
+    if (code == null || code.trim().length < 4 || !mounted) return;
+    final result = await ref.read(visitorRepositoryProvider).verifyPass(code.trim());
+    if (!mounted) return;
+    switch (result) {
+      case VisitorSuccess(:final data):
+        final checkIn = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            icon: const Icon(Icons.verified_rounded, color: AppTheme.success, size: 36),
+            title: const Text('Valid code'),
+            content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(data.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text([data.mobile, if (data.flatLabel != null) 'Visiting ${data.flatLabel}'].join('  ·  ')),
+              if (data.purpose != null) Text(data.purpose!, style: const TextStyle(color: AppTheme.textSecondary)),
+            ]),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Not now')),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.success),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Check in'),
+              ),
+            ],
+          ),
+        );
+        if (checkIn == true) ref.read(visitorActionProvider.notifier).checkIn(data.id);
+      case VisitorFailure(:final message):
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(message),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+        ));
+    }
+  }
+
+  Future<void> _inviteAgain(VisitorEntity v) async {
+    final invited = await context.push<bool>('/visitors/create', extra: v);
+    if (invited == true) _reload();
   }
 
   @override
@@ -89,21 +167,29 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
             tooltip: 'Refresh',
             onPressed: _reload,
           ),
+          if (!widget.isMy)
+            IconButton(
+              icon: const Icon(Icons.pin_outlined),
+              tooltip: 'Verify guest code',
+              onPressed: _verifyCode,
+            ),
           if (desktop && !widget.isMy)
             HeaderActionButton(icon: Icons.person_add_rounded, label: 'Log Visitor', onPressed: _logVisitor),
         ],
       bottom: TabBar(
           controller: _tabs,
-          tabs: const [Tab(text: 'All Visitors'), Tab(text: 'Inside Now')],
+          tabs: widget.isMy
+              ? const [Tab(text: 'Expected'), Tab(text: 'Inside'), Tab(text: 'History')]
+              : const [Tab(text: 'All Visitors'), Tab(text: 'Inside Now')],
         ),
-      floatingActionButton: widget.isMy || desktop
+      floatingActionButton: desktop && !widget.isMy
           ? null
           : FloatingActionButton.extended(
               onPressed: _logVisitor,
               backgroundColor: AppTheme.primary,
               foregroundColor: Colors.white,
               icon: const Icon(Icons.person_add_rounded),
-              label: const Text('Log Visitor'),
+              label: Text(widget.isMy ? 'Invite guest' : 'Log Visitor'),
             ),
       body: _buildBody(state),
     );
@@ -132,23 +218,58 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
     final all = state is VisitorListLoaded ? state.visitors : <VisitorEntity>[];
     final inside = all.where((v) => v.status == VisitorStatus.checkedIn).toList();
 
-    final tabs = TabBarView(
-      controller: _tabs,
-      children: [
-        _VisitorListView(
-          visitors: all,
-          onRefresh: () async => _reload(),
-          showActions: !widget.isMy,
-        ),
-        _VisitorListView(
-          visitors: inside,
-          onRefresh: () async => _reload(),
-          showActions: !widget.isMy,
-          emptyTitle: 'No visitors inside',
-          emptySubtitle: 'All checked-out or no check-ins yet',
-        ),
-      ],
-    );
+    final TabBarView tabs;
+    if (widget.isMy) {
+      // A resident thinks in "who is coming", "who is in", "who came": three lists, newest first.
+      bool coming(VisitorEntity v) => v.status == VisitorStatus.pending || v.status == VisitorStatus.approved;
+      final expected = all.where(coming).toList();
+      final history = all.where((v) => !coming(v) && v.status != VisitorStatus.checkedIn).toList();
+      tabs = TabBarView(
+        controller: _tabs,
+        children: [
+          _VisitorListView(
+            visitors: expected,
+            onRefresh: () async => _reload(),
+            showActions: false,
+            emptyTitle: 'No one expected',
+            emptySubtitle: 'Tap Invite guest so the gate lets them in without calling you',
+          ),
+          _VisitorListView(
+            visitors: inside,
+            onRefresh: () async => _reload(),
+            showActions: false,
+            emptyTitle: 'No visitors inside',
+            emptySubtitle: 'Guests who have entered and not yet left show here',
+          ),
+          _VisitorListView(
+            visitors: history,
+            onRefresh: () async => _reload(),
+            showActions: false,
+            emptyTitle: 'No past visitors',
+            emptySubtitle: 'Visitors who came and went appear here',
+            onInviteAgain: _inviteAgain,
+          ),
+        ],
+      );
+    } else {
+      tabs = TabBarView(
+        controller: _tabs,
+        children: [
+          _VisitorListView(
+            visitors: all,
+            onRefresh: () async => _reload(),
+            showActions: true,
+          ),
+          _VisitorListView(
+            visitors: inside,
+            onRefresh: () async => _reload(),
+            showActions: true,
+            emptyTitle: 'No visitors inside',
+            emptySubtitle: 'All checked-out or no check-ins yet',
+          ),
+        ],
+      );
+    }
     // A resident's own list can't approve; point them at who's waiting.
     if (!widget.isMy) return tabs;
     return Column(children: [
@@ -164,6 +285,7 @@ class _VisitorListView extends ConsumerWidget {
   final bool showActions;
   final String emptyTitle;
   final String? emptySubtitle;
+  final void Function(VisitorEntity)? onInviteAgain;
 
   const _VisitorListView({
     required this.visitors,
@@ -171,6 +293,7 @@ class _VisitorListView extends ConsumerWidget {
     required this.showActions,
     this.emptyTitle = 'No visitors',
     this.emptySubtitle,
+    this.onInviteAgain,
   });
 
   @override
@@ -193,6 +316,7 @@ class _VisitorListView extends ConsumerWidget {
         itemBuilder: (_, i) => _VisitorCard(
           visitor: visitors[i],
           showActions: showActions,
+          onInviteAgain: onInviteAgain,
         ),
       ),
     );
@@ -257,8 +381,9 @@ extension on _VisitorListView {
 class _VisitorCard extends ConsumerWidget {
   final VisitorEntity visitor;
   final bool showActions;
+  final void Function(VisitorEntity)? onInviteAgain;
 
-  const _VisitorCard({required this.visitor, required this.showActions});
+  const _VisitorCard({required this.visitor, required this.showActions, this.onInviteAgain});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -320,6 +445,39 @@ class _VisitorCard extends ConsumerWidget {
               ],
             ],
           ),
+          if (_whenLine(visitor) != null) ...[
+            const SizedBox(height: 8),
+            Row(children: [
+              const Icon(Icons.schedule_rounded, size: 14, color: AppTheme.textSecondary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(_whenLine(visitor)!,
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              ),
+            ]),
+          ],
+          if (!showActions && visitor.passCode != null && visitor.status == VisitorStatus.approved) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: () => showGatePass(context, visitor),
+                icon: const Icon(Icons.pin_outlined, size: 18),
+                label: Text('Gate code ${visitor.passCode}'),
+              ),
+            ),
+          ],
+          if (onInviteAgain != null && visitor.status == VisitorStatus.checkedOut) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => onInviteAgain!(visitor),
+                icon: const Icon(Icons.replay_rounded, size: 16),
+                label: const Text('Invite again'),
+              ),
+            ),
+          ],
           if (showActions && (visitor.canCheckIn || visitor.canCheckOut)) ...[
             const SizedBox(height: 12),
             Row(
@@ -366,6 +524,23 @@ class _VisitorCard extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// When this visitor is expected, came or left, in the words a resident would use. Null when nothing is known.
+  String? _whenLine(VisitorEntity v) {
+    String t(DateTime d) => DateFormat('d MMM, h:mm a').format(d.toLocal());
+    switch (v.status) {
+      case VisitorStatus.checkedOut:
+        if (v.checkedInAt == null) return v.checkedOutAt == null ? null : 'Left ${t(v.checkedOutAt!)}';
+        return v.checkedOutAt == null ? 'In ${t(v.checkedInAt!)}' : 'In ${t(v.checkedInAt!)}  ·  Out ${t(v.checkedOutAt!)}';
+      case VisitorStatus.checkedIn:
+        return v.checkedInAt == null ? null : 'Inside since ${t(v.checkedInAt!)}';
+      case VisitorStatus.rejected:
+        return v.rejectionReason == null || v.rejectionReason!.isEmpty ? 'Entry refused' : 'Refused: ${v.rejectionReason}';
+      case VisitorStatus.pending:
+      case VisitorStatus.approved:
+        return v.expectedArrival == null ? 'Added ${t(v.createdAt)}' : 'Expected ${t(v.expectedArrival!)}';
+    }
   }
 
   IconData _typeIcon(VisitorType type) {

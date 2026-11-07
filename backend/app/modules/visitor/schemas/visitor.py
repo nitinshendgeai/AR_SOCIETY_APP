@@ -92,6 +92,24 @@ class VisitorCreate(OrmBase):
         return v
 
 
+class VisitorInvite(OrmBase):
+    """A resident or tenant inviting a guest to their own flat: the guest is approved at once and given a gate pass."""
+    name:             str = Field(max_length=255)
+    mobile:           str
+    visitor_type:     VisitorType      = VisitorType.GUEST
+    purpose:          Optional[str]    = None
+    flat_id:          Optional[UUID]   = None      # which of their flats, when they have several
+    expected_arrival: Optional[datetime] = None
+
+    _name = field_validator("name", mode="before")(val.name)
+    _mobile = field_validator("mobile", mode="before")(val.mobile_any)
+    _purpose = field_validator("purpose", mode="before")(val.limited(500))
+
+
+class VerifyPassRequest(OrmBase):
+    code: str = Field(min_length=4, max_length=8)
+
+
 class VisitorApproveRequest(OrmBase):
     notes: Optional[str] = None
 
@@ -143,5 +161,7 @@ class VisitorOut(TimestampSchema):
     approved_at:      Optional[datetime]
     rejection_reason: Optional[str]
     qr_token:         Optional[str]
+    qr_expires_at:    Optional[datetime] = None
+    pass_code:        Optional[str] = None
     vehicle:          Optional[VehicleOut]
     logs:             List[VisitorLogOut] = []
