@@ -534,7 +534,8 @@ def test_boxed_layout_follows_the_reference_page(client, db):
     db.expire_all()
     bill, text = _bill_pdf(db, bill.id, layout=None)
     for expected in [
-        "MB SOCIETY PDFX1", "E-Mail : office@example.com", "Registration No. : MUM/WRO/HSG/TC/16082/2021-22/2022",
+        "MB SOCIETY PDFX1", "Regn. No. MUM/WRO/HSG/TC/16082/2021-22/2022",   # the society letterhead (band, red rule)
+        "Maintenance Bill / Tax Invoice",                                      # the title under it
         "To,", "Tower A 101 Asha Rao", "Flat No. : Tower A 101",
         f"Bill No. : {bill.invoice_number}", "Area (SqFt.) : 600", f"Date : {bill.bill_date.day}-{bill.bill_date:%b-%y}",
         f"Due Date : {bill.due_date.day}-{bill.due_date:%b-%y}", "Billing Period :",
