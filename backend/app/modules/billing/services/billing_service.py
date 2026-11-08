@@ -548,6 +548,10 @@ class BillingService:
         # the rate, so a line on a bill can always be traced back and re-added.
         allocation_rows = self._record_allocations(calc, cycle, drafts)
 
+        # The bill, and its entry in the accounts, carry the billing cycle's start date (a bill for July to September
+        # is dated 1 July however late it is generated), never a day later than today. Interest on arrears is still
+        # counted up to `today`, the day the bills are generated.
+        bill_date = min(cycle.cycle_start, today)
         bills = []
         for draft in drafts:
             flat = draft.flat
@@ -560,7 +564,7 @@ class BillingService:
                 resident_id=resident.id if resident else None,
                 invoice_number=self.bill_repo.next_invoice_number(cycle.society_id),
                 bill_status=BillStatus.GENERATED,
-                bill_date=today, due_date=cycle.due_date,
+                bill_date=bill_date, due_date=cycle.due_date,
                 period_start=draft.period_start or cycle.cycle_start, period_end=draft.period_end or cycle.cycle_end,
                 subtotal=draft.subtotal, tax_amount=draft.tax,
                 total_amount=draft.total, outstanding=draft.total, round_off=draft.round_off,
@@ -589,7 +593,7 @@ class BillingService:
             tracker = self.due_repo.get_or_create(flat.id, cycle.society_id)
             tracker.total_billed  += bill.total_amount
             tracker.outstanding   += bill.total_amount
-            tracker.last_bill_date = today
+            tracker.last_bill_date = bill_date
             bills.append(bill)
 
         cycle.is_finalized          = True
@@ -729,7 +733,9 @@ class BillingService:
                 earlier_by_number[e.invoice_number] = e
         for bill, row in working:
             earlier = earlier_by_number.get(row.get("bill"))
-            if earlier is not None and earlier.arrears_interest_upto == bill.bill_date:
+            # the interest was counted up to the date saved in its working (the day the bill was generated)
+            counted_to = date.fromisoformat(row["to"]) if row.get("to") else bill.bill_date
+            if earlier is not None and earlier.arrears_interest_upto == counted_to:
                 counted_from = date.fromisoformat(row["from"])
                 earlier.arrears_interest_upto = (
                     None if counted_from <= earlier.due_date + timedelta(days=grace) else counted_from)
