@@ -148,8 +148,7 @@ class BankReconciliationService:
         AuditService.log(db=self.db, action=AuditAction.UPDATE, module="accounts", entity_id=str(voucher.id),
                          entity_type="BankReconciliation", user=user, new_values=values)
 
-    @staticmethod
-    def _line_out(e: VoucherEntry, as_on: Optional[date] = None) -> dict:
+    def _line_out(self, e: VoucherEntry, as_on: Optional[date] = None) -> dict:
         v = e.voucher
         amount = money(e.debit) or money(e.credit)
         who = v.vendor.company_name if v.vendor else None
