@@ -5,6 +5,7 @@ recorded reason, no committee member interested, and money paid only within
 what was sanctioned — advance before completion, retention until the defect
 liability period ends."""
 from datetime import date, timedelta
+from app.utils.local_time import local_today, zone
 from decimal import Decimal
 from uuid import UUID as _UUID
 
@@ -13,7 +14,7 @@ import pytest
 from tests.conftest import make_flat, make_society, make_user, make_wing
 
 V = "/api/v1/vendors"
-TODAY = date.today()
+TODAY = local_today(zone(None))
 
 
 def _in(db, user, society):

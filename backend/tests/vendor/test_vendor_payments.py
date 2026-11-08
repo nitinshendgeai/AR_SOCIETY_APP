@@ -208,3 +208,24 @@ def test_partial_payments_have_distinct_transaction_identity_and_can_be_reversed
     reversed_payment = next(p for p in body["payments"] if p["id"] == payment_id)
     assert reversed_payment["is_reversed"] is True
     assert reversed_payment["reversal_reason"] == "Bank payment returned"
+
+
+def test_a_payment_is_checked_against_the_societys_today_not_the_servers(client, db, monkeypatch):
+    """After 18:30 UTC it is already tomorrow in India: today's date must be accepted, tomorrow's refused."""
+    from datetime import timedelta
+    from app.modules.vendor.services import vendor_service as vs
+
+    society, manager, admin, _resident = _rig(db)
+    vendor_id = _create_vendor(client, admin["headers"], society.id)
+    inv_id = _create_invoice(client, manager["headers"], society.id, vendor_id).json()["id"]
+    server_today = date.today()
+    pay = lambda day: client.post(f"/api/v1/vendors/invoices/{inv_id}/payments", json={
+        "amount": "1000.00", "paid_date": str(day), "payment_mode": "neft", "payment_ref": "UTR-TZ"},
+        headers=manager["headers"])
+
+    monkeypatch.setattr(vs, "society_today", lambda _db, _sid: server_today)       # a society on the server's date
+    refused = pay(server_today + timedelta(days=1))
+    assert refused.status_code == 422 and "future" in refused.text
+
+    monkeypatch.setattr(vs, "society_today", lambda _db, _sid: server_today + timedelta(days=1))   # a day ahead
+    assert pay(server_today + timedelta(days=1)).status_code == 200

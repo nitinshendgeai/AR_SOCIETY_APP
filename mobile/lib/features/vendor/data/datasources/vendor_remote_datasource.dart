@@ -7,6 +7,20 @@ class VendorRemoteDataSource {
   final Dio _dio;
   VendorRemoteDataSource({Dio? dio}) : _dio = dio ?? ApiClient.instance;
 
+  /// Every row of a list the server cuts into pages (50 unless asked, 500 at most). Reading only the first page
+  /// left a society with more than 50 vendor bills showing the newest 50 and totals that were too small.
+  Future<List<Map<String, dynamic>>> _allRows(String path, [Map<String, dynamic> query = const {}]) async {
+    const pageSize = 500;
+    final rows = <Map<String, dynamic>>[];
+    for (var page = 0; page < 40; page++) {
+      final r = await _dio.get(path, queryParameters: {...query, 'skip': page * pageSize, 'limit': pageSize});
+      final got = (r.data as List).map((e) => e as Map<String, dynamic>).toList();
+      rows.addAll(got);
+      if (got.length < pageSize) break;
+    }
+    return rows;
+  }
+
   /// POST /vendors/
   Future<VendorModel> createVendor({
     required String societyId,
@@ -29,8 +43,8 @@ class VendorRemoteDataSource {
 
   /// GET /vendors/society/{society_id}
   Future<List<VendorModel>> listVendors(String societyId) async {
-    final r = await _dio.get('/vendors/society/$societyId');
-    return (r.data as List).map((e) => VendorModel.fromJson(e as Map<String, dynamic>)).toList();
+    final rows = await _allRows('/vendors/society/$societyId');
+    return rows.map(VendorModel.fromJson).toList();
   }
 
   /// POST /vendors/invoices
@@ -65,11 +79,8 @@ class VendorRemoteDataSource {
 
   /// GET /vendors/invoices/society/{society_id}
   Future<List<VendorInvoiceModel>> listSocietyInvoices(String societyId, {bool? isPaid}) async {
-    final r = await _dio.get(
-      '/vendors/invoices/society/$societyId',
-      queryParameters: {if (isPaid != null) 'is_paid': isPaid},
-    );
-    return (r.data as List).map((e) => VendorInvoiceModel.fromJson(e as Map<String, dynamic>)).toList();
+    final rows = await _allRows('/vendors/invoices/society/$societyId', {if (isPaid != null) 'is_paid': isPaid});
+    return rows.map(VendorInvoiceModel.fromJson).toList();
   }
 
   /// GET /vendors/invoices/{id}

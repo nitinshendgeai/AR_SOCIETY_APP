@@ -279,9 +279,10 @@ class AMCContract(Base, TimestampMixin, SanctionMixin):
     schedules = relationship("AMCServiceSchedule", back_populates="contract", cascade="all, delete-orphan")
     quotations = relationship("Quotation", back_populates="contract", order_by="Quotation.total_amount")
 
-    def days_to_expiry(self) -> int:
+    def days_to_expiry(self, today=None) -> int:
+        """Days until the contract ends, from `today` (the society's date; the server's when not given)."""
         from datetime import date
-        return (self.end_date - date.today()).days
+        return (self.end_date - (today or date.today())).days
 
     def __repr__(self):
         return f"<AMCContract {self.contract_number} [{self.status}]>"

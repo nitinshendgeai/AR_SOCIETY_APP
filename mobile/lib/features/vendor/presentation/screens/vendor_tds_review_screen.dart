@@ -83,9 +83,7 @@ class _VendorTdsReviewScreenState extends ConsumerState<VendorTdsReviewScreen> {
       title: 'TDS Review',
       body: async.when(
         loading: () => const AppLoader(),
-        error: (e, _) => ListView(children: [
-          Padding(padding: const EdgeInsets.all(24), child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)))
-        ]),
+        error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(tdsReviewProvider(societyId))),
         data: (review) {
           final rows = _problemsOnly ? review.vendors.where((v) => v.hasIssues).toList() : review.vendors;
           return RefreshIndicator(

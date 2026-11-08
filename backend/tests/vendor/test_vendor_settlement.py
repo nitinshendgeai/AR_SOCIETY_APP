@@ -2,6 +2,7 @@
 several in one cheque) from a chosen bank or cash ledger, never by a loose voucher that would leave the bill unpaid;
 a wrongly entered bill can be cancelled while nothing has been paid on it."""
 from datetime import date, timedelta
+from app.utils.local_time import local_today, zone
 from decimal import Decimal
 from uuid import UUID
 
@@ -31,7 +32,7 @@ def _payables(client, rig):
 
 
 def _pay_bills(client, rig, vendor_id, items, expect=200, mode="neft", **extra):
-    body = {"items": [{"invoice_id": i, "amount": str(a)} for i, a in items], "paid_date": str(date.today()),
+    body = {"items": [{"invoice_id": i, "amount": str(a)} for i, a in items], "paid_date": str(local_today(zone(None))),
             "payment_mode": mode, "payment_ref": "UTR-77", **extra}
     r = client.post(f"{V}/invoices/vendor/{vendor_id}/pay", headers=rig["manager"], json=body)
     assert r.status_code == expect, r.text
@@ -47,10 +48,10 @@ def _second_bank(client, rig, L):
 
 def test_the_open_bills_of_a_vendor_are_what_can_still_be_paid(client, rig):
     v = _vendor(client, rig)
-    late = _bill(client, rig, v["id"], "10000", number="B-2", on=date.today() - timedelta(days=5),
-                 due_date=str(date.today() - timedelta(days=1)))
-    early = _bill(client, rig, v["id"], "5000", number="B-1", on=date.today() - timedelta(days=40),
-                  due_date=str(date.today() - timedelta(days=10)))
+    late = _bill(client, rig, v["id"], "10000", number="B-2", on=local_today(zone(None)) - timedelta(days=5),
+                 due_date=str(local_today(zone(None)) - timedelta(days=1)))
+    early = _bill(client, rig, v["id"], "5000", number="B-1", on=local_today(zone(None)) - timedelta(days=40),
+                  due_date=str(local_today(zone(None)) - timedelta(days=10)))
     paid = _bill(client, rig, v["id"], "700", number="B-3")
     _pay(client, rig, paid["id"], "700")
     r = client.get(f"{V}/invoices/vendor/{v['id']}/open", headers=rig["manager"])
@@ -78,8 +79,8 @@ def test_a_bills_own_tds_is_not_payable_to_the_vendor(client, rig):
 
 def test_one_cheque_settles_several_bills_and_the_books_agree(client, rig):
     v = _vendor(client, rig, constitution="individual_proprietor", pan_number="ABCPE1234F")
-    one = _bill(client, rig, v["id"], "10000", number="B-1", on=date.today() - timedelta(days=30))
-    two = _bill(client, rig, v["id"], "4000", number="B-2", on=date.today() - timedelta(days=3))
+    one = _bill(client, rig, v["id"], "10000", number="B-1", on=local_today(zone(None)) - timedelta(days=30))
+    two = _bill(client, rig, v["id"], "4000", number="B-2", on=local_today(zone(None)) - timedelta(days=3))
     L = _ledgers(client, rig)
     assert _balance(client, rig, L["sundry_creditors"]["id"]) == Decimal("-14000")
     assert _payables(client, rig)["totals"]["outstanding"] == "14000.00"
@@ -98,7 +99,7 @@ def test_one_cheque_settles_several_bills_and_the_books_agree(client, rig):
 
 def test_the_payment_is_made_from_the_chosen_bank_and_shows_on_its_reconciliation(client, rig):
     v = _vendor(client, rig)
-    bill = _bill(client, rig, v["id"], "3000", number="B-1", on=date.today() - timedelta(days=2))
+    bill = _bill(client, rig, v["id"], "3000", number="B-1", on=local_today(zone(None)) - timedelta(days=2))
     L = _ledgers(client, rig)
     hdfc = _second_bank(client, rig, L)
     _pay_bills(client, rig, v["id"], [(bill["id"], "3000")], bank_account_id=hdfc["id"])
@@ -147,7 +148,7 @@ def test_a_loose_payment_voucher_cannot_settle_a_billed_vendor(client, rig):
 
     def voucher(vendor_id, amount="5000", expect=201):
         r = client.post(f"{A}/vouchers", headers=rig["admin"], json={
-            "society_id": rig["sid"], "voucher_type": "payment", "voucher_date": str(date.today()),
+            "society_id": rig["sid"], "voucher_type": "payment", "voucher_date": str(local_today(zone(None))),
             "entries": [{"account_id": L["sundry_creditors"]["id"], "debit": amount,
                          **({"vendor_id": vendor_id} if vendor_id else {})},
                         {"account_id": L["bank"]["id"], "credit": amount}]})

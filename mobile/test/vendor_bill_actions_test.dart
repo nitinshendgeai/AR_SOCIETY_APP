@@ -102,7 +102,7 @@ void main() {
   testWidgets('each live payment can be reversed; a reversed one shows why instead', (t) async {
     await _open(t, 'Manager', _bill(paid: '3000.00'));
     expect(find.text('Payments'), findsOneWidget);
-    expect(find.text('VP-0001 · ₹3000.00'), findsOneWidget);
+    expect(find.text('VP-0001 · ₹3,000.00'), findsOneWidget);
     expect(find.text('Reverse'), findsOneWidget);                  // only the live payment
     expect(find.text('Reversed: Bounced'), findsOneWidget);
     expect(find.text('Cancel bill and reverse payments'), findsNothing);   // a manager does not cancel bills

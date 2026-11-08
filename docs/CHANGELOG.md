@@ -4,6 +4,24 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-08 (Vendors: bills beyond the first 50, failed loads, amounts, the society's date)
+
+### fix: the Vendors screens read every bill and vendor, recover from a failed load and use the society's date
+
+- **More than 50 vendor bills** - the Vendor Bills screen and the Add Bill vendor list asked for one page of 50, so a society
+  with more bills saw only the newest 50, and "Unpaid Bills" and "Outstanding" on the phone were short by the rest. They now
+  read every page.
+- **Try again** - the vendor and work lists, a work order, a contract, vendor bills, the TDS register, rules and review say
+  plainly when they could not load and offer "Try again".
+- **Amounts** on the vendor bill sheet (total, paid, outstanding, the payment lines and the warnings) are written the Indian
+  way (`₹1,25,000.00`), not as raw numbers.
+- **Today** - a vendor payment dated today is no longer refused as "in the future" between midnight and 5:30 am in India; the
+  dates on work orders (sanction, issue, completion, release, quotation), the work order number's year, the day a work order
+  is closed, the contracts that are expiring and "days overdue" on a vendor's open bills use the society's date, so the open
+  bills list agrees with Outstanding Payable.
+
+---
+
 ## 2026-11-08 (Accounts: failed loads, the society's date)
 
 ### fix: Accounts screens recover from a failed load and use the society's own date

@@ -146,7 +146,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
         ],
       body: async.when(
         loading: () => const AppLoader(),
-        error: (e, _) => Center(child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
+        error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(workOrderProvider(widget.workOrderId))),
         data: (wo) => RefreshIndicator(
           onRefresh: () async => _refresh(),
           child: ResponsiveBody(

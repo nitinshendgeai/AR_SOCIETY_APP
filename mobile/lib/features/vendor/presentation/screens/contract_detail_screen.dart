@@ -72,7 +72,7 @@ class _ContractDetailScreenState extends ConsumerState<ContractDetailScreen> {
       title: async.valueOrNull?.contractNumber ?? 'Contract',
       body: async.when(
         loading: () => const AppLoader(),
-        error: (e, _) => Center(child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
+        error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(contractProvider(widget.contractId))),
         data: (c) {
           final open = c.isDraft && !c.sanction.isSanctioned;
           return RefreshIndicator(

@@ -74,7 +74,10 @@ class _TdsRegisterScreenState extends ConsumerState<TdsRegisterScreen> {
           const SizedBox(height: 12),
           async.when(
             loading: () => const Padding(padding: EdgeInsets.all(32), child: AppLoader()),
-            error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+            error: (e, _) => AppErrorState(
+                compact: true,
+                message: friendlyErrorMessage(e),
+                onRetry: () => ref.invalidate(tdsRegisterProvider((societyId: societyId, from: _range.start, to: _range.end)))),
             data: (reg) => reg.rows.isEmpty
                 ? const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('No TDS deducted in this period')))
                 : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

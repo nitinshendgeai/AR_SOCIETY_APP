@@ -1,6 +1,7 @@
 from typing import List, Optional
 from uuid import UUID
 from datetime import date, timedelta
+from app.utils.local_time import society_today
 from sqlalchemy.orm import Session
 from app.modules.vendor.models.vendor import (
     Vendor, VendorService, AMCContract, AMCServiceSchedule,
@@ -58,12 +59,13 @@ class AMCContractRepo(BaseRepository[AMCContract]):
         ).all()
 
     def get_expiring(self, sid: UUID, days: int = 60) -> List[AMCContract]:
-        cutoff = date.today() + timedelta(days=days)
+        today = society_today(self.db, sid)
+        cutoff = today + timedelta(days=days)
         return self.db.query(AMCContract).filter(
             AMCContract.society_id==sid,
             AMCContract.status==ContractStatus.ACTIVE,
             AMCContract.end_date<=cutoff,
-            AMCContract.end_date>=date.today(),
+            AMCContract.end_date>=today,
             AMCContract.is_active==True,
         ).order_by(AMCContract.end_date).all()
 
