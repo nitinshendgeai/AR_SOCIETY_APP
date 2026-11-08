@@ -66,6 +66,11 @@ def _ref_agrees(row: BankStatementEntry, voucher_ref: Optional[str]) -> bool:
     return len(ref) >= 6 and ref in _squash(f"{row.reference or ''}{row.description or ''}")
 
 
+def statement_line_key(txn_date, amount, direction, reference, description) -> tuple:
+    """What makes two statement lines the same line: the bank's reference identifies it; without one, what it says does."""
+    return (txn_date, Decimal(amount), direction, reference or "", "" if reference else (description or "")[:500])
+
+
 class BankReconciliationService:
 
     def __init__(self, db: Session, accounts: Optional[AccountsService] = None):
@@ -87,6 +92,47 @@ class BankReconciliationService:
 
     def bank_accounts(self, society_id: UUID) -> List[Account]:
         return [a for a in self.accounts.list_accounts(society_id) if a.is_bank]
+
+    def home_ledger_id(self, society_id: UUID, ledger_id: Optional[UUID] = None) -> Optional[UUID]:
+        """The bank ledger a statement belongs to: the one named, else the society's only bank ledger (nothing else
+        could be meant), else none."""
+        if ledger_id is not None:
+            return ledger_id
+        banks = self.bank_accounts(society_id)
+        return banks[0].id if len(banks) == 1 else None
+
+    def _belongs_to(self, society_id: UUID, account: Account):
+        """Statement rows of this bank ledger. A row saved with no bank (older imports) belongs to the default bank only,
+        so it is listed once, not under every bank the society has."""
+        mine = BankStatementEntry.bank_account_id == account.id
+        if self.accounts.default_bank(society_id).id == account.id:
+            return mine | BankStatementEntry.bank_account_id.is_(None)
+        return mine
+
+    def rows_for(self, society_id: UUID, account_id: Optional[UUID] = None, match_status: Optional[str] = None,
+                 limit: int = 500) -> List[BankStatementEntry]:
+        """The statement rows of one bank ledger, newest first, each line once: a row saved with no bank is hidden when
+        the same line is also stored against a bank (a statement imported twice, with and without the bank chosen)."""
+        account = self.bank_account(society_id, account_id)
+        q = (self.db.query(BankStatementEntry).options(joinedload(BankStatementEntry.matched_submission))
+             .filter(BankStatementEntry.society_id == society_id, BankStatementEntry.is_active == True,  # noqa: E712
+                     self._belongs_to(society_id, account)))
+        every = q.order_by(BankStatementEntry.txn_date.desc(), BankStatementEntry.created_at.desc()).all()
+        seen: Dict[tuple, int] = {}
+        for r in every:
+            if r.bank_account_id is not None:
+                k = statement_line_key(r.txn_date, r.amount, r.direction, r.reference, r.description)
+                seen[k] = seen.get(k, 0) + 1
+        out = []
+        for r in every:
+            if r.bank_account_id is None:
+                k = statement_line_key(r.txn_date, r.amount, r.direction, r.reference, r.description)
+                if seen.get(k, 0) > 0:                       # the same line is stored against the bank: hide this copy
+                    seen[k] -= 1
+                    continue
+            if match_status is None or r.match_status.value == match_status:
+                out.append(r)
+        return out[:limit]
 
     def _live_lines(self, society_id: UUID, account_id: UUID):
         """The bank ledger's lines that stand in the books: approved, not cancelled, and not a voucher that was
@@ -139,7 +185,7 @@ class BankReconciliationService:
         unmatched = (self.db.query(BankStatementEntry).filter(
             BankStatementEntry.society_id == society_id, BankStatementEntry.is_active == True,  # noqa: E712
             BankStatementEntry.match_status == BankStatementMatchStatus.UNMATCHED,
-            (BankStatementEntry.bank_account_id == account.id) | BankStatementEntry.bank_account_id.is_(None)).count())
+            self._belongs_to(society_id, account)).count())
         out = {
             "account_id": str(account.id), "account_name": account.name, "bank_name": account.bank_name,
             "as_on": as_on.isoformat(),
@@ -160,8 +206,7 @@ class BankReconciliationService:
         return (self.db.query(BankStatementEntry).filter(
             BankStatementEntry.society_id == society_id, BankStatementEntry.is_active == True,  # noqa: E712
             BankStatementEntry.match_status != BankStatementMatchStatus.MATCHED,
-            BankStatementEntry.txn_date <= as_on,
-            (BankStatementEntry.bank_account_id == account.id) | BankStatementEntry.bank_account_id.is_(None))
+            BankStatementEntry.txn_date <= as_on, self._belongs_to(society_id, account))
             .order_by(BankStatementEntry.txn_date, BankStatementEntry.created_at).all())
 
     def _proof(self, society_id: UUID, account: Account, as_on: date, per_bank: Decimal,
@@ -377,8 +422,9 @@ class BankReconciliationService:
             BankStatementEntry.match_status == BankStatementMatchStatus.UNMATCHED)
             .order_by(BankStatementEntry.txn_date).all())
         if account_id is not None:
-            self.bank_account(society_id, account_id)
-            rows = [r for r in rows if r.bank_account_id in (None, account_id)]
+            account = self.bank_account(society_id, account_id)
+            home_is_default = self.accounts.default_bank(society_id).id == account.id
+            rows = [r for r in rows if r.bank_account_id == account.id or (r.bank_account_id is None and home_is_default)]
         matched = left = 0
         taken: set = set()
         for row in rows:

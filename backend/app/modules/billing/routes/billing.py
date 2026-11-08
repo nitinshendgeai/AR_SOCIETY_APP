@@ -1088,7 +1088,8 @@ async def import_bank_statement(
             raise HTTPException(422, "This file is neither a PDF statement nor a CSV in UTF-8")
         entries = service.import_bank_statement_csv(
             society_id, text, user, include_debits=include_debits, bank_account_id=bank_account_id)
-        summary = {"file_type": "csv", "imported": len(entries), "skipped_duplicates": 0}
+        summary = {"file_type": "csv", "imported": len(entries),
+                   "skipped_duplicates": getattr(service, "skipped_duplicates", 0)}
     out = [_bank_entry_out(e) for e in entries]
     return {"entries": out, "summary": summary} if detail else out
 

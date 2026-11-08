@@ -230,7 +230,8 @@ def test_import_keeps_debits_only_when_asked_and_one_amount_column_is_signed(cli
     r = _import(client, sid, manager["headers"], csv_text)
     assert [(x["direction"], x["amount"]) for x in r.json()] == [("credit", "5000.00")]      # as before
     r = _import(client, sid, manager["headers"], csv_text, include_debits="true")
-    assert [(x["direction"], x["amount"]) for x in r.json()] == [("credit", "5000.00"), ("debit", "2000.00")]
+    # the credit is already stored from the first import, so only the debit is new
+    assert [(x["direction"], x["amount"]) for x in r.json()] == [("debit", "2000.00")]
     assert _import(client, sid, h, "Date,Description\n2025-01-09,IN\n").status_code == 422
     other = _import(client, sid, h, csv_text, bank_account_id=L["audit_fees"]["id"])      # an expense ledger
     assert other.status_code == 422

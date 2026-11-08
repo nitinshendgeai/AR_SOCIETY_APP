@@ -1379,6 +1379,33 @@ class BillingService:
 
     MATCH_DATE_WINDOW_DAYS = 5
 
+    def drop_already_imported(self, society_id: UUID, rows: List[dict], ledger_id: Optional[UUID]) -> "tuple[List[dict], int]":
+        """(rows not stored yet, how many were skipped). A line is the same line when it has the same bank reference (or,
+        without one, the same description), date, amount and direction, in the same bank ledger or in none (older
+        imports were saved with no bank). Skipped once per stored copy, so a statement that overlaps the last one adds
+        only what is new, the same file twice adds nothing, and two genuinely identical lines in one file are both kept."""
+        from collections import Counter
+        from app.modules.accounts.services.bank_reconciliation import statement_line_key
+        if not rows:
+            return [], 0
+        q = self.db.query(BankStatementEntry).filter(
+            BankStatementEntry.society_id == society_id, BankStatementEntry.is_active == True,  # noqa: E712
+            BankStatementEntry.txn_date >= min(r["txn_date"] for r in rows),
+            BankStatementEntry.txn_date <= max(r["txn_date"] for r in rows))
+        q = q.filter((BankStatementEntry.bank_account_id == ledger_id) | BankStatementEntry.bank_account_id.is_(None)
+                     ) if ledger_id is not None else q.filter(BankStatementEntry.bank_account_id.is_(None))
+        already = Counter(statement_line_key(e.txn_date, e.amount, e.direction, e.reference, e.description)
+                          for e in q.all())
+        kept, skipped = [], 0
+        for r in rows:
+            key = statement_line_key(r["txn_date"], r["amount"], r["direction"], r.get("reference"), r.get("description"))
+            if already[key] > 0:
+                already[key] -= 1
+                skipped += 1
+                continue
+            kept.append(r)
+        return kept, skipped
+
     def import_bank_statement_csv(self, society_id: UUID, csv_text: str, user: User,
                                   include_debits: bool = False,
                                   bank_account_id: Optional[UUID] = None) -> List[BankStatementEntry]:
@@ -1395,9 +1422,12 @@ class BillingService:
         import csv, io
         from decimal import InvalidOperation
 
+        from app.modules.accounts.services.bank_reconciliation import BankReconciliationService
+        brs = BankReconciliationService(self.db)
         if bank_account_id is not None:
-            from app.modules.accounts.services.bank_reconciliation import BankReconciliationService
-            BankReconciliationService(self.db).bank_account(society_id, bank_account_id)
+            brs.bank_account(society_id, bank_account_id)
+        bank_account_id = brs.home_ledger_id(society_id, bank_account_id)     # the only bank ledger, when there is one
+        self.skipped_duplicates = 0
 
         reader = csv.DictReader(io.StringIO(csv_text))
         if not reader.fieldnames:
@@ -1462,7 +1492,8 @@ class BillingService:
 
         if not rows:
             raise HTTPException(422, "No valid credit rows found in the uploaded statement")
-        return self.import_bank_statement(society_id, rows, user)
+        rows, self.skipped_duplicates = self.drop_already_imported(society_id, rows, bank_account_id)
+        return self.import_bank_statement(society_id, rows, user) if rows else []
 
     def import_bank_statement_pdf(self, society_id: UUID, statement, user: User, include_debits: bool = False,
                                   bank_account_id: Optional[UUID] = None) -> "tuple[List[BankStatementEntry], dict]":
@@ -1507,31 +1538,12 @@ class BillingService:
                 422, f"This statement is for the account ending {last4(statement.account_number)}, but the bank "
                      f"ledger chosen ('{ledger.name}') is the account ending {last4(ledger.bank_account_number)}. "
                      "Choose the matching bank ledger. Nothing was imported.")
-        ledger_id = ledger.id if ledger is not None else None
+        ledger_id = brs.home_ledger_id(society_id, ledger.id if ledger is not None else None)
 
         wanted = [r for r in statement.rows if r.direction == "credit" or include_debits]
-        from collections import Counter
-
-        def key_of(txn_date, amount, direction, reference, description):
-            # a bank reference identifies a line; without one, the line is identified by what it says
-            return (txn_date, amount, direction, reference or "", "" if reference else (description or "")[:500])
-
-        already: Counter = Counter()
-        if wanted:
-            existing = self.db.query(BankStatementEntry).filter(
-                BankStatementEntry.society_id == society_id, BankStatementEntry.bank_account_id == ledger_id,
-                BankStatementEntry.txn_date >= min(r.txn_date for r in wanted),
-                BankStatementEntry.txn_date <= max(r.txn_date for r in wanted)).all()
-            already = Counter(key_of(e.txn_date, e.amount, e.direction, e.reference, e.description) for e in existing)
-        rows, duplicates = [], 0
-        for r in wanted:
-            key = key_of(r.txn_date, r.amount, r.direction, r.reference, r.description)
-            if already[key] > 0:                                # this very line is already stored: skip it, once per copy
-                already[key] -= 1
-                duplicates += 1
-                continue
-            rows.append({"txn_date": r.txn_date, "description": r.description[:500], "reference": r.reference,
-                         "amount": r.amount, "direction": r.direction, "bank_account_id": ledger_id})
+        rows, duplicates = self.drop_already_imported(society_id, [
+            {"txn_date": r.txn_date, "description": r.description[:500], "reference": r.reference, "amount": r.amount,
+             "direction": r.direction, "bank_account_id": ledger_id} for r in wanted], ledger_id)
         entries = self.import_bank_statement(society_id, rows, user) if rows else []
         # the balance the statement itself closes with: what the Bank Reconciliation Statement is checked against
         proved_on = None

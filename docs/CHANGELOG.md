@@ -4,6 +4,22 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-08 (Bank reconciliation lists each line once)
+
+### fix: no repeated statement rows, no other bank's rows, less clutter
+
+- **Importing the same statement again adds nothing**, for a CSV as well as a PDF (a CSV used to be stored again every time),
+  and a line already stored with no bank is not stored again when the bank is chosen later.
+- **With one bank ledger a statement always belongs to it**, whether or not the bank was chosen.
+- **A row saved with no bank is listed under the default bank only** (it used to appear under every bank, so each row looked
+  repeated once per bank), and a copy with no bank is hidden when the same line is stored against a bank. Nothing stored is
+  deleted or changed.
+- **Bank rows / Match** ask for the chosen bank's rows only (`GET /accounts/bank-reconciliation/{society}/rows`).
+- **Cleared** shows the last 90 days. **Statement** lists the first five of the bank's own items and says how many more are on
+  the Match tab.
+
+---
+
 ## 2026-11-07 (Billing: load errors, amounts, dates)
 
 ### fix: Billing screens recover from a failed load, show amounts the Indian way and agree on today's date
