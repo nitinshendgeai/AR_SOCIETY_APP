@@ -93,7 +93,7 @@ class _RegisterPageState<T> extends ConsumerState<_RegisterPage<T>> {
             const SizedBox(height: 14),
             ...async.when(
               loading: () => [const AppLoader()],
-              error: (e, _) => [Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))],
+              error: (e, _) => [AppErrorState(compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(widget.provider))],
               data: (r) => [
                 RegisterTotals(figures: widget.totals(r)),
                 const SizedBox(height: 14),

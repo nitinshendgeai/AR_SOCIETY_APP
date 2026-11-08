@@ -449,7 +449,7 @@ def member_balances(society_id: UUID, as_of: Optional[date] = None,
         members = [{"flat_label": flat_label(r["flat"]), "member_name": member_name(r["flat"]),
                     "balance": _amount(r["balance"]), "dues": _amount(r["dues"]), "advance": _amount(r["advance"])}
                    for r in rows]
-        as_of = as_of or date.today()
+        as_of = as_of or society_today(db, society_id)
         return _pdf(render_members_ledger_pdf(members, _society(db, society_id), as_of),
                     f"Members-Ledger-{as_of.isoformat()}.pdf")
     return {
@@ -512,7 +512,7 @@ def next_voucher_number(society_id: UUID, voucher_type: str, on: Optional[date] 
     assert_society_access(user, society_id)
     if voucher_type not in VOUCHER_TYPES:
         raise HTTPException(422, f"Voucher type must be one of: {', '.join(VOUCHER_TYPES)}")
-    return {"voucher_number": AccountsService(db)._next_number(society_id, voucher_type, on or date.today())}
+    return {"voucher_number": AccountsService(db)._next_number(society_id, voucher_type, on or society_today(db, society_id))}
 
 
 @router.get("/day-book/{society_id}/pdf")
@@ -885,7 +885,7 @@ def financial_report(society_id: UUID, report: str, fy: Optional[str] = None,
     Payments or Schedule of Funds for a financial year ('2026-27'; default:
     the current one) — as data, or ?format=pdf in the printed format."""
     assert_society_access(user, society_id)
-    fy = fy or fiscal_year(date.today())
+    fy = fy or fiscal_year(society_today(db, society_id))
     data = FinancialReports(db).report(society_id, report, fy)
     if format == "pdf":
         society = db.query(Society).filter(Society.id == society_id).first()

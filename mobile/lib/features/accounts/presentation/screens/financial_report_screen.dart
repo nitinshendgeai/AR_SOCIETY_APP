@@ -98,12 +98,7 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
         onRefresh: () async => ref.invalidate(financialReportProvider(key)),
         child: async.when(
           loading: () => const AppLoader(),
-          error: (e, _) => ListView(children: [
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-            ),
-          ]),
+          error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(financialReportProvider(key))),
           data: (r) => ResponsiveBody(
             maxWidth: r.twoSided ? 1280 : 900,
             child: ListView(

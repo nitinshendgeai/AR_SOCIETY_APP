@@ -1,6 +1,7 @@
 """The rental, receipts and staff attendance registers: one shared shape, a printout and a spreadsheet for each."""
 import re
 from datetime import date, timedelta
+from app.utils.local_time import local_today, zone
 from decimal import Decimal
 
 from app.models.agreement_tracker import AgreementTracker
@@ -26,7 +27,7 @@ def _col(reg, key):
 def test_rental_register_lists_tenancies_with_rent_deposit_and_days_left(client, db):
     society, flat1, flat2, manager, *_ = _rig(db, "mr1")
     h, sid = manager["headers"], str(society.id)
-    today = date.today()
+    today = local_today(zone(None))
     running = Tenant(flat_id=flat1.id, full_name="Ravi Tenant", phone="9000000001", monthly_rent=Decimal("20000"),
                      security_deposit=Decimal("60000"), agreement_start_date=today - timedelta(days=100),
                      agreement_end_date=today + timedelta(days=265), agreement_channel="agent",
@@ -63,7 +64,7 @@ def test_rental_register_lists_tenancies_with_rent_deposit_and_days_left(client,
 def test_the_agreement_tracker_takes_precedence_for_dates_and_rent(client, db):
     society, flat1, *_ , manager, _r, _o = _rig(db, "mr2")
     h, sid = manager["headers"], str(society.id)
-    today = date.today()
+    today = local_today(zone(None))
     t = Tenant(flat_id=flat1.id, full_name="Tracked Tenant", monthly_rent=Decimal("1"))
     db.add(t)
     db.commit()
@@ -82,7 +83,7 @@ def test_receipts_register_shows_each_payment_what_it_settled_and_the_advance(cl
     society, flat1, flat2, manager, _res, bill1 = _issued_bills(client, db, "mr3")
     h, sid = manager["headers"], str(society.id)
     paid = client.post("/api/v1/billing/online-payments", headers=h, data={
-        "flat_id": str(flat1.id), "amount": "10000.00", "payment_date": str(date.today()), "payment_mode": "cash"})
+        "flat_id": str(flat1.id), "amount": "10000.00", "payment_date": str(local_today(zone(None))), "payment_mode": "cash"})
     assert paid.status_code == 201, paid.text
     reg = client.get(f"{A}/receipts/{sid}", headers=h).json()
     assert reg["kind"] == "receipts" and reg["uses_period"] is True and len(reg["rows"]) == 1
@@ -95,7 +96,7 @@ def test_receipts_register_shows_each_payment_what_it_settled_and_the_advance(cl
     assert Decimal(totals["Held as advance Rs."]) == Decimal(row["advance"])
     assert Decimal(totals["Set off against bills Rs."]) + Decimal(totals["Held as advance Rs."]) == Decimal("10000.00")
     # Period, status and search
-    assert client.get(f"{A}/receipts/{sid}", params={"date_from": str(date.today() + timedelta(days=1))},
+    assert client.get(f"{A}/receipts/{sid}", params={"date_from": str(local_today(zone(None)) + timedelta(days=1))},
                       headers=h).json()["rows"] == []
     assert client.get(f"{A}/receipts/{sid}", params={"status": "pending"}, headers=h).json()["rows"] == []
     assert len(client.get(f"{A}/receipts/{sid}", params={"q": row["receipt_no"]}, headers=h).json()["rows"]) == 1

@@ -1,13 +1,14 @@
 """Spend per maintenance element: what the books show was spent on each element in a period, how an expense ledger
 comes to count towards an element, and what is spent on ledgers that no element covers."""
 from datetime import date
+from app.utils.local_time import local_today, zone
 
 from tests.billing.test_budget_suggestions import _rig
 from tests.conftest import make_society, make_user
 
 A = "/api/v1/accounts"
 B = "/api/v1/billing"
-TODAY = date.today()
+TODAY = local_today(zone(None))
 
 
 def _ledgers(client, h, sid):

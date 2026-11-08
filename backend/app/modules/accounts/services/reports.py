@@ -32,6 +32,7 @@ Report payloads are plain dicts the app and the PDF both render:
 Amounts are strings ("1500.00", negative for a deficit); "" is a blank.
 """
 from datetime import date, datetime, timedelta
+from app.utils.local_time import society_today
 from decimal import Decimal
 from typing import Dict, Iterable, List, Optional, Tuple
 from uuid import UUID
@@ -138,11 +139,10 @@ class FinancialReports:
                 expense += moves.get(a.id, ZERO)
         return income, expense
 
-    @staticmethod
-    def _as_at(fy: str) -> Tuple[date, bool]:
-        """The year end — or today, for the year still running (provisional)."""
+    def _as_at(self, sid: UUID, fy: str) -> Tuple[date, bool]:
+        """The year end — or today (the society's), for the year still running (provisional)."""
         _, end = fiscal_year_bounds(fy)
-        today = date.today()
+        today = society_today(self.db, sid)
         return (end, False) if end < today else (today, True)
 
     def _header(self, sid: UUID, key: str, fy: str, heading: str, provisional: bool) -> dict:
@@ -157,7 +157,7 @@ class FinancialReports:
 
     def trial_balance(self, sid: UUID, fy: str) -> dict:
         start, _ = fiscal_year_bounds(fy)
-        as_at, provisional = self._as_at(fy)
+        as_at, provisional = self._as_at(sid, fy)
         bal = self._balances(sid, as_at, skip_closing_from=start)
         accounts = self._accounts(sid)
         rows, total_dr, total_cr = [], ZERO, ZERO
@@ -192,7 +192,7 @@ class FinancialReports:
 
     def income_expenditure(self, sid: UUID, fy: str) -> dict:
         prev = previous_fiscal_year(fy)
-        as_at, provisional = self._as_at(fy)
+        as_at, provisional = self._as_at(sid, fy)
         cur_m, prev_m = self._year_moves(sid, fy, as_at), self._year_moves(sid, prev)
         accounts = self._accounts(sid)
 
@@ -277,7 +277,7 @@ class FinancialReports:
 
     def balance_sheet(self, sid: UUID, fy: str) -> dict:
         prev = previous_fiscal_year(fy)
-        as_at, provisional = self._as_at(fy)
+        as_at, provisional = self._as_at(sid, fy)
         _, prev_end = fiscal_year_bounds(prev)
         cols = [self._bs_column(sid, fy, as_at), self._bs_column(sid, prev, prev_end)]
         chart = self.acc.ensure_chart(sid)
@@ -356,7 +356,7 @@ class FinancialReports:
 
     def receipts_payments(self, sid: UUID, fy: str) -> dict:
         start, end = fiscal_year_bounds(fy)
-        as_at, provisional = self._as_at(fy)
+        as_at, provisional = self._as_at(sid, fy)
         accounts = self._accounts(sid)
         cash = [a for a in accounts if a.is_cash_or_bank]
         cash_ids = {a.id for a in cash}
@@ -414,7 +414,7 @@ class FinancialReports:
 
     def funds(self, sid: UUID, fy: str) -> dict:
         start, end = fiscal_year_bounds(fy)
-        as_at, provisional = self._as_at(fy)
+        as_at, provisional = self._as_at(sid, fy)
         funds = [a for a in self._accounts(sid) if a.group and a.group.system_key in ("funds", "share_capital")]
         opening = self._balances(sid, start - timedelta(days=1))
         q = (self.db.query(VoucherEntry.account_id, func.coalesce(func.sum(VoucherEntry.debit), 0),
@@ -466,7 +466,8 @@ class FinancialReports:
         current one, newest first, with its result and whether it can be
         closed (or reopened)."""
         self.acc.ensure_chart(sid)
-        current = fiscal_year(date.today())
+        today = society_today(self.db, sid)
+        current = fiscal_year(today)
         with_vouchers = self._years_with_vouchers(sid)
         first = min(with_vouchers | {current})
         closed = self.acc.closed_years(sid)
@@ -481,7 +482,7 @@ class FinancialReports:
             later_closed = [y for y in closed if y > fy]
             if fy in closed:
                 can_close, block = False, "Closed"
-            elif end >= date.today():
+            elif end >= today:
                 can_close, block = False, f"The year ends on {long_date(end)}"
             elif earlier_open:
                 can_close, block = False, f"Close FY {earlier_open[0]} first"
@@ -510,7 +511,7 @@ class FinancialReports:
         from app.modules.accounts.services.postings import AccountPostings
 
         start, end = fiscal_year_bounds(fy)
-        if end >= date.today():
+        if end >= society_today(self.db, sid):
             raise HTTPException(409, f"FY {fy} isn't over yet — it ends on {long_date(end)}")
         if fy in self.acc.closed_years(sid):
             raise HTTPException(409, f"The books for FY {fy} are already closed")

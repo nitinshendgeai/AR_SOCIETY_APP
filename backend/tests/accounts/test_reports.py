@@ -4,6 +4,8 @@ tally; closing a year transfers the result and locks the year; postings of
 a closed year are shifted or reversed into the open year."""
 from decimal import Decimal
 
+from app.utils.local_time import local_today, zone
+
 from app.modules.accounts.models.accounts import Voucher
 from tests.billing.test_maintenance_billing import _rig
 from tests.conftest import make_user
@@ -186,7 +188,7 @@ def test_years_close_in_order_and_reopen_latest_first(client, db):
 
     from app.modules.accounts.services.accounts_service import fiscal_year
     from datetime import date
-    current = fiscal_year(date.today())
+    current = fiscal_year(local_today(zone(None)))
     r = client.post(f"{API}/years/{sid}/{current}/close", json={}, headers=h)
     assert r.status_code == 409 and "isn't over" in r.text
 

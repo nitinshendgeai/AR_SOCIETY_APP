@@ -165,10 +165,38 @@ class AppErrorState extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
 
-  const AppErrorState({super.key, required this.message, required this.onRetry});
+  /// For a spot inside a list that is already scrolling: no scroll view of its own, a smaller icon, and no centring.
+  final bool compact;
+
+  const AppErrorState({super.key, required this.message, required this.onRetry, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
+    if (compact) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
+        child: Semantics(
+          liveRegion: true,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.cloud_off_rounded, size: 28, color: AppTheme.error),
+            const SizedBox(height: 10),
+            const Text('This could not be loaded',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+            const SizedBox(height: 4),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4)),
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Try again'),
+            ),
+          ]),
+        ),
+      );
+    }
     return LayoutBuilder(
       builder: (context, box) => SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),

@@ -188,12 +188,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
         onRefresh: () async => invalidateBooks(ref),
         child: summaryAsync.when(
           loading: () => const AppLoader(),
-          error: (e, _) => ListView(children: [
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-            ),
-          ]),
+          error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(accountsSummaryProvider(societyId))),
           data: (s) => ResponsiveBody(
             maxWidth: 1200,
             child: ListView(

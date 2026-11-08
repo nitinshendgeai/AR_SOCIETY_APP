@@ -48,11 +48,14 @@ class CollectionBlock {
 
 class MoneyBlock {
   final double cash, bank, membersDues, fyIncome, fyExpense;
+  /// The Members' Dues balance is a credit (the society holds more advance than it is owed).
+  final bool membersDuesInAdvance;
   final String fy;
   MoneyBlock(Map<String, dynamic> j)
       : cash = _num(j['cash']),
         bank = _num(j['bank']),
         membersDues = _num(j['members_dues']),
+        membersDuesInAdvance = j['members_dues_type'] == 'Cr',
         fyIncome = _num(j['fy_income']),
         fyExpense = _num(j['fy_expense']),
         fy = j['fy'] as String? ?? '';
@@ -564,12 +567,14 @@ class _MoneyRow extends StatelessWidget {
           note: 'Bank ${_inr(m.bank)}',
           color: AppTheme.primary,
           onTap: () => context.go(AppRoutes.accounts)),
+      // The books' Members' Dues balance, as the Accounts page shows it (and opening the same Members' Ledger).
       KpiCard(
           icon: Icons.account_balance_wallet_rounded,
-          label: 'Members owe',
+          label: "Members' dues",
           value: _inr(m.membersDues),
-          color: m.membersDues > 0 ? AppTheme.error : AppTheme.success,
-          onTap: () => context.go(AppRoutes.defaulters)),
+          note: m.membersDuesInAdvance && m.membersDues > 0 ? 'Net advance received' : 'Receivable',
+          color: m.membersDues > 0 && !m.membersDuesInAdvance ? AppTheme.error : AppTheme.success,
+          onTap: () => context.go(AppRoutes.accountsMembers)),
       KpiCard(
           icon: Icons.trending_up_rounded,
           label: 'Income ${m.fy}',

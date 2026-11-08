@@ -100,7 +100,7 @@ def test_a_failing_block_does_not_blank_the_page(client, db, monkeypatch):
     from app.modules.dashboard.services import dashboard_service as ds
     society = make_society(db, "Dash Fail")
     admin = _admin(db, "dash.fail@t.com", society)
-    monkeypatch.setattr(ds.DashboardService, "_money_block", lambda self, sid, today: 1 / 0)
+    monkeypatch.setattr(ds.DashboardService, "_money_block", lambda self, sid: 1 / 0)
     r = _get(client, admin, society)
     assert r.status_code == 200
     assert r.json()["money"] is None
@@ -252,8 +252,9 @@ def test_active_staff_is_every_active_member_not_one_page(client, db):
     assert _get(client, admin, society).json()["staff"] == {"active": 55}
 
 
-def test_defaulters_and_members_owe_match_the_defaulters_screen(client, db):
-    """The "defaulters" row and the "Members owe" card show the Defaulters screen's own totals."""
+def test_the_defaulters_row_matches_the_defaulters_screen_and_members_dues_the_accounts_page(client, db):
+    """The "defaulters" row is the Defaulters screen's own count and amount; the "Members' dues" card is the books'
+    balance, the very figure the Accounts page shows."""
     from decimal import Decimal
     from tests.billing.test_defaulters import _two_cycles
     society, _f1, _f2, manager, _res = _two_cycles(client, db, "dsh1")
@@ -266,7 +267,9 @@ def test_defaulters_and_members_owe_match_the_defaulters_screen(client, db):
     assert row["count"] == screen["defaulters"]
     assert Decimal(row["amount"]) == Decimal(screen["defaulters_outstanding"])
     assert row["months"] == screen["min_months"] == 3
-    assert Decimal(body["money"]["members_dues"]) == Decimal(screen["total_outstanding"])
+    books = client.get(f"/api/v1/accounts/summary/{society.id}", headers=admin["headers"]).json()
+    assert body["money"]["members_dues"] == books["members_dues_dr_cr"]["amount"]
+    assert body["money"]["members_dues_type"] == books["members_dues_dr_cr"]["type"]
 
 
 def test_open_complaints_mean_the_same_everywhere(client, db):

@@ -3,11 +3,12 @@
 Funds, the dashboard figures or the spend per maintenance element — and a closed year's closing entry, which zeroes
 every income and expense ledger, must not erase that year's spend from the element report."""
 from datetime import date
+from app.utils.local_time import local_today, zone
 from decimal import Decimal
 
 from tests.accounts.test_reports import API, _books, _report, _voucher
 
-today = date.today()
+today = local_today(zone(None))
 
 
 def _pending_payment(client, h, sid, L, expense, amount, on, paid_from="bank"):

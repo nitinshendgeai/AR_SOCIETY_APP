@@ -205,3 +205,21 @@ def test_only_admin_or_committee_matches_by_hand(client, db):
                     json={"row_ids": ["00000000-0000-0000-0000-000000000001"],
                           "entry_ids": ["00000000-0000-0000-0000-000000000002"]})
     assert r.status_code == 403
+
+
+def test_the_banks_balance_may_be_kept_for_the_societys_today_even_when_the_server_is_a_day_behind(client, db, monkeypatch):
+    """After 18:30 UTC it is already tomorrow in India: today's date must not be refused as "in the future"."""
+    from datetime import date, timedelta
+    from app.modules.accounts.services import bank_reconciliation as br
+
+    society, _f, admin, _m, L = _books(client, db, "bp4")
+    h, sid, bank = admin["headers"], str(society.id), L["bank"]["id"]
+    societys_today = date.today() + timedelta(days=1)
+    monkeypatch.setattr(br, "society_today", lambda _db, _sid: societys_today)
+
+    def put(day):
+        return client.put(f"{API}/bank-reconciliation/{sid}/statement-balance", headers=h,
+                          json={"account_id": bank, "as_on": day.isoformat(), "balance": "1"})
+
+    assert put(societys_today).status_code == 200
+    assert put(societys_today + timedelta(days=1)).status_code == 422

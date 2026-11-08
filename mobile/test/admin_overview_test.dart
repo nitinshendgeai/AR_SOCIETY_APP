@@ -95,6 +95,23 @@ void main() {
     expect(find.textContaining('not issued yet'), findsNothing);
   });
 
+  testWidgets("Members' dues is the books' balance, and says when it is a net advance", (t) async {
+    phone(t);
+    await t.pumpWidget(_wrap(() async => DashboardOverview.fromJson(_json())));
+    await t.pumpAndSettle();
+    expect(find.text("Members' dues"), findsOneWidget);
+    expect(find.text('Receivable'), findsOneWidget);
+  });
+
+  testWidgets("a credit Members' dues balance reads as a net advance received", (t) async {
+    phone(t);
+    final j = _json();
+    (j['money'] as Map<String, dynamic>)['members_dues_type'] = 'Cr';
+    await t.pumpWidget(_wrap(() async => DashboardOverview.fromJson(j)));
+    await t.pumpAndSettle();
+    expect(find.text('Net advance received'), findsOneWidget);
+  });
+
   testWidgets('no billing cycle and nothing waiting', (t) async {
     phone(t);
     await t.pumpWidget(_wrap(() async => DashboardOverview.fromJson(_json(collection: false))));

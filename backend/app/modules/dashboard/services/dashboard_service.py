@@ -23,7 +23,7 @@ from app.models.resident import Resident
 from app.models.resident_edit_request import ResidentEditRequest, ResidentEditRequestStatus
 from app.models.society import Society
 from app.models.wing import Wing
-from app.modules.accounts.services.accounts_service import AccountsService
+from app.modules.accounts.services.accounts_service import AccountsService, dr_cr
 from app.modules.accounts.services.recurring_expenses import RecurringExpenseService
 from app.modules.amenity.models.amenity import AmenityBooking, BookingStatus
 from app.modules.billing.models.billing import BillingCycle
@@ -113,15 +113,14 @@ class DashboardService:
                       for r in reversed(rows)],           # oldest first, for a chart
         }
 
-    def _money_block(self, society_id: UUID, today: date) -> Optional[dict]:
+    def _money_block(self, society_id: UUID) -> Optional[dict]:
         s = AccountsService(self.db).summary(society_id)
-        # What members owe is worked out from their unpaid bills, less money paid on account - the very figure the
-        # Defaulters screen (and the outstanding report) total up, which is where this card leads. The books' own
-        # Members' Dues balance is on the Accounts screen.
-        dues = sum((fd.total for fd in self._member_dues(society_id, today)), ZERO)
+        # Members' dues is the books' Members' Dues balance, exactly as the Accounts page shows it: an amount and which
+        # side it is on (Cr is a net advance received). The Defaulters list is the unpaid bills aged, a different thing.
+        dues = dr_cr(s["members_dues"])
         return {
             "cash": _money(s["cash"]), "bank": _money(s["bank"]),
-            "members_dues": _money(dues), "creditors": _money(s["creditors"]),
+            "members_dues": dues["amount"], "members_dues_type": dues["type"], "creditors": _money(s["creditors"]),
             "fy": s["fy"], "fy_income": _money(s["fy_income"]), "fy_expense": _money(s["fy_expense"]),
         }
 
@@ -259,7 +258,7 @@ class DashboardService:
         body = {
             "as_of": today.isoformat(),
             "collection": self._block("collection", lambda: self._collection(society_id, today)),
-            "money": None if "accounts" in off else self._block("money", lambda: self._money_block(society_id, today)),
+            "money": None if "accounts" in off else self._block("money", lambda: self._money_block(society_id)),
             "occupancy": self._block("occupancy", lambda: self._occupancy(society_id)),
             "today": None if "visitors" in off else self._block("today", lambda: self._today(society_id, tz)),
             "staff": None if "staff" in off else self._block("staff", lambda: self._staff(society_id)),

@@ -113,7 +113,7 @@ class _DayBookScreenState extends ConsumerState<DayBookScreen> {
               const SizedBox(height: 12),
               ...async.when(
                 loading: () => [const AppLoader()],
-                error: (e, _) => [Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))],
+                error: (e, _) => [AppErrorState(compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(vouchersProvider(key)))],
                 data: (all) {
                   final rows = all.where(matches).toList();
                   if (rows.isEmpty) {

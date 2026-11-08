@@ -17,6 +17,7 @@ bill or payment is later cancelled is reversed in the open year.
 """
 from dataclasses import dataclass
 from datetime import date, datetime
+from app.utils.local_time import society_today
 from decimal import Decimal
 from typing import Dict, List, Optional
 from uuid import UUID
@@ -792,7 +793,7 @@ class AccountsService:
         lines = [Line(e.account, debit=money(e.credit), credit=money(e.debit), flat_id=e.flat_id,
                       vendor_id=e.vendor_id, narration=e.narration) for e in voucher.entries]
         reversal = self.build_voucher(
-            voucher.society_id, "journal", self.open_posting_date(voucher.society_id, date.today()), lines,
+            voucher.society_id, "journal", self.open_posting_date(voucher.society_id, society_today(self.db, voucher.society_id)), lines,
             narration=f"Reversal of {voucher.voucher_number} (FY {voucher.fiscal_year}, books closed): {reason}",
             reference=voucher.voucher_number, reversal_of_id=voucher.id, user=user)
         voucher.reversed_at = datetime.utcnow()
@@ -944,7 +945,8 @@ class AccountsService:
         balances = self.balances(society_id)
         accounts = self.list_accounts(society_id)
         chart = self.ensure_chart(society_id)
-        fy_from = fiscal_year_start(date.today())
+        today = society_today(self.db, society_id)
+        fy_from = fiscal_year_start(today)
         year = (self.db.query(Account.id, AccountGroup.nature,
                               func.coalesce(func.sum(VoucherEntry.debit), 0),
                               func.coalesce(func.sum(VoucherEntry.credit), 0))
@@ -962,7 +964,7 @@ class AccountsService:
             "bank": sum((balances.get(a.id, ZERO) for a in accounts if a.is_bank), ZERO),
             "members_dues": balances.get(chart["members_dues"].id, ZERO),
             "creditors": -balances.get(chart["sundry_creditors"].id, ZERO),
-            "fy": fiscal_year(date.today()), "fy_income": income, "fy_expense": expense,
+            "fy": fiscal_year(today), "fy_income": income, "fy_expense": expense,
             "cash_bank_accounts": [(a, balances.get(a.id, ZERO)) for a in accounts if a.is_cash_or_bank],
             "warnings": self.book_warnings(accounts, balances),
         }

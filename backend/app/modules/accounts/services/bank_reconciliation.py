@@ -25,6 +25,7 @@ after that is shown as unexplained, never hidden.
 """
 import re
 from datetime import date, datetime, timedelta
+from app.utils.local_time import society_today
 from decimal import Decimal
 from typing import Dict, List, Optional
 from uuid import UUID
@@ -147,8 +148,7 @@ class BankReconciliationService:
         AuditService.log(db=self.db, action=AuditAction.UPDATE, module="accounts", entity_id=str(voucher.id),
                          entity_type="BankReconciliation", user=user, new_values=values)
 
-    @staticmethod
-    def _line_out(e: VoucherEntry, as_on: Optional[date] = None) -> dict:
+    def _line_out(self, e: VoucherEntry, as_on: Optional[date] = None) -> dict:
         v = e.voucher
         amount = money(e.debit) or money(e.credit)
         who = v.vendor.company_name if v.vendor else None
@@ -158,7 +158,7 @@ class BankReconciliationService:
             "reference": v.reference, "narration": e.narration or v.narration, "party": who,
             "amount": str(amount), "direction": "deposit" if money(e.debit) else "payment",
             "cleared_date": e.cleared_date.isoformat() if e.cleared_date else None,
-            "days_pending": max(0, ((as_on or date.today()) - v.voucher_date).days),
+            "days_pending": max(0, ((as_on or society_today(self.db, v.society_id)) - v.voucher_date).days),
         }
 
     # ── The statement ─────────────────────────────────────────────────────────
@@ -167,7 +167,7 @@ class BankReconciliationService:
                   bank_balance: Optional[Decimal] = None) -> dict:
         """The Bank Reconciliation Statement of one bank ledger as on a date (default today), checked against the balance
         the bank's statement shows that day: the one given, else the one stored from the imported PDF / typed in."""
-        as_on = as_on or date.today()
+        as_on = as_on or society_today(self.db, society_id)
         account = self.bank_account(society_id, account_id)
         book = signed_opening(account) + self.accounts._movements(
             society_id, upto=as_on, account_id=account.id).get(account.id, ZERO)
@@ -248,7 +248,7 @@ class BankReconciliationService:
                               user: Optional[User], source: str = "manual", commit: bool = True) -> BankStatementBalance:
         """Keep the balance the bank statement shows on a day (replacing an earlier one for the same day)."""
         account = self.bank_account(society_id, account_id)
-        if as_on > date.today():
+        if as_on > society_today(self.db, society_id):
             raise HTTPException(422, "The bank statement can't show a balance in the future")
         row = (self.db.query(BankStatementBalance).filter(
             BankStatementBalance.bank_account_id == account.id, BankStatementBalance.as_on == as_on).first())
@@ -303,7 +303,7 @@ class BankReconciliationService:
 
     def clear(self, society_id: UUID, entry_ids: List[UUID], cleared_date: date, user: User) -> int:
         """Mark lines of a bank ledger as cleared by the bank on `cleared_date`."""
-        if cleared_date > date.today():
+        if cleared_date > society_today(self.db, society_id):
             raise HTTPException(422, "The bank can't have cleared it in the future")
         rows = self._lines_to_clear(society_id, entry_ids)
         for e in rows:

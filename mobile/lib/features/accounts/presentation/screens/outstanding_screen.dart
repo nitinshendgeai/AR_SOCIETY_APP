@@ -75,7 +75,7 @@ class _OutstandingScreenState extends ConsumerState<OutstandingScreen> {
             const SizedBox(height: 12),
             ...async.when(
               loading: () => [const AppLoader()],
-              error: (e, _) => [Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))],
+              error: (e, _) => [AppErrorState(compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(outstandingProvider(key)))],
               data: (r) => _content(r),
             ),
           ],
