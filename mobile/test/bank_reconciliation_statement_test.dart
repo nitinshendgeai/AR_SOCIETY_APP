@@ -72,6 +72,8 @@ class _FakeApi extends BankReconciliationApi {
   final matches = <(String, String)>[];
   final booked = <(String, String)>[];
   final selectedMatches = <(List<String>, List<String>)>[];
+  final rowsFor = <String?>[]; // the bank ledger each rows request was for
+  DateTime? clearedFrom; // how far back the Cleared tab asked
   final balances = <(DateTime, double)>[];
   var autoMatched = 0;
   var imported = 0;
@@ -80,7 +82,10 @@ class _FakeApi extends BankReconciliationApi {
   Future<BankReconciliation> statement(String societyId, {String? accountId, DateTime? asOn}) async => brs ?? _brs();
 
   @override
-  Future<List<BrsLine>> cleared(String societyId, {String? accountId}) async => clearedList;
+  Future<List<BrsLine>> cleared(String societyId, {String? accountId, DateTime? dateFrom}) async {
+    clearedFrom = dateFrom;
+    return clearedList;
+  }
 
   @override
   Future<int> clear(String societyId, List<String> entryIds, DateTime clearedOn) async {
@@ -95,7 +100,10 @@ class _FakeApi extends BankReconciliationApi {
   }
 
   @override
-  Future<List<StatementRow>> rows(String societyId) async => rowList;
+  Future<List<StatementRow>> rows(String societyId, {String? accountId}) async {
+    rowsFor.add(accountId);
+    return rowList;
+  }
 
   @override
   Future<List<BrsLine>> suggestions(String societyId, String rowId) async => suggested;
@@ -498,6 +506,59 @@ void main() {
     expect(leftBar('line-RV/2026-27/0012', AppTheme.primary), isTrue); // a deposit of the books: blue bar
     expect(leftBar('row-b1', AppTheme.secondary), isTrue); // the bank's own item: purple bar
     expect(t.widget<CheckboxListTile>(find.byKey(const ValueKey('line-PV/2026-27/0007'))).activeColor, AppTheme.primary);
+  });
+
+  testWidgets('the rows of the chosen bank are asked for, so another bank\'s rows are not listed here', (t) async {
+    _phone(t);
+    final api = _FakeApi(rowList: [_row('r1')]);
+    await t.pumpWidget(_screen(api));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Bank rows'));
+    await t.pumpAndSettle();
+    expect(api.rowsFor, isNotEmpty);
+    expect(api.rowsFor.toSet(), {'sbi'}); // the default bank, and only that one
+  });
+
+  testWidgets('Statement tab: only the first five of the bank\'s own items are listed, the rest are on the Match tab',
+      (t) async {
+    _phone(t);
+    final api = _FakeApi(
+        brs: BankReconciliation.fromJson({
+      ..._brsJson(cleared: true),
+      'bank_only_rows': [
+        for (var i = 1; i <= 7; i++)
+          {
+            'id': 'b$i',
+            'txn_date': '2026-10-${10 + i}',
+            'description': 'CHARGE $i',
+            'amount': '${i * 10}.00',
+            'direction': 'debit',
+            'match_status': 'unmatched',
+          }
+      ],
+    }));
+    await t.pumpWidget(_screen(api));
+    await t.pumpAndSettle();
+    for (var i = 1; i <= 5; i++) {
+      expect(find.byKey(ValueKey('row-b$i')), findsOneWidget);
+    }
+    expect(find.byKey(const ValueKey('row-b6')), findsNothing);
+    expect(find.byKey(const ValueKey('row-b7')), findsNothing);
+    expect(find.text('2 more: they are all on the Match tab.'), findsOneWidget);
+  });
+
+  testWidgets('Cleared tab: only the last 90 days are asked for, and it says so', (t) async {
+    _phone(t);
+    final l = BrsLine.fromJson({..._line('PV/2026-27/0003', '900.00', 'payment'), 'cleared_date': '2026-10-10'});
+    final api = _FakeApi(clearedList: [l]);
+    await t.pumpWidget(_screen(api));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Cleared'));
+    await t.pumpAndSettle();
+    expect(find.text('Cleared in the last 90 days'), findsOneWidget);
+    final asked = api.clearedFrom!;
+    final ago = DateTime.now().difference(asked).inDays;
+    expect(ago, inInclusiveRange(89, 90)); // from 90 days back
   });
 
   testWidgets('without a bank ledger there is nothing to reconcile and it says how to start', (t) async {

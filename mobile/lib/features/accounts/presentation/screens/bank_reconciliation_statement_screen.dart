@@ -26,6 +26,9 @@ const _appSoft = AppTheme.primarySoft;
 const _bankColor = AppTheme.secondary;
 const _bankSoft = Color(0xFFEFEEFB);
 
+/// The Statement tab shows the first few of the bank's own items; the whole list is on the Match tab.
+const _bankOnlyShown = 5;
+
 /// The treasurer's monthly bank reconciliation against the books. Three tabs:
 ///
 ///  * **Statement** — the Bank Reconciliation Statement of one bank ledger as on a date: the balance in the books, the
@@ -60,7 +63,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
   void _refresh(String societyId) {
     ref.invalidate(bankReconciliationProvider);
     ref.invalidate(clearedLinesProvider);
-    ref.invalidate(statementRowsProvider(societyId));
+    ref.invalidate(statementRowsProvider);
     ref.invalidate(rowSuggestionsProvider);
     setState(() {
       _picked.clear();
@@ -291,7 +294,15 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
                           'Charges, interest or credits the bank made on its own. Tap one to record it in the books, or to match it to an entry.',
                           style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                       const SizedBox(height: 8),
-                      for (final r in b.bankOnlyRows) _RowTile(row: r, onTap: () => _openRow(societyId, r)),
+                      for (final r in b.bankOnlyRows.take(_bankOnlyShown)) _RowTile(row: r, onTap: () => _openRow(societyId, r)),
+                      if (b.bankOnlyRows.length > _bankOnlyShown)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                              '${b.bankOnlyRows.length - _bankOnlyShown} more: they are all on the Match tab.',
+                              key: const ValueKey('bank-only-more'),
+                              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        ),
                     ]),
                   ),
                 if (b.isFullyCleared)
@@ -396,7 +407,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
 
   Widget _matchTab(String societyId) {
     final brs = ref.watch(bankReconciliationProvider((societyId: societyId, accountId: _accountId, asOn: _today)));
-    final rowsAsync = ref.watch(statementRowsProvider(societyId));
+    final rowsAsync = ref.watch(statementRowsProvider((societyId: societyId, accountId: _accountId)));
     Widget failed(Object e) =>
         ListView(padding: const EdgeInsets.all(16), children: [AppErrorBanner(message: friendlyErrorMessage(e))]);
     return brs.when(
@@ -571,7 +582,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
   // ── Bank rows ──────────────────────────────────────────────────────────────
 
   Widget _rowsTab(String societyId) {
-    final rowsAsync = ref.watch(statementRowsProvider(societyId));
+    final rowsAsync = ref.watch(statementRowsProvider((societyId: societyId, accountId: _accountId)));
     return Column(children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
@@ -717,6 +728,14 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
                     text: 'Entries from your books that the bank has cleared',
                     accent: _appColor,
                     soft: _appSoft),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(18, 0, 16, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Cleared in the last $clearedWindowDays days',
+                      key: ValueKey('cleared-window'), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                ),
               ),
               Expanded(
                 child: ListView.builder(

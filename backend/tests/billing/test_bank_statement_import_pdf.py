@@ -176,7 +176,8 @@ def test_the_csv_import_is_unchanged(client, db):
     assert r.status_code == 201 and isinstance(r.json(), list) and r.json()[0]["amount"] == "5500.00"
     d = client.post(IMPORT.format(sid=society.id), params={"detail": "true"}, headers=manager["headers"],
                     files={"statement": ("s.csv", io.BytesIO(csv_text.encode()), "text/csv")}).json()
-    assert d["summary"]["file_type"] == "csv" and len(d["entries"]) == 1
+    # the same file again adds nothing: the line is already stored (it used to be stored a second time)
+    assert d["summary"]["file_type"] == "csv" and d["entries"] == [] and d["summary"]["skipped_duplicates"] == 1
 
 
 # ── statements from other banks' layouts, through the same import ────────────

@@ -136,6 +136,13 @@ get `{entries, summary}` instead of just the entries).
 
 ### Importing the bank's statement (PDF or CSV)
 
+**Each line once, under its own bank.** A statement imported with the bank not chosen is saved against the society's only bank
+ledger when there is just one; with several banks, a row saved with no bank (older imports) is listed under the *default* bank
+only, never under every bank, and a copy with no bank is hidden when the same line is stored against a bank. Importing the same
+file again, with or without the bank chosen, adds nothing. The app lists the rows of the chosen bank with
+`GET /accounts/bank-reconciliation/{society_id}/rows?account_id=&match_status=`. The *Cleared* tab shows the last 90 days; the
+*Statement* tab lists the first five of the bank's own items and leaves the rest to the *Match* tab.
+
 **Import statement** takes a **bank statement PDF from any bank**, or a CSV with Date, Description, Amount (or Debit and Credit)
 and an optional Reference. The PDF's layout does not have to be one the app has seen: the app finds the statement's table by
 its column headings (Date or Txn Date, Value Date, Description or Narration or Particulars, Chq/Ref No, Debit or Withdrawal or
@@ -156,8 +163,8 @@ If anything does not agree, the whole file is refused with a message and nothing
   number such as XXXXXXXX1234 is compared by the digits it shows; only the last four digits are ever shown in a message). With no
   ledger chosen, the bank ledger carrying that number is used.
 - Credits are always imported; debits too when the bank reconciliation asks for them (it does).
-- A line already imported (the same bank reference; or, where the bank prints none, the same description, date, amount and
-  direction) is skipped, once per stored copy, so a statement that overlaps the last one adds only what is new, importing the
+- A line already imported - **from a PDF or a CSV** (the same bank reference; or, where the bank prints none, the same description, date, amount and
+  direction; in the same bank ledger or in none) is skipped, once per stored copy, so a statement that overlaps the last one adds only what is new, importing the
   same file twice adds nothing, and two genuinely identical lines in one statement are both kept. The result says how many were skipped.
 - Each line keeps the bank's reference (or reference/cheque number) and its description, with the bank's wrapped lines joined
   back together. Matching to the books is then done as before (**Auto-match**, or by hand). A bank's reference agrees with a

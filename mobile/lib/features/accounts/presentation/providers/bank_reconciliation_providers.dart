@@ -12,14 +12,19 @@ final bankReconciliationProvider = FutureProvider.autoDispose.family<BankReconci
 
 typedef BrsAccountKey = ({String societyId, String? accountId});
 
-/// Lines of the bank ledger already cleared (to review, or to take back a mistake).
+/// How far back the Cleared tab looks: what was cleared long ago is out of the way (the books keep it all).
+const clearedWindowDays = 90;
+
+/// Lines of the bank ledger cleared in the last [clearedWindowDays] days (to review, or to take back a mistake).
 final clearedLinesProvider = FutureProvider.autoDispose.family<List<BrsLine>, BrsAccountKey>(
-  (ref, k) => ref.watch(bankReconciliationApiProvider).cleared(k.societyId, accountId: k.accountId),
+  (ref, k) => ref
+      .watch(bankReconciliationApiProvider)
+      .cleared(k.societyId, accountId: k.accountId, dateFrom: DateTime.now().subtract(const Duration(days: clearedWindowDays))),
 );
 
-/// The imported bank statement rows of the society (all bank accounts; the screen narrows them to one).
-final statementRowsProvider = FutureProvider.autoDispose.family<List<StatementRow>, String>(
-  (ref, societyId) => ref.watch(bankReconciliationApiProvider).rows(societyId),
+/// The imported bank statement rows of one bank ledger, each line once.
+final statementRowsProvider = FutureProvider.autoDispose.family<List<StatementRow>, BrsAccountKey>(
+  (ref, k) => ref.watch(bankReconciliationApiProvider).rows(k.societyId, accountId: k.accountId),
 );
 
 typedef RowKey = ({String societyId, String rowId});

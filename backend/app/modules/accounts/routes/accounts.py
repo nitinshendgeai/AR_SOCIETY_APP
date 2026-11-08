@@ -757,6 +757,8 @@ def _statement_row_out(row) -> dict:
         "bank_account_id": str(row.bank_account_id) if row.bank_account_id else None,
         "match_status": row.match_status.value,
         "matched_entry_id": str(row.matched_entry_id) if row.matched_entry_id else None,
+        "matched_submission_receipt_number": row.matched_submission.receipt_number if row.matched_submission else None,
+        "ignore_reason": row.ignore_reason,
     }
 
 
@@ -771,6 +773,17 @@ def bank_reconciliation_statement(society_id: UUID, account_id: Optional[UUID] =
     data = BankReconciliationService(db).statement(society_id, account_id, as_on, bank_balance)
     db.commit()                                   # the standard chart, if this was the first visit
     return data
+
+
+@router.get("/bank-reconciliation/{society_id}/rows")
+def bank_reconciliation_rows(society_id: UUID, account_id: Optional[UUID] = None,
+                             match_status: Optional[str] = Query(None, pattern="^(unmatched|matched|ignored)$"),
+                             limit: int = Query(500, ge=1, le=1000),
+                             db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """The imported statement rows of one bank ledger (default: the default bank), each line once."""
+    assert_society_access(user, society_id)
+    rows = BankReconciliationService(db).rows_for(society_id, account_id, match_status, limit)
+    return [_statement_row_out(r) for r in rows]
 
 
 @router.get("/bank-reconciliation/{society_id}/cleared")

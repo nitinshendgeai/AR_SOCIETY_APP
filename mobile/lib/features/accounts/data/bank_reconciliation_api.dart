@@ -199,9 +199,11 @@ class BankReconciliationApi {
     return BankReconciliation.fromJson(r.data as Map<String, dynamic>);
   }
 
-  Future<List<BrsLine>> cleared(String societyId, {String? accountId}) async {
-    final r = await _dio.get('/accounts/bank-reconciliation/$societyId/cleared',
-        queryParameters: {if (accountId != null) 'account_id': accountId});
+  Future<List<BrsLine>> cleared(String societyId, {String? accountId, DateTime? dateFrom}) async {
+    final r = await _dio.get('/accounts/bank-reconciliation/$societyId/cleared', queryParameters: {
+      if (accountId != null) 'account_id': accountId,
+      if (dateFrom != null) 'date_from': _iso(dateFrom),
+    });
     return [for (final l in r.data as List) BrsLine.fromJson(l as Map<String, dynamic>)];
   }
 
@@ -216,8 +218,11 @@ class BankReconciliationApi {
     return (r.data['uncleared'] as num).toInt();
   }
 
-  Future<List<StatementRow>> rows(String societyId) async {
-    final r = await _dio.get('/billing/bank-reconciliation/society/$societyId', queryParameters: {'limit': 500});
+  /// The imported statement rows of ONE bank ledger, each line once (the server hides a copy saved with no bank when the
+  /// same line is stored against a bank, and lists a row with no bank under the default bank only).
+  Future<List<StatementRow>> rows(String societyId, {String? accountId}) async {
+    final r = await _dio.get('/accounts/bank-reconciliation/$societyId/rows',
+        queryParameters: {if (accountId != null) 'account_id': accountId, 'limit': 500});
     return [for (final e in r.data as List) StatementRow.fromJson(e as Map<String, dynamic>)];
   }
 
