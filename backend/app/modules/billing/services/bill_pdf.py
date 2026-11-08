@@ -949,25 +949,13 @@ def boxed_bill_story(
 
     story: List = []
 
-    # ── Letterhead ──
-    address = ", ".join(x for x in [
-        (society.address or "").strip() if society else "", society.city if society else None,
-        society.state if society else None] if x)
-    if society and society.pincode:
-        address = f"{address} {society.pincode}".strip()
-    line2 = " , ".join(x for x in [
-        address.upper(), f"E-Mail : {society.contact_email}" if society and society.contact_email else ""] if x)
-    rows = [[P(escape(society_name.upper()), "name")]]
-    if line2:
-        rows.append([P(escape(line2), "addr")])
-    ids = [x for x in [f"Registration No. : {society.registration_number}" if society and society.registration_number else "",
-                       f"PAN : {society.pan_number}" if society and society.pan_number else "",
-                       f"GSTIN : {society.gst_number}" if society and society.gst_number else ""] if x]
-    if ids:
-        rows.append([P(escape("   |   ".join(ids)), "reg")])
-    story.append(frame(rows, [width], [("TOPPADDING", (0, 0), (-1, 0), 4)]))
+    # ── Letterhead: the grey band with the society's name, Regn. No. | PAN and address over a red rule, then the title ──
+    story += society_header(society, width)
+    story.append(Spacer(1, 3 * mm))
+    story.append(_p("Maintenance Bill" + (" / Tax Invoice" if gst_charged else ""), "title"))
+    story.append(Spacer(1, 2 * mm))
     if bill.bill_status.value == "cancelled":
-        story += [Paragraph("<font color='#B91C1C'><b>CANCELLED</b></font>", S["cell_c"])]
+        story += [Paragraph("<font color='#B91C1C'><b>CANCELLED</b></font>", S["cell_c"]), Spacer(1, 1 * mm)]
 
     # ── To / bill details ──
     cycle = bill.cycle
