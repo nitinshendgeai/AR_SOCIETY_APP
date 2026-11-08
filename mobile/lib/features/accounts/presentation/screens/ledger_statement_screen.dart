@@ -120,7 +120,7 @@ class _LedgerStatementScreenState extends ConsumerState<LedgerStatementScreen> {
               const SizedBox(height: 14),
               ...async.when(
                 loading: () => [const AppLoader()],
-                error: (e, _) => [Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))],
+                error: (e, _) => [AppErrorState(compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(ledgerStatementProvider(key)))],
                 data: (st) => [
                   _Header(st: st, from: from, to: to, subtitle: widget.title == null ? null : st.account.name),
                   const SizedBox(height: 14),

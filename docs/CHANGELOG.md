@@ -4,6 +4,21 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-08 (Accounts: failed loads, the society's date)
+
+### fix: Accounts screens recover from a failed load and use the society's own date
+
+- **Try again** - the Accounts page, Day Book, Cash & Bank Book, ledger statements, registers, Outstanding, Members' Ledger,
+  Approvals, Chart of Accounts and the financial statements and reports say plainly when they could not load and offer
+  "Try again" (it was red text with no way to recover but leaving the screen).
+- **Today** - from midnight to 5:30 am in India the server's date is still the day before. Marking a bank item cleared on
+  "today", keeping the bank's balance for today, the books' financial-year figures, the year-end closing, the rental and
+  attendance registers and the next voucher number all used it, so today's date could be refused as "in the future". They now
+  use the society's date.
+- **Phone tiles** write 99,99,999 as "₹1.00 Cr" (it read "₹100.00 L").
+
+---
+
 ## 2026-11-08 (Bank reconciliation lists each line once)
 
 ### fix: no repeated statement rows, no other bank's rows, less clutter

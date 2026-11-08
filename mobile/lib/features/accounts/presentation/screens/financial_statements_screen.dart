@@ -50,12 +50,7 @@ class _FinancialStatementsScreenState extends ConsumerState<FinancialStatementsS
         onRefresh: () async => ref.invalidate(financialYearsProvider(societyId)),
         child: yearsAsync.when(
           loading: () => const AppLoader(),
-          error: (e, _) => ListView(children: [
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-            ),
-          ]),
+          error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(financialYearsProvider(societyId))),
           data: (years) {
             final fy = _fy != null && years.any((y) => y.fy == _fy) ? _fy! : _defaultYear(years);
             final year = years.firstWhere((y) => y.fy == fy);

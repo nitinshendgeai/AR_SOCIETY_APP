@@ -108,7 +108,7 @@ class _MoreRegisterScreenState extends ConsumerState<MoreRegisterScreen> {
             const SizedBox(height: 14),
             ...async.when(
               loading: () => [const AppLoader()],
-              error: (e, _) => [Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))],
+              error: (e, _) => [AppErrorState(compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(moreRegisterProvider(key)))],
               data: (r) => [
                 RegisterTotals(figures: r.totals),
                 const SizedBox(height: 14),

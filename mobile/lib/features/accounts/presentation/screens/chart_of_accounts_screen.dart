@@ -66,12 +66,7 @@ class _ChartOfAccountsScreenState extends ConsumerState<ChartOfAccountsScreen> {
         onRefresh: () async => ref.invalidate(chartOfAccountsProvider(societyId)),
         child: chartAsync.when(
           loading: () => const AppLoader(),
-          error: (e, _) => ListView(children: [
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-            ),
-          ]),
+          error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(chartOfAccountsProvider(societyId))),
           data: (groups) {
             final q = _q.toLowerCase();
             bool matches(LedgerAccount a) =>

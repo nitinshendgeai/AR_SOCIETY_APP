@@ -89,9 +89,7 @@ class _ApprovalsScreenState extends ConsumerState<ApprovalsScreen> {
         onRefresh: () async => ref.invalidate(pendingApprovalsProvider(societyId)),
         child: async.when(
           loading: () => const AppLoader(),
-          error: (e, _) => ListView(padding: const EdgeInsets.all(24), children: [
-            Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
-          ]),
+          error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(pendingApprovalsProvider(societyId))),
           data: (rows) => rows.isEmpty
               ? ListView(children: const [
                   SizedBox(height: 60),

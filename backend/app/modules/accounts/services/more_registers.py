@@ -15,6 +15,7 @@ import csv
 import io
 import re
 from datetime import date, timedelta
+from app.utils.local_time import society_today
 from decimal import Decimal
 from typing import Dict, List, Optional
 from uuid import UUID
@@ -63,7 +64,7 @@ class MoreRegistersService:
                        ("expired", "Expired"), ("no_agreement", "No agreement dates"), ("past", "Past tenants")]
 
     def rental_register(self, society_id: UUID, status: Optional[str] = None, q: Optional[str] = None) -> dict:
-        today = date.today()
+        today = society_today(self.db, society_id)
         tenants = (self.db.query(Tenant).join(Flat, Tenant.flat_id == Flat.id).join(Wing, Flat.wing_id == Wing.id)
                    .options(joinedload(Tenant.flat).joinedload(Flat.wing),
                             joinedload(Tenant.flat).selectinload(Flat.residents))
@@ -214,7 +215,7 @@ class MoreRegistersService:
 
     def attendance_register(self, society_id: UUID, month: Optional[str] = None, department: Optional[str] = None,
                             q: Optional[str] = None) -> dict:
-        today = date.today()
+        today = society_today(self.db, society_id)
         if month is None:
             month = f"{today.year}-{today.month:02d}"
         if not MONTH.match(month):

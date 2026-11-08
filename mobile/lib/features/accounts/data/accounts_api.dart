@@ -19,7 +19,11 @@ String formatInrShort(num v) {
   final a = v.abs();
   final sign = v < 0 ? '-' : '';
   if (a >= 10000000) return '$sign₹${(a / 10000000).toStringAsFixed(2)} Cr';
-  if (a >= 100000) return '$sign₹${(a / 100000).toStringAsFixed(2)} L';
+  // 99,99,999 is 99.99999 lakh, which rounds to "100.00 L": that is a crore.
+  if (a >= 100000) {
+    final lakh = (a / 100000).toStringAsFixed(2);
+    return lakh == '100.00' ? '$sign₹1.00 Cr' : '$sign₹$lakh L';
+  }
   return formatInr(v);
 }
 
