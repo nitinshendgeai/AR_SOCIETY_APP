@@ -29,9 +29,7 @@ class TdsRulesScreen extends ConsumerWidget {
       title: 'TDS Rates & Limits',
       body: async.when(
         loading: () => const AppLoader(),
-        error: (e, _) => ListView(children: [
-          Padding(padding: const EdgeInsets.all(24), child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)))
-        ]),
+        error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(tdsRulesProvider(societyId))),
         data: (rules) => RefreshIndicator(
           onRefresh: () async => ref.invalidate(tdsRulesProvider(societyId)),
           child: ResponsiveBody(

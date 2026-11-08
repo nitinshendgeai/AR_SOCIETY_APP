@@ -25,6 +25,9 @@ import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 import 'package:ar_society_app/shared/widgets/app_form.dart';
 
+/// An amount the server sent as text, written the Indian way (₹1,25,000.00).
+String _rs(String v) => formatInr(double.tryParse(v) ?? 0);
+
 /// FMC Manager/Admin/Committee: bills owed to vendors and payments made
 /// against them — the society's payable side, the mirror of the
 /// resident-facing Payments screen (billing module).
@@ -201,8 +204,8 @@ class _VendorBillsScreenState extends ConsumerState<VendorBillsScreen> {
           Expanded(
             child: invoicesAsync.when(
               loading: () => const SkeletonList(),
-              error: (e, _) => Center(
-                  child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
+              error: (e, _) => AppErrorState(
+                  message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(vendorInvoicesProvider(societyId))),
               data: (invoices) {
                 final filtered = _paidFilter == null
                     ? invoices
@@ -426,7 +429,7 @@ class _AddBillSheetState extends ConsumerState<_AddBillSheet> {
                 validator: (v) => (v == null || v.trim().isEmpty || double.tryParse(v) != null) ? null : 'Enter a valid amount',
               )),
               const SizedBox(height: 8),
-              Text('Total: ₹${_total.toStringAsFixed(2)}',
+              Text('Total: ${formatInr(_total)}',
                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               const SizedBox(height: 12),
               // The expense head the bill is booked to in the accounts.
@@ -493,7 +496,7 @@ class _BillDetailSheet extends ConsumerWidget {
       title: _hasPayments ? 'Cancel this bill and reverse its payments?' : 'Cancel this bill?',
       message: _hasPayments
           ? 'Bill ${invoice.invoiceNumber} of ${invoice.vendorName ?? 'the vendor'} is taken out of the books, and '
-              '₹${invoice.paidAmount} paid on it goes back to the bank or cash it was paid from. Check the bank '
+              '${_rs(invoice.paidAmount)} paid on it goes back to the bank or cash it was paid from. Check the bank '
               'statement first: if the vendor really was paid, this is not what you want.'
           : 'Bill ${invoice.invoiceNumber} of ${invoice.vendorName ?? 'the vendor'} is taken out of the books and '
               'what is owed. Enter it again, correctly, if the vendor is still to be paid.',
@@ -517,7 +520,7 @@ class _BillDetailSheet extends ConsumerWidget {
     final reason = await askReason(
       context,
       title: 'Reverse payment ${p.paymentNumber}?',
-      message: '₹${p.amount} paid on ${p.paymentDate.day}/${p.paymentDate.month}/${p.paymentDate.year} goes back to '
+      message: '${_rs(p.amount)} paid on ${p.paymentDate.day}/${p.paymentDate.month}/${p.paymentDate.year} goes back to '
           'the bank or cash it was paid from, and the bill is owed again by that amount.',
       action: 'Reverse payment',
     );
@@ -552,7 +555,7 @@ class _BillDetailSheet extends ConsumerWidget {
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(
-                      '${p.paymentNumber} · ₹${p.amount}',
+                      '${p.paymentNumber} · ${_rs(p.amount)}',
                       style: TextStyle(
                         fontWeight: FontWeight.w500,
                         decoration: p.isReversed ? TextDecoration.lineThrough : null,
@@ -645,9 +648,9 @@ class _BillDetailSheet extends ConsumerWidget {
           _row('Invoice Date', '${invoice.invoiceDate.day}/${invoice.invoiceDate.month}/${invoice.invoiceDate.year}'),
           if (invoice.dueDate != null)
             _row('Due Date', '${invoice.dueDate!.day}/${invoice.dueDate!.month}/${invoice.dueDate!.year}'),
-          _row('Total', '₹${invoice.totalAmount}'),
-          _row('Paid', '₹${invoice.paidAmount}'),
-          _row('Outstanding', '₹${invoice.outstanding}'),
+          _row('Total', _rs(invoice.totalAmount)),
+          _row('Paid', _rs(invoice.paidAmount)),
+          _row('Outstanding', _rs(invoice.outstanding)),
           if (invoice.paymentMode != null) _row('Last Mode', vendorPaymentModeLabel(invoice.paymentMode!)),
           if (invoice.paymentRef != null) _row('Reference', invoice.paymentRef!),
           if (invoice.description != null) _row('Notes', invoice.description!),
@@ -771,7 +774,7 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
   Widget build(BuildContext context) {
     return AppSheetFrame(
       title: 'Pay ${widget.invoice.vendorName ?? 'Vendor'}',
-      subtitle: 'Outstanding: ₹${widget.invoice.outstanding}',
+      subtitle: 'Outstanding: ${_rs(widget.invoice.outstanding)}',
       child: Form(
         key: _formKey,
         child: Column(
@@ -787,7 +790,7 @@ class _RecordPaymentSheetState extends ConsumerState<_RecordPaymentSheet> {
                 final n = double.tryParse(v ?? '');
                 if (n == null || n <= 0) return 'Enter a valid amount';
                 final outstanding = double.tryParse(widget.invoice.outstanding) ?? 0;
-                if (n > outstanding) return 'Cannot exceed outstanding (₹$outstanding)';
+                if (n > outstanding) return 'Cannot exceed outstanding (${formatInr(outstanding)})';
                 return null;
               },
             )),

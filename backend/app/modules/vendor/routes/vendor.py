@@ -1,6 +1,6 @@
 from typing import List, Literal, Optional
 from uuid import UUID
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Query, Response, UploadFile
 from sqlalchemy.orm import Session
@@ -9,6 +9,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field, field_validator, model_validator
 from app.schemas import validators as val
 from app.core.tenant_scope import assert_society_access
+from app.utils.local_time import society_today
 
 from app.db.session import get_db
 from app.core.dependencies import (
@@ -84,7 +85,7 @@ def _contract_out(c) -> dict:
         "status": c.status.value,
         "start_date": c.start_date.isoformat(),
         "end_date": c.end_date.isoformat(),
-        "days_to_expiry": c.days_to_expiry(),
+        "days_to_expiry": c.days_to_expiry(society_today(object_session(c), c.society_id)),
         "service_frequency": c.service_frequency.value,
         "sla_response_hours": c.sla_response_hours,
         "scope_of_work": c.scope_of_work,
@@ -388,7 +389,9 @@ class RecordPaymentRequest(OrmBase):
     @field_validator("paid_date")
     @classmethod
     def _not_future(cls, v):
-        if v > date.today():
+        # A loose guard only: the server's date can be a day behind the society's (India's morning hours), so today's
+        # own date must pass here. The exact check, on the society's date, is made where the payment is recorded.
+        if v > date.today() + timedelta(days=1):
             raise ValueError("The payment date can't be in the future")
         return val.sane_date(v)
 

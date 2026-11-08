@@ -1,4 +1,5 @@
 from datetime import datetime, date, timedelta
+from app.utils.local_time import society_today
 from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
@@ -523,6 +524,8 @@ class VendorService_:  # trailing underscore avoids clash with model name
         ledger = self._payment_ledger(inv.society_id, payment_mode, bank_account_id)
         if paid_date < inv.invoice_date:
             raise HTTPException(422, "The payment can't be dated before the invoice")
+        if paid_date > society_today(self.db, inv.society_id):       # the society's today, not the server's
+            raise HTTPException(422, "The payment date can't be in the future")
         if inv.is_paid:
             raise HTTPException(409, "Invoice is already fully paid")
         amount = Decimal(amount)
@@ -600,6 +603,7 @@ class VendorService_:  # trailing underscore avoids clash with model name
                 .filter(VendorInvoice.vendor_id == vendor.id, VendorInvoice.is_active == True,  # noqa: E712
                         VendorInvoice.is_paid == False)
                 .order_by(VendorInvoice.due_date.is_(None), VendorInvoice.due_date, VendorInvoice.invoice_date).all())
+        today = society_today(self.db, vendor.society_id)
         bills = []
         for i in rows:
             left = max(Decimal(i.total_amount) - Decimal(i.tds_amount or 0) - Decimal(i.paid_amount), Decimal("0"))
@@ -610,7 +614,7 @@ class VendorService_:  # trailing underscore avoids clash with model name
                 "invoice_id": str(i.id), "invoice_number": i.invoice_number, "description": i.description,
                 "invoice_date": i.invoice_date.isoformat(), "due_date": due.isoformat(),
                 "total": str(i.total_amount), "paid": str(i.paid_amount), "outstanding": str(left),
-                "days_overdue": max(0, (date.today() - due).days),
+                "days_overdue": max(0, (today - due).days),
             })
         return {"vendor_id": str(vendor.id), "vendor_name": vendor.company_name,
                 "total_outstanding": str(sum((Decimal(b["outstanding"]) for b in bills), Decimal("0"))),

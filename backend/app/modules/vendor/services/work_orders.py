@@ -22,6 +22,7 @@ defect liability period ends. Annual contracts take the same sanction.
 """
 import calendar
 from datetime import date, datetime
+from app.utils.local_time import society_today
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, List, Optional
 from uuid import UUID
@@ -148,8 +149,9 @@ def committee_interest(db: Session, society_id: UUID, vendor: Vendor) -> Optiona
     return None
 
 
-def _not_future(d: Optional[date], what: str):
-    if d and d > date.today():
+def _not_future(d: Optional[date], what: str, today: date):
+    """`today` is the society's, not the server's, so today's own date is never refused as "in the future"."""
+    if d and d > today:
         raise HTTPException(422, f"The {what} can't be in the future")
 
 
@@ -170,7 +172,7 @@ class Sanction:
             raise HTTPException(422, f"{vendor.company_name} is {vendor.status.value.replace('_', ' ')} "
                                      f"and can't be given work")
         meeting = data["committee_meeting_date"]
-        _not_future(meeting, "committee meeting date")
+        _not_future(meeting, "committee meeting date", society_today(self.db, record.society_id))
         if chosen.quotation_date > meeting:
             raise HTTPException(422, "The chosen quotation is dated after the committee meeting")
         if chosen.valid_until and chosen.valid_until < meeting:
@@ -189,7 +191,7 @@ class Sanction:
             opened = data.get("tenders_opened_on")
             if not opened:
                 raise HTTPException(422, "Enter the date the tenders were opened in the committee meeting")
-            _not_future(opened, "date the tenders were opened")
+            _not_future(opened, "date the tenders were opened", society_today(self.db, record.society_id))
             late = [q.vendor.company_name for q in live if q.quotation_date > opened]
             if late:
                 raise HTTPException(422, f"Tenders dated after they were opened can't be considered: "
@@ -200,7 +202,7 @@ class Sanction:
                        f"it is more than the committee's limit of {inr(need['committee_limit'])}")
                 raise HTTPException(422, f"Work of {inr(amount)} needs the general body's sanction because {why} "
                                          f"(bye-law 157): enter the general body resolution number and date")
-            _not_future(data["gb_meeting_date"], "general body meeting date")
+            _not_future(data["gb_meeting_date"], "general body meeting date", society_today(self.db, record.society_id))
             if need["needs_tenders"] and data["gb_meeting_date"] < data["tenders_opened_on"]:
                 raise HTTPException(422, "The general body decides after the tenders are opened and scrutinised")
 
@@ -304,7 +306,7 @@ class WorkOrderService:
             digits = number.rsplit("-", 1)[-1]
             if digits.isdigit():
                 highest = max(highest, int(digits))
-        return f"WO-{date.today().year}-{highest + 1:04d}"
+        return f"WO-{society_today(self.db, society_id).year}-{highest + 1:04d}"
 
     def _links(self, society_id: UUID, data: dict):
         from app.modules.vendor.models.vendor import ServiceRequest
@@ -430,14 +432,14 @@ class WorkOrderService:
         if amount < money(wo.advance_amount):
             raise HTTPException(422, "The sanctioned amount can't be less than the advance agreed")
         meeting = data["committee_meeting_date"]
-        _not_future(meeting, "committee meeting date")
+        _not_future(meeting, "committee meeting date", society_today(self.db, wo.society_id))
         need = requirements(procurement_limits(self.db, wo.society_id), amount)
         needs_gb = amount > Decimal(need["committee_limit"]) or need["needs_tenders"]
         if needs_gb and (not data.get("gb_resolution_no") or not data.get("gb_meeting_date")):
             raise HTTPException(422, f"{inr(amount)} needs the general body's sanction (bye-law 157): "
                                      f"enter the general body resolution number and date")
         if data.get("gb_meeting_date"):
-            _not_future(data["gb_meeting_date"], "general body meeting date")
+            _not_future(data["gb_meeting_date"], "general body meeting date", society_today(self.db, wo.society_id))
         old = str(wo.sanctioned_amount)
         wo.sanctioned_amount = amount
         wo.committee_resolution_no = data["committee_resolution_no"]
@@ -459,7 +461,7 @@ class WorkOrderService:
     def issue(self, wo_id: UUID, issued_on: date, user: User, request=None) -> WorkOrder:
         wo = self.get(wo_id, user)
         self._status(wo, WorkOrderStatus.SANCTIONED, doing="issued")
-        _not_future(issued_on, "issue date")
+        _not_future(issued_on, "issue date", society_today(self.db, wo.society_id))
         decided = max(d for d in (wo.committee_meeting_date, wo.gb_meeting_date) if d)
         if issued_on < decided:
             raise HTTPException(422, f"The work order can't be issued before it was sanctioned on {decided:%d-%m-%Y}")
@@ -476,7 +478,7 @@ class WorkOrderService:
         wo = self.get(wo_id, user)
         self._status(wo, WorkOrderStatus.ISSUED, doing="certified complete")
         done = data["completed_on"]
-        _not_future(done, "completion date")
+        _not_future(done, "completion date", society_today(self.db, wo.society_id))
         if done < wo.issued_on:
             raise HTTPException(422, "The work can't be completed before the work order was issued")
         wo.status = WorkOrderStatus.COMPLETED
@@ -496,7 +498,7 @@ class WorkOrderService:
             raise HTTPException(409, "No retention is held on this work order")
         if wo.retention_released_on:
             raise HTTPException(409, "The retention was already released")
-        _not_future(released_on, "release date")
+        _not_future(released_on, "release date", society_today(self.db, wo.society_id))
         due = self.retention_due_on(wo)
         if released_on < due:
             raise HTTPException(422, f"The defect liability period runs until {due:%d-%m-%Y}")
@@ -513,7 +515,7 @@ class WorkOrderService:
         if unpaid:
             raise HTTPException(409, f"Bills not yet paid in full: {', '.join(unpaid)}")
         wo.status = WorkOrderStatus.CLOSED
-        wo.closed_on = date.today()
+        wo.closed_on = society_today(self.db, wo.society_id)
         self._audit(AuditAction.UPDATE, wo, user, request, new_values={"status": "closed"})
         self.db.commit()
         self.db.refresh(wo)
@@ -600,7 +602,7 @@ class QuotationBook:
         if any(q.is_active and q.vendor_id == vendor.id for q in existing):
             raise HTTPException(409, f"A quotation from {vendor.company_name} is already recorded; "
                                      f"remove it to enter a revised one")
-        _not_future(data["quotation_date"], "quotation date")
+        _not_future(data["quotation_date"], "quotation date", society_today(self.db, society_id))
         if data.get("valid_until") and data["valid_until"] < data["quotation_date"]:
             raise HTTPException(422, "A quotation can't expire before its date")
         q = Quotation(society_id=society_id, received_by=user.id, **data)
@@ -663,7 +665,7 @@ def save_procurement_settings(db: Session, society_id: UUID, data: dict) -> dict
     if custom and (not data.get("gb_resolution_no") or not data.get("gb_meeting_date")):
         raise HTTPException(422, "Limits other than the bye-law's are fixed by the general body: "
                                  "enter its resolution number and date")
-    _not_future(data.get("gb_meeting_date"), "general body meeting date")
+    _not_future(data.get("gb_meeting_date"), "general body meeting date", society_today(db, society_id))
     s = db.query(ProcurementSettings).filter(ProcurementSettings.society_id == society_id).first()
     if s is None:
         s = ProcurementSettings(society_id=society_id)

@@ -97,11 +97,7 @@ Widget _asyncList<T>(
       onRefresh: () async => refresh(),
       child: async.when(
         loading: () => const AppLoader(),
-        error: (e, _) => ListView(children: [
-          Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
-        ]),
+        error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: refresh),
         data: (rows) => ResponsiveBody(
           maxWidth: 860,
           child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 96), children: [
@@ -618,9 +614,7 @@ class _LimitsTab extends ConsumerWidget {
       onRefresh: () async => ref.invalidate(procurementLimitsProvider(societyId)),
       child: async.when(
         loading: () => const AppLoader(),
-        error: (e, _) => ListView(children: [
-          Padding(padding: const EdgeInsets.all(24), child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
-        ]),
+        error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(procurementLimitsProvider(societyId))),
         data: (l) => ResponsiveBody(
           maxWidth: 760,
           child: ListView(padding: const EdgeInsets.all(16), children: [
