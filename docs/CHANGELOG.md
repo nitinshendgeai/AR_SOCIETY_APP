@@ -4,6 +4,21 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-08 (Complaints: every complaint, Active / Done, reopened work)
+
+### fix: the Complaints lists read every complaint and agree with the dashboards
+
+- **More than 50 complaints** - the society's list, "My Complaints" and "Assigned to Me" asked for one page of 50, so a society
+  with more complaints saw only the newest 50, and an older open complaint could not be found. They now read every page.
+- **Active / Done on the society's list** - like a resident's own list, the society's list opens on the complaints still being
+  dealt with (open, assigned, in progress, reopened): the number on "Active" is the number the dashboards call open. Resolved,
+  closed and rejected are under "Done".
+- **Reopened** complaints appear in "Assigned to Me" for the person they stay assigned to (they were left out, though that
+  person is told of the reopening).
+- A failed load of the list or a complaint says so and offers "Try again".
+
+---
+
 ## 2026-11-08 (Vendors: bills beyond the first 50, failed loads, amounts, the society's date)
 
 ### fix: the Vendors screens read every bill and vendor, recover from a failed load and use the society's date

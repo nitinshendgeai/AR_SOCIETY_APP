@@ -51,6 +51,10 @@ class _FakeRepo extends ComplaintRepository {
 
   @override
   Future<ComplaintResult<List<ComplaintListEntity>>> listMyComplaints() async => ComplaintSuccess(mine);
+
+  @override
+  Future<ComplaintResult<List<ComplaintListEntity>>> listSocietyComplaints(String societyId) async =>
+      ComplaintSuccess(mine);
 }
 
 Widget _app(List<ComplaintListEntity> mine) => ProviderScope(
@@ -135,6 +139,32 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Broken light'), findsOneWidget);
     expect(find.text('Leaking tap'), findsNothing);
+  });
+
+  testWidgets("the society's list splits Active and Done too; Active is the number the dashboard calls open", (tester) async {
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        currentUserProvider.overrideWithValue(const UserEntity(
+            id: 'a', email: 'a@x.c', fullName: 'A', roles: ['Society Admin'], societyId: 's1', termsAccepted: true)),
+        complaintRepositoryProvider.overrideWithValue(_FakeRepo([
+          _listed('Leaking tap', ComplaintStatus.inProgress, who: 'Raju'),
+          _listed('Lift stuck', ComplaintStatus.open),
+          _listed('Noisy pump', ComplaintStatus.reopened),
+          _listed('Broken light', ComplaintStatus.resolved, resolvedAt: _now),
+          _listed('Old leak', ComplaintStatus.rejected),
+        ])),
+      ],
+      child: MaterialApp(theme: AppTheme.lightTheme, home: const ComplaintListScreen(isMy: false, societyId: 's1')),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Active (3)'), findsOneWidget);          // open, in progress and reopened
+    expect(find.text('Done (2)'), findsOneWidget);            // resolved and rejected
+    expect(find.text('Broken light'), findsNothing);
+    await tester.tap(find.text('Done (2)'));
+    await tester.pumpAndSettle();
+    expect(find.text('Broken light'), findsOneWidget);
+    expect(find.text('Old leak'), findsOneWidget);
   });
 
   testWidgets('with nothing active it says so', (tester) async {
