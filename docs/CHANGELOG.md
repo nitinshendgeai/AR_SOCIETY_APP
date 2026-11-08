@@ -15,6 +15,8 @@ Format: `[YYYY-MM-DD] type: description`
   "today", keeping the bank's balance for today, the books' financial-year figures, the year-end closing, the rental and
   attendance registers and the next voucher number all used it, so today's date could be refused as "in the future". They now
   use the society's date.
+- **Dashboard "Members' dues"** is the books' Members' Dues balance, exactly as the Accounts page shows it (a net advance
+  says so), and opens the Members' Ledger. (The Defaulters row on the dashboard stays the Defaulters list's own count.)
 - **Phone tiles** write 99,99,999 as "₹1.00 Cr" (it read "₹100.00 L").
 
 ---
