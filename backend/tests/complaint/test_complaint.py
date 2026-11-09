@@ -408,3 +408,25 @@ def test_reject_complaint(client, db):
     assert r2.status_code == 200
     assert r2.json()["status"] == "rejected"
     assert r2.json()["rejection_reason"] == "Out of scope"
+
+
+def test_a_reopened_complaint_is_still_in_the_assignees_list(client, db):
+    """Reopening keeps the assignee (who is told), so it must show under "Assigned to me" with the other open work."""
+    from app.modules.complaint.models.complaint import Complaint, ComplaintCategory, ComplaintStatus
+    from tests.conftest import make_society, make_user
+
+    society = make_society(db, "Complaint Reopen")
+    worker = make_user(db, "reopen.worker@t.com", role="Manager")
+    worker["user"].society_id = society.id
+    db.commit()
+    cat = list(ComplaintCategory)[0]
+    for number, status in (("R-1", ComplaintStatus.ASSIGNED), ("R-2", ComplaintStatus.IN_PROGRESS),
+                           ("R-3", ComplaintStatus.REOPENED), ("R-4", ComplaintStatus.RESOLVED),
+                           ("R-5", ComplaintStatus.CLOSED)):
+        db.add(Complaint(society_id=society.id, complaint_number=number, title=number, description="d", category=cat,
+                         raised_by=worker["user"].id, assigned_to=worker["user"].id, status=status))
+    db.commit()
+
+    r = client.get("/api/v1/complaints/me/assigned", headers=worker["headers"])
+    assert r.status_code == 200, r.text
+    assert sorted(c["complaint_number"] for c in r.json()) == ["R-1", "R-2", "R-3"]

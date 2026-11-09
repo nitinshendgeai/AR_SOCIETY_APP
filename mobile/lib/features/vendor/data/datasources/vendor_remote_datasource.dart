@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
+import 'package:ar_society_app/core/api/paged.dart';
 import 'package:ar_society_app/features/vendor/data/models/vendor_models.dart';
 
 /// Calls FastAPI /vendors/* endpoints. API prefix: /api/v1/vendors
@@ -7,19 +8,9 @@ class VendorRemoteDataSource {
   final Dio _dio;
   VendorRemoteDataSource({Dio? dio}) : _dio = dio ?? ApiClient.instance;
 
-  /// Every row of a list the server cuts into pages (50 unless asked, 500 at most). Reading only the first page
-  /// left a society with more than 50 vendor bills showing the newest 50 and totals that were too small.
-  Future<List<Map<String, dynamic>>> _allRows(String path, [Map<String, dynamic> query = const {}]) async {
-    const pageSize = 500;
-    final rows = <Map<String, dynamic>>[];
-    for (var page = 0; page < 40; page++) {
-      final r = await _dio.get(path, queryParameters: {...query, 'skip': page * pageSize, 'limit': pageSize});
-      final got = (r.data as List).map((e) => e as Map<String, dynamic>).toList();
-      rows.addAll(got);
-      if (got.length < pageSize) break;
-    }
-    return rows;
-  }
+  /// Every row of a list the server cuts into pages (500 at most a page): see [getAllPages].
+  Future<List<Map<String, dynamic>>> _allRows(String path, [Map<String, dynamic> query = const {}]) =>
+      getAllPages(_dio, path, query: query, pageSize: 500, maxPages: 40);
 
   /// POST /vendors/
   Future<VendorModel> createVendor({

@@ -28,7 +28,8 @@ class ComplaintRepository(BaseRepository[Complaint]):
         return self.db.query(Complaint).filter(
             Complaint.assigned_to == user_id,
             Complaint.is_active   == True,
-            Complaint.status.in_([ComplaintStatus.ASSIGNED, ComplaintStatus.IN_PROGRESS]),
+            # A reopened complaint is still the assignee's to deal with (it keeps its assignee), so it is listed too.
+            Complaint.status.in_([ComplaintStatus.ASSIGNED, ComplaintStatus.IN_PROGRESS, ComplaintStatus.REOPENED]),
         ).order_by(Complaint.created_at.desc()).offset(skip).limit(limit).all()
 
     def get_by_status(self, society_id: UUID, status: ComplaintStatus) -> List[Complaint]:

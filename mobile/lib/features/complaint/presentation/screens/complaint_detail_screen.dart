@@ -245,23 +245,9 @@ class _ComplaintDetailScreenState
       return const AppLoader();
     }
     if (state is ComplaintDetailError) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AppErrorBanner(message: state.message),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () => ref
-                    .read(complaintDetailProvider.notifier)
-                    .load(widget.complaintId),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
+      return AppErrorState(
+        message: state.message,
+        onRetry: () => ref.read(complaintDetailProvider.notifier).load(widget.complaintId),
       );
     }
 

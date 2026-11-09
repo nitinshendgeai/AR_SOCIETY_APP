@@ -205,7 +205,8 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
   String _query = '';
   ComplaintStatus? _statusFilter;
 
-  // A resident's own list: complaints still being dealt with, or the finished ones.
+  // Complaints still being dealt with, or the finished ones: a resident's own list and the society's list.
+  // "Active" is the very set the dashboards count as open, so the number on a dashboard is the number here.
   bool _showDone = false;
 
   Future<void> _newComplaint() async {
@@ -355,17 +356,7 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
       return const SkeletonList();
     }
     if (state is ComplaintListError) {
-      return SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            AppErrorBanner(message: state.message),
-            const SizedBox(height: 12),
-            TextButton(onPressed: _load, child: const Text('Retry')),
-          ],
-        ),
-      );
+      return AppErrorState(message: state.message, onRetry: _load);
     }
     if (state is ComplaintListLoaded) {
       if (state.complaints.isEmpty) {
@@ -386,7 +377,7 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
           ),
         );
       }
-      final split = widget.isMy && !widget.assignedToMe;
+      final split = !widget.assignedToMe;
       final all = state.complaints;
       final active = all.where((c) => complaintIsActive(c.status)).toList();
       final done = all.where((c) => !complaintIsActive(c.status)).toList();
@@ -395,15 +386,15 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
           ? Padding(
               padding: const EdgeInsets.only(bottom: 4),
               child: Wrap(spacing: 8, children: [
-                ChoiceChip(
-                  label: Text('Active (${active.length})'),
+                AppFilterPill(
+                  label: 'Active (${active.length})',
                   selected: !_showDone,
-                  onSelected: (_) => setState(() => _showDone = false),
+                  onTap: () => setState(() => _showDone = false),
                 ),
-                ChoiceChip(
-                  label: Text('Done (${done.length})'),
+                AppFilterPill(
+                  label: 'Done (${done.length})',
                   selected: _showDone,
-                  onSelected: (_) => setState(() => _showDone = true),
+                  onTap: () => setState(() => _showDone = true),
                 ),
               ]),
             )
@@ -418,8 +409,10 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
               icon: _showDone ? Icons.history_rounded : Icons.check_circle_outline_rounded,
               title: _showDone ? 'Nothing finished yet' : 'Nothing pending',
               subtitle: _showDone
-                  ? 'Complaints that are resolved or closed appear here'
-                  : 'All your complaints are sorted. Tap "New Complaint" to raise one',
+                  ? 'Complaints that are resolved, closed or rejected appear here'
+                  : widget.isMy
+                      ? 'All your complaints are sorted. Tap "New Complaint" to raise one'
+                      : 'No complaint in the society is waiting for attention',
             ),
           ]),
         );

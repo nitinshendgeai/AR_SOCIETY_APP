@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
+import 'package:ar_society_app/core/api/paged.dart';
 import 'package:ar_society_app/features/complaint/data/models/complaint_models.dart';
 
 /// Calls FastAPI /complaints/* endpoints.
@@ -23,19 +24,10 @@ class ComplaintRemoteDataSource {
     return ComplaintModel.fromJson(r.data as Map<String, dynamic>);
   }
 
-  /// GET /complaints/society/{societyId}?skip&limit
-  Future<List<ComplaintListModel>> listSocietyComplaints(
-    String societyId, {
-    int skip = 0,
-    int limit = 50,
-  }) async {
-    final r = await _dio.get(
-      '/complaints/society/$societyId',
-      queryParameters: {'skip': skip, 'limit': limit},
-    );
-    return (r.data as List)
-        .map((e) => ComplaintListModel.fromJson(e as Map<String, dynamic>))
-        .toList();
+  /// GET /complaints/society/{societyId}, every page (the server sends 50 unless asked, 200 at most).
+  Future<List<ComplaintListModel>> listSocietyComplaints(String societyId) async {
+    final rows = await getAllPages(_dio, '/complaints/society/$societyId');
+    return rows.map(ComplaintListModel.fromJson).toList();
   }
 
   /// GET /complaints/society/{societyId}/open-count - how many are still being dealt with (open, assigned, in
@@ -55,32 +47,16 @@ class ComplaintRemoteDataSource {
     return n.toInt();
   }
 
-  /// GET /complaints/me/complaints?skip&limit
-  Future<List<ComplaintListModel>> listMyComplaints({
-    int skip = 0,
-    int limit = 50,
-  }) async {
-    final r = await _dio.get(
-      '/complaints/me/complaints',
-      queryParameters: {'skip': skip, 'limit': limit},
-    );
-    return (r.data as List)
-        .map((e) => ComplaintListModel.fromJson(e as Map<String, dynamic>))
-        .toList();
+  /// GET /complaints/me/complaints, every page.
+  Future<List<ComplaintListModel>> listMyComplaints() async {
+    final rows = await getAllPages(_dio, '/complaints/me/complaints');
+    return rows.map(ComplaintListModel.fromJson).toList();
   }
 
-  /// GET /complaints/me/assigned?skip&limit
-  Future<List<ComplaintListModel>> listAssignedToMe({
-    int skip = 0,
-    int limit = 50,
-  }) async {
-    final r = await _dio.get(
-      '/complaints/me/assigned',
-      queryParameters: {'skip': skip, 'limit': limit},
-    );
-    return (r.data as List)
-        .map((e) => ComplaintListModel.fromJson(e as Map<String, dynamic>))
-        .toList();
+  /// GET /complaints/me/assigned, every page.
+  Future<List<ComplaintListModel>> listAssignedToMe() async {
+    final rows = await getAllPages(_dio, '/complaints/me/assigned');
+    return rows.map(ComplaintListModel.fromJson).toList();
   }
 
   // ── Actions ────────────────────────────────────────────────────────────────
