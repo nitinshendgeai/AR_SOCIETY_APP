@@ -92,3 +92,16 @@ def test_the_rows_can_be_listed_by_status_and_are_newest_first(client, db):
     assert [r["description"] for r in _rows_of(client, h, sid, bank, match_status="ignored")] == ["SMS CHARGES"]
     assert [r["description"] for r in _rows_of(client, h, sid, bank, match_status="unmatched")] == ["NEFT MAINTENANCE"]
     assert client.get(f"{API}/bank-reconciliation/{sid}/rows", params={"match_status": "bogus"}, headers=h).status_code == 422
+
+
+def test_statement_rows_can_be_read_page_by_page(client, db):
+    """The app pages through `skip`/`limit`; the pages together are the whole list, each row once."""
+    society, _f, admin, _m, L = _books(client, db, "once_pages")
+    h, sid, bank = admin["headers"], str(society.id), L["bank"]["id"]
+    assert _import(client, sid, h, CSV, include_debits="true", bank_account_id=bank).status_code == 201
+    everything = _rows_of(client, h, sid, bank)
+    assert len(everything) == 2
+    first = _rows_of(client, h, sid, bank, limit=1)
+    second = _rows_of(client, h, sid, bank, limit=1, skip=1)
+    assert [r["id"] for r in first + second] == [r["id"] for r in everything]
+    assert _rows_of(client, h, sid, bank, limit=1, skip=2) == []

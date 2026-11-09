@@ -778,11 +778,12 @@ def bank_reconciliation_statement(society_id: UUID, account_id: Optional[UUID] =
 @router.get("/bank-reconciliation/{society_id}/rows")
 def bank_reconciliation_rows(society_id: UUID, account_id: Optional[UUID] = None,
                              match_status: Optional[str] = Query(None, pattern="^(unmatched|matched|ignored)$"),
+                             skip: int = Query(0, ge=0),
                              limit: int = Query(500, ge=1, le=1000),
                              db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """The imported statement rows of one bank ledger (default: the default bank), each line once."""
     assert_society_access(user, society_id)
-    rows = BankReconciliationService(db).rows_for(society_id, account_id, match_status, limit)
+    rows = BankReconciliationService(db).rows_for(society_id, account_id, match_status, limit, skip)
     return [_statement_row_out(r) for r in rows]
 
 

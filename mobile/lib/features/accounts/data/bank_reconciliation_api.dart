@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:ar_society_app/core/api/paged.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 
 double _num(Object? v) => double.tryParse(v?.toString() ?? '') ?? 0;
@@ -221,9 +222,9 @@ class BankReconciliationApi {
   /// The imported statement rows of ONE bank ledger, each line once (the server hides a copy saved with no bank when the
   /// same line is stored against a bank, and lists a row with no bank under the default bank only).
   Future<List<StatementRow>> rows(String societyId, {String? accountId}) async {
-    final r = await _dio.get('/accounts/bank-reconciliation/$societyId/rows',
-        queryParameters: {if (accountId != null) 'account_id': accountId, 'limit': 500});
-    return [for (final e in r.data as List) StatementRow.fromJson(e as Map<String, dynamic>)];
+    final rows = await getAllPages(_dio, '/accounts/bank-reconciliation/$societyId/rows',
+        query: {if (accountId != null) 'account_id': accountId}, pageSize: 1000);
+    return rows.map(StatementRow.fromJson).toList();
   }
 
   /// Imports the bank's statement (credits and debits) for one bank ledger: the bank's own "Account Statement" PDF, or

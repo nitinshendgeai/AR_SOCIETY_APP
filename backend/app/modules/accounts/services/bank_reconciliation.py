@@ -111,7 +111,7 @@ class BankReconciliationService:
         return mine
 
     def rows_for(self, society_id: UUID, account_id: Optional[UUID] = None, match_status: Optional[str] = None,
-                 limit: int = 500) -> List[BankStatementEntry]:
+                 limit: int = 500, skip: int = 0) -> List[BankStatementEntry]:
         """The statement rows of one bank ledger, newest first, each line once: a row saved with no bank is hidden when
         the same line is also stored against a bank (a statement imported twice, with and without the bank chosen)."""
         account = self.bank_account(society_id, account_id)
@@ -133,7 +133,7 @@ class BankReconciliationService:
                     continue
             if match_status is None or r.match_status.value == match_status:
                 out.append(r)
-        return out[:limit]
+        return out[skip:skip + limit]
 
     def _live_lines(self, society_id: UUID, account_id: UUID):
         """The bank ledger's lines that stand in the books: approved, not cancelled, and not a voucher that was

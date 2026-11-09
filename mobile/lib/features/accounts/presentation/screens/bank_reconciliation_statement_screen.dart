@@ -211,7 +211,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
         body: ledgers.when(
           loading: () => const AppLoader(),
           error: (e, _) =>
-              ListView(padding: const EdgeInsets.all(16), children: [AppErrorBanner(message: friendlyErrorMessage(e))]),
+              AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(ledgersProvider(societyId))),
           data: (_) => banks.isEmpty
               ? const AppEmptyState(
                   icon: Icons.account_balance_rounded,
@@ -276,7 +276,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
     return ref.watch(bankReconciliationProvider(key)).when(
           loading: () => const AppLoader(),
           error: (e, _) =>
-              ListView(padding: const EdgeInsets.all(16), children: [AppErrorBanner(message: friendlyErrorMessage(e))]),
+              AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(bankReconciliationProvider(key))),
           data: (b) => Column(children: [
             Expanded(
               child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
@@ -409,7 +409,10 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
     final brs = ref.watch(bankReconciliationProvider((societyId: societyId, accountId: _accountId, asOn: _today)));
     final rowsAsync = ref.watch(statementRowsProvider((societyId: societyId, accountId: _accountId)));
     Widget failed(Object e) =>
-        ListView(padding: const EdgeInsets.all(16), children: [AppErrorBanner(message: friendlyErrorMessage(e))]);
+        AppErrorState(message: friendlyErrorMessage(e), onRetry: () {
+          ref.invalidate(bankReconciliationProvider((societyId: societyId, accountId: _accountId, asOn: _today)));
+          ref.invalidate(statementRowsProvider((societyId: societyId, accountId: _accountId)));
+        });
     return brs.when(
       loading: () => const AppLoader(),
       error: (e, _) => failed(e),
@@ -641,7 +644,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
         child: rowsAsync.when(
           loading: () => const AppLoader(),
           error: (e, _) =>
-              ListView(padding: const EdgeInsets.all(16), children: [AppErrorBanner(message: friendlyErrorMessage(e))]),
+              AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(statementRowsProvider((societyId: societyId, accountId: _accountId)))),
           data: (all) {
             final rows = all
                 .where((r) => r.bankAccountId == null || r.bankAccountId == _accountId)
@@ -713,7 +716,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
     return async.when(
       loading: () => const AppLoader(),
       error: (e, _) =>
-          ListView(padding: const EdgeInsets.all(16), children: [AppErrorBanner(message: friendlyErrorMessage(e))]),
+          AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(clearedLinesProvider((societyId: societyId, accountId: _accountId)))),
       data: (lines) => lines.isEmpty
           ? const AppEmptyState(
               icon: Icons.history_rounded,
@@ -1102,7 +1105,7 @@ class _RowSheetState extends ConsumerState<_RowSheet> {
   Widget _suggestionList(AsyncValue<List<BrsLine>> suggestions, BankReconciliationApi api, StatementRow row) {
     return suggestions.when(
         loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: AppLoader()),
-        error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
+        error: (e, _) => AppErrorState(compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(rowSuggestionsProvider((societyId: widget.societyId, rowId: row.id)))),
         data: (list) => list.isEmpty
             ? const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),

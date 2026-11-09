@@ -4,6 +4,19 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-09 (Accounts: second pass - every voucher, every statement row, errors that can be retried)
+
+### fix: the Day Book and the bank statement list read everything, and failed loads can be retried
+
+- **Day Book** - it asked for one page of 500 vouchers, so a busy society's count and total in the footer covered only the newest 500.
+  It now reads every page, and the footer counts all vouchers in the period.
+- **Bank statement rows** - the list stopped at the first 500 rows and the server had no way to ask for the next ones. The
+  `/accounts/bank-reconciliation/{society}/rows` endpoint now takes `skip`, and the app reads every page.
+- **Failed loads** - Petty cash, Recurring expenses, the expense and voucher forms, Expenses by element and every tab of the bank
+  reconciliation screen showed a bare red banner or red text with no way forward. They now show the standard error panel with a
+  Retry button.
+- Tests: paging of vouchers (`accounts_paging_test.dart`) and of statement rows (`test_bank_statement_rows_once.py`).
+
 ## 2026-11-08 (Complaints: every complaint, Active / Done, reopened work)
 
 ### fix: the Complaints lists read every complaint and agree with the dashboards

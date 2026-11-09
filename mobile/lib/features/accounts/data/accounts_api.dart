@@ -4,6 +4,7 @@ import 'package:ar_society_app/core/utils/server_time.dart';
 import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
+import 'package:ar_society_app/core/api/paged.dart';
 
 // ── Formatting ───────────────────────────────────────────────────────────────
 
@@ -967,14 +968,16 @@ class AccountsApi {
 
   Future<List<Voucher>> vouchers(String societyId,
       {String? type, DateTime? from, DateTime? to, String? vendorId}) async {
-    final r = await _dio.get('/accounts/vouchers/society/$societyId', queryParameters: {
-      if (type != null) 'voucher_type': type,
-      if (vendorId != null) 'vendor_id': vendorId,
-      if (from != null) 'date_from': apiDate(from),
-      if (to != null) 'date_to': apiDate(to),
-      'limit': 500,
-    });
-    return (r.data as List).map((e) => Voucher.fromJson(e as Map<String, dynamic>)).toList();
+    // Every page: a society books far more than 500 vouchers a year, and the Day Book total must cover them all.
+    final rows = await getAllPages(_dio, '/accounts/vouchers/society/$societyId',
+        query: {
+          if (type != null) 'voucher_type': type,
+          if (vendorId != null) 'vendor_id': vendorId,
+          if (from != null) 'date_from': apiDate(from),
+          if (to != null) 'date_to': apiDate(to),
+        },
+        pageSize: 500);
+    return rows.map(Voucher.fromJson).toList();
   }
 
   /// The number the next voucher of this type will carry, shown on a form before it is saved.
