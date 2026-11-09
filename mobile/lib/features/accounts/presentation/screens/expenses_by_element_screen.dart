@@ -133,7 +133,8 @@ class _ExpensesByElementScreenState extends ConsumerState<ExpensesByElementScree
               async.when(
                 loading: () => const Padding(
                     padding: EdgeInsets.only(top: 80), child: const AppLoader()),
-                error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
+                error: (e, _) => AppErrorState(
+                    compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(expensesByElementProvider(key))),
                 data: (r) => _body(r, elements),
               ),
             ],

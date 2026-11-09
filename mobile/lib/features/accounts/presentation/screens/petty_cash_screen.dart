@@ -47,7 +47,7 @@ class PettyCashScreen extends ConsumerWidget {
           child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 96), children: [
             box.when(
               loading: () => const Padding(padding: EdgeInsets.all(32), child: AppLoader()),
-              error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
+              error: (e, _) => AppErrorState(compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(pettyCashProvider(societyId))),
               data: (b) => _Box(box: b),
             ),
             const SizedBox(height: 16),
@@ -89,7 +89,7 @@ class PettyCashScreen extends ConsumerWidget {
             const SizedBox(height: 8),
             counts.when(
               loading: () => const Padding(padding: EdgeInsets.all(16), child: AppLoader()),
-              error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
+              error: (e, _) => AppErrorState(compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(pettyCashCountsProvider(societyId))),
               data: (rows) => rows.isEmpty
                   ? const Card(
                       child: Padding(
@@ -267,7 +267,7 @@ class _PettyExpensesSheetState extends ConsumerState<PettyExpensesSheet> {
       subtitle: 'One entry for the day. Each line goes to its own expense head.',
       child: ledgers.when(
         loading: () => const Padding(padding: EdgeInsets.all(24), child: AppLoader()),
-        error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
+        error: (e, _) => AppErrorState(compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(ledgersProvider(societyId))),
         data: (all) {
           final heads = all.where((l) => l.nature == 'expense' && l.isActive).toList()
             ..sort((a, b) => a.name.compareTo(b.name));
@@ -414,7 +414,7 @@ class _PettyTopUpSheetState extends ConsumerState<PettyTopUpSheet> {
         const SizedBox(height: 12),
         ledgers.when(
           loading: () => const LinearProgressIndicator(),
-          error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
+          error: (e, _) => AppErrorState(compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(ledgersProvider(societyId))),
           data: (all) {
             final sources = all.where((l) => l.isCashOrBank && l.isActive && l.id != petty).toList();
             return DropdownButtonFormField<String?>(

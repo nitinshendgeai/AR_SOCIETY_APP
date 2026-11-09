@@ -250,11 +250,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     return ledgersAsync.when(
       loading: () => waiting(const AppLoader()),
       error: (e, _) => waiting(
-          ListView(padding: const EdgeInsets.all(20), children: [AppErrorBanner(message: friendlyErrorMessage(e))])),
+          AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(ledgersProvider(societyId)))),
       data: (all) => elementsAsync.when(
         loading: () => waiting(const AppLoader()),
         error: (e, _) => waiting(
-            ListView(padding: const EdgeInsets.all(20), children: [AppErrorBanner(message: friendlyErrorMessage(e))])),
+            AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(maintenanceElementsProvider((societyId: societyId, includeInactive: false))))),
         data: (elements) => _form(societyId, all, elements),
       ),
     );

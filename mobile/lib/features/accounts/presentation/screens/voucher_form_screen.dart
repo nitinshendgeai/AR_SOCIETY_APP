@@ -310,7 +310,11 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
       body: body,
     );
     if (loadError != null) {
-      return waiting(Center(child: Text(friendlyErrorMessage(loadError), style: const TextStyle(color: AppTheme.error))));
+      return waiting(AppErrorState(message: friendlyErrorMessage(loadError), onRetry: () {
+        setState(() => _loadError = null);
+        ref.invalidate(ledgersProvider(societyId));
+        if (_isEdit) _load();
+      }));
     }
     if ((ledgersAsync.isLoading && ledgers.isEmpty) || (_isEdit && editing == null)) return waiting(const AppLoader());
     if (editing != null && !editing.canEdit) {

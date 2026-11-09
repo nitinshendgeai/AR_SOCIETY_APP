@@ -66,7 +66,7 @@ class RecurringExpensesScreen extends ConsumerWidget {
             const _Title('Due now'),
             due.when(
               loading: () => const Padding(padding: EdgeInsets.all(24), child: const AppLoader()),
-              error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
+              error: (e, _) => AppErrorState(compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(recurringDueProvider(societyId))),
               data: (rows) => rows.isEmpty
                   ? Card(
                       child: Padding(
@@ -84,7 +84,7 @@ class RecurringExpensesScreen extends ConsumerWidget {
             const _Title('All monthly expenses'),
             all.when(
               loading: () => const SizedBox.shrink(),
-              error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
+              error: (e, _) => AppErrorState(compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(recurringListProvider(societyId))),
               data: (rows) => rows.isEmpty
                   ? AppEmptyState(
                       icon: Icons.event_repeat_rounded,
@@ -312,7 +312,7 @@ class _RecurringFormSheetState extends ConsumerState<RecurringFormSheet> {
           const SizedBox(height: 12),
           ledgers.when(
             loading: () => const LinearProgressIndicator(),
-            error: (err, _) => AppErrorBanner(message: friendlyErrorMessage(err)),
+            error: (err, _) => AppErrorState(compact: true, message: friendlyErrorMessage(err), onRetry: () => ref.invalidate(ledgersProvider(societyId))),
             data: (all) {
               final heads = all.where((l) => l.nature == 'expense' && l.isActive).toList()
                 ..sort((a, b) => a.name.compareTo(b.name));
