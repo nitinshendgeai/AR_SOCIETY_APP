@@ -38,6 +38,7 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
   String? _agreement; // running | expiring | expired | none
   String? _police; // pending | submitted | verified | rejected
   bool? _kyc;
+  String _appliedSearch = ''; // the search the list was last loaded with (the box itself is debounced)
   bool _moreFilters = false; // agreement, police verification and KYC fold away to leave the list room on a phone
 
   int get _moreActive => (_agreement != null ? 1 : 0) + (_police != null ? 1 : 0) + (_kyc != null ? 1 : 0);
@@ -73,7 +74,23 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
     super.dispose();
   }
 
+  /// The counts under the filters in force: this list's own count follows all of them (agreement, police and KYC
+  /// included); the residents' count follows those the two lists share.
+  PeopleCountQuery _countQuery({required bool all}) => (
+        wingId: widget.filterFlat == null ? _wingId : null,
+        flatId: widget.filterFlat?.id ?? _flatId,
+        isActive: _activeFilter,
+        movedIn: _movedIn,
+        search: _appliedSearch.isEmpty ? null : _appliedSearch,
+        residentType: null,
+        agreement: all ? _agreement : null,
+        police: all ? _police : null,
+        kycVerified: all ? _kyc : null,
+      );
+
   void _load() {
+    _appliedSearch = _searchCtrl.text.trim();
+    if (mounted) setState(() {});
     ref.read(tenantListProvider.notifier).load(
           isActive: _activeFilter,
           search: _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim(),
@@ -281,6 +298,12 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
             ]),
           ),
         ),
+      ),
+      const SizedBox(height: 10),
+      PeopleCountStrip(
+        residents: _countQuery(all: false),
+        tenants: _countQuery(all: true),
+        residentsList: false,
       ),
     ]);
 

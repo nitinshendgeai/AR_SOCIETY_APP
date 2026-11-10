@@ -35,6 +35,7 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
   String? _wingId;
   String? _flatId; // chosen in the filter; a list opened from one flat (filterFlat) is already that flat's
   bool? _movedIn;
+  String _appliedSearch = ''; // the search the list was last loaded with (the box itself is debounced)
 
   static const _typeOptions = [
     (null, 'All'),
@@ -57,7 +58,23 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
     super.dispose();
   }
 
+  /// The counts under the filters in force: this list's own count follows all of them (type included); the tenants'
+  /// count follows those the two lists share.
+  PeopleCountQuery _countQuery({required bool withType}) => (
+        wingId: widget.filterFlat == null ? _wingId : null,
+        flatId: widget.filterFlat?.id ?? _flatId,
+        isActive: _activeFilter,
+        movedIn: _movedIn,
+        search: _appliedSearch.isEmpty ? null : _appliedSearch,
+        residentType: withType ? _typeFilter : null,
+        agreement: null,
+        police: null,
+        kycVerified: null,
+      );
+
   void _load() {
+    _appliedSearch = _searchCtrl.text.trim();
+    if (mounted) setState(() {});
     ref.read(residentListProvider.notifier).load(
           residentType: _typeFilter,
           isActive: _activeFilter,
@@ -228,6 +245,12 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
           ),
         ),
       ]),
+      const SizedBox(height: 10),
+      PeopleCountStrip(
+        residents: _countQuery(withType: true),
+        tenants: _countQuery(withType: false),
+        residentsList: true,
+      ),
     ]);
 
   @override

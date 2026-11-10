@@ -42,22 +42,10 @@ class TenantRepository(BaseRepository[Tenant]):
                  .filter(Wing.society_id == society_id)
         return q.first()
 
-    def list_scoped(
-        self,
-        society_id: Optional[UUID],
-        flat_id: Optional[UUID] = None,
-        is_active: Optional[bool] = True,
-        search: Optional[str] = None,
-        skip: int = 0,
-        limit: int = 50,
-        search_contacts: bool = True,
-        wing_id: Optional[UUID] = None,
-        moved_in: Optional[bool] = None,
-        agreement: Optional[str] = None,
-        police: Optional[str] = None,
-        kyc_verified: Optional[bool] = None,
-    ) -> List[Tenant]:
-        q = self.db.query(Tenant)
+    @staticmethod
+    def _apply_filters(q, society_id, flat_id, is_active, search, search_contacts, wing_id, moved_in, agreement,
+                       police, kyc_verified):
+        """The filters of the tenant list. Shared by the list and its count so the two can never disagree."""
         if society_id is not None or wing_id is not None:
             q = q.join(Flat, Tenant.flat_id == Flat.id).join(Wing, Flat.wing_id == Wing.id)
             if society_id is not None:
@@ -97,6 +85,42 @@ class TenantRepository(BaseRepository[Tenant]):
                 )
             else:   # a member may search names only
                 q = q.filter(Tenant.full_name.ilike(like))
+        return q
+
+    def count_scoped(
+        self,
+        society_id: Optional[UUID],
+        flat_id: Optional[UUID] = None,
+        is_active: Optional[bool] = True,
+        search: Optional[str] = None,
+        search_contacts: bool = True,
+        wing_id: Optional[UUID] = None,
+        moved_in: Optional[bool] = None,
+        agreement: Optional[str] = None,
+        police: Optional[str] = None,
+        kyc_verified: Optional[bool] = None,
+    ) -> int:
+        """How many tenants list_scoped would return with no paging."""
+        return self._apply_filters(self.db.query(Tenant), society_id, flat_id, is_active, search, search_contacts,
+                                   wing_id, moved_in, agreement, police, kyc_verified).count()
+
+    def list_scoped(
+        self,
+        society_id: Optional[UUID],
+        flat_id: Optional[UUID] = None,
+        is_active: Optional[bool] = True,
+        search: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 50,
+        search_contacts: bool = True,
+        wing_id: Optional[UUID] = None,
+        moved_in: Optional[bool] = None,
+        agreement: Optional[str] = None,
+        police: Optional[str] = None,
+        kyc_verified: Optional[bool] = None,
+    ) -> List[Tenant]:
+        q = self._apply_filters(self.db.query(Tenant), society_id, flat_id, is_active, search, search_contacts,
+                                wing_id, moved_in, agreement, police, kyc_verified)
         return q.order_by(Tenant.full_name).offset(skip).limit(limit).all()
 
     def find_duplicate_warnings(

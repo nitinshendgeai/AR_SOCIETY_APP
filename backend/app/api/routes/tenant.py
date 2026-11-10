@@ -55,6 +55,26 @@ def list_tenants(
     return [hide_private(t, current_user, TENANT_PRIVATE_FIELDS) for t in rows]
 
 
+@router.get("/count", response_model=dict)
+def count_tenants(
+    flat_id: Optional[UUID] = None,
+    wing_id: Optional[UUID] = None,
+    is_active: Optional[bool] = True,
+    moved_in: Optional[bool] = Query(None, description="true: living there now; false: no move-in date yet"),
+    agreement: Optional[Literal["running", "expiring", "expired", "none"]] = Query(
+        None, description="By the agreement's end date: running, expiring (within 30 days), expired, none on record"),
+    police: Optional[Literal["pending", "submitted", "verified", "rejected"]] = None,
+    kyc_verified: Optional[bool] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """How many tenants match the same filters as the list (no paging): {"count": n}."""
+    return {"count": TenantService(db).count(
+        current_user, flat_id=flat_id, is_active=is_active, search=search, wing_id=wing_id, moved_in=moved_in,
+        agreement=agreement, police=police, kyc_verified=kyc_verified)}
+
+
 @router.get("/{tenant_id}", response_model=TenantOut)
 def get_tenant(tenant_id: UUID, db: Session = Depends(get_db),
                 current_user: User = Depends(get_current_user)):

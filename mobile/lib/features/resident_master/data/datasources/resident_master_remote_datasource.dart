@@ -42,6 +42,27 @@ class ResidentMasterRemoteDataSource {
         .toList();
   }
 
+  /// GET /residents/count?flat_id=&wing_id=&resident_type=&is_active=&moved_in=&search= : how many residents match the
+  /// same filters as the list, whatever the paging.
+  Future<int> countResidents({
+    String? flatId,
+    String? wingId,
+    String? residentType,
+    bool? isActive,
+    bool? movedIn,
+    String? search,
+  }) async {
+    final r = await _dio.get('/residents/count', queryParameters: {
+      if (flatId != null) 'flat_id': flatId,
+      if (wingId != null) 'wing_id': wingId,
+      if (movedIn != null) 'moved_in': movedIn,
+      if (residentType != null) 'resident_type': residentType,
+      if (isActive != null) 'is_active': isActive,
+      if (search != null && search.isNotEmpty) 'search': search,
+    });
+    return ((r.data as Map<String, dynamic>)['count'] as num).toInt();
+  }
+
   /// GET /residents/{id}
   Future<ResidentModel> getResident(String id) async {
     final r = await _dio.get('/residents/$id');
@@ -138,6 +159,31 @@ class ResidentMasterRemoteDataSource {
     return (r.data as List)
         .map((e) => TenantModel.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  /// GET /tenants/count?flat_id=&wing_id=&is_active=&moved_in=&agreement=&police=&kyc_verified=&search= : how many
+  /// tenants match the same filters as the list, whatever the paging.
+  Future<int> countTenants({
+    String? flatId,
+    String? wingId,
+    bool? isActive,
+    bool? movedIn,
+    String? agreement,
+    String? police,
+    bool? kycVerified,
+    String? search,
+  }) async {
+    final r = await _dio.get('/tenants/count', queryParameters: {
+      if (flatId != null) 'flat_id': flatId,
+      if (wingId != null) 'wing_id': wingId,
+      if (movedIn != null) 'moved_in': movedIn,
+      if (agreement != null) 'agreement': agreement,
+      if (police != null) 'police': police,
+      if (kycVerified != null) 'kyc_verified': kycVerified,
+      if (isActive != null) 'is_active': isActive,
+      if (search != null && search.isNotEmpty) 'search': search,
+    });
+    return ((r.data as Map<String, dynamic>)['count'] as num).toInt();
   }
 
   /// GET /tenants/{id}

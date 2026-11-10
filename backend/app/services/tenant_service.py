@@ -129,6 +129,28 @@ class TenantService:
         )
         return [self._enrich(t) for t in tenants]
 
+    def count(
+        self,
+        current_user: User,
+        flat_id: Optional[UUID] = None,
+        is_active: Optional[bool] = True,
+        search: Optional[str] = None,
+        wing_id: Optional[UUID] = None,
+        moved_in: Optional[bool] = None,
+        agreement: Optional[str] = None,
+        police: Optional[str] = None,
+        kyc_verified: Optional[bool] = None,
+    ) -> int:
+        """How many tenants `list` would return for the same filters, ignoring paging."""
+        if flat_id is not None:
+            if not self.flat_repo.get(flat_id, society_id=current_user.society_id):
+                raise HTTPException(status_code=404, detail="Flat not found")
+        return self.repo.count_scoped(
+            society_id=current_user.society_id, flat_id=flat_id, is_active=is_active, search=search,
+            search_contacts=can_search_contacts(current_user), wing_id=wing_id, moved_in=moved_in,
+            agreement=agreement, police=police, kyc_verified=kyc_verified,
+        )
+
     # ── Update ───────────────────────────────────────────────────────────────
 
     def update(self, id: UUID, data: TenantUpdate, current_user: User) -> TenantOut:

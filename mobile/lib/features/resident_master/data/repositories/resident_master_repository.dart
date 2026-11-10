@@ -67,6 +67,24 @@ class ResidentMasterRepository {
     }
   }
 
+  Future<RmResult<int>> countResidents({
+    String? flatId,
+    String? wingId,
+    String? residentType,
+    bool? isActive,
+    bool? movedIn,
+    String? search,
+  }) async {
+    try {
+      return RmSuccess(await _ds.countResidents(
+        flatId: flatId, wingId: wingId, residentType: residentType, isActive: isActive, movedIn: movedIn,
+        search: search,
+      ));
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
   Future<RmResult<ResidentModel>> getResident(String id) async {
     try {
       return RmSuccess(await _ds.getResident(id));
@@ -167,6 +185,26 @@ class ResidentMasterRepository {
       return RmSuccess(await _ds.listTenants(
         flatId: flatId, wingId: wingId, isActive: isActive, movedIn: movedIn, agreement: agreement, police: police,
         kycVerified: kycVerified, search: search, skip: skip, limit: limit,
+      ));
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  Future<RmResult<int>> countTenants({
+    String? flatId,
+    String? wingId,
+    bool? isActive,
+    bool? movedIn,
+    String? agreement,
+    String? police,
+    bool? kycVerified,
+    String? search,
+  }) async {
+    try {
+      return RmSuccess(await _ds.countTenants(
+        flatId: flatId, wingId: wingId, isActive: isActive, movedIn: movedIn, agreement: agreement, police: police,
+        kycVerified: kycVerified, search: search,
       ));
     } catch (e) {
       return _handle(e);

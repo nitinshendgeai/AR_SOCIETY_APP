@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
@@ -133,4 +134,83 @@ class LoadMoreButton extends StatelessWidget {
                 ),
         ),
       );
+}
+
+
+/// "Residents 24 · Tenants 9": how many of each there are under the filters picked. The count of the list being looked
+/// at follows all of its filters; the other count follows the filters the two lists share (wing, flat, active,
+/// move-in and search), so the pair reads as one picture of the wing or flat. A count that could not be fetched shows
+/// a dash.
+class PeopleCountStrip extends ConsumerWidget {
+  final PeopleCountQuery residents;
+  final PeopleCountQuery tenants;
+
+  /// Which count belongs to the list on screen, to stress it.
+  final bool residentsList;
+  const PeopleCountStrip({super.key, required this.residents, required this.tenants, required this.residentsList});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final r = ref.watch(residentCountProvider(residents));
+    final t = ref.watch(tenantCountProvider(tenants));
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Wrap(spacing: 8, runSpacing: 6, children: [
+        _CountChip(
+          chipKey: const ValueKey('people-count-residents'),
+          icon: Icons.people_alt_rounded,
+          label: 'Residents',
+          count: r,
+          stressed: residentsList,
+        ),
+        _CountChip(
+          chipKey: const ValueKey('people-count-tenants'),
+          icon: Icons.key_rounded,
+          label: 'Tenants',
+          count: t,
+          stressed: !residentsList,
+        ),
+      ]),
+    );
+  }
+}
+
+class _CountChip extends StatelessWidget {
+  final Key chipKey;
+  final IconData icon;
+  final String label;
+  final AsyncValue<int?> count;
+  final bool stressed;
+  const _CountChip({
+    required this.chipKey,
+    required this.icon,
+    required this.label,
+    required this.count,
+    required this.stressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final value = count.when(data: (n) => n?.toString() ?? '—', loading: () => '…', error: (_, __) => '—');
+    final color = stressed ? AppTheme.primary : AppTheme.textSecondary;
+    return Semantics(
+      label: '$label: $value',
+      child: Container(
+        key: chipKey,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: stressed ? AppTheme.primary.withOpacity(0.08) : AppTheme.cardBg,
+          borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+          border: Border.all(color: stressed ? AppTheme.primary.withOpacity(0.4) : AppTheme.border),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+          const SizedBox(width: 6),
+          Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color)),
+        ]),
+      ),
+    );
+  }
 }

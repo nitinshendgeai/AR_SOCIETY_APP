@@ -90,3 +90,70 @@ def test_a_wing_of_another_society_shows_nothing(client, db, rig):
     db.commit()
     assert _names(client, R, rig["h"], wing_id=str(other_wing.id)) == []
     assert _names(client, T, rig["h"], wing_id=str(other_wing.id)) == []
+
+
+# ── Counts: the same filters as the list, without paging ─────────────────────
+
+def _count(client, url, h, **params):
+    r = client.get(f"{url}count", params=params, headers=h)
+    assert r.status_code == 200, r.text
+    return r.json()["count"]
+
+
+def test_resident_count_matches_the_list_for_every_filter(client, db, rig):
+    from app.models.resident import ResidentType
+    f, h, today = rig["flats"], rig["h"], date.today()
+    db.add_all([
+        Resident(flat_id=f["a1"].id, full_name="Asha In", phone="9000000001", resident_type=ResidentType.OWNER,
+                 move_in_date=today - timedelta(days=30)),
+        Resident(flat_id=f["a1"].id, full_name="Asha Kid", resident_type=ResidentType.FAMILY),
+        Resident(flat_id=f["a2"].id, full_name="Asha Waiting", resident_type=ResidentType.OWNER),
+        Resident(flat_id=f["b1"].id, full_name="Bela In", resident_type=ResidentType.CO_OWNER,
+                 move_in_date=today - timedelta(days=5)),
+        Resident(flat_id=f["b1"].id, full_name="Bela Gone", resident_type=ResidentType.OWNER, is_active=False),
+    ])
+    db.commit()
+    wa, wb = str(rig["wing_a"].id), str(rig["wing_b"].id)
+    for params in [{}, {"is_active": "false"}, {"wing_id": wa}, {"wing_id": wb},
+                   {"flat_id": str(f["a1"].id)}, {"resident_type": "owner"}, {"resident_type": "family"},
+                   {"moved_in": "true"}, {"moved_in": "false"}, {"search": "asha"}, {"search": "9000000001"},
+                   {"wing_id": wa, "resident_type": "owner", "search": "asha"}]:
+        assert _count(client, R, h, **params) == len(_names(client, R, h, **params)), params
+    assert _count(client, R, h) == 4 and _count(client, R, h, is_active="false") == 1
+    assert _count(client, R, h, wing_id=wa, resident_type="owner") == 2
+
+
+def test_tenant_count_matches_the_list_for_every_filter(client, db, rig):
+    f, h, today = rig["flats"], rig["h"], date.today()
+    db.add_all([
+        Tenant(flat_id=f["a1"].id, full_name="Runs Long", move_in_date=today - timedelta(days=60),
+               agreement_end_date=today + timedelta(days=200), police_verification_status=PoliceVerificationStatus.VERIFIED,
+               kyc_verified=True),
+        Tenant(flat_id=f["a2"].id, full_name="Expires Soon", move_in_date=today - timedelta(days=300),
+               agreement_end_date=today + timedelta(days=10)),
+        Tenant(flat_id=f["b1"].id, full_name="Lapsed", agreement_end_date=today - timedelta(days=3)),
+        Tenant(flat_id=f["b1"].id, full_name="Left", is_active=False),
+    ])
+    db.commit()
+    wa, wb = str(rig["wing_a"].id), str(rig["wing_b"].id)
+    for params in [{}, {"is_active": "false"}, {"wing_id": wa}, {"wing_id": wb}, {"flat_id": str(f["a2"].id)},
+                   {"moved_in": "true"}, {"moved_in": "false"}, {"agreement": "running"}, {"agreement": "expiring"},
+                   {"agreement": "expired"}, {"police": "verified"}, {"police": "pending"}, {"kyc_verified": "true"},
+                   {"search": "run"}, {"wing_id": wa, "police": "pending"}]:
+        assert _count(client, T, h, **params) == len(_names(client, T, h, **params)), params
+    assert _count(client, T, h) == 3 and _count(client, T, h, wing_id=wb) == 1
+
+
+def test_counts_cover_more_than_one_page_and_stay_inside_the_society(client, db, rig):
+    f, h = rig["flats"], rig["h"]
+    db.add_all([Resident(flat_id=f["a1"].id, full_name=f"Person {i:03d}") for i in range(60)])
+    db.commit()
+    assert _count(client, R, h) == 60                                   # the list pages 50 at a time; the count is all
+    assert len(client.get(R, params={"limit": 50}, headers=h).json()) == 50
+    other = make_society(db, "Another Society")
+    other_wing = make_wing(db, other.id, "Z")
+    other_flat = make_flat(db, other_wing.id, "901")
+    db.commit()
+    assert client.get(f"{R}count", params={"flat_id": str(other_flat.id)}, headers=h).status_code == 404
+    assert client.get(f"{T}count", params={"flat_id": str(other_flat.id)}, headers=h).status_code == 404
+    assert _count(client, R, h, wing_id=str(other_wing.id)) == 0        # another society's wing counts nothing here
