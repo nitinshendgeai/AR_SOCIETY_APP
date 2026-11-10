@@ -143,6 +143,17 @@ class _FakeDataSource extends ResidentMasterRemoteDataSource {
   }) async => residents;
 
   @override
+  Future<int> countResidents({
+    String? flatId, String? wingId, String? residentType, bool? isActive, bool? movedIn, String? search,
+  }) async => residents.length;
+
+  @override
+  Future<int> countTenants({
+    String? flatId, String? wingId, bool? isActive, bool? movedIn, String? agreement, String? police,
+    bool? kycVerified, String? search,
+  }) async => tenants.length;
+
+  @override
   Future<ResidentModel> createResident(Map<String, dynamic> data) async {
     if (throwOnCreateResident != null) throw throwOnCreateResident!;
     final r = _resident(id: 'new-res', fullName: data['full_name'] as String);

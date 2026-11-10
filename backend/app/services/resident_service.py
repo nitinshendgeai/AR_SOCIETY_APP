@@ -183,6 +183,25 @@ class ResidentService:
         )
         return [self._enrich(r) for r in residents]
 
+    def count(
+        self,
+        current_user: User,
+        flat_id: Optional[UUID] = None,
+        resident_type: Optional[ResidentType] = None,
+        is_active: Optional[bool] = True,
+        search: Optional[str] = None,
+        wing_id: Optional[UUID] = None,
+        moved_in: Optional[bool] = None,
+    ) -> int:
+        """How many residents `list` would return for the same filters, ignoring paging."""
+        if flat_id is not None:
+            if not self.flat_repo.get(flat_id, society_id=current_user.society_id):
+                raise HTTPException(status_code=404, detail="Flat not found")
+        return self.repo.count_scoped(
+            society_id=current_user.society_id, flat_id=flat_id, resident_type=resident_type, is_active=is_active,
+            search=search, search_contacts=can_search_contacts(current_user), wing_id=wing_id, moved_in=moved_in,
+        )
+
     # ── Update ───────────────────────────────────────────────────────────────
 
     def update(self, id: UUID, data: ResidentUpdate, current_user: User) -> ResidentOut:

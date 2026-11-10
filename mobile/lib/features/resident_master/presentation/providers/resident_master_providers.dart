@@ -576,3 +576,38 @@ class VehiclesByFlatNotifier extends FamilyAsyncNotifier<List<VehicleModel>, Str
     }
   }
 }
+
+
+// ── Counts under the current filters ─────────────────────────────────────────
+
+/// What a count asks for: the filters the Residents and Tenants lists share, and those only one of them has. A record,
+/// so two equal queries are one provider and the number is fetched once.
+typedef PeopleCountQuery = ({
+  String? wingId,
+  String? flatId,
+  bool? isActive,
+  bool? movedIn,
+  String? search,
+  String? residentType,
+  String? agreement,
+  String? police,
+  bool? kycVerified,
+});
+
+/// How many residents match [PeopleCountQuery]; null when it could not be counted (the screen then shows a dash).
+final residentCountProvider = FutureProvider.autoDispose.family<int?, PeopleCountQuery>((ref, q) async {
+  final result = await ref.read(residentMasterRepositoryProvider).countResidents(
+        flatId: q.flatId, wingId: q.wingId, residentType: q.residentType, isActive: q.isActive,
+        movedIn: q.movedIn, search: q.search,
+      );
+  return switch (result) { RmSuccess(:final data) => data, _ => null };
+});
+
+/// How many tenants match [PeopleCountQuery]; null when it could not be counted.
+final tenantCountProvider = FutureProvider.autoDispose.family<int?, PeopleCountQuery>((ref, q) async {
+  final result = await ref.read(residentMasterRepositoryProvider).countTenants(
+        flatId: q.flatId, wingId: q.wingId, isActive: q.isActive, movedIn: q.movedIn, agreement: q.agreement,
+        police: q.police, kycVerified: q.kycVerified, search: q.search,
+      );
+  return switch (result) { RmSuccess(:final data) => data, _ => null };
+});

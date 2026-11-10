@@ -40,25 +40,10 @@ class ResidentRepository(BaseRepository[Resident]):
                  .filter(Wing.society_id == society_id)
         return q.first()
 
-    def list_scoped(
-        self,
-        society_id: Optional[UUID],
-        flat_id: Optional[UUID] = None,
-        resident_type: Optional[ResidentType] = None,
-        is_active: Optional[bool] = True,
-        search: Optional[str] = None,
-        skip: int = 0,
-        limit: int = 50,
-        search_contacts: bool = True,
-        wing_id: Optional[UUID] = None,
-        moved_in: Optional[bool] = None,
-    ) -> List[Resident]:
-        # Always joined (not just when scoping by society_id) — flat_id/wing_id
-        # are both non-nullable on Resident/Flat, and the ordering below needs
-        # Wing.name/Flat.flat_number regardless of whether society_id is passed.
-        q = self.db.query(Resident).join(Flat, Resident.flat_id == Flat.id) \
-             .join(Wing, Flat.wing_id == Wing.id) \
-             .options(contains_eager(Resident.flat).contains_eager(Flat.wing))
+    @staticmethod
+    def _apply_filters(q, society_id, flat_id, resident_type, is_active, search, search_contacts, wing_id, moved_in):
+        """The filters of the resident list, on a query already joined to Flat and Wing. Shared by the list and its
+        count so the two can never disagree."""
         if society_id is not None:
             q = q.filter(Wing.society_id == society_id)
         if flat_id is not None:
@@ -83,6 +68,45 @@ class ResidentRepository(BaseRepository[Resident]):
                 )
             else:   # a member may search names only
                 q = q.filter(Resident.full_name.ilike(like))
+        return q
+
+    def count_scoped(
+        self,
+        society_id: Optional[UUID],
+        flat_id: Optional[UUID] = None,
+        resident_type: Optional[ResidentType] = None,
+        is_active: Optional[bool] = True,
+        search: Optional[str] = None,
+        search_contacts: bool = True,
+        wing_id: Optional[UUID] = None,
+        moved_in: Optional[bool] = None,
+    ) -> int:
+        """How many residents list_scoped would return with no paging."""
+        q = self.db.query(Resident).join(Flat, Resident.flat_id == Flat.id).join(Wing, Flat.wing_id == Wing.id)
+        return self._apply_filters(q, society_id, flat_id, resident_type, is_active, search, search_contacts,
+                                   wing_id, moved_in).count()
+
+    def list_scoped(
+        self,
+        society_id: Optional[UUID],
+        flat_id: Optional[UUID] = None,
+        resident_type: Optional[ResidentType] = None,
+        is_active: Optional[bool] = True,
+        search: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 50,
+        search_contacts: bool = True,
+        wing_id: Optional[UUID] = None,
+        moved_in: Optional[bool] = None,
+    ) -> List[Resident]:
+        # Always joined (not just when scoping by society_id) — flat_id/wing_id
+        # are both non-nullable on Resident/Flat, and the ordering below needs
+        # Wing.name/Flat.flat_number regardless of whether society_id is passed.
+        q = self.db.query(Resident).join(Flat, Resident.flat_id == Flat.id) \
+             .join(Wing, Flat.wing_id == Wing.id) \
+             .options(contains_eager(Resident.flat).contains_eager(Flat.wing))
+        q = self._apply_filters(q, society_id, flat_id, resident_type, is_active, search, search_contacts,
+                                wing_id, moved_in)
         # Flat number, not name, is the canonical resident-list order (mirrors
         # FlatRepository.get_by_society's ordering). flat_number is free text
         # ("A-101", "1101", "A-1702", ...), so plain SQL string ordering would

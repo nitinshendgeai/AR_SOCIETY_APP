@@ -38,7 +38,9 @@ class _FlatListScreenState extends ConsumerState<FlatListScreen> {
     super.dispose();
   }
 
-  List<FlatModel> _filter(List<FlatModel> flats) {
+  /// The flats under every filter; `byOccupancy: false` leaves the Owner / Tenant / Vacant choice out, which is how
+  /// the counts on those very chips are worked out.
+  List<FlatModel> _filter(List<FlatModel> flats, {bool byOccupancy = true}) {
     final q = _search.text.toLowerCase();
     return flats.where((f) {
       if (widget.filterWing != null && f.wingId != widget.filterWing!.id) {
@@ -47,7 +49,7 @@ class _FlatListScreenState extends ConsumerState<FlatListScreen> {
       if (widget.filterFloor != null && f.floor != widget.filterFloor!.floorNumber) {
         return false;
       }
-      if (_occupancyFilter != null && _occupancyFilter != 'all') {
+      if (byOccupancy && _occupancyFilter != null && _occupancyFilter != 'all') {
         if (f.occupancyStatus != _occupancyFilter) return false;
       }
       if (_wingId != null && f.wingId != _wingId) return false;
@@ -109,6 +111,16 @@ class _FlatListScreenState extends ConsumerState<FlatListScreen> {
     ]);
   }
 
+  /// How many flats each occupancy chip stands for, under the other filters picked (wing, floor, type, search).
+  Map<String, int> _occupancyCounts() {
+    final flats = ref.watch(flatsBySocietyProvider).valueOrNull ?? const <FlatModel>[];
+    final base = _filter(flats, byOccupancy: false);
+    return {
+      'all': base.length,
+      for (final o in _occupancyOptions.where((o) => o != 'all')) o: base.where((f) => f.occupancyStatus == o).length,
+    };
+  }
+
   Widget _filters() => Column(children: [
       TextField(
         controller: _search,
@@ -129,7 +141,9 @@ class _FlatListScreenState extends ConsumerState<FlatListScreen> {
       const SizedBox(height: 8),
       _pickers(),
       const SizedBox(height: 8),
-      SingleChildScrollView(
+      Builder(builder: (context) {
+        final counts = _occupancyCounts();
+        return SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(children: _occupancyOptions.map((o) {
           final isAll = o == 'all';
@@ -138,14 +152,16 @@ class _FlatListScreenState extends ConsumerState<FlatListScreen> {
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: FilterChip(
-              label: Text(_occupancyLabel(o)),
+              key: ValueKey('flats-occupancy-$o'),
+              label: Text('${_occupancyLabel(o)} (${counts[o] ?? 0})'),
               selected: selected,
               onSelected: (_) =>
                   setState(() => _occupancyFilter = isAll ? null : o),
             ),
           );
         }).toList()),
-      ),
+      );
+      }),
     ]);
 
   /// Desktop: flats as a sortable table, filters in its toolbar.

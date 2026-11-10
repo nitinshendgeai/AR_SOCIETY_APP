@@ -45,6 +45,23 @@ def list_residents(
     return [hide_private(r, current_user, RESIDENT_PRIVATE_FIELDS) for r in rows]
 
 
+@router.get("/count", response_model=dict)
+def count_residents(
+    flat_id: Optional[UUID] = None,
+    wing_id: Optional[UUID] = None,
+    resident_type: Optional[ResidentType] = None,
+    is_active: Optional[bool] = True,
+    moved_in: Optional[bool] = Query(None, description="true: living there now; false: no move-in date yet"),
+    search: Optional[str] = Query(None, description="Matches name, phone, or email"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """How many residents match the same filters as the list (no paging): {"count": n}."""
+    return {"count": ResidentService(db).count(
+        current_user, flat_id=flat_id, resident_type=resident_type, is_active=is_active, search=search,
+        wing_id=wing_id, moved_in=moved_in)}
+
+
 @router.get("/login-status", response_model=dict)
 def residents_login_status(
     status: Optional[Literal["linked", "login_disabled", "login_unlinked", "no_login", "no_mobile",

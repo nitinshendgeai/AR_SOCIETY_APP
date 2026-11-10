@@ -13,12 +13,39 @@ import 'package:ar_society_app/features/resident_master/presentation/screens/res
 import 'package:ar_society_app/features/resident_master/presentation/screens/tenant_list_screen.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
+import 'package:ar_society_app/shared/widgets/app_widgets.dart' show AppFilterPill;
 
 /// What the lists asked the server for, so a tapped filter can be checked without a network.
 class _Recorder extends ResidentMasterRemoteDataSource {
   _Recorder() : super(dio: Dio());
   final residentCalls = <Map<String, Object?>>[];
   final tenantCalls = <Map<String, Object?>>[];
+  final residentCountCalls = <Map<String, Object?>>[];
+  final tenantCountCalls = <Map<String, Object?>>[];
+  int residentTotal = 7;
+  int tenantTotal = 3;
+
+  @override
+  Future<int> countResidents({
+    String? flatId, String? wingId, String? residentType, bool? isActive, bool? movedIn, String? search,
+  }) async {
+    residentCountCalls.add({
+      'flat': flatId, 'wing': wingId, 'type': residentType, 'movedIn': movedIn, 'active': isActive, 'search': search,
+    });
+    return residentTotal;
+  }
+
+  @override
+  Future<int> countTenants({
+    String? flatId, String? wingId, bool? isActive, bool? movedIn, String? agreement, String? police,
+    bool? kycVerified, String? search,
+  }) async {
+    tenantCountCalls.add({
+      'flat': flatId, 'wing': wingId, 'movedIn': movedIn, 'agreement': agreement, 'police': police,
+      'kyc': kycVerified, 'active': isActive, 'search': search,
+    });
+    return tenantTotal;
+  }
 
   @override
   Future<List<ResidentModel>> listResidents({
@@ -39,6 +66,20 @@ class _Recorder extends ResidentMasterRemoteDataSource {
     });
     return [];
   }
+}
+
+/// A server whose lists answer but whose counts fail.
+class _FailingCounts extends _Recorder {
+  @override
+  Future<int> countResidents({
+    String? flatId, String? wingId, String? residentType, bool? isActive, bool? movedIn, String? search,
+  }) async => throw Exception('no count');
+
+  @override
+  Future<int> countTenants({
+    String? flatId, String? wingId, bool? isActive, bool? movedIn, String? agreement, String? police,
+    bool? kycVerified, String? search,
+  }) async => throw Exception('no count');
 }
 
 class _Flats extends FlatsBySocietyNotifier {
@@ -65,8 +106,69 @@ Widget _app(_Recorder ds, Widget home) => ProviderScope(
       child: MaterialApp(theme: AppTheme.lightTheme, home: home),
     );
 
+Finder _chip(String key, String value) =>
+    find.descendant(of: find.byKey(ValueKey(key)), matching: find.text(value));
+
 void main() {
   pagingTests();
+  testWidgets('the Residents list shows how many residents and tenants there are', (tester) async {
+    final ds = _Recorder();
+    await tester.pumpWidget(_app(ds, const ResidentListScreen()));
+    await tester.pumpAndSettle();
+    expect(_chip('people-count-residents', '7'), findsOneWidget);
+    expect(_chip('people-count-tenants', '3'), findsOneWidget);
+  });
+
+  testWidgets('the counts follow the filters: a wing narrows both, a type only the residents', (tester) async {
+    final ds = _Recorder();
+    await tester.pumpWidget(_app(ds, const ResidentListScreen()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('filter-wing')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Wing A').last);
+    await tester.pumpAndSettle();
+    expect(ds.residentCountCalls.last['wing'], 'wa');
+    expect(ds.tenantCountCalls.last['wing'], 'wa');                       // the pair reads as one picture of the wing
+
+    ds.residentTotal = 2;
+    await tester.tap(find.widgetWithText(AppFilterPill, 'Owner'));
+    await tester.pumpAndSettle();
+    expect(ds.residentCountCalls.last['type'], 'owner');
+    expect(ds.residentCountCalls.last['wing'], 'wa');                     // filters combine
+    expect(ds.tenantCountCalls.last['wing'], 'wa');
+    expect(_chip('people-count-residents', '2'), findsOneWidget);          // the number follows
+    expect(_chip('people-count-tenants', '3'), findsOneWidget);
+  });
+
+  testWidgets('the Tenants list counts under its own filters, and the residents under the shared ones', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(900, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final ds = _Recorder();
+    await tester.pumpWidget(_app(ds, const TenantListScreen()));
+    await tester.pumpAndSettle();
+    expect(_chip('people-count-tenants', '3'), findsOneWidget);
+    expect(_chip('people-count-residents', '7'), findsOneWidget);
+
+    final residentAsks = ds.residentCountCalls.length;
+    ds.tenantTotal = 1;
+    await tester.tap(find.byKey(const ValueKey('tenant-more-filters')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('filter-police-pending')));
+    await tester.pumpAndSettle();
+    expect(ds.tenantCountCalls.last['police'], 'pending');
+    expect(_chip('people-count-tenants', '1'), findsOneWidget);
+    expect(ds.residentCountCalls.length, residentAsks);                   // a police filter does not touch residents
+  });
+
+  testWidgets('a count that cannot be fetched shows a dash, not a wrong number', (tester) async {
+    final ds = _FailingCounts();
+    await tester.pumpWidget(_app(ds, const ResidentListScreen()));
+    await tester.pumpAndSettle();
+    expect(_chip('people-count-residents', '—'), findsOneWidget);
+    expect(_chip('people-count-tenants', '—'), findsOneWidget);
+  });
+
   testWidgets('the Residents list asks the server for a moved-in or not-yet-moved-in filter', (tester) async {
     final ds = _Recorder();
     await tester.pumpWidget(_app(ds, const ResidentListScreen()));
