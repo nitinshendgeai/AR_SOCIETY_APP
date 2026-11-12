@@ -11,6 +11,15 @@ import 'package:ar_society_app/features/lights_check/presentation/screens/lights
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 
+class _FakeFlats extends FlatsByWingNotifier {
+  @override
+  Future<List<FlatModel>> build(String wingId) async => const [
+        FlatModel(id: 'f201', flatNumber: '201', floor: 2, wingId: 'w1'),
+        FlatModel(id: 'f202', flatNumber: '202', floor: 2, wingId: 'w1'),
+        FlatModel(id: 'f301', flatNumber: '301', floor: 3, wingId: 'w1'),
+      ];
+}
+
 class _FakeWings extends WingsNotifier {
   @override
   Future<List<WingModel>> build() async => const [WingModel(id: 'w1', name: 'Wing A', societyId: 's1')];
@@ -27,8 +36,8 @@ Map<String, dynamic> _point(String location, String label, {String? status, Stri
 
 /// A server with one wing, one floor and the 4 tube lights of it; remembers what was saved.
 Dio _server(List<Map<String, dynamic>> saved,
-    {List<Map<String, dynamic>> broken = const [], List<String?>? months}) {
-  final asked = months ?? <String?>[];
+    {List<Map<String, dynamic>> broken = const [], List<Map<String, dynamic>>? reports}) {
+  final asked = reports ?? <Map<String, dynamic>>[];
   final dio = Dio();
   dio.interceptors.add(InterceptorsWrapper(onRequest: (o, h) {
     Object data;
@@ -55,10 +64,21 @@ Dio _server(List<Map<String, dynamic>> saved,
       saved.add(Map<String, dynamic>.from(o.data as Map));
       data = {'checked': 4, 'working': 3, 'not_working': 1};
     } else if (o.path.endsWith('/report')) {
-      asked.add(o.queryParameters['month'] as String?);
+      asked.add(Map<String, dynamic>.from(o.queryParameters));
       data = {
         'month': o.queryParameters['month'] ?? '2026-11',
         'totals': {'checked': 7, 'working': 6, 'not_working': 1, 'replaced': 1, 'still_not_working': 1},
+        'flat': o.queryParameters['flat_id'] == null
+            ? null
+            : {
+                'id': 'f202',
+                'label': '202',
+                'lights': [
+                  {'location': 'hall', 'label': 'Hall', 'status': 'working', 'checked_at': '2026-11-05T05:00:00Z'},
+                  {'location': 'bedroom', 'label': 'Bedroom', 'status': null, 'checked_at': null},
+                  {'location': 'kitchen', 'label': 'Kitchen', 'status': 'not_working', 'checked_at': '2026-11-05T05:00:00Z'},
+                ],
+              },
         'floors_not_checked': 1,
         'floors_partly_checked': 1,
         'floors': [
@@ -89,6 +109,7 @@ Widget _wrap(Dio dio) => ProviderScope(
         currentUserProvider.overrideWithValue(const UserEntity(
             id: 'u', email: 'e@t.com', fullName: 'Eli', roles: ['Technical Staff'], societyId: 's1', termsAccepted: true)),
         wingsProvider.overrideWith(() => _FakeWings()),
+        flatsByWingProvider.overrideWith(() => _FakeFlats()),
         lightsApiProvider.overrideWithValue(LightsApi(dio: dio)),
       ],
       child: MaterialApp(theme: AppTheme.lightTheme, home: const LightsCheckScreen()),
@@ -162,8 +183,8 @@ void main() {
 
   testWidgets('the Report tab shows the month, the totals and every floor', (t) async {
     phone(t);
-    final months = <String?>[];
-    await t.pumpWidget(_wrap(_server([], months: months)));
+    final asked = <Map<String, dynamic>>[];
+    await t.pumpWidget(_wrap(_server([], reports: asked)));
     await t.pumpAndSettle();
     await t.tap(find.text('Report'));
     await t.pumpAndSettle();
@@ -179,9 +200,43 @@ void main() {
     expect(find.textContaining('Spot lights 3/6 (2 flats)'), findsOneWidget);
     expect(find.text('1 not working'), findsOneWidget);
     // the first read is the current month; "previous" asks for the one before
-    expect(months, [null]);
+    expect(asked, [<String, dynamic>{}]);
     await t.tap(find.byKey(const Key('report-prev')));
     await t.pumpAndSettle();
-    expect(months.last, matches(RegExp(r'^\d{4}-\d{2}$')));
+    expect(asked.last['month'], matches(RegExp(r'^\d{4}-\d{2}$')));
+  });
+
+  testWidgets('the report can be narrowed by wing, floor and flat', (t) async {
+    phone(t);
+    final asked = <Map<String, dynamic>>[];
+    await t.pumpWidget(_wrap(_server([], reports: asked)));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Report'));
+    await t.pumpAndSettle();
+    // the floor needs a wing first
+    expect(t.widget<DropdownButtonFormField<int?>>(find.byKey(const Key('report-floor'))).onChanged, isNull);
+    expect(find.byKey(const Key('report-flat')), findsNothing);
+
+    await choose(t, const Key('report-wing'), 'Wing A');
+    expect(asked.last, {'wing_id': 'w1'});
+    await choose(t, const Key('report-floor'), '2nd Floor');
+    expect(asked.last, {'wing_id': 'w1', 'floor_number': 2});
+    // only this floor's flats are offered
+    await t.tap(find.byKey(const Key('report-flat')));
+    await t.pumpAndSettle();
+    expect(find.text('Flat 201'), findsWidgets);
+    expect(find.text('Flat 301'), findsNothing);
+    await t.tap(find.text('Flat 202').last);
+    await t.pumpAndSettle();
+    expect(asked.last, {'wing_id': 'w1', 'floor_number': 2, 'flat_id': 'f202'});
+    // the flat's three spot lights, as they stood
+    expect(find.text('Bedroom'), findsOneWidget);
+    expect(find.text('Hall'), findsOneWidget);
+    expect(find.text('Not working'), findsWidgets);
+    expect(find.text('Not checked'), findsWidgets);
+
+    await t.tap(find.byKey(const Key('report-clear')));
+    await t.pumpAndSettle();
+    expect(asked.last, <String, dynamic>{});
   });
 }

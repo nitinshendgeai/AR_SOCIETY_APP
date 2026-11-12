@@ -64,8 +64,9 @@ def summary(society_id: UUID, db: Session = Depends(get_db), user: User = Depend
 
 @router.get("/{society_id}/report")
 def report(society_id: UUID, month: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}$"),
-           db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return LightService(db).report(society_id, month, user)
+           wing_id: Optional[UUID] = None, floor_number: Optional[int] = Query(None, ge=-5, le=200),
+           flat_id: Optional[UUID] = None, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return LightService(db).report(society_id, month, user, wing_id, floor_number, flat_id)
 
 
 @router.post("/point/{point_id}/replace")
