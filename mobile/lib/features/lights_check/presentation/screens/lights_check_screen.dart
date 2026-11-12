@@ -28,7 +28,7 @@ class LightsCheckScreen extends ConsumerStatefulWidget {
 }
 
 class _LightsCheckScreenState extends ConsumerState<LightsCheckScreen> with SingleTickerProviderStateMixin {
-  late final _tabs = TabController(length: 2, vsync: this);
+  late final _tabs = TabController(length: 3, vsync: this);
 
   @override
   void dispose() {
@@ -46,10 +46,12 @@ class _LightsCheckScreenState extends ConsumerState<LightsCheckScreen> with Sing
       bottom: TabBar(controller: _tabs, tabs: [
         const Tab(text: 'Check'),
         Tab(text: broken == 0 ? 'To replace' : 'To replace ($broken)'),
+        const Tab(text: 'Report'),
       ]),
       body: TabBarView(controller: _tabs, children: [
         _CheckTab(societyId: societyId),
         _ReplaceTab(societyId: societyId),
+        _ReportTab(societyId: societyId),
       ]),
     );
   }
@@ -474,4 +476,177 @@ class _ReplaceSheetState extends ConsumerState<_ReplaceSheet> {
   }
 
   static String _qty(double q) => q == q.roundToDouble() ? q.toInt().toString() : q.toString();
+}
+
+// ── Report ───────────────────────────────────────────────────────────────────
+
+/// "November 2026" for a "2026-11" month.
+String monthTitle(String month) {
+  final p = month.split('-');
+  return DateFormat('MMMM yyyy').format(DateTime(int.parse(p[0]), int.parse(p[1])));
+}
+
+String _monthKey(DateTime d) => '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}';
+
+class _ReportTab extends ConsumerStatefulWidget {
+  final String societyId;
+  const _ReportTab({required this.societyId});
+
+  @override
+  ConsumerState<_ReportTab> createState() => _ReportTabState();
+}
+
+class _ReportTabState extends ConsumerState<_ReportTab> {
+  String? _month; // null: the current month, as the server counts it
+
+  ReportKey get _key => (societyId: widget.societyId, month: _month);
+
+  void _step(LightReport r, int by) {
+    final p = r.month.split('-');
+    setState(() => _month = _monthKey(DateTime(int.parse(p[0]), int.parse(p[1]) + by)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(lightReportProvider(_key));
+    return RefreshIndicator(
+      onRefresh: () async => ref.invalidate(lightReportProvider(_key)),
+      child: async.when(
+        loading: () => const AppLoader(),
+        error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(lightReportProvider(_key))),
+        data: (r) => ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 48), children: [
+          _monthBar(r),
+          const SizedBox(height: 12),
+          _tiles(r),
+          const SizedBox(height: 12),
+          if (r.floors.isEmpty)
+            const AppEmptyState(
+                icon: Icons.apartment_rounded, title: 'No floors yet', subtitle: 'Add the wings and floors in the setup wizard.')
+          else ...[
+            if (r.floorsNotChecked > 0 || r.floorsPartlyChecked > 0) _attention(r),
+            for (final f in r.floors) _FloorRow(floor: f),
+          ],
+        ]),
+      ),
+    );
+  }
+
+  Widget _monthBar(LightReport r) => Row(children: [
+        IconButton(key: const Key('report-prev'), onPressed: () => _step(r, -1), icon: const Icon(Icons.chevron_left_rounded)),
+        Expanded(
+            child: Text(monthTitle(r.month),
+                textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
+        // no later than the month the server is in
+        IconButton(
+            key: const Key('report-next'),
+            onPressed: _month == null || _month!.compareTo(_monthKey(DateTime.now())) >= 0 ? null : () => _step(r, 1),
+            icon: const Icon(Icons.chevron_right_rounded)),
+      ]);
+
+  Widget _tiles(LightReport r) {
+    Widget tile(String label, int value, Color color) => Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(AppTheme.radiusM),
+              border: Border.all(color: color.withOpacity(0.3)),
+            ),
+            child: Column(children: [
+              Text('$value', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: color)),
+              const SizedBox(height: 2),
+              Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            ]),
+          ),
+        );
+    return Column(children: [
+      Row(children: [
+        tile('Checked', r.checked, AppTheme.primary),
+        const SizedBox(width: 8),
+        tile('Working', r.working, AppTheme.success),
+        const SizedBox(width: 8),
+        tile('Not working', r.notWorking, AppTheme.error),
+        const SizedBox(width: 8),
+        tile('Replaced', r.replaced, AppTheme.warning),
+      ]),
+      if (r.stillNotWorking > 0)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text('${r.stillNotWorking} light${r.stillNotWorking == 1 ? '' : 's'} still waiting to be replaced',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.error)),
+          ),
+        ),
+    ]);
+  }
+
+  Widget _attention(LightReport r) => Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppTheme.warningSoft,
+          borderRadius: BorderRadius.circular(AppTheme.radiusM),
+        ),
+        child: Row(children: [
+          const Icon(Icons.info_outline_rounded, size: 18, color: AppTheme.warning),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              [
+                if (r.floorsNotChecked > 0) '${r.floorsNotChecked} floor${r.floorsNotChecked == 1 ? '' : 's'} not checked',
+                if (r.floorsPartlyChecked > 0) '${r.floorsPartlyChecked} partly checked',
+              ].join(' · '),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ]),
+      );
+}
+
+class _FloorRow extends StatelessWidget {
+  final FloorReport floor;
+  const _FloorRow({required this.floor});
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (floor.status) {
+      'done' => ('Done', AppTheme.success),
+      'partial' => ('Partly', AppTheme.warning),
+      _ => ('Not checked', AppTheme.textSecondary),
+    };
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBg,
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+              child: Text('${floor.wingName} · ${floor.floorName}',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800))),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(999)),
+            child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+          ),
+        ]),
+        const SizedBox(height: 6),
+        Text(
+          'Tube lights ${floor.tube.checked}/${floor.tube.expected}'
+          '  ·  Spot lights ${floor.spot.checked}/${floor.spot.expected}'
+          '${floor.flats == 0 ? '' : ' (${floor.flats} flat${floor.flats == 1 ? '' : 's'})'}',
+          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+        ),
+        if (floor.notWorking > 0) ...[
+          const SizedBox(height: 4),
+          Text('${floor.notWorking} not working',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.error)),
+        ],
+      ]),
+    );
+  }
 }

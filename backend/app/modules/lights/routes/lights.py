@@ -62,6 +62,12 @@ def summary(society_id: UUID, db: Session = Depends(get_db), user: User = Depend
     return LightService(db).summary(society_id, user)
 
 
+@router.get("/{society_id}/report")
+def report(society_id: UUID, month: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}$"),
+           db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return LightService(db).report(society_id, month, user)
+
+
 @router.post("/point/{point_id}/replace")
 def replace(point_id: UUID, data: ReplaceIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return LightService(db).replace(point_id, data.item_id, data.quantity, data.note, user)
