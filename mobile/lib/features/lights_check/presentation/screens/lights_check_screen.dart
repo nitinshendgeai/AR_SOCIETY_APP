@@ -504,36 +504,42 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
 
   ReportKey get _key => (societyId: widget.societyId, month: _month, wingId: _wingId, floor: _floor, flatId: _flatId);
 
-  void _step(LightReport r, int by) {
-    final p = r.month.split('-');
+  void _step(String shown, int by) {
+    final p = shown.split('-');
     setState(() => _month = _monthKey(DateTime(int.parse(p[0]), int.parse(p[1]) + by)));
   }
 
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(lightReportProvider(_key));
+    // The month bar and the filters stay on screen while a changed filter or month reloads the report below them.
+    final shown = async.valueOrNull?.month ?? _month ?? _monthKey(DateTime.now());
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(lightReportProvider(_key)),
-      child: async.when(
-        loading: () => const AppLoader(),
-        error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(lightReportProvider(_key))),
-        data: (r) => ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 48), children: [
-          _monthBar(r),
-          const SizedBox(height: 4),
-          _filters(),
-          const SizedBox(height: 12),
-          _tiles(r),
-          const SizedBox(height: 12),
-          if (r.flatLabel != null) _FlatCard(label: r.flatLabel!, lights: r.flatLights),
-          if (r.floors.isEmpty)
-            const AppEmptyState(
-                icon: Icons.apartment_rounded, title: 'No floors yet', subtitle: 'Add the wings and floors in the setup wizard.')
-          else ...[
-            if (r.floorsNotChecked > 0 || r.floorsPartlyChecked > 0) _attention(r),
-            for (final f in r.floors) _FloorRow(floor: f),
+      child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 48), children: [
+        _monthBar(shown),
+        const SizedBox(height: 4),
+        _filters(),
+        const SizedBox(height: 12),
+        ...async.when(
+          loading: () => [const Padding(padding: EdgeInsets.all(32), child: AppLoader())],
+          error: (e, _) => [
+            AppErrorState(compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(lightReportProvider(_key))),
           ],
-        ]),
-      ),
+          data: (r) => [
+            _tiles(r),
+            const SizedBox(height: 12),
+            if (r.flatLabel != null) _FlatCard(label: r.flatLabel!, lights: r.flatLights),
+            if (r.floors.isEmpty)
+              const AppEmptyState(
+                  icon: Icons.apartment_rounded, title: 'No floors yet', subtitle: 'Add the wings and floors in the setup wizard.')
+            else ...[
+              if (r.floorsNotChecked > 0 || r.floorsPartlyChecked > 0) _attention(r),
+              for (final f in r.floors) _FloorRow(floor: f),
+            ],
+          ],
+        ),
+      ]),
     );
   }
 
@@ -552,7 +558,7 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
         Expanded(
           child: DropdownButtonFormField<String?>(
             key: const Key('report-wing'),
-            value: _wingId,
+            value: wings.any((w) => w.id == _wingId) ? _wingId : null,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'Wing'),
             items: [
@@ -570,7 +576,7 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
         Expanded(
           child: DropdownButtonFormField<int?>(
             key: const Key('report-floor'),
-            value: _floor,
+            value: floors.any((f) => f.number == _floor) ? _floor : null,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'Floor'),
             items: [
@@ -590,7 +596,7 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
         const SizedBox(height: 12),
         DropdownButtonFormField<String?>(
           key: const Key('report-flat'),
-          value: _flatId,
+          value: flats.any((f) => f.id == _flatId) ? _flatId : null,
           isExpanded: true,
           decoration: const InputDecoration(labelText: 'Flat'),
           items: [
@@ -616,15 +622,15 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
     ]);
   }
 
-  Widget _monthBar(LightReport r) => Row(children: [
-        IconButton(key: const Key('report-prev'), onPressed: () => _step(r, -1), icon: const Icon(Icons.chevron_left_rounded)),
+  Widget _monthBar(String shown) => Row(children: [
+        IconButton(key: const Key('report-prev'), onPressed: () => _step(shown, -1), icon: const Icon(Icons.chevron_left_rounded)),
         Expanded(
-            child: Text(monthTitle(r.month),
+            child: Text(monthTitle(shown),
                 textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
         // no later than the month the server is in
         IconButton(
             key: const Key('report-next'),
-            onPressed: _month == null || _month!.compareTo(_monthKey(DateTime.now())) >= 0 ? null : () => _step(r, 1),
+            onPressed: shown.compareTo(_monthKey(DateTime.now())) >= 0 ? null : () => _step(shown, 1),
             icon: const Icon(Icons.chevron_right_rounded)),
       ]);
 
