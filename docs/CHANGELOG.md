@@ -17,7 +17,7 @@ Format: `[YYYY-MM-DD] type: description`
   the store (one is deducted from stock and the issue is recorded) and marks the light working again; with no stock the
   replacement is refused and the light stays on the list.
 - **Who can use it** - Technical Staff and Technical Supervisors (also in the field app), the Manager, committee and Admin,
-  through a new "Lights check" form in Operations. Run `alembic upgrade head` to add the tables and the form.
+  through a new "Lights check" form in Operations. Run `alembic upgrade head` (migration `d7a9c1e3f5b7`) to add the tables and the form.
 - Tests: `backend/tests/lights/test_lights_check.py`, `mobile/test/lights_check_test.dart`.
 
 ## 2026-11-09 (Accounts: second pass - every voucher, every statement row, errors that can be retried)
