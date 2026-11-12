@@ -112,11 +112,6 @@ class _DashboardShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final myFormsAsync = ref.watch(myFormCodesProvider);
-    final menuCategories = visibleMenuCategories(
-      myFormsAsync.valueOrNull?.toSet() ?? const {},
-      user: ref.watch(currentUserProvider),
-    );
     // On desktop widths AppShell's sidebar and account menu already provide
     // navigation and sign-out.
     final desktop = isDesktopLayout(context);
@@ -1509,7 +1504,7 @@ class SupervisorDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 10),
         GridView(
           gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 280,
+            maxCrossAxisExtent: 190,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
             mainAxisExtent: _cardExtent(context),
@@ -1562,31 +1557,32 @@ class SupervisorDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 18),
         const _SectionLabel('Quick Actions'),
         const SizedBox(height: 10),
-        Row(children: [
-          _QuickActionChip(
-            icon: Icons.approval_rounded, label: 'Approvals',
-            onTap: societyId != null
-                ? () => context.push(AppRoutes.staffApprovals,
-                    extra: {'societyId': societyId, 'department': department})
-                : null,
-          ),
-          const SizedBox(width: 8),
-          _QuickActionChip(icon: Icons.badge_rounded, label: 'My Team', route: AppRoutes.staffList),
-          const SizedBox(width: 8),
-          _QuickActionChip(
-            icon: Icons.assignment_turned_in_rounded, label: 'Assign Duty',
-            onTap: societyId != null
-                ? () => context.push(AppRoutes.staffAssignDuty, extra: {'societyId': societyId})
-                : null,
-          ),
-          const SizedBox(width: 8),
-          _QuickActionChip(
-            icon: Icons.swap_horiz_rounded, label: 'Handover',
-            onTap: staffId != null && societyId != null
-                ? () => context.push('/staff/handover/$staffId', extra: societyId)
-                : null,
-          ),
-        ]),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _QuickActionChip(
+              icon: Icons.approval_rounded, label: 'Approvals',
+              onTap: societyId != null
+                  ? () => context.push(AppRoutes.staffApprovals,
+                      extra: {'societyId': societyId, 'department': department})
+                  : null,
+            ),
+            _QuickActionChip(icon: Icons.badge_rounded, label: 'My Team', route: AppRoutes.staffList),
+            _QuickActionChip(
+              icon: Icons.assignment_turned_in_rounded, label: 'Assign Duty',
+              onTap: societyId != null
+                  ? () => context.push(AppRoutes.staffAssignDuty, extra: {'societyId': societyId})
+                  : null,
+            ),
+            _QuickActionChip(
+              icon: Icons.swap_horiz_rounded, label: 'Handover',
+              onTap: staffId != null && societyId != null
+                  ? () => context.push('/staff/handover/$staffId', extra: societyId)
+                  : null,
+            ),
+          ],
+        ),
         const SizedBox(height: 18),
         if (isHousekeeping && dutiesAsync.valueOrNull != null) ...[
           _OperationalPanel(title: 'Dept Check-in Approvals', children: [
