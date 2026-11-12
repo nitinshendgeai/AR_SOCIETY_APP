@@ -72,6 +72,9 @@ from app.modules.inventory.models.inventory import (
     AssetCategory, AssetStatus, MaintenanceType, MaintenanceStatus,
 )
 
+# Light checks
+from app.modules.lights.models.lights import LightPoint, LightCheckEntry
+
 # Operational models
 from app.models.occupancy_log     import OccupancyLog, OccupancyEventType
 from app.models.agreement_tracker import AgreementTracker, AgreementStatus

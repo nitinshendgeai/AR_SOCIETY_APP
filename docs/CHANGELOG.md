@@ -4,6 +4,22 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-12 (Lights check: monthly check of the common lights)
+
+### feat: one form to check the common tube lights and spot lights, and replace what is not working
+
+- **One form, monthly** - the electrician or plumber picks a wing and a floor, then chooses Tube lights or Spot lights.
+  Tube lights are per floor: 2 on the floor and 2 on the staircase. Spot lights are per flat: hall, bedroom and kitchen,
+  listed for every flat on that floor. Each light is marked Working or Not working.
+- **Date, time and person** - every check is stamped with when it was done and by whom, and every check is kept, so the
+  months can be compared. The form shows how each light was last found and when.
+- **To replace** - a second tab lists every light found not working, oldest first. "Replaced" takes the tube or bulb from
+  the store (one is deducted from stock and the issue is recorded) and marks the light working again; with no stock the
+  replacement is refused and the light stays on the list.
+- **Who can use it** - Technical Staff and Technical Supervisors (also in the field app), the Manager, committee and Admin,
+  through a new "Lights check" form in Operations. Run `alembic upgrade head` (migration `d7a9c1e3f5b7`) to add the tables and the form.
+- Tests: `backend/tests/lights/test_lights_check.py`, `mobile/test/lights_check_test.dart`.
+
 ## 2026-11-09 (Accounts: second pass - every voucher, every statement row, errors that can be retried)
 
 ### fix: the Day Book and the bank statement list read everything, and failed loads can be retried

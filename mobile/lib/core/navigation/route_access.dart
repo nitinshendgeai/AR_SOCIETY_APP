@@ -46,6 +46,7 @@ const _prefixToForm = <(String, String?)>[
   ('/accounts', 'accounts'),
   ('/assets', 'assets'),
   ('/stores', 'inventory'),
+  ('/lights-check', 'lights_check'),
 ];
 
 bool _under(String path, String prefix) => path == prefix || path.startsWith('$prefix/');

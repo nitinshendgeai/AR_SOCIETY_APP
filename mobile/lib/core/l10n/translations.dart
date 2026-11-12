@@ -56,6 +56,7 @@ const Map<String, Map<String, String>> kTranslations = {
   'Society Settings': {'hi': 'सोसायटी सेटिंग्स', 'mr': 'संस्था सेटिंग्ज'},
   'Staff': {'hi': 'कर्मचारी', 'mr': 'कर्मचारी'},
   'Stores': {'hi': 'भंडार', 'mr': 'भांडार'},
+  'Lights check': {'hi': 'लाइट जांच', 'mr': 'दिवे तपासणी'},
   'Tenants': {'hi': 'किरायेदार', 'mr': 'भाडेकरू'},
   'Users & Roles': {
     'hi': 'उपयोगकर्ता और भूमिकाएँ',

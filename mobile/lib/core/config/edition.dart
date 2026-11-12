@@ -39,6 +39,7 @@ class AppEdition {
     'certificates',
     'my_bills',
     'edit_my_info',
+    'lights_check',          // the electrician's and plumber's monthly check of the common lights
     'staff',                 // the Staff Portal: attendance, duties, checklists for security / technical / gym staff
   };
 
