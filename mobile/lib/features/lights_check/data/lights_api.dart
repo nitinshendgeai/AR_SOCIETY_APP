@@ -131,12 +131,24 @@ class FloorReport {
   int get notWorking => tube.notWorking + spot.notWorking;
 }
 
+/// One of a flat's three spot lights as it stood at the end of the month; [status] null: not checked that month.
+class FlatLight {
+  final String label;
+  final String? status;
+  final DateTime? checkedAt;
+  const FlatLight(this.label, this.status, this.checkedAt);
+}
+
 class LightReport {
   final String month;
+  final String? flatLabel;
+  final List<FlatLight> flatLights;
   final int checked, working, notWorking, replaced, stillNotWorking, floorsNotChecked, floorsPartlyChecked;
   final List<FloorReport> floors;
   const LightReport({
     required this.month,
+    this.flatLabel,
+    this.flatLights = const [],
     required this.checked,
     required this.working,
     required this.notWorking,
@@ -148,8 +160,14 @@ class LightReport {
   });
   factory LightReport.fromJson(Map<String, dynamic> j) {
     final t = j['totals'] as Map<String, dynamic>;
+    final flat = j['flat'] as Map<String, dynamic>?;
     return LightReport(
       month: j['month'] as String,
+      flatLabel: flat?['label'] as String?,
+      flatLights: [
+        for (final l in (flat?['lights'] as List? ?? const []))
+          FlatLight((l as Map<String, dynamic>)['label'] as String, l['status'] as String?, parseStampOrNull(l['checked_at'])),
+      ],
       checked: t['checked'] as int,
       working: t['working'] as int,
       notWorking: t['not_working'] as int,
@@ -193,8 +211,14 @@ class LightsApi {
   }
 
   /// [month] is "YYYY-MM"; null means the current month.
-  Future<LightReport> report(String societyId, {String? month}) async {
-    final r = await _dio.get('/light-checks/$societyId/report', queryParameters: {if (month != null) 'month': month});
+  /// Narrowed to a [wingId], a [floor] of it, or one [flatId] (its spot lights).
+  Future<LightReport> report(String societyId, {String? month, String? wingId, int? floor, String? flatId}) async {
+    final r = await _dio.get('/light-checks/$societyId/report', queryParameters: {
+      if (month != null) 'month': month,
+      if (wingId != null) 'wing_id': wingId,
+      if (floor != null) 'floor_number': floor,
+      if (flatId != null) 'flat_id': flatId,
+    });
     return LightReport.fromJson(r.data as Map<String, dynamic>);
   }
 
@@ -216,10 +240,10 @@ final lightSheetProvider = FutureProvider.autoDispose.family<LightSheet, SheetKe
   (ref, k) => ref.watch(lightsApiProvider).sheet(k.societyId, k.wingId, k.floor, k.kind),
 );
 
-typedef ReportKey = ({String societyId, String? month});
+typedef ReportKey = ({String societyId, String? month, String? wingId, int? floor, String? flatId});
 
 final lightReportProvider = FutureProvider.autoDispose.family<LightReport, ReportKey>(
-  (ref, k) => ref.watch(lightsApiProvider).report(k.societyId, month: k.month),
+  (ref, k) => ref.watch(lightsApiProvider).report(k.societyId, month: k.month, wingId: k.wingId, floor: k.floor, flatId: k.flatId),
 );
 
 final brokenLightsProvider = FutureProvider.autoDispose.family<List<BrokenLight>, String>(

@@ -237,3 +237,76 @@ def test_the_report_is_for_staff_of_this_society_only(client, rig):
     url = f"{API}/{rig['sid']}/report"
     assert client.get(url, headers=rig["resident"]["headers"]).status_code == 403
     assert client.get(url, headers=rig["other_admin"]["headers"]).status_code == 403
+
+
+# ── Report filters: wing, floor, flat ────────────────────────────────────────
+
+@pytest.fixture
+def two_floors(db, client, rig):
+    """Floor 2 (flats 201, 202) fully marked with 202's kitchen bad; floor 3 (flat 301) has one bad tube light."""
+    db.add(Floor(wing_id=UUID(rig["wing"]), society_id=rig["society"].id, floor_number=3, floor_name="3rd Floor"))
+    db.commit()
+    _check(client, rig, rig["electrician"], "tube", _tubes(["working"] * 4), floor=2)
+    spots = [{"flat_id": str(rig["flats"][n].id), "location": loc,
+              "status": "not_working" if (n, loc) == ("202", "kitchen") else "working"}
+             for n in ("201", "202") for loc in ("hall", "bedroom", "kitchen")]
+    _check(client, rig, rig["electrician"], "spot", spots, floor=2)
+    _check(client, rig, rig["electrician"], "tube", _tubes(["not_working", "working", "working", "working"]), floor=3)
+    return rig
+
+
+def _filtered(client, rig, **params):
+    r = client.get(f"{API}/{rig['sid']}/report", params=params, headers=rig["admin"]["headers"])
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_report_can_be_narrowed_to_a_floor(client, two_floors):
+    rep = _filtered(client, two_floors, wing_id=two_floors["wing"], floor_number=3)
+    assert [f["floor_number"] for f in rep["floors"]] == [3]
+    assert rep["totals"] == {"checked": 4, "working": 3, "not_working": 1, "replaced": 0, "still_not_working": 1}
+    rep2 = _filtered(client, two_floors, floor_number=2)
+    assert [f["floor_number"] for f in rep2["floors"]] == [2]
+    assert rep2["totals"]["checked"] == 10 and rep2["totals"]["not_working"] == 1
+
+
+def test_report_can_be_narrowed_to_a_wing(client, db, two_floors):
+    from app.models.wing import Wing
+    other = Wing(society_id=two_floors["society"].id, name="Wing B", code="B")      # make_wing always uses code "A"
+    db.add(other)
+    db.commit()
+    db.add(Floor(wing_id=other.id, society_id=two_floors["society"].id, floor_number=1, floor_name="1st Floor"))
+    db.commit()
+    everything = _filtered(client, two_floors)
+    assert {f["wing_name"] for f in everything["floors"]} == {"Wing A", "Wing B"}
+    only_b = _filtered(client, two_floors, wing_id=str(other.id))
+    assert [(f["wing_name"], f["status"]) for f in only_b["floors"]] == [("Wing B", "not_checked")]
+    assert only_b["totals"]["checked"] == 0
+    only_a = _filtered(client, two_floors, wing_id=two_floors["wing"])
+    assert {f["wing_name"] for f in only_a["floors"]} == {"Wing A"} and only_a["totals"]["checked"] == 14
+
+
+def test_report_for_one_flat_is_its_three_spot_lights(client, two_floors):
+    flat = str(two_floors["flats"]["202"].id)
+    rep = _filtered(client, two_floors, flat_id=flat)
+    assert rep["totals"] == {"checked": 3, "working": 2, "not_working": 1, "replaced": 0, "still_not_working": 1}
+    assert rep["flat"]["label"] == "202"
+    lights = {x["location"]: x["status"] for x in rep["flat"]["lights"]}
+    assert lights == {"hall": "working", "bedroom": "working", "kitchen": "not_working"}
+    [floor] = rep["floors"]
+    assert floor["floor_number"] == 2 and floor["tube"]["expected"] == 0 and floor["spot"]["expected"] == 3
+    assert floor["status"] == "done"
+    # a flat nobody has checked yet
+    unchecked = _filtered(client, two_floors, flat_id=str(two_floors["flats"]["301"].id))
+    assert unchecked["totals"]["checked"] == 0 and unchecked["floors"][0]["status"] == "not_checked"
+    assert all(x["status"] is None for x in unchecked["flat"]["lights"])
+
+
+def test_report_filters_refuse_what_is_not_this_societys(client, db, two_floors):
+    from uuid import uuid4
+    url = f"{API}/{two_floors['sid']}/report"
+    h = two_floors["admin"]["headers"]
+    assert client.get(url, params={"flat_id": str(uuid4())}, headers=h).status_code == 404
+    assert client.get(url, params={"wing_id": str(uuid4())}, headers=h).status_code == 404
+    other_flat = make_flat(db, make_wing(db, make_society(db, "Elsewhere").id, "Wing Z").id, "999")
+    assert client.get(url, params={"flat_id": str(other_flat.id)}, headers=h).status_code == 404

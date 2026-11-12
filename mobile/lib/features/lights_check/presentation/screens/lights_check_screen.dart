@@ -8,6 +8,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/lights_check/data/lights_api.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
+import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart' show FlatModel;
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/features/stores/presentation/providers/stores_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart' show AppPage;
@@ -498,48 +499,138 @@ class _ReportTab extends ConsumerStatefulWidget {
 
 class _ReportTabState extends ConsumerState<_ReportTab> {
   String? _month; // null: the current month, as the server counts it
+  String? _wingId, _flatId;
+  int? _floor;
 
-  ReportKey get _key => (societyId: widget.societyId, month: _month);
+  ReportKey get _key => (societyId: widget.societyId, month: _month, wingId: _wingId, floor: _floor, flatId: _flatId);
 
-  void _step(LightReport r, int by) {
-    final p = r.month.split('-');
+  void _step(String shown, int by) {
+    final p = shown.split('-');
     setState(() => _month = _monthKey(DateTime(int.parse(p[0]), int.parse(p[1]) + by)));
   }
 
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(lightReportProvider(_key));
+    // The month bar and the filters stay on screen while a changed filter or month reloads the report below them.
+    final shown = async.valueOrNull?.month ?? _month ?? _monthKey(DateTime.now());
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(lightReportProvider(_key)),
-      child: async.when(
-        loading: () => const AppLoader(),
-        error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(lightReportProvider(_key))),
-        data: (r) => ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 48), children: [
-          _monthBar(r),
-          const SizedBox(height: 12),
-          _tiles(r),
-          const SizedBox(height: 12),
-          if (r.floors.isEmpty)
-            const AppEmptyState(
-                icon: Icons.apartment_rounded, title: 'No floors yet', subtitle: 'Add the wings and floors in the setup wizard.')
-          else ...[
-            if (r.floorsNotChecked > 0 || r.floorsPartlyChecked > 0) _attention(r),
-            for (final f in r.floors) _FloorRow(floor: f),
+      child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 48), children: [
+        _monthBar(shown),
+        const SizedBox(height: 4),
+        _filters(),
+        const SizedBox(height: 12),
+        ...async.when(
+          loading: () => [const Padding(padding: EdgeInsets.all(32), child: AppLoader())],
+          error: (e, _) => [
+            AppErrorState(compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(lightReportProvider(_key))),
           ],
-        ]),
-      ),
+          data: (r) => [
+            _tiles(r),
+            const SizedBox(height: 12),
+            if (r.flatLabel != null) _FlatCard(label: r.flatLabel!, lights: r.flatLights),
+            if (r.floors.isEmpty)
+              const AppEmptyState(
+                  icon: Icons.apartment_rounded, title: 'No floors yet', subtitle: 'Add the wings and floors in the setup wizard.')
+            else ...[
+              if (r.floorsNotChecked > 0 || r.floorsPartlyChecked > 0) _attention(r),
+              for (final f in r.floors) _FloorRow(floor: f),
+            ],
+          ],
+        ),
+      ]),
     );
   }
 
-  Widget _monthBar(LightReport r) => Row(children: [
-        IconButton(key: const Key('report-prev'), onPressed: () => _step(r, -1), icon: const Icon(Icons.chevron_left_rounded)),
+  /// Wing, then a floor of it, then a flat on that floor; each one narrows the report and resets the ones after it.
+  Widget _filters() {
+    final wings = (ref.watch(wingsProvider).valueOrNull ?? const []).where((w) => w.isActive).toList();
+    final floors = _wingId == null
+        ? const <FloorOption>[]
+        : ref.watch(lightFloorsProvider((societyId: widget.societyId, wingId: _wingId!))).valueOrNull ?? const <FloorOption>[];
+    final List<FlatModel> flats = (_wingId == null || _floor == null)
+        ? const <FlatModel>[]
+        : (ref.watch(flatsByWingProvider(_wingId!)).valueOrNull ?? const <FlatModel>[]).where((f) => f.floor == _floor).toList();
+    final any = _wingId != null;
+    return Column(children: [
+      Row(children: [
         Expanded(
-            child: Text(monthTitle(r.month),
+          child: DropdownButtonFormField<String?>(
+            key: const Key('report-wing'),
+            value: wings.any((w) => w.id == _wingId) ? _wingId : null,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Wing'),
+            items: [
+              const DropdownMenuItem<String?>(value: null, child: Text('All wings')),
+              for (final w in wings) DropdownMenuItem<String?>(value: w.id, child: Text(w.name, overflow: TextOverflow.ellipsis)),
+            ],
+            onChanged: (v) => setState(() {
+              _wingId = v;
+              _floor = null;
+              _flatId = null;
+            }),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: DropdownButtonFormField<int?>(
+            key: const Key('report-floor'),
+            value: floors.any((f) => f.number == _floor) ? _floor : null,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Floor'),
+            items: [
+              const DropdownMenuItem<int?>(value: null, child: Text('All floors')),
+              for (final f in floors) DropdownMenuItem<int?>(value: f.number, child: Text(f.name, overflow: TextOverflow.ellipsis)),
+            ],
+            onChanged: _wingId == null
+                ? null
+                : (v) => setState(() {
+                      _floor = v;
+                      _flatId = null;
+                    }),
+          ),
+        ),
+      ]),
+      if (_floor != null) ...[
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String?>(
+          key: const Key('report-flat'),
+          value: flats.any((f) => f.id == _flatId) ? _flatId : null,
+          isExpanded: true,
+          decoration: const InputDecoration(labelText: 'Flat'),
+          items: [
+            const DropdownMenuItem<String?>(value: null, child: Text('All flats')),
+            for (final f in flats) DropdownMenuItem<String?>(value: f.id, child: Text('Flat ${f.flatNumber}')),
+          ],
+          onChanged: (v) => setState(() => _flatId = v),
+        ),
+      ],
+      if (any)
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            key: const Key('report-clear'),
+            onPressed: () => setState(() {
+              _wingId = null;
+              _floor = null;
+              _flatId = null;
+            }),
+            child: const Text('Clear filters'),
+          ),
+        ),
+    ]);
+  }
+
+  Widget _monthBar(String shown) => Row(children: [
+        IconButton(key: const Key('report-prev'), onPressed: () => _step(shown, -1), icon: const Icon(Icons.chevron_left_rounded)),
+        Expanded(
+            child: Text(monthTitle(shown),
                 textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
         // no later than the month the server is in
         IconButton(
             key: const Key('report-next'),
-            onPressed: _month == null || _month!.compareTo(_monthKey(DateTime.now())) >= 0 ? null : () => _step(r, 1),
+            onPressed: shown.compareTo(_monthKey(DateTime.now())) >= 0 ? null : () => _step(shown, 1),
             icon: const Icon(Icons.chevron_right_rounded)),
       ]);
 
@@ -649,4 +740,52 @@ class _FloorRow extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// The three spot lights of the flat the report is narrowed to, as they stood at the end of the month.
+class _FlatCard extends StatelessWidget {
+  final String label;
+  final List<FlatLight> lights;
+  const _FlatCard({required this.label, required this.lights});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.cardBg,
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Flat $label', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+          for (final l in lights)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(children: [
+                Expanded(child: Text(l.label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+                Text(
+                  switch (l.status) {
+                    'working' => 'Working',
+                    'not_working' => 'Not working',
+                    _ => 'Not checked',
+                  },
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: switch (l.status) {
+                      'working' => AppTheme.success,
+                      'not_working' => AppTheme.error,
+                      _ => AppTheme.textSecondary,
+                    },
+                  ),
+                ),
+                if (l.checkedAt != null) ...[
+                  const SizedBox(width: 8),
+                  Text(lightStamp(l.checkedAt!), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                ],
+              ]),
+            ),
+        ]),
+      );
 }

@@ -238,29 +238,58 @@ class LightService:
         end = local_to_utc_naive(nxt, _time(0, 0), tz)
         return f"{year:04d}-{mon:02d}", start, end
 
-    def report(self, society_id: UUID, month: Optional[str], user: User) -> dict:
+    def report(self, society_id: UUID, month: Optional[str], user: User, wing_id: Optional[UUID] = None,
+               floor_number: Optional[int] = None, flat_id: Optional[UUID] = None) -> dict:
         """What was checked in a month: the lights found working and not working, how many were replaced, and for
-        every floor whether it was checked at all (4 tube lights, plus 3 spot lights for each flat)."""
+        every floor whether it was checked at all (4 tube lights, plus 3 spot lights for each flat).
+
+        Narrowed by a wing, a floor, or one flat. A flat is only its 3 spot lights: the tube lights belong to the floor."""
         assert_society_access(user, society_id)
         society = self.db.query(Society).filter(Society.id == society_id).first()
         tz = zone(getattr(society, "timezone", None))
         label, start, end = self._month_window(month, tz)
 
+        flat = None
+        if flat_id is not None:
+            flat = (self.db.query(Flat).join(Wing, Flat.wing_id == Wing.id)
+                    .filter(Flat.id == flat_id, Wing.society_id == society_id, Flat.is_active == True).first())  # noqa: E712
+            if flat is None:
+                raise HTTPException(status_code=404, detail="Flat not found")
+            wing_id, floor_number = flat.wing_id, flat.floor
+        elif wing_id is not None:
+            self._wing(society_id, wing_id, user)
+
+        def narrowed(q):
+            """The same wing / floor / flat narrowing for light points, wherever they are queried."""
+            if wing_id is not None:
+                q = q.filter(LightPoint.wing_id == wing_id)
+            if floor_number is not None:
+                q = q.filter(LightPoint.floor_number == floor_number)
+            if flat is not None:
+                q = q.filter(LightPoint.flat_id == flat.id)
+            return q
+
         # Each light counts once, as it stood at the end of the month; a replacement after a check makes it working.
-        rows = (self.db.query(LightCheckEntry, LightPoint)
-                .join(LightPoint, LightCheckEntry.point_id == LightPoint.id)
-                .filter(LightCheckEntry.society_id == society_id, LightCheckEntry.at >= start, LightCheckEntry.at < end)
-                .order_by(LightCheckEntry.at, LightCheckEntry.created_at).all())
-        final: Dict[UUID, tuple] = {}              # point id -> (point, status at month end)
+        rows = narrowed(self.db.query(LightCheckEntry, LightPoint)
+                        .join(LightPoint, LightCheckEntry.point_id == LightPoint.id)
+                        .filter(LightCheckEntry.society_id == society_id, LightCheckEntry.at >= start,
+                                LightCheckEntry.at < end)
+                        ).order_by(LightCheckEntry.at, LightCheckEntry.created_at).all()
+        final: Dict[UUID, tuple] = {}              # point id -> (point, status at month end, when)
         replaced = 0
         for entry, point in rows:
-            final[point.id] = (point, entry.status)
+            final[point.id] = (point, entry.status, entry.at)
             if entry.event == "replaced":
                 replaced += 1
 
-        floors = (self.db.query(Floor, Wing).join(Wing, Floor.wing_id == Wing.id)
-                  .filter(Floor.society_id == society_id, Floor.is_active == True,  # noqa: E712
-                          Wing.is_active == True).all())  # noqa: E712
+        floor_q = (self.db.query(Floor, Wing).join(Wing, Floor.wing_id == Wing.id)
+                   .filter(Floor.society_id == society_id, Floor.is_active == True,  # noqa: E712
+                           Wing.is_active == True))  # noqa: E712
+        if wing_id is not None:
+            floor_q = floor_q.filter(Floor.wing_id == wing_id)
+        if floor_number is not None:
+            floor_q = floor_q.filter(Floor.floor_number == floor_number)
+        floors = floor_q.all()
         wing_ids = {w.id for _f, w in floors}
         flat_counts: Dict[tuple, int] = {}
         if wing_ids:
@@ -271,15 +300,16 @@ class LightService:
 
         per_floor: Dict[tuple, dict] = {}
         for floor, wing in floors:
-            flats = flat_counts.get((wing.id, floor.floor_number), 0)
+            flats = 1 if flat is not None else flat_counts.get((wing.id, floor.floor_number), 0)
             per_floor[(wing.id, floor.floor_number)] = {
                 "wing_id": str(wing.id), "wing_name": wing.name, "floor_number": floor.floor_number,
                 "floor_name": floor.floor_name or f"Floor {floor.floor_number}", "flats": flats,
-                "tube": {"expected": len(LOCATIONS[TUBE]), "checked": 0, "working": 0, "not_working": 0},
+                "tube": {"expected": 0 if flat is not None else len(LOCATIONS[TUBE]),
+                         "checked": 0, "working": 0, "not_working": 0},
                 "spot": {"expected": flats * len(LOCATIONS[SPOT]), "checked": 0, "working": 0, "not_working": 0},
             }
         totals = {WORKING: 0, NOT_WORKING: 0}
-        for point, status in final.values():
+        for point, status, _at in final.values():
             totals[status] = totals.get(status, 0) + 1
             row = per_floor.get((point.wing_id, point.floor_number))
             if row is not None:
@@ -294,8 +324,15 @@ class LightService:
             row["status"] = "not_checked" if checked == 0 else ("done" if checked >= expected else "partial")
             out.append(row)
 
-        still = (self.db.query(func.count(LightPoint.id))
-                 .filter(LightPoint.society_id == society_id, LightPoint.status == NOT_WORKING).scalar() or 0)
+        still = narrowed(self.db.query(func.count(LightPoint.id))
+                         .filter(LightPoint.society_id == society_id, LightPoint.status == NOT_WORKING)).scalar() or 0
+        flat_lights = None
+        if flat is not None:
+            by_location = {p.location: (st, at) for p, st, at in final.values()}
+            flat_lights = [{"location": loc, "label": name,
+                            "status": by_location[loc][0] if loc in by_location else None,
+                            "checked_at": iso_utc(by_location[loc][1]) if loc in by_location else None}
+                           for loc, name in LOCATIONS[SPOT].items()]
         return {
             "month": label,
             "totals": {"checked": len(final), "working": totals[WORKING], "not_working": totals[NOT_WORKING],
@@ -303,4 +340,5 @@ class LightService:
             "floors": out,
             "floors_not_checked": sum(1 for r in out if r["status"] == "not_checked"),
             "floors_partly_checked": sum(1 for r in out if r["status"] == "partial"),
+            "flat": {"id": str(flat.id), "label": flat.flat_number, "lights": flat_lights} if flat is not None else None,
         }

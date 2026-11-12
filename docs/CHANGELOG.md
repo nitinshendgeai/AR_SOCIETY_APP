@@ -4,6 +4,19 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-12 (Lights report: filters)
+
+### feat: narrow the Lights report by wing, floor or flat
+
+- **Wing, Floor, Flat** - the Report tab has three filters. Pick a wing to see only its floors, a floor of it to see one floor,
+  and a flat on that floor to see its three spot lights (hall, bedroom, kitchen) as they stood at the end of the month, with
+  when each was last checked. Each filter resets the ones after it, and "Clear filters" returns to everything.
+- The totals, the floor list and the "still waiting to be replaced" count all follow the filter. A flat is only its spot
+  lights; the tube lights belong to the floor.
+- `GET /light-checks/{society}/report` takes `wing_id`, `floor_number` and `flat_id`; a wing or flat from another society is
+  refused.
+- Tests: `backend/tests/lights/test_lights_check.py`, `mobile/test/lights_check_test.dart`.
+
 ## 2026-11-12 (Lights check: the monthly report)
 
 ### feat: a Report tab for the lights check
