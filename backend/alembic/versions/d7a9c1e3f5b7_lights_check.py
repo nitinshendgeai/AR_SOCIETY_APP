@@ -1,6 +1,6 @@
 """Monthly lights check: light points, their check history, and the screen's form
 
-Revision ID: c4e6a8b0d2f4
+Revision ID: d7a9c1e3f5b7
 Revises: b8d0f2a4c6e8
 Create Date: 2026-11-12
 
@@ -17,7 +17,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import UUID
 
-revision      = 'c4e6a8b0d2f4'
+revision      = 'd7a9c1e3f5b7'
 down_revision = 'b8d0f2a4c6e8'
 branch_labels = None
 depends_on    = None
