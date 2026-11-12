@@ -59,3 +59,8 @@ backend/*.db-journal
 
 # pytest JUnit reports written by CI / `make`
 backend/test-results/
+
+# Android release signing -- NEVER commit the upload keystore or its passwords
+mobile/android/key.properties
+*.jks
+*.keystore

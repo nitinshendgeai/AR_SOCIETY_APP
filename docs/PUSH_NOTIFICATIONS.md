@@ -72,7 +72,7 @@ Other pushes (the guard hearing a decision) keep the ordinary default sound.
 
 ### 2. Android app
 Nothing to set: the Firebase Android app for package `in.duxos.society`
-(App ID `1:666567205264:android:3254d0b9cf88d241129315`) is built into
+(App ID `1:666567205264:android:cc830ab7d3e6af7a129315`) is built into
 `push_config.dart`, and no `google-services.json` or Google services Gradle
 plugin is needed. If the app's `applicationId` ever changes, register a new
 Firebase Android app with the new package and update `androidAppId`.
