@@ -6,6 +6,15 @@ import 'package:ar_society_app/core/utils/server_time.dart';
 /// The kinds of thing that are checked on a floor: (api value, label).
 const kLightKinds = <(String, String)>[('tube', 'Tube lights'), ('spot', 'Spot lights'), ('camera', 'Camera')];
 
+/// What a common area can hold: (api value, label), in the order the form shows it.
+const kAreaKinds = <(String, String)>[
+  ('tube', 'Tube lights'),
+  ('spot', 'Spot lights'),
+  ('drum', 'Drum lights'),
+  ('halogen', 'Halogens'),
+  ('camera', 'Cameras'),
+];
+
 class LightCell {
   final String location, label;
   final String? status, lastCheckedBy;
@@ -59,14 +68,15 @@ class FloorOption {
 /// A light found not working and not replaced yet.
 class BrokenLight {
   final String id, kind, label;
-  final String? wingName, flatLabel, lastCheckedBy;
-  final int floorNumber;
+  final String? wingName, flatLabel, lastCheckedBy, areaName;
+  final int? floorNumber;
   final DateTime? since, lastCheckedAt;
   const BrokenLight({
     required this.id,
     required this.kind,
     required this.label,
-    required this.floorNumber,
+    this.floorNumber,
+    this.areaName,
     this.wingName,
     this.flatLabel,
     this.lastCheckedBy,
@@ -78,7 +88,8 @@ class BrokenLight {
         id: j['id'] as String,
         kind: j['kind'] as String,
         label: j['label'] as String,
-        floorNumber: j['floor_number'] as int,
+        floorNumber: j['floor_number'] as int?,
+        areaName: j['area_name'] as String?,
         wingName: j['wing_name'] as String?,
         flatLabel: j['flat_label'] as String?,
         lastCheckedBy: j['last_checked_by'] as String?,
@@ -86,10 +97,14 @@ class BrokenLight {
         lastCheckedAt: parseStampOrNull(j['last_checked_at']),
       );
 
-  /// "Wing A · Floor 2 · Flat 201", or "Wing A · Floor 2" for a floor's tube light.
-  String get where =>
-      [if (wingName != null) wingName!, floorNumber == 0 ? 'Ground floor' : 'Floor $floorNumber', if (flatLabel != null) 'Flat $flatLabel']
-          .join(' · ');
+  /// "Wing A · Floor 2 · Flat 201", "Wing A · Floor 2" for a floor's light, or the area ("Parking") for a common area's.
+  String get where => areaName != null
+      ? [areaName!, if (wingName != null) wingName!].join(' · ')
+      : [
+          if (wingName != null) wingName!,
+          if (floorNumber != null) floorNumber == 0 ? 'Ground floor' : 'Floor $floorNumber',
+          if (flatLabel != null) 'Flat $flatLabel',
+        ].join(' · ');
 }
 
 /// Lights checked on one kind (tube or spot) of one floor in a month.
@@ -145,12 +160,17 @@ class LightReport {
   final String month;
   final String? flatLabel;
   final List<FlatLight> flatLights;
+  final List<AreaReport> areas;
+  final int areasNotChecked, areasPartlyChecked;
   final int checked, working, notWorking, replaced, stillNotWorking, floorsNotChecked, floorsPartlyChecked;
   final List<FloorReport> floors;
   const LightReport({
     required this.month,
     this.flatLabel,
     this.flatLights = const [],
+    this.areas = const [],
+    this.areasNotChecked = 0,
+    this.areasPartlyChecked = 0,
     required this.checked,
     required this.working,
     required this.notWorking,
@@ -165,6 +185,9 @@ class LightReport {
     final flat = j['flat'] as Map<String, dynamic>?;
     return LightReport(
       month: j['month'] as String,
+      areas: [for (final a in (j['areas'] as List? ?? const [])) AreaReport.fromJson(a as Map<String, dynamic>)],
+      areasNotChecked: (j['areas_not_checked'] as int?) ?? 0,
+      areasPartlyChecked: (j['areas_partly_checked'] as int?) ?? 0,
       flatLabel: flat?['label'] as String?,
       flatLights: [
         for (final l in (flat?['lights'] as List? ?? const []))
@@ -180,6 +203,66 @@ class LightReport {
       floors: [for (final f in j['floors'] as List) FloorReport.fromJson(f as Map<String, dynamic>)],
     );
   }
+}
+
+/// A common area as the Manager or Admin set it up: what it holds and how many of each.
+class AreaItem {
+  final String kind;
+  final int count;
+  const AreaItem(this.kind, this.count);
+}
+
+class CommonAreaInfo {
+  final String id, name;
+  final String? wingId, wingName;
+  final List<AreaItem> items;
+  const CommonAreaInfo({required this.id, required this.name, this.wingId, this.wingName, required this.items});
+
+  factory CommonAreaInfo.fromJson(Map<String, dynamic> j) => CommonAreaInfo(
+        id: j['id'] as String,
+        name: j['name'] as String,
+        wingId: j['wing_id'] as String?,
+        wingName: j['wing_name'] as String?,
+        items: [for (final i in j['items'] as List) AreaItem((i as Map<String, dynamic>)['kind'] as String, i['count'] as int)],
+      );
+
+  int countOf(String kind) => items.where((i) => i.kind == kind).fold(0, (n, i) => n + i.count);
+
+  /// "4 tube lights · 2 cameras"
+  String get summary => [
+        for (final (kind, label) in kAreaKinds)
+          if (countOf(kind) > 0)
+            // every label is a plural ending in "s"; one of them reads better without it
+            '${countOf(kind)} ${(countOf(kind) == 1 ? label.substring(0, label.length - 1) : label).toLowerCase()}'
+      ].join(' · ');
+}
+
+/// One kind of thing in an area, in a month's report.
+class AreaReportItem {
+  final String kind, label;
+  final LightPart part;
+  const AreaReportItem(this.kind, this.label, this.part);
+}
+
+/// One common area in the monthly report. [status]: done | partial | not_checked.
+class AreaReport {
+  final String id, name, status;
+  final String? wingName;
+  final List<AreaReportItem> items;
+  const AreaReport({required this.id, required this.name, required this.status, this.wingName, required this.items});
+
+  factory AreaReport.fromJson(Map<String, dynamic> j) => AreaReport(
+        id: j['id'] as String,
+        name: j['name'] as String,
+        status: j['status'] as String,
+        wingName: j['wing_name'] as String?,
+        items: [
+          for (final i in j['items'] as List)
+            AreaReportItem((i as Map<String, dynamic>)['kind'] as String, i['label'] as String, LightPart.fromJson(i)),
+        ],
+      );
+
+  int get notWorking => items.fold(0, (n, i) => n + i.part.notWorking);
 }
 
 class LightsApi {
@@ -204,6 +287,35 @@ class LightsApi {
       {required String wingId, required int floor, required String kind, required List<Map<String, dynamic>> results}) async {
     final r = await _dio.post('/light-checks/$societyId/check',
         data: {'wing_id': wingId, 'floor_number': floor, 'kind': kind, 'results': results});
+    return (r.data as Map<String, dynamic>)['not_working'] as int;
+  }
+
+  // ── Common areas ──
+  Future<List<CommonAreaInfo>> areas(String societyId) async {
+    final r = await _dio.get('/light-checks/$societyId/areas');
+    return [for (final e in r.data as List) CommonAreaInfo.fromJson(e as Map<String, dynamic>)];
+  }
+
+  Map<String, dynamic> _areaBody(String name, String? wingId, List<AreaItem> items) => {
+        'name': name,
+        if (wingId != null) 'wing_id': wingId,
+        'items': [for (final i in items) {'kind': i.kind, 'count': i.count}],
+      };
+
+  Future<void> createArea(String societyId, {required String name, String? wingId, required List<AreaItem> items}) =>
+      _dio.post('/light-checks/$societyId/areas', data: _areaBody(name, wingId, items));
+
+  Future<void> updateArea(String areaId, {required String name, String? wingId, required List<AreaItem> items}) =>
+      _dio.put('/light-checks/area/$areaId', data: _areaBody(name, wingId, items));
+
+  Future<void> deleteArea(String areaId) => _dio.delete('/light-checks/area/$areaId');
+
+  Future<LightSheet> areaSheet(String areaId) async =>
+      LightSheet.fromJson((await _dio.get('/light-checks/area/$areaId/sheet')).data as Map<String, dynamic>);
+
+  /// Returns how many were marked not working.
+  Future<int> checkArea(String areaId, List<Map<String, dynamic>> results) async {
+    final r = await _dio.post('/light-checks/area/$areaId/check', data: {'results': results});
     return (r.data as Map<String, dynamic>)['not_working'] as int;
   }
 
@@ -250,6 +362,14 @@ typedef ReportKey = ({String societyId, String? month, String? wingId, int? floo
 
 final lightReportProvider = FutureProvider.autoDispose.family<LightReport, ReportKey>(
   (ref, k) => ref.watch(lightsApiProvider).report(k.societyId, month: k.month, wingId: k.wingId, floor: k.floor, flatId: k.flatId),
+);
+
+final lightAreasProvider = FutureProvider.autoDispose.family<List<CommonAreaInfo>, String>(
+  (ref, societyId) => ref.watch(lightsApiProvider).areas(societyId),
+);
+
+final lightAreaSheetProvider = FutureProvider.autoDispose.family<LightSheet, String>(
+  (ref, areaId) => ref.watch(lightsApiProvider).areaSheet(areaId),
 );
 
 final brokenLightsProvider = FutureProvider.autoDispose.family<List<BrokenLight>, String>(

@@ -33,6 +33,7 @@ def rig(db):
     return {
         "society": society, "sid": str(society.id), "wing": str(wing.id), "flats": flats,
         "electrician": _member(db, "elec@lights.test", "Technical Staff", society, "Eli Electrician"),
+        "manager": _member(db, "mgr@lights.test", "Manager", society, "Mona Manager"),
         "admin": _member(db, "adm@lights.test", "Society Admin", society),
         "resident": _member(db, "res@lights.test", "Resident", society),
         "other_admin": _member(db, "adm@other-lights.test", "Society Admin", other),
@@ -346,3 +347,186 @@ def test_a_light_still_needs_its_store_item_to_be_replaced(client, rig):
     r = client.post(f"{API}/point/{row['id']}/replace", headers=rig["electrician"]["headers"], json={})
     assert r.status_code == 422
     assert client.get(f"{API}/{rig['sid']}/not-working", headers=rig["admin"]["headers"]).json()["count"] == 1
+
+
+# ── Common areas ─────────────────────────────────────────────────────────────
+
+def _area(client, rig, name="Parking", items=None, who="manager", **extra):
+    items = items if items is not None else [{"kind": "tube", "count": 4}, {"kind": "camera", "count": 2}]
+    return client.post(f"{API}/{rig['sid']}/areas", headers=rig[who]["headers"],
+                       json={"name": name, "items": items, **extra})
+
+
+def _area_sheet(client, rig, area_id, who="electrician"):
+    r = client.get(f"{API}/area/{area_id}/sheet", headers=rig[who]["headers"])
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _area_check(client, rig, area_id, results, who="electrician"):
+    return client.post(f"{API}/area/{area_id}/check", headers=rig[who]["headers"], json={"results": results})
+
+
+def test_the_manager_sets_up_an_area_and_staff_cannot(client, rig):
+    assert _area(client, rig, who="electrician").status_code == 403
+    assert _area(client, rig, who="resident").status_code == 403
+    r = _area(client, rig)
+    assert r.status_code == 201, r.text
+    # tube lights are listed before cameras whatever order they were given in
+    assert [(i["kind"], i["count"]) for i in r.json()["items"]] == [("tube", 4), ("camera", 2)]
+    assert [a["name"] for a in client.get(f"{API}/{rig['sid']}/areas", headers=rig["electrician"]["headers"]).json()] == ["Parking"]
+
+
+def test_an_area_needs_a_name_things_to_check_and_sensible_counts(client, rig):
+    assert _area(client, rig).status_code == 201
+    assert _area(client, rig, name="parking").status_code == 409                      # the same name
+    assert _area(client, rig, name="Lobby", items=[]).status_code == 422
+    assert _area(client, rig, name="Lobby", items=[{"kind": "tube", "count": 0}]).status_code == 422
+    assert _area(client, rig, name="Lobby", items=[{"kind": "fan", "count": 1}]).status_code == 422
+    assert _area(client, rig, name="Lobby", items=[{"kind": "tube", "count": 2}, {"kind": "tube", "count": 3}]).status_code == 422
+    assert _area(client, rig, name="Lobby", wing_id="00000000-0000-0000-0000-000000000000").status_code == 404
+
+
+def test_an_area_sheet_numbers_what_there_is_more_than_one_of(client, rig):
+    area = _area(client, rig, "Podium", [{"kind": "halogen", "count": 1}, {"kind": "camera", "count": 3}]).json()
+    sheet = _area_sheet(client, rig, area["id"])
+    assert [g["label"] for g in sheet["groups"]] == ["Halogens", "Cameras"]
+    assert [p["label"] for p in sheet["groups"][0]["points"]] == ["Halogen"]
+    assert [p["label"] for p in sheet["groups"][1]["points"]] == ["Camera 1", "Camera 2", "Camera 3"]
+    assert all(p["status"] is None for g in sheet["groups"] for p in g["points"])
+
+
+def test_staff_check_an_area_with_the_time_and_the_person(client, rig):
+    area = _area(client, rig).json()
+    r = _area_check(client, rig, area["id"], [
+        {"location": "tube_1", "status": "working"}, {"location": "tube_2", "status": "not_working"},
+        {"location": "camera_1", "status": "working"}])
+    assert r.status_code == 201, r.text
+    assert (r.json()["checked"], r.json()["not_working"]) == (3, 1)
+    points = {p["location"]: p for g in _area_sheet(client, rig, area["id"])["groups"] for p in g["points"]}
+    assert points["tube_2"]["status"] == "not_working" and points["tube_2"]["not_working_since"]
+    assert points["tube_1"]["last_checked_by"] == "Eli Electrician" and points["tube_1"]["last_checked_at"]
+    assert points["tube_3"]["status"] is None
+
+
+def test_an_area_check_refuses_what_is_not_in_the_area(client, rig):
+    area = _area(client, rig, "Parking", [{"kind": "tube", "count": 2}]).json()
+    for bad in ("tube_3", "tube_0", "camera_1", "spot_1", "hall", "tube"):
+        assert _area_check(client, rig, area["id"], [{"location": bad, "status": "working"}]).status_code == 422, bad
+    assert _area_check(client, rig, area["id"], []).status_code == 422
+    twice = [{"location": "tube_1", "status": "working"}, {"location": "tube_1", "status": "not_working"}]
+    assert _area_check(client, rig, area["id"], twice).status_code == 422
+    assert _area_check(client, rig, area["id"], [{"location": "tube_1", "status": "working"}], who="resident").status_code == 403
+
+
+def test_a_light_found_bad_in_an_area_is_listed_and_replaced_from_the_store(client, rig):
+    area = _area(client, rig, "Gym", [{"kind": "drum", "count": 3}, {"kind": "camera", "count": 1}]).json()
+    _area_check(client, rig, area["id"], [{"location": "drum_2", "status": "not_working"},
+                                          {"location": "camera_1", "status": "not_working"}])
+    bad = client.get(f"{API}/{rig['sid']}/not-working", headers=rig["admin"]["headers"]).json()
+    assert bad["count"] == 2 and bad["camera"] == 1 and bad["other"] == 1
+    drum = next(r for r in bad["rows"] if r["kind"] == "drum")
+    assert (drum["area_name"], drum["label"], drum["floor_number"], drum["flat_id"]) == ("Gym", "Drum light 2", None, None)
+    assert next(r for r in bad["rows"] if r["kind"] == "camera")["label"] == "Camera"      # only one: no number
+    # the drum light needs a store item, the camera does not
+    assert client.post(f"{API}/point/{drum['id']}/replace", headers=rig["electrician"]["headers"], json={}).status_code == 422
+    item = _stocked_item(client, rig, 2)
+    assert client.post(f"{API}/point/{drum['id']}/replace", headers=rig["electrician"]["headers"],
+                       json={"item_id": item["id"]}).status_code == 200
+    assert _stock(client, rig, item) == 1
+    cam = next(r for r in client.get(f"{API}/{rig['sid']}/not-working", headers=rig["admin"]["headers"]).json()["rows"])
+    assert client.post(f"{API}/point/{cam['id']}/replace", headers=rig["electrician"]["headers"], json={}).status_code == 200
+
+
+def test_changing_an_area_drops_the_lights_it_no_longer_has(client, rig):
+    area = _area(client, rig, "Parking", [{"kind": "tube", "count": 4}, {"kind": "camera", "count": 1}]).json()
+    _area_check(client, rig, area["id"], [{"location": "tube_4", "status": "not_working"},
+                                          {"location": "camera_1", "status": "not_working"}])
+    r = client.put(f"{API}/area/{area['id']}", headers=rig["manager"]["headers"],
+                   json={"name": "Basement parking", "items": [{"kind": "tube", "count": 2}]})
+    assert r.status_code == 200, r.text
+    assert r.json()["name"] == "Basement parking" and [(i["kind"], i["count"]) for i in r.json()["items"]] == [("tube", 2)]
+    # the 4th tube light and the camera are gone from the lists
+    assert client.get(f"{API}/{rig['sid']}/not-working", headers=rig["admin"]["headers"]).json()["count"] == 0
+    assert [p["location"] for g in _area_sheet(client, rig, area["id"])["groups"] for p in g["points"]] == ["tube_1", "tube_2"]
+    # and a camera that is no longer there cannot be marked
+    assert _area_check(client, rig, area["id"], [{"location": "camera_1", "status": "working"}]).status_code == 422
+    assert client.put(f"{API}/area/{area['id']}", headers=rig["electrician"]["headers"],
+                      json={"name": "x2", "items": [{"kind": "tube", "count": 1}]}).status_code == 403
+
+
+def test_deleting_an_area_takes_it_off_every_list_but_keeps_nothing_dangling(client, rig):
+    area = _area(client, rig).json()
+    _area_check(client, rig, area["id"], [{"location": "tube_1", "status": "not_working"}])
+    assert client.delete(f"{API}/area/{area['id']}", headers=rig["electrician"]["headers"]).status_code == 403
+    assert client.delete(f"{API}/area/{area['id']}", headers=rig["manager"]["headers"]).status_code == 204
+    assert client.get(f"{API}/{rig['sid']}/areas", headers=rig["admin"]["headers"]).json() == []
+    assert client.get(f"{API}/{rig['sid']}/not-working", headers=rig["admin"]["headers"]).json()["count"] == 0
+    assert client.get(f"{API}/area/{area['id']}/sheet", headers=rig["admin"]["headers"]).status_code == 404
+    assert _area(client, rig).status_code == 201                                        # the name is free again
+
+
+def test_another_society_cannot_reach_an_area(client, rig):
+    area = _area(client, rig).json()
+    other = rig["other_admin"]["headers"]
+    assert client.get(f"{API}/area/{area['id']}/sheet", headers=other).status_code == 403
+    assert client.get(f"{API}/{rig['sid']}/areas", headers=other).status_code == 403
+    assert client.post(f"{API}/area/{area['id']}/check", headers=other,
+                       json={"results": [{"location": "tube_1", "status": "working"}]}).status_code == 403
+
+
+def test_the_report_has_a_section_for_common_areas(client, rig):
+    done = _area(client, rig, "Lobby", [{"kind": "spot", "count": 2}, {"kind": "camera", "count": 1}]).json()
+    part = _area(client, rig, "Parking", [{"kind": "tube", "count": 4}, {"kind": "camera", "count": 2}]).json()
+    _area(client, rig, "Gym", [{"kind": "drum", "count": 2}])                                    # never checked
+    _area_check(client, rig, done["id"], [{"location": "spot_1", "status": "working"},
+                                          {"location": "spot_2", "status": "working"},
+                                          {"location": "camera_1", "status": "working"}])
+    _area_check(client, rig, part["id"], [{"location": "tube_1", "status": "not_working"},
+                                          {"location": "camera_1", "status": "working"}])
+    rep = _report(client, rig, rig["admin"])
+    by_name = {a["name"]: a for a in rep["areas"]}
+    assert set(by_name) == {"Gym", "Lobby", "Parking"}
+    assert (by_name["Lobby"]["status"], by_name["Parking"]["status"], by_name["Gym"]["status"]) == ("done", "partial", "not_checked")
+    parking = {i["kind"]: i for i in by_name["Parking"]["items"]}
+    assert (parking["tube"]["checked"], parking["tube"]["not_working"], parking["tube"]["expected"]) == (1, 1, 4)
+    assert (parking["camera"]["checked"], parking["camera"]["expected"]) == (1, 2)
+    assert rep["areas_not_checked"] == 1 and rep["areas_partly_checked"] == 1
+    # the totals count the areas' lights as well as the floors'
+    assert rep["totals"] == {"checked": 5, "working": 4, "not_working": 1, "replaced": 0, "still_not_working": 1}
+
+
+def test_report_filters_decide_whether_areas_are_shown(client, db, rig):
+    here = _area(client, rig, "Lobby - Wing A", [{"kind": "spot", "count": 1}], wing_id=rig["wing"]).json()
+    _area(client, rig, "Podium", [{"kind": "camera", "count": 1}])                                # the whole society
+    from app.models.wing import Wing
+    b = Wing(society_id=rig["society"].id, name="Wing B", code="B")
+    db.add(b)
+    db.commit()
+    elsewhere = _area(client, rig, "Lobby - Wing B", [{"kind": "spot", "count": 1}], wing_id=str(b.id)).json()
+    assert {a["name"] for a in _report(client, rig, rig["admin"])["areas"]} == {"Lobby - Wing A", "Lobby - Wing B", "Podium"}
+    only_a = client.get(f"{API}/{rig['sid']}/report", params={"wing_id": rig["wing"]}, headers=rig["admin"]["headers"]).json()
+    assert [a["name"] for a in only_a["areas"]] == ["Lobby - Wing A"]
+    by_floor = client.get(f"{API}/{rig['sid']}/report", params={"wing_id": rig["wing"], "floor_number": 2},
+                          headers=rig["admin"]["headers"]).json()
+    assert by_floor["areas"] == []
+    by_flat = client.get(f"{API}/{rig['sid']}/report", params={"flat_id": str(rig["flats"]["201"].id)},
+                         headers=rig["admin"]["headers"]).json()
+    assert by_flat["areas"] == []
+    assert here["wing_name"] == "Wing A" and elsewhere["wing_name"] == "Wing B"
+
+
+def test_still_waiting_counts_every_wing_when_no_wing_is_chosen(client, db, rig):
+    """Regression: a loop variable once overwrote the wing filter, so only one wing's faults were counted."""
+    from app.models.wing import Wing
+    b = Wing(society_id=rig["society"].id, name="Wing B", code="B")
+    db.add(b)
+    db.commit()
+    db.add(Floor(wing_id=b.id, society_id=rig["society"].id, floor_number=1, floor_name="1st Floor"))
+    db.commit()
+    _check(client, rig, rig["electrician"], "tube", [{"location": "floor_1", "status": "not_working"}], floor=2)
+    r = client.post(f"{API}/{rig['sid']}/check", headers=rig["electrician"]["headers"], json={
+        "wing_id": str(b.id), "floor_number": 1, "kind": "tube",
+        "results": [{"location": "floor_1", "status": "not_working"}]})
+    assert r.status_code == 201, r.text
+    assert _report(client, rig, rig["admin"])["totals"]["still_not_working"] == 2
