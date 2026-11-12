@@ -266,7 +266,7 @@ class _TodayCard extends ConsumerWidget {
     final todayStr = '${now.day} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.month-1]} ${now.year}';
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [AppTheme.primary, AppTheme.primaryDark],
@@ -301,23 +301,24 @@ class _TodayCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Row(
+          Wrap(
+            spacing: 24,
+            runSpacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _TimeBlock(
                 label: 'Check In',
                 time: formatTime(today?.checkInTime),
                 icon: Icons.login_rounded,
               ),
-              const SizedBox(width: 16),
               _TimeBlock(
                 label: 'Check Out',
                 time: formatTime(today?.checkOutTime),
                 icon: Icons.logout_rounded,
               ),
-              const Spacer(),
               if (today?.workingHours != null)
                 Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       formatHours(today!.workingHours),
@@ -327,8 +328,7 @@ class _TodayCard extends ConsumerWidget {
                           fontWeight: FontWeight.w700),
                     ),
                     const Text('worked', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                    if (today!.overtimeHours != null && today!.overtimeHours! > 0) ...[
-                      const SizedBox(height: 2),
+                    if (today!.overtimeHours != null && today!.overtimeHours! > 0)
                       Text(
                         '+${formatHours(today!.overtimeHours)} OT',
                         style: const TextStyle(
@@ -336,7 +336,6 @@ class _TodayCard extends ConsumerWidget {
                             fontSize: 11,
                             fontWeight: FontWeight.w600),
                       ),
-                    ],
                   ],
                 ),
             ],
