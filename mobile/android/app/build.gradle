@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace "com.arsociety.app"
+    namespace "in.duxos.society"
     compileSdk flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
@@ -19,7 +19,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.arsociety.app"
+        applicationId "in.duxos.society"
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutter.versionCode

@@ -127,7 +127,7 @@ def test_the_ring_channel_and_sound_exist_in_the_android_app():
     from pathlib import Path
     from app.services.push_service import URGENT_CHANNEL_ID
     android = Path(__file__).resolve().parents[3] / "mobile" / "android" / "app" / "src" / "main"
-    activity = (android / "kotlin" / "com" / "arsociety" / "app" / "MainActivity.kt").read_text()
+    activity = (android / "kotlin" / "in" / "duxos" / "society" / "MainActivity.kt").read_text()
     assert f'"{URGENT_CHANNEL_ID}"' in activity
     assert "R.raw.visitor_ring" in activity
     sound = android / "res" / "raw" / "visitor_ring.wav"

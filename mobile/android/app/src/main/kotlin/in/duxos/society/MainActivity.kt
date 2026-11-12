@@ -1,4 +1,4 @@
-package com.arsociety.app
+package `in`.duxos.society
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
