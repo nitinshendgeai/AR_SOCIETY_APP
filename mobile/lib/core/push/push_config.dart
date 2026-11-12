@@ -18,7 +18,7 @@ class PushConfig {
       '666567205264');
   static String get webAppId => _or(const String.fromEnvironment('FIREBASE_WEB_APP_ID'),
       '1:666567205264:web:f36b3aa4c22329cb129315');
-  /// The Firebase Android app for package `com.arsociety.app` (must match
+  /// The Firebase Android app for package `in.duxos.society` (must match
   /// applicationId in android/app/build.gradle).
   static String get androidAppId => _or(const String.fromEnvironment('FIREBASE_ANDROID_APP_ID'),
       '1:666567205264:android:3254d0b9cf88d241129315');

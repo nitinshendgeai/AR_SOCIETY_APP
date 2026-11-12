@@ -15,7 +15,7 @@ service-account key the backend sends with, is set only on Railway.
 |---|---|
 | Web app (society.duxos.in) | built in |
 | Backend | needs `FIREBASE_SERVICE_ACCOUNT_JSON` on Railway |
-| Android app (`com.arsociety.app`) | built in |
+| Android app (`in.duxos.society`) | built in |
 
 Until the backend has the service-account key, nothing is pushed and the app
 behaves as before (residents still see waiting visitors on their dashboard,
@@ -71,7 +71,7 @@ Other pushes (the guard hearing a decision) keep the ordinary default sound.
    clicked web notification opens.
 
 ### 2. Android app
-Nothing to set: the Firebase Android app for package `com.arsociety.app`
+Nothing to set: the Firebase Android app for package `in.duxos.society`
 (App ID `1:666567205264:android:3254d0b9cf88d241129315`) is built into
 `push_config.dart`, and no `google-services.json` or Google services Gradle
 plugin is needed. If the app's `applicationId` ever changes, register a new
