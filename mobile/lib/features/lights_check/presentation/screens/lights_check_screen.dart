@@ -69,7 +69,8 @@ class _CheckTab extends ConsumerStatefulWidget {
 }
 
 class _CheckTabState extends ConsumerState<_CheckTab> {
-  String? _wingId;
+  bool _areasMode = false; // floors and flats, or the common areas
+  String? _wingId, _areaId;
   int? _floor;
   String _kind = 'tube';
   // what has been ticked so far: "flatId|location" -> working | not_working
@@ -80,7 +81,8 @@ class _CheckTabState extends ConsumerState<_CheckTab> {
 
   void _reset() => _marks.clear();
 
-  Future<void> _save(SheetKey key, LightSheet sheet) async {
+  /// Saves what has been ticked on [sheet] with [post] (which returns how many were not working), then reloads with [refresh].
+  Future<void> _save(LightSheet sheet, Future<int> Function(List<Map<String, dynamic>> results) post, VoidCallback refresh) async {
     final results = <Map<String, dynamic>>[
       for (final g in sheet.groups)
         for (final p in g.points)
@@ -90,11 +92,9 @@ class _CheckTabState extends ConsumerState<_CheckTab> {
     if (results.isEmpty) return;
     setState(() => _saving = true);
     try {
-      final bad = await ref
-          .read(lightsApiProvider)
-          .check(widget.societyId, wingId: key.wingId, floor: key.floor, kind: key.kind, results: results);
+      final bad = await post(results);
       if (!mounted) return;
-      ref.invalidate(lightSheetProvider(key));
+      refresh();
       ref.invalidate(brokenLightsProvider(widget.societyId));
       setState(_reset);
       AppToast.success(context, bad == 0 ? 'Saved - all working' : 'Saved - $bad to replace');
@@ -107,26 +107,51 @@ class _CheckTabState extends ConsumerState<_CheckTab> {
 
   @override
   Widget build(BuildContext context) {
+    return ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 96), children: [
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        AppFilterPill(
+            label: 'Floors and flats',
+            selected: !_areasMode,
+            onTap: () => setState(() {
+                  _areasMode = false;
+                  _reset();
+                })),
+        AppFilterPill(
+            label: 'Common areas',
+            selected: _areasMode,
+            onTap: () => setState(() {
+                  _areasMode = true;
+                  _reset();
+                })),
+      ]),
+      const SizedBox(height: 16),
+      ..._areasMode ? _areaChildren() : _floorChildren(),
+    ]);
+  }
+
+  // ── Floors and flats ──
+
+  List<Widget> _floorChildren() {
     final wings = ref.watch(wingsProvider);
     return wings.when(
-      loading: () => const AppLoader(),
-      error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(wingsProvider)),
+      loading: () => [const Padding(padding: EdgeInsets.all(24), child: AppLoader())],
+      error: (e, _) => [AppErrorState(compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(wingsProvider))],
       data: (list) {
         final wingList = list.where((w) => w.isActive).toList();
         if (wingList.isEmpty) {
-          return const AppEmptyState(
-            icon: Icons.apartment_rounded,
-            title: 'No wings yet',
-            subtitle: 'Add the wings, floors and flats in the setup wizard first.',
-          );
+          return [
+            const AppEmptyState(
+              icon: Icons.apartment_rounded,
+              title: 'No wings yet',
+              subtitle: 'Add the wings, floors and flats in the setup wizard first.',
+            )
+          ];
         }
-        final floors = _wingId == null
-            ? null
-            : ref.watch(lightFloorsProvider((societyId: widget.societyId, wingId: _wingId!)));
+        final floors = _wingId == null ? null : ref.watch(lightFloorsProvider((societyId: widget.societyId, wingId: _wingId!)));
         final key = (_wingId != null && _floor != null)
             ? (societyId: widget.societyId, wingId: _wingId!, floor: _floor!, kind: _kind)
             : null;
-        return ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 96), children: [
+        return [
           DropdownButtonFormField<String>(
             key: const Key('light-wing'),
             value: _wingId,
@@ -183,17 +208,102 @@ class _CheckTabState extends ConsumerState<_CheckTab> {
                   loading: () => const Padding(padding: EdgeInsets.all(24), child: AppLoader()),
                   error: (e, _) => AppErrorState(
                       compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(lightSheetProvider(key))),
-                  data: (sheet) => _sheet(key, sheet),
+                  data: (sheet) => _sheet(
+                    sheet,
+                    emptyTitle: 'No flats on this floor',
+                    emptySubtitle: 'Add the flats in the setup wizard.',
+                    post: (r) => ref
+                        .read(lightsApiProvider)
+                        .check(widget.societyId, wingId: key.wingId, floor: key.floor, kind: key.kind, results: r),
+                    refresh: () => ref.invalidate(lightSheetProvider(key)),
+                  ),
                 ),
-        ]);
+        ];
       },
     );
   }
 
-  Widget _sheet(SheetKey key, LightSheet sheet) {
+  // ── Common areas ──
+
+  List<Widget> _areaChildren() {
+    final user = ref.watch(currentUserProvider);
+    final canSetUp = user != null && (user.isManager || user.isAdminOrCommittee);
+    return ref.watch(lightAreasProvider(widget.societyId)).when(
+          loading: () => [const Padding(padding: EdgeInsets.all(24), child: AppLoader())],
+          error: (e, _) => [
+            AppErrorState(
+                compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(lightAreasProvider(widget.societyId)))
+          ],
+          data: (areas) {
+            final id = areas.any((a) => a.id == _areaId) ? _areaId : null;
+            return [
+              if (areas.isNotEmpty)
+                DropdownButtonFormField<String>(
+                  key: const Key('light-area'),
+                  value: id,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Area'),
+                  items: [
+                    for (final a in areas)
+                      DropdownMenuItem(value: a.id, child: Text(a.name, overflow: TextOverflow.ellipsis)),
+                  ],
+                  onChanged: (v) => setState(() {
+                    _areaId = v;
+                    _reset();
+                  }),
+                ),
+              if (canSetUp)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    key: const Key('manage-areas'),
+                    onPressed: () => showAppSheet<void>(context: context, builder: (_) => _ManageAreasSheet(societyId: widget.societyId)),
+                    icon: const Icon(Icons.tune_rounded, size: 18),
+                    label: const Text('Set up areas'),
+                  ),
+                ),
+              const SizedBox(height: 8),
+              if (areas.isEmpty)
+                AppEmptyState(
+                  icon: Icons.local_parking_rounded,
+                  title: 'No common areas yet',
+                  subtitle: canSetUp
+                      ? 'Tap "Set up areas" to add Parking, Lobby, Gym, Podium and the rest, with what each has.'
+                      : 'The Manager or Admin sets up the common areas first.',
+                )
+              else if (id == null)
+                const AppEmptyState(
+                  icon: Icons.lightbulb_outline_rounded,
+                  title: 'Choose an area',
+                  subtitle: 'Then mark each light and camera Working or Not working.',
+                )
+              else
+                ref.watch(lightAreaSheetProvider(id)).when(
+                      loading: () => const Padding(padding: EdgeInsets.all(24), child: AppLoader()),
+                      error: (e, _) => AppErrorState(
+                          compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(lightAreaSheetProvider(id))),
+                      data: (sheet) => _sheet(
+                        sheet,
+                        emptyTitle: 'Nothing to check here',
+                        emptySubtitle: 'Add lights or cameras to this area in "Set up areas".',
+                        post: (r) => ref.read(lightsApiProvider).checkArea(id, r),
+                        refresh: () => ref.invalidate(lightAreaSheetProvider(id)),
+                      ),
+                    ),
+            ];
+          },
+        );
+  }
+
+  Widget _sheet(
+    LightSheet sheet, {
+    required String emptyTitle,
+    required String emptySubtitle,
+    required Future<int> Function(List<Map<String, dynamic>> results) post,
+    required VoidCallback refresh,
+  }) {
     if (sheet.groups.isEmpty) {
-      return const AppEmptyState(
-          icon: Icons.meeting_room_outlined, title: 'No flats on this floor', subtitle: 'Add the flats in the setup wizard.');
+      return AppEmptyState(icon: Icons.meeting_room_outlined, title: emptyTitle, subtitle: emptySubtitle);
     }
     final total = sheet.groups.fold<int>(0, (n, g) => n + g.points.length);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -218,7 +328,7 @@ class _CheckTabState extends ConsumerState<_CheckTab> {
       const SizedBox(height: 8),
       ElevatedButton.icon(
         key: const Key('save-light-check'),
-        onPressed: _marks.isEmpty || _saving ? null : () => _save(key, sheet),
+        onPressed: _marks.isEmpty || _saving ? null : () => _save(sheet, post, refresh),
         icon: _saving
             ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
             : const Icon(Icons.save_rounded, size: 18),
@@ -534,12 +644,19 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
             _tiles(r),
             const SizedBox(height: 12),
             if (r.flatLabel != null) _FlatCard(label: r.flatLabel!, lights: r.flatLights),
-            if (r.floors.isEmpty)
+            if (r.floors.isEmpty && r.areas.isEmpty)
               const AppEmptyState(
                   icon: Icons.apartment_rounded, title: 'No floors yet', subtitle: 'Add the wings and floors in the setup wizard.')
             else ...[
-              if (r.floorsNotChecked > 0 || r.floorsPartlyChecked > 0) _attention(r),
+              if (r.floorsNotChecked + r.floorsPartlyChecked + r.areasNotChecked + r.areasPartlyChecked > 0) _attention(r),
               for (final f in r.floors) _FloorRow(floor: f),
+              if (r.areas.isNotEmpty) ...[
+                const Padding(
+                  padding: EdgeInsets.only(top: 8, bottom: 8),
+                  child: Text('Common areas', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
+                ),
+                for (final a in r.areas) _AreaRow(area: a),
+              ],
             ],
           ],
         ),
@@ -691,6 +808,8 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
               [
                 if (r.floorsNotChecked > 0) '${r.floorsNotChecked} floor${r.floorsNotChecked == 1 ? '' : 's'} not checked',
                 if (r.floorsPartlyChecked > 0) '${r.floorsPartlyChecked} partly checked',
+                if (r.areasNotChecked > 0) '${r.areasNotChecked} area${r.areasNotChecked == 1 ? '' : 's'} not checked',
+                if (r.areasPartlyChecked > 0) '${r.areasPartlyChecked} area${r.areasPartlyChecked == 1 ? '' : 's'} partly checked',
               ].join(' · '),
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
@@ -793,4 +912,239 @@ class _FlatCard extends StatelessWidget {
             ),
         ]),
       );
+}
+
+// ── Setting up the common areas (Manager / Admin) ────────────────────────────
+
+void _refreshAreas(WidgetRef ref, String societyId) {
+  ref.invalidate(lightAreasProvider(societyId));
+  ref.invalidate(lightAreaSheetProvider);
+  ref.invalidate(brokenLightsProvider(societyId));
+  ref.invalidate(lightReportProvider);
+}
+
+class _ManageAreasSheet extends ConsumerWidget {
+  final String societyId;
+  const _ManageAreasSheet({required this.societyId});
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref, CommonAreaInfo a) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text('Remove ${a.name}?'),
+        content: const Text('It leaves the lists and the report. What was checked before is kept.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Keep')),
+          TextButton(key: const Key('confirm-remove-area'), onPressed: () => Navigator.pop(dialog, true), child: const Text('Remove')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(lightsApiProvider).deleteArea(a.id);
+      _refreshAreas(ref, societyId);
+      if (context.mounted) AppToast.success(context, '${a.name} removed');
+    } catch (e) {
+      if (context.mounted) AppToast.error(context, friendlyErrorMessage(e));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(lightAreasProvider(societyId));
+    return BillingSheetFrame(
+      title: 'Common areas',
+      subtitle: 'Say what each area has. The staff then check it every month.',
+      child: async.when(
+        loading: () => const Padding(padding: EdgeInsets.all(24), child: AppLoader()),
+        error: (e, _) => AppErrorState(
+            compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(lightAreasProvider(societyId))),
+        data: (areas) => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          for (final a in areas)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(a.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text([a.summary, if (a.wingName != null) a.wingName!].join(' · ')),
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                IconButton(
+                    key: Key('edit-area-${a.id}'),
+                    icon: const Icon(Icons.edit_rounded),
+                    onPressed: () => showAppSheet<void>(
+                        context: context, builder: (_) => _AreaFormSheet(societyId: societyId, area: a))),
+                IconButton(
+                    key: Key('remove-area-${a.id}'),
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    onPressed: () => _confirmDelete(context, ref, a)),
+              ]),
+            ),
+          if (areas.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text('No areas yet. Add Parking, Lobby, Gym, Podium or Refuse Area.',
+                  style: TextStyle(color: AppTheme.textSecondary)),
+            ),
+          const SizedBox(height: 8),
+          ElevatedButton.icon(
+            key: const Key('add-area'),
+            onPressed: () =>
+                showAppSheet<void>(context: context, builder: (_) => _AreaFormSheet(societyId: societyId)),
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('Add an area'),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+/// One area: its name, the wing it belongs to (if any), and how many of each light or camera it has.
+class _AreaFormSheet extends ConsumerStatefulWidget {
+  final String societyId;
+  final CommonAreaInfo? area;
+  const _AreaFormSheet({required this.societyId, this.area});
+
+  @override
+  ConsumerState<_AreaFormSheet> createState() => _AreaFormSheetState();
+}
+
+class _AreaFormSheetState extends ConsumerState<_AreaFormSheet> {
+  late final _name = TextEditingController(text: widget.area?.name);
+  late String? _wingId = widget.area?.wingId;
+  late final Map<String, int> _counts = {for (final (kind, _) in kAreaKinds) kind: widget.area?.countOf(kind) ?? 0};
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  bool get _valid => _name.text.trim().length >= 2 && _counts.values.any((n) => n > 0);
+
+  Future<void> _save() async {
+    setState(() => _busy = true);
+    final items = [
+      for (final (kind, _) in kAreaKinds)
+        if ((_counts[kind] ?? 0) > 0) AreaItem(kind, _counts[kind]!),
+    ];
+    try {
+      final api = ref.read(lightsApiProvider);
+      if (widget.area == null) {
+        await api.createArea(widget.societyId, name: _name.text.trim(), wingId: _wingId, items: items);
+      } else {
+        await api.updateArea(widget.area!.id, name: _name.text.trim(), wingId: _wingId, items: items);
+      }
+      _refreshAreas(ref, widget.societyId);
+      if (!mounted) return;
+      AppToast.success(context, widget.area == null ? 'Area added' : 'Area saved');
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _busy = false);
+        AppToast.error(context, friendlyErrorMessage(e));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final wings = (ref.watch(wingsProvider).valueOrNull ?? const []).where((w) => w.isActive).toList();
+    return BillingSheetFrame(
+      title: widget.area == null ? 'Add an area' : 'Change ${widget.area!.name}',
+      subtitle: 'A lobby in every wing is one area per wing, for example "Lobby - Wing A".',
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        TextField(
+          key: const Key('area-name'),
+          controller: _name,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(labelText: 'Name', hintText: 'Parking'),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 12),
+        if (wings.isNotEmpty)
+          DropdownButtonFormField<String?>(
+            key: const Key('area-wing'),
+            value: wings.any((w) => w.id == _wingId) ? _wingId : null,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Wing (if it belongs to one)'),
+            items: [
+              const DropdownMenuItem<String?>(value: null, child: Text('Whole society')),
+              for (final w in wings) DropdownMenuItem<String?>(value: w.id, child: Text(w.name)),
+            ],
+            onChanged: (v) => setState(() => _wingId = v),
+          ),
+        const SizedBox(height: 12),
+        const Text('How many are there?', style: TextStyle(fontWeight: FontWeight.w700)),
+        for (final (kind, label) in kAreaKinds)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(children: [
+              Expanded(child: Text(label)),
+              IconButton(
+                  key: Key('less-$kind'),
+                  icon: const Icon(Icons.remove_circle_outline_rounded),
+                  onPressed: (_counts[kind] ?? 0) == 0 ? null : () => setState(() => _counts[kind] = _counts[kind]! - 1)),
+              SizedBox(
+                  width: 32,
+                  child: Text('${_counts[kind]}', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800))),
+              IconButton(
+                  key: Key('more-$kind'),
+                  icon: const Icon(Icons.add_circle_outline_rounded),
+                  onPressed: (_counts[kind] ?? 0) >= 100 ? null : () => setState(() => _counts[kind] = _counts[kind]! + 1)),
+            ]),
+          ),
+        const SizedBox(height: 16),
+        ElevatedButton(
+          key: const Key('save-area'),
+          onPressed: _valid && !_busy ? _save : null,
+          child: Text(_busy ? 'Saving…' : 'Save'),
+        ),
+      ]),
+    );
+  }
+}
+
+class _AreaRow extends StatelessWidget {
+  final AreaReport area;
+  const _AreaRow({required this.area});
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (area.status) {
+      'done' => ('Done', AppTheme.success),
+      'partial' => ('Partly', AppTheme.warning),
+      _ => ('Not checked', AppTheme.textSecondary),
+    };
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBg,
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+              child: Text(area.wingName == null ? area.name : '${area.name} · ${area.wingName}',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800))),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(999)),
+            child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+          ),
+        ]),
+        const SizedBox(height: 6),
+        Text(
+          [for (final i in area.items) '${i.label} ${i.part.checked}/${i.part.expected}'].join('  ·  '),
+          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+        ),
+        if (area.notWorking > 0) ...[
+          const SizedBox(height: 4),
+          Text('${area.notWorking} not working',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.error)),
+        ],
+      ]),
+    );
+  }
 }

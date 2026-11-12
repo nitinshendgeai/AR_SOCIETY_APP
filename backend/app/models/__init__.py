@@ -73,7 +73,7 @@ from app.modules.inventory.models.inventory import (
 )
 
 # Light checks
-from app.modules.lights.models.lights import LightPoint, LightCheckEntry
+from app.modules.lights.models.lights import LightPoint, LightCheckEntry, CommonArea, CommonAreaItem
 
 # Operational models
 from app.models.occupancy_log     import OccupancyLog, OccupancyEventType

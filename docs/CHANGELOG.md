@@ -4,6 +4,24 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-12 (Lights check: common areas)
+
+### feat: check the common areas - parking, lobby, gym, podium, refuse area
+
+- **Set up by the Manager or Admin** - "Set up areas" on the Check tab: add an area (Parking, Lobby, Gym, Podium, Refuse Area, or
+  any name), say how many tube lights, spot lights, drum lights, halogens and cameras it has, and optionally which wing it belongs
+  to. A lobby in every wing is one area per wing ("Lobby - Wing A"). Areas can be changed or removed; what was checked before is kept.
+- **Checked by the staff** - the Check tab has a "Common areas" choice next to "Floors and flats". Pick the area, and every light and
+  camera in it is listed, numbered, with how it was last found. Mark each Working or Not working; the date, time and person are
+  stamped as for the floors.
+- **To replace** - a common area's light is listed with its area ("Tube light 3 - Parking"). A tube, spot light, drum light or halogen
+  is replaced from the store (stock goes down by one); a camera can be marked working without a store item.
+- **Report** - a "Common areas" section after the floors: Done / Partly / Not checked, how many of each were checked, and how many are
+  not working. The totals count the areas too; a wing filter shows that wing's areas, a floor or flat filter hides them.
+- **Fix** - "still waiting to be replaced" in the report could count only one wing's faults in a society with several wings; it
+  now counts them all.
+- Run `alembic upgrade head` (migration `e9b1d3f5a7c9`). Tests: `backend/tests/lights/test_lights_check.py`, `mobile/test/lights_check_test.dart`.
+
 ## 2026-11-12 (Lights check: the camera on each floor)
 
 ### feat: check the floor's camera with the lights
