@@ -1,0 +1,76 @@
+name: Build Android App Bundle (Play Store)
+
+# Manual: Actions -> "Build Android App Bundle (Play Store)" -> Run workflow.
+# Needs the upload-key secrets described in docs/ANDROID_RELEASE.md.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build signed release AAB (in.duxos.society)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Create .env from example
+        working-directory: mobile
+        run: cp .env.example .env
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Restore upload keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "::error::Secret ANDROID_KEYSTORE_BASE64 is not set - see docs/ANDROID_RELEASE.md"
+            exit 1
+          fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload-keystore.jks"
+
+      # The version code must go up on every upload to Play, so it comes from the run number.
+      # The version name still comes from `version:` in mobile/pubspec.yaml.
+      - name: Build release AAB
+        working-directory: mobile
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL || 'https://arsocietyapp-production.up.railway.app/api/v1' }}
+          ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/upload-keystore.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          flutter build appbundle --release \
+            --build-number="$BUILD_NUMBER" \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=APP_ENV=production \
+            --dart-define=APP_EDITION=field
+
+      - name: Remove keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload-keystore.jks"
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: DUXOS Society AAB
+          path: mobile/build/app/outputs/bundle/release/app-release.aab
+          retention-days: 14

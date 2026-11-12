@@ -4,6 +4,19 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// Release signing. Reads android/key.properties (local builds) or the ANDROID_KEYSTORE_* environment
+// variables (CI). With neither present the release build falls back to the debug key, so a plain
+// `flutter build apk --release` still works for testing -- but such a build cannot go on the Play Store.
+// See docs/ANDROID_RELEASE.md.
+def keyProps = new Properties()
+def keyPropsFile = rootProject.file("key.properties")
+if (keyPropsFile.exists()) {
+    keyPropsFile.withInputStream { keyProps.load(it) }
+}
+def signingValue = { String prop, String env -> keyProps.getProperty(prop) ?: System.getenv(env) }
+def releaseStoreFile = signingValue("storeFile", "ANDROID_KEYSTORE_FILE")
+def hasReleaseKey = releaseStoreFile != null
+
 android {
     namespace "in.duxos.society"
     compileSdk flutter.compileSdkVersion
@@ -26,9 +39,20 @@ android {
         versionName flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKey) {
+            release {
+                storeFile file(releaseStoreFile)
+                storePassword signingValue("storePassword", "ANDROID_KEYSTORE_PASSWORD")
+                keyAlias signingValue("keyAlias", "ANDROID_KEY_ALIAS")
+                keyPassword signingValue("keyPassword", "ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            signingConfig hasReleaseKey ? signingConfigs.release : signingConfigs.debug
             // R8 minification was enabled with no proguard-rules.pro and no
             // default Flutter/Android keep rules — R8 could freely rename or
             // strip Java/Kotlin classes that native plugin code (sqflite,
