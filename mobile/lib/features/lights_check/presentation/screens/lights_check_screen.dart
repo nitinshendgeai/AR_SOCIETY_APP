@@ -411,6 +411,9 @@ class _ReplaceSheetState extends ConsumerState<_ReplaceSheet> {
   final _note = TextEditingController();
   bool _busy = false;
 
+  /// A camera that was put right needs no tube or bulb from the store.
+  bool get _isCamera => widget.light.kind == 'camera';
+
   @override
   void dispose() {
     _note.dispose();
@@ -420,11 +423,11 @@ class _ReplaceSheetState extends ConsumerState<_ReplaceSheet> {
   Future<void> _submit() async {
     setState(() => _busy = true);
     try {
-      await ref.read(lightsApiProvider).replace(widget.light.id, itemId: _itemId!, note: _note.text.trim());
+      await ref.read(lightsApiProvider).replace(widget.light.id, itemId: _itemId, note: _note.text.trim());
       ref.invalidate(brokenLightsProvider(widget.societyId));
       ref.invalidate(storeItemsProvider(widget.societyId));
       if (!mounted) return;
-      AppToast.success(context, 'Replaced - taken from the store');
+      AppToast.success(context, _itemId == null ? 'Marked working' : 'Replaced - taken from the store');
       Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
@@ -439,7 +442,7 @@ class _ReplaceSheetState extends ConsumerState<_ReplaceSheet> {
     final items = ref.watch(storeItemsProvider(widget.societyId));
     return BillingSheetFrame(
       title: 'Replaced ${widget.light.label.toLowerCase()}',
-      subtitle: '${widget.light.where}. One is taken from the store.',
+      subtitle: _isCamera ? '${widget.light.where}.' : '${widget.light.where}. One is taken from the store.',
       child: items.when(
         loading: () => const Padding(padding: EdgeInsets.all(24), child: AppLoader()),
         error: (e, _) => AppErrorState(
@@ -447,7 +450,7 @@ class _ReplaceSheetState extends ConsumerState<_ReplaceSheet> {
         data: (all) {
           // electrical things first: tubes and bulbs are kept there
           final sorted = [...all]..sort((a, b) => (a.category == 'electrical' ? 0 : 1).compareTo(b.category == 'electrical' ? 0 : 1));
-          if (sorted.isEmpty) {
+          if (sorted.isEmpty && !_isCamera) {
             return const Text('The store has no items yet. Add the tube or bulb in Stores first.');
           }
           return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -455,8 +458,9 @@ class _ReplaceSheetState extends ConsumerState<_ReplaceSheet> {
               key: const Key('replace-item'),
               value: _itemId,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Tube or bulb used'),
+              decoration: InputDecoration(labelText: _isCamera ? 'Spare used from the store (optional)' : 'Tube or bulb used'),
               items: [
+                if (_isCamera) const DropdownMenuItem<String>(value: null, child: Text('None - put right')),
                 for (final i in sorted)
                   DropdownMenuItem(value: i.id, child: Text('${i.name} (${_qty(i.stock)} in stock)', overflow: TextOverflow.ellipsis)),
               ],
@@ -467,7 +471,7 @@ class _ReplaceSheetState extends ConsumerState<_ReplaceSheet> {
             const SizedBox(height: 16),
             ElevatedButton(
               key: const Key('confirm-replace'),
-              onPressed: _itemId == null || _busy ? null : _submit,
+              onPressed: (_itemId == null && !_isCamera) || _busy ? null : _submit,
               child: Text(_busy ? 'Saving…' : 'Mark replaced'),
             ),
           ]);
@@ -729,7 +733,8 @@ class _FloorRow extends StatelessWidget {
         Text(
           'Tube lights ${floor.tube.checked}/${floor.tube.expected}'
           '  ·  Spot lights ${floor.spot.checked}/${floor.spot.expected}'
-          '${floor.flats == 0 ? '' : ' (${floor.flats} flat${floor.flats == 1 ? '' : 's'})'}',
+          '${floor.flats == 0 ? '' : ' (${floor.flats} flat${floor.flats == 1 ? '' : 's'})'}'
+          '${floor.camera.expected == 0 ? '' : '  ·  Camera ${floor.camera.checked}/${floor.camera.expected}'}',
           style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
         ),
         if (floor.notWorking > 0) ...[

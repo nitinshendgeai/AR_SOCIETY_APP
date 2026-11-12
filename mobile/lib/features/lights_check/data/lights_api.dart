@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/utils/server_time.dart';
 
-/// The kinds of light that are checked: (api value, label).
-const kLightKinds = <(String, String)>[('tube', 'Tube lights'), ('spot', 'Spot lights')];
+/// The kinds of thing that are checked on a floor: (api value, label).
+const kLightKinds = <(String, String)>[('tube', 'Tube lights'), ('spot', 'Spot lights'), ('camera', 'Camera')];
 
 class LightCell {
   final String location, label;
@@ -108,7 +108,7 @@ class LightPart {
 class FloorReport {
   final String wingName, floorName, status;
   final int floorNumber, flats;
-  final LightPart tube, spot;
+  final LightPart tube, spot, camera;
   const FloorReport({
     required this.wingName,
     required this.floorName,
@@ -117,6 +117,7 @@ class FloorReport {
     required this.status,
     required this.tube,
     required this.spot,
+    this.camera = const LightPart(),
   });
   factory FloorReport.fromJson(Map<String, dynamic> j) => FloorReport(
         wingName: j['wing_name'] as String,
@@ -126,9 +127,10 @@ class FloorReport {
         status: j['status'] as String,
         tube: LightPart.fromJson(j['tube'] as Map<String, dynamic>),
         spot: LightPart.fromJson(j['spot'] as Map<String, dynamic>),
+        camera: j['camera'] == null ? const LightPart() : LightPart.fromJson(j['camera'] as Map<String, dynamic>),
       );
 
-  int get notWorking => tube.notWorking + spot.notWorking;
+  int get notWorking => tube.notWorking + spot.notWorking + camera.notWorking;
 }
 
 /// One of a flat's three spot lights as it stood at the end of the month; [status] null: not checked that month.
@@ -222,9 +224,13 @@ class LightsApi {
     return LightReport.fromJson(r.data as Map<String, dynamic>);
   }
 
-  Future<void> replace(String pointId, {required String itemId, double quantity = 1, String? note}) =>
-      _dio.post('/light-checks/point/$pointId/replace',
-          data: {'item_id': itemId, 'quantity': quantity, if (note != null && note.isNotEmpty) 'note': note});
+  /// [itemId] is the tube or bulb taken from the store; a camera put right needs none.
+  Future<void> replace(String pointId, {String? itemId, double quantity = 1, String? note}) =>
+      _dio.post('/light-checks/point/$pointId/replace', data: {
+        if (itemId != null) 'item_id': itemId,
+        if (itemId != null) 'quantity': quantity,
+        if (note != null && note.isNotEmpty) 'note': note,
+      });
 }
 
 final lightsApiProvider = Provider<LightsApi>((_) => LightsApi());
