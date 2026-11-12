@@ -238,7 +238,7 @@ void main() {
     expect(find.text('1 light still waiting to be replaced'), findsOneWidget);
     expect(find.text('1 floor not checked · 1 partly checked · 1 area partly checked'), findsOneWidget);
     expect(find.text('Wing A · 2nd Floor'), findsOneWidget);
-    expect(find.text('Partly'), findsOneWidget);
+    expect(find.text('Partly'), findsNWidgets(2));                              // floor 2 and the Parking area
     expect(find.text('Not checked'), findsOneWidget);
     expect(find.textContaining('Tube lights 4/4'), findsOneWidget);
     expect(find.textContaining('Spot lights 3/6 (2 flats)'), findsOneWidget);
