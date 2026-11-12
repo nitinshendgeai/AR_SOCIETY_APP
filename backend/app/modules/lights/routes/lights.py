@@ -24,12 +24,12 @@ class ResultIn(BaseModel):
 class CheckIn(BaseModel):
     wing_id: UUID
     floor_number: int = Field(ge=-5, le=200)
-    kind: str = Field(pattern="^(tube|spot)$")
+    kind: str = Field(pattern="^(tube|spot|camera)$")
     results: List[ResultIn]
 
 
 class ReplaceIn(BaseModel):
-    item_id: UUID
+    item_id: Optional[UUID] = None             # the tube or bulb taken from the store; a camera put right needs none
     quantity: float = Field(default=1, gt=0, le=100)
     note: Optional[str] = Field(default=None, max_length=500)
 
@@ -40,7 +40,7 @@ def floors(society_id: UUID, wing_id: UUID, db: Session = Depends(get_db), user:
 
 
 @router.get("/{society_id}/sheet")
-def sheet(society_id: UUID, wing_id: UUID, floor_number: int, kind: str = Query(..., pattern="^(tube|spot)$"),
+def sheet(society_id: UUID, wing_id: UUID, floor_number: int, kind: str = Query(..., pattern="^(tube|spot|camera)$"),
           db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return LightService(db).sheet(society_id, wing_id, floor_number, kind, user)
 

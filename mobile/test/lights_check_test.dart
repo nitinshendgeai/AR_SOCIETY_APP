@@ -36,7 +36,7 @@ Map<String, dynamic> _point(String location, String label, {String? status, Stri
 
 /// A server with one wing, one floor and the 4 tube lights of it; remembers what was saved.
 Dio _server(List<Map<String, dynamic>> saved,
-    {List<Map<String, dynamic>> broken = const [], List<Map<String, dynamic>>? reports}) {
+    {List<Map<String, dynamic>> broken = const [], List<Map<String, dynamic>>? reports, List<String?>? sheetKinds}) {
   final asked = reports ?? <Map<String, dynamic>>[];
   final dio = Dio();
   dio.interceptors.add(InterceptorsWrapper(onRequest: (o, h) {
@@ -46,6 +46,7 @@ Dio _server(List<Map<String, dynamic>> saved,
         {'floor_number': 2, 'name': '2nd Floor'}
       ];
     } else if (o.path.endsWith('/sheet')) {
+      sheetKinds?.add(o.queryParameters['kind'] as String?);
       data = {
         'groups': [
           {
@@ -86,6 +87,7 @@ Dio _server(List<Map<String, dynamic>> saved,
             'wing_id': 'w1', 'wing_name': 'Wing A', 'floor_number': 2, 'floor_name': '2nd Floor', 'flats': 2, 'status': 'partial',
             'tube': {'expected': 4, 'checked': 4, 'working': 4, 'not_working': 0},
             'spot': {'expected': 6, 'checked': 3, 'working': 2, 'not_working': 1},
+            'camera': {'expected': 1, 'checked': 1, 'working': 1, 'not_working': 0},
           },
           {
             'wing_id': 'w1', 'wing_name': 'Wing A', 'floor_number': 3, 'floor_name': '3rd Floor', 'flats': 1, 'status': 'not_checked',
@@ -198,6 +200,7 @@ void main() {
     expect(find.text('Not checked'), findsOneWidget);
     expect(find.textContaining('Tube lights 4/4'), findsOneWidget);
     expect(find.textContaining('Spot lights 3/6 (2 flats)'), findsOneWidget);
+    expect(find.textContaining('Camera 1/1'), findsOneWidget);
     expect(find.text('1 not working'), findsOneWidget);
     // the first read is the current month; "previous" asks for the one before
     expect(asked, [<String, dynamic>{}]);
@@ -238,5 +241,18 @@ void main() {
     await t.tap(find.byKey(const Key('report-clear')));
     await t.pumpAndSettle();
     expect(asked.last, <String, dynamic>{});
+  });
+
+  testWidgets('the camera of a floor is checked like the other lights', (t) async {
+    phone(t);
+    final kinds = <String?>[];
+    await t.pumpWidget(_wrap(_server([], sheetKinds: kinds)));
+    await t.pumpAndSettle();
+    await choose(t, const Key('light-wing'), 'Wing A');
+    await choose(t, const Key('light-floor'), '2nd Floor');
+    expect(kinds, ['tube']);
+    await t.tap(find.text('Camera'));
+    await t.pumpAndSettle();
+    expect(kinds.last, 'camera');
   });
 }

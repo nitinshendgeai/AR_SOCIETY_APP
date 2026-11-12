@@ -17,7 +17,7 @@ from app.modules.inventory.schemas.inventory import IssueCreate
 from app.modules.inventory.services.inventory_service import InventoryService
 from app.utils.local_time import iso_utc, local_to_utc_naive, local_today, zone
 from app.modules.lights.models.lights import (
-    LOCATIONS, NOT_WORKING, SPOT, TUBE, WORKING, LightCheckEntry, LightPoint,
+    CAMERA, LOCATIONS, NOT_WORKING, SPOT, TUBE, WORKING, LightCheckEntry, LightPoint,
 )
 
 
@@ -88,9 +88,9 @@ class LightService:
                 "not_working_since": iso_utc(p.not_working_since) if p and p.not_working_since else None,
             }
 
-        if kind == TUBE:
+        if kind in (TUBE, CAMERA):                       # the floor's own: its tube lights, or its camera
             groups = [{"flat_id": None, "label": "This floor",
-                       "points": [cell(loc, label, None) for loc, label in LOCATIONS[TUBE].items()]}]
+                       "points": [cell(loc, label, None) for loc, label in LOCATIONS[kind].items()]}]
         else:
             groups = [{"flat_id": str(f.id), "label": f"Flat {f.flat_number}",
                        "points": [cell(loc, label, f.id) for loc, label in LOCATIONS[SPOT].items()]}
@@ -182,10 +182,12 @@ class LightService:
         points = q.order_by(LightPoint.not_working_since, LightPoint.floor_number).all()
         rows = self._labels(points)
         return {"count": len(rows), "tube": sum(1 for r in rows if r["kind"] == TUBE),
-                "spot": sum(1 for r in rows if r["kind"] == SPOT), "rows": rows}
+                "spot": sum(1 for r in rows if r["kind"] == SPOT),
+                "camera": sum(1 for r in rows if r["kind"] == CAMERA), "rows": rows}
 
-    def replace(self, point_id: UUID, item_id: UUID, quantity: float, note: Optional[str], user: User) -> dict:
-        """The light was replaced: take the new tube or bulb out of the store and mark the light working again."""
+    def replace(self, point_id: UUID, item_id: Optional[UUID], quantity: float, note: Optional[str], user: User) -> dict:
+        """The light was replaced: take the new tube or bulb out of the store and mark the light working again.
+        A camera that was put right (not swapped for a spare from the store) needs no store item."""
         point = self.db.query(LightPoint).filter(LightPoint.id == point_id).first()
         if point is None:
             raise HTTPException(status_code=404, detail="Light not found")
@@ -193,17 +195,21 @@ class LightService:
         if point.status != NOT_WORKING:
             raise HTTPException(status_code=409, detail="This light is not marked as not working")
         label = LOCATIONS[point.kind].get(point.location, point.location)
-        # The store first: it refuses when there is not enough stock, and then nothing here changes.
-        InventoryService(self.db).issue_item(
-            IssueCreate(item_id=item_id, issued_to_user=user.id, quantity_issued=quantity, consumed=True,
-                        purpose=f"Replaced {label.lower()}" + (f" - {note}" if note else "")), user)
+        if item_id is None and point.kind != CAMERA:
+            raise HTTPException(status_code=422, detail="Choose the tube or bulb that was used")
+        if item_id is not None:
+            # The store first: it refuses when there is not enough stock, and then nothing here changes.
+            InventoryService(self.db).issue_item(
+                IssueCreate(item_id=item_id, issued_to_user=user.id, quantity_issued=quantity, consumed=True,
+                            purpose=f"Replaced {label.lower()}" + (f" - {note}" if note else "")), user)
         now = datetime.utcnow()
         point.status = WORKING
         point.not_working_since = None
         point.last_checked_at = now
         point.last_checked_by = user.id
         self.db.add(LightCheckEntry(society_id=point.society_id, point_id=point.id, event="replaced", status=WORKING,
-                                    at=now, by_user=user.id, note=note or None, item_id=item_id, quantity=quantity))
+                                    at=now, by_user=user.id, note=note or None, item_id=item_id,
+                                    quantity=quantity if item_id is not None else None))
         self.db.commit()
         return {"replaced_at": iso_utc(now)}
 
@@ -241,7 +247,7 @@ class LightService:
     def report(self, society_id: UUID, month: Optional[str], user: User, wing_id: Optional[UUID] = None,
                floor_number: Optional[int] = None, flat_id: Optional[UUID] = None) -> dict:
         """What was checked in a month: the lights found working and not working, how many were replaced, and for
-        every floor whether it was checked at all (4 tube lights, plus 3 spot lights for each flat).
+        every floor whether it was checked at all (4 tube lights and the camera, plus 3 spot lights for each flat).
 
         Narrowed by a wing, a floor, or one flat. A flat is only its 3 spot lights: the tube lights belong to the floor."""
         assert_society_access(user, society_id)
@@ -307,6 +313,8 @@ class LightService:
                 "tube": {"expected": 0 if flat is not None else len(LOCATIONS[TUBE]),
                          "checked": 0, "working": 0, "not_working": 0},
                 "spot": {"expected": flats * len(LOCATIONS[SPOT]), "checked": 0, "working": 0, "not_working": 0},
+                "camera": {"expected": 0 if flat is not None else len(LOCATIONS[CAMERA]),
+                           "checked": 0, "working": 0, "not_working": 0},
             }
         totals = {WORKING: 0, NOT_WORKING: 0}
         for point, status, _at in final.values():
@@ -319,8 +327,8 @@ class LightService:
 
         out = []
         for row in sorted(per_floor.values(), key=lambda r: (r["wing_name"], r["floor_number"])):
-            expected = row["tube"]["expected"] + row["spot"]["expected"]
-            checked = row["tube"]["checked"] + row["spot"]["checked"]
+            expected = sum(row[k]["expected"] for k in (TUBE, SPOT, CAMERA))
+            checked = sum(row[k]["checked"] for k in (TUBE, SPOT, CAMERA))
             row["status"] = "not_checked" if checked == 0 else ("done" if checked >= expected else "partial")
             out.append(row)
 

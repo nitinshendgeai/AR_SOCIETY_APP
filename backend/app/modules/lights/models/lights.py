@@ -1,5 +1,5 @@
-"""Common lights the society keeps working: the tube lights on each floor and its staircase, and the spot lights in the
-hall, bedroom and kitchen of each flat.
+"""Common lights the society keeps working: the tube lights on each floor and its staircase, the spot lights in the
+hall, bedroom and kitchen of each flat, and the camera on each floor.
 
 A light point is created the first time it is checked, so nothing has to be set up in advance. Every check and every
 replacement is kept as an entry with the date, the time and the person, so the months can be compared."""
@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID
 
 from app.db.base import Base, TimestampMixin
 
-TUBE, SPOT = "tube", "spot"
+TUBE, SPOT, CAMERA = "tube", "spot", "camera"
 WORKING, NOT_WORKING = "working", "not_working"
 
 # location code -> the words the screen shows
@@ -19,7 +19,8 @@ TUBE_LOCATIONS = {
     "stair_2": "Staircase tube light 2",
 }
 SPOT_LOCATIONS = {"hall": "Hall", "bedroom": "Bedroom", "kitchen": "Kitchen"}
-LOCATIONS = {TUBE: TUBE_LOCATIONS, SPOT: SPOT_LOCATIONS}
+CAMERA_LOCATIONS = {"camera": "Floor camera"}                  # one camera on each floor
+LOCATIONS = {TUBE: TUBE_LOCATIONS, SPOT: SPOT_LOCATIONS, CAMERA: CAMERA_LOCATIONS}
 
 
 class LightPoint(Base, TimestampMixin):
@@ -29,7 +30,7 @@ class LightPoint(Base, TimestampMixin):
     society_id = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
     wing_id = Column(UUID(as_uuid=True), ForeignKey("wings.id", ondelete="CASCADE"), nullable=False)
     floor_number = Column(Integer, nullable=False)                     # 0 = ground, as on the floor and flat records
-    kind = Column(String(10), nullable=False)                          # tube | spot
+    kind = Column(String(10), nullable=False)                          # tube | spot | camera
     location = Column(String(20), nullable=False)                      # floor_1 ... stair_2 | hall | bedroom | kitchen
     flat_id = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="CASCADE"), nullable=True)   # spot lights only
     # wing:floor:kind:location:flat - one point once, though a NULL flat would not stop a duplicate in a unique index

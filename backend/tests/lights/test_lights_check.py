@@ -220,8 +220,12 @@ def test_a_floor_with_every_light_checked_is_done(client, db, rig):
     spots = [{"flat_id": str(rig["flats"][n].id), "location": loc, "status": "working"}
              for n in ("201", "202") for loc in ("hall", "bedroom", "kitchen")]
     _check(client, rig, rig["electrician"], "spot", spots)
+    # the floor's camera is part of "done" too
+    assert _report(client, rig, rig["admin"])["floors"][0]["status"] == "partial"
+    _check(client, rig, rig["electrician"], "camera", [{"location": "camera", "status": "working"}])
     floor = _report(client, rig, rig["admin"])["floors"][0]
     assert floor["status"] == "done" and floor["floor_number"] == 2
+    assert floor["camera"] == {"expected": 1, "checked": 1, "working": 1, "not_working": 0}
 
 
 def test_another_month_starts_empty_and_a_bad_month_is_refused(client, rig):
@@ -310,3 +314,35 @@ def test_report_filters_refuse_what_is_not_this_societys(client, db, two_floors)
     assert client.get(url, params={"wing_id": str(uuid4())}, headers=h).status_code == 404
     other_flat = make_flat(db, make_wing(db, make_society(db, "Elsewhere").id, "Wing Z").id, "999")
     assert client.get(url, params={"flat_id": str(other_flat.id)}, headers=h).status_code == 404
+
+
+# ── The camera on each floor ─────────────────────────────────────────────────
+
+def test_a_floor_has_one_camera(client, rig):
+    sheet = _sheet(client, rig, rig["electrician"], "camera")
+    assert len(sheet["groups"]) == 1
+    [point] = sheet["groups"][0]["points"]
+    assert point["location"] == "camera" and point["label"] == "Floor camera" and point["status"] is None
+    # only the camera is accepted for this kind
+    assert _check(client, rig, rig["electrician"], "camera", [{"location": "hall", "status": "working"}]).status_code == 422
+
+
+def test_a_camera_found_not_working_is_listed_and_can_be_put_right_without_a_store_item(client, rig):
+    assert _check(client, rig, rig["electrician"], "camera",
+                  [{"location": "camera", "status": "not_working"}]).status_code == 201
+    bad = client.get(f"{API}/{rig['sid']}/not-working", headers=rig["admin"]["headers"]).json()
+    assert bad["count"] == 1 and bad["camera"] == 1 and bad["tube"] == 0
+    row = bad["rows"][0]
+    assert row["label"] == "Floor camera" and row["floor_number"] == 2
+    r = client.post(f"{API}/point/{row['id']}/replace", headers=rig["electrician"]["headers"], json={"note": "cable reset"})
+    assert r.status_code == 200, r.text
+    assert client.get(f"{API}/{rig['sid']}/not-working", headers=rig["admin"]["headers"]).json()["count"] == 0
+    assert _sheet(client, rig, rig["admin"], "camera")["groups"][0]["points"][0]["status"] == "working"
+
+
+def test_a_light_still_needs_its_store_item_to_be_replaced(client, rig):
+    _check(client, rig, rig["electrician"], "tube", [{"location": "floor_1", "status": "not_working"}])
+    row = client.get(f"{API}/{rig['sid']}/not-working", headers=rig["admin"]["headers"]).json()["rows"][0]
+    r = client.post(f"{API}/point/{row['id']}/replace", headers=rig["electrician"]["headers"], json={})
+    assert r.status_code == 422
+    assert client.get(f"{API}/{rig['sid']}/not-working", headers=rig["admin"]["headers"]).json()["count"] == 1

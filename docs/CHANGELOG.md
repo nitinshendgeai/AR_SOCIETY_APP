@@ -4,6 +4,18 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-12 (Lights check: the camera on each floor)
+
+### feat: check the floor's camera with the lights
+
+- **Camera** - a third choice next to Tube lights and Spot lights. Each floor has one camera; it is marked Working or Not
+  working with the date, time and person, like the lights, and the form shows how it was last found.
+- **To replace** - a camera found not working is listed with the lights. "Replaced" can take a spare from the store (stock goes
+  down by one) or just mark the camera working again when it was only put right.
+- **Report** - each floor shows "Camera 1/1", counts toward Done / Partly / Not checked, and its faults are counted in the totals.
+  A flat's report is still only its three spot lights.
+- No migration. Tests: `backend/tests/lights/test_lights_check.py`, `mobile/test/lights_check_test.dart`.
+
 ## 2026-11-12 (Lights report: filters)
 
 ### feat: narrow the Lights report by wing, floor or flat
