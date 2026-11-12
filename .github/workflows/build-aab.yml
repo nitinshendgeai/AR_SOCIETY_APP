@@ -23,8 +23,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # Pinned: Flutter 3.50 needs Gradle 9.3.1+, this project is on 8.14.3, so an unpinned `stable` broke the
+      # Android build on 12 Nov. 3.47.9 is the version that last built it. Raise it together with the Gradle upgrade.
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
+          flutter-version: '3.47.9'
           channel: 'stable'
           cache: true
 
