@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/auth/biometric_preference.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart';
 import 'package:ar_society_app/core/motion/motion.dart';
-import 'package:ar_society_app/core/navigation/app_menu.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/manager_checklist/presentation/widgets/checklist_widgets.dart';
