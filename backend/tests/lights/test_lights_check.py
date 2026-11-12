@@ -271,7 +271,10 @@ def test_report_can_be_narrowed_to_a_floor(client, two_floors):
 
 
 def test_report_can_be_narrowed_to_a_wing(client, db, two_floors):
-    other = make_wing(db, two_floors["society"].id, "Wing B")
+    from app.models.wing import Wing
+    other = Wing(society_id=two_floors["society"].id, name="Wing B", code="B")      # make_wing always uses code "A"
+    db.add(other)
+    db.commit()
     db.add(Floor(wing_id=other.id, society_id=two_floors["society"].id, floor_number=1, floor_name="1st Floor"))
     db.commit()
     everything = _filtered(client, two_floors)
