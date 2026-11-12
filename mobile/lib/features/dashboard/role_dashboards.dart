@@ -930,33 +930,6 @@ class ResidentDashboardScreen extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 18),
-        const _SectionLabel('Society services'),
-        const SizedBox(height: 10),
-        _ServiceGrid(tiles: [
-          if (_on(user, 'visitors') && granted('visitors'))
-            _ServiceTile(Icons.meeting_room_rounded, 'Visitors', AppRoutes.visitorsMy, badge: waiting),
-          if (_on(user, 'gate_extras') && granted('parcels'))
-            const _ServiceTile(Icons.local_shipping_rounded, 'Parcels', AppRoutes.parcels),
-          if (_on(user, 'gate_extras') && granted('domestic_help'))
-            const _ServiceTile(Icons.cleaning_services_rounded, 'Daily help', AppRoutes.domesticHelp),
-          if (_on(user, 'complaints') && granted('complaints'))
-            const _ServiceTile(Icons.report_problem_rounded, 'Complaints', AppRoutes.complaints),
-          if (_on(user, 'notices') && granted('notices'))
-            const _ServiceTile(Icons.campaign_rounded, 'Notices', AppRoutes.notices),
-          if (_on(user, 'amenities') && granted('amenities'))
-            const _ServiceTile(Icons.pool_rounded, 'Amenities', AppRoutes.amenities),
-          if (_on(user, 'governance') && granted('meetings'))
-            const _ServiceTile(Icons.groups_rounded, 'Meetings', AppRoutes.meetings),
-          if (_on(user, 'governance') && granted('polls'))
-            const _ServiceTile(Icons.how_to_vote_rounded, 'Polls', AppRoutes.polls),
-          if (_on(user, 'governance') && granted('documents'))
-            const _ServiceTile(Icons.folder_open_rounded, 'Documents', AppRoutes.documents),
-          if (_on(user, 'certificates') && granted('certificates'))
-            const _ServiceTile(Icons.verified_outlined, 'Certificates', AppRoutes.certificates),
-        ]),
-        if (_on(user, 'notices') && granted('notices') && user?.societyId != null)
-          _NoticeBoardPreview(societyId: user!.societyId!),
-        const SizedBox(height: 18),
         const _SectionLabel('Summary'),
         const SizedBox(height: 10),
         GridView(
@@ -1010,6 +983,33 @@ class ResidentDashboardScreen extends ConsumerWidget {
             ),
           ],
         ),
+        const SizedBox(height: 18),
+        const _SectionLabel('Society services'),
+        const SizedBox(height: 10),
+        _ServiceGrid(tiles: [
+          if (_on(user, 'visitors') && granted('visitors'))
+            _ServiceTile(Icons.meeting_room_rounded, 'Visitors', AppRoutes.visitorsMy, badge: waiting),
+          if (_on(user, 'gate_extras') && granted('parcels'))
+            const _ServiceTile(Icons.local_shipping_rounded, 'Parcels', AppRoutes.parcels),
+          if (_on(user, 'gate_extras') && granted('domestic_help'))
+            const _ServiceTile(Icons.cleaning_services_rounded, 'Daily help', AppRoutes.domesticHelp),
+          if (_on(user, 'complaints') && granted('complaints'))
+            const _ServiceTile(Icons.report_problem_rounded, 'Complaints', AppRoutes.complaints),
+          if (_on(user, 'notices') && granted('notices'))
+            const _ServiceTile(Icons.campaign_rounded, 'Notices', AppRoutes.notices),
+          if (_on(user, 'amenities') && granted('amenities'))
+            const _ServiceTile(Icons.pool_rounded, 'Amenities', AppRoutes.amenities),
+          if (_on(user, 'governance') && granted('meetings'))
+            const _ServiceTile(Icons.groups_rounded, 'Meetings', AppRoutes.meetings),
+          if (_on(user, 'governance') && granted('polls'))
+            const _ServiceTile(Icons.how_to_vote_rounded, 'Polls', AppRoutes.polls),
+          if (_on(user, 'governance') && granted('documents'))
+            const _ServiceTile(Icons.folder_open_rounded, 'Documents', AppRoutes.documents),
+          if (_on(user, 'certificates') && granted('certificates'))
+            const _ServiceTile(Icons.verified_outlined, 'Certificates', AppRoutes.certificates),
+        ]),
+        if (_on(user, 'notices') && granted('notices') && user?.societyId != null)
+          _NoticeBoardPreview(societyId: user!.societyId!),
         const SizedBox(height: 18),
         const _SectionLabel('My account'),
         const SizedBox(height: 10),
