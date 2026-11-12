@@ -30,11 +30,16 @@ void main() {
       }
     });
 
-    test('web-only roles are turned away, even when they also hold a field role', () {
-      for (final role in ['Society Admin', 'Committee Member', 'Manager', 'Platform Admin']) {
-        expect(AppEdition.allowsUser(_user([role])), isFalse, reason: role);
-        expect(AppEdition.allowsUser(_user([role, 'Resident'])), isFalse, reason: '$role + Resident');
+    test('society admins, committee members and managers, for Accounts and Stores', () {
+      for (final role in ['Society Admin', 'Committee Member', 'Manager']) {
+        expect(AppEdition.allowsUser(_user([role])), isTrue, reason: role);
+        expect(AppEdition.allowsUser(_user([role, 'Resident'])), isTrue, reason: '$role + Resident');
       }
+    });
+
+    test('a platform admin is turned away, even when they also hold a field role', () {
+      expect(AppEdition.allowsUser(_user(['Platform Admin'])), isFalse);
+      expect(AppEdition.allowsUser(_user(['Platform Admin', 'Resident'])), isFalse);
     });
   });
 
@@ -45,9 +50,14 @@ void main() {
       expect(_codes(_everything, u, field: true), _everything.intersection(AppEdition.fieldFormCodes));
     });
 
-    test('has no accounts, finance, administration or operations screens', () {
+    test('has Accounts and Stores', () {
       final codes = _codes(_everything, u, field: true);
-      for (final web in ['accounts', 'maintenance_billing', 'vendors', 'inventory', 'users_roles', 'society_settings', 'residents', 'platform_admin']) {
+      expect(codes.containsAll(['accounts', 'inventory']), isTrue);
+    });
+
+    test('has no billing, administration or other management screens', () {
+      final codes = _codes(_everything, u, field: true);
+      for (final web in ['maintenance_billing', 'vendors', 'users_roles', 'society_settings', 'residents', 'platform_admin']) {
         expect(codes.contains(web), isFalse, reason: web);
       }
     });
@@ -62,14 +72,16 @@ void main() {
         routeDenial(path: path, home: '/resident', platformAdmin: false, granted: _everything, fieldEdition: true);
 
     test('bounces management screens even when granted', () {
-      for (final path in ['/accounts', '/billing/maintenance', '/users', '/vendors/master', '/stores', '/society-settings']) {
+      for (final path in ['/billing/maintenance', '/users', '/vendors/master', '/society-settings']) {
         expect(deny(path)?.location, '/resident', reason: path);
       }
     });
 
-    test('leaves the field screens alone', () {
+    test('leaves the field screens, Accounts and Stores alone', () {
       expect(deny('/staff'), isNull);
       expect(deny('/residents/me'), isNull);
+      expect(deny('/accounts'), isNull);
+      expect(deny('/stores'), isNull);
     });
 
     test('the full build still follows the grants', () {

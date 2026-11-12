@@ -103,7 +103,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// The field (APK) build is for residents, security, technical and gym staff; anyone else is signed out with a
+  /// The field (APK) build is for residents, society staff and administrators; a platform admin is signed out with a
   /// pointer to the web app. Always true in the full build. Returns false (and sets the error) when turned away.
   Future<bool> _allowedInThisEdition(UserEntity user) async {
     if (!AppEdition.isField || AppEdition.allowsUser(user)) return true;

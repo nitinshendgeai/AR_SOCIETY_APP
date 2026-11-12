@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build:
-    name: Build release APK (residents, security, technical and gym staff)
+    name: Build release APK (residents, society staff and administrators)
     runs-on: ubuntu-latest
 
     steps:
@@ -39,8 +39,9 @@ jobs:
         working-directory: mobile
         run: flutter pub get
 
-      # The APK is the "field" edition: residents, security, technical and gym staff only. Accounts, services and
-      # operations stay on the web app (see mobile/lib/core/config/edition.dart). Same package id as before, so it
+      # The APK is the "field" edition: residents, security, technical and gym staff, plus admins, committee and
+      # managers for Accounts and Stores. Billing, administration and the other management screens stay on the web
+      # app (see mobile/lib/core/config/edition.dart). Same package id as before, so it
       # installs over the earlier full-app APK.
       - name: Build release APK
         working-directory: mobile
