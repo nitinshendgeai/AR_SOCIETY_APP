@@ -119,7 +119,7 @@ def _stocked_item(client, rig, qty):
 
 
 def _stock(client, rig, item):
-    return client.get(f"{INV}/items/{item['id']}", headers=rig["admin"]["headers"]).json()["current_quantity"]
+    return client.get(f"{INV}/items/{item['id']}", headers=rig["admin"]["headers"]).json()["current_stock"]
 
 
 def test_replacing_takes_one_from_the_store_and_marks_the_light_working(client, rig):
