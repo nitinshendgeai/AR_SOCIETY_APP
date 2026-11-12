@@ -134,44 +134,11 @@ class _DashboardShell extends ConsumerWidget {
           ),
         ],
       ],
-      drawer: desktop ? null : Drawer(
-        child: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Text('Navigation', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-              ),
-              const Divider(height: 1),
-              ...menuCategories.map((category) => Theme(
-                    // Suppress the default divider ExpansionTile draws around
-                    // itself when expanded — the drawer already separates
-                    // sections with spacing, a second line reads as clutter.
-                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                    child: ExpansionTile(
-                      initiallyExpanded: true,
-                      leading: Icon(category.icon, color: AppTheme.primary),
-                      title: Text(category.label,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                      childrenPadding: const EdgeInsets.only(bottom: 4),
-                      children: category.items
-                          .map((item) => ListTile(
-                                contentPadding: const EdgeInsets.only(left: 32, right: 16),
-                                leading: Icon(item.icon, size: 20, color: AppTheme.textSecondary),
-                                title: Text(item.label, style: const TextStyle(fontSize: 13)),
-                                onTap: () {
-                                  Navigator.pop(context);
-                                  if (item.route != null) context.push(item.route!);
-                                },
-                              ))
-                          .toList(),
-                    ),
-                  )),
-            ],
-          ),
-        ),
-      ),
+      // Phone navigation is centralized in PhoneBottomBar → More.
+      // Keeping a second hamburger drawer here duplicated the same menu and
+      // made the dashboard header feel crowded. Desktop navigation remains
+      // in the persistent AppShell sidebar.
+      drawer: null,
       body: _refreshable(
         ListView(
           // Always scrollable, so a short dashboard can still be pulled down to refresh.
