@@ -20,8 +20,8 @@ class StaffHomeScreen extends ConsumerWidget {
   /// more on a desktop, instead of two tiles stretched hundreds of pixels
   /// tall by an aspect ratio.
   static const _moduleGrid = SliverGridDelegateWithMaxCrossAxisExtent(
-    maxCrossAxisExtent: 280,
-    mainAxisExtent: 148,
+    maxCrossAxisExtent: 220,
+    mainAxisExtent: 136,
     mainAxisSpacing: 12,
     crossAxisSpacing: 12,
   );
@@ -70,7 +70,7 @@ class StaffHomeScreen extends ConsumerWidget {
         child: RefreshIndicator(
           onRefresh: () async => ref.invalidate(currentStaffProvider),
           child: ListView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             children: [
               // ── Greeting card ─────────────────────────────────────────────
               Container(
