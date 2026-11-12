@@ -745,7 +745,7 @@ class SecurityDashboardScreen extends ConsumerWidget {
           const SizedBox(height: 10),
           GridView(
             gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 280,
+              maxCrossAxisExtent: 190,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
               mainAxisExtent: _cardExtent(context),
