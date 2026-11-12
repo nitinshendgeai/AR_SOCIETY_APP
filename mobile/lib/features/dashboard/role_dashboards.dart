@@ -302,7 +302,7 @@ class _GreetingCard extends ConsumerWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [AppTheme.primary, AppTheme.primaryDark],
@@ -313,35 +313,68 @@ class _GreetingCard extends ConsumerWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(greetingFor(now.hour), style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 13)),
-          const SizedBox(height: 2),
-          Text(user?.fullName ?? 'Society User', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          Text(subtitle, style: TextStyle(color: Colors.white.withOpacity(0.88), fontSize: 13)),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          Row(
             children: [
-              if (societyName != null) _chip(Icons.apartment_rounded, societyName),
-              _chip(Icons.calendar_today_rounded, DateFormat('EEE, d MMM y').format(now)),
+              Expanded(
+                child: Text(
+                  greetingFor(now.hour),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.white.withOpacity(0.88), fontSize: 12, fontWeight: FontWeight.w500),
+                ),
+              ),
+              Text(
+                DateFormat('EEE, d MMM').format(now),
+                style: TextStyle(color: Colors.white.withOpacity(0.82), fontSize: 11, fontWeight: FontWeight.w500),
+              ),
             ],
           ),
+          const SizedBox(height: 5),
+          Text(
+            user?.fullName ?? 'Society User',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700, height: 1.15),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: Colors.white.withOpacity(0.88), fontSize: 11.5, height: 1.2),
+          ),
+          if (societyName != null && societyName.trim().isNotEmpty) ...[
+            const SizedBox(height: 11),
+            Container(
+              constraints: const BoxConstraints(minHeight: 32),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.14),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.apartment_rounded, size: 14, color: Colors.white),
+                  const SizedBox(width: 7),
+                  Flexible(
+                    child: Text(
+                      societyName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
-
-  Widget _chip(IconData icon, String text) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(color: Colors.white.withOpacity(0.14), borderRadius: BorderRadius.circular(999)),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 13, color: Colors.white),
-          const SizedBox(width: 6),
-          Flexible(child: Text(text, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600))),
-        ]),
-      );
 }
 
 class _SectionLabel extends StatelessWidget {
