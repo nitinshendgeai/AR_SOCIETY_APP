@@ -100,6 +100,7 @@ import 'package:ar_society_app/features/accounts/presentation/screens/petty_cash
 import 'package:ar_society_app/features/amenities/presentation/screens/amenities_screen.dart';
 import 'package:ar_society_app/features/platform/presentation/screens/platform_console_screen.dart';
 import 'package:ar_society_app/features/platform/presentation/screens/platform_society_screen.dart';
+import 'package:ar_society_app/features/lights_check/presentation/screens/lights_check_screen.dart';
 import 'package:ar_society_app/features/stores/presentation/screens/store_item_screen.dart';
 import 'package:ar_society_app/features/stores/presentation/screens/stores_screen.dart';
 import 'package:ar_society_app/features/amenities/presentation/screens/amenity_detail_screen.dart';
@@ -207,6 +208,7 @@ class AppRoutes {
   static const vendorTdsRegister  = '/vendors/tds-register';
   static const platformHome       = '/platform';
   static const platformSociety    = '/platform/societies/:id';
+  static const lightsCheck        = '/lights-check';
   static const stores             = '/stores';
   static const storeItem          = '/stores/:id';
   static const amenities          = '/amenities';
@@ -715,6 +717,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: AppRoutes.shopsImport, builder: (_, __) => const ShopsImportScreen()),
           GoRoute(path: AppRoutes.advanceImport, builder: (_, __) => const AdvanceImportScreen()),
           GoRoute(path: AppRoutes.flatPossessionImport, builder: (_, __) => const FlatPossessionImportScreen()),
+          GoRoute(path: AppRoutes.lightsCheck, builder: (_, __) => const LightsCheckScreen()),
           GoRoute(path: AppRoutes.stores, builder: (_, __) => const StoresScreen()),
           GoRoute(
             path: AppRoutes.storeItem,

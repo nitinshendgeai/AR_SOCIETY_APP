@@ -149,6 +149,7 @@ FORM_DEFINITIONS = [
     ("notices",                   "Notices",                    "Notice board: notices for the society, acknowledgements and emergency alerts"),
     ("assets",                    "Assets",                     "Society-owned assets (lifts, pumps, ACs, generators): warranty, service schedule and history"),
     ("inventory",                 "Stores",                     "Consumable stock, stock in, issue to staff and return"),
+    ("lights_check",              "Lights check",               "Monthly check of the common tube lights on each floor and the spot lights in each flat; replace what is not working"),
     ("amenities",                 "Amenities",                  "Clubhouse, gym, pool and hall: book a time, rules, prices, closed dates and approvals"),
     ("platform_admin",            "Platform Console",           "Every society on the platform: trials, plans, suspension, limits and the record of what was done"),
 ]
@@ -209,6 +210,7 @@ FORM_ROLE_GRANTS = {
     "notices":                  _ALL_CANONICAL_ROLES,
     "assets":                   tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
     "inventory":                tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
+    "lights_check":             tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER) | {"Technical Supervisor", "Technical Staff"})),
     "amenities":                _ALL_CANONICAL_ROLES,
     "platform_admin":           _PLATFORM,
 }

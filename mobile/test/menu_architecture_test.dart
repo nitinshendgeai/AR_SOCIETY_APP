@@ -54,7 +54,7 @@ void main() {
           'Visitors', 'Parcels', 'Domestic help', 'Complaints', 'Notices', 'Amenities', 'Meetings', 'Polls', 'Documents',
           'Certificates & NOC',
         ],
-        'Operations': ["Manager's Checklist", 'Checklist Templates', 'Stores', 'Vendors & Work', 'Vendor Master'],
+        'Operations': ["Manager's Checklist", 'Checklist Templates', 'Stores', 'Lights check', 'Vendors & Work', 'Vendor Master'],
         'Finance & Maintenance': [
           'Maintenance Billing', 'Maintenance Elements', 'Online Payments', 'Defaulters', 'Vendor Bills', 'Bank Reconciliation',
         ],
@@ -69,7 +69,7 @@ void main() {
 
     test('no duplicate labels, routes or icons; every item has a route', () {
       final items = [for (final c in appMenuCategories) ...c.items];
-      expect(items.length, 40); // the Accounts and Gateway entries were merged into one
+      expect(items.length, 41); // the Accounts and Gateway entries were merged into one
       expect(items.map((i) => i.label).toSet().length, items.length, reason: 'duplicate label');
       expect(items.map((i) => i.route).toSet().length, items.length, reason: 'duplicate route');
       expect(items.map((i) => i.icon.codePoint).toSet().length, items.length, reason: 'duplicate icon');

@@ -66,6 +66,7 @@ const appMenuCategories = [
     AppMenuItem('manager_checklist', "Manager's Checklist", Icons.fact_check_rounded, AppRoutes.managerChecklist),
     AppMenuItem('checklist_templates', 'Checklist Templates', Icons.checklist_rtl_rounded, AppRoutes.checklistTemplates),
     AppMenuItem('inventory', 'Stores', Icons.warehouse_rounded, AppRoutes.stores),
+    AppMenuItem('lights_check', 'Lights check', Icons.lightbulb_rounded, AppRoutes.lightsCheck),
     AppMenuItem('vendors', 'Vendors & Work', Icons.handyman_rounded, AppRoutes.vendorsWork),
     AppMenuItem('vendor_master', 'Vendor Master', Icons.contact_page_rounded, AppRoutes.vendorMaster),
   ]),

@@ -1,0 +1,215 @@
+from datetime import datetime
+from typing import Dict, List, Optional
+from uuid import UUID
+
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+
+from app.core.tenant_scope import assert_society_access
+from app.models.flat import Flat
+from app.models.floor import Floor
+from app.models.user import User
+from app.models.wing import Wing
+from app.modules.inventory.schemas.inventory import IssueCreate
+from app.modules.inventory.services.inventory_service import InventoryService
+from app.modules.lights.models.lights import (
+    LOCATIONS, NOT_WORKING, SPOT, TUBE, WORKING, LightCheckEntry, LightPoint,
+)
+
+
+def point_key(wing_id, floor_number: int, kind: str, location: str, flat_id) -> str:
+    return f"{wing_id}:{floor_number}:{kind}:{location}:{flat_id or '-'}"
+
+
+class LightService:
+    def __init__(self, db: Session):
+        self.db = db
+
+    # ── Lookups ──────────────────────────────────────────────────────────────
+
+    def _wing(self, society_id: UUID, wing_id: UUID, user: User) -> Wing:
+        assert_society_access(user, society_id)
+        wing = self.db.query(Wing).filter(Wing.id == wing_id, Wing.society_id == society_id,
+                                          Wing.is_active == True).first()  # noqa: E712
+        if wing is None:
+            raise HTTPException(status_code=404, detail="Wing not found")
+        return wing
+
+    def _flats(self, wing_id: UUID, floor_number: int) -> List[Flat]:
+        flats = (self.db.query(Flat).filter(Flat.wing_id == wing_id, Flat.floor == floor_number,
+                                            Flat.is_active == True).all())  # noqa: E712
+        return sorted(flats, key=lambda f: (len(f.flat_number), f.flat_number))
+
+    @staticmethod
+    def _kind(kind: str) -> str:
+        if kind not in LOCATIONS:
+            raise HTTPException(status_code=422, detail="Choose tube lights or spot lights")
+        return kind
+
+    def floors(self, society_id: UUID, wing_id: UUID, user: User) -> List[dict]:
+        """The floors of a wing, for the picker."""
+        self._wing(society_id, wing_id, user)
+        rows = (self.db.query(Floor).filter(Floor.wing_id == wing_id, Floor.is_active == True)  # noqa: E712
+                .order_by(Floor.floor_number).all())
+        return [{"floor_number": f.floor_number, "name": f.floor_name or f"Floor {f.floor_number}"} for f in rows]
+
+    def _points_of(self, wing_id: UUID, floor_number: int, kind: str) -> Dict[str, LightPoint]:
+        rows = (self.db.query(LightPoint).filter(LightPoint.wing_id == wing_id, LightPoint.floor_number == floor_number,
+                                                 LightPoint.kind == kind).all())
+        return {p.point_key: p for p in rows}
+
+    def _names(self, user_ids) -> Dict[UUID, str]:
+        ids = {i for i in user_ids if i}
+        if not ids:
+            return {}
+        return {u.id: u.full_name for u in self.db.query(User).filter(User.id.in_(ids)).all()}
+
+    # ── The form ─────────────────────────────────────────────────────────────
+
+    def sheet(self, society_id: UUID, wing_id: UUID, floor_number: int, kind: str, user: User) -> dict:
+        """What to check on one floor: its 4 tube lights, or the 3 spot lights of each flat, each with how it was last
+        found and when."""
+        self._wing(society_id, wing_id, user)
+        kind = self._kind(kind)
+        points = self._points_of(wing_id, floor_number, kind)
+        names = self._names(p.last_checked_by for p in points.values())
+
+        def cell(location: str, label: str, flat_id) -> dict:
+            p = points.get(point_key(wing_id, floor_number, kind, location, flat_id))
+            return {
+                "location": location, "label": label,
+                "status": p.status if p else None,                      # None: not checked yet
+                "last_checked_at": p.last_checked_at.isoformat() if p else None,
+                "last_checked_by": names.get(p.last_checked_by) if p else None,
+                "not_working_since": p.not_working_since.isoformat() if p and p.not_working_since else None,
+            }
+
+        if kind == TUBE:
+            groups = [{"flat_id": None, "label": "This floor",
+                       "points": [cell(loc, label, None) for loc, label in LOCATIONS[TUBE].items()]}]
+        else:
+            groups = [{"flat_id": str(f.id), "label": f"Flat {f.flat_number}",
+                       "points": [cell(loc, label, f.id) for loc, label in LOCATIONS[SPOT].items()]}
+                      for f in self._flats(wing_id, floor_number)]
+        return {"wing_id": str(wing_id), "floor_number": floor_number, "kind": kind, "groups": groups}
+
+    def record(self, society_id: UUID, wing_id: UUID, floor_number: int, kind: str, results: List[dict],
+               user: User) -> dict:
+        """Save what the electrician or plumber found. Every line is stamped with the same date and time."""
+        self._wing(society_id, wing_id, user)
+        kind = self._kind(kind)
+        if not results:
+            raise HTTPException(status_code=422, detail="Mark at least one light")
+        flats = {str(f.id): f for f in self._flats(wing_id, floor_number)} if kind == SPOT else {}
+        points = self._points_of(wing_id, floor_number, kind)
+        now = datetime.utcnow()
+        seen = set()
+        counts = {WORKING: 0, NOT_WORKING: 0}
+        for r in results:
+            location, status = r["location"], r["status"]
+            if location not in LOCATIONS[kind]:
+                raise HTTPException(status_code=422, detail=f"'{location}' is not a {kind} light")
+            if status not in counts:
+                raise HTTPException(status_code=422, detail="Mark each light Working or Not working")
+            flat_id = r.get("flat_id")
+            if kind == SPOT:
+                if flat_id is None or str(flat_id) not in flats:
+                    raise HTTPException(status_code=422, detail="That flat is not on this floor")
+                flat_id = flats[str(flat_id)].id
+            else:
+                flat_id = None
+            key = point_key(wing_id, floor_number, kind, location, flat_id)
+            if key in seen:
+                raise HTTPException(status_code=422, detail="A light is marked twice")
+            seen.add(key)
+            point = points.get(key)
+            if point is None:
+                point = LightPoint(society_id=society_id, wing_id=wing_id, floor_number=floor_number, kind=kind,
+                                   location=location, flat_id=flat_id, point_key=key, status=status,
+                                   last_checked_at=now, last_checked_by=user.id)
+                self.db.add(point)
+                self.db.flush()
+            was_not_working = point.status == NOT_WORKING
+            point.status = status
+            point.last_checked_at = now
+            point.last_checked_by = user.id
+            if status == NOT_WORKING:
+                if not was_not_working or point.not_working_since is None:
+                    point.not_working_since = now
+            else:
+                point.not_working_since = None
+            self.db.add(LightCheckEntry(society_id=society_id, point_id=point.id, event="checked", status=status,
+                                        at=now, by_user=user.id, note=(r.get("note") or None)))
+            counts[status] += 1
+        self.db.commit()
+        return {"checked": len(seen), "working": counts[WORKING], "not_working": counts[NOT_WORKING],
+                "checked_at": now.isoformat()}
+
+    # ── Replacing ────────────────────────────────────────────────────────────
+
+    def _labels(self, points: List[LightPoint]) -> List[dict]:
+        wings = {w.id: w for w in self.db.query(Wing).filter(Wing.id.in_({p.wing_id for p in points})).all()} if points else {}
+        flat_ids = {p.flat_id for p in points if p.flat_id}
+        flats = {f.id: f for f in self.db.query(Flat).filter(Flat.id.in_(flat_ids)).all()} if flat_ids else {}
+        names = self._names(p.last_checked_by for p in points)
+        out = []
+        for p in points:
+            wing = wings.get(p.wing_id)
+            flat = flats.get(p.flat_id)
+            out.append({
+                "id": str(p.id), "kind": p.kind, "location": p.location,
+                "label": LOCATIONS[p.kind].get(p.location, p.location),
+                "wing_id": str(p.wing_id), "wing_name": wing.name if wing else None,
+                "floor_number": p.floor_number,
+                "flat_id": str(p.flat_id) if p.flat_id else None, "flat_label": flat.flat_number if flat else None,
+                "status": p.status,
+                "not_working_since": p.not_working_since.isoformat() if p.not_working_since else None,
+                "last_checked_at": p.last_checked_at.isoformat(),
+                "last_checked_by": names.get(p.last_checked_by),
+            })
+        return out
+
+    def not_working(self, society_id: UUID, wing_id: Optional[UUID], user: User) -> dict:
+        """Every light found not working and not replaced yet, oldest first."""
+        assert_society_access(user, society_id)
+        q = self.db.query(LightPoint).filter(LightPoint.society_id == society_id, LightPoint.status == NOT_WORKING)
+        if wing_id is not None:
+            q = q.filter(LightPoint.wing_id == wing_id)
+        points = q.order_by(LightPoint.not_working_since, LightPoint.floor_number).all()
+        rows = self._labels(points)
+        return {"count": len(rows), "tube": sum(1 for r in rows if r["kind"] == TUBE),
+                "spot": sum(1 for r in rows if r["kind"] == SPOT), "rows": rows}
+
+    def replace(self, point_id: UUID, item_id: UUID, quantity: float, note: Optional[str], user: User) -> dict:
+        """The light was replaced: take the new tube or bulb out of the store and mark the light working again."""
+        point = self.db.query(LightPoint).filter(LightPoint.id == point_id).first()
+        if point is None:
+            raise HTTPException(status_code=404, detail="Light not found")
+        assert_society_access(user, point.society_id)
+        if point.status != NOT_WORKING:
+            raise HTTPException(status_code=409, detail="This light is not marked as not working")
+        label = LOCATIONS[point.kind].get(point.location, point.location)
+        # The store first: it refuses when there is not enough stock, and then nothing here changes.
+        InventoryService(self.db).issue_item(
+            IssueCreate(item_id=item_id, issued_to_user=user.id, quantity_issued=quantity, consumed=True,
+                        purpose=f"Replaced {label.lower()}" + (f" - {note}" if note else "")), user)
+        now = datetime.utcnow()
+        point.status = WORKING
+        point.not_working_since = None
+        point.last_checked_at = now
+        point.last_checked_by = user.id
+        self.db.add(LightCheckEntry(society_id=point.society_id, point_id=point.id, event="replaced", status=WORKING,
+                                    at=now, by_user=user.id, note=note or None, item_id=item_id, quantity=quantity))
+        self.db.commit()
+        return {"replaced_at": now.isoformat()}
+
+    # ── Summary ──────────────────────────────────────────────────────────────
+
+    def summary(self, society_id: UUID, user: User) -> dict:
+        """How many lights are known, working and not working, for a dashboard or the top of the screen."""
+        assert_society_access(user, society_id)
+        points = self.db.query(LightPoint).filter(LightPoint.society_id == society_id).all()
+        last = max((p.last_checked_at for p in points), default=None)
+        return {"total": len(points), "working": sum(1 for p in points if p.status == WORKING),
+                "not_working": sum(1 for p in points if p.status == NOT_WORKING),
+                "last_checked_at": last.isoformat() if last else None}
