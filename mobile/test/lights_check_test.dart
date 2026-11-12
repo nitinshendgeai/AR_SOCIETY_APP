@@ -26,7 +26,9 @@ Map<String, dynamic> _point(String location, String label, {String? status, Stri
     };
 
 /// A server with one wing, one floor and the 4 tube lights of it; remembers what was saved.
-Dio _server(List<Map<String, dynamic>> saved, {List<Map<String, dynamic>> broken = const []}) {
+Dio _server(List<Map<String, dynamic>> saved,
+    {List<Map<String, dynamic>> broken = const [], List<String?>? months}) {
+  final asked = months ?? <String?>[];
   final dio = Dio();
   dio.interceptors.add(InterceptorsWrapper(onRequest: (o, h) {
     Object data;
@@ -52,6 +54,26 @@ Dio _server(List<Map<String, dynamic>> saved, {List<Map<String, dynamic>> broken
     } else if (o.path.endsWith('/check')) {
       saved.add(Map<String, dynamic>.from(o.data as Map));
       data = {'checked': 4, 'working': 3, 'not_working': 1};
+    } else if (o.path.endsWith('/report')) {
+      asked.add(o.queryParameters['month'] as String?);
+      data = {
+        'month': o.queryParameters['month'] ?? '2026-11',
+        'totals': {'checked': 7, 'working': 6, 'not_working': 1, 'replaced': 1, 'still_not_working': 1},
+        'floors_not_checked': 1,
+        'floors_partly_checked': 1,
+        'floors': [
+          {
+            'wing_id': 'w1', 'wing_name': 'Wing A', 'floor_number': 2, 'floor_name': '2nd Floor', 'flats': 2, 'status': 'partial',
+            'tube': {'expected': 4, 'checked': 4, 'working': 4, 'not_working': 0},
+            'spot': {'expected': 6, 'checked': 3, 'working': 2, 'not_working': 1},
+          },
+          {
+            'wing_id': 'w1', 'wing_name': 'Wing A', 'floor_number': 3, 'floor_name': '3rd Floor', 'flats': 1, 'status': 'not_checked',
+            'tube': {'expected': 4, 'checked': 0, 'working': 0, 'not_working': 0},
+            'spot': {'expected': 3, 'checked': 0, 'working': 0, 'not_working': 0},
+          },
+        ],
+      };
     } else if (o.path.endsWith('/not-working')) {
       data = {'rows': broken};
     } else {
@@ -136,5 +158,30 @@ void main() {
     expect(find.text('Wing A · Floor 2 · Flat 201'), findsOneWidget);
     expect(find.textContaining('Not working since'), findsOneWidget);
     expect(find.byKey(const Key('replace-p1')), findsOneWidget);
+  });
+
+  testWidgets('the Report tab shows the month, the totals and every floor', (t) async {
+    phone(t);
+    final months = <String?>[];
+    await t.pumpWidget(_wrap(_server([], months: months)));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Report'));
+    await t.pumpAndSettle();
+    expect(find.text('November 2026'), findsOneWidget);
+    expect(find.text('7'), findsOneWidget);                                   // checked
+    expect(find.text('6'), findsOneWidget);                                   // working
+    expect(find.text('1 light still waiting to be replaced'), findsOneWidget);
+    expect(find.text('1 floor not checked · 1 partly checked'), findsOneWidget);
+    expect(find.text('Wing A · 2nd Floor'), findsOneWidget);
+    expect(find.text('Partly'), findsOneWidget);
+    expect(find.text('Not checked'), findsOneWidget);
+    expect(find.textContaining('Tube lights 4/4'), findsOneWidget);
+    expect(find.textContaining('Spot lights 3/6 (2 flats)'), findsOneWidget);
+    expect(find.text('1 not working'), findsOneWidget);
+    // the first read is the current month; "previous" asks for the one before
+    expect(months, [null]);
+    await t.tap(find.byKey(const Key('report-prev')));
+    await t.pumpAndSettle();
+    expect(months.last, matches(RegExp(r'^\d{4}-\d{2}$')));
   });
 }

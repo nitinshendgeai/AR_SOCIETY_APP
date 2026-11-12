@@ -1,5 +1,7 @@
 """The monthly lights check: 4 tube lights per floor, 3 spot lights per flat, each marked working or not with the date,
 time and person, and replaced from the store."""
+from uuid import UUID
+
 import pytest
 
 from app.models.floor import Floor
@@ -166,3 +168,72 @@ def test_residents_and_other_societies_are_kept_out(client, rig):
     assert client.get(url, params=q, headers=rig["resident"]["headers"]).status_code == 403
     assert client.get(url, params=q, headers=rig["other_admin"]["headers"]).status_code == 403
     assert _check(client, rig, rig["resident"], "tube", _tubes(["working"] * 4)).status_code == 403
+
+
+# ── The monthly report ───────────────────────────────────────────────────────
+
+def _this_month():
+    from app.utils.local_time import local_today, zone
+    return local_today(zone(None)).strftime("%Y-%m")
+
+
+def _report(client, rig, who, month=None):
+    r = client.get(f"{API}/{rig['sid']}/report", params={"month": month} if month else {}, headers=who["headers"])
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_report_counts_what_was_checked_found_and_replaced_and_names_the_floors_not_checked(client, db, rig):
+    db.add(Floor(wing_id=UUID(rig["wing"]), society_id=rig["society"].id, floor_number=3, floor_name="3rd Floor"))
+    db.commit()
+    # floor 2: all 4 tube lights (one bad), and the spot lights of only one of its two flats
+    _check(client, rig, rig["electrician"], "tube", _tubes(["working", "working", "not_working", "working"]))
+    f1 = str(rig["flats"]["201"].id)
+    _check(client, rig, rig["electrician"], "spot", [
+        {"flat_id": f1, "location": "hall", "status": "working"},
+        {"flat_id": f1, "location": "bedroom", "status": "working"},
+        {"flat_id": f1, "location": "kitchen", "status": "not_working"},
+    ])
+    bad = client.get(f"{API}/{rig['sid']}/not-working", headers=rig["admin"]["headers"]).json()["rows"]
+    stair = next(r for r in bad if r["location"] == "stair_1")
+    item = _stocked_item(client, rig, 3)
+    assert client.post(f"{API}/point/{stair['id']}/replace", headers=rig["electrician"]["headers"],
+                       json={"item_id": item["id"]}).status_code == 200
+
+    rep = _report(client, rig, rig["admin"])
+    assert rep["month"] == _this_month()
+    # 7 lights checked; the staircase one was replaced after, so only the kitchen light is still bad
+    assert rep["totals"] == {"checked": 7, "working": 6, "not_working": 1, "replaced": 1, "still_not_working": 1}
+    floors = {f["floor_number"]: f for f in rep["floors"]}
+    assert set(floors) == {2, 3}
+    two = floors[2]
+    assert two["flats"] == 2 and two["tube"]["expected"] == 4 and two["spot"]["expected"] == 6
+    assert (two["tube"]["checked"], two["tube"]["working"]) == (4, 4)
+    assert (two["spot"]["checked"], two["spot"]["not_working"]) == (3, 1)
+    assert two["status"] == "partial"
+    assert floors[3]["status"] == "not_checked" and floors[3]["flats"] == 1
+    assert rep["floors_not_checked"] == 1 and rep["floors_partly_checked"] == 1
+
+
+def test_a_floor_with_every_light_checked_is_done(client, db, rig):
+    _check(client, rig, rig["electrician"], "tube", _tubes(["working"] * 4))
+    spots = [{"flat_id": str(rig["flats"][n].id), "location": loc, "status": "working"}
+             for n in ("201", "202") for loc in ("hall", "bedroom", "kitchen")]
+    _check(client, rig, rig["electrician"], "spot", spots)
+    floor = _report(client, rig, rig["admin"])["floors"][0]
+    assert floor["status"] == "done" and floor["floor_number"] == 2
+
+
+def test_another_month_starts_empty_and_a_bad_month_is_refused(client, rig):
+    _check(client, rig, rig["electrician"], "tube", _tubes(["working"] * 4))
+    old = _report(client, rig, rig["admin"], "2020-01")
+    assert old["totals"]["checked"] == 0 and old["floors"][0]["status"] == "not_checked"
+    for bad in ("2026-13", "2026-1", "nonsense"):
+        r = client.get(f"{API}/{rig['sid']}/report", params={"month": bad}, headers=rig["admin"]["headers"])
+        assert r.status_code == 422, bad
+
+
+def test_the_report_is_for_staff_of_this_society_only(client, rig):
+    url = f"{API}/{rig['sid']}/report"
+    assert client.get(url, headers=rig["resident"]["headers"]).status_code == 403
+    assert client.get(url, headers=rig["other_admin"]["headers"]).status_code == 403

@@ -4,6 +4,19 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-12 (Lights check: the monthly report)
+
+### feat: a Report tab for the lights check
+
+- **Month by month** - the new Report tab shows a month (previous and next arrows) with how many lights were checked, how many
+  were found working and not working, how many were replaced, and how many are still waiting to be replaced. A light counts
+  once, as it stood at the end of the month, so one found bad and replaced the same month is working.
+- **Floor by floor** - every floor of every wing with Done / Partly / Not checked, tube lights checked out of 4, spot lights
+  checked out of 3 per flat, and how many are not working. A line at the top says how many floors were not checked or only
+  partly checked, so nothing is missed.
+- The month follows the society's own clock, not the server's. Light times now carry an explicit UTC `Z` like the rest of the app.
+- Tests: `backend/tests/lights/test_lights_check.py` (report), `mobile/test/lights_check_test.dart`.
+
 ## 2026-11-12 (Lights check: monthly check of the common lights)
 
 ### feat: one form to check the common tube lights and spot lights, and replace what is not working

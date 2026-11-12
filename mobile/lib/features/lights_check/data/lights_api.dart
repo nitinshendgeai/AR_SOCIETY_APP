@@ -92,6 +92,76 @@ class BrokenLight {
           .join(' · ');
 }
 
+/// Lights checked on one kind (tube or spot) of one floor in a month.
+class LightPart {
+  final int expected, checked, working, notWorking;
+  const LightPart({this.expected = 0, this.checked = 0, this.working = 0, this.notWorking = 0});
+  factory LightPart.fromJson(Map<String, dynamic> j) => LightPart(
+        expected: j['expected'] as int,
+        checked: j['checked'] as int,
+        working: j['working'] as int,
+        notWorking: j['not_working'] as int,
+      );
+}
+
+/// One floor in the monthly report. [status]: done | partial | not_checked.
+class FloorReport {
+  final String wingName, floorName, status;
+  final int floorNumber, flats;
+  final LightPart tube, spot;
+  const FloorReport({
+    required this.wingName,
+    required this.floorName,
+    required this.floorNumber,
+    required this.flats,
+    required this.status,
+    required this.tube,
+    required this.spot,
+  });
+  factory FloorReport.fromJson(Map<String, dynamic> j) => FloorReport(
+        wingName: j['wing_name'] as String,
+        floorName: j['floor_name'] as String,
+        floorNumber: j['floor_number'] as int,
+        flats: j['flats'] as int,
+        status: j['status'] as String,
+        tube: LightPart.fromJson(j['tube'] as Map<String, dynamic>),
+        spot: LightPart.fromJson(j['spot'] as Map<String, dynamic>),
+      );
+
+  int get notWorking => tube.notWorking + spot.notWorking;
+}
+
+class LightReport {
+  final String month;
+  final int checked, working, notWorking, replaced, stillNotWorking, floorsNotChecked, floorsPartlyChecked;
+  final List<FloorReport> floors;
+  const LightReport({
+    required this.month,
+    required this.checked,
+    required this.working,
+    required this.notWorking,
+    required this.replaced,
+    required this.stillNotWorking,
+    required this.floorsNotChecked,
+    required this.floorsPartlyChecked,
+    required this.floors,
+  });
+  factory LightReport.fromJson(Map<String, dynamic> j) {
+    final t = j['totals'] as Map<String, dynamic>;
+    return LightReport(
+      month: j['month'] as String,
+      checked: t['checked'] as int,
+      working: t['working'] as int,
+      notWorking: t['not_working'] as int,
+      replaced: t['replaced'] as int,
+      stillNotWorking: t['still_not_working'] as int,
+      floorsNotChecked: j['floors_not_checked'] as int,
+      floorsPartlyChecked: j['floors_partly_checked'] as int,
+      floors: [for (final f in j['floors'] as List) FloorReport.fromJson(f as Map<String, dynamic>)],
+    );
+  }
+}
+
 class LightsApi {
   final Dio _dio;
   LightsApi({Dio? dio}) : _dio = dio ?? ApiClient.instance;
@@ -122,6 +192,12 @@ class LightsApi {
     return [for (final e in (r.data as Map<String, dynamic>)['rows'] as List) BrokenLight.fromJson(e as Map<String, dynamic>)];
   }
 
+  /// [month] is "YYYY-MM"; null means the current month.
+  Future<LightReport> report(String societyId, {String? month}) async {
+    final r = await _dio.get('/light-checks/$societyId/report', queryParameters: {if (month != null) 'month': month});
+    return LightReport.fromJson(r.data as Map<String, dynamic>);
+  }
+
   Future<void> replace(String pointId, {required String itemId, double quantity = 1, String? note}) =>
       _dio.post('/light-checks/point/$pointId/replace',
           data: {'item_id': itemId, 'quantity': quantity, if (note != null && note.isNotEmpty) 'note': note});
@@ -138,6 +214,12 @@ final lightFloorsProvider = FutureProvider.autoDispose.family<List<FloorOption>,
 
 final lightSheetProvider = FutureProvider.autoDispose.family<LightSheet, SheetKey>(
   (ref, k) => ref.watch(lightsApiProvider).sheet(k.societyId, k.wingId, k.floor, k.kind),
+);
+
+typedef ReportKey = ({String societyId, String? month});
+
+final lightReportProvider = FutureProvider.autoDispose.family<LightReport, ReportKey>(
+  (ref, k) => ref.watch(lightsApiProvider).report(k.societyId, month: k.month),
 );
 
 final brokenLightsProvider = FutureProvider.autoDispose.family<List<BrokenLight>, String>(
