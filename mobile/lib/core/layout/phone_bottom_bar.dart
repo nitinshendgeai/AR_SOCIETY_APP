@@ -89,6 +89,7 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
   // runs again whenever the sheet is dragged.
   final current = menu.indexWhere((c) => c.items.any((i) => i.route == location));
   final selected = ValueNotifier<int>(current < 0 ? 0 : current);
+  final query = ValueNotifier<String>('');
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -96,7 +97,7 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
     backgroundColor: AppTheme.cardBg,
     builder: (ctx) => DraggableScrollableSheet(
       expand: false,
-      initialChildSize: 0.7,
+      initialChildSize: 0.85,
       maxChildSize: 0.92,
       minChildSize: 0.4,
       builder: (ctx, controller) {
@@ -106,9 +107,13 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
                   style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
             );
         final society = user.societies.where((c) => c.current).map((c) => c.societyName).firstOrNull;
-        return ValueListenableBuilder<int>(
-          valueListenable: selected,
-          builder: (ctx, group, _) => ListView(
+        return ListenableBuilder(
+          listenable: Listenable.merge([selected, query]),
+          builder: (ctx, _) {
+            final group = selected.value;
+            final results = searchMenu(menu, query.value, translate: ctx.tr);
+            final searching = query.value.trim().isNotEmpty;
+            return ListView(
           controller: controller,
           padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
           children: [
@@ -137,12 +142,43 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
             if (menu.isNotEmpty) ...[
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: TextField(
+                  key: const ValueKey('more-search'),
+                  onChanged: (v) => query.value = v,
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    hintText: ctx.tr('Search screens'),
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              if (searching && results.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Center(
+                    child: Text(ctx.tr('No screen matches'), style: const TextStyle(color: AppTheme.textSecondary)),
+                  ),
+                ),
+              if (searching)
+                for (final (category, item) in results)
+                  ListTile(
+                    leading: Icon(item.icon, color: AppTheme.textSecondary),
+                    title: Text(ctx.tr(item.label)),
+                    subtitle: Text(ctx.tr(category.label)),
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      context.go(item.route!);
+                    },
+                  ),
+              if (!searching) Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 child: Wrap(spacing: 8, runSpacing: 8, children: [
                   for (var i = 0; i < menu.length; i++)
                     AppFilterPill(label: ctx.tr(menu[i].label), selected: i == group, onTap: () => selected.value = i),
                 ]),
               ),
-              for (final item in menu[group].items)
+              if (!searching) for (final item in menu[group].items)
                 ListTile(
                   leading: Icon(item.icon, color: AppTheme.textSecondary),
                   title: Text(ctx.tr(item.label)),
@@ -205,7 +241,8 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
               },
             ),
           ],
-        ),
+          );
+          },
         );
       },
     ),
