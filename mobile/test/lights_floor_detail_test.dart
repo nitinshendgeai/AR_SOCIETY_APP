@@ -193,6 +193,26 @@ void main() {
     }
   });
 
+  testWidgets('each kind of light is a bordered box with a bold header, and its lights are inside the box', (t) async {
+    final s = _Server();
+    await _openReport(t, s);
+    await t.tap(find.text('Wing A · 2nd Floor'));
+    await t.pumpAndSettle();
+
+    for (final (header, inside) in [('Tube lights', 'Floor tube light 1'), ('Spot lights', 'Flat 203'), ('Camera', 'Floor camera')]) {
+      final text = t.widget<Text>(find.text(header));
+      expect(text.style?.fontWeight, FontWeight.w800, reason: '$header is bold');
+      expect(text.style?.fontSize, greaterThanOrEqualTo(16), reason: '$header is larger than the body text');
+      final box = find.ancestor(
+        of: find.text(header),
+        matching: find.byWidgetPredicate(
+            (w) => w is Container && w.decoration is BoxDecoration && (w.decoration as BoxDecoration).border != null),
+      );
+      expect(box, findsOneWidget, reason: '$header sits in a bordered box');
+      expect(find.descendant(of: box, matching: find.text(inside)), findsOneWidget, reason: '$inside is in the $header box');
+    }
+  });
+
   testWidgets('it asks the server for exactly the kinds the floor has, for that wing and floor', (t) async {
     final s = _Server();
     await _openReport(t, s);
@@ -241,7 +261,7 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('Hall'), findsWidgets);
     expect(find.text('Bedroom'), findsWidgets);
-    expect(find.textContaining(RegExp(r'^Checked 5 Nov, \d{1,2}:\d{2} (AM|PM) by Eli$')), findsWidgets);
+    expect(find.textContaining(RegExp(r'^Checked 5 Nov, \d{1,2}:\d{2} (AM|PM) by\sEli$')), findsWidgets);
   });
 
   testWidgets('a floor on the current month has no "last found" note; an earlier month has one', (t) async {
