@@ -25,6 +25,19 @@ void main() {
     }
   });
 
+  test('every text colour in the theme meets 4.5:1 on white and on the page background', () {
+    const text = {
+      'textPrimary': AppTheme.textPrimary,
+      'textSecondary': AppTheme.textSecondary,
+      'textTertiary': AppTheme.textTertiary,
+    };
+    text.forEach((name, colour) {
+      expect(_contrast(colour, AppTheme.cardBg), greaterThanOrEqualTo(4.5), reason: '$name on cards');
+      expect(_contrast(colour, AppTheme.surface), greaterThanOrEqualTo(4.5), reason: '$name on the page');
+      expect(_contrast(colour, AppTheme.inputFill), greaterThanOrEqualTo(4.5), reason: '$name on fields');
+    });
+  });
+
   testWidgets('status chip shows its label and icon', (tester) async {
     await tester.pumpWidget(_wrap(const AppStatusChip(label: 'Overdue', tone: AppTone.danger, icon: Icons.error_outline)));
     expect(find.text('Overdue'), findsOneWidget);

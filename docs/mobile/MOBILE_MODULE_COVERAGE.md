@@ -41,3 +41,28 @@ Screens counts are `*_screen.dart` files; form code is the RBAC gate.
 | Accountant | **No such role**; Treasurer/Admin hold accounts form codes | Treat as a capability profile. |
 | Reports and analytics | Accounts reports, defaulters, outstanding screens | Desktop-oriented; mobile report views not designed. |
 | "Facility and amenity services" | amenities | PASS-shaped, verify. |
+
+
+## Status after the transformation work (evidence: MOBILE_TEST_REPORT.md)
+
+The baseline table above still describes the code *before* this work. What changed, with ratings:
+
+| Area | Change | Rating |
+|---|---|---|
+| More sheet | Search by screen or group name, English or Marathi/Hindi, grant-aware | PASS (CI green, PR #237) |
+| Resident Home | Outstanding-dues card first, with status chip and a 48 dp button; shown only with the `my_bills` grant | PASS (CI green, PR #238) |
+| Resident bills / payments | Reviewed: the existing My Bills screen already has the mobile pattern (hero, Overdue / To Pay / History, claims). No change made | PASS (unchanged) |
+| Security Staff home | Gate panel: inside now, let in today, visitors today, four large actions; unknown figures shown as `--`, never 0 | PASS (CI green, PR #239) |
+| Visitor log (phone) | Search by name, mobile, flat, vehicle, purpose over the latest 50 visitors | CONDITIONAL PASS (PR #240): **FAIL for full-history search** until the backend gets a filter or paging |
+| Admin / committee / manager navigation | Operations, Finance, People hub tabs from granted screens | CONDITIONAL PASS: tests green; not run on a device |
+| Network failures | GET retry, offline banner | CONDITIONAL PASS |
+| Accessibility | Text greys now meet 4.5:1 | PASS (computed and tested); other a11y items (tooltips, 200% text scale) NOT VERIFIED |
+| Android | Flutter pinned for release builds, backup off; AAB, splash, App Links, R8 open | see MOBILE_RELEASE_READINESS.md |
+| Marathi/English | All new phrases translated; most older screen bodies are still English | CONDITIONAL PASS |
+| Accounts / finance reports, vendors, staff attendance, complaints, notices, amenities, governance | Not modified; existing tests green | PASS (unchanged), mobile table-to-card conversion NOT DONE |
+
+### Not done, and why
+- **Phone card views for the table-heavy admin screens** (defaulters, vendor bills, bank reconciliation, registers): each is a large screen with money logic; converting them without a device to look at them would be guesswork. Needs a device or emulator review first.
+- **Full-history visitor search**: needs a backend parameter.
+- **Android App Links, signed AAB, R8**: need your approval, secrets or a device.
+- **Dark theme**: out of scope by the brief (light first); still blocked by static colour constants.

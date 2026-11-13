@@ -3,6 +3,7 @@ import 'package:logger/logger.dart';
 import 'package:ar_society_app/core/config/constants.dart';
 import 'package:ar_society_app/core/config/env.dart';
 import 'package:ar_society_app/core/auth/token_storage.dart';
+import 'package:ar_society_app/core/api/retry_interceptor.dart';
 
 final _logger = Logger();
 
@@ -33,6 +34,7 @@ class ApiClient {
 
     _dio.interceptors.addAll([
       _AuthInterceptor(),
+      RetryInterceptor(_dio),
       if (!Env.isProduction) _LogInterceptor(),
     ]);
   }

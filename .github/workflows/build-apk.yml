@@ -29,6 +29,8 @@ jobs:
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: 'stable'
+          # The version the Flutter CI job verifies (analyze, tests, web build); see flutter-ci.yml.
+          flutter-version: '3.47.5'
           cache: true
 
       - name: Create .env from example
