@@ -19,7 +19,7 @@ Light theme now; dark stays possible (see section 10).
 | `primary` | #0066FF | 4.83 | 4.33 | Buttons, links, active nav. **Small text on `surface` is below AA**: put primary text on white cards. |
 | `textPrimary` | #1C1C1E | high | high | Body |
 | `textSecondary` | #6C6C70 | 5.23 | 4.69 | Secondary text (AA) |
-| `textTertiary` | #AEAEB2 | **2.21** | **1.98** | **Fails AA.** Decoration/disabled only. 53 current uses to be reviewed. |
+| `textTertiary` | #6E6E73 (was #AEAEB2, 2.21:1) | 5.07 | 4.54 | **Fixed**: now passes AA. A lighter grey cannot be a separate tier and still pass; it sits almost level with `textSecondary`. A test locks every text colour at 4.5:1 on cards, page and fields. |
 | `success` / `warning` / `error` | #34C759 / #FF9500 / #FF3B30 | 2.22 / 2.20 / 3.55 | - | **Icons, fills and bars only, never small text.** |
 
 Status text uses the new **tone pairs** (`AppTone`, `kToneColors`), each at least 5.7:1 on its own soft background:
@@ -54,6 +54,8 @@ Text must survive 130% system font scale without clipping (test target).
 | **Section header** | **new** | `AppSectionHeader` | semantic header + 48 dp action |
 | **Success state** | **new** | `AppSuccessState` | after a completed task, with next step |
 | **Connection banner** | **new** | `AppConnectionBanner` | presentation only; detection comes later |
+| **Connection banner (wired)** | **new** | `ConnectionBanner` in the shell | shows while no request reaches the server; Retry probes `/health` |
+| **Menu hub** | **new** | `MenuHubScreen` | Operations / Finance / People tabs for admin, committee, manager |
 | Money text | planned | Phase 3 | single INR formatter; today 6 private `NumberFormat` copies exist |
 | Mobile list card | planned | Phase 3 | replaces table rows at phone width |
 | App bar | themed | `AppTheme` | back arrow on detail pages, bar hidden there only on tab pages |
