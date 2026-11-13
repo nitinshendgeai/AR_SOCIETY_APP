@@ -153,6 +153,25 @@ AppMenuItem _resolveFor(AppMenuItem item, UserEntity? user) {
   return route == item.route ? item : AppMenuItem(item.formCode, item.label, item.icon, route);
 }
 
+/// The menu entries whose name, or whose group's name, contains [query] (ignoring case and extra spaces), in menu order.
+/// [translate] also lets a person search in the language they read the menu in (Marathi, Hindi) as well as English.
+/// An empty query matches nothing: the caller shows the grouped menu instead.
+List<(AppMenuCategory, AppMenuItem)> searchMenu(
+  List<AppMenuCategory> menu,
+  String query, {
+  String Function(String)? translate,
+}) {
+  final q = query.trim().toLowerCase();
+  if (q.isEmpty) return const [];
+  bool hit(String label) =>
+      label.toLowerCase().contains(q) || (translate != null && translate(label).toLowerCase().contains(q));
+  return [
+    for (final c in menu)
+      for (final i in c.items)
+        if (i.route != null && (hit(i.label) || hit(c.label))) (c, i),
+  ];
+}
+
 /// One tab of the phone's bottom bar.
 class PhoneTab {
   final String label;

@@ -76,6 +76,8 @@ const Map<String, Map<String, String>> kTranslations = {
   'Billing': {'hi': 'बिलिंग', 'mr': 'बिलिंग'},
   'Collapse': {'hi': 'छोटा करें', 'mr': 'लहान करा'},
   'Account': {'hi': 'खाता', 'mr': 'खाते'},
+  'Search screens': {'hi': 'स्क्रीन खोजें', 'mr': 'स्क्रीन शोधा'},
+  'No screen matches': {'hi': 'कोई स्क्रीन नहीं मिली', 'mr': 'कोणतीही स्क्रीन जुळत नाही'},
   'Language': {'hi': 'भाषा', 'mr': 'भाषा'},
   'Help': {'hi': 'सहायता', 'mr': 'मदत'},
   'Back': {'hi': 'वापस', 'mr': 'मागे'},

@@ -41,6 +41,39 @@ void main() {
     });
   });
 
+  group('searchMenu', () {
+    final admin = _user('Society Admin', societyId: 's1');
+    final menu = visibleMenuCategories(_everything, user: admin);
+
+    test('an empty query matches nothing, so the grouped menu shows', () {
+      expect(searchMenu(menu, ''), isEmpty);
+      expect(searchMenu(menu, '   '), isEmpty);
+    });
+
+    test('matches a screen by name, ignoring case', () {
+      final hits = searchMenu(menu, 'AMEN').map((h) => h.$2.label);
+      expect(hits, contains('Amenities'));
+      expect(hits, isNot(contains('Residents')));
+    });
+
+    test('matches every screen of a group by the group name', () {
+      final hits = searchMenu(menu, 'people').map((h) => h.$2.label);
+      expect(hits, contains('Residents'));
+    });
+
+    test('also matches the translated name', () {
+      String mr(String s) => s == 'Amenities' ? 'सुविधा' : s;
+      expect(searchMenu(menu, 'सुविधा', translate: mr).map((h) => h.$2.label), contains('Amenities'));
+      expect(searchMenu(menu, 'सुविधा'), isEmpty);
+    });
+
+    test('never offers a screen the person was not granted', () {
+      final narrow = visibleMenuCategories({'notices'}, user: admin);
+      expect(searchMenu(narrow, 'residents'), isEmpty);
+      expect(searchMenu(narrow, 'notices').map((h) => h.$2.label), ['Notices']);
+    });
+  });
+
   group('which pages show the bar', () {
     final admin = _user('Society Admin', societyId: 's1');
     final tabs = phoneTabsFor(admin, _everything);
@@ -99,6 +132,23 @@ void main() {
       await t.pumpAndSettle();
       expect(find.text('Amenities'), findsOneWidget);
       expect(find.text('Residents'), findsNothing);
+    });
+
+    testWidgets('typing in More search lists matching screens across groups, clearing returns to groups', (t) async {
+      await t.pumpWidget(wrap(_user('Society Admin', societyId: 's1'), '/residents'));
+      await t.pumpAndSettle();
+      await t.tap(find.text('More'));
+      await t.pumpAndSettle();
+      await t.enterText(find.byKey(const ValueKey('more-search')), 'amen');
+      await t.pumpAndSettle();
+      expect(find.text('Amenities'), findsOneWidget);
+      expect(find.text('Residents'), findsNothing);
+      await t.enterText(find.byKey(const ValueKey('more-search')), 'zzzz');
+      await t.pumpAndSettle();
+      expect(find.text('No screen matches'), findsOneWidget);
+      await t.enterText(find.byKey(const ValueKey('more-search')), '');
+      await t.pumpAndSettle();
+      expect(find.text('Residents'), findsOneWidget);       // back to the group the person was on
     });
 
     testWidgets('More opens with who is signed in, then the menu, and ends with the account actions', (t) async {
