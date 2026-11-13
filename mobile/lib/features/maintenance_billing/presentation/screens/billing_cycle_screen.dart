@@ -3,6 +3,7 @@ import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/core/theme/design_tokens.dart' show AppTone, kToneColors;
 import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart' show PdfActions;
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
@@ -487,7 +488,7 @@ class BillTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = bill.displayStatus;
-    final color = billStatusColor(status);
+    final color = kToneColors[billStatusTone(status)]!.foreground;
     final title = showFlat ? bill.flatLabel : (bill.cycleName ?? bill.invoiceNumber);
     final subtitle = showFlat
         ? [if (bill.residentName != null) bill.residentName!, bill.invoiceNumber].join(' · ')
@@ -525,6 +526,16 @@ class BillTile extends StatelessWidget {
     );
   }
 }
+
+/// The tone of a bill's status when it is written as text: the bright status colours are too faint for words
+/// (green 2.2:1, red 3.6:1 on white), the tone colours are not. [billStatusColor] stays for fills and pills.
+AppTone billStatusTone(String status) => switch (status) {
+      'paid' => AppTone.success,
+      'overdue' => AppTone.danger,
+      'partially_paid' => AppTone.warning,
+      'issued' => AppTone.info,
+      _ => AppTone.neutral,
+    };
 
 Color billStatusColor(String status) => switch (status) {
       'paid' => AppTheme.success,

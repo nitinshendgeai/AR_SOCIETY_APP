@@ -80,3 +80,12 @@ Targets >= 48 dp; text AA (see section 2); every icon-only button has a tooltip/
 
 ## 10. Dark theme path
 Blocked today because screens read `AppTheme.x` constants (2,510 uses). Path: add a `ThemeExtension` with the same token names, migrate by module, switch on once the last constant read is gone. Not in scope now.
+
+
+## Pitfalls found by rendering the screens (keep out of new code)
+
+1. **A card is one outer box.** Put the colour, outline and shadow on a `Container`, and the ink on a transparent `Material` inside it. A shadow drawn above a coloured `Material` tints the whole card grey. Prefer the outline (`AppTheme.border`) like the neighbouring cards; use the shadow only on a card with nothing coloured above it.
+2. **Never replace a button's `textStyle`.** `ButtonStyle(textStyle:)` throws away the theme font (and the Marathi fallback). Set the size or weight on the `Text` instead, which merges.
+3. **Bright semantic colours are for icons and fills, not words, and not as a fill under white text.** For words use the tone colours (`kToneColors`); for a filled caution button use `kWarningFill`.
+4. **Say a figure once per screen.** If a dues card is at the top, no second card, chip and row repeating it.
+5. **No placeholder tiles** ("Coming soon") in a shipped screen.

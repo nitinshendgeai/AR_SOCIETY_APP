@@ -37,7 +37,7 @@ class ResidentDuesCard extends ConsumerWidget {
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.radiusL),
-        boxShadow: AppTheme.cardShadow,
+        border: Border.all(color: AppTheme.border),
       ),
       child: bills.when(
         loading: () => const _Loading(),

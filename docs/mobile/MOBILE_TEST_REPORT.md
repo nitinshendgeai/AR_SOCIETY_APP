@@ -38,3 +38,22 @@ Environment for local runs: Flutter 3.47.5 (the version CI pins), `flutter analy
 | Small screens (360 x 640), text scale 130%/200% | not yet tested | NOT VERIFIED | add golden/size tests |
 | Real device or emulator | none | NOT VERIFIED | needs an emulator or device |
 | Android release build / AAB | not built (no Android SDK here, no signing secrets) | NOT VERIFIED | see MOBILE_RELEASE_READINESS.md |
+
+
+## Visual review (rendered screens, not just tests)
+
+Method: the real screens were rendered at 390 x 844 (2x) with the bundled Inter and Devanagari fonts, the Material icon font and fake data, then looked at. The throwaway harness is not in the repo (it needs fake data per screen). This is a *rendering* review: it shows layout, spacing, fonts and colour. It is **not** a device test (no touch, scrolling feel, real data, keyboard, or other phone sizes).
+
+Found by looking, and fixed in the "UI polish" PR (all of these passed the automated tests before):
+
+| Finding | Cause | Fix | Lock-in test |
+|---|---|---|---|
+| Gate tiles and manager-hub tiles drawn grey | shadow painted above a coloured Material (the pitfall `KpiCard`'s comment warns about) | colour and outline on the outer box, ink on a transparent Material | visual only |
+| Guard's four action buttons used the platform font | `styleFrom(textStyle:)` replaced the theme's font and the Marathi fallback | size set on the `Text`, which keeps the button font | `gate_panel_test`: label font is Inter (fails if the bug returns) |
+| Resident Home showed the same amount four times | dues card, Bills Due card, My Bills chip, Pay bills chip, Recent updates row | one dues card; other copies removed | `widget_test`: dues card once; duplicates absent |
+| White text on bright orange (2.2:1) on Check Out, the guard's main button | `AppTheme.warning` as a fill | `kWarningFill` (5.0:1) | `design_tokens_test` |
+| Status words in bright green / red / orange / sky (2.2 to 3.6:1) | status colour used as text | tone colours for words (visitor status, bill status, due notes) | `design_tokens_test` covers bill statuses |
+| Dead "Tasks - Coming soon" card on the guard's home | placeholder | removed | n/a |
+| Grey band under the dues card | shadow where neighbours use an outline | outline | visual only |
+
+Still not verified: real devices, other screen sizes (360 x 640, large phones), 130% / 200% text scale, Marathi layouts (Devanagari is taller), slow-network behaviour, the keyboard over forms, accessibility with TalkBack.

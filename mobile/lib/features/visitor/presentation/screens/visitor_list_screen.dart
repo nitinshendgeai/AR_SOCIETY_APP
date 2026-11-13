@@ -6,6 +6,8 @@ import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/core/theme/design_tokens.dart';
+import 'package:ar_society_app/shared/widgets/app_status.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart' show currentUserProvider;
 import 'package:ar_society_app/features/visitor/data/repositories/visitor_repository.dart' show VisitorSuccess, VisitorFailure;
 import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities.dart';
@@ -561,7 +563,7 @@ class _VisitorCard extends ConsumerWidget {
                               .read(visitorActionProvider.notifier)
                               .checkOut(visitor.id),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.warning,
+                        backgroundColor: kWarningFill,
                         minimumSize: const Size(0, 40),
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                       ),
@@ -610,22 +612,17 @@ class _StatusBadge extends StatelessWidget {
   final VisitorStatus status;
   const _StatusBadge(this.status);
 
+  /// The words on a status stay readable: each status maps to a tone whose text meets 4.5:1 on its own background.
+  static AppTone toneOf(VisitorStatus s) => switch (s) {
+        VisitorStatus.pending => AppTone.warning,
+        VisitorStatus.approved => AppTone.info,
+        VisitorStatus.rejected => AppTone.danger,
+        VisitorStatus.checkedIn => AppTone.success,
+        VisitorStatus.checkedOut => AppTone.neutral,
+      };
+
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: status.color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-        border: Border.all(color: status.color.withOpacity(0.3)),
-      ),
-      child: Text(
-        status.label,
-        style: TextStyle(
-            color: status.color, fontSize: 11, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => AppStatusChip(label: status.label, tone: toneOf(status));
 }
 
 class _TypeChip extends StatelessWidget {
