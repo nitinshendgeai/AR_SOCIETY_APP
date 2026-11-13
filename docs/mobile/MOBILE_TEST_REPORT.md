@@ -90,3 +90,15 @@ Request: on the Report tab, tapping a wing / floor card should open its details.
 | Report tab polish found by rendering: "Partly" chip and the red/green/orange words and numbers were 2.1 to 3.6:1; the "Not working" tile was taller than its neighbours | fixed (tone colours, equal-height tiles) |
 | Rest of the Lights check screen (Check, To replace) in Marathi | still English; only the new sheet and the cards' accessibility label are translated |
 | Real device | NOT VERIFIED |
+
+
+## Ported from the earlier draft PRs #233 and #234 (reviewed, not merged as they were)
+
+| Piece | Where it came from | Result |
+|---|---|---|
+| `/health` test no longer fails when the Unix timestamp in the response happens to contain "5432" (about 0.07% of runs; it hit once on 12 Nov) | #233 | Fix applied. Proved on a sample timestamp; **the backend test itself was not run here (no pytest); the backend CI job runs it** |
+| Release workflows pinned to Flutter 3.47.9 (and an explanation) | #233 | Applied; both files checked for duplicate keys (merging #233 as it was would have left two `flutter-version` lines, which is invalid) |
+| Compact greeting card on every dashboard (greeting and date on one line, one society pill, ellipsis for long names) | #234 | Ported onto current `main`, keeping the Marathi/Hindi texts; rendered in English and Marathi |
+| Removed the duplicate phone drawer (the bottom bar's More menu holds the same menu) | #234 | Ported. The 7 tests that opened the drawer (the reason #234's CI was red) are **moved, not deleted**, to `role_menu_visibility_test.dart`: the same assertions on the More menu for admin, committee, security and resident, plus a "nothing beyond the grants" check |
+| Not taken: moving "Society services" below "Summary", the 280 to 190 grid change, attendance and staff-home spacing | #234 | Left out on purpose (the first contradicts the cleanup made after rendering; the grid change broke a test and was not rendered) |
+| Not taken: Accounts and Stores for admins on Android | #233 | Left out: the app is lightweight, full accounts stay on the web app |

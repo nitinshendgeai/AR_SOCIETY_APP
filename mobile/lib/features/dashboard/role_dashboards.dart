@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/auth/biometric_preference.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart';
 import 'package:ar_society_app/core/motion/motion.dart';
-import 'package:ar_society_app/core/navigation/app_menu.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/manager_checklist/presentation/widgets/checklist_widgets.dart';
@@ -114,11 +113,6 @@ class _DashboardShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final myFormsAsync = ref.watch(myFormCodesProvider);
-    final menuCategories = visibleMenuCategories(
-      myFormsAsync.valueOrNull?.toSet() ?? const {},
-      user: ref.watch(currentUserProvider),
-    );
     // On desktop widths AppShell's sidebar and account menu already provide
     // navigation and sign-out.
     final desktop = isDesktopLayout(context);
@@ -136,44 +130,8 @@ class _DashboardShell extends ConsumerWidget {
           ),
         ],
       ],
-      drawer: desktop ? null : Drawer(
-        child: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Text('Navigation', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-              ),
-              const Divider(height: 1),
-              ...menuCategories.map((category) => Theme(
-                    // Suppress the default divider ExpansionTile draws around
-                    // itself when expanded — the drawer already separates
-                    // sections with spacing, a second line reads as clutter.
-                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                    child: ExpansionTile(
-                      initiallyExpanded: true,
-                      leading: Icon(category.icon, color: AppTheme.primary),
-                      title: Text(category.label,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                      childrenPadding: const EdgeInsets.only(bottom: 4),
-                      children: category.items
-                          .map((item) => ListTile(
-                                contentPadding: const EdgeInsets.only(left: 32, right: 16),
-                                leading: Icon(item.icon, size: 20, color: AppTheme.textSecondary),
-                                title: Text(item.label, style: const TextStyle(fontSize: 13)),
-                                onTap: () {
-                                  Navigator.pop(context);
-                                  if (item.route != null) context.push(item.route!);
-                                },
-                              ))
-                          .toList(),
-                    ),
-                  )),
-            ],
-          ),
-        ),
-      ),
+      // No drawer: on a phone the bottom bar and its More menu already hold the same menu (and a second hamburger
+      // menu only crowded the header); on a computer the sidebar does.
       body: _refreshable(
         ListView(
           // Always scrollable, so a short dashboard can still be pulled down to refresh.
@@ -304,7 +262,7 @@ class _GreetingCard extends ConsumerWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [AppTheme.primary, AppTheme.primaryDark],
@@ -315,21 +273,34 @@ class _GreetingCard extends ConsumerWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(context.tr(greetingFor(now.hour)), style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 13)),
-          const SizedBox(height: 2),
-          Text(user?.fullName ?? 'Society User', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          Text(context.tr(subtitle), style: TextStyle(color: Colors.white.withOpacity(0.88), fontSize: 13)),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (societyName != null) _chip(Icons.apartment_rounded, societyName),
-              _chip(Icons.calendar_today_rounded, DateFormat('EEE, d MMM y').format(now)),
-            ],
-          ),
+          // The greeting and the date share one line, so the card is a few lines shorter than when each had its own.
+          Row(children: [
+            Expanded(
+              child: Text(context.tr(greetingFor(now.hour)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.white.withOpacity(0.88), fontSize: 12, fontWeight: FontWeight.w500)),
+            ),
+            Text(DateFormat('EEE, d MMM').format(now),
+                style: TextStyle(color: Colors.white.withOpacity(0.82), fontSize: 11, fontWeight: FontWeight.w500)),
+          ]),
+          const SizedBox(height: 5),
+          Text(user?.fullName ?? 'Society User',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700, height: 1.15)),
+          const SizedBox(height: 3),
+          Text(context.tr(subtitle),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: Colors.white.withOpacity(0.88), fontSize: 11.5, height: 1.2)),
+          // A long society name stays on one line (ellipsis) instead of pushing the card taller.
+          if (societyName != null && societyName.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _chip(Icons.apartment_rounded, societyName),
+          ],
         ],
       ),
     );
