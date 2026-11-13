@@ -5,7 +5,6 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
 import 'package:ar_society_app/shared/widgets/app_status.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/billing_cycle_screen.dart' show billStatusTone;
-import 'package:ar_society_app/features/maintenance_billing/presentation/screens/my_bills_screen.dart' show billDueNote;
 
 double _lum(Color c) {
   double f(double v) => v <= 0.03928 ? v / 12.92 : math.pow((v + 0.055) / 1.055, 2.4).toDouble();
