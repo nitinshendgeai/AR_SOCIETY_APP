@@ -100,6 +100,24 @@ void main() {
       expect(find.text('Vehicle Gate'), findsNothing);
     });
 
+    testWidgets('Security Staff get the Gate panel on top of their Staff Portal', (t) async {
+      tall(t);
+      await t.pumpWidget(app(_u(['Security Staff'])));
+      await t.pump();
+      // No server in this test, so the gate figures are unavailable (shown as --, never 0); the buttons are there.
+      expect(find.text('--'), findsNWidgets(3));
+      expect(find.text('Log visitor'), findsOneWidget);
+      expect(find.text('Verify code'), findsOneWidget);
+    });
+
+    testWidgets('other staff do not get the Gate panel', (t) async {
+      tall(t);
+      await t.pumpWidget(app(_u(['Housekeeping Staff'])));
+      await t.pump();
+      expect(find.text('--'), findsNothing);
+      expect(find.text('Log visitor'), findsNothing);
+    });
+
     testWidgets('other staff do not get gate tiles', (t) async {
       tall(t);
       await t.pumpWidget(app(_u(['Housekeeping Staff'])));
