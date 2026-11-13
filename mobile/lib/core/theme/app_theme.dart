@@ -63,7 +63,7 @@ class AppTheme {
   // ── Text ─────────────────────────────────────────────────────────────────
   static const Color textPrimary   = Color(0xFF1C1C1E);
   static const Color textSecondary = Color(0xFF6C6C70);
-  static const Color textTertiary  = Color(0xFFAEAEB2);
+  static const Color textTertiary  = Color(0xFF6E6E73);
 
   // ── Hairlines ────────────────────────────────────────────────────────────
   // Reserved for actual separator lines (Divider, a bottom rule under a
