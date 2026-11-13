@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +9,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart' show currentUserProvider;
 import 'package:ar_society_app/features/visitor/data/repositories/visitor_repository.dart' show VisitorSuccess, VisitorFailure;
 import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities.dart';
+import 'package:ar_society_app/features/visitor/domain/visitor_search.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart';
 import 'package:ar_society_app/features/visitor/presentation/widgets/pending_visitors_banner.dart';
 import 'package:ar_society_app/features/visitor/presentation/widgets/gate_pass.dart';
@@ -16,6 +18,9 @@ import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 import 'package:ar_society_app/shared/widgets/app_form.dart';
+
+/// How many of the latest visitors the society log loads (the server's default page).
+const visitorLogLimit = 50;
 
 class VisitorListScreen extends ConsumerStatefulWidget {
   final bool isMy;
@@ -34,6 +39,8 @@ class VisitorListScreen extends ConsumerStatefulWidget {
 class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
+  final _searchController = TextEditingController();
+  String _query = '';
 
   void _reload() {
     if (widget.isMy) {
@@ -55,6 +62,7 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
 
   @override
   void dispose() {
+    _searchController.dispose();
     _tabs.dispose();
     super.dispose();
   }
@@ -252,23 +260,67 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
         ],
       );
     } else {
+      final searching = _query.trim().isNotEmpty;
+      final shownAll = filterVisitors(all, _query);
+      final shownInside = filterVisitors(inside, _query);
       tabs = TabBarView(
         controller: _tabs,
         children: [
           _VisitorListView(
-            visitors: all,
+            visitors: shownAll,
             onRefresh: () async => _reload(),
             showActions: true,
+            emptyTitle: searching ? 'No visitor matches' : 'No visitors',
+            emptySubtitle: searching ? 'Check the spelling, or the number or flat' : null,
           ),
           _VisitorListView(
-            visitors: inside,
+            visitors: shownInside,
             onRefresh: () async => _reload(),
             showActions: true,
-            emptyTitle: 'No visitors inside',
-            emptySubtitle: 'All checked-out or no check-ins yet',
+            emptyTitle: searching ? 'No visitor matches' : 'No visitors inside',
+            emptySubtitle: searching ? 'Check the spelling, or the number or flat' : 'All checked-out or no check-ins yet',
           ),
         ],
       );
+    }
+    // The guard's log (phone): search above the tabs. The desktop table sorts and filters on its own.
+    if (!widget.isMy && !isDesktopLayout(context)) {
+      // The server returns the latest rows only and has no search, so say so rather than let "not found" mislead.
+      final capped = all.length >= visitorLogLimit;
+      return Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: TextField(
+            key: const Key('visitor-search'),
+            controller: _searchController,
+            onChanged: (v) => setState(() => _query = v),
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: context.tr('Search name, mobile, flat or vehicle'),
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      tooltip: context.tr('Clear search'),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _query = '');
+                      },
+                    ),
+              isDense: true,
+            ),
+          ),
+        ),
+        if (capped && _query.trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+            child: Text(context.tr('Only the latest visitors are searched'),
+                key: const Key('visitor-search-cap'),
+                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          ),
+        Expanded(child: tabs),
+      ]);
     }
     // A resident's own list can't approve; point them at who's waiting.
     if (!widget.isMy) return tabs;
