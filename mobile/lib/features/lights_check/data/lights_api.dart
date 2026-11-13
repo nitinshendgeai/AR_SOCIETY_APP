@@ -1,7 +1,14 @@
 import 'package:dio/dio.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/utils/server_time.dart';
+
+/// "5 Nov, 10:30 am" - the date and time a light was checked.
+String lightStamp(DateTime d) => DateFormat('d MMM, h:mm a').format(d);
+
+/// "28 Oct" - just the day, for "not working since".
+String lightDay(DateTime d) => DateFormat('d MMM').format(d);
 
 /// The kinds of thing that are checked on a floor: (api value, label).
 const kLightKinds = <(String, String)>[('tube', 'Tube lights'), ('spot', 'Spot lights'), ('camera', 'Camera')];
@@ -122,9 +129,13 @@ class LightPart {
 /// One floor in the monthly report. [status]: done | partial | not_checked.
 class FloorReport {
   final String wingName, floorName, status;
+
+  /// The wing's id, which the floor's lights are asked for with. Null only for a reply that does not carry it.
+  final String? wingId;
   final int floorNumber, flats;
   final LightPart tube, spot, camera;
   const FloorReport({
+    this.wingId,
     required this.wingName,
     required this.floorName,
     required this.floorNumber,
@@ -135,6 +146,7 @@ class FloorReport {
     this.camera = const LightPart(),
   });
   factory FloorReport.fromJson(Map<String, dynamic> j) => FloorReport(
+        wingId: j['wing_id'] as String?,
         wingName: j['wing_name'] as String,
         floorName: j['floor_name'] as String,
         floorNumber: j['floor_number'] as int,
