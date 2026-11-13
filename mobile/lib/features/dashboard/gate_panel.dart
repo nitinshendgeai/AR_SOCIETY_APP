@@ -79,6 +79,7 @@ class GatePanel extends ConsumerWidget {
           child: _Action(
             icon: Icons.person_add_rounded,
             label: context.tr('Log visitor'),
+            primary: true,
             onTap: () => context.push(AppRoutes.visitorsCreate, extra: societyId),
           ),
         ),
@@ -139,20 +140,23 @@ class _Stat extends StatelessWidget {
       button: true,
       label: unavailable ? '$label unavailable. Tap to try again' : '$label: $shown',
       excludeSemantics: true,
-      child: Material(
-        color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(AppTheme.radiusM),
-        child: InkWell(
+      // The card is the outer box (colour and outline together) and the ink sits on a transparent Material inside it: a
+      // shadow drawn above a coloured Material tints the whole card grey.
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.cardBg,
           borderRadius: BorderRadius.circular(AppTheme.radiusM),
-          onTap: unavailable ? onRetry : onTap,
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 84),
-            padding: const EdgeInsets.all(AppSpacing.m),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppTheme.radiusM),
-              boxShadow: AppTheme.cardShadow,
-            ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppTheme.radiusM),
+            onTap: unavailable ? onRetry : onTap,
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 84),
+              padding: const EdgeInsets.all(AppSpacing.m),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
@@ -168,7 +172,8 @@ class _Stat extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
-            ]),
+              ]),
+            ),
           ),
         ),
       ),
@@ -180,17 +185,25 @@ class _Action extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  const _Action({required this.icon, required this.label, required this.onTap});
+
+  /// The one thing a guard does most (logging who arrives): solid blue, where the others are quiet.
+  final bool primary;
+  const _Action({required this.icon, required this.label, required this.onTap, this.primary = false});
 
   @override
   Widget build(BuildContext context) => SizedBox(
         height: 64,
-        child: FilledButton.tonalIcon(
+        child: (primary ? FilledButton.icon : FilledButton.tonalIcon)(
           onPressed: onTap,
           icon: Icon(icon, size: 24),
-          label: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
+          // The size is set on the Text, which keeps the button's own (app) font; replacing the button's textStyle would
+          // drop it, and the Marathi fallback font with it.
+          label: Text(label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           style: FilledButton.styleFrom(
-            textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusM)),
           ),
         ),

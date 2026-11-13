@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:ar_society_app/features/dashboard/resident_dues_card.dart';
 import 'package:ar_society_app/features/dashboard/role_dashboards.dart';
 import 'package:ar_society_app/features/staff/data/datasources/staff_remote_datasource.dart';
 import 'package:ar_society_app/features/staff/data/repositories/staff_repository.dart';
@@ -304,10 +305,13 @@ void main() {
       expect(find.text('Resident Dashboard'), findsOneWidget);
       expect(find.text('Open Complaints'), findsOneWidget);
       expect(find.text('Visitors Waiting'), findsOneWidget);
-      expect(find.text('Bills Due'), findsOneWidget);
+      // What is owed is shown once, on the dues card at the top, not again as a summary card, a chip and a row.
+      expect(find.byType(ResidentDuesCard), findsOneWidget);
+      expect(find.text('Bills Due'), findsNothing);
+      expect(find.text('My Bills'), findsNothing);
+      expect(find.text('Recent updates'), findsNothing);
       expect(find.text('My Flat'), findsOneWidget);
       expect(find.text('Edit My Info'), findsOneWidget);
-      expect(find.text('My Bills'), findsOneWidget);
     });
 
     testWidgets('shows the society services as tiles, only the ones the resident is granted', (tester) async {
@@ -324,7 +328,8 @@ void main() {
       expect(find.text('Society services'), findsOneWidget);
       expect(find.text('Invite guest'), findsOneWidget);
       expect(find.text('Raise complaint'), findsOneWidget);
-      expect(find.text('Pay bills'), findsOneWidget);
+      expect(find.text('Pay bills'), findsNothing);          // paying is the dues card's button, not a second chip
+      expect(find.byType(ResidentDuesCard), findsOneWidget);
       for (final label in ['Visitors', 'Complaints', 'Notices', 'Amenities']) {
         expect(find.text(label), findsOneWidget, reason: label);
       }
@@ -352,6 +357,7 @@ void main() {
       expect(find.text('Edit My Info'), findsNothing);
       expect(find.text('Maintenance'), findsNothing);
       expect(find.text('Pay bills'), findsNothing);
+      expect(find.byType(ResidentDuesCard), findsNothing);   // no bills grant, so no dues card either
     });
   });
 

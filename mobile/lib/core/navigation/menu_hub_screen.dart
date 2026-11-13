@@ -109,25 +109,29 @@ class _Tiles extends StatelessWidget {
       itemCount: items.length,
       itemBuilder: (context, i) {
         final item = items[i];
-        return Material(
-          color: AppTheme.cardBg,
-          borderRadius: BorderRadius.circular(AppTheme.radiusM),
-          child: InkWell(
+        // Colour and outline on the outer box, ink on a transparent Material inside (a shadow above a coloured Material
+        // tints the card grey).
+        return Container(
+          decoration: BoxDecoration(
+            color: AppTheme.cardBg,
             borderRadius: BorderRadius.circular(AppTheme.radiusM),
-            onTap: () => context.go(item.route!),
-            child: Container(
-              padding: const EdgeInsets.all(AppSpacing.m),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppTheme.radiusM),
-                boxShadow: AppTheme.cardShadow,
-              ),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppTheme.radiusM),
+              onTap: () => context.go(item.route!),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.m),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Icon(item.icon, color: AppTheme.primary, size: 26),
                 Text(context.tr(item.label),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-              ]),
+                ]),
+              ),
             ),
           ),
         );

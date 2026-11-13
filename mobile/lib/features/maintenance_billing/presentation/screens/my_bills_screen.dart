@@ -3,6 +3,7 @@ import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/core/theme/design_tokens.dart' show AppTone, kToneColors;
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/billing_cycle_screen.dart'
@@ -27,10 +28,10 @@ import 'package:ar_society_app/features/society_structure/presentation/providers
   final part = amountOf(b.paidAmount) > 0 ? '  ·  ${formatRupees(b.paidAmount)} paid' : '';
   if (days < 0) {
     final n = -days;
-    return (text: 'Overdue by $n day${n == 1 ? '' : 's'}$part', color: AppTheme.error);
+    return (text: 'Overdue by $n day${n == 1 ? '' : 's'}$part', color: kToneColors[AppTone.danger]!.foreground);
   }
-  if (days == 0) return (text: 'Due today$part', color: AppTheme.warning);
-  return (text: 'Due in $days day${days == 1 ? '' : 's'}$part', color: days <= 7 ? AppTheme.warning : AppTheme.textSecondary);
+  if (days == 0) return (text: 'Due today$part', color: kToneColors[AppTone.warning]!.foreground);
+  return (text: 'Due in $days day${days == 1 ? '' : 's'}$part', color: days <= 7 ? kToneColors[AppTone.warning]!.foreground : AppTheme.textSecondary);
 }
 
 /// Resident view: every issued bill for the flat(s) they live in.
@@ -151,6 +152,8 @@ class _DueHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final clear = summary.openCount == 0;
     final color = clear ? AppTheme.success : (summary.overdueCount > 0 ? AppTheme.error : AppTheme.primary);
+    // The words use the readable tone of the same meaning; the bright colour stays for the icon and the tinted fill.
+    final textColor = kToneColors[clear ? AppTone.success : (summary.overdueCount > 0 ? AppTone.danger : AppTone.info)]!.foreground;
     final soonest = ([...open]..sort((a, b) => a.dueDate.compareTo(b.dueDate))).firstOrNull;
     final next = soonest == null ? null : billDueNote(soonest, DateTime.now());
     return Semantics(
@@ -171,7 +174,7 @@ class _DueHero extends StatelessWidget {
             Icon(clear ? Icons.check_circle_rounded : Icons.account_balance_wallet_rounded, color: color, size: 20),
             const SizedBox(width: 8),
             Text(clear ? 'You are all paid up' : 'Total due',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: textColor)),
           ]),
           if (!clear) ...[
             const SizedBox(height: 6),

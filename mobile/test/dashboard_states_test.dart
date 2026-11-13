@@ -99,8 +99,7 @@ void main() {
       expect(find.text('Open Complaints'), findsOneWidget);
       expect(find.text('Visitors Waiting'), findsOneWidget);
       expect(find.text('0'), findsNothing);
-      expect(find.text(_retryNote), findsNWidgets(2));
-      expect(find.text('Could not check. Open Approvals'), findsOneWidget);
+      expect(find.text(_retryNote), findsNWidgets(2));      // one per failed card; there is no second copy of the figure
     });
 
     testWidgets('a genuine zero is still shown as 0', (t) async {
@@ -113,7 +112,6 @@ void main() {
 
       expect(find.text('0'), findsNWidgets(2));        // complaints and visitors waiting
       expect(find.text(_retryNote), findsNothing);
-      expect(find.text('No one waiting'), findsOneWidget);
     });
 
     testWidgets('tapping a failed card asks the server again', (t) async {

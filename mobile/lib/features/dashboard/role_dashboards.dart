@@ -21,7 +21,7 @@ import 'package:ar_society_app/features/users/presentation/providers/user_provid
 import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart' show BillingCycle, amountOf, formatRupees;
-import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart' show billingCyclesProvider, myBillsProvider;
+import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart' show billingCyclesProvider;
 import 'package:ar_society_app/features/dashboard/admin_overview.dart';
 import 'package:ar_society_app/features/dashboard/gate_summary.dart';
 import 'package:ar_society_app/features/dashboard/resident_dues_card.dart';
@@ -851,7 +851,7 @@ class ResidentDashboardScreen extends ConsumerWidget {
     return _DashboardShell(
       title: 'Resident Dashboard',
       children: [
-        _GreetingCard(user: user, subtitle: 'Resident · Day-to-day services'),
+        _GreetingCard(user: user, subtitle: 'Resident'),
         if (residentLoaded && myFlatId == null) ...[
           const SizedBox(height: 14),
           Container(
@@ -878,7 +878,7 @@ class ResidentDashboardScreen extends ConsumerWidget {
         if (canSeeBills) ...[const SizedBox(height: 14), const ResidentDuesCard()],
         if (_on(user, 'visitors')) const PendingVisitorsBanner(padding: EdgeInsets.only(top: 14)),
         const SizedBox(height: 14),
-        // The three things a resident does most, one tap from the home screen.
+        // The things a resident does most, one tap from the home screen (paying is the dues card above).
         Builder(builder: (context) {
           final societyId = user?.societyId;
           return _chipRow([
@@ -890,8 +890,6 @@ class ResidentDashboardScreen extends ConsumerWidget {
               ),
             if (_on(user, 'complaints') && granted('complaints'))
               const _QuickActionChip(icon: Icons.add_comment_rounded, label: 'Raise complaint', route: AppRoutes.complaintsCreate),
-            if (canSeeBills)
-              const _QuickActionChip(icon: Icons.payments_rounded, label: 'Pay bills', route: AppRoutes.myBills),
           ]);
         }),
         const SizedBox(height: 12),
@@ -990,20 +988,6 @@ class ResidentDashboardScreen extends ConsumerWidget {
                 retry: () => ref.invalidate(pendingVisitorApprovalsProvider),
                 onTap: () => context.push(AppRoutes.visitorsPending),
               ),
-            if (canSeeBills)
-            _SummaryCard(
-              icon: Icons.receipt_long_rounded,
-              label: 'Bills Due',
-              value: ref.watch(myBillsProvider).when(
-                    data: (s) => formatRupees(s.totalOutstanding),
-                    loading: () => '…',
-                    error: (_, __) => '--',
-                  ),
-              color: (ref.watch(myBillsProvider).valueOrNull?.overdueCount ?? 0) > 0
-                  ? AppTheme.error
-                  : AppTheme.warning,
-              onTap: () => context.push(AppRoutes.myBills),
-            ),
             _SummaryCard(
               icon: Icons.home_rounded,
               label: myFlats.length > 1 ? 'My Flat · tap to switch' : 'My Flat',
@@ -1014,45 +998,15 @@ class ResidentDashboardScreen extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 18),
-        const _SectionLabel('My account'),
-        const SizedBox(height: 10),
-        _chipRow([
-          if (canSeeBills)
-            const _QuickActionChip(icon: Icons.receipt_long_rounded, label: 'My Bills', route: AppRoutes.myBills),
-          if (canEditInfo)
+        if (canEditInfo) ...[
+          const _SectionLabel('My account'),
+          const SizedBox(height: 10),
+          _chipRow([
             const _QuickActionChip(icon: Icons.edit_note_rounded, label: 'Edit My Info', route: AppRoutes.editMyProfile),
-          if (canEditInfo)
             const _QuickActionChip(icon: Icons.home_work_rounded, label: 'My Home', route: AppRoutes.myHome),
-        ]),
-        const SizedBox(height: 18),
-        _OperationalPanel(title: 'Recent updates', children: [
-          if (canSeeBills)
-            _InfoTile(
-              icon: Icons.receipt_long_rounded,
-              title: 'Maintenance',
-              value: ref.watch(myBillsProvider).when(
-                    data: (s) => s.openCount == 0
-                        ? 'All bills paid'
-                        : '${formatRupees(s.totalOutstanding)} due on ${s.openCount} bill${s.openCount == 1 ? '' : 's'}',
-                    loading: () => '…',
-                    error: (_, __) => 'Open My Bills to check',
-                  ),
-              color: AppTheme.primary,
-            ),
-          if (canSeeBills && _on(user, 'visitors')) const SizedBox(height: 8),
-          if (_on(user, 'visitors')) ...[
-            _InfoTile(
-              icon: Icons.pending_actions_rounded,
-              title: 'Visitor approvals',
-              value: waitingAsync.when(
-                data: (n) => n == 0 ? 'No one waiting' : '$n waiting at the gate',
-                loading: () => '…',
-                error: (_, __) => 'Could not check. Open Approvals',
-              ),
-              color: AppTheme.warning,
-            ),
-          ],
-        ]),
+          ]),
+          const SizedBox(height: 18),
+        ],
         const SizedBox(height: 18),
       ],
     );

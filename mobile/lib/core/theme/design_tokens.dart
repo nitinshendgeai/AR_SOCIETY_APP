@@ -18,6 +18,10 @@ class AppSpacing {
   static const double minTouch = 48;
 }
 
+/// A button fill that white text can sit on at 4.5:1 or better, for the cautionary action (a guard's Check Out). The
+/// bright [AppTheme.warning] orange is only 2.2:1 under white text.
+const Color kWarningFill = Color(0xFFB45309);
+
 /// The meaning a status carries. Each tone has a soft background and a text colour that meets 4.5:1 contrast on it,
 /// which the bright iOS-style [AppTheme.success], [AppTheme.warning] and [AppTheme.error] do not when used as text.
 enum AppTone { neutral, info, success, warning, danger }

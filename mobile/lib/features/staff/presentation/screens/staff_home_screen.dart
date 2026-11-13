@@ -195,14 +195,6 @@ class StaffHomeScreen extends ConsumerWidget {
                         onTap: () => context.push(AppRoutes.parkingGateCheck),
                       ),
                   ],
-                  const _ModuleCard(
-                    icon: Icons.task_alt_rounded,
-                    label: 'Tasks',
-                    subtitle: 'Coming soon',
-                    color: AppTheme.textSecondary,
-                    disabled: true,
-                    onTap: null,
-                  ),
                 ],
               ),
 

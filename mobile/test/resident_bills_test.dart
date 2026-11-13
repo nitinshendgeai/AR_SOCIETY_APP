@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/core/theme/design_tokens.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/my_bills_screen.dart';
@@ -34,11 +35,11 @@ void main() {
   group('billDueNote', () {
     test('overdue, due today and due soon are worded and coloured by urgency', () {
       expect(billDueNote(_at(today, -4), today)!.text, 'Overdue by 4 days');
-      expect(billDueNote(_at(today, -4), today)!.color, AppTheme.error);
+      expect(billDueNote(_at(today, -4), today)!.color, kToneColors[AppTone.danger]!.foreground);
       expect(billDueNote(_at(today, -1), today)!.text, 'Overdue by 1 day');
       expect(billDueNote(_at(today, 0), today)!.text, 'Due today');
       expect(billDueNote(_at(today, 1), today)!.text, 'Due in 1 day');
-      expect(billDueNote(_at(today, 3), today)!.color, AppTheme.warning);
+      expect(billDueNote(_at(today, 3), today)!.color, kToneColors[AppTone.warning]!.foreground);
       expect(billDueNote(_at(today, 20), today)!.text, 'Due in 20 days');
       expect(billDueNote(_at(today, 20), today)!.color, AppTheme.textSecondary);
     });
