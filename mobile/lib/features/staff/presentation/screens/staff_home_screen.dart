@@ -5,6 +5,7 @@ import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 import 'package:ar_society_app/core/router/app_router.dart' show AppRoutes;
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:ar_society_app/features/dashboard/gate_panel.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
@@ -122,6 +123,12 @@ class StaffHomeScreen extends ConsumerWidget {
               ),
 
               const SizedBox(height: 20),
+
+              // The gate comes first for the guard: who is inside and the four things done all shift.
+              if (user != null && user.isSecurity && societyId != null && !managerOnly) ...[
+                GatePanel(user: user, societyId: societyId),
+                const SizedBox(height: 20),
+              ],
 
               if (!managerOnly) ...[
               // ── Profile resolution status ─────────────────────────────────

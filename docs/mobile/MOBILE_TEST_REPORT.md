@@ -17,12 +17,14 @@ Environment for local runs: Flutter 3.47.5 (the version CI pins), `flutter analy
 |---|---|---|---|---|---|---|
 | 1 | #236 | Design tokens, status widgets | not run locally (SDK not yet installed) | not run locally | PASS after one fix (unused import warning) | CI caught it |
 | 2 | #237 | Searchable More sheet | PASS (0 errors/warnings, 483 infos) | PASS 668/668 | PASS after one fix (sheet height hid the list at 70%) | Existing test caught a real layout regression |
-| 3 | this PR | Resident dues card on Home | PASS (0 errors/warnings, 483 infos = baseline) | PASS 678/678 | pending | 10 new tests: statuses, rupee format, singular/plural, all-paid, button target size and navigation, loading, failure + retry, Marathi |
+| 3a | #238 | Resident dues card on Home | PASS (0 errors/warnings, 483 infos = baseline) | PASS 678/678 | PASS (all 5 checks) | 10 new tests: statuses, rupee format, singular/plural, all-paid, button target size and navigation, loading, failure + retry, Marathi |
+| 4a | this PR | Gate panel on the Security Staff home | PASS (0 errors/warnings, 483 infos = baseline) | PASS 692/692 | pending | 14 new tests: counts, real zero vs unavailable (`--`, never 0), loading, retry, navigation to the 4 existing screens, 48 dp targets, grants and service switches, Marathi, plus Security-only presence on the Staff Portal |
 
-## Module status after Step 3 (what has actual evidence)
+## Module status after Step 4a (what has actual evidence)
 
 | Module | Evidence | Rating | Remaining |
 |---|---|---|---|
+| Security gate (Security Staff home) | 14 tests, local only until CI | CONDITIONAL PASS (CI pending; not run on a device) | search by name/flat/vehicle; dedicated tab set |
 | Phone navigation: More search | 6 tests, CI green | PASS | tab hubs not started |
 | Resident Home: dues card | 10 tests incl. widget_test regression, local | CONDITIONAL PASS (CI pending, not run on a device/emulator) | Payments and Services hubs |
 | Authentication, RBAC, permission boundaries | existing suite (route_access, menu_architecture, role_home) green; not extended | PASS for existing behaviour, NOT VERIFIED for new screens beyond grants | add per-role navigation tests in the hub step |
