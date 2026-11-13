@@ -97,7 +97,7 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
     backgroundColor: AppTheme.cardBg,
     builder: (ctx) => DraggableScrollableSheet(
       expand: false,
-      initialChildSize: 0.7,
+      initialChildSize: 0.85,
       maxChildSize: 0.92,
       minChildSize: 0.4,
       builder: (ctx, controller) {
