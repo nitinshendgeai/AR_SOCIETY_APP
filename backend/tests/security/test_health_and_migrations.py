@@ -39,7 +39,11 @@ def test_health_does_not_publish_where_the_database_is(client, monkeypatch):
     monkeypatch.setattr(session, "check_db_connection",
                         lambda: {"status": "unavailable", "error": "connection to server at \"db.internal\" failed",
                                  "url": "postgresql://admin:***@db.internal:5432/prod"})
-    body = client.get("/health").text
+    payload = client.get("/health").json()
+    # The response carries a Unix timestamp, whose digits can contain "5432" by chance (it did on 12 Nov 2026),
+    # so look for the database details only in what the endpoint says about the database and migrations.
+    payload.pop("time", None)
+    body = str(payload)
     assert "db.internal" not in body and "admin" not in body and "5432" not in body and "postgresql" not in body
 
 
