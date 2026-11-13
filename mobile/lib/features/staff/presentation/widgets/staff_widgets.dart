@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 
@@ -119,7 +120,7 @@ class SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text(title,
+        Text(context.tr(title),
             style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,

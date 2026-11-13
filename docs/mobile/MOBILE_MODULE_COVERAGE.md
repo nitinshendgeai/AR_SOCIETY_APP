@@ -58,7 +58,7 @@ The baseline table above still describes the code *before* this work. What chang
 | Network failures | GET retry, offline banner | CONDITIONAL PASS |
 | Accessibility | Text greys now meet 4.5:1 | PASS (computed and tested); other a11y items (tooltips, 200% text scale) NOT VERIFIED |
 | Android | Flutter pinned for release builds, backup off; AAB, splash, App Links, R8 open | see MOBILE_RELEASE_READINESS.md |
-| Marathi/English | All new phrases translated; most older screen bodies are still English | CONDITIONAL PASS |
+| Marathi/English | Resident Home, guard Staff Portal, Gate panel and visitor log now fully translated (~75 strings, shared helpers); My Bills, bill detail, notices, complaints, amenities, forms, login and dates are still English | CONDITIONAL PASS (wording needs a native reader) |
 | Accounts / finance reports, vendors, staff attendance, complaints, notices, amenities, governance | Not modified; existing tests green | PASS (unchanged), mobile table-to-card conversion NOT DONE |
 
 ### Not done, and why

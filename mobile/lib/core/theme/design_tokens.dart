@@ -22,6 +22,9 @@ class AppSpacing {
 /// bright [AppTheme.warning] orange is only 2.2:1 under white text.
 const Color kWarningFill = Color(0xFFB45309);
 
+/// The same for the affirmative action (a guard's Check In): bright [AppTheme.success] green is 2.2:1 under white text.
+const Color kSuccessFill = Color(0xFF15803D);
+
 /// The meaning a status carries. Each tone has a soft background and a text colour that meets 4.5:1 contrast on it,
 /// which the bright iOS-style [AppTheme.success], [AppTheme.warning] and [AppTheme.error] do not when used as text.
 enum AppTone { neutral, info, success, warning, danger }

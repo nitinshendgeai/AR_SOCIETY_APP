@@ -87,7 +87,7 @@ class GatePanel extends ConsumerWidget {
         Expanded(
           child: _Action(
             icon: Icons.logout_rounded,
-            label: context.tr('Check out'),
+            label: context.tr('Check Out'),
             onTap: () => context.push(logRoute(societyId, query: 'tab=inside')),
           ),
         ),

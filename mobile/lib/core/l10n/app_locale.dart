@@ -49,6 +49,14 @@ extension TranslateContext on BuildContext {
   /// Reads the locale from [Localizations], so the widget rebuilds when the language changes.
   String tr(String english) =>
       translate(english, Localizations.localeOf(this).languageCode);
+
+  /// [tr] for a text with values in it: translate the template, then fill the `{name}` slots. The template is the
+  /// English text with slots, e.g. `'Across {n} open bills'`, and each language keeps the slots in its own order.
+  String trf(String english, Map<String, Object> values) {
+    var text = tr(english);
+    values.forEach((name, value) => text = text.replaceAll('{$name}', '$value'));
+    return text;
+  }
 }
 
 String translate(String english, String languageCode) => languageCode == 'en'

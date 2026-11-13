@@ -54,7 +54,10 @@ class _Loaded extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (tone, icon, statusLabel) = ResidentDuesCard.statusFor(summary);
+    final (tone, icon, englishStatus) = ResidentDuesCard.statusFor(summary);
+    final statusLabel = summary.overdueCount > 0
+        ? context.trf('{n} overdue', {'n': summary.overdueCount})
+        : context.tr(englishStatus);
     final owes = amountOf(summary.totalOutstanding) > 0;
     final count = summary.openCount;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -63,7 +66,7 @@ class _Loaded extends StatelessWidget {
           child: Text(context.tr('Outstanding maintenance'),
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
         ),
-        AppStatusChip(label: context.tr(statusLabel), tone: tone, icon: icon),
+        AppStatusChip(label: statusLabel, tone: tone, icon: icon),
       ]),
       const SizedBox(height: AppSpacing.s),
       Semantics(
@@ -81,7 +84,9 @@ class _Loaded extends StatelessWidget {
       ),
       const SizedBox(height: 2),
       Text(
-        owes ? 'Across $count open bill${count == 1 ? '' : 's'}' : context.tr('You have no open bills'),
+        owes
+            ? context.trf(count == 1 ? 'Across {n} open bill' : 'Across {n} open bills', {'n': count})
+            : context.tr('You have no open bills'),
         style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
       ),
       const SizedBox(height: AppSpacing.m),

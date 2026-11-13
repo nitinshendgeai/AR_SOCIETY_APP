@@ -189,8 +189,8 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
       bottom: TabBar(
           controller: _tabs,
           tabs: widget.isMy
-              ? const [Tab(text: 'Expected'), Tab(text: 'Inside'), Tab(text: 'History')]
-              : const [Tab(text: 'All Visitors'), Tab(text: 'Inside Now')],
+              ? [Tab(text: context.tr('Expected')), Tab(text: context.tr('Inside')), Tab(text: context.tr('History'))]
+              : [Tab(text: context.tr('All Visitors')), Tab(text: context.tr('Inside Now'))],
         ),
       floatingActionButton: desktop && !widget.isMy
           ? null
@@ -199,7 +199,7 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
               backgroundColor: AppTheme.primary,
               foregroundColor: Colors.white,
               icon: const Icon(Icons.person_add_rounded),
-              label: Text(widget.isMy ? 'Invite guest' : 'Log Visitor'),
+              label: Text(context.tr(widget.isMy ? 'Invite guest' : 'Log Visitor')),
             ),
       body: _buildBody(state),
     );
@@ -499,13 +499,13 @@ class _VisitorCard extends ConsumerWidget {
               ],
             ],
           ),
-          if (_whenLine(visitor) != null) ...[
+          if (_whenLine(context, visitor) != null) ...[
             const SizedBox(height: 8),
             Row(children: [
               const Icon(Icons.schedule_rounded, size: 14, color: AppTheme.textSecondary),
               const SizedBox(width: 6),
               Expanded(
-                child: Text(_whenLine(visitor)!,
+                child: Text(_whenLine(context, visitor)!,
                     style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ),
             ]),
@@ -545,13 +545,13 @@ class _VisitorCard extends ConsumerWidget {
                               .read(visitorActionProvider.notifier)
                               .checkIn(visitor.id),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.success,
+                        backgroundColor: kSuccessFill,
                         minimumSize: const Size(0, 40),
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                       ),
                       icon: const Icon(Icons.login_rounded, size: 16),
-                      label: const Text('Check In',
-                          style: TextStyle(fontSize: 13)),
+                      label: Text(context.tr('Check In'),
+                          style: const TextStyle(fontSize: 13)),
                     ),
                   ),
                 if (visitor.canCheckOut)
@@ -568,8 +568,8 @@ class _VisitorCard extends ConsumerWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                       ),
                       icon: const Icon(Icons.logout_rounded, size: 16),
-                      label: const Text('Check Out',
-                          style: TextStyle(fontSize: 13)),
+                      label: Text(context.tr('Check Out'),
+                          style: const TextStyle(fontSize: 13)),
                     ),
                   ),
               ],
@@ -581,19 +581,26 @@ class _VisitorCard extends ConsumerWidget {
   }
 
   /// When this visitor is expected, came or left, in the words a resident would use. Null when nothing is known.
-  String? _whenLine(VisitorEntity v) {
+  String? _whenLine(BuildContext context, VisitorEntity v) {
     String t(DateTime d) => DateFormat('d MMM, h:mm a').format(d.toLocal());
+    String f(String template, Map<String, Object> values) => context.trf(template, values);
     switch (v.status) {
       case VisitorStatus.checkedOut:
-        if (v.checkedInAt == null) return v.checkedOutAt == null ? null : 'Left ${t(v.checkedOutAt!)}';
-        return v.checkedOutAt == null ? 'In ${t(v.checkedInAt!)}' : 'In ${t(v.checkedInAt!)}  ·  Out ${t(v.checkedOutAt!)}';
+        if (v.checkedInAt == null) return v.checkedOutAt == null ? null : f('Left {t}', {'t': t(v.checkedOutAt!)});
+        return v.checkedOutAt == null
+            ? f('In {t}', {'t': t(v.checkedInAt!)})
+            : f('In {a}  ·  Out {b}', {'a': t(v.checkedInAt!), 'b': t(v.checkedOutAt!)});
       case VisitorStatus.checkedIn:
-        return v.checkedInAt == null ? null : 'Inside since ${t(v.checkedInAt!)}';
+        return v.checkedInAt == null ? null : f('Inside since {t}', {'t': t(v.checkedInAt!)});
       case VisitorStatus.rejected:
-        return v.rejectionReason == null || v.rejectionReason!.isEmpty ? 'Entry refused' : 'Refused: ${v.rejectionReason}';
+        return v.rejectionReason == null || v.rejectionReason!.isEmpty
+            ? context.tr('Entry refused')
+            : f('Refused: {reason}', {'reason': v.rejectionReason!});
       case VisitorStatus.pending:
       case VisitorStatus.approved:
-        return v.expectedArrival == null ? 'Added ${t(v.createdAt)}' : 'Expected ${t(v.expectedArrival!)}';
+        return v.expectedArrival == null
+            ? f('Added {t}', {'t': t(v.createdAt)})
+            : f('Expected {t}', {'t': t(v.expectedArrival!)});
     }
   }
 
@@ -622,7 +629,7 @@ class _StatusBadge extends StatelessWidget {
       };
 
   @override
-  Widget build(BuildContext context) => AppStatusChip(label: status.label, tone: toneOf(status));
+  Widget build(BuildContext context) => AppStatusChip(label: context.tr(status.label), tone: toneOf(status));
 }
 
 class _TypeChip extends StatelessWidget {
@@ -637,7 +644,7 @@ class _TypeChip extends StatelessWidget {
         color: AppTheme.border,
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(type.label,
+      child: Text(context.tr(type.label),
           style: const TextStyle(
               fontSize: 11,
               color: AppTheme.textSecondary,
