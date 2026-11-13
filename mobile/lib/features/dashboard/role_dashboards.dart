@@ -24,6 +24,7 @@ import 'package:ar_society_app/features/maintenance_billing/data/maintenance_bil
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart' show billingCyclesProvider, myBillsProvider;
 import 'package:ar_society_app/features/dashboard/admin_overview.dart';
 import 'package:ar_society_app/features/dashboard/gate_summary.dart';
+import 'package:ar_society_app/features/dashboard/resident_dues_card.dart';
 import 'package:ar_society_app/features/visitor/presentation/providers/visitor_providers.dart' show pendingVisitorApprovalsProvider;
 import 'package:ar_society_app/features/visitor/presentation/widgets/pending_visitors_banner.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart' show flatByIdProvider;
@@ -873,6 +874,8 @@ class ResidentDashboardScreen extends ConsumerWidget {
             ]),
           ),
         ],
+        // What is owed comes first: it is the thing a resident opens the app for.
+        if (canSeeBills) ...[const SizedBox(height: 14), const ResidentDuesCard()],
         if (_on(user, 'visitors')) const PendingVisitorsBanner(padding: EdgeInsets.only(top: 14)),
         const SizedBox(height: 14),
         // The three things a resident does most, one tap from the home screen.
