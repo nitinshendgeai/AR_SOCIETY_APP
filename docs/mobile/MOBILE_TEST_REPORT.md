@@ -57,3 +57,19 @@ Found by looking, and fixed in the "UI polish" PR (all of these passed the autom
 | Grey band under the dues card | shadow where neighbours use an outline | outline | visual only |
 
 Still not verified: real devices, other screen sizes (360 x 640, large phones), 130% / 200% text scale, Marathi layouts (Devanagari is taller), slow-network behaviour, the keyboard over forms, accessibility with TalkBack.
+
+
+## Marathi review (rendered screens)
+
+Rendered in Marathi at 390 x 844, like the visual review above. **Finding:** before this change the resident Home, the guard's Staff Portal and the visitor log were mostly English even in Marathi mode (only the new phrases were translated), so a Marathi-speaking resident saw a mixed screen.
+
+Fixed by translating inside the shared dashboard helpers (section labels, chips, service tiles, summary cards, greeting, panels), the staff-portal cards and banners, and the visitor log (tabs, button, statuses, types, time lines), with ~75 new Hindi and Marathi strings and a `context.trf` helper for texts with values (`'Across {n} open bills'`). Because the helpers are shared, every role's dashboard benefits.
+
+| Check | Result |
+|---|---|
+| Rendered Marathi resident Home, guard Home, visitor log: no clipped or overlapping text, Devanagari glyphs correct | PASS (rendering only) |
+| Marathi tests: translated words present, listed English words absent, no unfilled `{slot}` on screen; English unchanged | PASS (6 tests) |
+| Wording quality, tone and spelling of the new Hindi and Marathi | NOT VERIFIED: **needs a native reader**; all strings are in `core/l10n/translations.dart` |
+| Existing "Check out" translation is past tense ("went out") and is used on the domestic-help button | Flagged for the native reader; left unchanged |
+| Dates and times still show English month names and "AM/PM" | Not done |
+| My Bills, bill detail, receipts, notices, complaints, amenities, forms and the login screen in Marathi | Not reviewed or translated yet |

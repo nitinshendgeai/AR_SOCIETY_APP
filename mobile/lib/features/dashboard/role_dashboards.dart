@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:intl/intl.dart';
 import 'package:ar_society_app/shared/widgets/dux_logo.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -123,7 +124,7 @@ class _DashboardShell extends ConsumerWidget {
     final desktop = isDesktopLayout(context);
 
     return AppPage(
-      title: title,
+      title: context.tr(title),
       showBack: false,
       actions: [
         if (!desktop) ...[
@@ -315,11 +316,11 @@ class _GreetingCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(greetingFor(now.hour), style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 13)),
+          Text(context.tr(greetingFor(now.hour)), style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 13)),
           const SizedBox(height: 2),
           Text(user?.fullName ?? 'Society User', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
-          Text(subtitle, style: TextStyle(color: Colors.white.withOpacity(0.88), fontSize: 13)),
+          Text(context.tr(subtitle), style: TextStyle(color: Colors.white.withOpacity(0.88), fontSize: 13)),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -351,7 +352,7 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(text,
+    return Text(context.tr(text),
         style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -377,8 +378,13 @@ class _SummaryCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) =>
-      KpiCard(icon: icon, label: label, value: value, color: color, note: note, onTap: onTap);
+  Widget build(BuildContext context) => KpiCard(
+      icon: icon,
+      label: context.tr(label),
+      value: value,
+      color: color,
+      note: note == null ? null : context.tr(note!),
+      onTap: onTap);
 }
 
 class _QuickActionChip extends StatelessWidget {
@@ -399,7 +405,7 @@ class _QuickActionChip extends StatelessWidget {
       child: Semantics(
         button: true,
         enabled: enabled,
-        label: label,
+        label: context.tr(label),
         excludeSemantics: true,
         onTap: action,
         child: Opacity(
@@ -416,7 +422,7 @@ class _QuickActionChip extends StatelessWidget {
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Icon(icon, color: AppTheme.primary),
                   const SizedBox(height: 6),
-                  Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                  Text(context.tr(label), textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
                 ]),
               ),
             ),
@@ -438,7 +444,7 @@ class _OperationalPanel extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusL), border: Border.all(color: AppTheme.border)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+        Text(context.tr(title), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
         const SizedBox(height: 10),
         ...children,
       ]),
@@ -896,7 +902,7 @@ class ResidentDashboardScreen extends ConsumerWidget {
         // An emergency is one tap away, on the home screen.
         Semantics(
           button: true,
-          label: 'SOS. Tell security and the committee you need help',
+          label: context.tr('SOS. Tell security and the committee you need help'),
           excludeSemantics: true,
           onTap: () => showSosSheet(context),
           child: InkWell(
@@ -918,11 +924,11 @@ class ResidentDashboardScreen extends ConsumerWidget {
                   child: const Icon(Icons.sos_rounded, color: Colors.white, size: 22),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('SOS', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppTheme.error)),
-                    Text('Need help now? Tell security and the committee.',
-                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    const Text('SOS', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppTheme.error)),
+                    Text(context.tr('Need help now? Tell security and the committee.'),
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   ]),
                 ),
                 const Icon(Icons.chevron_right_rounded, color: AppTheme.error),
@@ -1043,7 +1049,7 @@ class _ServiceGrid extends StatelessWidget {
         for (final t in tiles)
           Semantics(
             button: true,
-            label: t.badge > 0 ? '${t.label}, ${t.badge} waiting' : t.label,
+            label: t.badge > 0 ? '${context.tr(t.label)}, ${t.badge}' : context.tr(t.label),
             excludeSemantics: true,
             onTap: () => context.push(t.route),
             child: PressableScale(
@@ -1073,7 +1079,7 @@ class _ServiceGrid extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Text(t.label,
+                    Text(context.tr(t.label),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,

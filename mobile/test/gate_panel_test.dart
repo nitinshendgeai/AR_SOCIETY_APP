@@ -113,7 +113,7 @@ void main() {
     t.state<NavigatorState>(find.byType(Navigator)).pop();
     await t.pumpAndSettle();
 
-    await t.tap(find.text('Check out'));
+    await t.tap(find.text('Check Out'));
     await t.pumpAndSettle();
     t.state<NavigatorState>(find.byType(Navigator)).pop();
     await t.pumpAndSettle();
@@ -132,7 +132,7 @@ void main() {
   testWidgets('the button words use the app font (Inter), not the platform default', (t) async {
     await t.pumpWidget(_app(() async => const GateSummary(visitorsToday: 1, checkedInToday: 1, inside: 1)));
     await t.pumpAndSettle();
-    for (final label in ['Log visitor', 'Check out', 'Verify code', 'Parcels in']) {
+    for (final label in ['Log visitor', 'Check Out', 'Verify code', 'Parcels in']) {
       final rich = t.widget<RichText>(find.byWidgetPredicate((w) => w is RichText && w.text.toPlainText() == label));
       expect(rich.text.style?.fontFamily, 'Inter', reason: label);
     }
@@ -141,7 +141,7 @@ void main() {
   testWidgets('every button is at least 48dp tall', (t) async {
     await t.pumpWidget(_app(() async => const GateSummary(visitorsToday: 1, checkedInToday: 1, inside: 1)));
     await t.pumpAndSettle();
-    for (final label in ['Log visitor', 'Check out', 'Verify code', 'Parcels in']) {
+    for (final label in ['Log visitor', 'Check Out', 'Verify code', 'Parcels in']) {
       final button = find.ancestor(of: find.text(label), matching: find.byType(FilledButton));
       expect(t.getSize(button).height, greaterThanOrEqualTo(48), reason: label);
     }

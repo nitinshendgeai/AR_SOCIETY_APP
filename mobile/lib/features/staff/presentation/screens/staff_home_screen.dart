@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
@@ -57,7 +58,7 @@ class StaffHomeScreen extends ConsumerWidget {
     final managerOnly = showManagement && !staffAsync.isLoading && staffAsync.valueOrNull == null;
 
     return AppPage(
-      title: managerOnly ? 'Staff Management' : 'Staff Portal',
+      title: context.tr(managerOnly ? 'Staff Management' : 'Staff Portal'),
       actions: [
           // On desktop the account menu in the top bar handles sign-out.
           if (!isDesktopLayout(context))
@@ -102,7 +103,7 @@ class StaffHomeScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Hello, ${user?.fullName.split(' ').first ?? 'Staff'}',
+                            context.trf('Hello, {name}', {'name': user?.fullName.split(' ').first ?? context.tr('Staff')}),
                             style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
@@ -111,7 +112,7 @@ class StaffHomeScreen extends ConsumerWidget {
                           Text(
                             managerOnly
                                 ? (user?.roles.firstOrNull ?? 'Manager')
-                                : user?.roleLabel ?? 'Staff Member',
+                                : context.tr(user?.roleLabel ?? 'Staff Member'),
                             style: const TextStyle(
                                 color: Colors.white70, fontSize: 13),
                           ),
@@ -334,7 +335,7 @@ class _StaffProfileStatus extends ConsumerWidget {
           foregroundColor: AppTheme.primary,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         ),
-        child: const Text('Retry', style: TextStyle(fontSize: 12)),
+        child: Text(context.tr('Retry'), style: const TextStyle(fontSize: 12)),
       );
     } else {
       // Resolved but staff returned null — no staff record linked to this user
@@ -362,13 +363,13 @@ class _StaffProfileStatus extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
+                  Text(context.tr(title),
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
                           color: color)),
                   const SizedBox(height: 2),
-                  Text(subtitle,
+                  Text(context.tr(subtitle),
                       style: const TextStyle(
                           fontSize: 11, color: AppTheme.textSecondary)),
                 ],
@@ -428,13 +429,13 @@ class _ModuleCard extends StatelessWidget {
                 child: Icon(icon, color: color, size: 22),
               ),
               const Spacer(),
-              Text(label,
+              Text(context.tr(label),
                   style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
                       color: AppTheme.textPrimary)),
               const SizedBox(height: 2),
-              Text(subtitle,
+              Text(context.tr(subtitle),
                   style: const TextStyle(
                       fontSize: 11, color: AppTheme.textSecondary)),
             ],

@@ -44,6 +44,11 @@ void main() {
     expect(_contrast(Colors.white, AppTheme.warning), lessThan(4.5));
   });
 
+  test('the affirmative button fill carries white text at 4.5:1 (the bright green is 2.2:1)', () {
+    expect(_contrast(Colors.white, kSuccessFill), greaterThanOrEqualTo(4.5));
+    expect(_contrast(Colors.white, AppTheme.success), lessThan(4.5));
+  });
+
   test('every bill status is written in a tone whose words are readable on white', () {
     for (final status in ['paid', 'overdue', 'partially_paid', 'issued', 'draft', 'cancelled', 'unknown']) {
       final c = kToneColors[billStatusTone(status)]!.foreground;

@@ -89,3 +89,5 @@ Blocked today because screens read `AppTheme.x` constants (2,510 uses). Path: ad
 3. **Bright semantic colours are for icons and fills, not words, and not as a fill under white text.** For words use the tone colours (`kToneColors`); for a filled caution button use `kWarningFill`.
 4. **Say a figure once per screen.** If a dues card is at the top, no second card, chip and row repeating it.
 5. **No placeholder tiles** ("Coming soon") in a shipped screen.
+6. **Translate inside shared widgets, not at every call site.** A helper that draws text (`_SectionLabel`, a chip, a tile, a card) calls `context.tr`; then every screen that uses it is translated for free. For text with values, use `context.trf('Across {n} open bills', {'n': count})`: the template is the key, each language keeps the slots in its own order, and a test checks no `{slot}` reaches the screen. Keep English plural forms as two templates (`... bill` / `... bills`).
+7. **Action labels are imperative; statuses are descriptive.** "Check Out" (do it) and "Checked Out" (it happened) are different texts and need different translations.
