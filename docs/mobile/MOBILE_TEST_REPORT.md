@@ -73,3 +73,20 @@ Fixed by translating inside the shared dashboard helpers (section labels, chips,
 | Existing "Check out" translation is past tense ("went out") and is used on the domestic-help button | Flagged for the native reader; left unchanged |
 | Dates and times still show English month names and "AM/PM" | Not done |
 | My Bills, bill detail, receipts, notices, complaints, amenities, forms and the login screen in Marathi | Not reviewed or translated yet |
+
+
+## Lights check: floor and area detail (reported from a phone screenshot)
+
+Request: on the Report tab, tapping a wing / floor card should open its details.
+
+| Item | Result |
+|---|---|
+| Floor and common-area cards open a detail sheet: the floor's tube lights, each flat's spot lights, the camera; each light with its state, who checked it and when, and "not working since" | PASS (11 tests; rendered in English and Marathi) |
+| A flat with a broken light is listed first and opens on its lights; the others stay folded | PASS (test checks the order against the server's order) |
+| Each section shows its count ("4/4 checked"); only the kinds the floor has are requested | PASS |
+| Uses existing endpoints only (`/report`, `/sheet`, `/area/{id}/sheet`); the report already sent `wing_id`, the app now reads it | no backend change |
+| **Limit, shown on screen:** the sheet shows each light as it was **last found**, not as it stood in a past month (the backend sheet has no month parameter). On an earlier month the sheet says so | CONDITIONAL PASS: a month-accurate floor detail needs a backend parameter |
+| Found while testing: the flat cards wrapped a tappable tile in a coloured box (invisible tap highlight) | fixed |
+| Report tab polish found by rendering: "Partly" chip and the red/green/orange words and numbers were 2.1 to 3.6:1; the "Not working" tile was taller than its neighbours | fixed (tone colours, equal-height tiles) |
+| Rest of the Lights check screen (Check, To replace) in Marathi | still English; only the new sheet and the cards' accessibility label are translated |
+| Real device | NOT VERIFIED |

@@ -2,23 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/core/theme/design_tokens.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/lights_check/data/lights_api.dart';
+import 'package:ar_society_app/features/lights_check/presentation/widgets/light_detail_sheet.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart' show FlatModel;
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/features/stores/presentation/providers/stores_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart' show AppPage;
+import 'package:ar_society_app/shared/widgets/app_status.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+
+// `lightStamp` lives with the light models; re-exported so existing imports of this screen still find it.
+export 'package:ar_society_app/features/lights_check/data/lights_api.dart' show lightStamp;
 
 const _working = 'working';
 const _notWorking = 'not_working';
 
-/// "5 Nov, 10:30 am" - the date and time a light was checked.
-String lightStamp(DateTime d) => DateFormat('d MMM, h:mm a').format(d);
 
 /// The monthly check of the common lights, filled in by the electrician or plumber, and the list of what to replace.
 class LightsCheckScreen extends ConsumerStatefulWidget {
@@ -618,6 +623,19 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
 
   ReportKey get _key => (societyId: widget.societyId, month: _month, wingId: _wingId, floor: _floor, flatId: _flatId);
 
+  /// Whether [shown] is the month the server counts as the current one (the sheet only knows how lights stand now).
+  bool _isCurrent(String shown) => _month == null || shown == _monthKey(DateTime.now());
+
+  /// Opens a floor's lights.
+  void _openFloor(FloorReport f, String shown) {
+    showFloorDetail(context,
+        societyId: widget.societyId,
+        wingId: f.wingId,
+        floor: f,
+        monthLabel: monthTitle(shown),
+        currentMonth: _isCurrent(shown));
+  }
+
   void _step(String shown, int by) {
     final p = shown.split('-');
     setState(() => _month = _monthKey(DateTime(int.parse(p[0]), int.parse(p[1]) + by)));
@@ -649,13 +667,16 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
                   icon: Icons.apartment_rounded, title: 'No floors yet', subtitle: 'Add the wings and floors in the setup wizard.')
             else ...[
               if (r.floorsNotChecked + r.floorsPartlyChecked + r.areasNotChecked + r.areasPartlyChecked > 0) _attention(r),
-              for (final f in r.floors) _FloorRow(floor: f),
+              for (final f in r.floors) _FloorRow(floor: f, onTap: () => _openFloor(f, shown)),
               if (r.areas.isNotEmpty) ...[
                 const Padding(
                   padding: EdgeInsets.only(top: 8, bottom: 8),
                   child: Text('Common areas', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
                 ),
-                for (final a in r.areas) _AreaRow(area: a),
+                for (final a in r.areas)
+                  _AreaRow(
+                      area: a,
+                      onTap: () => showAreaDetail(context, area: a, monthLabel: monthTitle(shown), currentMonth: _isCurrent(shown))),
               ],
             ],
           ],
@@ -756,7 +777,8 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
       ]);
 
   Widget _tiles(LightReport r) {
-    Widget tile(String label, int value, Color color) => Expanded(
+    // The tint and outline use the bright colour; the number uses the readable tone of the same meaning.
+    Widget tile(String label, int value, Color color, AppTone tone) => Expanded(
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
             decoration: BoxDecoration(
@@ -765,29 +787,33 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
               border: Border.all(color: color.withOpacity(0.3)),
             ),
             child: Column(children: [
-              Text('$value', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: color)),
+              Text('$value',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kToneColors[tone]!.foreground)),
               const SizedBox(height: 2),
               Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ]),
           ),
         );
     return Column(children: [
-      Row(children: [
-        tile('Checked', r.checked, AppTheme.primary),
-        const SizedBox(width: 8),
-        tile('Working', r.working, AppTheme.success),
-        const SizedBox(width: 8),
-        tile('Not working', r.notWorking, AppTheme.error),
-        const SizedBox(width: 8),
-        tile('Replaced', r.replaced, AppTheme.warning),
-      ]),
+      // Equal-height tiles: "Not working" wraps to two lines on a narrow phone and would otherwise stand taller.
+      IntrinsicHeight(
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          tile('Checked', r.checked, AppTheme.primary, AppTone.info),
+          const SizedBox(width: 8),
+          tile('Working', r.working, AppTheme.success, AppTone.success),
+          const SizedBox(width: 8),
+          tile('Not working', r.notWorking, AppTheme.error, AppTone.danger),
+          const SizedBox(width: 8),
+          tile('Replaced', r.replaced, AppTheme.warning, AppTone.warning),
+        ]),
+      ),
       if (r.stillNotWorking > 0)
         Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text('${r.stillNotWorking} light${r.stillNotWorking == 1 ? '' : 's'} still waiting to be replaced',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.error)),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kToneColors[AppTone.danger]!.foreground)),
           ),
         ),
     ]);
@@ -818,35 +844,63 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
       );
 }
 
+/// A report card that opens its detail: the card is one outer box (colour and outline) with the ink on a transparent
+/// Material inside it, and reads as a button to a screen reader.
+class _TapCard extends StatelessWidget {
+  final VoidCallback onTap;
+  final String semanticLabel;
+  final Widget child;
+  const _TapCard({required this.onTap, required this.semanticLabel, required this.child});
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: '$semanticLabel. ${context.tr('Opens the lights')}',
+        excludeSemantics: true,
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            color: AppTheme.cardBg,
+            borderRadius: BorderRadius.circular(AppTheme.radiusL),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppTheme.radiusL),
+              onTap: onTap,
+              child: Padding(padding: const EdgeInsets.all(14), child: child),
+            ),
+          ),
+        ),
+      );
+}
+
 class _FloorRow extends StatelessWidget {
   final FloorReport floor;
-  const _FloorRow({required this.floor});
+  final VoidCallback onTap;
+  const _FloorRow({required this.floor, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final (label, color) = switch (floor.status) {
-      'done' => ('Done', AppTheme.success),
-      'partial' => ('Partly', AppTheme.warning),
-      _ => ('Not checked', AppTheme.textSecondary),
+    final (label, tone) = switch (floor.status) {
+      'done' => ('Done', AppTone.success),
+      'partial' => ('Partly', AppTone.warning),
+      _ => ('Not checked', AppTone.neutral),
     };
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(AppTheme.radiusL),
-        border: Border.all(color: AppTheme.border),
-      ),
+    return _TapCard(
+      onTap: onTap,
+      semanticLabel: '${floor.wingName} · ${floor.floorName}, $label'
+          '${floor.notWorking > 0 ? ', ${floor.notWorking} not working' : ''}',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Expanded(
               child: Text('${floor.wingName} · ${floor.floorName}',
                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800))),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(999)),
-            child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
-          ),
+          AppStatusChip(label: label, tone: tone),
+          const SizedBox(width: 4),
+          const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
         ]),
         const SizedBox(height: 6),
         Text(
@@ -859,7 +913,7 @@ class _FloorRow extends StatelessWidget {
         if (floor.notWorking > 0) ...[
           const SizedBox(height: 4),
           Text('${floor.notWorking} not working',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.error)),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kToneColors[AppTone.danger]!.foreground)),
         ],
       ]),
     );
@@ -1106,33 +1160,28 @@ class _AreaFormSheetState extends ConsumerState<_AreaFormSheet> {
 
 class _AreaRow extends StatelessWidget {
   final AreaReport area;
-  const _AreaRow({required this.area});
+  final VoidCallback onTap;
+  const _AreaRow({required this.area, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final (label, color) = switch (area.status) {
-      'done' => ('Done', AppTheme.success),
-      'partial' => ('Partly', AppTheme.warning),
-      _ => ('Not checked', AppTheme.textSecondary),
+    final (label, tone) = switch (area.status) {
+      'done' => ('Done', AppTone.success),
+      'partial' => ('Partly', AppTone.warning),
+      _ => ('Not checked', AppTone.neutral),
     };
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(AppTheme.radiusL),
-        border: Border.all(color: AppTheme.border),
-      ),
+    return _TapCard(
+      onTap: onTap,
+      semanticLabel: '${area.wingName == null ? area.name : '${area.name} · ${area.wingName}'}, $label'
+          '${area.notWorking > 0 ? ', ${area.notWorking} not working' : ''}',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Expanded(
               child: Text(area.wingName == null ? area.name : '${area.name} · ${area.wingName}',
                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800))),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(999)),
-            child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
-          ),
+          AppStatusChip(label: label, tone: tone),
+          const SizedBox(width: 4),
+          const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
         ]),
         const SizedBox(height: 6),
         Text(
@@ -1142,7 +1191,7 @@ class _AreaRow extends StatelessWidget {
         if (area.notWorking > 0) ...[
           const SizedBox(height: 4),
           Text('${area.notWorking} not working',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.error)),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kToneColors[AppTone.danger]!.foreground)),
         ],
       ]),
     );
