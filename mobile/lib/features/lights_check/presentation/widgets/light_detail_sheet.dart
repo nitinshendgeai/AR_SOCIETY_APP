@@ -181,33 +181,50 @@ class _Section extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (title != null)
-        Padding(
-          padding: const EdgeInsets.only(top: 8, bottom: 8),
+    final body = sheet.when(
+      loading: () => const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator())),
+      error: (e, _) => Row(children: [
+        Expanded(child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.textSecondary))),
+        TextButton(
+          onPressed: onRetry,
+          style: TextButton.styleFrom(minimumSize: const Size(AppSpacing.minTouch, AppSpacing.minTouch)),
+          child: Text(context.tr('Try again')),
+        ),
+      ]),
+      data: (s) => _Groups(groups: s.groups),
+    );
+    // A common area's sheet already has one group per kind of light, so it has no section header or box.
+    if (title == null) return body;
+    // One bordered box per kind of light: a bold header band, then the lights inside it.
+    return Container(
+      margin: const EdgeInsets.only(top: 4, bottom: 14),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppTheme.cardBg,
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
+        border: Border.all(color: AppTheme.fieldBorder, width: 1.5),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Container(
+          color: AppTheme.primarySoft,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(children: [
             Expanded(
               child: Semantics(
                 header: true,
-                child: Text(context.tr(title!), style: Theme.of(context).textTheme.titleSmall),
+                child: Text(context.tr(title!),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
               ),
             ),
-            if (count != null) Text(count!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            if (count != null)
+              Text(count!,
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
           ]),
         ),
-      sheet.when(
-        loading: () => const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator())),
-        error: (e, _) => Row(children: [
-          Expanded(child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.textSecondary))),
-          TextButton(
-            onPressed: onRetry,
-            style: TextButton.styleFrom(minimumSize: const Size(AppSpacing.minTouch, AppSpacing.minTouch)),
-            child: Text(context.tr('Try again')),
-          ),
-        ]),
-        data: (s) => _Groups(groups: s.groups),
-      ),
-    ]);
+        const Divider(height: 1, thickness: 1.5, color: AppTheme.fieldBorder),
+        Padding(padding: const EdgeInsets.fromLTRB(12, 10, 12, 4), child: body),
+      ]),
+    );
   }
 }
 
@@ -293,7 +310,8 @@ class _Row extends StatelessWidget {
         context.trf('Checked {when}', {'when': lightStamp(cell.lastCheckedAt!)})
       else
         context.tr('Not checked yet'),
-      if (cell.lastCheckedBy != null) context.trf('by {name}', {'name': cell.lastCheckedBy!}),
+      // "by Eli" stays together when the line wraps (a non-breaking space), instead of leaving the name alone.
+      if (cell.lastCheckedBy != null) context.trf('by {name}', {'name': cell.lastCheckedBy!}).replaceAll(' ', '\u00A0'),
     ].join(' ');
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
