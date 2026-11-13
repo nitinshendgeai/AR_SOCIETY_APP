@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
 
 /// A small pill that says where something stands ("Paid", "Overdue", "Pending"). Colour never carries the meaning
