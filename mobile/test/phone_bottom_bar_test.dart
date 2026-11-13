@@ -24,16 +24,35 @@ void main() {
       expect(tabs.first.route, AppRoutes.residentHome);
     });
 
-    test('the admin gets the society-wide lists, not "my" lists', () {
+    test('the admin gets Operations, Finance and People hubs', () {
       final tabs = phoneTabsFor(_user('Society Admin', societyId: 's1'), _everything);
-      expect(tabs.map((t) => t.label), ['Home', 'Visitors', 'Complaints', 'Billing']);
-      expect(tabs[1].route, AppRoutes.visitorsSociety.replaceFirst(':societyId', 's1'));
-      expect(tabs[2].route, AppRoutes.complaintsSociety.replaceFirst(':societyId', 's1'));
+      expect(tabs.map((t) => t.label), ['Home', 'Operations', 'Finance', 'People']);
+      expect(tabs.map((t) => t.route), [AppRoutes.adminHome, '/hub/operations', '/hub/finance', '/hub/people']);
     });
 
-    test('only screens the person may open are offered; the next preference fills in', () {
+    test('a hub leads to the society-wide lists, not the "my" lists', () {
+      final tabs = phoneTabsFor(_user('Society Admin', societyId: 's1'), _everything);
+      final operations = tabs[1].alsoRoutes;
+      expect(operations, contains(AppRoutes.visitorsSociety.replaceFirst(':societyId', 's1')));
+      expect(operations, contains(AppRoutes.complaintsSociety.replaceFirst(':societyId', 's1')));
+      expect(operations, isNot(contains(AppRoutes.visitorsMy)));
+    });
+
+    test('committee and managers get the hubs too; a resident, security and field staff keep their own tabs', () {
+      for (final role in ['Committee Treasurer', 'Manager']) {
+        expect(phoneTabsFor(_user(role, societyId: 's1'), _everything).map((t) => t.label),
+            ['Home', 'Operations', 'Finance', 'People'], reason: role);
+      }
+      expect(phoneTabsFor(_user('Resident'), _everything).map((t) => t.label), ['Home', 'Bills', 'Visitors', 'Notices']);
+      expect(phoneTabsFor(_user('Security Staff', societyId: 's1'), _everything).map((t) => t.label),
+          ['Home', 'Visitors', 'Notices', 'Complaints']);
+    });
+
+    test('only hubs holding a screen the person may open are offered', () {
       final tabs = phoneTabsFor(_user('Society Admin', societyId: 's1'), {'visitors', 'notices'});
-      expect(tabs.map((t) => t.label), ['Home', 'Visitors', 'Notices']);
+      expect(tabs.map((t) => t.label), ['Home', 'Operations']);
+      final money = phoneTabsFor(_user('Committee Treasurer', societyId: 's1'), {'maintenance_billing'});
+      expect(money.map((t) => t.label), ['Home', 'Finance']);
     });
 
     test('with nothing granted there is still Home', () {
@@ -86,11 +105,14 @@ void main() {
       expect(showsPhoneBar(tabs, menu, '/complaints/create'), isFalse);
     });
 
-    test('a page belongs to the tab whose route it sits under', () {
-      final complaints = tabs[2].route;
-      expect(activePhoneTab(tabs, complaints), 2);
-      expect(activePhoneTab(tabs, '$complaints/123'), 2);
-      expect(activePhoneTab(tabs, AppRoutes.residentsList), isNull);
+    test('a page belongs to the tab whose route, or whose hub screens, it sits under', () {
+      final complaints = AppRoutes.complaintsSociety.replaceFirst(':societyId', 's1');
+      expect(activePhoneTab(tabs, '/hub/operations'), 1);
+      expect(activePhoneTab(tabs, complaints), 1);                            // a screen reached from the Operations hub
+      expect(activePhoneTab(tabs, '$complaints/123'), 1);
+      expect(activePhoneTab(tabs, AppRoutes.residentsList), 3);               // People
+      expect(activePhoneTab(tabs, AppRoutes.maintenanceBilling), 2);          // Finance
+      expect(activePhoneTab(tabs, AppRoutes.helpAssistant), isNull);          // not under any hub: More lights
     });
   });
 
@@ -112,7 +134,7 @@ void main() {
     testWidgets('shows the tabs and More; More opens the whole menu', (t) async {
       await t.pumpWidget(wrap(_user('Society Admin', societyId: 's1'), AppRoutes.adminHome));
       await t.pumpAndSettle();
-      for (final label in ['Home', 'Visitors', 'Complaints', 'Billing', 'More']) {
+      for (final label in ['Home', 'Operations', 'Finance', 'People', 'More']) {
         expect(find.text(label), findsWidgets);
       }
       await t.tap(find.text('More'));

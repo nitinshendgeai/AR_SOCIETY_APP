@@ -20,11 +20,12 @@ int? activePhoneTab(List<PhoneTab> tabs, String location) {
   int? best;
   var bestLength = 0;
   for (var i = 0; i < tabs.length; i++) {
-    final r = tabs[i].route;
-    final match = location == r || location.startsWith('$r/');
-    if (match && r.length > bestLength) {
-      best = i;
-      bestLength = r.length;
+    for (final r in [tabs[i].route, ...tabs[i].alsoRoutes]) {
+      final match = location == r || location.startsWith('$r/');
+      if (match && r.length > bestLength) {
+        best = i;
+        bestLength = r.length;
+      }
     }
   }
   return best;

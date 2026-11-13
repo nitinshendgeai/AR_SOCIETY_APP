@@ -177,7 +177,44 @@ class PhoneTab {
   final String label;
   final IconData icon;
   final String route;
-  const PhoneTab(this.label, this.icon, this.route);
+
+  /// Other pages that belong under this tab (a hub's screens), so the tab stays lit while the person is on one.
+  final List<String> alsoRoutes;
+  const PhoneTab(this.label, this.icon, this.route, {this.alsoRoutes = const []});
+}
+
+/// The three groups the society's managers move between on a phone. Each is a page listing the screens of one or more
+/// menu groups, limited to what the person is granted; a hub with nothing granted is not offered at all.
+enum MenuHub {
+  operations('operations', 'Operations', Icons.build_circle_rounded,
+      ['Community & Services', 'Operations', 'Property & Parking']),
+  finance('finance', 'Finance', Icons.account_balance_wallet_rounded,
+      ['Finance & Maintenance', 'Accounts & Financial Reports']),
+  people('people', 'People', Icons.people_alt_rounded, ['People & Residents']);
+
+  final String slug;
+  final String label;
+  final IconData icon;
+
+  /// Menu group names (see [appMenuCategories]) shown on this hub, in this order.
+  final List<String> groups;
+  const MenuHub(this.slug, this.label, this.icon, this.groups);
+
+  String get route => '/hub/$slug';
+
+  static MenuHub? fromSlug(String slug) {
+    for (final h in values) {
+      if (h.slug == slug) return h;
+    }
+    return null;
+  }
+
+  /// The groups of [visible] that belong on this hub, in the hub's order, each with only the screens the person has.
+  List<AppMenuCategory> categoriesIn(List<AppMenuCategory> visible) => [
+        for (final name in groups)
+          for (final c in visible)
+            if (c.label == name && c.items.any((i) => i.route != null)) c,
+      ];
 }
 
 /// Short names for the bottom bar, where the menu's name is too long for it.
@@ -205,6 +242,21 @@ List<PhoneTab> phoneTabsFor(UserEntity user, Set<String> grantedFormCodes) {
     }
   }
   final tabs = <PhoneTab>[PhoneTab('Home', Icons.home_rounded, userRoleHome(user))];
+  // The people who run the society get Operations, Finance and People: one page each, holding everything they are
+  // granted in that area, instead of three single screens.
+  if (user.isAdminOrCommittee || user.isManager) {
+    final visible = visibleMenuCategories(grantedFormCodes, user: user);
+    for (final hub in MenuHub.values) {
+      final groups = hub.categoriesIn(visible);
+      if (groups.isEmpty) continue;
+      tabs.add(PhoneTab(hub.label, hub.icon, hub.route, alsoRoutes: [
+        for (final c in groups)
+          for (final i in c.items)
+            if (i.route != null) i.route!,
+      ]));
+    }
+    return tabs;
+  }
   for (final code in _tabPreference(user)) {
     final item = byCode[code];
     if (item == null) continue;

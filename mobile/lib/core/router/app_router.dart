@@ -1,3 +1,4 @@
+import 'package:ar_society_app/core/navigation/menu_hub_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:ar_society_app/features/visitor/domain/entities/visitor_entities.dart' show VisitorEntity;
 import 'package:ar_society_app/features/automation/presentation/screens/automation_screen.dart';
@@ -179,6 +180,8 @@ class AppRoutes {
   // Complaint routes
   static const complaints         = '/complaints';
   static const helpAssistant      = '/help-assistant';
+  /// A manager's Operations / Finance / People tab (see MenuHub).
+  static const hub                = '/hub/:section';
   static const notices            = '/notices';
   static const noticeDetail       = '/notices/:id';
   static const complaintsCreate   = '/complaints/create';
@@ -500,6 +503,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             }
             return AppRoutes.login;
           }),
+          GoRoute(path: AppRoutes.hub,
+              builder: (_, state) => MenuHubScreen(slug: state.pathParameters['section'] ?? '')),
           GoRoute(path: AppRoutes.adminHome,
               builder: (_, __) => const AdminDashboardScreen()),
           GoRoute(path: AppRoutes.committeeHome,
