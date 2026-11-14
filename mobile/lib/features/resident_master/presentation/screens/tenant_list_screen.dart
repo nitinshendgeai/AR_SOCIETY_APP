@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
+import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart' show PdfDelivery, deliverPdfAs;
+import 'package:ar_society_app/features/resident_master/data/tenant_report_api.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
@@ -20,6 +22,9 @@ import 'package:ar_society_app/shared/widgets/app_form.dart';
 /// Tenant Master list — every tenant currently or previously on record,
 /// with agreement status/expiry surfaced so "who's renting and until when"
 /// is answerable at a glance.
+/// The API behind the Print button; a provider so a test can swap it.
+final tenantReportApiProvider = Provider<TenantReportApi>((_) => TenantReportApi());
+
 class TenantListScreen extends ConsumerStatefulWidget {
   final FlatModel? filterFlat;
   const TenantListScreen({super.key, this.filterFlat});
@@ -40,6 +45,36 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
   bool? _kyc;
   String _appliedSearch = ''; // the search the list was last loaded with (the box itself is debounced)
   bool _moreFilters = false; // agreement, police verification and KYC fold away to leave the list room on a phone
+
+  bool _printing = false;
+
+  /// The report for exactly what the list is showing: every filter in force, not just the page loaded.
+  Future<void> _print(PdfDelivery how) async {
+    if (_printing) return;
+    setState(() => _printing = true);
+    try {
+      await deliverPdfAs(
+        context,
+        () => ref.read(tenantReportApiProvider).pdf(
+              isActive: _activeFilter,
+              search: _searchCtrl.text.trim(),
+              flatId: widget.filterFlat?.id ?? _flatId,
+              wingId: widget.filterFlat == null ? _wingId : null,
+              movedIn: _movedIn,
+              agreement: _agreement,
+              police: _police,
+              kycVerified: _kyc,
+            ),
+        'Tenants-Report-${DateTime.now().toIso8601String().substring(0, 10)}.pdf',
+        how,
+        subject: 'Tenants report',
+      );
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    } finally {
+      if (mounted) setState(() => _printing = false);
+    }
+  }
 
   int get _moreActive => (_agreement != null ? 1 : 0) + (_police != null ? 1 : 0) + (_kyc != null ? 1 : 0);
 
@@ -328,6 +363,21 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
                 final imported = await context.push<bool>(AppRoutes.tenantsImport);
                 if (imported == true) _load();
               },
+            ),
+          if (user?.isAdminOrCommittee == true || user?.isManager == true)
+            PopupMenuButton<PdfDelivery>(
+              key: const ValueKey('tenants-print'),
+              tooltip: 'Print the report',
+              enabled: !_printing,
+              icon: _printing
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.print_rounded),
+              onSelected: _print,
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: PdfDelivery.open, child: Text('Print / open')),
+                PopupMenuItem(value: PdfDelivery.share, child: Text('Share PDF')),
+                PopupMenuItem(value: PdfDelivery.download, child: Text('Download PDF')),
+              ],
             ),
           IconButton(icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh', onPressed: _load),
           if (desktop && (user?.isAdminOrCommittee ?? false))
