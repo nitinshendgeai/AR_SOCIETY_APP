@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/shared/widgets/premium.dart';
 import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/l10n/language_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -184,7 +185,8 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
               if (searching)
                 for (final (category, item) in results)
                   ListTile(
-                    leading: Icon(item.icon, color: AppTheme.textSecondary),
+                    leading: AccentBadge(icon: item.icon, accent: accentFor(item.label), size: 38),
+                    trailing: const Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
                     title: Text(ctx.tr(item.label)),
                     subtitle: Text(ctx.tr(category.label)),
                     onTap: () {
@@ -201,8 +203,9 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
               ),
               if (!searching) for (final item in menu[group].items)
                 ListTile(
-                  leading: Icon(item.icon, color: AppTheme.textSecondary),
-                  title: Text(ctx.tr(item.label)),
+                  leading: AccentBadge(icon: item.icon, accent: accentFor(item.label), size: 38),
+                  trailing: item.route == null ? null : const Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
+                  title: Text(ctx.tr(item.label), style: const TextStyle(fontWeight: FontWeight.w600)),
                   onTap: item.route == null
                       ? null
                       : () {
@@ -216,7 +219,7 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
             // Phones have no account menu, so the language is chosen here.
             Consumer(
               builder: (ctx, sheetRef, _) => ListTile(
-                leading: const Icon(Icons.translate_rounded, color: AppTheme.textSecondary),
+                leading: AccentBadge(icon: Icons.translate_rounded, accent: kAccents[1], size: 38),
                 title: Text(ctx.tr('Language')),
                 trailing: Text(kLanguageNames[sheetRef.watch(localeProvider).languageCode] ?? 'English',
                     style: const TextStyle(color: AppTheme.textSecondary)),
@@ -228,7 +231,7 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
             ),
             if (user.societies.length > 1)
               ListTile(
-                leading: const Icon(Icons.swap_horiz_rounded, color: AppTheme.textSecondary),
+                leading: AccentBadge(icon: Icons.swap_horiz_rounded, accent: kAccents[2], size: 38),
                 title: Text(ctx.tr('Switch society')),
                 subtitle: Text(user.societies.firstWhere((c) => c.current, orElse: () => user.societies.first).societyName),
                 onTap: () {
@@ -237,7 +240,7 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
                 },
               ),
             ListTile(
-              leading: const Icon(Icons.help_outline_rounded, color: AppTheme.textSecondary),
+              leading: AccentBadge(icon: Icons.help_outline_rounded, accent: kAccents[5], size: 38),
               title: Text(ctx.tr('Help')),
               subtitle: Text(ctx.tr('Ask the help assistant')),
               onTap: () {
@@ -246,7 +249,7 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
               },
             ),
             ListTile(
-              leading: const Icon(Icons.devices_rounded, color: AppTheme.textSecondary),
+              leading: AccentBadge(icon: Icons.devices_rounded, accent: kAccents[6], size: 38),
               title: Text(ctx.tr('Signed-in devices')),
               onTap: () {
                 Navigator.of(ctx).pop();
@@ -254,7 +257,7 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
               },
             ),
             ListTile(
-              leading: const Icon(Icons.logout_rounded, color: AppTheme.error),
+              leading: AccentBadge(icon: Icons.logout_rounded, accent: kAccents[7], size: 38),
               title: Text(ctx.tr('Sign out'), style: const TextStyle(color: AppTheme.error)),
               onTap: () {
                 Navigator.of(ctx).pop();

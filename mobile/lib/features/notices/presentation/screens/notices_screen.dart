@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -47,7 +48,7 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> with SingleTicker
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
     final societyId = user?.societyId;
-    if (user == null || societyId == null) return const Scaffold(body: Center(child: Text('No society context')));
+    if (user == null || societyId == null) return Scaffold(body: Center(child: Text(context.tr('No society context'))));
     final writer = user.isAdminOrCommittee;
     final raiser = writer || user.isManager || user.isSecurity;
     final desktop = isDesktopLayout(context);
@@ -64,13 +65,13 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> with SingleTicker
             TextButton.icon(
               onPressed: alert,
               icon: const Icon(Icons.warning_amber_rounded, size: 18, color: AppTheme.error),
-              label: const Text('Emergency alert', style: TextStyle(color: AppTheme.error)),
+              label: Text(context.tr('Emergency alert'), style: TextStyle(color: AppTheme.error)),
             ),
           if (writer && desktop) HeaderActionButton(icon: Icons.add_rounded, label: 'New notice', onPressed: newNotice),
         ],
       bottom: writer ? TabBar(controller: _tabs, tabs: const [Tab(text: 'Notice board'), Tab(text: 'Manage')]) : null,
       floatingActionButton: writer && !desktop
-          ? FloatingActionButton.extended(onPressed: newNotice, icon: const Icon(Icons.add_rounded), label: const Text('New notice'))
+          ? FloatingActionButton.extended(onPressed: newNotice, icon: const Icon(Icons.add_rounded), label: Text(context.tr('New notice')))
           : null,
       body: writer ? TabBarView(controller: _tabs, children: [board, _Manage(societyId: societyId)]) : board,
     );
@@ -144,13 +145,13 @@ class _AlertCard extends ConsumerWidget {
       builder: (dialogContext) => AlertDialog(
         title: Text('End “${alert.title}”?'),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('The red bar goes away for everyone.'),
+          Text(context.tr('The red bar goes away for everyone.')),
           const SizedBox(height: 12),
           FormFieldBox(label: 'What happened (optional)', child: TextField(controller: notes, decoration: const InputDecoration())),
         ]),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Keep it')),
-          FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('End alert')),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(context.tr('Keep it'))),
+          FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(context.tr('End alert'))),
         ],
       ),
     );
@@ -193,7 +194,7 @@ class _AlertCard extends ConsumerWidget {
             ],
             if (canEnd) ...[
               const SizedBox(height: 10),
-              OutlinedButton(onPressed: () => _end(context, ref), child: const Text('End this alert')),
+              OutlinedButton(onPressed: () => _end(context, ref), child: Text(context.tr('End this alert'))),
             ],
           ]),
         ),

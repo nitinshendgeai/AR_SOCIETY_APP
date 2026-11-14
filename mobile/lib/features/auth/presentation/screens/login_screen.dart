@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:flutter/services.dart' show AutofillHints;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -58,7 +59,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         subtitle: 'These details are in more than one society',
         footer: TextButton(
           onPressed: () => ref.read(authProvider.notifier).cancelChoice(),
-          child: const Text('Back'),
+          child: Text(context.tr('Back')),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           for (final c in authState.choices)
@@ -172,7 +173,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     onPressed: isLoading
                         ? null
                         : () => showForgotPasswordDialog(context, initialIdentifier: _emailCtrl.text),
-                    child: const Text('Forgot password?'),
+                    child: Text(context.tr('Forgot password?')),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -229,8 +230,7 @@ class _RegisterCTA extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Register Your Society',
+                  Text(context.tr('Register Your Society'),
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
@@ -238,8 +238,7 @@ class _RegisterCTA extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    'Start a 30-day free trial — no credit card needed',
+                  Text(context.tr('Start a 30-day free trial — no credit card needed'),
                     style: TextStyle(
                       fontSize: 12,
                       color: AppTheme.textSecondary,
@@ -285,9 +284,8 @@ class _DemoFormatHintState extends State<_DemoFormatHint> {
               Icon(Icons.help_outline_rounded,
                   color: AppTheme.primary, size: 16),
               const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Demo Login Format',
+              Expanded(
+                child: Text(context.tr('Demo Login Format'),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -312,8 +310,7 @@ class _DemoFormatHintState extends State<_DemoFormatHint> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'After registering, your login credentials follow this format:',
+                Text(context.tr('After registering, your login credentials follow this format:'),
                   style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),
                 const SizedBox(height: 10),

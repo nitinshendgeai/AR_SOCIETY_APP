@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -40,7 +41,7 @@ class _AmenitiesScreenState extends ConsumerState<AmenitiesScreen> with TickerPr
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
     final societyId = user?.societyId;
-    if (user == null || societyId == null) return const Scaffold(body: Center(child: Text('No society context')));
+    if (user == null || societyId == null) return Scaffold(body: Center(child: Text(context.tr('No society context'))));
     final manager = user.isAdminOrCommittee || user.isManager;
     final setup = user.isAdminOrCommittee;
     if (_tabs == null || _managerSeen != manager) {
@@ -66,7 +67,7 @@ class _AmenitiesScreenState extends ConsumerState<AmenitiesScreen> with TickerPr
           ],
         ),
       floatingActionButton: setup && !desktop && _tabs!.index == 0
-          ? FloatingActionButton.extended(onPressed: add, icon: const Icon(Icons.add_rounded), label: const Text('Add amenity'))
+          ? FloatingActionButton.extended(onPressed: add, icon: const Icon(Icons.add_rounded), label: Text(context.tr('Add amenity')))
           : null,
       body: TabBarView(controller: _tabs, children: [
         _AmenityList(societyId: societyId, setup: setup),
@@ -103,7 +104,7 @@ class _AmenityListState extends ConsumerState<_AmenityList> {
           if (widget.setup)
             Align(
               alignment: Alignment.centerRight,
-              child: FilterChip(label: const Text('Show closed ones'), selected: _closed, onSelected: (v) => setState(() => _closed = v)),
+              child: FilterChip(label: Text(context.tr('Show closed ones')), selected: _closed, onSelected: (v) => setState(() => _closed = v)),
             ),
           async.when(
             loading: () => const SkeletonList(),
@@ -257,13 +258,13 @@ class _BookingCardState extends ConsumerState<BookingCard> {
                 OutlinedButton.icon(
                   onPressed: _busy ? null : () => _deposit(b, refund: false),
                   icon: const Icon(Icons.savings_outlined, size: 18),
-                  label: const Text('Receive deposit'),
+                  label: Text(context.tr('Receive deposit')),
                 ),
               if (b.canRefundDeposit)
                 OutlinedButton.icon(
                   onPressed: _busy ? null : () => _deposit(b, refund: true),
                   icon: const Icon(Icons.undo_rounded, size: 18),
-                  label: const Text('Give deposit back'),
+                  label: Text(context.tr('Give deposit back')),
                 ),
             ]),
           ],
@@ -274,7 +275,7 @@ class _BookingCardState extends ConsumerState<BookingCard> {
                 FilledButton.icon(
                   onPressed: _busy ? null : () => _run(() => api.approve(b.id), 'Approved'),
                   icon: const Icon(Icons.check_rounded, size: 18),
-                  label: const Text('Approve'),
+                  label: Text(context.tr('Approve')),
                 ),
                 OutlinedButton.icon(
                   onPressed: _busy
@@ -285,7 +286,7 @@ class _BookingCardState extends ConsumerState<BookingCard> {
                           if (reason != null) await _run(() => api.reject(b.id, reason), 'Rejected');
                         },
                   icon: const Icon(Icons.close_rounded, size: 18),
-                  label: const Text('Reject'),
+                  label: Text(context.tr('Reject')),
                 ),
               ],
               if (widget.manager && b.status == 'approved' && started)
@@ -297,7 +298,7 @@ class _BookingCardState extends ConsumerState<BookingCard> {
                           if (r != null) await _run(() => api.complete(b.id, damage: r.$1, notes: r.$2), 'Marked as used');
                         },
                   icon: const Icon(Icons.done_all_rounded, size: 18),
-                  label: const Text('Mark as used'),
+                  label: Text(context.tr('Mark as used')),
                 ),
               if ((isMine || widget.manager) && (widget.manager || b.notStarted))
                 TextButton.icon(
@@ -310,7 +311,7 @@ class _BookingCardState extends ConsumerState<BookingCard> {
                           if (reason != null) await _run(() => api.cancel(b.id, reason: reason), 'Cancelled');
                         },
                   icon: const Icon(Icons.event_busy_rounded, size: 18),
-                  label: const Text('Cancel booking'),
+                  label: Text(context.tr('Cancel booking')),
                 ),
             ]),
           ],

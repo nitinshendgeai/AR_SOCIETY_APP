@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -56,7 +57,7 @@ class VisitorApprovalsScreen extends ConsumerWidget {
             children: [
               AppErrorBanner(message: e.toString()),
               const SizedBox(height: 12),
-              TextButton(onPressed: reload, child: const Text('Retry')),
+              TextButton(onPressed: reload, child: Text(context.tr('Retry'))),
             ],
           ),
         ),
@@ -165,7 +166,7 @@ class _ApprovalCard extends ConsumerWidget {
                     minimumSize: const Size(0, 42),
                   ),
                   icon: const Icon(Icons.close_rounded, size: 16),
-                  label: const Text('Deny'),
+                  label: Text(context.tr('Deny')),
                 ),
               ),
               const SizedBox(width: 10),
@@ -181,7 +182,7 @@ class _ApprovalCard extends ConsumerWidget {
                     minimumSize: const Size(0, 42),
                   ),
                   icon: const Icon(Icons.check_rounded, size: 16),
-                  label: const Text('Approve'),
+                  label: Text(context.tr('Approve')),
                 ),
               ),
             ],
@@ -196,7 +197,7 @@ class _ApprovalCard extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Deny Visitor?'),
+        title: Text(context.tr('Deny Visitor?')),
         content: FormFieldBox(label: 'Reason', required: true, child: TextFormField(
           controller: reasonCtrl,
           inputFormatters: [LengthLimitingTextInputFormatter(1000)],
@@ -208,14 +209,14 @@ class _ApprovalCard extends ConsumerWidget {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text(context.tr('Cancel'))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
             onPressed: () {
               if (reasonCtrl.text.trim().isEmpty) return;
               Navigator.pop(ctx, true);
             },
-            child: const Text('Deny'),
+            child: Text(context.tr('Deny')),
           ),
         ],
       ),

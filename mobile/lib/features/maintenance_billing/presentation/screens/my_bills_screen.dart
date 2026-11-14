@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/shared/widgets/premium.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -192,8 +193,7 @@ class _DueHero extends StatelessWidget {
               Text('Next: ${next.text}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: next.color)),
             ],
             const SizedBox(height: 10),
-            const Text(
-              'Pay the society, then tell the office. Your bill is marked paid and the receipt appears on it once they have checked the payment.',
+            Text(context.tr('Pay the society, then tell the office. Your bill is marked paid and the receipt appears on it once they have checked the payment.'),
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4),
             ),
             const SizedBox(height: 10),
@@ -203,7 +203,7 @@ class _DueHero extends StatelessWidget {
                   key: const Key('how-to-pay'),
                   onPressed: () => showHowToPaySheet(context, bill: open.length == 1 ? open.first : null),
                   icon: const Icon(Icons.payments_rounded, size: 18),
-                  label: const Text('Pay now'),
+                  label: Text(context.tr('Pay now')),
                 ),
               ),
             ]),
@@ -235,7 +235,7 @@ class _FlatFilter extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     void pick(String? id) => ref.read(myBillsFlatFilterProvider.notifier).state = id;
     return Wrap(spacing: 8, runSpacing: 8, children: [
-      ChoiceChip(label: const Text('All my flats'), selected: selected == null, onSelected: (_) => pick(null)),
+      ChoiceChip(label: Text(context.tr('All my flats')), selected: selected == null, onSelected: (_) => pick(null)),
       for (final f in flats)
         Consumer(builder: (context, ref, _) {
           final flat = ref.watch(flatByIdProvider(f.flatId)).valueOrNull;

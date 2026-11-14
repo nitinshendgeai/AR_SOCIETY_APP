@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -100,7 +101,7 @@ class _AmenityDetailScreenState extends ConsumerState<AmenityDetailScreen> {
                         title: Text(a.active ? 'Close ${a.name}?' : 'Reopen ${a.name}?'),
                         content: Text(a.active ? 'Residents will no longer see it or be able to book it. Existing bookings stay as they are.' : 'Residents will see it and be able to book it again.'),
                         actions: [
-                          TextButton(onPressed: () => Navigator.of(c).pop(false), child: const Text('Not now')),
+                          TextButton(onPressed: () => Navigator.of(c).pop(false), child: Text(context.tr('Not now'))),
                           FilledButton(onPressed: () => Navigator.of(c).pop(true), child: Text(a.active ? 'Close it' : 'Reopen it')),
                         ],
                       ),
@@ -166,9 +167,9 @@ class _DaySchedule extends ConsumerWidget {
                 ]),
               )
             else if (v.taken.isEmpty)
-              const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('Free all day.', style: TextStyle(color: AppTheme.success, fontWeight: FontWeight.w600)))
+              Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text(context.tr('Free all day.'), style: TextStyle(color: AppTheme.success, fontWeight: FontWeight.w600)))
             else ...[
-              const Padding(padding: EdgeInsets.only(top: 4, bottom: 4), child: Text('Already taken', style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary))),
+              Padding(padding: EdgeInsets.only(top: 4, bottom: 4), child: Text(context.tr('Already taken'), style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary))),
               for (final s in v.taken)
                 ListTile(
                   dense: true,
@@ -224,7 +225,7 @@ class _Rules extends ConsumerWidget {
     if (rules.isEmpty && !setup) return const SizedBox.shrink();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _sectionHeader('Rules', onAdd: setup ? () => showAppSheet(context: context, builder: (_) => RuleSheet(amenityId: amenity.id)) : null, addLabel: 'Add a rule'),
-      if (rules.isEmpty) const Text('No rules yet.', style: TextStyle(color: AppTheme.textSecondary)),
+      if (rules.isEmpty) Text(context.tr('No rules yet.'), style: TextStyle(color: AppTheme.textSecondary)),
       for (final r in rules)
         ListTile(
           dense: true,
@@ -287,7 +288,7 @@ class _ClosedDates extends ConsumerWidget {
         .toList();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _sectionHeader('Closed dates', onAdd: () => showAppSheet(context: context, builder: (_) => ClosedDateSheet(amenityId: amenity.id)), addLabel: 'Close a date'),
-      if (dates.isEmpty) const Text('Open every day.', style: TextStyle(color: AppTheme.textSecondary)),
+      if (dates.isEmpty) Text(context.tr('Open every day.'), style: TextStyle(color: AppTheme.textSecondary)),
       for (final d in dates)
         ListTile(
           dense: true,

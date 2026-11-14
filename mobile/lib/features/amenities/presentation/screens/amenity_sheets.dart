@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -150,7 +151,7 @@ class _BookingSheetState extends ConsumerState<BookingSheet> {
             controller: _guests,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(helperText: 'Including you'),
+            decoration: InputDecoration(helperText: context.tr('Including you')),
             validator: (v) => (int.tryParse((v ?? '').trim()) ?? 0) < 1 ? 'At least one person' : null,
           )),
           const SizedBox(height: 12),
@@ -175,7 +176,7 @@ class _BookingSheetState extends ConsumerState<BookingSheet> {
           ],
           if (a.approvalRequired) ...[
             const SizedBox(height: 8),
-            const Text('The committee confirms each booking of this amenity. You will be told when it is decided.',
+            Text(context.tr('The committee confirms each booking of this amenity. You will be told when it is decided.'),
                 style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
           ],
           const SizedBox(height: 16),
@@ -308,21 +309,21 @@ class _AmenityFormSheetState extends ConsumerState<AmenityFormSheet> {
               contentPadding: EdgeInsets.zero,
               value: _booking,
               onChanged: (v) => setState(() => _booking = v),
-              title: const Text('Residents book a time'),
-              subtitle: const Text('Turn off for places anyone can just use'),
+              title: Text(context.tr('Residents book a time')),
+              subtitle: Text(context.tr('Turn off for places anyone can just use')),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               value: _approval,
               onChanged: _booking ? (v) => setState(() => _approval = v) : null,
-              title: const Text('The committee approves each booking'),
+              title: Text(context.tr('The committee approves each booking')),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               value: _chargeable,
               onChanged: (v) => setState(() => _chargeable = v),
-              title: const Text('There is a charge'),
-              subtitle: const Text('Set the rates afterwards'),
+              title: Text(context.tr('There is a charge')),
+              subtitle: Text(context.tr('Set the rates afterwards')),
             ),
             const SizedBox(height: 12),
             AppPrimaryButton(label: 'Save', isLoading: _saving, onPressed: _saving ? null : _save),
@@ -401,7 +402,7 @@ class _RuleSheetState extends ConsumerState<RuleSheet> {
           ] else
             Padding(padding: const EdgeInsets.only(top: 10), child: Text(k.hint, style: const TextStyle(color: AppTheme.textSecondary))),
           const SizedBox(height: 6),
-          const Text('Setting a rule again replaces the earlier one.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          Text(context.tr('Setting a rule again replaces the earlier one.'), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           const SizedBox(height: 14),
           AppPrimaryButton(label: 'Save rule', isLoading: _saving, onPressed: _saving ? null : _save),
         ]),
@@ -479,10 +480,10 @@ class _RateSheetState extends ConsumerState<RateSheet> {
             const SizedBox(height: 12),
             FormFieldBox(label: 'Price per booking (₹)', child: TextFormField(controller: _flat, keyboardType: const TextInputType.numberWithOptions(decimal: true), inputFormatters: moneyInput, decoration: const InputDecoration())),
             const SizedBox(height: 12),
-            FormFieldBox(label: 'Price per hour (₹)', child: TextFormField(controller: _hour, keyboardType: const TextInputType.numberWithOptions(decimal: true), inputFormatters: moneyInput, decoration: const InputDecoration(helperText: 'Used when there is no price per booking'))),
+            FormFieldBox(label: 'Price per hour (₹)', child: TextFormField(controller: _hour, keyboardType: const TextInputType.numberWithOptions(decimal: true), inputFormatters: moneyInput, decoration: InputDecoration(helperText: context.tr('Used when there is no price per booking')))),
             const SizedBox(height: 12),
             FormFieldBox(label: 'Refundable deposit (₹)', child: TextFormField(controller: _deposit, keyboardType: const TextInputType.numberWithOptions(decimal: true), inputFormatters: moneyInput, decoration: const InputDecoration())),
-            SwitchListTile(contentPadding: EdgeInsets.zero, value: _default, onChanged: (v) => setState(() => _default = v), title: const Text('Use this rate for bookings')),
+            SwitchListTile(contentPadding: EdgeInsets.zero, value: _default, onChanged: (v) => setState(() => _default = v), title: Text(context.tr('Use this rate for bookings'))),
             const SizedBox(height: 10),
             AppPrimaryButton(label: 'Save rate', isLoading: _saving, onPressed: _saving ? null : _save),
           ]),
@@ -535,7 +536,7 @@ class _ClosedDateSheetState extends ConsumerState<ClosedDateSheet> {
           const SizedBox(height: 12),
           FormFieldBox(label: 'Why (optional)', child: TextField(controller: _reason, decoration: const InputDecoration(hintText: 'e.g. Painting'))),
           const SizedBox(height: 6),
-          const Text('Nobody can book it on that day. Bookings already made are not cancelled.',
+          Text(context.tr('Nobody can book it on that day. Bookings already made are not cancelled.'),
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           const SizedBox(height: 14),
           AppPrimaryButton(label: 'Close that day', isLoading: _saving, onPressed: _saving ? null : _save),
@@ -615,7 +616,7 @@ class _CompleteSheetState extends State<CompleteSheet> {
   Widget build(BuildContext context) => BillingSheetFrame(
         title: 'Mark as used',
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          SwitchListTile(contentPadding: EdgeInsets.zero, value: _damage, onChanged: (v) => setState(() => _damage = v), title: const Text('Something was damaged')),
+          SwitchListTile(contentPadding: EdgeInsets.zero, value: _damage, onChanged: (v) => setState(() => _damage = v), title: Text(context.tr('Something was damaged'))),
           if (_damage)
             FormFieldBox(label: 'What was damaged', required: true, child: TextField(controller: _notes, minLines: 2, maxLines: 4, decoration: const InputDecoration(alignLabelWithHint: true))),
           const SizedBox(height: 14),
@@ -627,7 +628,7 @@ class _CompleteSheetState extends State<CompleteSheet> {
               }
               Navigator.of(context).pop((_damage, _notes.text.trim()));
             },
-            child: const Text('Mark as used'),
+            child: Text(context.tr('Mark as used')),
           ),
         ]),
       );
@@ -704,8 +705,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                 controller: _kept,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,9}(\.\d{0,2})?'))],
-                decoration: const InputDecoration(
-                    prefixText: '₹ ', helperText: 'Damage or a late cancellation; booked as income'),
+                decoration: InputDecoration(
+                    prefixText: '₹ ', helperText: context.tr('Damage or a late cancellation; booked as income')),
                 onChanged: (_) => setState(() {}),
                 validator: (v) => _keep > _deposit ? 'More than the deposit' : null,
               ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:flutter/services.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/motion/motion.dart';
@@ -180,7 +181,7 @@ class AppErrorState extends StatelessWidget {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             const Icon(Icons.cloud_off_rounded, size: 28, color: AppTheme.error),
             const SizedBox(height: 10),
-            const Text('This could not be loaded',
+            Text(context.tr('This could not be loaded'),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
             const SizedBox(height: 4),
@@ -191,7 +192,7 @@ class AppErrorState extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Try again'),
+              label: Text(context.tr('Try again')),
             ),
           ]),
         ),
@@ -215,7 +216,7 @@ class AppErrorState extends StatelessWidget {
                     child: const Icon(Icons.cloud_off_rounded, size: 30, color: AppTheme.error),
                   ),
                   const SizedBox(height: 16),
-                  const Text('This could not be loaded',
+                  Text(context.tr('This could not be loaded'),
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
                   const SizedBox(height: 6),
@@ -226,7 +227,7 @@ class AppErrorState extends StatelessWidget {
                   OutlinedButton.icon(
                     onPressed: onRetry,
                     icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: const Text('Try again'),
+                    label: Text(context.tr('Try again')),
                   ),
                 ]),
               ),
@@ -298,7 +299,7 @@ class AppPrimaryButton extends StatelessWidget {
                         Icon(icon, size: 20),
                         const SizedBox(width: 8),
                       ],
-                      Text(label),
+                      Text(context.tr(label)),
                     ],
                   ),
           ),
@@ -350,7 +351,7 @@ class AppToast {
               Icon(icon, color: color, size: 20),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(message,
+                child: Text(context.tr(message),
                     style: const TextStyle(
                         color: AppTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.w500)),
               ),
@@ -382,7 +383,7 @@ class AppFilterPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChoiceChip(
-      label: Text(label),
+      label: Text(context.tr(label)),
       selected: selected,
       onSelected: (_) => onTap(),
       showCheckmark: false,
@@ -442,19 +443,19 @@ class AppEmptyState extends StatelessWidget {
               child: Icon(icon, size: 30, color: AppTheme.textTertiary),
             ),
             const SizedBox(height: 16),
-            Text(title,
+            Text(context.tr(title),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                     fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
             if (subtitle != null) ...[
               const SizedBox(height: 6),
-              Text(subtitle!,
+              Text(context.tr(subtitle!),
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4)),
             ],
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 20),
-              OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
+              OutlinedButton(onPressed: onAction, child: Text(context.tr(actionLabel!))),
             ],
           ],
         ),

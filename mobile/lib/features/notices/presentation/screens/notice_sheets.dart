@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -135,7 +136,7 @@ class _NoticeFormSheetState extends ConsumerState<NoticeFormSheet> {
             onChanged: (v) => setState(() => _category = v ?? 'general'),
           )),
           const SizedBox(height: 12),
-          const Text('How important', style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+          Text(context.tr('How important'), style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
           const SizedBox(height: 6),
           Wrap(spacing: 8, children: [
             for (final p in kNoticePriorities)
@@ -163,7 +164,7 @@ class _NoticeFormSheetState extends ConsumerState<NoticeFormSheet> {
                   selected: _wings.contains(w.id),
                   onSelected: (on) => setState(() => on ? _wings.add(w.id) : _wings.remove(w.id)),
                 ),
-              if (wings.isEmpty) const Text('No wings added yet', style: TextStyle(color: AppTheme.textSecondary)),
+              if (wings.isEmpty) Text(context.tr('No wings added yet'), style: TextStyle(color: AppTheme.textSecondary)),
             ]),
           ],
           if (_audience == 'specific_flats') ...[
@@ -183,13 +184,13 @@ class _NoticeFormSheetState extends ConsumerState<NoticeFormSheet> {
             contentPadding: EdgeInsets.zero,
             value: _ack,
             onChanged: (v) => setState(() => _ack = v),
-            title: const Text('Ask people to confirm they have read it'),
-            subtitle: const Text('Each person taps “I have read this”. You see who has and who has not.'),
+            title: Text(context.tr('Ask people to confirm they have read it')),
+            subtitle: Text(context.tr('Each person taps “I have read this”. You see who has and who has not.')),
           ),
           const SizedBox(height: 14),
           AppPrimaryButton(label: 'Publish now', isLoading: _saving, onPressed: _saving ? null : () => _save(publish: true)),
           const SizedBox(height: 8),
-          OutlinedButton(onPressed: _saving ? null : () => _save(publish: false), child: const Text('Save as draft')),
+          OutlinedButton(onPressed: _saving ? null : () => _save(publish: false), child: Text(context.tr('Save as draft'))),
         ]),
       ),
     );
@@ -220,7 +221,7 @@ class _FlatPickerState extends ConsumerState<_FlatPicker> {
       ),
       scrollBody: false,
       footer: Row(children: [
-        OutlinedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        OutlinedButton(onPressed: () => Navigator.of(context).pop(), child: Text(context.tr('Cancel'))),
         const SizedBox(width: 12),
         Expanded(
           child: FilledButton(onPressed: () => Navigator.of(context).pop(_chosen), child: Text('Done (${_chosen.length})')),
@@ -302,7 +303,7 @@ class _AlertSheetState extends ConsumerState<AlertSheet> {
         child: Form(
           key: _form,
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const Text('Everyone chosen below sees a red bar at the top of the app until the alert is ended.',
+            Text(context.tr('Everyone chosen below sees a red bar at the top of the app until the alert is ended.'),
                 style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.35)),
             const SizedBox(height: 12),
             Wrap(spacing: 8, runSpacing: 8, children: [
@@ -334,9 +335,9 @@ class _AlertSheetState extends ConsumerState<AlertSheet> {
               decoration: const InputDecoration(hintText: 'e.g. Leave by the stairs. Do not use the lift.'),
             )),
             const SizedBox(height: 8),
-            SwitchListTile(contentPadding: EdgeInsets.zero, value: _residents, onChanged: (v) => setState(() => _residents = v), title: const Text('Residents and tenants')),
-            SwitchListTile(contentPadding: EdgeInsets.zero, value: _security, onChanged: (v) => setState(() => _security = v), title: const Text('Security team')),
-            SwitchListTile(contentPadding: EdgeInsets.zero, value: _committee, onChanged: (v) => setState(() => _committee = v), title: const Text('Committee')),
+            SwitchListTile(contentPadding: EdgeInsets.zero, value: _residents, onChanged: (v) => setState(() => _residents = v), title: Text(context.tr('Residents and tenants'))),
+            SwitchListTile(contentPadding: EdgeInsets.zero, value: _security, onChanged: (v) => setState(() => _security = v), title: Text(context.tr('Security team'))),
+            SwitchListTile(contentPadding: EdgeInsets.zero, value: _committee, onChanged: (v) => setState(() => _committee = v), title: Text(context.tr('Committee'))),
             const SizedBox(height: 10),
             FilledButton.icon(
               style: FilledButton.styleFrom(backgroundColor: AppTheme.error, padding: const EdgeInsets.symmetric(vertical: 14)),
