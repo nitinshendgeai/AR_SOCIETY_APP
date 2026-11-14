@@ -303,9 +303,8 @@ class _GreetingCard extends ConsumerWidget {
           ]),
           const SizedBox(height: 14),
           // A long society name stays on one line (ellipsis) instead of pushing the banner taller.
-          Row(children: [
-            if (societyName != null && societyName.trim().isNotEmpty) Flexible(child: _chip(Icons.apartment_rounded, societyName)),
-            if (societyName != null && societyName.trim().isNotEmpty) const SizedBox(width: 8),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            if (societyName != null && societyName.trim().isNotEmpty) _chip(Icons.apartment_rounded, societyName),
             _chip(Icons.calendar_today_rounded, DateFormat('EEE, d MMM').format(now)),
           ]),
         ],
@@ -1017,10 +1016,10 @@ class _ServiceGrid extends StatelessWidget {
     if (tiles.isEmpty) return const SizedBox.shrink();
     return GridView(
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 110,
+        maxCrossAxisExtent: 130,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
-        mainAxisExtent: 92 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0),
+        mainAxisExtent: 100 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0),
       ),
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),

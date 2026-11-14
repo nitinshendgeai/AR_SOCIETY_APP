@@ -501,9 +501,9 @@ class BillTile extends StatelessWidget {
         onTap: onTap,
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: note == null
-            ? Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis)
+            ? Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis)
             : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 2),
                 Text(note!,
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: noteColor ?? AppTheme.textSecondary)),

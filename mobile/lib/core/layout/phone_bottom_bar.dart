@@ -58,7 +58,12 @@ class PhoneBottomBar extends ConsumerWidget {
       return badge > 0 ? Badge(label: Text('$badge'), child: base) : base;
     }
 
-    return DecoratedBox(
+    // The labels stay on one line however large the phone's text is set ("Complaints" broke into "Complain / ts" and
+    // made the bar taller), so the bar's own text is capped at 1.15x; the rest of the app still follows the setting.
+    final scaler = MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.15);
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(textScaler: scaler),
+      child: DecoratedBox(
       decoration: const BoxDecoration(
         color: AppTheme.cardBg,
         boxShadow: [BoxShadow(color: Color(0x1A1C1C1E), blurRadius: 20, offset: Offset(0, -4))],
@@ -69,6 +74,12 @@ class PhoneBottomBar extends ConsumerWidget {
       elevation: 0,
       indicatorColor: AppTheme.primary.withOpacity(0.14),
       indicatorShape: const StadiumBorder(),
+      labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
+            fontSize: 11.5,
+            height: 1.2,
+            fontWeight: states.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,
+            color: states.contains(WidgetState.selected) ? AppTheme.primary : AppTheme.textSecondary,
+          )),
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       // A page that is none of the tabs (reached through More) lights More.
       selectedIndex: active ?? tabs.length,
@@ -88,6 +99,7 @@ class PhoneBottomBar extends ConsumerWidget {
           ),
         NavigationDestination(icon: const Icon(Icons.menu_rounded), label: context.tr('More')),
       ],
+      ),
       ),
     );
   }

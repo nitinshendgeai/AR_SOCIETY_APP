@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 
+/// [tint] at [opacity] laid over the white card colour, as one solid colour. A see-through fill on a box with a
+/// shadow lets the shadow show through it and turns the fill a muddy grey.
+Color solidTint(Color tint, [double opacity = 0.08]) => Color.alphaBlend(tint.withOpacity(opacity), AppTheme.cardBg);
+
 /// A colour with a lighter partner, for gradient icon badges and accents. Every [dark] value is also dark enough
 /// for white icons to sit on at 3:1 or better.
 class AppAccent {
