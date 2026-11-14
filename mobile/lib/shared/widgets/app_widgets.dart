@@ -611,7 +611,11 @@ class KpiGrid extends StatelessWidget {
         // Fixed tile height everywhere: an aspect ratio made phone tiles
         // too short for a card with a note line, which spilled below it.
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns, mainAxisSpacing: 12, crossAxisSpacing: 12, mainAxisExtent: 136),
+            crossAxisCount: columns, mainAxisSpacing: 12, crossAxisSpacing: 12,
+            // A tile with a note line needs more height than one without; grow with the phone's text size.
+            mainAxisExtent: (cards.any((c) => c.note != null) ? 136 : 122) *
+                // Only the text grows with the setting (the icon does not), so the tile grows by about half as much.
+                (1 + (MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.6) - 1) * 0.5)),
         children: cards,
       );
     });

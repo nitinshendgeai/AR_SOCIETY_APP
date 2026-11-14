@@ -166,7 +166,7 @@ class _DueHero extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: solidTint(color),
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
           boxShadow: AppTheme.cardShadow,
         ),
