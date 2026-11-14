@@ -376,4 +376,19 @@ const Map<String, Map<String, String>> kTranslations = {
   'Visitor logged successfully': {'hi': 'आगंतुक दर्ज हो गया', 'mr': 'पाहुण्याची नोंद झाली'},
   'Who has read it': {'hi': 'किसने पढ़ा', 'mr': 'कोणी वाचले'},
   'You have confirmed you have read this': {'hi': 'आपने पढ़ने की पुष्टि कर दी है', 'mr': 'तुम्ही वाचल्याची खात्री केली आहे'},
+
+  // ── My Ledger ──
+  'My Ledger': {'hi': 'मेरा खाता', 'mr': 'माझे खाते'},
+  'Nothing due': {'hi': 'कुछ बकाया नहीं', 'mr': 'काहीही थकबाकी नाही'},
+  'You are in credit': {'hi': 'आपके खाते में जमा राशि है', 'mr': 'तुमच्या खात्यात जमा रक्कम आहे'},
+  'You owe the society': {'hi': 'आपको सोसायटी को देना है', 'mr': 'तुम्हाला सोसायटीला द्यायचे आहे'},
+  'Dues': {'hi': 'बकाया', 'mr': 'थकबाकी'},
+  'Advance paid ahead': {'hi': 'अग्रिम जमा राशि', 'mr': 'आगाऊ भरलेली रक्कम'},
+  'Latest entries': {'hi': 'हाल की प्रविष्टियाँ', 'mr': 'अलीकडील नोंदी'},
+  'Nothing has been entered in this account yet.': {'hi': 'इस खाते में अभी कुछ दर्ज नहीं हुआ है।', 'mr': 'या खात्यात अजून काहीही नोंदवलेले नाही.'},
+  'Bill': {'hi': 'बिल', 'mr': 'बिल'},
+  'Payment': {'hi': 'भुगतान', 'mr': 'भरणा'},
+  'Balance': {'hi': 'शेष', 'mr': 'शिल्लक'},
+  'Your account with the society': {'hi': 'सोसायटी के साथ आपका खाता', 'mr': 'सोसायटीसोबतचे तुमचे खाते'},
+  'As of {date}. This is your account in the society\'s books; the bills screen lists each bill.': {'hi': '{date} तक। यह सोसायटी की बही में आपका खाता है; हर बिल बिल वाली स्क्रीन पर देखें।', 'mr': '{date} पर्यंत. हे सोसायटीच्या हिशोबातील तुमचे खाते आहे; प्रत्येक बिल बिलांच्या स्क्रीनवर पाहा.'},
 };

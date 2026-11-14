@@ -44,6 +44,11 @@ final maintenanceBillProvider = FutureProvider.autoDispose.family<MaintenanceBil
   (ref, billId) => ref.watch(maintenanceBillingApiProvider).getBill(billId),
 );
 
+/// The signed-in resident's ledger balance and latest lines, for every flat they live in.
+final myLedgerProvider = FutureProvider.autoDispose<MyLedger>(
+  (ref) => ref.watch(maintenanceBillingApiProvider).myLedger(),
+);
+
 final myBillsProvider = FutureProvider.autoDispose<MyBillsSummary>(
   (ref) => ref.watch(maintenanceBillingApiProvider).myBills(),
 );

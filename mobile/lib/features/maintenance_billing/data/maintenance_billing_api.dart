@@ -827,6 +827,68 @@ class MyBillsSummary {
       );
 }
 
+/// One line of a resident's ledger: a bill raised (debit) or a payment received (credit), with the running balance.
+class MyLedgerLine {
+  final String date;
+  final String narration;
+  final String debit;
+  final String credit;
+  final String balance;
+  final String drCr;
+
+  const MyLedgerLine({required this.date, required this.narration, required this.debit, required this.credit,
+      required this.balance, required this.drCr});
+
+  factory MyLedgerLine.fromJson(Map<String, dynamic> j) => MyLedgerLine(
+        date: _str(j['date']),
+        narration: _str(j['narration']),
+        debit: _str(j['debit']),
+        credit: _str(j['credit']),
+        balance: _str(j['balance']),
+        drCr: _str(j['balance_dr_cr']),
+      );
+}
+
+/// A resident's account with the society for one flat. [balance] is shown without a sign: [drCr] "Dr" means the
+/// resident owes it, "Cr" means they are in credit.
+class MyLedgerFlat {
+  final String flatId;
+  final String flatLabel;
+  final String dues;
+  final String advance;
+  final String balance;
+  final String drCr;
+  final List<MyLedgerLine> lines;
+
+  const MyLedgerFlat({required this.flatId, required this.flatLabel, required this.dues, required this.advance,
+      required this.balance, required this.drCr, required this.lines});
+
+  bool get settled => amountOf(balance) == 0;
+
+  factory MyLedgerFlat.fromJson(Map<String, dynamic> j) => MyLedgerFlat(
+        flatId: _str(j['flat_id']),
+        flatLabel: _str(j['flat_label']),
+        dues: _str(j['dues']),
+        advance: _str(j['advance']),
+        balance: _str(j['balance']),
+        drCr: _str(j['balance_dr_cr']),
+        lines: [
+          for (final e in (j['lines'] as List? ?? const [])) MyLedgerLine.fromJson(e as Map<String, dynamic>)
+        ],
+      );
+}
+
+class MyLedger {
+  final String asOf;
+  final List<MyLedgerFlat> flats;
+  const MyLedger({required this.asOf, required this.flats});
+
+  factory MyLedger.fromJson(Map<String, dynamic> j) => MyLedger(
+        asOf: _str(j['as_of']),
+        flats: [for (final e in (j['flats'] as List? ?? const [])) MyLedgerFlat.fromJson(e as Map<String, dynamic>)],
+      );
+}
+
 const kChargeTypes = [
   ('maintenance', 'Maintenance'),
   ('water', 'Water'),
@@ -1252,6 +1314,12 @@ class MaintenanceBillingApi {
   Future<MyBillsSummary> myBills({String? flatId}) async {
     final r = await _dio.get('/billing/bills/me', queryParameters: {if (flatId != null) 'flat_id': flatId});
     return MyBillsSummary.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// GET /billing/bills/me/ledger: the caller's own flats only; the server refuses any other flat.
+  Future<MyLedger> myLedger({String? flatId}) async {
+    final r = await _dio.get('/billing/bills/me/ledger', queryParameters: {if (flatId != null) 'flat_id': flatId});
+    return MyLedger.fromJson(r.data as Map<String, dynamic>);
   }
 
   Future<List<FlatCharge>> listFlatCharges(String societyId, {String? status}) async => _list(

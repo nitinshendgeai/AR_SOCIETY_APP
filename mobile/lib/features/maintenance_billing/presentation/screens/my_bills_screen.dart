@@ -3,6 +3,9 @@ import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/shared/widgets/premium.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ar_society_app/features/maintenance_billing/presentation/screens/my_ledger_screen.dart' show ledgerBalanceWords;
+import 'package:ar_society_app/core/router/app_router.dart';
+import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart' show AppTone, kToneColors;
@@ -74,6 +77,8 @@ class MyBillsScreen extends ConsumerWidget {
                   const SizedBox(height: 14),
                 ],
                 _DueHero(summary: summary, open: open),
+                const SizedBox(height: 12),
+                const _LedgerTile(),
                 const SizedBox(height: 16),
                 const PaymentClaimsStrip(),
                 const SizedBox(height: 20),
@@ -141,6 +146,39 @@ class MyBillsScreen extends ConsumerWidget {
   Widget _tile(BuildContext context, MaintenanceBill bill) {
     final note = billDueNote(bill, DateTime.now());
     return BillTile(bill: bill, onTap: () => _openBill(context, bill), note: note?.text, noteColor: note?.color);
+  }
+}
+
+/// A way into the resident's ledger (their account with the society), with the balance on it so it is worth a tap.
+class _LedgerTile extends ConsumerWidget {
+  const _LedgerTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ledger = ref.watch(myLedgerProvider).valueOrNull;
+    // One flat: its balance. Several: no single number is right, so the tile just opens the ledger.
+    final only = ledger != null && ledger.flats.length == 1 ? ledger.flats.first : null;
+    return PremiumSurface(
+      key: const Key('my-ledger-tile'),
+      onTap: () => context.push(AppRoutes.myLedger),
+      padding: const EdgeInsets.all(14),
+      child: Row(children: [
+        AccentBadge(icon: Icons.account_balance_wallet_rounded, accent: kAccents[1], size: 40),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(context.tr('My Ledger'), style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text(
+              only == null
+                  ? context.tr('Your account with the society')
+                  : '${context.tr(ledgerBalanceWords(only))} · ${formatRupees(only.balance)}',
+              style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
+            ),
+          ]),
+        ),
+        const Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
+      ]),
+    );
   }
 }
 

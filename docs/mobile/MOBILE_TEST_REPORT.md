@@ -27,7 +27,7 @@ Environment for local runs: Flutter 3.47.5 (the version CI pins), `flutter analy
 | Module | Evidence | Rating | Remaining |
 |---|---|---|---|
 | Security gate (Security Staff home) | 14 tests, CI green | PASS for the panel (not run on a device) | dedicated tab set |
-| Visitor history search (phone) | 14 tests, local only until CI | CONDITIONAL PASS: searches the latest 50 visitors only (server has no search); FAIL for "searchable full history" until the backend adds a filter or paging | backend `q` parameter, or load more pages |
+| Visitor history search (phone) | superseded by the 14 Nov update below | PASS for full-history search (server `q`); see the update | - |
 | Phone navigation: More search | 6 tests, CI green | PASS | tab hubs not started |
 | Resident Home: dues card | 10 tests incl. widget_test regression, local | CONDITIONAL PASS (CI pending, not run on a device/emulator) | Payments and Services hubs |
 | Authentication, RBAC, permission boundaries | existing suite (route_access, menu_architecture, role_home) green; not extended | PASS for existing behaviour, NOT VERIFIED for new screens beyond grants | add per-role navigation tests in the hub step |
@@ -102,3 +102,35 @@ Request: on the Report tab, tapping a wing / floor card should open its details.
 | Removed the duplicate phone drawer (the bottom bar's More menu holds the same menu) | #234 | Ported. The 7 tests that opened the drawer (the reason #234's CI was red) are **moved, not deleted**, to `role_menu_visibility_test.dart`: the same assertions on the More menu for admin, committee, security and resident, plus a "nothing beyond the grants" check |
 | Not taken: moving "Society services" below "Summary", the 280 to 190 grid change, attendance and staff-home spacing | #234 | Left out on purpose (the first contradicts the cleanup made after rendering; the grid change broke a test and was not rendered) |
 | Not taken: Accounts and Stores for admins on Android | #233 | Left out: the app is lightweight, full accounts stay on the web app |
+
+## Update, 14 Nov: visual pass, first real-phone evidence, search, ledger, tenants print
+
+PRs #246 to #249 are merged (each with all five CI checks green, backend tests included); the work below is on the branch for the next PR.
+
+### Real-phone evidence (first on-device results)
+The user installed the field-edition APK and shared screenshots (resident and Technical Staff logins, Android phone, large text setting). **VERIFIED on a device:** the new look renders as designed (soft shadows, gradient banner, coloured icon badges, accent-barred headings, floating bottom bar); the More menu and its search work; My Bills, Resident Home and Staff Portal render. Not yet seen on a device: Security, Gym, supervisor/manager/admin roles, Marathi/Hindi, the tenants Print, the visitor search, My Ledger.
+
+| Finding on the device | Cause | Fix | Regression test |
+|---|---|---|---|
+| Bottom bar label "Complaints" broke into "Complain / ts" and the bar grew tall | five destinations at a larger text setting, labels allowed to wrap | one-line labels with a label style, the bar's own text capped at 1.15x | `phone_bar_layout_test` (real font): fails on the old bar with "Complaints wrapped at text scale 1.3" |
+| "You are all paid up" box looked muddy grey-green | a see-through tint over a shadow lets the shadow show through | `solidTint` (a solid colour); a scan found no other such box | none possible by rendering alone; a code scan was run |
+| Service tile names cut ("Complai...") | four tiles per row at that text size | three per row | rendered at 411 dp and 1.3x text |
+| Long society name cut in the banner | chip in a single row | chips wrap | rendered |
+| Bill row "Due 10 No..." | one-line subtitle | two lines | rendered |
+| Summary cards tall with empty space | one fixed height | height by content, grows at half the text-scale rate | `phone_bar_layout_test` |
+
+Lesson recorded: the test renderer draws every shadow as a hard band, so shadows can only be judged on a device; layout is judged in rendered tests, shadows on the phone.
+
+### Evidence for the new behaviour
+| Item | Evidence | Rating |
+|---|---|---|
+| Visitor log search over the whole log (server `q`, phone debounced, fallback to loaded rows) | backend `test_visitor_search.py` (8 tests: name, mobile, purpose, flat as `101` / `A-202` / `a 101`, vehicle with or without spaces, every word must match, pass code not searchable, wildcards and SQL are only text, society isolation, resident refused, over-long refused, paging); app tests for asking once per pause, a visitor outside the loaded page found, a stale answer never replacing a newer one, clear dropping a late answer, fallback with the note only when the server could not search (the stale-answer guard was removed to prove its test fails) | PASS (CI to confirm on the PR); not run on a device |
+| Resident ledger balance | backend `test_my_ledger.py` (7 tests: zero for a new flat, Dr when owing, Cr when in credit, same figure as My Bills, latest-first lines without voucher or reconciliation fields, only own flat, 404 for another flat, other society sees nothing, login needed, no flat gives an empty list); app `my_ledger_test.dart` (11 tests: parsing, the words for a balance, owing, in credit, settled, several flats, no flat, failure with Try again, the tile on My Bills for one flat, several flats and a failed load) | CONDITIONAL PASS: tested; **the balance is the accounting figure (dues less any advance); product owner to confirm that is what residents should see**; not run on a device |
+| Tenants report print | backend `test_tenants_report_pdf.py` (5 tests); app `tenant_print_test.dart` (3 tests; fails if a filter is dropped) | PASS |
+| Hindi/Marathi for the remaining resident screens and the shared widgets | `shared_widgets_translate_test` (3 tests), existing `localization_test` (every entry has both languages) | CONDITIONAL PASS: wording NOT VERIFIED, **needs a native reader** |
+| Totals | `flutter analyze` exit 0, 0 errors and 0 warnings; **780 Flutter tests passed**; backend: new tests above plus visitor (40), people filters, security and RBAC (119) run locally; full backend suite runs in CI | PASS locally; CI on the PR |
+
+### Checked and found not to need a change
+- **Authorization of the accounts API:** every route under `/accounts` requires `manager_above`, verified by calling three of them as a resident (all 403). A resident therefore cannot read other flats' ledgers; the resident ledger is a separate endpoint scoped to the caller's own flats.
+- **Android 12 splash:** launch background and icon background are both black, so the system splash matches; no change made.
+- **R8:** left disabled on purpose (see MOBILE_RELEASE_READINESS.md).

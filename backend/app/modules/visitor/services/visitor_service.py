@@ -405,8 +405,9 @@ class VisitorService:
 
     # ── Query methods ─────────────────────────────────────────────────────────
 
-    def list_by_society(self, society_id: UUID, skip: int = 0, limit: int = 50) -> List[Visitor]:
-        return self.repo.get_by_society(society_id, skip, limit)
+    def list_by_society(self, society_id: UUID, skip: int = 0, limit: int = 50,
+                        q: Optional[str] = None) -> List[Visitor]:
+        return self.repo.get_by_society(society_id, skip, limit, q)
 
     def get_pending_approvals(self, resident_id: UUID) -> List[Visitor]:
         return self.repo.get_pending_for_resident(resident_id)

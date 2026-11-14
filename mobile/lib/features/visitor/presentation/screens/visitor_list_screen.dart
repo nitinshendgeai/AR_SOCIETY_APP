@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -44,6 +45,47 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
   final _searchController = TextEditingController();
   String _query = '';
 
+  /// What the server found for [_query] across the whole log; null while it is being asked, when there is no query,
+  /// or when the server could not be reached (then the loaded rows are filtered here instead).
+  List<VisitorEntity>? _found;
+
+  /// The server could not be reached, so only the loaded rows were searched.
+  bool _searchFailed = false;
+  Timer? _searchTimer;
+  int _searchRound = 0;
+
+  void _onQueryChanged(String v) {
+    setState(() {
+      _query = v;
+      _found = null;
+      _searchFailed = false;
+    });
+    _searchTimer?.cancel();
+    _searchRound++;
+    if (v.trim().isEmpty) return;
+    final round = _searchRound;
+    // Ask once the person pauses, not on every key.
+    _searchTimer = Timer(const Duration(milliseconds: 350), () async {
+      final result = await ref.read(visitorRepositoryProvider).searchSocietyVisitors(widget.societyId, v);
+      if (!mounted || round != _searchRound) return;      // typed on since: this answer is stale
+      setState(() {
+        _found = result is VisitorSuccess<List<VisitorEntity>> ? result.data : null;
+        _searchFailed = _found == null;
+      });
+    });
+  }
+
+  void _clearQuery() {
+    _searchTimer?.cancel();
+    _searchRound++;
+    _searchController.clear();
+    setState(() {
+      _query = '';
+      _found = null;
+      _searchFailed = false;
+    });
+  }
+
   void _reload() {
     if (widget.isMy) {
       ref.read(visitorListProvider.notifier).loadMyVisitors();
@@ -64,6 +106,7 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
 
   @override
   void dispose() {
+    _searchTimer?.cancel();
     _searchController.dispose();
     _tabs.dispose();
     super.dispose();
@@ -263,7 +306,8 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
       );
     } else {
       final searching = _query.trim().isNotEmpty;
-      final shownAll = filterVisitors(all, _query);
+      // The server's answer covers the whole log; until it arrives (or if it cannot) the loaded rows are filtered here.
+      final shownAll = searching ? (_found ?? filterVisitors(all, _query)) : all;
       final shownInside = filterVisitors(inside, _query);
       tabs = TabBarView(
         controller: _tabs,
@@ -287,7 +331,7 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
     }
     // The guard's log (phone): search above the tabs. The desktop table sorts and filters on its own.
     if (!widget.isMy && !isDesktopLayout(context)) {
-      // The server returns the latest rows only and has no search, so say so rather than let "not found" mislead.
+      // If the server could not search, only the loaded rows were; say so rather than let "not found" mislead.
       final capped = all.length >= visitorLogLimit;
       return Column(children: [
         Padding(
@@ -295,7 +339,7 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
           child: TextField(
             key: const Key('visitor-search'),
             controller: _searchController,
-            onChanged: (v) => setState(() => _query = v),
+            onChanged: _onQueryChanged,
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               hintText: context.tr('Search name, mobile, flat or vehicle'),
@@ -305,16 +349,13 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
                   : IconButton(
                       icon: const Icon(Icons.close_rounded),
                       tooltip: context.tr('Clear search'),
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() => _query = '');
-                      },
+                      onPressed: _clearQuery,
                     ),
               isDense: true,
             ),
           ),
         ),
-        if (capped && _query.trim().isNotEmpty)
+        if (capped && _query.trim().isNotEmpty && _searchFailed)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
             child: Text(context.tr('Only the latest visitors are searched'),
