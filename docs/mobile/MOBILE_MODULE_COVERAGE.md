@@ -53,12 +53,15 @@ The baseline table above still describes the code *before* this work. What chang
 | Resident Home | Outstanding-dues card first, with status chip and a 48 dp button; shown only with the `my_bills` grant | PASS (CI green, PR #238) |
 | Resident bills / payments | Reviewed: the existing My Bills screen already has the mobile pattern (hero, Overdue / To Pay / History, claims). No change made | PASS (unchanged) |
 | Security Staff home | Gate panel: inside now, let in today, visitors today, four large actions; unknown figures shown as `--`, never 0 | PASS (CI green, PR #239) |
-| Visitor log (phone) | Search by name, mobile, flat, vehicle, purpose over the latest 50 visitors | CONDITIONAL PASS (PR #240): **FAIL for full-history search** until the backend gets a filter or paging |
+| Visitor log (phone) | Search by name, mobile, flat, vehicle, purpose over the whole log (server `q`), with a fallback to the loaded rows | PASS (tests); not run on a device (14 Nov; replaces the earlier "latest 50 only" limit) |
 | Admin / committee / manager navigation | Operations, Finance, People hub tabs from granted screens | CONDITIONAL PASS: tests green; not run on a device |
 | Network failures | GET retry, offline banner | CONDITIONAL PASS |
 | Accessibility | Text greys now meet 4.5:1 | PASS (computed and tested); other a11y items (tooltips, 200% text scale) NOT VERIFIED |
 | Android | Flutter pinned for release builds, backup off; AAB, splash, App Links, R8 open | see MOBILE_RELEASE_READINESS.md |
-| Marathi/English | Resident Home, guard Staff Portal, Gate panel and visitor log now fully translated (~75 strings, shared helpers); My Bills, bill detail, notices, complaints, amenities, forms, login and dates are still English | CONDITIONAL PASS (wording needs a native reader) |
+| Marathi/Hindi | Resident Home, guard Staff Portal, Gate panel, visitor log, shared button/empty/error/filter/toast, login, My Bills and detail, notices, complaints, visitor create/approvals, amenities, parcels, domestic help and My Ledger translated (~175 strings); forms, staff, finance and dates still English | CONDITIONAL PASS (wording needs a native reader) |
+| Premium look | Hero banner, gradient icon badges, soft-shadow cards, floating bottom bar, coloured More menu and hubs on every role (14 Nov) | PASS in rendered tests; **first real-phone installs reviewed**, six findings fixed (see MOBILE_TEST_REPORT.md) |
+| Resident ledger | Read-only `GET /billing/bills/me/ledger` and My Ledger screen (own flats only) | CONDITIONAL PASS: tested; the figure shown (dues less advance) to be confirmed by the product owner |
+| Tenants report | Print / Share / Download of the filtered list | PASS |
 | Accounts / finance reports, vendors, staff attendance, complaints, notices, amenities, governance | Not modified; existing tests green | PASS (unchanged), mobile table-to-card conversion NOT DONE |
 
 ### Not done, and why

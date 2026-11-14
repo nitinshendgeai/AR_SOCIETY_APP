@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,6 +47,13 @@ final _all = [_asha, _ravi, _zomato];
 
 List<String> _names(List<VisitorEntity> l) => l.map((v) => v.name).toList();
 
+/// Types in the search box, then waits out the pause before the server is asked and for its answer.
+Future<void> _type(WidgetTester t, String text) async {
+  await t.enterText(find.byKey(const Key('visitor-search')), text);
+  await t.pump(const Duration(milliseconds: 400));
+  await t.pumpAndSettle();
+}
+
 void main() {
   group('filterVisitors', () {
     test('a blank query returns everyone, in order', () {
@@ -91,11 +99,11 @@ void main() {
   });
 
   group('the guard\'s visitor log (phone)', () {
-    Widget app(List<VisitorEntity> rows) => ProviderScope(
+    Widget app(List<VisitorEntity> rows, {_Repo? repo}) => ProviderScope(
           overrides: [
             currentUserProvider.overrideWithValue(const UserEntity(
                 id: 'u', email: 'x@y.c', fullName: 'Guard', roles: ['Security Staff'], societyId: 's1', termsAccepted: true)),
-            visitorRepositoryProvider.overrideWithValue(_Repo(rows)),
+            visitorRepositoryProvider.overrideWithValue(repo ?? _Repo(rows)),
           ],
           child: MaterialApp(theme: AppTheme.lightTheme, home: const VisitorListScreen(societyId: 's1')),
         );
@@ -106,8 +114,7 @@ void main() {
       expect(find.text('Asha Kulkarni'), findsOneWidget);
       expect(find.text('Ravi Patil'), findsOneWidget);
 
-      await t.enterText(find.byKey(const Key('visitor-search')), 'ravi');
-      await t.pumpAndSettle();
+      await _type(t, 'ravi');
       expect(find.text('Ravi Patil'), findsOneWidget);
       expect(find.text('Asha Kulkarni'), findsNothing);
 
@@ -120,8 +127,7 @@ void main() {
     testWidgets('a search that finds no one says so', (t) async {
       await t.pumpWidget(app(_all));
       await t.pumpAndSettle();
-      await t.enterText(find.byKey(const Key('visitor-search')), 'nobody');
-      await t.pumpAndSettle();
+      await _type(t, 'nobody');
       expect(find.text('No visitor matches'), findsOneWidget);
       expect(find.text('Asha Kulkarni'), findsNothing);
     });
@@ -132,8 +138,7 @@ void main() {
       await t.tap(find.text('Inside Now'));
       await t.pumpAndSettle();
       expect(find.text('Ravi Patil'), findsOneWidget);          // the only one checked in
-      await t.enterText(find.byKey(const Key('visitor-search')), 'asha');
-      await t.pumpAndSettle();
+      await _type(t, 'asha');
       expect(find.text('Ravi Patil'), findsNothing);
       expect(find.text('No visitor matches'), findsOneWidget);
     });
@@ -144,20 +149,84 @@ void main() {
       expect(t.getSize(find.byKey(const Key('visitor-search'))).height, greaterThanOrEqualTo(40));
     });
 
-    testWidgets('a full page warns that only the latest visitors are searched; a short one does not', (t) async {
+    testWidgets('the server is asked, and finds a visitor who is not in the latest page', (t) async {
+      final meena = _v('9', 'Meena Joshi', mobile: '9555500009', flat: '303', wing: 'C');
+      final repo = _Repo(_all, serverRows: [..._all, meena]);        // the log holds more than the page that was loaded
+      await t.pumpWidget(app(_all, repo: repo));
+      await t.pumpAndSettle();
+      expect(find.text('Meena Joshi'), findsNothing);
+      await _type(t, 'meena');
+      expect(repo.queries, ['meena']);
+      expect(repo.societies, ['s1']);
+      expect(find.text('Meena Joshi'), findsOneWidget);
+      expect(find.text('Asha Kulkarni'), findsNothing);
+      expect(find.byKey(const Key('visitor-search-cap')), findsNothing);
+    });
+
+    testWidgets('the server is asked once the person pauses, not on every key', (t) async {
+      final repo = _Repo(_all);
+      await t.pumpWidget(app(_all, repo: repo));
+      await t.pumpAndSettle();
+      for (final text in ['r', 'ra', 'rav', 'ravi']) {
+        await t.enterText(find.byKey(const Key('visitor-search')), text);
+        await t.pump(const Duration(milliseconds: 100));
+      }
+      expect(repo.queries, isEmpty);                                   // still typing
+      await t.pump(const Duration(milliseconds: 400));
+      await t.pumpAndSettle();
+      expect(repo.queries, ['ravi']);
+    });
+
+    testWidgets('a slow answer to an earlier search never replaces the answer to the latest one', (t) async {
+      final slow = Completer<VisitorResult<List<VisitorEntity>>>();
+      final repo = _Repo(_all, onSearch: (q) => q == 'asha' ? slow.future : null);
+      await t.pumpWidget(app(_all, repo: repo));
+      await t.pumpAndSettle();
+      await _type(t, 'asha');                // asked, not answered yet
+      await _type(t, 'ravi');                // typed on; this answer comes straight back
+      expect(find.text('Ravi Patil'), findsOneWidget);
+      slow.complete(VisitorSuccess([_asha]));   // the old answer arrives late
+      await t.pumpAndSettle();
+      expect(find.text('Ravi Patil'), findsOneWidget);
+      expect(find.text('Asha Kulkarni'), findsNothing);
+    });
+
+    testWidgets('clearing the search brings the log back and drops a late answer', (t) async {
+      final slow = Completer<VisitorResult<List<VisitorEntity>>>();
+      final repo = _Repo(_all, onSearch: (q) => slow.future);
+      await t.pumpWidget(app(_all, repo: repo));
+      await t.pumpAndSettle();
+      await _type(t, 'zzz');
+      await t.tap(find.byTooltip('Clear search'));
+      await t.pumpAndSettle();
+      slow.complete(VisitorSuccess(const []));
+      await t.pumpAndSettle();
+      expect(find.text('Asha Kulkarni'), findsOneWidget);
+      expect(find.text('No visitor matches'), findsNothing);
+    });
+
+    testWidgets('if the server cannot search, the loaded rows are searched and a full page says so', (t) async {
       final many = [for (var i = 0; i < visitorLogLimit; i++) _v('m$i', 'Person $i')];
-      await t.pumpWidget(app(many));
+      await t.pumpWidget(app(many, repo: _Repo(many, searchFails: true)));
       await t.pumpAndSettle();
       expect(find.byKey(const Key('visitor-search-cap')), findsNothing);       // no query yet
-      await t.enterText(find.byKey(const Key('visitor-search')), 'person 7');
-      await t.pumpAndSettle();
+      await _type(t, 'person 7');
+      expect(find.text('Person 7'), findsOneWidget);                           // found among the loaded rows
       expect(find.byKey(const Key('visitor-search-cap')), findsOneWidget);
 
       await t.pumpWidget(const SizedBox());       // a fresh screen, so nothing of the first one is kept
-      await t.pumpWidget(app(_all));
+      await t.pumpWidget(app(_all, repo: _Repo(_all, searchFails: true)));
       await t.pumpAndSettle();
-      await t.enterText(find.byKey(const Key('visitor-search')), 'asha');
+      await _type(t, 'asha');
+      expect(find.text('Asha Kulkarni'), findsOneWidget);
+      expect(find.byKey(const Key('visitor-search-cap')), findsNothing);       // a short page is the whole log
+    });
+
+    testWidgets('a working server search never shows the "only the latest" note', (t) async {
+      final many = [for (var i = 0; i < visitorLogLimit; i++) _v('m$i', 'Person $i')];
+      await t.pumpWidget(app(many, repo: _Repo(many)));
       await t.pumpAndSettle();
+      await _type(t, 'person 7');
       expect(find.byKey(const Key('visitor-search-cap')), findsNothing);
     });
   });
@@ -177,8 +246,29 @@ void main() {
 }
 
 class _Repo extends VisitorRepository {
+  /// The page the log screen loads.
   final List<VisitorEntity> rows;
-  _Repo(this.rows) : super(ds: VisitorRemoteDataSource(dio: Dio()));
+
+  /// The whole log, which the server searches (defaults to [rows]).
+  final List<VisitorEntity>? serverRows;
+  final bool searchFails;
+
+  /// Lets a test answer a search itself (returns null to answer normally).
+  final Future<VisitorResult<List<VisitorEntity>>>? Function(String q)? onSearch;
+  final queries = <String>[];
+  final societies = <String>[];
+  _Repo(this.rows, {this.serverRows, this.searchFails = false, this.onSearch})
+      : super(ds: VisitorRemoteDataSource(dio: Dio()));
+
+  @override
+  Future<VisitorResult<List<VisitorEntity>>> searchSocietyVisitors(String societyId, String query, {int limit = 200}) async {
+    queries.add(query);
+    societies.add(societyId);
+    final custom = onSearch?.call(query);
+    if (custom != null) return custom;
+    if (searchFails) return VisitorFailure('offline');
+    return VisitorSuccess(filterVisitors(serverRows ?? rows, query));
+  }
 
   @override
   Future<VisitorResult<List<VisitorEntity>>> listSocietyVisitors(String societyId, {int limit = 50}) async => VisitorSuccess(rows);

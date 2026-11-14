@@ -134,6 +134,17 @@ class VisitorRepository {
     }
   }
 
+  /// The society's whole visitor log searched on the server (not just the latest page), newest first.
+  Future<VisitorResult<List<VisitorEntity>>> searchSocietyVisitors(String societyId, String query,
+      {int limit = 200}) async {
+    try {
+      final list = await _ds.listSocietyVisitors(societyId, limit: limit, query: query);
+      return VisitorSuccess(list.map((m) => m.toEntity()).toList());
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
   Future<VisitorResult<List<VisitorEntity>>> getPendingApprovals() async {
     try {
       final list = await _ds.getPendingApprovals();

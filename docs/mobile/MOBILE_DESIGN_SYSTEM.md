@@ -91,3 +91,17 @@ Blocked today because screens read `AppTheme.x` constants (2,510 uses). Path: ad
 5. **No placeholder tiles** ("Coming soon") in a shipped screen.
 6. **Translate inside shared widgets, not at every call site.** A helper that draws text (`_SectionLabel`, a chip, a tile, a card) calls `context.tr`; then every screen that uses it is translated for free. For text with values, use `context.trf('Across {n} open bills', {'n': count})`: the template is the key, each language keeps the slots in its own order, and a test checks no `{slot}` reaches the screen. Keep English plural forms as two templates (`... bill` / `... bills`).
 7. **Action labels are imperative; statuses are descriptive.** "Check Out" (do it) and "Checked Out" (it happened) are different texts and need different translations.
+8. **No see-through fill under a shadow.** A box with `color: tint.withOpacity(0.08)` and a `boxShadow` shows the shadow through the fill and turns it a muddy grey on a real phone. Use `solidTint(color)` (a solid colour laid over the card white). Found on a device, not in tests.
+9. **Labels in a fixed bar must not wrap.** The bottom bar caps its own text scale at 1.15x and uses one-line label styles; "Complaints" wrapped at a larger text setting before that. Test with the real font (`FontLoader`), not the test placeholder font, whose letters are far wider.
+10. **The test renderer cannot show shadows.** It draws them as hard bands (and `Card` and button elevation as rings). Judge layout in rendered tests and shadows on a device.
+
+## Premium building blocks (`shared/widgets/premium.dart`)
+| Piece | Use |
+|---|---|
+| `HeroBanner` | the deep-blue gradient banner (home screens, login) with soft light circles |
+| `AccentBadge` + `accentFor(label)` | gradient icon tile; a label always gets the same accent, so a service keeps its colour everywhere |
+| `PremiumSurface` | white card with a soft shadow and ink on a transparent Material |
+| `SectionHeading` | section title with a short accent bar |
+| `solidTint(color)` | a solid light tint for a card background that also has a shadow |
+
+The theme also gives every `Card` a soft shadow and buttons a resting glow in the brand colour; the bottom bar floats on a soft top shadow.

@@ -21,10 +21,11 @@ the Flutter SDK source at the CI-pinned version, and CI results. A real release 
 | 13 | Secure session handling | PASS (existing) | Tokens in Android Keystore-backed storage; refresh and forced sign-out on server rejection; biometric lock; signed-in-devices screen |
 | 14 | Deep links / App Links | FAIL (not implemented) | No intent filter. Opening `society.duxos.in` links in the app needs an `assetlinks.json` on that domain and a manifest filter: a change to the production web host, so it needs your approval |
 | 15 | Push notifications | NOT VERIFIED | `androidAppId` in `push_config.dart` must be the Firebase app registered for `in.duxos.society` (`docs/ANDROID_RELEASE.md`) |
-| 16 | Code shrinking (R8) | NOT VERIFIED | Disabled on purpose after a native-crash history; enabling needs keep rules tested on real devices |
+| 16 | Code shrinking (R8) | NOT VERIFIED | Disabled on purpose after a native-crash history (`minifyEnabled false`, with the reason in `build.gradle`); enabling needs keep rules tested on a real device. Left off |
+| 16a | Android 12 splash | PASS (no change needed) | Launch background and the icon's background are both black, so the system splash matches |
 | 17 | Privacy | CONDITIONAL PASS | Account and data deletion page added (#232). Privacy-policy URL and the Data safety form: NOT VERIFIED |
 | 18 | Who the Android app is for | Decision needed | The signed build uses `APP_EDITION=field`: residents, tenants, security, technical and gym staff only. Admin, committee and manager roles are told to use the web app. The new Operations / Finance / People tabs therefore reach those roles on the **web app opened on a phone** until you decide to ship them an Android edition |
-| 19 | Device and screen-size testing | NOT VERIFIED | Nothing was run on a device or emulator. Layouts are covered by widget tests only |
+| 19 | Device and screen-size testing | CONDITIONAL PASS | **First real-phone installs (14 Nov): resident and Technical Staff logins reviewed** (one Android phone, larger text setting); six layout problems found and fixed (see MOBILE_TEST_REPORT.md). Not yet on a device: Security, Gym, supervisor, manager, admin, Marathi/Hindi, small (360 x 640) phones, TalkBack |
 | 20 | Play listing assets | NOT VERIFIED | Screenshots, feature graphic, short and long description, content rating, closed-testing track first |
 
 ## Before the first upload (in order)

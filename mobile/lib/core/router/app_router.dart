@@ -115,6 +115,7 @@ import 'package:ar_society_app/features/accounts/presentation/screens/expenses_b
 import 'package:ar_society_app/features/accounts/presentation/screens/voucher_form_screen.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/maintenance_billing_screen.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/my_bills_screen.dart';
+import 'package:ar_society_app/features/maintenance_billing/presentation/screens/my_ledger_screen.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/maintenance_elements_screen.dart';
 import 'package:ar_society_app/features/society_settings/presentation/screens/society_settings_screen.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
@@ -223,6 +224,7 @@ class AppRoutes {
   static const contractDetail     = '/vendors/contracts/:id';
   static const maintenanceBilling = '/billing/maintenance';
   static const myBills            = '/billing/my-bills';
+  static const myLedger           = '/billing/my-bills/ledger';
   static const maintenanceElements = '/billing/maintenance-elements';
   static const accounts           = '/accounts';
   static const accountsGateway    = '/accounts/gateway';
@@ -1002,6 +1004,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.myBills,
             builder: (_, __) => const MyBillsScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.myLedger,
+            builder: (_, __) => const MyLedgerScreen(),
           ),
           // Society Settings
           GoRoute(

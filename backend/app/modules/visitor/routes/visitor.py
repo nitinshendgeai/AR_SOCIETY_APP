@@ -138,12 +138,14 @@ def get_visitor(visitor_id: UUID, db: Session = Depends(get_db),
 def list_society_visitors(
     society_id: UUID,
     skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=1000),
+    q: Optional[str] = Query(None, max_length=100,
+                             description="Search by name, mobile, flat, vehicle number or purpose (every word must match)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_security),
 ):
-    """Admin/Security: all visitors for a society."""
+    """Admin/Security: all visitors for a society, latest first; `q` narrows them to those matching the search."""
     assert_society_access(current_user, society_id)
-    return VisitorService(db).list_by_society(society_id, skip, limit)
+    return VisitorService(db).list_by_society(society_id, skip, limit, q)
 
 
 @router.get("/society/{society_id}/inside", response_model=List[VisitorOut])

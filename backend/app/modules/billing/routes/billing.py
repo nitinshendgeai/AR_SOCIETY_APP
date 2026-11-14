@@ -785,6 +785,47 @@ def my_bills(flat_id: Optional[UUID] = None, db: Session = Depends(get_db), user
         "bills": [_bill_out(b) for b in bills],
     }
 
+LEDGER_RECENT_LINES = 15
+
+
+@router.get("/bills/me/ledger", dependencies=[Depends(any_member)])
+def my_ledger(flat_id: Optional[UUID] = None, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """My account with the society, for every flat I live in (or one of them with `flat_id`): what I owe, any advance I
+    have paid ahead, the balance (Dr: I owe the society, Cr: I am in credit) and the latest ledger lines. Read-only,
+    from the books the office keeps; it shows nothing of any other flat, and none of the office's reconciliation."""
+    from app.modules.accounts.services.member_ar import MemberARService, _money
+    svc = BillingService(db)
+    mine = svc.resident_flat_ids(user)
+    if flat_id is not None and flat_id not in mine:
+        raise HTTPException(404, "Flat not found")
+    wanted = [flat_id] if flat_id is not None else sorted(mine, key=str)
+    ar = MemberARService(db)
+    flats = []
+    for fid in wanted:
+        flat = db.query(Flat).filter(Flat.id == fid, Flat.is_active == True).first()  # noqa: E712
+        if flat is None or flat.wing.society_id != user.society_id:
+            continue
+        try:
+            st = ar.statement(user.society_id, fid)
+        except ValueError:                     # no bill or payment has touched this flat's account yet
+            dues = advance = Decimal("0.00")
+            lines = []
+        else:
+            dues, advance = _money(st["closing_ar"]), _money(st["advance_balance"])
+            lines = [{"date": l["date"], "narration": l["narration"], "debit": l["debit"], "credit": l["credit"],
+                      "balance": l["balance"], "balance_dr_cr": l["balance_dr_cr"]}
+                     for l in st["lines"][-LEDGER_RECENT_LINES:]][::-1]       # latest first; no voucher or source ids
+        balance = _money(dues - advance)
+        flats.append({
+            "flat_id": str(fid),
+            "flat_label": f"{flat.wing.name}-{flat.flat_number}" if flat.wing else flat.flat_number,
+            "dues": str(dues), "advance": str(advance),
+            "balance": str(abs(balance)), "balance_dr_cr": "Dr" if balance >= 0 else "Cr",
+            "lines": lines,
+        })
+    return {"as_of": date.today().isoformat(), "flats": flats}
+
+
 @router.get("/bills/{bill_id}", dependencies=[Depends(any_member)])
 def get_bill(bill_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return _bill_detail_out(_get_viewable_bill(db, user, bill_id))

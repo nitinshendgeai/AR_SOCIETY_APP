@@ -79,15 +79,21 @@ class VisitorRemoteDataSource {
     return VisitorModel.fromJson(r.data as Map<String, dynamic>);
   }
 
-  /// GET /visitors/society/{societyId}?skip&limit
+  /// GET /visitors/society/{societyId}?skip&limit&q — [query], when given, narrows the log on the server to the
+  /// visitors matching every word (name, mobile, flat, vehicle number or purpose).
   Future<List<VisitorModel>> listSocietyVisitors(
     String societyId, {
     int skip = 0,
     int limit = 50,
+    String? query,
   }) async {
     final r = await _dio.get(
       '/visitors/society/$societyId',
-      queryParameters: {'skip': skip, 'limit': limit},
+      queryParameters: {
+        'skip': skip,
+        'limit': limit,
+        if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+      },
     );
     return (r.data as List)
         .map((e) => VisitorModel.fromJson(e as Map<String, dynamic>))
