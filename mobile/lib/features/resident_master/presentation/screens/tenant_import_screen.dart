@@ -330,7 +330,7 @@ class _Tile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-          color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusS), border: Border.all(color: AppTheme.border)),
+          color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusS), boxShadow: AppTheme.cardShadow),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Icon(icon, color: color, size: 18),
         const SizedBox(width: 10),

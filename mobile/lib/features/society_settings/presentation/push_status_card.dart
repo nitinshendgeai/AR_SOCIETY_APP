@@ -68,7 +68,7 @@ class _PushStatusCardState extends ConsumerState<PushStatusCard> {
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.radiusS),
-        border: Border.all(color: AppTheme.border),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: status.when(
         loading: () => const LinearProgressIndicator(),

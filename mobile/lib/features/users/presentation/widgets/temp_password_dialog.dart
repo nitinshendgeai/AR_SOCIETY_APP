@@ -31,7 +31,7 @@ Future<void> showTempPasswordDialog(BuildContext context, String pwd, {String? w
               decoration: BoxDecoration(
                 color: AppTheme.surface,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.border),
+                boxShadow: AppTheme.cardShadow,
               ),
               child: Row(
                 children: [

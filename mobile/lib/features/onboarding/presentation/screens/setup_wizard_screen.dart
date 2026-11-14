@@ -313,7 +313,7 @@ class _TermsCardState extends State<_TermsCard> {
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.radiusM),
-        border: Border.all(color: AppTheme.border),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
         children: [
@@ -502,7 +502,7 @@ class _SocietyCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.radiusL),
-        border: Border.all(color: AppTheme.border),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -687,7 +687,7 @@ class _QuickTipsCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.radiusL),
-        border: Border.all(color: AppTheme.border),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

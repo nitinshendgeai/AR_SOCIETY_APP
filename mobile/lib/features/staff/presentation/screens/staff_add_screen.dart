@@ -411,7 +411,7 @@ class _CredentialRow extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppTheme.cardBg,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.border),
+            boxShadow: AppTheme.cardShadow,
           ),
           child: Text(value, style: const TextStyle(fontSize: 13, fontFamily: 'monospace',
               fontWeight: FontWeight.w600)),

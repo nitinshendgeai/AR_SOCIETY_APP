@@ -81,7 +81,7 @@ class _AmenityDetailScreenState extends ConsumerState<AmenityDetailScreen> {
               else
                 Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM), border: Border.all(color: AppTheme.border)),
+                  decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM), boxShadow: AppTheme.cardShadow),
                   child: Text(a.active ? 'No booking needed. Just go during opening hours.' : 'This is closed and can\'t be booked.'),
                 ),
               const SizedBox(height: 18),
@@ -133,7 +133,7 @@ class _DaySchedule extends ConsumerWidget {
     final today = DateUtils.dateOnly(DateTime.now());
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM), border: Border.all(color: AppTheme.border)),
+      decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM), boxShadow: AppTheme.cardShadow),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           IconButton(

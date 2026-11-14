@@ -401,6 +401,6 @@ class _PaperSheetEntryScreenState extends ConsumerState<PaperSheetEntryScreen> {
   BoxDecoration _box() => BoxDecoration(
         color: AppTheme.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.radiusM),
-        border: Border.all(color: AppTheme.border),
+        boxShadow: AppTheme.cardShadow,
       );
 }

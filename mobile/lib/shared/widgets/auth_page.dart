@@ -5,6 +5,7 @@ import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show kDesktopBreakpoint;
 import 'package:ar_society_app/core/motion/motion.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/shared/widgets/premium.dart';
 
 /// The one frame for every page shown before (or instead of) the app itself: sign in, register a society, set a
 /// new password, unlock, the first-run wizard. On a computer a brand panel at the left and the form at the
@@ -49,7 +50,7 @@ class AuthPage extends StatelessWidget {
     );
   }
 
-  Widget _heading(BuildContext context, {required bool centered}) {
+  Widget _heading(BuildContext context, {required bool centered, bool onDark = false}) {
     final align = centered ? CrossAxisAlignment.center : CrossAxisAlignment.start;
     final textAlign = centered ? TextAlign.center : TextAlign.start;
     return Column(crossAxisAlignment: align, mainAxisSize: MainAxisSize.min, children: [
@@ -71,11 +72,12 @@ class AuthPage extends StatelessWidget {
               fontWeight: FontWeight.w700,
               height: 1.2,
               letterSpacing: -0.5,
-              color: AppTheme.textPrimary)),
+              color: onDark ? Colors.white : AppTheme.textPrimary)),
       if (subtitle != null) ...[
         const SizedBox(height: 6),
         Text(context.tr(subtitle!),
-            textAlign: textAlign, style: const TextStyle(fontSize: 15, height: 1.4, color: AppTheme.textSecondary)),
+            textAlign: textAlign,
+            style: TextStyle(fontSize: 15, height: 1.4, color: onDark ? Colors.white.withOpacity(0.9) : AppTheme.textSecondary)),
       ],
     ]);
   }
@@ -123,16 +125,27 @@ class AuthPage extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.radiusL),
-        border: Border.all(color: AppTheme.border),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: child,
     );
-    final head = Column(mainAxisSize: MainAxisSize.min, children: [
-      const DuxLogo(size: 76),
-      const SizedBox(height: 16),
-      _heading(context, centered: true),
-      const SizedBox(height: 24),
-    ]);
+    // The logo and heading sit on a deep-blue banner; the form card hangs below it.
+    final head = Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: HeroBanner(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: SizedBox(
+            width: double.infinity,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const DuxLogo(size: 76),
+              const SizedBox(height: 14),
+              _heading(context, centered: true, onDark: true),
+            ]),
+          ),
+        ),
+      ),
+    );
     return SafeArea(
       child: Center(
         child: ConstrainedBox(

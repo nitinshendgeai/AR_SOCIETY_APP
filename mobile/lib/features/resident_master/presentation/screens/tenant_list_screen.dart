@@ -287,7 +287,7 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
             decoration: BoxDecoration(
               color: AppTheme.cardBg,
               borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-              border: Border.all(color: AppTheme.border),
+              boxShadow: AppTheme.cardShadow,
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(_activeFilter == true ? Icons.check_circle_rounded : Icons.block_rounded,
@@ -406,7 +406,7 @@ class _TenantCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.radiusM),
-        border: Border.all(color: AppTheme.border),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(AppTheme.radiusM),

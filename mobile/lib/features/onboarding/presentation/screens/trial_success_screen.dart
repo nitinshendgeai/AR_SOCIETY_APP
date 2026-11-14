@@ -330,7 +330,7 @@ class _AdditionalUsersCardState extends State<_AdditionalUsersCard> {
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.radiusL),
-        border: Border.all(color: AppTheme.border),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(children: [
         InkWell(

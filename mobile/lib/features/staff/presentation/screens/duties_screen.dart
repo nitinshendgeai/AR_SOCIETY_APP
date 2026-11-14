@@ -329,7 +329,7 @@ class _ChecklistSection extends ConsumerWidget {
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(AppTheme.radiusS),
-        border: Border.all(color: AppTheme.border),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

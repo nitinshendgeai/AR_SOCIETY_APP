@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/shared/widgets/premium.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -167,7 +168,7 @@ class _DueHero extends StatelessWidget {
         decoration: BoxDecoration(
           color: color.withOpacity(0.08),
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
-          border: Border.all(color: color.withOpacity(0.35)),
+          boxShadow: AppTheme.cardShadow,
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
@@ -220,8 +221,7 @@ class _Heading extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
-        child: Text(text,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
+        child: SectionHeading(text),
       );
 }
 
