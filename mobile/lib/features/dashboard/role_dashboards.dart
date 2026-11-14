@@ -20,6 +20,7 @@ import 'package:ar_society_app/features/complaint/presentation/providers/complai
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/premium.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart' show BillingCycle, amountOf, formatRupees;
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart' show billingCyclesProvider;
 import 'package:ar_society_app/features/dashboard/admin_overview.dart';
@@ -260,55 +261,66 @@ class _GreetingCard extends ConsumerWidget {
     final societyAsync = ref.watch(societyInfoProvider);
     final societyName = societyAsync.valueOrNull?.name;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppTheme.primary, AppTheme.primaryDark],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(AppTheme.radiusL),
-      ),
+    final name = user?.fullName ?? 'Society User';
+    return HeroBanner(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // The greeting and the date share one line, so the card is a few lines shorter than when each had its own.
           Row(children: [
-            Expanded(
-              child: Text(context.tr(greetingFor(now.hour)),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.white.withOpacity(0.88), fontSize: 12, fontWeight: FontWeight.w500)),
+            // The person's initial in a soft ring, so the banner reads as theirs.
+            Container(
+              width: 46,
+              height: 46,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.18),
+                border: Border.all(color: Colors.white.withOpacity(0.55), width: 1.5),
+              ),
+              child: Text(_initial(name),
+                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
             ),
-            Text(DateFormat('EEE, d MMM').format(now),
-                style: TextStyle(color: Colors.white.withOpacity(0.82), fontSize: 11, fontWeight: FontWeight.w500)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(context.tr(greetingFor(now.hour)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12.5, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 2),
+                Text(name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w800, height: 1.15, letterSpacing: -0.3)),
+                const SizedBox(height: 2),
+                Text(context.tr(subtitle),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12, height: 1.2)),
+              ]),
+            ),
           ]),
-          const SizedBox(height: 5),
-          Text(user?.fullName ?? 'Society User',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700, height: 1.15)),
-          const SizedBox(height: 3),
-          Text(context.tr(subtitle),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: Colors.white.withOpacity(0.88), fontSize: 11.5, height: 1.2)),
-          // A long society name stays on one line (ellipsis) instead of pushing the card taller.
-          if (societyName != null && societyName.trim().isNotEmpty) ...[
-            const SizedBox(height: 10),
-            _chip(Icons.apartment_rounded, societyName),
-          ],
+          const SizedBox(height: 14),
+          // A long society name stays on one line (ellipsis) instead of pushing the banner taller.
+          Row(children: [
+            if (societyName != null && societyName.trim().isNotEmpty) Flexible(child: _chip(Icons.apartment_rounded, societyName)),
+            if (societyName != null && societyName.trim().isNotEmpty) const SizedBox(width: 8),
+            _chip(Icons.calendar_today_rounded, DateFormat('EEE, d MMM').format(now)),
+          ]),
         ],
       ),
     );
   }
 
+  static String _initial(String name) {
+    final t = name.trim();
+    return t.isEmpty ? '?' : String.fromCharCode(t.runes.first).toUpperCase();
+  }
+
   Widget _chip(IconData icon, String text) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(color: Colors.white.withOpacity(0.14), borderRadius: BorderRadius.circular(999)),
+        decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), borderRadius: BorderRadius.circular(999)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon, size: 13, color: Colors.white),
           const SizedBox(width: 6),
@@ -323,11 +335,7 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(context.tr(text),
-        style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.textSecondary));
+    return SectionHeading(context.tr(text));
   }
 }
 
@@ -387,12 +395,12 @@ class _QuickActionChip extends StatelessWidget {
               onTap: action,
               borderRadius: BorderRadius.circular(AppTheme.radiusM),
               child: Container(
-                constraints: const BoxConstraints(minHeight: 56),
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-                decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM), border: Border.all(color: AppTheme.border)),
+                constraints: const BoxConstraints(minHeight: 84),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusL), boxShadow: AppTheme.cardShadow),
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(icon, color: AppTheme.primary),
-                  const SizedBox(height: 6),
+                  AccentBadge(icon: icon, accent: accentFor(label), size: 40),
+                  const SizedBox(height: 8),
                   Text(context.tr(label), textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
                 ]),
               ),
@@ -413,9 +421,9 @@ class _OperationalPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusL), border: Border.all(color: AppTheme.border)),
+      decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusL), boxShadow: AppTheme.cardShadow),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(context.tr(title), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+        SectionHeading(context.tr(title)),
         const SizedBox(height: 10),
         ...children,
       ]),
@@ -442,7 +450,7 @@ class _InfoTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.radiusM),
-        border: Border.all(color: AppTheme.border),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Row(
         children: [
@@ -1031,23 +1039,15 @@ class _ServiceGrid extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
                   decoration: BoxDecoration(
                     color: AppTheme.cardBg,
-                    borderRadius: BorderRadius.circular(AppTheme.radiusM),
-                    border: Border.all(color: AppTheme.border),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusL),
+                    boxShadow: AppTheme.cardShadow,
                   ),
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Badge(
                       isLabelVisible: t.badge > 0,
                       label: Text('${t.badge}'),
                       backgroundColor: AppTheme.error,
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary.withOpacity(0.10),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(t.icon, color: AppTheme.primary, size: 22),
-                      ),
+                      child: AccentBadge(icon: t.icon, accent: accentFor(t.label), size: 42),
                     ),
                     const SizedBox(height: 6),
                     Text(context.tr(t.label),
