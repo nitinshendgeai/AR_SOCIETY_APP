@@ -502,7 +502,7 @@ class _StaffPicker extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.cardBg,
           borderRadius: BorderRadius.circular(AppTheme.radiusM),
-          border: Border.all(color: AppTheme.border),
+          boxShadow: AppTheme.cardShadow,
         ),
         child: const Text('No staff found. Add staff first.',
             style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
@@ -517,7 +517,7 @@ class _StaffPicker extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.radiusM),
-        border: Border.all(color: AppTheme.border),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

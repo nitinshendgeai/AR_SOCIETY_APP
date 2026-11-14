@@ -180,7 +180,7 @@ class _AudienceCard extends ConsumerWidget {
     final n = notice;
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM), border: Border.all(color: AppTheme.border)),
+      decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM), boxShadow: AppTheme.cardShadow),
       child: Row(children: [
         const Icon(Icons.groups_2_outlined, color: AppTheme.textSecondary),
         const SizedBox(width: 10),
@@ -213,7 +213,7 @@ class _AckSection extends ConsumerWidget {
       error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
       data: (r) => Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM), border: Border.all(color: AppTheme.border)),
+        decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM), boxShadow: AppTheme.cardShadow),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             const Expanded(child: Text('Who has read it', style: TextStyle(fontWeight: FontWeight.w700))),

@@ -43,7 +43,7 @@ class StoreItemScreen extends ConsumerWidget {
               child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 40), children: [
                 Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM), border: Border.all(color: AppTheme.border)),
+                  decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM), boxShadow: AppTheme.cardShadow),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(children: [
                       Icon(itemCategoryIcon(i.category), color: AppTheme.textSecondary, size: 18),

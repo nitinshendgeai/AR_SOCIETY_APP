@@ -267,7 +267,7 @@ class _GroupCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.radiusM),
-        border: Border.all(color: AppTheme.border),
+        boxShadow: AppTheme.cardShadow,
       ),
       // A flat with a light to replace opens on its lights; the rest stay folded. The tile paints its tap highlight on
       // the nearest Material, so it gets its own transparent one above the coloured box.

@@ -357,7 +357,7 @@ class _GroupCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.cardBg,
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
-          border: Border.all(color: AppTheme.border),
+          boxShadow: AppTheme.cardShadow,
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(group.label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
@@ -863,7 +863,7 @@ class _TapCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppTheme.cardBg,
             borderRadius: BorderRadius.circular(AppTheme.radiusL),
-            border: Border.all(color: AppTheme.border),
+            boxShadow: AppTheme.cardShadow,
           ),
           child: Material(
             type: MaterialType.transparency,
@@ -933,7 +933,7 @@ class _FlatCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.cardBg,
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
-          border: Border.all(color: AppTheme.border),
+          boxShadow: AppTheme.cardShadow,
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Flat $label', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),

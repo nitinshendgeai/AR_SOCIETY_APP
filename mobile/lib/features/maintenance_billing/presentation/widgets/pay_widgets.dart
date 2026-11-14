@@ -63,7 +63,7 @@ class HowToPayCard extends ConsumerWidget {
           decoration: BoxDecoration(
             color: AppTheme.cardBg,
             borderRadius: BorderRadius.circular(AppTheme.radiusM),
-            border: Border.all(color: AppTheme.border),
+            boxShadow: AppTheme.cardShadow,
           ),
           child: Column(children: [
             if (i.hasUpi) _CopyRow('UPI ID', i.upiId!, Icons.qr_code_2_rounded),

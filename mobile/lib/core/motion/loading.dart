@@ -192,7 +192,7 @@ class SkeletonList extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppTheme.cardBg,
               borderRadius: BorderRadius.circular(AppTheme.radiusL),
-              border: Border.all(color: AppTheme.border),
+              boxShadow: AppTheme.cardShadow,
             ),
             child: Row(children: [
               const SkeletonBox(width: 40, height: 40, radius: 20),

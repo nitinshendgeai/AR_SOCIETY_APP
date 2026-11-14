@@ -34,7 +34,7 @@ class ResidentLoginLink extends ConsumerWidget {
         decoration: BoxDecoration(
           color: AppTheme.surface,
           borderRadius: BorderRadius.circular(AppTheme.radiusM),
-          border: Border.all(color: AppTheme.border),
+          boxShadow: AppTheme.cardShadow,
         ),
         child: Row(children: [
           Icon(id == null ? Icons.link_off_rounded : Icons.link_rounded,

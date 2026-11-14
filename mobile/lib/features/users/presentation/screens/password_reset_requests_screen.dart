@@ -154,7 +154,7 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
             decoration: BoxDecoration(
               color: AppTheme.surface,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.border),
+              boxShadow: AppTheme.cardShadow,
             ),
             child: SelectableText(password,
                 style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w700, fontSize: 18)),
@@ -194,7 +194,7 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.radiusM),
-        border: Border.all(color: AppTheme.border),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [

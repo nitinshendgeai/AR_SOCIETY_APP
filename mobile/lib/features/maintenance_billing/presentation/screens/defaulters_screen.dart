@@ -498,7 +498,7 @@ class _FlatSheet extends StatelessWidget {
         const SizedBox(height: 6),
         Container(
           decoration: BoxDecoration(
-              border: Border.all(color: AppTheme.border), borderRadius: BorderRadius.circular(AppTheme.radiusS)),
+              boxShadow: AppTheme.cardShadow, borderRadius: BorderRadius.circular(AppTheme.radiusS)),
           child: Column(children: [
             for (final (i, b) in f.bills.indexed) ...[
               if (i > 0) const Divider(height: 1),

@@ -11,6 +11,7 @@ import 'package:ar_society_app/features/maintenance_billing/data/maintenance_bil
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart'
     show myBillsProvider;
 import 'package:ar_society_app/shared/widgets/app_status.dart';
+import 'package:ar_society_app/shared/widgets/premium.dart';
 
 /// What a resident owes, first thing on their home screen: the total, how many bills it is spread over, whether any is
 /// overdue, and a button to the bills. Read-only: it shows the figures the bills API already returns and changes none.
@@ -36,8 +37,8 @@ class ResidentDuesCard extends ConsumerWidget {
       padding: const EdgeInsets.all(AppSpacing.l),
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(AppTheme.radiusL),
-        border: Border.all(color: AppTheme.border),
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: bills.when(
         loading: () => const _Loading(),
@@ -62,6 +63,8 @@ class _Loaded extends StatelessWidget {
     final count = summary.openCount;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
+        AccentBadge(icon: Icons.account_balance_wallet_rounded, accent: kAccents[owes ? 3 : 5], size: 36),
+        const SizedBox(width: 10),
         Expanded(
           child: Text(context.tr('Outstanding maintenance'),
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
@@ -75,8 +78,9 @@ class _Loaded extends StatelessWidget {
         child: Text(
           formatRupees(summary.totalOutstanding),
           style: const TextStyle(
-            fontSize: 30,
-            fontWeight: FontWeight.w700,
+            fontSize: 34,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.6,
             color: AppTheme.textPrimary,
             fontFeatures: [FontFeature.tabularFigures()],
           ),

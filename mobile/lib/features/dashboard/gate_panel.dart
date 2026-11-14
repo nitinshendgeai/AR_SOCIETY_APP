@@ -80,6 +80,7 @@ class GatePanel extends ConsumerWidget {
             icon: Icons.person_add_rounded,
             label: context.tr('Log visitor'),
             primary: true,
+            fill: const Color(0xFF0057D9),
             onTap: () => context.push(AppRoutes.visitorsCreate, extra: societyId),
           ),
         ),
@@ -88,6 +89,7 @@ class GatePanel extends ConsumerWidget {
           child: _Action(
             icon: Icons.logout_rounded,
             label: context.tr('Check Out'),
+            fill: kWarningFill,
             onTap: () => context.push(logRoute(societyId, query: 'tab=inside')),
           ),
         ),
@@ -98,6 +100,7 @@ class GatePanel extends ConsumerWidget {
           child: _Action(
             icon: Icons.pin_outlined,
             label: context.tr('Verify code'),
+            fill: const Color(0xFF5B43D6),
             onTap: () => context.push(logRoute(societyId, query: 'verify=1')),
           ),
         ),
@@ -107,6 +110,7 @@ class GatePanel extends ConsumerWidget {
             child: _Action(
               icon: Icons.local_shipping_rounded,
               label: context.tr('Parcels in'),
+              fill: const Color(0xFF0B7A6D),
               onTap: () => context.push(AppRoutes.parcels),
             ),
           ),
@@ -145,8 +149,8 @@ class _Stat extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: AppTheme.cardBg,
-          borderRadius: BorderRadius.circular(AppTheme.radiusM),
-          border: Border.all(color: AppTheme.border),
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+          boxShadow: AppTheme.cardShadow,
         ),
         child: Material(
           type: MaterialType.transparency,
@@ -188,12 +192,15 @@ class _Action extends StatelessWidget {
 
   /// The one thing a guard does most (logging who arrives): solid blue, where the others are quiet.
   final bool primary;
-  const _Action({required this.icon, required this.label, required this.onTap, this.primary = false});
+
+  /// Each action has its own fill (dark enough for white text at 4.5:1), so the four read as different things.
+  final Color fill;
+  const _Action({required this.icon, required this.label, required this.onTap, required this.fill, this.primary = false});
 
   @override
   Widget build(BuildContext context) => SizedBox(
         height: 64,
-        child: (primary ? FilledButton.icon : FilledButton.tonalIcon)(
+        child: FilledButton.icon(
           onPressed: onTap,
           icon: Icon(icon, size: 24),
           // The size is set on the Text, which keeps the button's own (app) font; replacing the button's textStyle would
@@ -204,7 +211,11 @@ class _Action extends StatelessWidget {
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           style: FilledButton.styleFrom(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusM)),
+            backgroundColor: fill,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shadowColor: fill.withOpacity(0.45),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusL)),
           ),
         ),
       );

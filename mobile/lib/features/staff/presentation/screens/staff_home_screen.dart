@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/shared/widgets/premium.dart';
 import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -75,24 +76,16 @@ class StaffHomeScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(20),
             children: [
               // ── Greeting card ─────────────────────────────────────────────
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppTheme.primary, AppTheme.primaryDark],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusL),
-                ),
+              HeroBanner(
                 child: Row(
                   children: [
                     Container(
-                      width: 44,
-                      height: 44,
+                      width: 48,
+                      height: 48,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                        shape: BoxShape.circle,
+                        color: Colors.white.withOpacity(0.18),
+                        border: Border.all(color: Colors.white.withOpacity(0.55), width: 1.5),
                       ),
                       child: const Icon(Icons.person_rounded,
                           color: Colors.white, size: 26),
@@ -106,8 +99,9 @@ class StaffHomeScreen extends ConsumerWidget {
                             context.trf('Hello, {name}', {'name': user?.fullName.split(' ').first ?? context.tr('Staff')}),
                             style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700),
+                                fontSize: 20,
+                                letterSpacing: -0.3,
+                                fontWeight: FontWeight.w800),
                           ),
                           Text(
                             managerOnly
@@ -414,20 +408,12 @@ class _ModuleCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppTheme.cardBg,
             borderRadius: BorderRadius.circular(AppTheme.radiusL),
-            border: Border.all(color: AppTheme.border),
+            boxShadow: AppTheme.cardShadow,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusM),
-                ),
-                child: Icon(icon, color: color, size: 22),
-              ),
+              AccentBadge(icon: icon, accent: accentFor(label), size: 44),
               const Spacer(),
               Text(context.tr(label),
                   style: const TextStyle(

@@ -366,7 +366,7 @@ class _TypingState extends State<_Typing> with SingleTickerProviderStateMixin {
               decoration: BoxDecoration(
                 color: AppTheme.cardBg,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.border),
+                boxShadow: AppTheme.cardShadow,
               ),
               child: AnimatedBuilder(
                 animation: _c,

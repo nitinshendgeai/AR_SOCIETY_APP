@@ -93,9 +93,11 @@ class AppTheme {
 
   /// Buttons rise a little under the pointer and settle when pressed, so they feel like something you can push.
   static final WidgetStateProperty<double> _liftOnHover = WidgetStateProperty.resolveWith((states) {
-    if (states.contains(WidgetState.disabled) || states.contains(WidgetState.pressed)) return 0;
-    if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) return 3;
-    return 0;
+    if (states.contains(WidgetState.disabled)) return 0;
+    if (states.contains(WidgetState.pressed)) return 1;
+    if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) return 5;
+    // At rest the button already floats a little, with a soft glow in the brand colour.
+    return 3;
   });
 
   static ThemeData get lightTheme {
@@ -295,7 +297,8 @@ class AppTheme {
       cardTheme: CardThemeData(
         color: cardBg,
         surfaceTintColor: Colors.transparent,
-        elevation: 0,
+        elevation: 2,
+        shadowColor: const Color(0x331C1C1E),
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusL)),
       ),

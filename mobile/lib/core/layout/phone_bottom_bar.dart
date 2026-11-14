@@ -58,10 +58,17 @@ class PhoneBottomBar extends ConsumerWidget {
       return badge > 0 ? Badge(label: Text('$badge'), child: base) : base;
     }
 
-    return NavigationBar(
-      height: 64,
-      backgroundColor: AppTheme.cardBg,
-      indicatorColor: AppTheme.primary.withOpacity(0.12),
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppTheme.cardBg,
+        boxShadow: [BoxShadow(color: Color(0x1A1C1C1E), blurRadius: 20, offset: Offset(0, -4))],
+      ),
+      child: NavigationBar(
+      height: 68,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      indicatorColor: AppTheme.primary.withOpacity(0.14),
+      indicatorShape: const StadiumBorder(),
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       // A page that is none of the tabs (reached through More) lights More.
       selectedIndex: active ?? tabs.length,
@@ -81,6 +88,7 @@ class PhoneBottomBar extends ConsumerWidget {
           ),
         NavigationDestination(icon: const Icon(Icons.menu_rounded), label: context.tr('More')),
       ],
+      ),
     );
   }
 }
