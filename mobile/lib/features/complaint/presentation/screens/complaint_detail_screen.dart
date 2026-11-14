@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -115,8 +116,7 @@ class _CommentTile extends StatelessWidget {
                     color: AppTheme.warning.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text(
-                    'Internal',
+                  child: Text(context.tr('Internal'),
                     style: TextStyle(
                       fontSize: 10,
                       color: AppTheme.warning,
@@ -413,11 +413,10 @@ class _ComplaintDetailScreenState
                 ),
                 const SizedBox(height: 10),
                 if (complaint.comments.isEmpty)
-                  const Center(
+                  Center(
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Text(
-                        'No comments yet',
+                      child: Text(context.tr('No comments yet'),
                         style: TextStyle(
                           color: AppTheme.textSecondary,
                           fontSize: 13,
@@ -451,8 +450,8 @@ class _ComplaintDetailScreenState
                   child: TextField(
                     controller: _commentCtrl,
                     inputFormatters: [LengthLimitingTextInputFormatter(2000)],
-                    decoration: const InputDecoration(
-                      hintText: 'Add a comment...',
+                    decoration: InputDecoration(
+                      hintText: context.tr('Add a comment...'),
                       contentPadding:
                           EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
@@ -644,7 +643,7 @@ Future<void> _openStatusDialog(
         )),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(context.tr('Cancel'))),
         ElevatedButton(
           style: target == ComplaintStatus.rejected
               ? ElevatedButton.styleFrom(backgroundColor: AppTheme.error)
@@ -678,7 +677,7 @@ Future<void> _openReopenDialog(
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('Reopen Complaint?'),
+      title: Text(context.tr('Reopen Complaint?')),
       content: Form(
         key: formKey,
         child: FormFieldBox(label: 'Reason', required: true, child: TextFormField(
@@ -691,12 +690,12 @@ Future<void> _openReopenDialog(
         )),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(context.tr('Cancel'))),
         ElevatedButton(
           onPressed: () {
             if (formKey.currentState?.validate() ?? true) Navigator.pop(ctx, true);
           },
-          child: const Text('Reopen'),
+          child: Text(context.tr('Reopen')),
         ),
       ],
     ),
@@ -780,10 +779,9 @@ class _AssignSheetBodyState extends ConsumerState<_AssignSheetBody> {
                   child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
                 )
               else if (assignable.isEmpty)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'No staff with a login account are available to assign yet.',
+                  child: Text(context.tr('No staff with a login account are available to assign yet.'),
                     style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                   ),
                 )
@@ -791,7 +789,7 @@ class _AssignSheetBodyState extends ConsumerState<_AssignSheetBody> {
                 FormFieldBox(label: 'Assign to', required: true, child: DropdownButtonFormField<String>(
                   value: _selectedUserId,
                   decoration: const InputDecoration(),
-                  hint: const Text('Select staff member'),
+                  hint: Text(context.tr('Select staff member')),
                   items: assignable
                       .map((s) => DropdownMenuItem(
                             value: s.userId,

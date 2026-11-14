@@ -10,6 +10,7 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart' show myFormCodesProvider;
 import 'package:ar_society_app/shared/widgets/app_form.dart' show AppPage;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart' show AppEmptyState, AppErrorState;
+import 'package:ar_society_app/shared/widgets/premium.dart';
 
 /// One of the managers' phone tabs (Operations, Finance, People): the screens the person is granted in that area, as
 /// large tiles under their menu group, with a search box that narrows them. It lists screens that already exist and
@@ -77,7 +78,7 @@ class _MenuHubScreenState extends ConsumerState<MenuHubScreen> {
                           padding: const EdgeInsets.only(top: AppSpacing.s, bottom: AppSpacing.s),
                           child: Semantics(
                             header: true,
-                            child: Text(context.tr(g.label), style: Theme.of(context).textTheme.titleSmall),
+                            child: SectionHeading(context.tr(g.label)),
                           ),
                         ),
                         _Tiles([for (final i in g.items) if (i.route != null) i]),
@@ -102,7 +103,7 @@ class _Tiles extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 190,
-        mainAxisExtent: 92,
+        mainAxisExtent: 104,
         crossAxisSpacing: AppSpacing.s,
         mainAxisSpacing: AppSpacing.s,
       ),
@@ -114,7 +115,7 @@ class _Tiles extends StatelessWidget {
         return Container(
           decoration: BoxDecoration(
             color: AppTheme.cardBg,
-            borderRadius: BorderRadius.circular(AppTheme.radiusM),
+            borderRadius: BorderRadius.circular(AppTheme.radiusL),
             boxShadow: AppTheme.cardShadow,
           ),
           child: Material(
@@ -125,7 +126,7 @@ class _Tiles extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.m),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Icon(item.icon, color: AppTheme.primary, size: 26),
+                AccentBadge(icon: item.icon, accent: accentFor(item.label), size: 38),
                 Text(context.tr(item.label),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,

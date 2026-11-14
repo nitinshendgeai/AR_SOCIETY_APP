@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -103,7 +104,7 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
                 controller: _nameCtrl,
                 inputFormatters: [LengthLimitingTextInputFormatter(255)],
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(hintText: 'Full name of the visitor'),
+                decoration: InputDecoration(hintText: context.tr('Full name of the visitor')),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Name is required' : null,
               ),
             ),
@@ -161,11 +162,11 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
               required: true,
               child: ref.watch(wingsProvider).when(
                     loading: () => const LinearProgressIndicator(minHeight: 2),
-                    error: (_, __) => const Text('Could not load wings', style: TextStyle(color: AppTheme.error)),
+                    error: (_, __) => Text(context.tr('Could not load wings'), style: TextStyle(color: AppTheme.error)),
                     data: (wings) => DropdownButtonFormField<String>(
                 isExpanded: true,
                       value: _wingId,
-                      hint: const Text('Select wing'),
+                      hint: Text(context.tr('Select wing')),
                       items: wings.map((w) => DropdownMenuItem(value: w.id, child: Text(w.displayName))).toList(),
                       onChanged: (v) => setState(() {
                         _wingId = v;
@@ -181,14 +182,14 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
               child: _wingId == null
                   ? DropdownButtonFormField<String>(
                 isExpanded: true,
-                      hint: const Text('Select a wing first'),
+                      hint: Text(context.tr('Select a wing first')),
                       items: const [],
                       onChanged: null,
                       validator: (_) => 'Flat is required',
                     )
                   : ref.watch(flatsByWingProvider(_wingId!)).when(
                         loading: () => const LinearProgressIndicator(minHeight: 2),
-                        error: (_, __) => const Text('Could not load flats', style: TextStyle(color: AppTheme.error)),
+                        error: (_, __) => Text(context.tr('Could not load flats'), style: TextStyle(color: AppTheme.error)),
                         data: (flats) => DropdownButtonFormField<String>(
                 isExpanded: true,
                           key: ValueKey(_wingId),
@@ -255,8 +256,8 @@ class _CreateVisitorScreenState extends ConsumerState<CreateVisitorScreen> {
           await showGatePass(context, data);
           if (!mounted) return;
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Visitor logged successfully'),
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(context.tr('Visitor logged successfully')),
             backgroundColor: AppTheme.success,
             behavior: SnackBarBehavior.floating,
           ));

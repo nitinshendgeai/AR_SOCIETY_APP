@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -48,7 +49,7 @@ class _NoticeDetailScreenState extends ConsumerState<NoticeDetailScreen> {
           title: Text(title),
           content: Text(body),
           actions: [
-            TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(context.tr('Cancel'))),
             FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(yes)),
           ],
         ),
@@ -107,15 +108,15 @@ class _NoticeDetailScreenState extends ConsumerState<NoticeDetailScreen> {
               // The reader's side
               if (n.isPublished && !writer && n.ackRequired)
                 n.acknowledged == true
-                    ? const Row(children: [
+                    ? Row(children: [
                         Icon(Icons.check_circle_rounded, color: AppTheme.success),
                         SizedBox(width: 8),
-                        Text('You have confirmed you have read this', style: TextStyle(fontWeight: FontWeight.w600)),
+                        Text(context.tr('You have confirmed you have read this'), style: TextStyle(fontWeight: FontWeight.w600)),
                       ])
                     : FilledButton.icon(
                         onPressed: _busy ? null : () => _run(() => api.acknowledge(n.id), done: 'Thank you'),
                         icon: const Icon(Icons.done_all_rounded, size: 18),
-                        label: const Text('I have read this'),
+                        label: Text(context.tr('I have read this')),
                       ),
 
               // The committee's side
@@ -132,7 +133,7 @@ class _NoticeDetailScreenState extends ConsumerState<NoticeDetailScreen> {
                                 if (mounted) AppToast.success(context, 'Published to ${p.totalAudience} ${p.totalAudience == 1 ? 'person' : 'people'}');
                               }),
                       icon: const Icon(Icons.send_rounded, size: 18),
-                      label: const Text('Publish'),
+                      label: Text(context.tr('Publish')),
                     ),
                     OutlinedButton.icon(
                       onPressed: _busy
@@ -143,7 +144,7 @@ class _NoticeDetailScreenState extends ConsumerState<NoticeDetailScreen> {
                               if (mounted) context.canPop() ? context.pop() : context.go(AppRoutes.notices);
                             },
                       icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                      label: const Text('Delete draft'),
+                      label: Text(context.tr('Delete draft')),
                     ),
                   ],
                   if (n.isPublished)
@@ -155,7 +156,7 @@ class _NoticeDetailScreenState extends ConsumerState<NoticeDetailScreen> {
                               await _run(() => api.archive(n.id), done: 'Notice archived');
                             },
                       icon: const Icon(Icons.inventory_2_outlined, size: 18),
-                      label: const Text('Archive'),
+                      label: Text(context.tr('Archive')),
                     ),
                 ]),
                 if (n.isPublished) ...[
@@ -216,7 +217,7 @@ class _AckSection extends ConsumerWidget {
         decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM), boxShadow: AppTheme.cardShadow),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const Expanded(child: Text('Who has read it', style: TextStyle(fontWeight: FontWeight.w700))),
+            Expanded(child: Text(context.tr('Who has read it'), style: TextStyle(fontWeight: FontWeight.w700))),
             Text('${r.acknowledged} of ${r.total} (${r.ratePct.toStringAsFixed(r.ratePct % 1 == 0 ? 0 : 1)}%)',
                 style: const TextStyle(fontWeight: FontWeight.w600)),
           ]),

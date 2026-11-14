@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -99,7 +100,7 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
     final reason = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cancel this bill?'),
+        title: Text(context.tr('Cancel this bill?')),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           Text('${bill.flatLabel} · ${formatRupees(bill.totalAmount)}\n'
               'The amount is removed from the flat\'s dues.'),
@@ -111,13 +112,13 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
           )),
         ]),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Keep Bill')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(context.tr('Keep Bill'))),
           TextButton(
             style: TextButton.styleFrom(foregroundColor: AppTheme.error),
             onPressed: () {
               if (reasonCtrl.text.trim().isNotEmpty) Navigator.pop(ctx, reasonCtrl.text.trim());
             },
-            child: const Text('Cancel Bill'),
+            child: Text(context.tr('Cancel Bill')),
           ),
         ],
       ),
@@ -183,9 +184,9 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
               _Section(
                 title: 'Payments',
                 child: bill.payments.isEmpty
-                    ? const Padding(
+                    ? Padding(
                         padding: EdgeInsets.symmetric(vertical: 8),
-                        child: Text('No payments recorded yet',
+                        child: Text(context.tr('No payments recorded yet'),
                             style: TextStyle(color: AppTheme.textSecondary)),
                       )
                     : Column(children: [
@@ -221,8 +222,7 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
               ],
               if (!widget.canManage && bill.canRecordPayment) ...[
                 const SizedBox(height: 16),
-                const Text(
-                  'Pay the society, then tell the office. Your bill updates here once they have checked the payment.',
+                Text(context.tr('Pay the society, then tell the office. Your bill updates here once they have checked the payment.'),
                   style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),
                 const SizedBox(height: 8),
@@ -231,7 +231,7 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
                     child: ElevatedButton.icon(
                       onPressed: () => showHowToPaySheet(context, bill: bill),
                       icon: const Icon(Icons.payments_rounded, size: 18),
-                      label: const Text('Pay this bill'),
+                      label: Text(context.tr('Pay this bill')),
                     ),
                   ),
                 ]),
@@ -250,18 +250,18 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
         OutlinedButton(
           style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error),
           onPressed: _busy ? null : () => _cancel(bill),
-          child: const Text('Cancel Bill'),
+          child: Text(context.tr('Cancel Bill')),
         ),
       if (bill.isGenerated)
         ElevatedButton(
           onPressed: _busy ? null : () => _run(bill,
               () => ref.read(maintenanceBillingApiProvider).issueBill(bill.id), 'Bill issued'),
-          child: const Text('Issue Bill'),
+          child: Text(context.tr('Issue Bill')),
         )
       else if (bill.canRecordPayment)
         ElevatedButton(
           onPressed: _busy ? null : () => _recordPayment(bill),
-          child: const Text('Record Payment'),
+          child: Text(context.tr('Record Payment')),
         ),
     ];
     if (buttons.isEmpty) return null;

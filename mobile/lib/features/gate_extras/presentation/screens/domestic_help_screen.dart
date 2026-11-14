@@ -65,7 +65,7 @@ class _DomesticHelpScreenState extends ConsumerState<DomesticHelpScreen> {
         error: (e, _) => Center(
             child: OutlinedButton(
                 onPressed: () => ref.invalidate(domesticHelpProvider(sid)),
-                child: const Text('Could not load. Try again'))),
+                child: Text(context.tr('Could not load. Try again')))),
         data: (all) {
           final q = _q.trim().toLowerCase();
           final items = q.isEmpty
@@ -94,9 +94,9 @@ class _DomesticHelpScreenState extends ConsumerState<DomesticHelpScreen> {
                     child: TextField(
                       controller: _search,
                       onChanged: (v) => setState(() => _q = v),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                           prefixIcon: Icon(Icons.search_rounded),
-                          hintText: 'Search name, mobile or pass number'),
+                          hintText: context.tr('Search name, mobile or pass number')),
                     ),
                   ),
                 if (items.isEmpty)
@@ -191,12 +191,12 @@ class _HelpCard extends ConsumerWidget {
                         style: const TextStyle(
                             fontSize: 13, color: AppTheme.textSecondary)),
                     if (h.inside)
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.only(top: 6),
                         child: Row(children: [
                           Icon(Icons.circle, size: 9, color: AppTheme.success),
                           SizedBox(width: 6),
-                          Text('Inside now',
+                          Text(context.tr('Inside now'),
                               style: TextStyle(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w600,
@@ -311,7 +311,7 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
         _line('Works in', h.flats.map((f) => f.label).join(', ')),
         _line('Note', h.note),
         const SizedBox(height: 4),
-        const Text('Last 30 days',
+        Text(context.tr('Last 30 days'),
             style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -326,7 +326,7 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
             }
             final list = snap.data!.take(8).toList();
             if (list.isEmpty) {
-              return const Text('No visits recorded yet.',
+              return Text(context.tr('No visits recorded yet.'),
                   style:
                       TextStyle(fontSize: 13, color: AppTheme.textSecondary));
             }
@@ -371,7 +371,7 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
                   onPressed: _busy
                       ? null
                       : () => _do((api) => api.renew(h.id), 'Pass renewed'),
-                  child: const Text('Renew for a year')),
+                  child: Text(context.tr('Renew for a year'))),
             ),
           if (h.status == 'active')
             Padding(
@@ -393,7 +393,7 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
                       ? null
                       : () =>
                           _do((api) => api.approve(h.id), 'Pass active again'),
-                  child: const Text('Activate again')),
+                  child: Text(context.tr('Activate again'))),
             ),
         ] else if (!widget.gate && h.flats.isNotEmpty)
           Padding(
@@ -404,7 +404,7 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
                     : () => _do(
                         (api) => api.removeFlat(h.id, h.flats.first.flatId),
                         'Removed from your flat'),
-                child: const Text('Stop coming to my flat')),
+                child: Text(context.tr('Stop coming to my flat'))),
           ),
       ]),
     );

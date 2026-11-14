@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -86,8 +87,8 @@ class _CreateComplaintScreenState
     switch (result) {
       case ComplaintSuccess():
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Complaint raised successfully'),
+          SnackBar(
+            content: Text(context.tr('Complaint raised successfully')),
             backgroundColor: AppTheme.success,
             behavior: SnackBarBehavior.floating,
           ),
@@ -128,7 +129,7 @@ class _CreateComplaintScreenState
               child: TextFormField(
                 controller: _titleCtrl,
                 inputFormatters: [LengthLimitingTextInputFormatter(255)],
-                decoration: const InputDecoration(hintText: 'Brief description of the issue'),
+                decoration: InputDecoration(hintText: context.tr('Brief description of the issue')),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Title is required' : null,
               ),
             ),
@@ -140,7 +141,7 @@ class _CreateComplaintScreenState
                 maxLines: 5,
                 inputFormatters: [LengthLimitingTextInputFormatter(5000)],
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Description is required' : null,
-                decoration: const InputDecoration(hintText: 'Describe the issue in detail…'),
+                decoration: InputDecoration(hintText: context.tr('Describe the issue in detail…')),
               ),
             ),
           ],
@@ -155,7 +156,7 @@ class _CreateComplaintScreenState
               child: DropdownButtonFormField<ComplaintCategory>(
                 isExpanded: true,
                 value: _selectedCategory,
-                hint: const Text('Select a category'),
+                hint: Text(context.tr('Select a category')),
                 items: ComplaintCategory.values.map((c) => DropdownMenuItem(value: c, child: Text(c.label))).toList(),
                 onChanged: (v) => setState(() {
                   _selectedCategory = v;
@@ -197,8 +198,7 @@ class _CreateComplaintScreenState
                     error: (_, __) => const SizedBox.shrink(),
                     data: (resident) {
                       if (resident == null) {
-                        return const Text(
-                          'No flat is linked to your account yet — contact your society admin.',
+                        return Text(context.tr('No flat is linked to your account yet — contact your society admin.'),
                           style: TextStyle(color: AppTheme.error, fontSize: 12),
                         );
                       }
@@ -206,7 +206,7 @@ class _CreateComplaintScreenState
                       return InputDecorator(
                         decoration: const InputDecoration(),
                         child: flatAsync.when(
-                          loading: () => const Text('Loading...'),
+                          loading: () => Text(context.tr('Loading...')),
                           error: (_, __) => Text(resident.flatId),
                           data: (flat) => Text('${flat.wingName ?? ''} / ${flat.flatNumber}'.trim(),
                               style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -226,7 +226,7 @@ class _CreateComplaintScreenState
                   data: (wings) => DropdownButtonFormField<String>(
                 isExpanded: true,
                     value: _selectedWingId,
-                    hint: const Text('Select wing (optional)'),
+                    hint: Text(context.tr('Select wing (optional)')),
                     items: wings.map((w) => DropdownMenuItem(value: w.id, child: Text(w.displayName))).toList(),
                     onChanged: (v) => setState(() {
                       _selectedWingId = v;
@@ -246,7 +246,7 @@ class _CreateComplaintScreenState
                       data: (flats) => DropdownButtonFormField<String>(
                 isExpanded: true,
                         value: _selectedFlatId,
-                        hint: const Text('Select flat number'),
+                        hint: Text(context.tr('Select flat number')),
                         items: flats.map((f) => DropdownMenuItem(value: f.id, child: Text(f.flatNumber))).toList(),
                         onChanged: (v) => setState(() => _selectedFlatId = v),
                       ),

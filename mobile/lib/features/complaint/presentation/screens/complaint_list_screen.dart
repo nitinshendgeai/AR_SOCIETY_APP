@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -266,7 +267,7 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
               backgroundColor: AppTheme.primary,
               foregroundColor: Colors.white,
               icon: const Icon(Icons.add_rounded),
-              label: const Text('New Complaint'),
+              label: Text(context.tr('New Complaint')),
             ),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -302,7 +303,7 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
               isDense: true,
               decoration: const InputDecoration(),
               items: [
-                const DropdownMenuItem(value: null, child: Text('All statuses')),
+                DropdownMenuItem(value: null, child: Text(context.tr('All statuses'))),
                 for (final st in ComplaintStatus.values) DropdownMenuItem(value: st, child: Text(st.label)),
               ],
               onChanged: (v) => setState(() => _statusFilter = v),

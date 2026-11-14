@@ -47,7 +47,7 @@ class ParcelsScreen extends ConsumerWidget {
         error: (e, _) => Center(
             child: OutlinedButton(
                 onPressed: () => ref.invalidate(parcelsProvider(sid)),
-                child: const Text('Could not load. Try again'))),
+                child: Text(context.tr('Could not load. Try again')))),
         data: (items) {
           if (items.isEmpty) {
             return AppEmptyState(
@@ -96,17 +96,17 @@ class _ParcelCard extends ConsumerWidget {
     final ok = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-              title: const Text('Hand over this parcel?'),
+              title: Text(context.tr('Hand over this parcel?')),
               content: gate
                   ? FormFieldBox(label: 'Who collected it?', child: TextField(
                       controller: name,
                       decoration:
                           const InputDecoration()))
-                  : const Text('Mark it as collected by you.'),
+                  : Text(context.tr('Mark it as collected by you.')),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('Cancel')),
+                    child: Text(context.tr('Cancel'))),
                 FilledButton(
                     onPressed: () => Navigator.pop(ctx, true),
                     child: Text(context.tr('Collected'))),
@@ -128,14 +128,14 @@ class _ParcelCard extends ConsumerWidget {
     final ok = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-              title: const Text('Return to the courier?'),
+              title: Text(context.tr('Return to the courier?')),
               content: FormFieldBox(label: 'Reason', child: TextField(
                   controller: note,
                   decoration: const InputDecoration())),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('Cancel')),
+                    child: Text(context.tr('Cancel'))),
                 FilledButton(
                     onPressed: () => Navigator.pop(ctx, true),
                     child: Text(context.tr('Return'))),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
@@ -19,7 +20,7 @@ Future<void> showHowToPaySheet(BuildContext context, {MaintenanceBill? bill}) =>
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const Text('How to pay', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            Text(context.tr('How to pay'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
             Text(
               bill == null
@@ -37,7 +38,7 @@ Future<void> showHowToPaySheet(BuildContext context, {MaintenanceBill? bill}) =>
                 openClaimPayment(context, bill: bill);
               },
               icon: const Icon(Icons.check_circle_outline_rounded),
-              label: const Text('I have paid'),
+              label: Text(context.tr('I have paid')),
             ),
           ]),
         ),
@@ -143,9 +144,9 @@ class PaymentClaimsStrip extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(bottom: 8),
-          child: Text('Payments you reported',
+          child: Text(context.tr('Payments you reported'),
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
         ),
         for (final c in open) _ClaimTile(c),
