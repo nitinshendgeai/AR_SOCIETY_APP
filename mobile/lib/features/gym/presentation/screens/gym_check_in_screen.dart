@@ -97,19 +97,50 @@ class _GymCheckInScreenState extends ConsumerState<GymCheckInScreen> {
     );
   }
 
+  /// For someone who is not on the list: the family is added by the resident and approved by the office, so the trainer
+  /// can say exactly what to do. Anyone asked for and not yet approved is named.
+  Widget _notListed(GymFlatMembers flat) {
+    return Column(key: const Key('gym-not-listed'), crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (flat.waitingForApproval.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Icon(Icons.hourglass_top_rounded, size: 18, color: AppTheme.warning),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${context.tr('Waiting for the office to approve')}: ${flat.waitingForApproval.join(', ')}',
+                key: const Key('gym-waiting'),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ]),
+        ),
+      if (!flat.letToTenants)
+        Text(
+          context.tr('Not on the list? The resident adds them in My Home (Household, Add family member), and the office approves. They can use the gym after that.'),
+          style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
+        ),
+    ]);
+  }
+
   Widget _members(GymFlatMembers flat) {
     if (flat.members.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
-          child: Text(
-            context.tr(flat.letToTenants
-                ? 'This flat is let to tenants. The gym is for owners and their families.'
-                : 'No members are listed for this flat.'),
-            key: const Key('gym-no-members'),
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: AppTheme.textSecondary),
-          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(
+              context.tr(flat.letToTenants
+                  ? 'This flat is let to tenants. The gym is for owners and their families.'
+                  : 'No members are listed for this flat.'),
+              key: const Key('gym-no-members'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            _notListed(flat),
+          ]),
         ),
       );
     }
@@ -143,6 +174,8 @@ class _GymCheckInScreenState extends ConsumerState<GymCheckInScreen> {
               ),
             ),
           ),
+        const SizedBox(height: 6),
+        _notListed(flat),
       ],
     );
   }

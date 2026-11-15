@@ -17,6 +17,7 @@ from app.models.society import Society
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.wing import Wing
+from app.services.resident_family_request_service import FamilyRequestService
 from app.modules.gym.models.gym import GymVisit
 from app.utils.local_time import iso_utc, local_to_utc_naive, local_today, to_local, zone
 
@@ -82,6 +83,8 @@ class GymService:
         let_to_tenants = bool(self.db.query(Tenant.id).filter(Tenant.flat_id == flat.id, Tenant.is_active == True).first())  # noqa: E712
         return {
             "flat_id": str(flat.id), "flat_label": flat_label(flat), "let_to_tenants": let_to_tenants,
+            # Family asked for by the resident and not yet approved by the office: not on the list, so not offered.
+            "waiting_for_approval": FamilyRequestService.waiting_names(self.db, self.society_id, flat.id),
             "members": [{
                 "resident_id": str(r.id), "name": r.full_name,
                 "member_type": r.resident_type.value if hasattr(r.resident_type, "value") else str(r.resident_type),

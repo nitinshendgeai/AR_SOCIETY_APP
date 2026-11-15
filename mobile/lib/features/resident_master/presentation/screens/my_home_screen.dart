@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
+import 'package:ar_society_app/features/resident_master/data/family_requests_api.dart';
+import 'package:ar_society_app/features/resident_master/presentation/widgets/family_request_sheet.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
@@ -128,6 +131,15 @@ class _Body extends ConsumerWidget {
           const SizedBox(height: 12),
           RmSection(
             title: 'Household',
+            // Only an owner or co-owner may ask to add a family member; the office approves each one.
+            trailing: _canAddFamily(me)
+                ? TextButton.icon(
+                    key: const Key('add-family'),
+                    onPressed: () => showFamilyRequestSheet(context, flatId: me.flatId),
+                    icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                    label: Text(context.tr('Add family member')),
+                  )
+                : null,
             children: [
               household.when(
                 loading: () => const LinearProgressIndicator(),
@@ -159,9 +171,14 @@ class _Body extends ConsumerWidget {
                   ]);
                 },
               ),
+              _FamilyRequests(flatId: me.flatId),
               const SizedBox(height: 6),
-              const Text('To add or remove someone, ask the society office.',
-                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              Text(
+                context.tr(_canAddFamily(me)
+                    ? 'New family members are added once the society office approves. To remove someone, ask the office.'
+                    : 'To add or remove someone, ask the society office.'),
+                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -213,6 +230,46 @@ class _Body extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+bool _canAddFamily(ResidentModel me) => me.residentType == ResidentType.owner || me.residentType == ResidentType.coOwner;
+
+/// What the resident has asked for and the office has not approved yet (and any the office turned down, with why).
+class _FamilyRequests extends ConsumerWidget {
+  final String flatId;
+  const _FamilyRequests({required this.flatId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mine = (ref.watch(myFamilyRequestsProvider).valueOrNull ?? const <FamilyRequest>[])
+        .where((r) => r.flatId == flatId && (r.isPending || r.isRejected))
+        .take(6)
+        .toList();
+    if (mine.isEmpty) return const SizedBox.shrink();
+    return Column(key: const Key('family-requests'), crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const SizedBox(height: 8),
+      for (final r in mine)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(r.isPending ? Icons.hourglass_top_rounded : Icons.block_rounded,
+                size: 18, color: r.isPending ? AppTheme.warning : AppTheme.error),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(r.fullName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                Text(
+                  r.isPending
+                      ? '${context.tr(r.typeLabel)} · ${context.tr('Waiting for the office to approve')}'
+                      : '${context.tr('Not approved')}: ${r.rejectionReason ?? ''}',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+    ]);
   }
 }
 

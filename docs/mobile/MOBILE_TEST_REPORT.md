@@ -145,3 +145,14 @@ Lesson recorded: the test renderer draws every shadow as a hard band, so shadows
 | Found by the tests: a member row's tap ripple was hidden under its white box (a list tile inside a coloured box) | fixed with a transparent Material; recorded in the design notes as pitfall 1 | fixed |
 | Layout | rendered at 411 dp; icons not drawn in the harness | PASS (layout), **real device NOT VERIFIED** |
 | Production | the merge deploys migration `a1c3e5b7d9f1` (a new table and a screen grant); not run against a real database here, only in the SQLite tests and in CI's PostgreSQL migration job | CONDITIONAL PASS until CI's migration job passes |
+
+### Family members added by residents, approved by the office (15 Nov)
+| Item | Evidence | Rating |
+|---|---|---|
+| Only an owner or co-owner can ask; a family member, tenant or trainer cannot; only family or dependent can be asked for; duplicates (already listed, already waiting, case and spacing ignored) and more than 10 waiting are refused; bad names, mobile and birth dates are refused | backend `test_family_requests.py` (18); removing the owner check on purpose made the owner test fail | PASS |
+| Nothing is on the Residents list or in the gym's book until approved; approving adds a Family or Dependent (no app login), reviewing twice or approving a name the office has since added is refused; reject needs a reason | same file | PASS |
+| Only the Admin and committee can review (Manager, residents, trainer, tenant get 403); another society sees nothing and cannot approve | same file | PASS |
+| The admin dashboard's pending-changes count includes these requests | same file | PASS |
+| App: My Home button only for owner and co-owner, request sent to the right flat, waiting and rejected shown (with why), server refusal shown with the form kept; office list with Approve and Reject (reason required); gym desk names the waiting and explains what to do (and says nothing of the kind for a let flat) | `family_requests_test.dart` (9), `gym_test.dart` | PASS |
+| Found by rendering: the Add form was drawn without its sheet (fields floating over the page) because it did not use `AppSheetFrame` | fixed; a test now requires the frame | fixed |
+| Production | the merge deploys migration `b2d4f6a8c0e2` (a new table, nothing altered); CI's PostgreSQL migration job applies it | CONDITIONAL PASS until CI passes |

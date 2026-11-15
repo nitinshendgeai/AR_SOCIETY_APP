@@ -34,13 +34,23 @@ class GymFlatMembers {
   final String flatLabel;
   final bool letToTenants;
   final List<GymMember> members;
-  const GymFlatMembers({required this.flatId, required this.flatLabel, required this.letToTenants, required this.members});
+
+  /// Family the resident has asked to add that the office has not approved yet: not on the list, so not offered.
+  final List<String> waitingForApproval;
+  const GymFlatMembers({
+    required this.flatId,
+    required this.flatLabel,
+    required this.letToTenants,
+    required this.members,
+    this.waitingForApproval = const [],
+  });
 
   factory GymFlatMembers.fromJson(Map<String, dynamic> j) => GymFlatMembers(
         flatId: j['flat_id'] as String,
         flatLabel: j['flat_label'] as String,
         letToTenants: j['let_to_tenants'] == true,
         members: [for (final m in (j['members'] as List? ?? const [])) GymMember.fromJson(m as Map<String, dynamic>)],
+        waitingForApproval: [for (final n in (j['waiting_for_approval'] as List? ?? const [])) n as String],
       );
 }
 

@@ -12,6 +12,8 @@ from app.schemas.resident_edit_request import (
 from app.services.resident_login_status import NEEDS_ATTENTION, resident_login_status
 from app.services.resident_service import ResidentService
 from app.services.resident_edit_request_service import ResidentEditRequestService
+from app.services.resident_family_request_service import FamilyRequestService
+from app.schemas.resident_family_request import FamilyRequestCreate, FamilyRequestOut, FamilyRequestReject
 from app.core.dependencies import require_admin_committee, get_current_user
 from app.core.privacy import RESIDENT_PRIVATE_FIELDS, hide_private
 from app.models.user import User
@@ -138,3 +140,35 @@ def approve_edit_request(request_id: UUID, db: Session = Depends(get_db),
 def reject_edit_request(request_id: UUID, data: ResidentEditRequestReject, db: Session = Depends(get_db),
                          current_user: User = Depends(require_admin_committee)):
     return ResidentEditRequestService(db).reject(request_id, data.reason, current_user)
+
+
+# ── Adding family members: the resident asks, the Admin or committee approves ────────────────────────────────────
+
+@router.post("/family-requests", response_model=FamilyRequestOut, status_code=201)
+def create_family_request(data: FamilyRequestCreate, db: Session = Depends(get_db),
+                          current_user: User = Depends(get_current_user)):
+    """An owner or co-owner asks to add a family member or dependent to their flat. Nothing is added until it is approved."""
+    return FamilyRequestService(db).create(data, current_user)
+
+
+@router.get("/family-requests/mine", response_model=List[FamilyRequestOut])
+def list_my_family_requests(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return FamilyRequestService(db).list_mine(current_user)
+
+
+@router.get("/family-requests/pending", response_model=List[FamilyRequestOut])
+def list_pending_family_requests(db: Session = Depends(get_db), current_user: User = Depends(require_admin_committee)):
+    return FamilyRequestService(db).list_pending(current_user.society_id)
+
+
+@router.post("/family-requests/{request_id}/approve", response_model=FamilyRequestOut)
+def approve_family_request(request_id: UUID, db: Session = Depends(get_db),
+                           current_user: User = Depends(require_admin_committee)):
+    """Adds the person to the Residents list as Family or Dependent."""
+    return FamilyRequestService(db).approve(request_id, current_user)
+
+
+@router.post("/family-requests/{request_id}/reject", response_model=FamilyRequestOut)
+def reject_family_request(request_id: UUID, data: FamilyRequestReject, db: Session = Depends(get_db),
+                          current_user: User = Depends(require_admin_committee)):
+    return FamilyRequestService(db).reject(request_id, data.reason, current_user)
