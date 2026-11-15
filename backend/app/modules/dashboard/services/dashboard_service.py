@@ -21,6 +21,7 @@ from app.models.flat import Flat, OccupancyStatus
 from app.models.password_reset_request import PasswordResetRequest, PasswordResetStatus
 from app.models.resident import Resident
 from app.models.resident_edit_request import ResidentEditRequest, ResidentEditRequestStatus
+from app.models.resident_family_request import PENDING as FAMILY_PENDING, ResidentFamilyRequest
 from app.models.society import Society
 from app.models.wing import Wing
 from app.modules.accounts.services.accounts_service import AccountsService, dr_cr
@@ -188,9 +189,13 @@ class DashboardService:
                        AgreementTracker.end_date <= in_30).all())
         add("agreements_expired", sum(1 for a in agr if a.end_date < today), "high")
         add("agreements_expiring", sum(1 for a in agr if a.end_date >= today), "medium")
+        # Profile edits and new family members both wait on the same office screen, so both count here.
         add("resident_changes", db.query(func.count(ResidentEditRequest.id)).filter(
             ResidentEditRequest.society_id == society_id,
-            ResidentEditRequest.status == ResidentEditRequestStatus.PENDING).scalar(), "medium")
+            ResidentEditRequest.status == ResidentEditRequestStatus.PENDING).scalar()
+            + db.query(func.count(ResidentFamilyRequest.id)).filter(
+            ResidentFamilyRequest.society_id == society_id,
+            ResidentFamilyRequest.status == FAMILY_PENDING).scalar(), "medium")
         add("password_resets", db.query(func.count(PasswordResetRequest.id)).filter(
             PasswordResetRequest.society_id == society_id,
             PasswordResetRequest.status == PasswordResetStatus.PENDING).scalar(), "medium")

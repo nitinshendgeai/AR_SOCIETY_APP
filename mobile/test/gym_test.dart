@@ -301,6 +301,30 @@ void main() {
       await _pickFlat(t, 'B', '202');
       expect(find.byKey(const Key('gym-no-members')), findsOneWidget);
       expect(find.text('This flat is let to tenants. The gym is for owners and their families.'), findsOneWidget);
+      expect(find.textContaining('Not on the list?'), findsNothing);              // no way to "add" someone to a let flat
+    });
+
+    testWidgets('someone the resident has asked for but the office has not approved is named, not offered, and the trainer is told what to do', (t) async {
+      await open(t, flats: {
+        'f1': GymFlatMembers(flatId: 'f1', flatLabel: 'A-101', letToTenants: false, waitingForApproval: const ['Neel Rao', 'Tia Rao'], members: [
+          _member('r1', 'Asha Rao', 'owner'),
+        ]),
+      });
+      await _pickFlat(t, 'A', '101');
+      expect(find.byKey(const Key('gym-waiting')), findsOneWidget);
+      expect(find.text('Waiting for the office to approve: Neel Rao, Tia Rao'), findsOneWidget);
+      expect(find.byKey(const Key('gym-member-r1')), findsOneWidget);
+      expect(find.byType(CheckboxListTile), findsOneWidget);                       // only the approved member can be ticked
+      expect(find.textContaining('Not on the list?'), findsOneWidget);
+      expect(find.textContaining('Add family member'), findsOneWidget);
+    });
+
+    testWidgets('a flat with nobody listed still says how to get someone on the list', (t) async {
+      await open(t, flats: {'f1': const GymFlatMembers(flatId: 'f1', flatLabel: 'A-101', letToTenants: false, members: [])});
+      await _pickFlat(t, 'A', '101');
+      expect(find.byKey(const Key('gym-no-members')), findsOneWidget);
+      expect(find.byKey(const Key('gym-not-listed')), findsOneWidget);
+      expect(find.textContaining('Not on the list?'), findsOneWidget);
     });
 
     testWidgets('choosing another flat clears what was ticked', (t) async {

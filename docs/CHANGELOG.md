@@ -4,6 +4,26 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-15 (Family members added by residents, approved by the office)
+
+### feat: a resident asks to add a family member; the gym (and everything that reads the Residents list) sees them only once approved
+
+- **Why** - the gym's attendance book lists the people on the Residents list for the flat (the Family section). Until now only the
+  Admin or committee could add to it, and residents were told to "ask the society office". Now an **owner or co-owner adds a family
+  member themselves from My Home** (Household, Add family member), and **nobody appears on any list until the office approves**.
+- **Resident** - name, Family or Dependent, optional mobile and date of birth. Asking twice for the same person, asking for someone
+  already listed, or having more than 10 waiting for one flat is refused with the reason. Their requests show as "Waiting for the
+  office to approve" or "Not approved: <reason>".
+- **Office** - **Pending Resident Changes** has a "New family members" section above the profile changes: who, which flat, who asked,
+  Approve or Reject (a reason is required). Approving adds the person to the Residents list as Family or Dependent (no app login is
+  made for them). The admin dashboard's "resident changes" count includes these requests. Admin and committee only.
+- **Gym desk** - the check-in screen names anyone asked for and not yet approved ("Waiting for the office to approve: ...") and tells
+  the trainer what to say to someone who is not listed. Pending people are never offered.
+- **Backend** - new table `resident_family_requests`; endpoints under `/api/v1/residents/family-requests` (`POST`, `mine`, `pending`,
+  `{id}/approve`, `{id}/reject`). Only adds a table; the existing self-edit requests are untouched. Run `alembic upgrade head`
+  (migration `b2d4f6a8c0e2`, after `a1c3e5b7d9f1`).
+- Tests: `backend/tests/master/test_family_requests.py` (18), `mobile/test/family_requests_test.dart` (9), `mobile/test/gym_test.dart`.
+
 ## 2026-11-15 (Gym attendance)
 
 ### feat: the Gym Trainer keeps the gym's attendance book

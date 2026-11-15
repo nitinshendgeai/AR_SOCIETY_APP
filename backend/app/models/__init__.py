@@ -10,6 +10,7 @@ import app.core.rbac_seed  # noqa — registers the Role after_insert auto-grant
 from app.models.user         import User, UserRole, UserStatus
 from app.models.resident     import Resident, ResidentType, CommunicationPreference
 from app.models.resident_edit_request import ResidentEditRequest, ResidentEditRequestStatus
+from app.models.resident_family_request import ResidentFamilyRequest
 from app.models.tenant       import Tenant, PoliceVerificationStatus
 from app.models.vehicle      import Vehicle, VehicleType
 from app.models.audit_log    import AuditLog, AuditAction

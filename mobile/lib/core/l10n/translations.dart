@@ -439,4 +439,23 @@ const Map<String, Map<String, String>> kTranslations = {
   '{n} visits': {'hi': '{n} आगमन', 'mr': '{n} भेटी'},
   'Tick out': {'hi': 'बाहर दर्ज करें', 'mr': 'बाहेर नोंदवा'},
   'Members in / out': {'hi': 'सदस्य अंदर / बाहर', 'mr': 'सदस्य आत / बाहेर'},
+
+  // ── Adding family members (draft wording: please have a native reader check) ──
+  'Add family member': {'hi': 'परिवार सदस्य जोड़ें', 'mr': 'कुटुंब सदस्य जोडा'},
+  'Add a family member': {'hi': 'परिवार का सदस्य जोड़ें', 'mr': 'कुटुंबातील सदस्य जोडा'},
+  'New family members are added once the society office approves. To remove someone, ask the office.': {'hi': 'नए परिवार सदस्य सोसायटी कार्यालय की मंज़ूरी के बाद जुड़ते हैं। किसी को हटाने के लिए कार्यालय से कहें।', 'mr': 'नवीन कुटुंब सदस्य सोसायटी कार्यालयाच्या मंजुरीनंतर जोडले जातात. कोणाला काढायचे असल्यास कार्यालयाला सांगा.'},
+  'Waiting for the office to approve': {'hi': 'कार्यालय की मंज़ूरी की प्रतीक्षा', 'mr': 'कार्यालयाच्या मंजुरीची प्रतीक्षा'},
+  'The society office will check and approve. Until then they will not be on the list.': {'hi': 'सोसायटी कार्यालय जाँचकर मंज़ूर करेगा। तब तक वे सूची में नहीं होंगे।', 'mr': 'सोसायटी कार्यालय तपासून मंजूर करेल. तोपर्यंत ते यादीत नसतील.'},
+  'Full name': {'hi': 'पूरा नाम', 'mr': 'पूर्ण नाव'},
+  'Mobile (optional)': {'hi': 'मोबाइल (वैकल्पिक)', 'mr': 'मोबाइल (ऐच्छिक)'},
+  'Date of birth (optional)': {'hi': 'जन्म तिथि (वैकल्पिक)', 'mr': 'जन्मतारीख (ऐच्छिक)'},
+  'Send for approval': {'hi': 'मंज़ूरी के लिए भेजें', 'mr': 'मंजुरीसाठी पाठवा'},
+  'Sent to the society office. They will be added once it is approved.': {'hi': 'सोसायटी कार्यालय को भेज दिया गया। मंज़ूरी मिलते ही उन्हें जोड़ दिया जाएगा।', 'mr': 'सोसायटी कार्यालयाकडे पाठवले. मंजुरी मिळताच त्यांना जोडले जाईल.'},
+  'New family members': {'hi': 'नए परिवार सदस्य', 'mr': 'नवीन कुटुंब सदस्य'},
+  'Profile changes': {'hi': 'प्रोफ़ाइल में बदलाव', 'mr': 'प्रोफाइलमधील बदल'},
+  'Reject this family member?': {'hi': 'इस परिवार सदस्य को अस्वीकार करें?', 'mr': 'या कुटुंब सदस्याला नाकारायचे?'},
+  'Asked by': {'hi': 'अनुरोधकर्ता', 'mr': 'विनंती करणारे'},
+  'Not on the list? The resident adds them in My Home (Household, Add family member), and the office approves. They can use the gym after that.': {'hi': 'सूची में नहीं हैं? निवासी उन्हें My Home (परिवार, परिवार सदस्य जोड़ें) में जोड़ते हैं और कार्यालय मंज़ूर करता है। उसके बाद वे जिम का उपयोग कर सकते हैं।', 'mr': 'यादीत नाही? रहिवासी त्यांना My Home (कुटुंब, कुटुंब सदस्य जोडा) मध्ये जोडतात आणि कार्यालय मंजूर करते. त्यानंतर ते जिम वापरू शकतात.'},
+  'Mobile': {'hi': 'मोबाइल', 'mr': 'मोबाइल'},
+  'Date of Birth': {'hi': 'जन्म तिथि', 'mr': 'जन्मतारीख'},
 };
