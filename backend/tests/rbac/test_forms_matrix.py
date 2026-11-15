@@ -41,7 +41,8 @@ def test_gaps_in_old_dashboard_logic_are_preserved_by_default():
     was asked — Platform Admin, Gym Trainer, and Tenant get only the two
     unconditional items (Visitors, Complaints); nothing gated by
     isAdmin/isAdminOrCommittee/isSecurity/isStaff/isResident (an Admin can
-    grant them more explicitly via the Forms Matrix). Manager's gap was
+    grant them more explicitly via the Forms Matrix). (The Gym Trainer's gap was later closed by one screen, the gym's
+    attendance book.) Manager's gap was
     later deliberately, partially closed: the FMC Manager is who records
     online payments, reconciles them against the bank statement, pays
     vendor bills, runs maintenance billing, manages the staff and keeps the
@@ -52,14 +53,16 @@ def test_gaps_in_old_dashboard_logic_are_preserved_by_default():
     FORM_ROLE_GRANTS)."""
     codes_by_role = default_role_form_codes()
     assert set(codes_by_role.get("Platform Admin", [])) == {"visitors", "complaints", "notices", "amenities", "platform_admin", "meetings", "polls", "documents", "certificates", "parcels", "domestic_help"}
-    for role_name in ("Gym Trainer", "Tenant"):
-        assert set(codes_by_role.get(role_name, [])) == {"visitors", "complaints", "notices", "amenities", "meetings", "polls", "documents", "certificates", "parcels", "domestic_help"}, (
-            f"{role_name} unexpectedly has default form grants: {codes_by_role.get(role_name)}"
-        )
+    baseline = {"visitors", "complaints", "notices", "amenities", "meetings", "polls", "documents", "certificates", "parcels", "domestic_help"}
+    assert set(codes_by_role.get("Tenant", [])) == baseline, f"Tenant unexpectedly has default form grants: {codes_by_role.get('Tenant')}"
+    # The Gym Trainer's gap was deliberately closed by exactly one screen: the gym's attendance book ("gym_desk").
+    assert set(codes_by_role.get("Gym Trainer", [])) == baseline | {"gym_desk"}, (
+        f"Gym Trainer's default form grants changed: {codes_by_role.get('Gym Trainer')}"
+    )
     assert set(codes_by_role.get("Manager", [])) == {
         "visitors", "complaints", "notices", "online_payments", "bank_reconciliation", "vendor_bills",
         "maintenance_billing", "maintenance_elements", "staff", "checklist_templates", "accounts", "defaulters",
-        "vendors", "vendor_master", "assets", "inventory", "lights_check", "manager_checklist", "amenities", "meetings", "polls", "documents", "certificates", "parcels", "domestic_help",
+        "vendors", "vendor_master", "assets", "inventory", "lights_check", "manager_checklist", "amenities", "meetings", "polls", "documents", "certificates", "parcels", "domestic_help", "gym_desk",
     }
 
 
@@ -113,7 +116,7 @@ def test_my_forms_returns_default_grants_for_own_role(client, db):
     assert set(r.json()["form_codes"]) == {
         "visitors", "complaints", "notices", "online_payments", "bank_reconciliation", "vendor_bills",
         "maintenance_billing", "maintenance_elements", "staff", "checklist_templates", "accounts", "defaulters",
-        "vendors", "vendor_master", "assets", "inventory", "lights_check", "manager_checklist", "amenities", "meetings", "polls", "documents", "certificates", "parcels", "domestic_help",
+        "vendors", "vendor_master", "assets", "inventory", "lights_check", "manager_checklist", "amenities", "meetings", "polls", "documents", "certificates", "parcels", "domestic_help", "gym_desk",
     }
 
     resident = make_user(db, "formsres4@rbac.com", role="Resident")

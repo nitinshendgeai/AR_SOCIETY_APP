@@ -56,7 +56,18 @@ class WingFlatFilter extends ConsumerWidget {
   final String? wingId;
   final String? flatId;
   final void Function(String? wingId, String? flatId) onChanged;
-  const WingFlatFilter({super.key, required this.wingId, required this.flatId, required this.onChanged});
+
+  /// What the "nothing chosen" entry says: a list filter says "All", a screen that needs a choice says "Choose".
+  final String wingHint;
+  final String flatHint;
+  const WingFlatFilter({
+    super.key,
+    required this.wingId,
+    required this.flatId,
+    required this.onChanged,
+    this.wingHint = 'All wings',
+    this.flatHint = 'All flats',
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -74,7 +85,7 @@ class WingFlatFilter extends ConsumerWidget {
           isExpanded: true,
           decoration: const InputDecoration(labelText: 'Wing', isDense: true),
           items: [
-            const DropdownMenuItem<String?>(value: null, child: Text('All wings')),
+            DropdownMenuItem<String?>(value: null, child: Text(wingHint)),
             for (final w in wingNames) DropdownMenuItem<String?>(value: w.key, child: Text(w.value)),
           ],
           onChanged: (w) => onChanged(w, null),
@@ -88,7 +99,7 @@ class WingFlatFilter extends ConsumerWidget {
           isExpanded: true,
           decoration: const InputDecoration(labelText: 'Flat', isDense: true),
           items: [
-            const DropdownMenuItem<String?>(value: null, child: Text('All flats')),
+            DropdownMenuItem<String?>(value: null, child: Text(flatHint)),
             for (final f in inWing) DropdownMenuItem<String?>(value: f.id, child: Text(f.flatNumber)),
           ],
           // Closed until a wing is chosen

@@ -40,6 +40,7 @@ class AppEdition {
     'my_bills',
     'edit_my_info',
     'lights_check',          // the electrician's and plumber's monthly check of the common lights
+    'gym_desk',              // the Gym Trainer's attendance book
     'staff',                 // the Staff Portal: attendance, duties, checklists for security / technical / gym staff
   };
 

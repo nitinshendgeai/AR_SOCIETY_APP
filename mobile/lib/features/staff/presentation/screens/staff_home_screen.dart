@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/features/users/presentation/providers/user_providers.dart' show myFormCodesProvider;
 import 'package:ar_society_app/shared/widgets/premium.dart';
 import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,6 +49,7 @@ class StaffHomeScreen extends ConsumerWidget {
     });
 
     // Role detection for supervisor/manager management section
+    final grants = ref.watch(myFormCodesProvider).valueOrNull ?? const <String>[];
     final roles = user?.roles ?? [];
     final isSupervisor = roles.any((r) => r.contains('Supervisor'));
     final isManager = roles.any((r) =>
@@ -170,6 +172,15 @@ class StaffHomeScreen extends ConsumerWidget {
                           )
                         : null,
                   ),
+                  // The Gym Trainer keeps the gym's attendance book: it does not depend on a staff profile.
+                  if (grants.contains('gym_desk'))
+                    _ModuleCard(
+                      icon: Icons.fitness_center_rounded,
+                      label: 'Gym attendance',
+                      subtitle: 'Members in / out',
+                      color: AppTheme.success,
+                      onTap: () => context.push(AppRoutes.gym),
+                    ),
                   // Security staff work the gate: the visitor log and vehicle check are a tap away here, since
                   // this portal is their home.
                   if (user != null && user.isSecurity && societyId != null) ...[

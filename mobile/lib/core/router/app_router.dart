@@ -116,6 +116,9 @@ import 'package:ar_society_app/features/accounts/presentation/screens/voucher_fo
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/maintenance_billing_screen.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/my_bills_screen.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/my_ledger_screen.dart';
+import 'package:ar_society_app/features/gym/presentation/screens/gym_check_in_screen.dart';
+import 'package:ar_society_app/features/gym/presentation/screens/gym_desk_screen.dart';
+import 'package:ar_society_app/features/gym/presentation/screens/gym_report_screen.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/screens/maintenance_elements_screen.dart';
 import 'package:ar_society_app/features/society_settings/presentation/screens/society_settings_screen.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
@@ -225,6 +228,9 @@ class AppRoutes {
   static const maintenanceBilling = '/billing/maintenance';
   static const myBills            = '/billing/my-bills';
   static const myLedger           = '/billing/my-bills/ledger';
+  static const gym                = '/gym';
+  static const gymCheckIn         = '/gym/check-in';
+  static const gymReport          = '/gym/report';
   static const maintenanceElements = '/billing/maintenance-elements';
   static const accounts           = '/accounts';
   static const accountsGateway    = '/accounts/gateway';
@@ -1009,6 +1015,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.myLedger,
             builder: (_, __) => const MyLedgerScreen(),
           ),
+          GoRoute(path: AppRoutes.gym, builder: (_, __) => const GymDeskScreen()),
+          GoRoute(path: AppRoutes.gymCheckIn, builder: (_, __) => const GymCheckInScreen()),
+          GoRoute(path: AppRoutes.gymReport, builder: (_, __) => const GymReportScreen()),
           // Society Settings
           GoRoute(
             path: AppRoutes.societySettings,

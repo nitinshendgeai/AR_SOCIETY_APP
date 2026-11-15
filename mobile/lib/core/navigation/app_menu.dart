@@ -67,6 +67,7 @@ const appMenuCategories = [
     AppMenuItem('checklist_templates', 'Checklist Templates', Icons.checklist_rtl_rounded, AppRoutes.checklistTemplates),
     AppMenuItem('inventory', 'Stores', Icons.warehouse_rounded, AppRoutes.stores),
     AppMenuItem('lights_check', 'Lights check', Icons.lightbulb_rounded, AppRoutes.lightsCheck),
+    AppMenuItem('gym_desk', 'Gym attendance', Icons.fitness_center_rounded, AppRoutes.gym),
     AppMenuItem('vendors', 'Vendors & Work', Icons.handyman_rounded, AppRoutes.vendorsWork),
     AppMenuItem('vendor_master', 'Vendor Master', Icons.contact_page_rounded, AppRoutes.vendorMaster),
   ]),
@@ -218,7 +219,7 @@ enum MenuHub {
 }
 
 /// Short names for the bottom bar, where the menu's name is too long for it.
-const _tabLabels = {'my_bills': 'Bills', 'maintenance_billing': 'Billing'};
+const _tabLabels = {'my_bills': 'Bills', 'maintenance_billing': 'Billing', 'gym_desk': 'Gym'};
 
 /// The screens each kind of person reaches for most, in order. The bar takes the
 /// first three they are allowed to open; "Home" and "More" are always there.
@@ -228,7 +229,8 @@ List<String> _tabPreference(UserEntity user) {
   }
   if (user.isSecurity) return const ['visitors', 'notices', 'complaints'];
   if (user.isResident) return const ['my_bills', 'visitors', 'notices', 'complaints'];
-  return const ['notices', 'complaints', 'visitors'];
+  // Field staff: the Gym Trainer's attendance book comes first (only he is granted it).
+  return const ['gym_desk', 'notices', 'complaints', 'visitors'];
 }
 
 /// Home plus up to three screens for [user], limited to what [grantedFormCodes]

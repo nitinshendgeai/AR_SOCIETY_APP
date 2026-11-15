@@ -134,3 +134,14 @@ Lesson recorded: the test renderer draws every shadow as a hard band, so shadows
 - **Authorization of the accounts API:** every route under `/accounts` requires `manager_above`, verified by calling three of them as a resident (all 403). A resident therefore cannot read other flats' ledgers; the resident ledger is a separate endpoint scoped to the caller's own flats.
 - **Android 12 splash:** launch background and icon background are both black, so the system splash matches; no change made.
 - **R8:** left disabled on purpose (see MOBILE_RELEASE_READINESS.md).
+
+### Gym attendance (15 Nov)
+| Item | Evidence | Rating |
+|---|---|---|
+| Rules: owners' side only, tenants never listed or accepted even by id, only members of the chosen flat in the trainer's own society, no double check-in, a forgotten check-out from an earlier day is not counted as inside | backend `test_gym_attendance.py` (23 tests); breaking the active-member rule and the society scoping on purpose made 4 of them fail | PASS |
+| Reports: week Monday to Sunday and calendar month, average stay excludes open and late-closed visits, names kept as on the day, other societies excluded, PDF | same file | PASS |
+| Who may use it: Gym Trainer and the Manager yes; Resident and Security Staff 403; login needed | same file; role tests updated deliberately (`test_forms_matrix.py`: Gym Trainer's grants gain exactly `gym_desk`) | PASS |
+| App: desk counts, tick out, check everyone out (asks first), earlier-day visits, picker flow, ticks cleared on changing flat, failure keeps the ticks, report period stepping | `gym_test.dart` (17), `gym_wiring_test.dart` (8: trainer's tab, More entry, route guard, field edition, Staff Portal card), menu architecture tests updated (one new entry) | PASS |
+| Found by the tests: a member row's tap ripple was hidden under its white box (a list tile inside a coloured box) | fixed with a transparent Material; recorded in the design notes as pitfall 1 | fixed |
+| Layout | rendered at 411 dp; icons not drawn in the harness | PASS (layout), **real device NOT VERIFIED** |
+| Production | the merge deploys migration `a1c3e5b7d9f1` (a new table and a screen grant); not run against a real database here, only in the SQLite tests and in CI's PostgreSQL migration job | CONDITIONAL PASS until CI's migration job passes |
