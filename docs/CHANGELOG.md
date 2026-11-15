@@ -4,6 +4,27 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-15 (Gym attendance)
+
+### feat: the Gym Trainer keeps the gym's attendance book
+
+- **Who may use the gym** - owners' side only: a flat's owner, co-owner, family and dependents (the active people on the Residents
+  list). **Tenants are never offered**, and a flat let to tenants says so.
+- **Check in** - the trainer picks the wing and the flat; that flat's members appear; he ticks the ones who are here. Someone already
+  inside is shown as inside and cannot be ticked twice. Only members of the chosen flat, of the trainer's own society, can be ticked.
+- **Who is inside now** - the desk shows how many are inside, how many came today and how many left today, with who is inside, since
+  when, and a Tick out button for each. "Check everyone out" at closing time asks first. A visit nobody ticked out on an earlier day is
+  listed apart (it is not counted as inside) and can be closed; the report counts it as a visit but gives it no length.
+- **Reports** - weekly (Monday to Sunday) and monthly, with previous and next: visits, different members and flats, average stay,
+  day by day, and each member's visits and time. **Print report** gives a PDF (Print / Share / Download). Names and flats are kept as
+  they were on the day.
+- **Where** - the Gym Trainer's bottom tab and the Staff Portal card; in More under Operations for the Manager, Admin and committee
+  (and on the web app). Residents, guards and other staff cannot open it.
+- **Backend** - new table `gym_visits`; endpoints under `/api/v1/gym` (`flats/{id}/members`, `check-in`, `check-out`,
+  `check-out-all`, `live`, `report`, with `format=pdf`); new screen grant `gym_desk` (Admin, committee, Manager, Gym Trainer). Only adds
+  a table and a grant; nothing existing is changed. Run `alembic upgrade head` (migration `a1c3e5b7d9f1`).
+- Tests: `backend/tests/gym/test_gym_attendance.py` (23), `mobile/test/gym_test.dart` (17), `mobile/test/gym_wiring_test.dart` (8).
+
 ## 2026-11-12 (Lights check: common areas)
 
 ### feat: check the common areas - parking, lobby, gym, podium, refuse area

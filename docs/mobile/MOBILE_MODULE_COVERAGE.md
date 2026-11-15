@@ -62,6 +62,7 @@ The baseline table above still describes the code *before* this work. What chang
 | Premium look | Hero banner, gradient icon badges, soft-shadow cards, floating bottom bar, coloured More menu and hubs on every role (14 Nov) | PASS in rendered tests; **first real-phone installs reviewed**, six findings fixed (see MOBILE_TEST_REPORT.md) |
 | Resident ledger | Read-only `GET /billing/bills/me/ledger` and My Ledger screen (own flats only) | CONDITIONAL PASS: tested; the figure shown (dues less advance) to be confirmed by the product owner |
 | Tenants report | Print / Share / Download of the filtered list | PASS |
+| Gym attendance (Gym Trainer) | Pick wing and flat, tick the owners' members in and out (tenants never offered), who is inside now, weekly and monthly report with a PDF; Staff Portal card, bottom tab, More entry, grant `gym_desk` (15 Nov) | PASS in tests (48 across backend and app); **not yet on a device**; "maintenance report" was read as the attendance report and guests are not recorded (both to confirm) |
 | Accounts / finance reports, vendors, staff attendance, complaints, notices, amenities, governance | Not modified; existing tests green | PASS (unchanged), mobile table-to-card conversion NOT DONE |
 
 ### Not done, and why

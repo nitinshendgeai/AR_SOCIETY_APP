@@ -150,6 +150,7 @@ FORM_DEFINITIONS = [
     ("assets",                    "Assets",                     "Society-owned assets (lifts, pumps, ACs, generators): warranty, service schedule and history"),
     ("inventory",                 "Stores",                     "Consumable stock, stock in, issue to staff and return"),
     ("lights_check",              "Lights check",               "Monthly check of the common tube lights on each floor and the spot lights in each flat; replace what is not working"),
+    ("gym_desk",                  "Gym attendance",             "The gym's attendance book: tick the members of a flat in and out, see who is inside now, and the weekly and monthly report"),
     ("amenities",                 "Amenities",                  "Clubhouse, gym, pool and hall: book a time, rules, prices, closed dates and approvals"),
     ("platform_admin",            "Platform Console",           "Every society on the platform: trials, plans, suspension, limits and the record of what was done"),
 ]
@@ -211,6 +212,7 @@ FORM_ROLE_GRANTS = {
     "assets":                   tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
     "inventory":                tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER))),
     "lights_check":             tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER) | {"Technical Supervisor", "Technical Staff"})),
+    "gym_desk":                 tuple(sorted(set(_ADMIN_OR_COMMITTEE_ROLES) | set(_MANAGER) | {"Gym Trainer"})),
     "amenities":                _ALL_CANONICAL_ROLES,
     "platform_admin":           _PLATFORM,
 }
