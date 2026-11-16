@@ -4,6 +4,16 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-16 (Accounts page: links to the new screens on a phone)
+
+### fix(mobile): the phone Accounts page now links to All Registers, the TDS Ledger and Depreciation
+
+- On a phone the Accounts page shows tiles, not the desktop menu list, so the TDS Ledger and Depreciation (added to the All Registers
+  list) could not be reached. **All Registers** is now a tile under *Books & Registers*, and **TDS Ledger** and **Depreciation** are
+  tiles under *Financial Reports*. Presentation only: no data, permission or calculation changed.
+- The Accounts page's key-figure tiles are 4 px taller: the tiles with a note line overflowed their padding by 3 px.
+- Test: a phone-size test that the three tiles are on the page.
+
 ## 2026-11-16 (Depreciation setup and schedule)
 
 ### feat: depreciation of fixed assets - the setup, the yearly calculation and the journal that would book it

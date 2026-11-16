@@ -614,7 +614,7 @@ class KpiGrid extends StatelessWidget {
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: columns, mainAxisSpacing: 12, crossAxisSpacing: 12,
             // A tile with a note line needs more height than one without; grow with the phone's text size.
-            mainAxisExtent: (cards.any((c) => c.note != null) ? 136 : 122) *
+            mainAxisExtent: (cards.any((c) => c.note != null) ? 140 : 126) *
                 // Only the text grows with the setting (the icon does not), so the tile grows by about half as much.
                 (1 + (MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.6) - 1) * 0.5)),
         children: cards,
