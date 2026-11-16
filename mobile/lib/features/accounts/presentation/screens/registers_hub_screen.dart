@@ -25,6 +25,8 @@ class RegistersHubScreen extends StatelessWidget {
         Icons.payments_outlined, AppRoutes.accountsRegisterPettyCash),
     ('tds', 'TDS Ledger', 'TDS still to deposit with the government and TDS to claim back, by quarter', Icons.account_balance_rounded,
         AppRoutes.accountsTdsLedger),
+    ('depreciation', 'Depreciation', "Each asset's depreciation for the year, with the setup it is worked out from",
+        Icons.trending_down_rounded, AppRoutes.accountsDepreciation),
   ];
 
   @override

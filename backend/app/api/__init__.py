@@ -28,6 +28,7 @@ from app.modules.notice.routes.notice       import router as notice_router
 from app.modules.billing.routes.billing     import router as billing_router
 from app.modules.vendor.routes.vendor               import router as vendor_router
 from app.modules.accounts.routes.accounts           import router as accounts_router
+from app.modules.accounts.routes.depreciation       import router as depreciation_router
 from app.modules.onboarding.routes.onboarding       import router as onboarding_router
 from app.modules.platform_admin.routes.platform_admin import router as platform_admin_router
 from app.modules.assistant.routes.assistant         import router as assistant_router
@@ -67,6 +68,7 @@ api_router.include_router(notice_router)
 api_router.include_router(billing_router)
 api_router.include_router(vendor_router)
 api_router.include_router(accounts_router)
+api_router.include_router(depreciation_router)
 api_router.include_router(onboarding_router)
 api_router.include_router(platform_admin_router)
 api_router.include_router(assistant_router)

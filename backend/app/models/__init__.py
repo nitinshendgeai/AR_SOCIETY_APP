@@ -137,3 +137,4 @@ from app.modules.staff.models.handover import (
 from app.models.user_session import UserSession  # noqa: F401
 
 from app.modules.accounts.models.posting_errors import AccountingPostingError
+from app.modules.accounts.models.depreciation import AssetDepreciation, DepreciationRule
