@@ -23,6 +23,8 @@ class RegistersHubScreen extends StatelessWidget {
         Icons.event_available_rounded, AppRoutes.accountsRegisterAttendance),
     ('petty_cash', 'Petty Cash Book', 'Day by day: opening cash, money received, expenses by head, closing and the cash counted',
         Icons.payments_outlined, AppRoutes.accountsRegisterPettyCash),
+    ('tds', 'TDS Ledger', 'TDS still to deposit with the government and TDS to claim back, by quarter', Icons.account_balance_rounded,
+        AppRoutes.accountsTdsLedger),
   ];
 
   @override

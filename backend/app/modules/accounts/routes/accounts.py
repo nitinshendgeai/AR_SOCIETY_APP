@@ -17,7 +17,7 @@ from app.models.society import Society
 from app.models.user import User
 from app.modules.accounts.models.accounts import VOUCHER_TYPES, Account, Voucher
 from app.modules.accounts.models.posting_errors import AccountingPostingError
-from app.modules.accounts.services.accounts_service import AccountsService, dr_cr, fiscal_year, money
+from app.modules.accounts.services.accounts_service import AccountsService, dr_cr, fiscal_year, fiscal_year_start, money
 from app.modules.accounts.services.bank_reconciliation import BankReconciliationService
 from app.modules.accounts.services.expense_by_element import expenses_by_element
 from app.modules.accounts.services.petty_cash import PettyCashService
@@ -27,9 +27,10 @@ from app.modules.accounts.services.posting_errors import AccountingPostingErrorS
 from app.modules.accounts.services.member_ar import MemberARService
 from app.modules.accounts.services.reports import REPORTS, FinancialReports
 from app.modules.accounts.services.documents_pdf import (
-    render_day_book_pdf, render_ledger_pdf, render_members_ledger_pdf, render_voucher_pdf,
+    render_day_book_pdf, render_ledger_pdf, render_members_ledger_pdf, render_tds_ledger_pdf, render_voucher_pdf,
 )
 from app.modules.accounts.services.reports_pdf import render_report_pdf
+from app.modules.accounts.services.tds_ledger import TdsLedgerService, summary_out as tds_ledger_out
 from app.modules.accounts.services.outstanding import OutstandingService
 from app.modules.accounts.services.registers import RegistersService
 from app.modules.accounts.services.more_registers import REGISTERS, MoreRegistersService, register_to_csv
@@ -338,6 +339,27 @@ def _statement_out(st: dict, date_from: Optional[date], date_to: Optional[date])
 
 def _span(date_from: Optional[date], date_to: Optional[date]) -> str:
     return "-".join(d.isoformat() for d in (date_from, date_to) if d) or "all"
+
+
+@router.get("/tds-ledger/{society_id}")
+def tds_ledger(society_id: UUID, date_from: Optional[date] = None, date_to: Optional[date] = None,
+               format: str = Query("json", pattern="^(json|pdf)$"),
+               db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """What the society must deposit with the government (TDS Payable) and what it can claim back (TDS Receivable),
+    from the two TDS ledgers: headline amounts, quarter-wise totals and each ledger's postings. Opens on the current
+    financial year. Read-only. ?format=pdf: the printed report."""
+    assert_society_access(user, society_id)
+    if date_from is None:
+        date_from = fiscal_year_start(society_today(db, society_id))
+    if date_to is None:
+        date_to = society_today(db, society_id)
+    if date_from > date_to:
+        raise HTTPException(422, "The start date is after the end date")
+    out = tds_ledger_out(TdsLedgerService(db).report(society_id, date_from, date_to), date_from, date_to)
+    db.commit()
+    if format == "pdf":
+        return _pdf(render_tds_ledger_pdf(out, _society(db, society_id)), f"TDS-Ledger-{_span(date_from, date_to)}.pdf")
+    return out
 
 
 @router.get("/registers/cash-bank/{society_id}")
