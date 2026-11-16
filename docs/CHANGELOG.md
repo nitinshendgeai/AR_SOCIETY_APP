@@ -4,6 +4,23 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-16 (Depreciation setup and schedule)
+
+### feat: depreciation of fixed assets - the setup, the yearly calculation and the journal that would book it
+
+- **Where** - Accounts, All Registers, **Depreciation** (web and phone). Managers and the committee read it; only the Admin and
+  committee change the setup. Full explanation, the formulas and a worked example: `docs/DEPRECIATION.md`.
+- **Setup** - a rule for each kind of asset (method, yearly rate, life, value kept) filled in the first time with starting values
+  (usual income-tax reducing-balance rates, **to be confirmed by the society's chartered accountant**), and an optional setting for
+  one asset: its own method or rate, value kept, the date it was put to use, the date it stopped being used, or not depreciated.
+- **Schedule** - for any financial year: cost, book value at the start, depreciation, book value at the end, totals, a PDF, and the
+  **journal that would book it** (Dr Depreciation, Cr the fixed-asset ledgers). Depreciation is by the days each asset was in use
+  and never goes below the value kept. Assets with no cost, date or rate, or disposed with no stop date, are listed as left out.
+- **Nothing is posted** - no voucher, ledger, financial statement, billing or payment workflow changes; the app only calculates.
+  The Treasurer enters the journal. New tables `depreciation_rules` and `asset_depreciation` (migration `c3e5a7b9d1f3`, additive).
+- **Tests** - nine backend tests (the calculation worked by hand, rules, own settings, schedule and journal, left-out assets,
+  refused settings, other societies and residents kept out) and phone-size widget tests.
+
 ## 2026-11-16 (TDS Ledger)
 
 ### feat: a TDS Ledger report showing what to deposit with the government and what to claim back
