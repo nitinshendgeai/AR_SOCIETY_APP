@@ -93,6 +93,7 @@ import 'package:ar_society_app/features/accounts/presentation/screens/cash_bank_
 import 'package:ar_society_app/features/accounts/presentation/screens/invoice_bill_registers_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/more_register_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/registers_hub_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/tds_ledger_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/outstanding_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/members_ledger_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/expense_form_screen.dart';
@@ -249,6 +250,7 @@ class AppRoutes {
   static const accountsRegisterReceipts   = '/accounts/registers/receipts';
   static const accountsRegisterAttendance = '/accounts/registers/attendance';
   static const accountsRegisterPettyCash  = '/accounts/registers/petty-cash';
+  static const accountsTdsLedger  = '/accounts/registers/tds-ledger';
   static const accountsPettyCash          = '/accounts/petty-cash';
   static const accountsReceivable = '/accounts/outstanding/receivable';
   static const accountsPayable    = '/accounts/outstanding/payable';
@@ -937,6 +939,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             (AppRoutes.accountsRegisterReceipts, (_) => const MoreRegisterScreen(kind: 'receipts')),
             (AppRoutes.accountsRegisterAttendance, (_) => const MoreRegisterScreen(kind: 'attendance')),
             (AppRoutes.accountsRegisterPettyCash, (_) => const MoreRegisterScreen(kind: 'petty_cash')),
+            (AppRoutes.accountsTdsLedger, (_) => const TdsLedgerScreen()),
             (AppRoutes.accountsPettyCash, (_) => const PettyCashScreen()),
             (AppRoutes.accountsReceivable, (_) => const OutstandingScreen(initialKind: 'receivable')),
             (AppRoutes.accountsPayable, (_) => const OutstandingScreen(initialKind: 'payable')),

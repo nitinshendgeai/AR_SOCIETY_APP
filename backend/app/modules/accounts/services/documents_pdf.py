@@ -369,3 +369,77 @@ def render_members_ledger_pdf(members: List[dict], society, as_of: date, *, comp
     story += [Spacer(1, 12 * mm), KeepTogether([_for_society(name, "Hon. Treasurer")])]
     doc.build(story, onFirstPage=_footer(name, "Members' Ledger"), onLaterPages=_footer(name, "Members' Ledger"))
     return buf.getvalue()
+
+
+# ── TDS ledger ────────────────────────────────────────────────────────────────
+
+def render_tds_ledger_pdf(rep: dict, society, *, compress: bool = True) -> bytes:
+    """`rep`: the TDS ledger report as `tds_ledger.summary_out` returns it. What is to be deposited and what can be
+    claimed back, the quarter-wise totals, then each ledger's postings."""
+    buf = BytesIO()
+    name = society.name if society else "Society"
+    doc = _doc(buf, A4, "TDS Ledger", name, compress)
+    width = doc.width
+    sub = period_label(rep.get("date_from") and date.fromisoformat(rep["date_from"]),
+                       rep.get("date_to") and date.fromisoformat(rep["date_to"]))
+    story = [*society_header(society, width), Spacer(1, 4 * mm), Paragraph("TDS LEDGER", P["title"]),
+             _p(sub, "sub"), Spacer(1, 3 * mm)]
+
+    def amount_cell(v) -> str:
+        return _inr(v)
+
+    head = [[_p("", "th"), _p("Amount Rs.", "th_r")],
+            [_p("TDS to pay to the government (deducted, not yet deposited)", "td_b"),
+             _p(amount_cell(rep["to_pay"]), "td_rb")]]
+    if Decimal(rep["excess_deposited"]) > 0:
+        head.append([_p("Deposited in excess of what was deducted", "td"), _p(amount_cell(rep["excess_deposited"]), "td_r")])
+    head.append([_p("TDS to receive (deducted by others, to be claimed in the return)", "td_b"),
+                 _p(amount_cell(rep["to_receive"]), "td_rb")])
+    if Decimal(rep["receivable_over_adjusted"]) > 0:
+        head.append([_p("TDS receivable adjusted beyond what was booked", "td"),
+                     _p(amount_cell(rep["receivable_over_adjusted"]), "td_r")])
+    story += [_grid(head, [width - 40 * mm, 40 * mm]), Spacer(1, 4 * mm)]
+
+    def quarters(title: str, rows: List[dict], credit_label: str, debit_label: str):
+        if not rows:
+            return
+        table = [[_p("Quarter", "th"), _p(f"{credit_label} Rs.", "th_r"), _p(f"{debit_label} Rs.", "th_r")]]
+        for r in rows:
+            table.append([_p(r["quarter"]), _p(_amt(r["credit"]), "td_r"), _p(_amt(r["debit"]), "td_r")])
+        story.extend([Paragraph(escape(title), P["cell"]), Spacer(1, 1 * mm),
+                      _grid(table, [width - 60 * mm, 30 * mm, 30 * mm]), Spacer(1, 4 * mm)])
+
+    quarters("TDS payable by quarter", rep["payable_quarters"], "Deducted", "Deposited")
+    quarters("TDS receivable by quarter", rep["receivable_quarters"], "Adjusted", "Booked")
+
+    def statement(st: dict):
+        title = st["account"]["name"]
+        rows = [[_p("Date", "th"), _p("Voucher No.", "th"), _p("Particulars", "th"), _p("Debit Rs.", "th_r"),
+                 _p("Credit Rs.", "th_r"), _p("Balance Rs.", "th_r")]]
+        rows.append(["", "", _p("Opening Balance", "td_b"), "", "",
+                     _p(_drcr(_signed(st["opening"])), "td_rb")])
+        for l in st["lines"]:
+            rows.append([_p(_date(l["date"])), _p(l["voucher_number"]), _p(l["particulars"]),
+                         _p(_amt(l["debit"]), "td_r"), _p(_amt(l["credit"]), "td_r"),
+                         _p(_drcr(_signed(l["balance"])), "td_r")])
+        if not st["lines"]:
+            rows.append(["", "", _p("No entries in this period.", "note"), "", "", ""])
+        rows.append(["", "", _p("Total", "td_b"), _p(_inr(st["total_debit"]), "td_rb"),
+                     _p(_inr(st["total_credit"]), "td_rb"), ""])
+        rows.append(["", "", _p("Closing Balance", "td_b"), "", "", _p(_drcr(_signed(st["closing"])), "td_rb")])
+        fixed = [19 * mm, 30 * mm, 0, 25 * mm, 25 * mm, 29 * mm]
+        fixed[2] = width - sum(fixed)
+        story.extend([Paragraph(escape(title.upper()), P["cell"]), Spacer(1, 1 * mm),
+                      _grid(rows, fixed, total_rows=2), Spacer(1, 5 * mm)])
+
+    statement(rep["payable"])
+    statement(rep["receivable"])
+    story.append(KeepTogether([_for_society(name, "Hon. Treasurer")]))
+    doc.build(story, onFirstPage=_footer(name, "TDS Ledger"), onLaterPages=_footer(name, "TDS Ledger"))
+    return buf.getvalue()
+
+
+def _signed(dr_cr_value: dict) -> Decimal:
+    """{'amount': '12.00', 'type': 'Cr'} back to a signed amount (Dr positive)."""
+    amount = Decimal(dr_cr_value["amount"])
+    return amount if dr_cr_value["type"] == "Dr" else -amount

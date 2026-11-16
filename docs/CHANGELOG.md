@@ -4,6 +4,23 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-16 (TDS Ledger)
+
+### feat: a TDS Ledger report showing what to deposit with the government and what to claim back
+
+- **Where** - Accounts, Registers, **TDS Ledger** (web and phone; Manager and above, like the other registers). Opens on the
+  current financial year; choose this month, last year, all, or dates. **Download PDF** prints it.
+- **What it shows** - **To pay**: TDS held back from vendors and not yet deposited (the credit balance of the *TDS Payable* ledger).
+  **To receive**: TDS others deducted from the society's income, to claim in the return (the debit balance of *TDS Receivable*).
+  Then each is split by financial-year quarter (deducted / deposited, adjusted / booked) and followed by both ledgers' postings.
+  If more was deposited than was deducted, the excess is shown on its own line. The two are never netted against each other.
+- **Read-only** - it reads the two existing ledgers (`GET /accounts/tds-ledger/{society}`); no posting, rate, calculation or
+  workflow changed, and there is no migration. Money paid before the chosen period still counts, through the opening balance.
+- **Good to know** - nothing posts to *TDS Receivable* by itself today: its figures are whatever a journal voucher booked
+  (Dr TDS Receivable, Cr the income). A deposit of TDS to the government is a payment voucher (Dr TDS Payable, Cr bank).
+- **Tests** - three backend tests (amounts, quarters, opening balance carried, excess, PDF, backwards period, other society) and one
+  phone-size widget test.
+
 ## 2026-11-15 (Family members added by residents, approved by the office)
 
 ### feat: a resident asks to add a family member; the gym (and everything that reads the Residents list) sees them only once approved
