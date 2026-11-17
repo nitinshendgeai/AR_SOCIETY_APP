@@ -610,3 +610,64 @@ def test_boxed_plain_header_is_the_original_letterhead_over_the_same_body(client
     _, band = _bill_pdf(db, bill.id, layout="boxed")
     assert "Regn. No. MUM/WRO/HSG/TC/16082/2021-22/2022" in band and "Maintenance Bill" in band
     assert "E-Mail :" not in band
+
+
+def test_boxed_lists_the_particulars_in_the_element_lists_order(client, db):
+    society, flat1, flat2, manager, resident, other = _rig(db, "pdfx5")
+    h = manager["headers"]
+    elements = {e["code"]: e["id"] for e in client.get(f"/api/v1/billing/elements/{society.id}", headers=h).json()}
+    # the amenities head is made first, so its line comes first on the bill unless the element list's order is used
+    for name, code in [("Clubhouse fee", "amenities"), ("Monthly service", "service_charges")]:
+        r = client.post("/api/v1/billing/charges", json={
+            "society_id": str(society.id), "element_id": elements[code], "name": name, "default_amount": "100.00"},
+            headers=h)
+        assert r.status_code == 201, r.text
+    assert client.put(f"/api/v1/billing/maintenance-settings/{society.id}", json={"bill_layout": "boxed"},
+                      headers=h).status_code == 200
+    cycle_id = _cycle(client, h, society.id).json()["id"]
+    assert client.post(f"/api/v1/billing/cycles/{cycle_id}/generate-bills", headers=h).status_code == 200
+    bill_id = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=flat1.id).one().id
+    _, text = _bill_pdf(db, bill_id, layout=None)
+    # Service Charges comes before Amenities in the society's element list, so before it on the bill
+    assert text.index("Service Charges") < text.index("Amenities")
+
+    # and the order given is what is used: reversed, the lines reverse
+    svc = BillingService(db)
+    bill = svc.get_bill(bill_id)
+    ctx = svc._bill_print_context(bill)
+    assert ctx["element_order"]["Monthly service"] < ctx["element_order"]["Clubhouse fee"]
+    flipped = {**ctx, "element_order": {k: -v for k, v in ctx["element_order"].items()}}
+    pdf = generate_maintenance_bill_pdf(bill, svc.get_maintenance_settings(bill.society_id), compress=False, **flipped)
+    reversed_text = " ".join(_text(pdf).replace("|", " ").split())
+    assert reversed_text.index("Amenities") < reversed_text.index("Service Charges")
+
+
+def test_boxed_shows_the_last_receipt_when_nothing_was_paid_against_the_previous_bill(client, db):
+    society, flat1, manager, first = _boxed(client, db, "pdfx6")
+    h = manager["headers"]
+    db.add(PaymentReceipt(society_id=society.id, bill_id=first.id, flat_id=flat1.id, receipt_number="77",
+                          payment_date=date(2026, 4, 10), amount=Decimal("1000.00"),
+                          payment_mode=PaymentMode.CHEQUE, cheque_number="531615", bank_name="Greater Bombay Bank"))
+    first.paid_amount = Decimal("1000.00")
+    first.outstanding = first.total_amount - first.paid_amount
+    db.commit()
+    # a second bill (nothing paid against it) and a third: the third's previous bill has no payment
+    for name in ("Second", "Third"):
+        cycle_id = _cycle(client, h, society.id, name=name).json()["id"]
+        assert client.post(f"/api/v1/billing/cycles/{cycle_id}/generate-bills", headers=h).status_code == 200
+    third = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=flat1.id).one()
+    _, text = _bill_pdf(db, third.id, layout=None)
+    for expected in [
+        "L A S T R E C E I P T", "Receipt No. : 77", "Receipt Date : 10-4-2026", "Sum of Rs. 1,000.00",
+        "By Cheque No. 531615 Dated 10-Apr-26 Drawn on Greater Bombay Bank",
+        f"Against Ref No Bill /{first.invoice_number}", "Subject to realization of Cheque",
+    ]:
+        assert expected in text, expected
+    # a flat that has paid nothing has no last receipt
+    _, none_text = _bill_pdf(db, db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=_other_flat_id(db, flat1)).one().id, layout=None)
+    assert "R E C E I P T" not in none_text
+
+
+def _other_flat_id(db, flat):
+    from app.models.flat import Flat
+    return db.query(Flat).filter(Flat.wing_id == flat.wing_id, Flat.id != flat.id).first().id

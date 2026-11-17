@@ -1085,7 +1085,8 @@ class BillingService:
         settings = self.get_maintenance_settings(cycle.society_id)
         heads = self._element_heads(cycle.society_id)
         names = self._element_names(cycle.society_id)
-        items = [{"bill": b, "settings": settings, **self._bill_print_context(b, heads, with_receipts, names)}
+        order = self._element_order(cycle.society_id)
+        items = [{"bill": b, "settings": settings, **self._bill_print_context(b, heads, with_receipts, names, order)}
                  for b in bills]
         return cycle, items
 
@@ -1153,16 +1154,52 @@ class BillingService:
         )
         return {head: element for head, element in rows}
 
+    def _element_order(self, society_id: UUID) -> dict:
+        """{charge head name: the sort order of the maintenance element it was created from}: the order the society
+        arranged its elements in on the Maintenance Elements screen, which the Boxed bill lists them in."""
+        rows = (
+            self.db.query(MaintenanceChargeConfig.name, MaintenanceElement.sort_order)
+            .join(MaintenanceElement, MaintenanceElement.id == MaintenanceChargeConfig.element_id)
+            .filter(MaintenanceChargeConfig.society_id == society_id)
+            .all()
+        )
+        return {head: order for head, order in rows}
+
+    def _last_payment(self, bill: MaintenanceBill):
+        """The most recent payment the flat had made by the day the bill was generated, whatever it was for (against a
+        bill, on account, or an advance): receipts not reversed and recorded payments not rejected. None if there is
+        none. Printed on the bill as its last receipt."""
+        cutoff = bill.created_at.date() if bill.created_at else date.today()
+        found = []
+        receipt = (self.db.query(PaymentReceipt)
+                   .filter(PaymentReceipt.flat_id == bill.flat_id, PaymentReceipt.is_reversed == False,
+                           PaymentReceipt.payment_date <= cutoff)
+                   .order_by(PaymentReceipt.payment_date.desc(), PaymentReceipt.created_at.desc()).first())
+        recorded = (self.db.query(OnlinePaymentSubmission)
+                    .filter(OnlinePaymentSubmission.flat_id == bill.flat_id, OnlinePaymentSubmission.is_active == True,
+                            OnlinePaymentSubmission.status != ReconciliationStatus.REJECTED,
+                            OnlinePaymentSubmission.payment_date <= cutoff)
+                    .order_by(OnlinePaymentSubmission.payment_date.desc(),
+                              OnlinePaymentSubmission.created_at.desc()).first())
+        for p in (receipt, recorded):
+            if p is not None:
+                found.append(p)
+        return max(found, key=lambda p: (p.payment_date, p.created_at or datetime.min)) if found else None
+
     def _bill_print_context(self, bill: MaintenanceBill, heads: Optional[dict] = None,
-                            with_receipts: bool = True, names: Optional[dict] = None) -> dict:
+                            with_receipts: bool = True, names: Optional[dict] = None,
+                            order: Optional[dict] = None) -> dict:
         """What the printed bill needs beyond the bill itself: which standard
         element each charge head came from (decides the bill head it's shown
-        under), the unpaid interest inside the arrears, and the flat's
-        previous bill (its receipts are listed at the foot, unless `with_receipts` is off)."""
+        under) and where its element stands in the society's list, the unpaid interest inside the arrears, and
+        the flat's previous bill and last payment (their receipts are listed at the foot, unless `with_receipts`
+        is off)."""
         if heads is None:
             heads = self._element_heads(bill.society_id)
         if names is None:
             names = self._element_names(bill.society_id)
+        if order is None:
+            order = self._element_order(bill.society_id)
         earlier = (
             self.db.query(MaintenanceBill)
             .filter(MaintenanceBill.flat_id == bill.flat_id, MaintenanceBill.id != bill.id,
@@ -1182,8 +1219,10 @@ class BillingService:
         return {
             "element_codes": heads,
             "element_names": names,
+            "element_order": order,
             "accumulated_interest": interest,
             "previous_bill": earlier[0] if earlier and with_receipts else None,
+            "last_payment": self._last_payment(bill) if with_receipts else None,
         }
 
     def get_overdue_bills(self, society_id: UUID) -> List[MaintenanceBill]:
