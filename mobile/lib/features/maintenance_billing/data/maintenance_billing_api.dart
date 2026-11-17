@@ -251,7 +251,7 @@ class MaintenanceRules {
     this.bankIfsc,
     this.upiId,
     this.billNotes,
-    this.billLayout = 'boxed',
+    this.billLayout = 'standard',
     this.billingStartDate,
     this.autoApproveAdminExpenses = false,
     this.roundToRupee = false,
@@ -271,7 +271,7 @@ class MaintenanceRules {
         bankIfsc: j['bank_ifsc'] as String?,
         upiId: j['upi_id'] as String?,
         billNotes: j['bill_notes'] as String?,
-        billLayout: j['bill_layout'] as String? ?? 'boxed',
+        billLayout: j['bill_layout'] as String? ?? 'standard',
         billingStartDate:
             j['billing_start_date'] == null ? null : DateTime.parse(j['billing_start_date'] as String),
         autoApproveAdminExpenses: j['auto_approve_admin_expenses'] as bool? ?? false,

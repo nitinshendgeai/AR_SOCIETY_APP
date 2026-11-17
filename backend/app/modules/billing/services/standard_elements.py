@@ -48,6 +48,11 @@ STANDARD_ELEMENTS = [
      "and contract or rate increases. No rate is fixed by the bye-laws: enter the rate and basis (per sq ft or "
      "equally per flat) the general body approved. It prints as its own line on the bill and is credited to the "
      "Reserve Fund, never to income."),
+    ("reserve_fund", "Reserve Fund", ChargeType.OTHER, ChargeBasis.PER_SQFT, None, False,
+     "General body resolution",
+     "A fund the general body resolves to build up through the monthly bill (the society's reserve). No rate is fixed "
+     "by the bye-laws: enter the rate and basis (per sq ft or equally per flat) the general body approved. It prints "
+     "as its own line on the bill and is credited to the Reserve Fund, never to income."),
     ("lift_maintenance", "Lift Maintenance", ChargeType.MAINTENANCE, ChargeBasis.BUDGET_EQUAL, None, True,
      "Bye-laws 66–67",
      "Lift running and AMC costs, borne equally by every flat in a building with a lift — "

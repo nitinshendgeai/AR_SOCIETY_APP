@@ -23,7 +23,7 @@ UNLINKED = ("repairs_building", "repairs_electrical", "repairs_plumbing", "repai
 
 def _assert_defaults(db, society_id):
     elements = {e.id: e for e in db.query(MaintenanceElement).filter_by(society_id=society_id)}
-    assert len(elements) == 22
+    assert len(elements) == 23
     by_code = {e.code: e for e in elements.values()}
     assert (by_code["repair_fund"].default_basis.value, str(by_code["repair_fund"].default_amount)) == \
         ("service_charge_pct", "0.75")
@@ -59,7 +59,7 @@ def test_cleaning_a_societys_data_restores_the_standard_books(client, db):
     # cleaning again does not duplicate anything
     assert client.post(f"{P}/societies/{a.id}/clean-data", json={"confirm": "DEF2"}, headers=h).status_code == 200
     db.expire_all()
-    assert db.query(MaintenanceElement).filter_by(society_id=a.id).count() == 22
+    assert db.query(MaintenanceElement).filter_by(society_id=a.id).count() == 23
 
 
 def test_a_society_created_by_the_platform_admin_starts_with_elements_and_links(client, db):
@@ -120,3 +120,17 @@ def test_apply_standard_links_needs_a_manager_and_the_own_society(client, db):
     assert client.post(url, headers=resident).status_code == 403
     assert client.post(url, headers=theirs).status_code == 403          # another society's manager
     assert client.post(url, headers=mine).status_code == 200
+
+
+def test_education_and_reserve_funds_are_standard_elements_credited_to_their_funds():
+    """Both are standard elements a society starts with; a bill line from either is credited to a fund, never to income."""
+    from types import SimpleNamespace
+    from app.modules.accounts.services.chart_of_accounts import bill_line_ledger_key
+    from app.modules.billing.models.billing import ChargeType
+    from app.modules.billing.services.standard_elements import STANDARD_ELEMENTS
+    names = {code: name for code, name, *_ in STANDARD_ELEMENTS}
+    assert names["education_fund"] == "Education & Training Fund" and names["reserve_fund"] == "Reserve Fund"
+    line = SimpleNamespace(description="Reserve Fund", charge_type=ChargeType.OTHER)
+    assert bill_line_ledger_key(line, "reserve_fund") == "reserve_fund"
+    assert bill_line_ledger_key(SimpleNamespace(description="Edu & Training Fees", charge_type=ChargeType.OTHER),
+                                "education_fund") == "education_fund"
