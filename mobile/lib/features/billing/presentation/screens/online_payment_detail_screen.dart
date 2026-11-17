@@ -14,6 +14,7 @@ import 'package:ar_society_app/shared/widgets/app_data_table.dart' show tableMon
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart' show formatRupees;
+import 'package:ar_society_app/features/maintenance_billing/presentation/screens/maintenance_bill_detail_screen.dart' show BillFormatView;
 
 class OnlinePaymentDetailScreen extends ConsumerStatefulWidget {
   final String paymentId;
@@ -72,6 +73,15 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
     }
   }
 
+  /// Distinct bills this payment is on or was set off against, oldest first.
+  List<String> _billIds(OnlinePaymentEntity p) {
+    final ids = <String>[
+      for (final a in p.liveSetOffs) a.billId,
+      if (p.billId != null) p.billId!,
+    ];
+    return ids.toSet().toList();
+  }
+
   /// The receipt's PDF, from memory rather than a temp file, so it works on the web too.
   Future<Uint8List> _loadReceipt() async {
     final result = await ref.read(billingRepositoryProvider).getReceiptPdfBytes(widget.paymentId);
@@ -97,6 +107,11 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          // The bill(s) this payment settles, in the same format as Maintenance Billing.
+          for (final id in _billIds(payment)) ...[
+            BillFormatView(billId: id),
+            const SizedBox(height: 16),
+          ],
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
