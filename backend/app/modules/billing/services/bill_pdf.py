@@ -1034,14 +1034,19 @@ def boxed_bill_story(
     for li in lines:
         name = element_names.get(li.description, li.description)
         charged[name] = charged.get(name, ZERO) + Decimal(amount_of(li))
-    # In the order the society arranged its elements in (Maintenance Elements screen); a head with no element, or no
-    # order given, goes after them in the order the bill lines were made.
+    # In the order the society arranged its elements in (Maintenance Elements screen), or, if it chose, the largest
+    # amount first. A head with no element, or no order given, goes after the others in the order the bill lines
+    # were made.
     order = element_order or {}
     place: Dict[str, int] = {}
     for li in lines:
         name = element_names.get(li.description, li.description)
         place[name] = min(place.get(name, 10 ** 9), order.get(li.description, 10 ** 9))
-    ranked = sorted(enumerate(charged.items()), key=lambda pair: (place[pair[1][0]], pair[0]))
+    if getattr(settings, "particulars_order", None) == "amount":
+        # the society chose the largest amount first; equal amounts keep the element order
+        ranked = sorted(enumerate(charged.items()), key=lambda pair: (-pair[1][1], place[pair[1][0]], pair[0]))
+    else:
+        ranked = sorted(enumerate(charged.items()), key=lambda pair: (place[pair[1][0]], pair[0]))
     heads = [(n, a) for _, (n, a) in ranked if a]                # only what is charged this time
     if gst_charged:
         heads += gst_rows(lines)

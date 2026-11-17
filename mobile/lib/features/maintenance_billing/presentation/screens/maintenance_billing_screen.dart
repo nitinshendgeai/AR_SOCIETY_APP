@@ -1331,6 +1331,7 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
   late bool _autoApprove = widget.rules.autoApproveAdminExpenses;
   late bool _roundToRupee = widget.rules.roundToRupee;
   late String _billLayout = widget.rules.billLayout;
+  late String _particularsOrder = widget.rules.particularsOrder;
   late final _accountNameCtrl = TextEditingController(text: widget.rules.bankAccountName ?? '');
   late final _bankNameCtrl = TextEditingController(text: widget.rules.bankName ?? '');
   late final _accountNoCtrl = TextEditingController(text: widget.rules.bankAccountNumber ?? '');
@@ -1388,6 +1389,7 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
         'bill_notes': _billNotesCtrl.text.trim(),
         'round_to_rupee': _roundToRupee,
         'bill_layout': _billLayout,
+        'particulars_order': _particularsOrder,
         // Only sent when changed: it is the admin's call alone, and a manager saving other rules must not trip it.
         if (_autoApprove != widget.rules.autoApproveAdminExpenses) 'auto_approve_admin_expenses': _autoApprove,
       });
@@ -1487,6 +1489,20 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
                     DropdownMenuItem(value: 'boxed_plain', child: Text('Boxed, plain header: name, address, e-mail')),
                   ],
                   onChanged: (v) => setState(() => _billLayout = v ?? 'standard'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              FormFieldBox(
+                label: 'Order of the particulars (Boxed bills)',
+                child: DropdownButtonFormField<String>(
+                  key: const ValueKey('particulars-order'),
+                  initialValue: _particularsOrder,
+                  isExpanded: true,
+                  items: const [
+                    DropdownMenuItem(value: 'elements', child: Text('Element list: the order set on Maintenance Elements')),
+                    DropdownMenuItem(value: 'amount', child: Text('Amount: largest first')),
+                  ],
+                  onChanged: (v) => setState(() => _particularsOrder = v ?? 'elements'),
                 ),
               ),
             ],
