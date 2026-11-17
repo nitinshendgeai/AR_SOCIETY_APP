@@ -403,12 +403,16 @@ def generate_maintenance_bill_pdf(
     element_names: Optional[Dict[str, str]] = None,
     accumulated_interest: Decimal = ZERO,
     previous_bill: Optional[MaintenanceBill] = None,
+    element_order: Optional[Dict[str, int]] = None,
+    last_payment=None,
 ) -> bytes:
     """`element_codes`: {charge head name: standard element code} — decides
     which lines are monthly expenses. `accumulated_interest`: the unpaid
     interest inside the bill's arrears (Previous Interest/Late Fees).
     `previous_bill`: the flat's bill before this one, whose receipts are
-    listed at the foot."""
+    listed at the foot. `element_order`: {charge head name: its element's place in the society's list}, the order
+    the Boxed bill lists its particulars in. `last_payment`: the flat's most recent payment, printed as its last
+    receipt on the Boxed bill when the previous bill has none."""
     society = bill.society
     society_name = society.name if society else "Society"
     buf = BytesIO()
@@ -417,7 +421,8 @@ def generate_maintenance_bill_pdf(
         author=society_name, pageCompression=1 if compress else 0, **PAGE_MARGINS,
     )
     doc.build(bill_story(bill, settings, doc.width, element_codes=element_codes, element_names=element_names,
-                         accumulated_interest=accumulated_interest, previous_bill=previous_bill))
+                         accumulated_interest=accumulated_interest, previous_bill=previous_bill,
+                         element_order=element_order, last_payment=last_payment))
     return buf.getvalue()
 
 
@@ -435,7 +440,8 @@ def generate_bills_pdf(bills: List[dict], *, title: str, author: str, compress: 
         story += bill_story(item["bill"], item.get("settings"), doc.width,
                             element_codes=item.get("element_codes"), element_names=item.get("element_names"),
                             accumulated_interest=item.get("accumulated_interest", ZERO),
-                            previous_bill=item.get("previous_bill"))
+                            previous_bill=item.get("previous_bill"),
+                            element_order=item.get("element_order"), last_payment=item.get("last_payment"))
     doc.build(story)
     return buf.getvalue()
 
@@ -449,14 +455,18 @@ def bill_story(
     element_names: Optional[Dict[str, str]] = None,
     accumulated_interest: Decimal = ZERO,
     previous_bill: Optional[MaintenanceBill] = None,
+    element_order: Optional[Dict[str, int]] = None,
+    last_payment=None,
 ) -> List:
     """The flowables of one printed bill (the letterhead down to the receipts towards the previous bill), in the layout
-    the society chose (`MaintenanceSettings.bill_layout`)."""
+    the society chose (`MaintenanceSettings.bill_layout`). `element_order` and `last_payment` are used by the Boxed
+    layouts only."""
     layout = getattr(settings, "bill_layout", None) if settings is not None else None
     if layout in ("boxed", "boxed_plain"):
         return boxed_bill_story(bill, settings, width, element_codes=element_codes, element_names=element_names,
                                 accumulated_interest=accumulated_interest, previous_bill=previous_bill,
-                                plain_header=(layout == "boxed_plain"))
+                                plain_header=(layout == "boxed_plain"), element_order=element_order,
+                                last_payment=last_payment)
     if settings is not None and getattr(settings, "bill_layout", None) == "classic":
         return classic_bill_story(bill, settings, width, element_codes=element_codes, element_names=element_names,
                                   accumulated_interest=accumulated_interest, previous_bill=previous_bill)
@@ -912,10 +922,15 @@ def boxed_bill_story(
     accumulated_interest: Decimal = ZERO,
     previous_bill: Optional[MaintenanceBill] = None,
     plain_header: bool = False,
+    element_order: Optional[Dict[str, int]] = None,
+    last_payment=None,
 ) -> List:
     """The flowables of one bill in the boxed layout: the same figures as the other layouts, laid out as one framed page.
     `plain_header`: the society's name in plain black type over its address, e-mail and registration number, inside the
-    frame (the original Boxed letterhead); otherwise the grey letterhead band and the "Maintenance Bill" title."""
+    frame (the original Boxed letterhead); otherwise the grey letterhead band and the "Maintenance Bill" title.
+    `element_order`: {charge head name: its element's place in the society's list}, the order the particulars print
+    in. `last_payment`: the flat's most recent payment, printed as its last receipt when nothing was paid against the
+    previous bill."""
     element_names = element_names or {}
     society = bill.society
     society_name = society.name if society else "Society"
@@ -1019,7 +1034,15 @@ def boxed_bill_story(
     for li in lines:
         name = element_names.get(li.description, li.description)
         charged[name] = charged.get(name, ZERO) + Decimal(amount_of(li))
-    heads = [(n, a) for n, a in charged.items() if a]            # only what is charged this time
+    # In the order the society arranged its elements in (Maintenance Elements screen); a head with no element, or no
+    # order given, goes after them in the order the bill lines were made.
+    order = element_order or {}
+    place: Dict[str, int] = {}
+    for li in lines:
+        name = element_names.get(li.description, li.description)
+        place[name] = min(place.get(name, 10 ** 9), order.get(li.description, 10 ** 9))
+    ranked = sorted(enumerate(charged.items()), key=lambda pair: (place[pair[1][0]], pair[0]))
+    heads = [(n, a) for _, (n, a) in ranked if a]                # only what is charged this time
     if gst_charged:
         heads += gst_rows(lines)
 
@@ -1112,25 +1135,35 @@ def boxed_bill_story(
         [Paragraph(f"<b>{i}.</b>&nbsp;&nbsp;{x}", st["terms"])] for i, x in enumerate(terms, 1)], [width],
         [("TOPPADDING", (0, 1), (-1, -1), 0.5), ("BOTTOMPADDING", (0, 1), (-1, -1), 0.5)]))
 
-    # ── Receipt(s) for what was paid against the previous bill ──
+    # ── Receipt(s): what was paid against the previous bill; when nothing was, the flat's last receipt ──
+    def receipt_frame(payment, amount, against: str, title: str):
+        cheque = payment.payment_mode == PaymentMode.CHEQUE
+        rows = [
+            [Paragraph(f"<b>{title}</b>", st["hd"])],
+            [Table([[P(f"<b>Receipt No. :</b> {escape(payment.receipt_number)}", "t"),
+                     P(f"<b>Receipt Date :</b> {payment.payment_date.day}-{payment.payment_date.month}-"
+                       f"{payment.payment_date.year}", "tr")]], colWidths=[width * 0.5 - 8, width * 0.5 - 8],
+                   style=[("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                          ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0)])],
+            [P(f"Received with thanks From <b>{escape(label)} {escape(names)}</b> Unit No. :<b>{escape(label)}</b> "
+               f"Sum of Rs. <b>{_inr(amount)}</b> ( {escape(inr_words(amount).replace('INR ', '').rstrip('.'))} ) "
+               f"{escape(_paid_by(payment))} {against}")],
+            [P(f"Total Receipt &nbsp;&nbsp;&nbsp;&nbsp;: <b>{_inr(amount)}</b>")],
+            [P("Subject to realization of Cheque" if cheque else "")],
+        ]
+        return frame(rows, [width])
+
+    paid = []
     if previous_bill is not None:
         paid = sorted(_payments(previous_bill), key=lambda pa: (pa[0].payment_date, pa[0].receipt_number))[-3:]
-        for payment, amount in paid:
-            cheque = payment.payment_mode == PaymentMode.CHEQUE
-            rows = [
-                [Paragraph("<b>R E C E I P T</b>", st["hd"])],
-                [Table([[P(f"<b>Receipt No. :</b> {escape(payment.receipt_number)}", "t"),
-                         P(f"<b>Receipt Date :</b> {payment.payment_date.day}-{payment.payment_date.month}-"
-                           f"{payment.payment_date.year}", "tr")]], colWidths=[width * 0.5 - 8, width * 0.5 - 8],
-                       style=[("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                              ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0)])],
-                [P(f"Received with thanks From <b>{escape(label)} {escape(names)}</b> Unit No. :<b>{escape(label)}</b> "
-                   f"Sum of Rs. <b>{_inr(amount)}</b> ( {escape(inr_words(amount).replace('INR ', '').rstrip('.'))} ) "
-                   f"{escape(_paid_by(payment))} Against Ref No Bill /{escape(previous_bill.invoice_number)}")],
-                [P(f"Total Receipt &nbsp;&nbsp;&nbsp;&nbsp;: <b>{_inr(amount)}</b>")],
-                [P("Subject to realization of Cheque" if cheque else "")],
-            ]
-            story.append(frame(rows, [width]))
+    for payment, amount in paid:
+        story.append(receipt_frame(payment, amount, f"Against Ref No Bill /{escape(previous_bill.invoice_number)}",
+                                   "R E C E I P T"))
+    if not paid and last_payment is not None:
+        # nothing was paid against the previous bill (it is unpaid, or the money was paid on account): the last receipt
+        on_bill = getattr(last_payment, "bill", None)
+        against = f"Against Ref No Bill /{escape(on_bill.invoice_number)}" if on_bill is not None else "On account"
+        story.append(receipt_frame(last_payment, last_payment.amount, against, "L A S T &nbsp; R E C E I P T"))
 
     story.append(Spacer(1, 1.5 * mm))
     story.append(Paragraph("<b>This is a Computer Generated Invoice. No Need for Signature</b>", S["foot"]))
