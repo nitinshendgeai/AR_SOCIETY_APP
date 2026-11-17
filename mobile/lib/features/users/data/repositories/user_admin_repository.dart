@@ -50,6 +50,14 @@ class UserAdminRepository {
 
   Future<List<RoleModel>> listRoles() => _ds.listRoles();
 
+  Future<RoleModel> createRole(String name, {String? description, String? copyFromRoleId}) =>
+      _ds.createRole(name, description: description, copyFromRoleId: copyFromRoleId);
+
+  Future<RoleModel> updateRole(String roleId, {String? name, String? description}) =>
+      _ds.updateRole(roleId, name: name, description: description);
+
+  Future<void> deleteRole(String roleId) => _ds.deleteRole(roleId);
+
   Future<List<PermissionModel>> listPermissions() => _ds.listPermissions();
 
   Future<List<RolePermissionMatrixRow>> getPermissionMatrix() =>

@@ -22,6 +22,7 @@ const _prefixToForm = <(String, String?)>[
   ('/shops', 'shops'),
   ('/automation', 'automation'),
   ('/users', 'users_roles'),
+  ('/roles', 'users_roles'),
   ('/permission-matrix', 'permission_matrix'),
   ('/forms-matrix', 'forms_matrix'),
   ('/society-settings', 'society_settings'),

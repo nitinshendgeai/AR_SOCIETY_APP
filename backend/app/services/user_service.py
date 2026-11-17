@@ -55,7 +55,7 @@ class UserService:
         if data.role_name:
             self._assert_assignable(data.role_name, society_id)
             # A role the society knows, not a typo that would quietly make a new one
-            if not self.repo.db.query(Role).filter(Role.name == data.role_name).first():
+            if not self.repo.role_named(data.role_name, society_id):
                 raise HTTPException(status_code=422, detail=f"Unknown role '{data.role_name}'")
         temp_pwd = _generate_temp_password()
         user = User(

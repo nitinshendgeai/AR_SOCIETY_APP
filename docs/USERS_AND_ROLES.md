@@ -242,6 +242,15 @@ existed, since none of them matched the old Dart `isAdmin`/`isStaff`
 string checks. An Admin can now close those gaps from the Forms Matrix
 screen without a code change.
 
+### Society-specific roles
+
+The standard roles above are shared by every society. A society's Admin can add roles of its own from **Users & Roles >
+Manage roles**: a name, a description, optionally starting from another role's permissions and screens. A new role starts
+with no permissions and no menu screens; grant them in the Permission Matrix and the Forms Matrix. Only that society sees or
+can assign the role (`roles.society_id`). It can be renamed, and deleted once no user holds it. The standard roles can't be
+renamed or deleted from the app. Code that checks for specific standard role names does not recognise a custom role; it
+acts only through the permissions and screens it has been granted.
+
 ### Multi-Tenant Isolation
 
 - Every endpoint enforces `society_id` scoping from the authenticated user's token.

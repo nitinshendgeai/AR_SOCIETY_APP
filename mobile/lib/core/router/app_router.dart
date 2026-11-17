@@ -65,6 +65,7 @@ import 'package:ar_society_app/features/users/presentation/screens/create_user_s
 import 'package:ar_society_app/features/users/presentation/screens/password_reset_requests_screen.dart';
 import 'package:ar_society_app/features/users/presentation/screens/edit_user_screen.dart';
 import 'package:ar_society_app/features/users/presentation/screens/role_assignment_screen.dart';
+import 'package:ar_society_app/features/users/presentation/screens/roles_screen.dart';
 import 'package:ar_society_app/features/users/presentation/screens/permission_matrix_screen.dart';
 import 'package:ar_society_app/features/users/presentation/screens/forms_matrix_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/checklist_templates_screen.dart';
@@ -203,6 +204,7 @@ class AppRoutes {
   static const usersDetail        = '/users/:userId';
   static const usersEdit          = '/users/:userId/edit';
   static const usersRoles         = '/users/:userId/roles';
+  static const roles              = '/roles';
   static const permissionMatrix   = '/permission-matrix';
   static const formsMatrix        = '/forms-matrix';
   static const checklistTemplates = '/staff/checklist-templates';
@@ -818,6 +820,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.usersDetail,
             builder: (_, state) =>
                 UserDetailScreen(userId: state.pathParameters['userId']!),
+          ),
+          GoRoute(
+            path: AppRoutes.roles,
+            redirect: (_, __) {
+              if (authState is AuthAuthenticated) {
+                final user = (authState as AuthAuthenticated).user;
+                if (!user.isAdmin) return userRoleHome(user);
+              }
+              return null;
+            },
+            builder: (_, __) => const RolesScreen(),
           ),
           GoRoute(
             path: AppRoutes.permissionMatrix,

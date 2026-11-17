@@ -59,12 +59,20 @@ class RoleModel {
   final String name;
   final String? description;
 
-  const RoleModel({required this.id, required this.name, this.description});
+  /// A role the society made for itself (it can be renamed and deleted); the standard roles are shared by every society.
+  final bool isCustom;
+
+  /// How many users of the society hold it.
+  final int userCount;
+
+  const RoleModel({required this.id, required this.name, this.description, this.isCustom = false, this.userCount = 0});
 
   factory RoleModel.fromJson(Map<String, dynamic> json) => RoleModel(
         id: json['id'] as String,
         name: json['name'] as String,
         description: json['description'] as String?,
+        isCustom: json['is_custom'] as bool? ?? false,
+        userCount: (json['user_count'] as num?)?.toInt() ?? 0,
       );
 }
 
