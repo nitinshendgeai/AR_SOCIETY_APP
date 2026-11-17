@@ -452,9 +452,11 @@ def bill_story(
 ) -> List:
     """The flowables of one printed bill (the letterhead down to the receipts towards the previous bill), in the layout
     the society chose (`MaintenanceSettings.bill_layout`)."""
-    if settings is not None and getattr(settings, "bill_layout", None) == "boxed":
+    layout = getattr(settings, "bill_layout", None) if settings is not None else None
+    if layout in ("boxed", "boxed_plain"):
         return boxed_bill_story(bill, settings, width, element_codes=element_codes, element_names=element_names,
-                                accumulated_interest=accumulated_interest, previous_bill=previous_bill)
+                                accumulated_interest=accumulated_interest, previous_bill=previous_bill,
+                                plain_header=(layout == "boxed_plain"))
     if settings is not None and getattr(settings, "bill_layout", None) == "classic":
         return classic_bill_story(bill, settings, width, element_codes=element_codes, element_names=element_names,
                                   accumulated_interest=accumulated_interest, previous_bill=previous_bill)
@@ -909,8 +911,11 @@ def boxed_bill_story(
     element_names: Optional[Dict[str, str]] = None,
     accumulated_interest: Decimal = ZERO,
     previous_bill: Optional[MaintenanceBill] = None,
+    plain_header: bool = False,
 ) -> List:
-    """The flowables of one bill in the boxed layout: the same figures as the other layouts, laid out as one framed page."""
+    """The flowables of one bill in the boxed layout: the same figures as the other layouts, laid out as one framed page.
+    `plain_header`: the society's name in plain black type over its address, e-mail and registration number, inside the
+    frame (the original Boxed letterhead); otherwise the grey letterhead band and the "Maintenance Bill" title."""
     element_names = element_names or {}
     society = bill.society
     society_name = society.name if society else "Society"
@@ -949,13 +954,36 @@ def boxed_bill_story(
 
     story: List = []
 
-    # ── Letterhead: the grey band with the society's name, Regn. No. | PAN and address over a red rule, then the title ──
-    story += society_header(society, width)
-    story.append(Spacer(1, 3 * mm))
-    story.append(_p("Maintenance Bill" + (" / Tax Invoice" if gst_charged else ""), "title"))
-    story.append(Spacer(1, 2 * mm))
-    if bill.bill_status.value == "cancelled":
-        story += [Paragraph("<font color='#B91C1C'><b>CANCELLED</b></font>", S["cell_c"]), Spacer(1, 1 * mm)]
+    if plain_header:
+        # ── Letterhead, as the original Boxed page: name, address and e-mail, registration no., in the frame ──
+        address = ", ".join(x for x in [
+            (society.address or "").strip() if society else "", society.city if society else None,
+            society.state if society else None] if x)
+        if society and society.pincode:
+            address = f"{address} {society.pincode}".strip()
+        line2 = " , ".join(x for x in [
+            address.upper(), f"E-Mail : {society.contact_email}" if society and society.contact_email else ""] if x)
+        rows = [[P(escape(society_name.upper()), "name")]]
+        if line2:
+            rows.append([P(escape(line2), "addr")])
+        ids = [x for x in [
+            f"Registration No. : {society.registration_number}" if society and society.registration_number else "",
+            f"PAN : {society.pan_number}" if society and society.pan_number else "",
+            f"GSTIN : {society.gst_number}" if society and society.gst_number else ""] if x]
+        if ids:
+            rows.append([P(escape("   |   ".join(ids)), "reg")])
+        story.append(frame(rows, [width], [("TOPPADDING", (0, 0), (-1, 0), 4)]))
+        if bill.bill_status.value == "cancelled":
+            story += [Paragraph("<font color='#B91C1C'><b>CANCELLED</b></font>", S["cell_c"])]
+    else:
+        # ── Letterhead: the grey band with the society's name, Regn. No. | PAN and address over a red rule, then the
+        # title ──
+        story += society_header(society, width)
+        story.append(Spacer(1, 3 * mm))
+        story.append(_p("Maintenance Bill" + (" / Tax Invoice" if gst_charged else ""), "title"))
+        story.append(Spacer(1, 2 * mm))
+        if bill.bill_status.value == "cancelled":
+            story += [Paragraph("<font color='#B91C1C'><b>CANCELLED</b></font>", S["cell_c"]), Spacer(1, 1 * mm)]
 
     # ── To / bill details ──
     cycle = bill.cycle
