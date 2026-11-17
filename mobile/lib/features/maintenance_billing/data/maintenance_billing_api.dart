@@ -227,6 +227,10 @@ class MaintenanceRules {
   /// receipt slip for the previous bill at the foot).
   final String billLayout;
 
+  /// The order the Boxed bill lists its particulars in: 'elements' (the society's element order) or 'amount' (the
+  /// largest amount first).
+  final String particularsOrder;
+
   /// "Billing in this app starts on": when set, each flat is billed from its possession date (never before this
   /// date) or from the end of its last bill, to the end of the cycle.
   final DateTime? billingStartDate;
@@ -252,6 +256,7 @@ class MaintenanceRules {
     this.upiId,
     this.billNotes,
     this.billLayout = 'standard',
+    this.particularsOrder = 'elements',
     this.billingStartDate,
     this.autoApproveAdminExpenses = false,
     this.roundToRupee = false,
@@ -272,6 +277,7 @@ class MaintenanceRules {
         upiId: j['upi_id'] as String?,
         billNotes: j['bill_notes'] as String?,
         billLayout: j['bill_layout'] as String? ?? 'standard',
+        particularsOrder: j['particulars_order'] as String? ?? 'elements',
         billingStartDate:
             j['billing_start_date'] == null ? null : DateTime.parse(j['billing_start_date'] as String),
         autoApproveAdminExpenses: j['auto_approve_admin_expenses'] as bool? ?? false,

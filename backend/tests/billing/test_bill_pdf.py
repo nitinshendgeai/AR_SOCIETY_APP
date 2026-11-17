@@ -687,3 +687,35 @@ def test_boxed_shows_the_last_receipt_when_nothing_was_paid_against_the_previous
 def _other_flat_id(db, flat):
     from app.models.flat import Flat
     return db.query(Flat).filter(Flat.wing_id == flat.wing_id, Flat.id != flat.id).first().id
+
+
+def test_boxed_particulars_can_be_ordered_by_amount_highest_first(client, db):
+    society, flat1, flat2, manager, resident, other = _rig(db, "pdfx7")
+    h = manager["headers"]
+    s = client.get(f"/api/v1/billing/maintenance-settings/{society.id}", headers=h).json()
+    assert s["particulars_order"] == "elements"                              # the default: the element list's order
+    assert client.put(f"/api/v1/billing/maintenance-settings/{society.id}", json={"particulars_order": "random"},
+                      headers=h).status_code == 422
+    elements = {e["code"]: e["id"] for e in client.get(f"/api/v1/billing/elements/{society.id}", headers=h).json()}
+    # Service Charges is first in the element list but the smaller amount; Amenities is later and the larger
+    for name, code, amount in [("Monthly service", "service_charges", "100.00"), ("Clubhouse fee", "amenities", "300.00")]:
+        r = client.post("/api/v1/billing/charges", json={
+            "society_id": str(society.id), "element_id": elements[code], "name": name, "default_amount": amount},
+            headers=h)
+        assert r.status_code == 201, r.text
+    assert client.put(f"/api/v1/billing/maintenance-settings/{society.id}", json={"bill_layout": "boxed"},
+                      headers=h).status_code == 200
+    cycle_id = _cycle(client, h, society.id).json()["id"]
+    assert client.post(f"/api/v1/billing/cycles/{cycle_id}/generate-bills", headers=h).status_code == 200
+    bill_id = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=flat1.id).one().id
+
+    _, by_elements = _bill_pdf(db, bill_id, layout=None)
+    assert by_elements.index("Service Charges") < by_elements.index("Amenities")
+
+    r = client.put(f"/api/v1/billing/maintenance-settings/{society.id}", json={"particulars_order": "amount"},
+                   headers=h)
+    assert r.status_code == 200 and r.json()["particulars_order"] == "amount"
+    db.expire_all()
+    _, by_amount = _bill_pdf(db, bill_id, layout=None)
+    assert by_amount.index("Amenities") < by_amount.index("Service Charges")     # 300.00 before 100.00
+    assert "1 Amenities" in by_amount and "2 Service Charges" in by_amount       # and numbered in that order

@@ -368,6 +368,8 @@ class MaintenanceSettingsUpdate(OrmBase):
     bill_notes: Optional[str] = Field(None, max_length=1000)
     # How the bill prints: the standard layout, or the classic one (every head on its own line, a receipt slip at the foot)
     bill_layout: Optional[Literal["standard", "classic", "boxed", "boxed_plain"]] = None
+    # The order the Boxed bill lists its particulars in: the society's element order, or the largest amount first
+    particulars_order: Optional[Literal["elements", "amount"]] = None
     # Billing in this app starts on (empty clears it: every cycle then bills its own period only)
     billing_start_date: Optional[date] = None
     # Post a payment entered by an admin / committee member as approved at once (no second approver)
@@ -427,6 +429,7 @@ def _settings_out(st) -> dict:
         "upi_id": st.upi_id,
         "bill_notes": st.bill_notes,
         "bill_layout": st.bill_layout or "standard",
+        "particulars_order": st.particulars_order or "elements",
         "billing_start_date": st.billing_start_date.isoformat() if st.billing_start_date else None,
         "auto_approve_admin_expenses": bool(st.auto_approve_admin_expenses),
         "round_to_rupee": bool(st.round_to_rupee),
