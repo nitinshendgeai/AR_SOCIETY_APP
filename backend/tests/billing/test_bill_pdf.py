@@ -651,7 +651,10 @@ def test_boxed_shows_the_last_receipt_when_nothing_was_paid_against_the_previous
     first.paid_amount = Decimal("1000.00")
     first.outstanding = first.total_amount - first.paid_amount
     db.commit()
-    # a second bill (nothing paid against it) and a third: the third's previous bill has no payment
+    # a full set of heads, as a society's register has, then a second bill (nothing paid against it) and a third:
+    # the third's previous bill has no payment
+    for i in range(7):
+        _charge(client, h, society.id, name=f"Register head {i + 1}", amount="100.00")
     for name in ("Second", "Third"):
         cycle_id = _cycle(client, h, society.id, name=name).json()["id"]
         assert client.post(f"/api/v1/billing/cycles/{cycle_id}/generate-bills", headers=h).status_code == 200
@@ -663,6 +666,19 @@ def test_boxed_shows_the_last_receipt_when_nothing_was_paid_against_the_previous
         f"Against Ref No Bill /{first.invoice_number}", "Subject to realization of Cheque",
     ]:
         assert expected in text, expected
+    # arrears, interest and the last receipt on the bill still print on one page
+    import json
+    third.interest_working = json.dumps([{"bill": first.invoice_number, "principal": "1000.00", "from": "2026-05-15",
+                                          "to": "2026-11-17", "days": 186, "rate": "21.00", "interest": "107.00"}])
+    third.penalty_amount = Decimal("107.00")
+    third.discount_amount, third.round_off = Decimal("10.00"), Decimal("0.40")
+    db.commit()
+    svc = BillingService(db)
+    bill = svc.get_bill(third.id)
+    assert bill.previous_dues and bill.interest_working                       # the crowded case this guards
+    ctx = {**svc._bill_print_context(bill), "accumulated_interest": Decimal("500.00")}
+    pdf = generate_maintenance_bill_pdf(bill, svc.get_maintenance_settings(bill.society_id), compress=False, **ctx)
+    assert len(re.findall(rb"/Type /Page\b", pdf)) == 1
     # a flat that has paid nothing has no last receipt
     _, none_text = _bill_pdf(db, db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=_other_flat_id(db, flat1)).one().id, layout=None)
     assert "R E C E I P T" not in none_text
