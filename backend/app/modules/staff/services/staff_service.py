@@ -6,6 +6,7 @@ from fastapi import HTTPException, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.modules.staff.services.attendance_geo import AttendanceGeoService
 from app.modules.staff.models.staff import (
     Staff, StaffDesignation, StaffShift, DutyAssignment,
     StaffAttendance, StaffTask, StaffLeave, StaffWorkLog,
@@ -970,6 +971,9 @@ class StaffService:
             raise HTTPException(status_code=409, detail=(
                 f"Still checked in since {to_local(still_in.check_in_time, tz):%d %b, %H:%M}. "
                 "Check out first."))
+        # Where the phone is (when the society checks location): refused here if the society blocks, else recorded below.
+        geo = AttendanceGeoService(self.db)
+        verdict = geo.enforce(staff.society_id, data.location.model_dump() if data.location else None)
         att = StaffAttendance(
             society_id=staff.society_id,
             staff_id=staff_id,
@@ -980,6 +984,9 @@ class StaffService:
             notes=data.notes,
         )
         self.att_repo.create(att)
+        geo.record(staff.society_id, att.id, "in", verdict)
+        self.db.commit()
+        self.db.refresh(att)
         self._audit(AuditAction.CREATE, att, "StaffAttendance", user, request,
                     new_values={"staff_id": str(staff_id), "date": str(today), "status": "present"})
         return att
@@ -996,6 +1003,8 @@ class StaffService:
                 raise HTTPException(status_code=409, detail="Already checked out today")
             raise HTTPException(status_code=404, detail="No check-in found for today")
 
+        geo = AttendanceGeoService(self.db)
+        verdict = geo.enforce(staff.society_id, data.location.model_dump() if data.location else None)
         att.check_out_time = datetime.utcnow()
         # Compute working hours
         delta = att.check_out_time - att.check_in_time
@@ -1004,6 +1013,7 @@ class StaffService:
         if att.working_hours > STANDARD_SHIFT_HOURS:
             att.overtime_hours = round(att.working_hours - STANDARD_SHIFT_HOURS, 2)
         if data.notes: att.notes = (att.notes or "") + f" | Checkout: {data.notes}"
+        geo.record(staff.society_id, att.id, "out", verdict)
 
         self.db.commit()
         self.db.refresh(att)

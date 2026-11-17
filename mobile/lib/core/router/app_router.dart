@@ -30,6 +30,7 @@ import 'package:ar_society_app/features/staff/presentation/screens/attendance_sc
 import 'package:ar_society_app/features/staff/presentation/screens/duties_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/handover_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/approval_screen.dart';
+import 'package:ar_society_app/features/staff/presentation/screens/attendance_location_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/duty_assign_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/duty_overview_screen.dart';
 import 'package:ar_society_app/features/staff/presentation/screens/paper_sheet_entry_screen.dart';
@@ -161,6 +162,7 @@ class AppRoutes {
   static const staffDuties        = '/staff/duties/:staffId';
   static const staffHandover      = '/staff/handover/:staffId';
   static const staffApprovals     = '/staff/approvals';
+  static const staffAttendanceLocation = '/staff/attendance-location';
   static const staffAssignDuty    = '/staff/assign-duty';
   static const staffDutyOverview  = '/staff/duties/overview';
   static const staffPaperSheet    = '/staff/paper-sheet';
@@ -594,6 +596,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               societyId: state.extra as String? ?? sessionSocietyId(),
             ),
           ),
+          GoRoute(path: AppRoutes.staffAttendanceLocation,
+              builder: (_, __) => const AttendanceLocationScreen()),
           GoRoute(
             path: AppRoutes.staffAttendanceCorrections,
             builder: (_, state) => AttendanceCorrectionScreen(

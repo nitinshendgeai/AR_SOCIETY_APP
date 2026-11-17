@@ -1,3 +1,4 @@
+import 'package:ar_society_app/features/staff/domain/entities/attendance_geo.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/core/utils/server_time.dart';
 
@@ -182,6 +183,7 @@ class AttendanceModel {
   final bool isCheckoutApproved;
   final String? notes;
   final String? staffName;
+  final AttendanceGeoResult? geoIn, geoOut;
 
   const AttendanceModel({
     required this.id,
@@ -198,6 +200,8 @@ class AttendanceModel {
     this.isCheckoutApproved = false,
     this.notes,
     this.staffName,
+    this.geoIn,
+    this.geoOut,
   });
 
   factory AttendanceModel.fromJson(Map<String, dynamic> j) => AttendanceModel(
@@ -215,6 +219,8 @@ class AttendanceModel {
         isCheckoutApproved: j['is_checkout_approved'] as bool? ?? false,
         notes: j['notes'] as String?,
         staffName: j['staff_name'] as String?,
+        geoIn: j['geo_in'] == null ? null : AttendanceGeoResult.fromJson(Map<String, dynamic>.from(j['geo_in'] as Map)),
+        geoOut: j['geo_out'] == null ? null : AttendanceGeoResult.fromJson(Map<String, dynamic>.from(j['geo_out'] as Map)),
       );
 
   AttendanceEntity toEntity() => AttendanceEntity(
@@ -230,6 +236,8 @@ class AttendanceModel {
         isCheckoutApproved: isCheckoutApproved,
         notes: notes,
         staffName: staffName,
+        geoIn: geoIn,
+        geoOut: geoOut,
       );
 }
 

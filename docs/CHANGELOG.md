@@ -4,6 +4,22 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-17 (Staff attendance: location check)
+
+### feat: staff check in and out only from places the society sets
+
+- **How** - the Admin or committee adds **spots** (Main gate, Tower B...; **10 m** allowed distance to start) from the pin icon on
+  Attendance Approvals, using the phone's location or typed coordinates, and chooses **Off / Flag / Block**. Staff's Check In and Check Out
+  read the phone's location and send it; **the server decides** (inside, outside, no location, not accurate enough, fake location).
+- **Flag** (the default once a spot exists) accepts everyone and marks the rest for the manager, shown as a chip on each approval:
+  *At Main gate · 4 m*, *35 m from Main gate*, *No location*. **Block** refuses a check-in or check-out outside the spots.
+  With **no spot**, or **Off**, attendance works exactly as before.
+- **Privacy** - the location is read at check-in and check-out only, never tracked. Android location permission added to the staff app.
+- **No change to** payroll, approval rules, working hours or RBAC. New tables `attendance_geo_spots`, `attendance_geo_settings`,
+  `attendance_geo_events` (migration `d5a7c9e1b3f5`, additive). Guide, limits and accuracy advice: `docs/STAFF_ATTENDANCE_LOCATION.md`.
+- **Tests** - ten backend tests (distance, flag, block, check-out, fake and vague readings, nearest of several spots, permissions, bad
+  values, other societies) and six app tests (with and without the check, flag vs block when location is off, setup screen).
+
 ## 2026-11-17 (Print or download the Residents list, with the columns you choose)
 
 ### feat: Residents report as a PDF or an Excel file, with a column picker
