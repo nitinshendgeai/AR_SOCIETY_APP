@@ -3,12 +3,14 @@ import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/core/layout/app_sheet.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/people_filters.dart';
+import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_report_sheet.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
@@ -253,6 +255,22 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
       ),
     ]);
 
+  /// The report for exactly what the list is showing: every filter in force, not just the page loaded.
+  Future<void> _openReport() => showAppSheet<void>(
+        context: context,
+        builder: (_) => ResidentReportSheet(
+          load: (format, columns) => ref.read(residentReportApiProvider).file(
+                format: format,
+                columns: columns,
+                isActive: _activeFilter,
+                search: _searchCtrl.text.trim(),
+                flatId: widget.filterFlat?.id ?? _flatId,
+                wingId: widget.filterFlat == null ? _wingId : null,
+                movedIn: _movedIn,
+              ),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(residentListProvider);
@@ -281,6 +299,13 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
               icon: const Icon(Icons.link_off_rounded),
               tooltip: 'Residents without a login',
               onPressed: () => context.push(AppRoutes.residentLoginStatus),
+            ),
+          if (user?.isAdminOrCommittee == true || user?.isManager == true)
+            IconButton(
+              key: const ValueKey('residents-print'),
+              icon: const Icon(Icons.print_rounded),
+              tooltip: 'Print or download',
+              onPressed: _openReport,
             ),
           IconButton(icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh', onPressed: _load),
           if (desktop && (user?.isAdminOrCommittee ?? false))
