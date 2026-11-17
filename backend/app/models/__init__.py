@@ -128,6 +128,7 @@ from app.modules.accounts.models.accounts import (
 )
 
 # Handover models
+from app.modules.staff.models.attendance_geo import AttendanceGeoEvent, AttendanceGeoSettings, AttendanceGeoSpot
 from app.modules.staff.models.handover import (
     StaffHandover, HandoverItem,
     HandoverStatus, HandoverItemType, HANDOVER_TRANSITIONS,

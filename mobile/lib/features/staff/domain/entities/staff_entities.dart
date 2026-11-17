@@ -1,3 +1,5 @@
+import 'package:ar_society_app/features/staff/domain/entities/attendance_geo.dart';
+
 // ── Designation entity ────────────────────────────────────────────────────────
 
 class DesignationEntity {
@@ -170,6 +172,9 @@ class AttendanceEntity {
   final String? notes;
   final String? staffName;
 
+  /// Where the phone was at check-in and check-out, when the society checks location.
+  final AttendanceGeoResult? geoIn, geoOut;
+
   const AttendanceEntity({
     required this.id,
     required this.staffId,
@@ -185,6 +190,8 @@ class AttendanceEntity {
     this.isCheckoutApproved = false,
     this.notes,
     this.staffName,
+    this.geoIn,
+    this.geoOut,
   });
 
   bool get isCheckedIn  => checkInTime != null;

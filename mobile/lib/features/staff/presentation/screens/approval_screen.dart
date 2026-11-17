@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/features/staff/domain/entities/attendance_geo.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
@@ -61,6 +64,12 @@ class _AttendanceApprovalScreenState extends ConsumerState<AttendanceApprovalScr
     return AppPage(
       title: 'Attendance Approvals',
       actions: [
+          IconButton(
+            key: const Key('attendance-location-link'),
+            tooltip: 'Attendance location',
+            icon: const Icon(Icons.pin_drop_outlined),
+            onPressed: () => context.push(AppRoutes.staffAttendanceLocation),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () => ref.read(approvalProvider.notifier)
@@ -172,6 +181,32 @@ class _ErrorView extends StatelessWidget {
 // ── Approval list ─────────────────────────────────────────────────────────────
 
 enum _ApprovalType { checkin, checkout }
+
+/// "At Main gate · 4 m" in green, or why the location is not trusted, in amber or red.
+class _GeoChip extends StatelessWidget {
+  final AttendanceGeoResult geo;
+  const _GeoChip({required this.geo});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (geo.status) {
+      'inside' => AppTheme.success,
+      'mocked' => AppTheme.error,
+      'outside' => AppTheme.warning,
+      _ => AppTheme.textSecondary,
+    };
+    return Container(
+      key: const Key('geo-chip'),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(AppTheme.radiusS)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(geo.isInside ? Icons.location_on_rounded : Icons.location_off_rounded, size: 15, color: color),
+        const SizedBox(width: 6),
+        Flexible(child: Text(geo.label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color))),
+      ]),
+    );
+  }
+}
 
 class _ApprovalList extends ConsumerWidget {
   final List<AttendanceEntity> records;
@@ -312,6 +347,12 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
               ],
             ],
           ),
+
+          // ── Where the phone was, when the society checks location ──────────
+          if ((widget.type == _ApprovalType.checkin ? r.geoIn : r.geoOut) case final geo?) ...[
+            const SizedBox(height: 8),
+            _GeoChip(geo: geo),
+          ],
 
           const SizedBox(height: 12),
 

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.core.dependencies import (
     get_current_user, require_roles,
-    require_manager_above,
+    require_manager_above, require_admin_committee,
     require_supervisor_above, require_any_staff, require_any_member,
 )
 from app.models.user import User
@@ -27,6 +27,8 @@ from app.modules.staff.schemas.staff import (
 )
 from app.modules.staff.models.staff import StaffDepartment
 from app.modules.staff.services.staff_service import StaffService
+from app.modules.staff.services.attendance_geo import AttendanceGeoService
+from app.modules.staff.models.attendance_geo import AttendanceGeoSpot
 
 router = APIRouter(prefix="/staff", tags=["Staff Operations"])
 
@@ -338,6 +340,99 @@ def update_checklist_template(template_id: UUID, data: ChecklistTemplateUpdate,
 def delete_checklist_template(template_id: UUID, db: Session = Depends(get_db),
                               user: User = Depends(manager_or_above)):
     StaffService(db).delete_checklist_template(template_id, user)
+
+
+# ── Attendance location check ─────────────────────────────────────────────────
+class GeoSettingsIn(BaseModel):
+    mode: str = Field(pattern="^(off|flag|block)$")
+    max_accuracy_m: int = Field(default=20, ge=5, le=100)
+
+
+class GeoSpotIn(BaseModel):
+    society_id: Optional[UUID] = None
+    name: str = Field(min_length=1, max_length=100)
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    radius_m: int = Field(default=10, ge=5, le=200)
+
+
+class GeoSpotPatch(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    latitude: Optional[float] = Field(default=None, ge=-90, le=90)
+    longitude: Optional[float] = Field(default=None, ge=-180, le=180)
+    radius_m: Optional[int] = Field(default=None, ge=5, le=200)
+
+
+def _spot_out(sp: AttendanceGeoSpot) -> dict:
+    return {"id": str(sp.id), "name": sp.name, "latitude": sp.latitude, "longitude": sp.longitude, "radius_m": sp.radius_m}
+
+
+def _geo_config(db: Session, society_id: UUID) -> dict:
+    svc = AttendanceGeoService(db)
+    return {"settings": svc.settings(society_id), "spots": [_spot_out(s) for s in svc.spots(society_id)]}
+
+
+@router.get("/attendance-geo/status")
+def attendance_geo_status(db: Session = Depends(get_db), user: User = Depends(any_staff)):
+    """Whether the staff app must send the phone's location with a check-in, and the accuracy it must reach."""
+    if user.society_id is None:
+        return {"enabled": False, "mode": "off", "max_accuracy_m": 20}
+    return AttendanceGeoService(db).status_for_staff(user.society_id)
+
+
+@router.get("/attendance-geo/{society_id}")
+def attendance_geo_config(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(manager_or_above)):
+    """The society's check-in spots and how the location check is applied."""
+    assert_society_access(user, society_id)
+    return _geo_config(db, society_id)
+
+
+@router.put("/attendance-geo/{society_id}/settings")
+def attendance_geo_save_settings(society_id: UUID, data: GeoSettingsIn, db: Session = Depends(get_db),
+                                 user: User = Depends(require_admin_committee)):
+    """Off, flag (record and mark those outside) or block (refuse those outside), and the accuracy limit."""
+    assert_society_access(user, society_id)
+    AttendanceGeoService(db).save_settings(society_id, data.mode, data.max_accuracy_m)
+    db.commit()
+    return _geo_config(db, society_id)
+
+
+@router.post("/attendance-geo/spots", status_code=201)
+def attendance_geo_add_spot(data: GeoSpotIn, db: Session = Depends(get_db), user: User = Depends(require_admin_committee)):
+    society_id = resolve_create_society_id(user, data.society_id)
+    spot = AttendanceGeoSpot(society_id=society_id, name=data.name.strip(), latitude=data.latitude,
+                             longitude=data.longitude, radius_m=data.radius_m)
+    db.add(spot)
+    db.commit()
+    db.refresh(spot)
+    return _spot_out(spot)
+
+
+def _own_spot(db: Session, spot_id: UUID, user: User) -> AttendanceGeoSpot:
+    spot = db.query(AttendanceGeoSpot).filter(AttendanceGeoSpot.id == spot_id, AttendanceGeoSpot.is_active == True).first()  # noqa: E712
+    if not spot:
+        raise HTTPException(status_code=404, detail="Spot not found")
+    assert_society_access(user, spot.society_id)
+    return spot
+
+
+@router.patch("/attendance-geo/spots/{spot_id}")
+def attendance_geo_edit_spot(spot_id: UUID, data: GeoSpotPatch, db: Session = Depends(get_db),
+                             user: User = Depends(require_admin_committee)):
+    spot = _own_spot(db, spot_id, user)
+    for k, v in data.model_dump(exclude_unset=True).items():
+        if v is not None:
+            setattr(spot, k, v.strip() if k == "name" else v)
+    db.commit()
+    return _spot_out(spot)
+
+
+@router.delete("/attendance-geo/spots/{spot_id}", status_code=204)
+def attendance_geo_remove_spot(spot_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_admin_committee)):
+    spot = _own_spot(db, spot_id, user)
+    spot.is_active = False
+    db.commit()
+    return Response(status_code=204)
 
 
 # ── Attendance ────────────────────────────────────────────────────────────────

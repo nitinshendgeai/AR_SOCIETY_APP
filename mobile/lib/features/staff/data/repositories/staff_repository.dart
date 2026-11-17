@@ -1,3 +1,4 @@
+import 'package:ar_society_app/features/staff/domain/entities/attendance_geo.dart';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -117,16 +118,16 @@ class StaffRepository {
 
   // ── Attendance ─────────────────────────────────────────────────────────────
 
-  Future<StaffResult<AttendanceEntity>> checkIn(String staffId, {String? notes}) async {
+  Future<StaffResult<AttendanceEntity>> checkIn(String staffId, {String? notes, GeoReading? location}) async {
     try {
-      final m = await _ds.checkIn(staffId, notes: notes);
+      final m = await _ds.checkIn(staffId, notes: notes, location: location?.toJson());
       return StaffSuccess(m.toEntity());
     } catch (e) { return _handle(e); }
   }
 
-  Future<StaffResult<AttendanceEntity>> checkOut(String staffId, {String? notes}) async {
+  Future<StaffResult<AttendanceEntity>> checkOut(String staffId, {String? notes, GeoReading? location}) async {
     try {
-      final m = await _ds.checkOut(staffId, notes: notes);
+      final m = await _ds.checkOut(staffId, notes: notes, location: location?.toJson());
       return StaffSuccess(m.toEntity());
     } catch (e) { return _handle(e); }
   }

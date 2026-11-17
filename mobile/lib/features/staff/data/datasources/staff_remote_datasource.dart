@@ -15,19 +15,19 @@ class StaffRemoteDataSource {
   // ── Attendance ─────────────────────────────────────────────────────────────
 
   /// POST /staff/attendance/{staff_id}/checkin
-  Future<AttendanceModel> checkIn(String staffId, {String? notes}) async {
+  Future<AttendanceModel> checkIn(String staffId, {String? notes, Map<String, dynamic>? location}) async {
     final r = await _dio.post(
       '/staff/attendance/$staffId/checkin',
-      data: {'notes': notes},
+      data: {'notes': notes, if (location != null) 'location': location},
     );
     return AttendanceModel.fromJson(r.data as Map<String, dynamic>);
   }
 
   /// POST /staff/attendance/{staff_id}/checkout
-  Future<AttendanceModel> checkOut(String staffId, {String? notes}) async {
+  Future<AttendanceModel> checkOut(String staffId, {String? notes, Map<String, dynamic>? location}) async {
     final r = await _dio.post(
       '/staff/attendance/$staffId/checkout',
-      data: {'notes': notes},
+      data: {'notes': notes, if (location != null) 'location': location},
     );
     return AttendanceModel.fromJson(r.data as Map<String, dynamic>);
   }

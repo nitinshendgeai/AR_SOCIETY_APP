@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 import 'package:ar_society_app/features/staff/presentation/providers/staff_providers.dart';
+import 'package:ar_society_app/features/staff/presentation/punch_with_location.dart';
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
@@ -352,7 +353,7 @@ class _TodayCard extends ConsumerWidget {
                     icon: Icons.login_rounded,
                     color: AppTheme.success,
                     isLoading: isLoading,
-                    onPressed: () => ref.read(attendanceProvider.notifier).checkIn(staffId),
+                    onPressed: () => punchWithLocation(context, ref, staffId, checkIn: true),
                   ),
                 ),
               if (today != null && today!.isCheckedIn && !today!.isCheckedOut) ...[
@@ -363,7 +364,7 @@ class _TodayCard extends ConsumerWidget {
                     color: Colors.white,
                     textColor: AppTheme.primary,
                     isLoading: isLoading,
-                    onPressed: () => ref.read(attendanceProvider.notifier).checkOut(staffId),
+                    onPressed: () => punchWithLocation(context, ref, staffId, checkIn: false),
                   ),
                 ),
               ],

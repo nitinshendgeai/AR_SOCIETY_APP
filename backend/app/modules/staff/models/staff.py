@@ -328,6 +328,21 @@ class StaffAttendance(Base, TimestampMixin):
     marker           = relationship("User", foreign_keys=[marked_by])
     approver         = relationship("User", foreign_keys=[approved_by])
     checkout_approver = relationship("User", foreign_keys=[checkout_approved_by])
+    geo_events       = relationship("AttendanceGeoEvent", back_populates="attendance", lazy="selectin",
+                                    cascade="all, delete-orphan")
+
+    def _geo(self, kind: str):
+        """The latest location verdict recorded at a check-in ('in') or check-out ('out'), if any."""
+        events = [e for e in (self.geo_events or []) if e.kind == kind]
+        return max(events, key=lambda e: e.created_at) if events else None
+
+    @property
+    def geo_in(self):
+        return self._geo("in")
+
+    @property
+    def geo_out(self):
+        return self._geo("out")
 
     @property
     def staff_name(self) -> str:

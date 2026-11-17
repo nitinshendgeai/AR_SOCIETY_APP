@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/staff/data/repositories/staff_repository.dart';
+import 'package:ar_society_app/features/staff/domain/entities/attendance_geo.dart';
 import 'package:ar_society_app/features/staff/domain/entities/staff_entities.dart';
 
 // ── Repository provider ───────────────────────────────────────────────────────
@@ -73,24 +74,32 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
     }
   }
 
-  Future<void> checkIn(String staffId, {String? notes}) async {
+  /// What the staff member is told after a punch: where the phone was, when the society checks location.
+  static String _where(String done, AttendanceGeoResult? geo) {
+    if (geo == null) return done;
+    return geo.isInside
+        ? '$done · ${geo.label}'
+        : '$done, but ${geo.label.toLowerCase()}. Your manager will see this.';
+  }
+
+  Future<void> checkIn(String staffId, {String? notes, GeoReading? location}) async {
     state = AttendanceLoading();
-    final result = await _repo.checkIn(staffId, notes: notes);
+    final result = await _repo.checkIn(staffId, notes: notes, location: location);
     switch (result) {
       case StaffSuccess(:final data):
-        state = AttendanceSuccess(data, 'Checked in successfully');
+        state = AttendanceSuccess(data, _where('Checked in successfully', data.geoIn));
         await loadHistory(staffId);
       case StaffFailure(:final message, :final statusCode):
         state = AttendanceError(message, isDuplicate: statusCode == 409);
     }
   }
 
-  Future<void> checkOut(String staffId, {String? notes}) async {
+  Future<void> checkOut(String staffId, {String? notes, GeoReading? location}) async {
     state = AttendanceLoading();
-    final result = await _repo.checkOut(staffId, notes: notes);
+    final result = await _repo.checkOut(staffId, notes: notes, location: location);
     switch (result) {
       case StaffSuccess(:final data):
-        state = AttendanceSuccess(data, 'Checked out successfully');
+        state = AttendanceSuccess(data, _where('Checked out successfully', data.geoOut));
         await loadHistory(staffId);
       case StaffFailure(:final message, :final statusCode):
         state = AttendanceError(message, isDuplicate: statusCode == 409);

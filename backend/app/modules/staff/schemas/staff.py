@@ -312,13 +312,32 @@ class PaperSheetOut(OrmBase):
 
 
 # ── Attendance ────────────────────────────────────────────────────────────────
+class GeoReading(OrmBase):
+    """What the phone reports at a check-in or check-out."""
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    accuracy_m: Optional[float] = Field(default=None, ge=0, le=100000)
+    mocked: bool = False
+
+
+class GeoResultOut(OrmBase):
+    """The verdict on a reading, for the approval screen."""
+    status: str
+    distance_m: Optional[float] = None
+    accuracy_m: Optional[float] = None
+    spot_name: Optional[str] = None
+    mocked: bool = False
+
+
 class AttendanceCheckIn(OrmBase):
     notes: Optional[str] = None
+    location: Optional[GeoReading] = None
 
     _notes = field_validator("notes", mode="before")(val.note_max(500))
 
 class AttendanceCheckOut(OrmBase):
     notes: Optional[str] = None
+    location: Optional[GeoReading] = None
 
     _notes = field_validator("notes", mode="before")(val.note_max(500))
 
@@ -365,6 +384,9 @@ class AttendanceOut(TimestampSchema):
     checkout_approval_notes: Optional[str] = None
     notes: Optional[str]
     staff_name: Optional[str] = None
+    # Where the phone was at check-in and check-out, when the society checks location (otherwise empty).
+    geo_in: Optional[GeoResultOut] = None
+    geo_out: Optional[GeoResultOut] = None
 
     # Stored as naive UTC. Sent with an explicit Z so the app shows each viewer's
     # own clock instead of the UTC digits.
