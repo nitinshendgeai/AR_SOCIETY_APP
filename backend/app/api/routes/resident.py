@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 from typing import List, Literal, Optional
 from uuid import UUID
@@ -14,7 +14,7 @@ from app.services.resident_service import ResidentService
 from app.services.resident_edit_request_service import ResidentEditRequestService
 from app.services.resident_family_request_service import FamilyRequestService
 from app.schemas.resident_family_request import FamilyRequestCreate, FamilyRequestOut, FamilyRequestReject
-from app.core.dependencies import require_admin_committee, get_current_user
+from app.core.dependencies import require_admin_committee, require_manager_above, get_current_user
 from app.core.privacy import RESIDENT_PRIVATE_FIELDS, hide_private
 from app.models.user import User
 
@@ -62,6 +62,81 @@ def count_residents(
     return {"count": ResidentService(db).count(
         current_user, flat_id=flat_id, resident_type=resident_type, is_active=is_active, search=search,
         wing_id=wing_id, moved_in=moved_in)}
+
+
+REPORT_MAX_ROWS = 5000
+_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+@router.get("/report-columns")
+def report_columns(current_user: User = Depends(require_manager_above)):
+    """The columns the Residents report can show, for the picker: key, label, whether it is in the default set, and
+    whether it carries sensitive personal data."""
+    from app.services.resident_report import catalog
+    return catalog()
+
+
+@router.get("/report")
+def residents_report(
+    format: Literal["pdf", "xlsx"] = "pdf",
+    columns: Optional[str] = Query(None, description="Comma-separated column keys (see /residents/report-columns); empty: the default set"),
+    flat_id: Optional[UUID] = None,
+    wing_id: Optional[UUID] = None,
+    resident_type: Optional[ResidentType] = None,
+    is_active: Optional[bool] = True,
+    moved_in: Optional[bool] = Query(None, description="true: living there now; false: no move-in date yet"),
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_manager_above),
+):
+    """The printed or downloaded Residents report: every resident the list would show for the same filters (no paging,
+    up to 5,000), with only the chosen columns, as a PDF or an Excel file. Office roles only, because it can carry phone
+    numbers and identity details; identity numbers are cut to their last four characters."""
+    from app.models.flat import Flat
+    from app.models.society import Society
+    from app.models.wing import Wing
+    from app.modules.billing.services.bill_pdf import flat_label
+    from app.services import resident_report as rr
+
+    try:
+        chosen = rr.choose_columns(columns)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    residents = ResidentService(db).list(
+        current_user, flat_id=flat_id, resident_type=resident_type, is_active=is_active, search=search,
+        skip=0, limit=REPORT_MAX_ROWS, wing_id=wing_id, moved_in=moved_in,
+    )
+    flats = {f.id: f for f in db.query(Flat).filter(Flat.id.in_({r.flat_id for r in residents})).all()} if residents else {}
+    rows = []
+    for r in residents:
+        d = r.model_dump()
+        d.update({
+            "flat": flat_label(flats.get(r.flat_id)), "name": r.full_name, "type": r.resident_type.value,
+            "comm_preference": r.comm_preference.value if r.comm_preference else None,
+        })
+        rows.append(d)
+    rows.sort(key=lambda x: (x["flat"], not x["is_primary"], x["name"].lower()))
+
+    filters = ["current residents" if is_active else ("moved-out residents" if is_active is False else "current and moved out")]
+    if wing_id:
+        wing = db.query(Wing).filter(Wing.id == wing_id, Wing.society_id == current_user.society_id).first()
+        filters.append(f"wing {wing.name}" if wing else "one wing")
+    if flat_id and flats.get(flat_id):
+        filters.append(f"flat {flat_label(flats[flat_id])}")
+    if resident_type:
+        filters.append(f"type {rr.TYPE_WORDS.get(resident_type.value, resident_type.value)}")
+    if moved_in is not None:
+        filters.append("moved in" if moved_in else "not moved in yet")
+    if search and search.strip():
+        filters.append(f'search "{search.strip()}"')
+
+    society = db.query(Society).filter(Society.id == current_user.society_id).first()
+    if format == "xlsx":
+        return Response(content=rr.render_residents_xlsx(rows, chosen, filters, society), media_type=_XLSX,
+                        headers={"Content-Disposition": "attachment; filename=Residents-Report.xlsx"})
+    return Response(content=rr.render_residents_pdf(rows, chosen, filters, society), media_type="application/pdf",
+                    headers={"Content-Disposition": "inline; filename=Residents-Report.pdf"})
 
 
 @router.get("/login-status", response_model=dict)

@@ -4,6 +4,25 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-17 (Print or download the Residents list, with the columns you choose)
+
+### feat: Residents report as a PDF or an Excel file, with a column picker
+
+- **Where** - Residents list, the **printer icon** in the top bar (Admin, committee and Manager). It opens a sheet: tick the columns,
+  then **Print / open PDF**, **Share PDF**, **Download Excel** or **Share Excel**.
+- **Same filters as the list** - wing, flat, active or moved out, moved in, and the search box. Every matching resident is
+  included, not just the page on screen (up to 5,000).
+- **Columns** - Flat, Name, Type, Primary contact, Mobile, Email, Date of birth, Moved in, Moved out, KYC, ID proof (last 4),
+  Emergency contact, Notified by, Family members in flat, Status. The usual set (Flat, Name, Type, Mobile, Email) is ticked
+  first; "Usual columns", "All" and "None" are one tap. Columns with personal details are marked.
+- **Privacy** - office roles only (a resident gets "not allowed"). An identity number is **never printed in full**: only its last
+  four characters. Excel keeps mobile numbers as text (the leading 0 survives) and dates as real dates, and a name that starts
+  with `=`, `+`, `-` or `@` stays text so it cannot run as a formula.
+- **No change to** residents, billing, accounting, RBAC grants or the database; read-only, no migration.
+  API: `GET /residents/report?format=pdf|xlsx&columns=...` and `GET /residents/report-columns`.
+- **Tests** - seven backend tests (chosen columns only, Excel types, default set, ID masking, formula safety, filters, refusals) and
+  two phone-size widget tests for the picker.
+
 ## 2026-11-16 (Accounts page: links to the new screens on a phone)
 
 ### fix(mobile): the phone Accounts page now links to All Registers, the TDS Ledger and Depreciation
