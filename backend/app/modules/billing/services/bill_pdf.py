@@ -1075,22 +1075,28 @@ def boxed_bill_story(
     for label_, amount_, bold in summary:
         data.append([P(label_, "trb" if bold else "tr"), "", P(_inr(amount_), "trb" if bold else "tr")])
     data.append([P("Grand Total", "trb"), "", P(f"Rs. {_inr(payable)}", "trb")])
-    heights = [None] * len(data)
-    heights[body_end + 1] = filler
-    t = Table(data, colWidths=[no_w, width - no_w - amt_w, amt_w], rowHeights=heights)
-    t.setStyle(TableStyle([
-        ("BOX", (0, 0), (-1, -1), 0.9, LINE), ("LINEBELOW", (0, 0), (-1, 0), 0.9, LINE),
-        ("LINEAFTER", (0, 0), (0, first_summary - 1), 0.9, LINE),
-        ("LINEBEFORE", (2, 0), (2, -1), 0.9, LINE),
-        *[("SPAN", (0, r), (1, r)) for r in range(first_summary, len(data))],
-        ("LINEABOVE", (0, len(data) - 1), (-1, len(data) - 1), 0.9, LINE),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (0, 0), (-1, -1), 1), ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
-        ("TOPPADDING", (0, 0), (-1, 0), 2), ("BOTTOMPADDING", (0, 0), (-1, 0), 2),
-        ("TOPPADDING", (0, len(data) - 1), (-1, len(data) - 1), 3), ("BOTTOMPADDING", (0, len(data) - 1), (-1, len(data) - 1), 3),
-    ]))
-    story += [t, frame([[P(f"<b>Amount In Words : {escape(inr_words(payable))}</b>")]], [width])]
+    def particulars_table(gap: float) -> Table:
+        """The particulars with a blank gap of `gap` between the heads and the totals."""
+        heights = [None] * len(data)
+        heights[body_end + 1] = gap
+        t = Table(data, colWidths=[no_w, width - no_w - amt_w, amt_w], rowHeights=heights)
+        t.setStyle(TableStyle([
+            ("BOX", (0, 0), (-1, -1), 0.9, LINE), ("LINEBELOW", (0, 0), (-1, 0), 0.9, LINE),
+            ("LINEAFTER", (0, 0), (0, first_summary - 1), 0.9, LINE),
+            ("LINEBEFORE", (2, 0), (2, -1), 0.9, LINE),
+            *[("SPAN", (0, r), (1, r)) for r in range(first_summary, len(data))],
+            ("LINEABOVE", (0, len(data) - 1), (-1, len(data) - 1), 0.9, LINE),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 1), ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+            ("TOPPADDING", (0, 0), (-1, 0), 2), ("BOTTOMPADDING", (0, 0), (-1, 0), 2),
+            ("TOPPADDING", (0, len(data) - 1), (-1, len(data) - 1), 3),
+            ("BOTTOMPADDING", (0, len(data) - 1), (-1, len(data) - 1), 3),
+        ]))
+        return t
+
+    table_at = len(story)
+    story += [particulars_table(filler), frame([[P(f"<b>Amount In Words : {escape(inr_words(payable))}</b>")]], [width])]
 
     working = _interest_working_table(bill, width)
     if working is not None:
@@ -1167,6 +1173,15 @@ def boxed_bill_story(
 
     story.append(Spacer(1, 1.5 * mm))
     story.append(Paragraph("<b>This is a Computer Generated Invoice. No Need for Signature</b>", S["foot"]))
+
+    # Keep the bill on one page: the blank gap above the totals gives way to whatever else the bill carries (arrears,
+    # interest working, a receipt). It only ever shrinks; a bill too long even without the gap runs on to a second page.
+    page_room = (A4[1] - PAGE_MARGINS["topMargin"] - PAGE_MARGINS["bottomMargin"]) - 12 - 3 * mm   # frame padding, margin
+    others = sum(f.wrap(width, 10 ** 6)[1] for i, f in enumerate(story) if i != table_at)
+    table_height = story[table_at].wrap(width, 10 ** 6)[1]
+    fitted = min(filler, max(3 * mm, page_room - others - (table_height - filler)))
+    if abs(fitted - filler) > 0.5:
+        story[table_at] = particulars_table(fitted)
     return story
 
 
