@@ -38,8 +38,7 @@ def test_amounts_use_indian_grouping_and_words():
 
 
 class _WithLayout:
-    """The society's settings, printed in the given layout: most tests below are about the Standard layout, but a society
-    that has not chosen one now prints Boxed. `layout=None` prints whichever the society has stored."""
+    """The society's settings, printed in the given layout. `layout=None` prints whichever the society has stored."""
     def __init__(self, base, layout):
         self._base, self.bill_layout = base, layout
 
@@ -317,20 +316,21 @@ def _classic(client, db, tag, **settings):
     return society, flat1, manager, bill, cycle_id
 
 
-def test_the_layout_is_a_setting_boxed_unless_chosen(client, db):
+def test_the_layout_is_a_setting_standard_unless_chosen(client, db):
     society, flat1, flat2, manager, resident, other, cycle_id = _generated_cycle(client, db, "pdfl0")
     h = manager["headers"]
-    assert client.get(f"/api/v1/billing/maintenance-settings/{society.id}", headers=h).json()["bill_layout"] == "boxed"
+    assert client.get(f"/api/v1/billing/maintenance-settings/{society.id}", headers=h).json()["bill_layout"] == "standard"
     assert client.put(f"/api/v1/billing/maintenance-settings/{society.id}", json={"bill_layout": "fancy"},
                       headers=h).status_code == 422
     bill = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=flat1.id).one()
-    _, text = _bill_pdf(db, bill.id, layout=None)               # a society that never chose prints Boxed
-    assert "P A R T I C U L A R S" in text and "Terms & Conditions :" in text
-    # ... and can go back to Standard
-    assert client.put(f"/api/v1/billing/maintenance-settings/{society.id}", json={"bill_layout": "standard"},
-                      headers=h).json()["bill_layout"] == "standard"
+    _, text = _bill_pdf(db, bill.id, layout=None)               # a society that never chose prints Standard
+    assert "Maintenance Bill" in text and "Notes *" in text.replace("Notes * ", "Notes *")
+    assert "P A R T I C U L A R S" not in text
+    # ... and can pick Boxed
+    assert client.put(f"/api/v1/billing/maintenance-settings/{society.id}", json={"bill_layout": "boxed"},
+                      headers=h).json()["bill_layout"] == "boxed"
     _, text = _bill_pdf(db, bill.id, layout=None)
-    assert "Maintenance Bill" in text and "Notes *" in text.replace("Notes * ", "Notes *")   # the standard layout
+    assert "P A R T I C U L A R S" in text and "Terms & Conditions :" in text
 
 
 def test_classic_layout_lists_every_head_and_the_totals(client, db):

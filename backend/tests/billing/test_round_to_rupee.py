@@ -104,8 +104,9 @@ def test_the_printed_bill_shows_the_round_off_and_a_whole_rupee_total(client, db
     text = " ".join(_text(pdf).replace("|", " ").split())
     assert "Round off 0.44" in text
     assert "Total Maintenance Payable Amount Rs. 1,235.00" in text
-    # the Boxed layout (what a society prints unless it chose another) shows the same round-off and whole-rupee total
-    pdf = generate_maintenance_bill_pdf(bill, svc.get_maintenance_settings(bill.society_id), compress=False,
+    # the Boxed layout shows the same round-off and whole-rupee total
+    pdf = generate_maintenance_bill_pdf(bill, _with_layout(svc.get_maintenance_settings(bill.society_id), "boxed"),
+                                        compress=False,
                                         **svc._bill_print_context(bill))
     boxed = " ".join(_text(pdf).replace("|", " ").split())
     assert "Round off 0.44" in boxed and "Grand Total Rs. 1,235.00" in boxed

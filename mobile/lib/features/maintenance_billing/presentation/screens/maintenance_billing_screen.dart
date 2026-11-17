@@ -1484,7 +1484,7 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
                     DropdownMenuItem(value: 'classic', child: Text('Classic: element by element')),
                     DropdownMenuItem(value: 'boxed', child: Text('Boxed: one framed page with receipt')),
                   ],
-                  onChanged: (v) => setState(() => _billLayout = v ?? 'boxed'),
+                  onChanged: (v) => setState(() => _billLayout = v ?? 'standard'),
                 ),
               ),
             ],
