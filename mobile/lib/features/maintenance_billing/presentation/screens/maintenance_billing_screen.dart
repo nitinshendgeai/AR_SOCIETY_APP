@@ -1470,7 +1470,8 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
                 'words, numbered notes, and the receipt for the previous bill at the foot above the signature line. Boxed '
                 'prints one framed page: the member and bill details side by side, only the heads charged this time, the '
                 'bank details beside the billing-period note, numbered terms, and the receipt for what was paid against '
-                'the previous bill. It '
+                'the previous bill. "Boxed, plain header" is the same page under a plain letterhead: the society\'s name, '
+                'address and e-mail, and registration number. It '
                 'applies to every bill printed from now on, including bills already made.',
             [
               FormFieldBox(
@@ -1483,6 +1484,7 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
                     DropdownMenuItem(value: 'standard', child: Text('Standard: heads grouped')),
                     DropdownMenuItem(value: 'classic', child: Text('Classic: element by element')),
                     DropdownMenuItem(value: 'boxed', child: Text('Boxed: one framed page with receipt')),
+                    DropdownMenuItem(value: 'boxed_plain', child: Text('Boxed, plain header: name, address, e-mail')),
                   ],
                   onChanged: (v) => setState(() => _billLayout = v ?? 'standard'),
                 ),

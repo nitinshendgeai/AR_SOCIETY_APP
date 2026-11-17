@@ -512,12 +512,12 @@ def test_contingency_fund_prints_on_its_own_line(client, db):
 
 # ── The boxed layout ──────────────────────────────────────────────────────────
 
-def _boxed(client, db, tag, **settings):
+def _boxed(client, db, tag, layout="boxed", **settings):
     society, flat1, flat2, manager, resident, other, cycle_id = _generated_cycle(client, db, tag)
     r = client.put(f"/api/v1/billing/maintenance-settings/{society.id}",
-                   json={"bill_layout": "boxed", **settings}, headers=manager["headers"])
+                   json={"bill_layout": layout, **settings}, headers=manager["headers"])
     assert r.status_code == 200, r.text
-    assert r.json()["bill_layout"] == "boxed"
+    assert r.json()["bill_layout"] == layout
     client.post(f"/api/v1/billing/cycles/{cycle_id}/issue-all", headers=manager["headers"])
     bill = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=flat1.id).one()
     return society, flat1, manager, bill
@@ -587,3 +587,26 @@ def test_boxed_layout_in_the_bulk_print(client, db):
                              title="t", author="a", compress=False)
     text = " ".join(_text(pdf).replace("|", " ").split())
     assert text.count("P A R T I C U L A R S") == len(bills) >= 2
+
+
+def test_boxed_plain_header_is_the_original_letterhead_over_the_same_body(client, db):
+    society, flat1, manager, bill = _boxed(client, db, "pdfx4", layout="boxed_plain",
+                                           bank_name="Indian Bank", bank_account_number="8212833058")
+    society.registration_number = "MUM/WRO/HSG/TC/16082/2021-22/2022"
+    society.contact_email = "office@example.com"
+    society.address, society.city, society.pincode = "Road No.7, Daulat Nagar", "Mumbai", "400066"
+    db.commit()
+    db.expire_all()
+    _, text = _bill_pdf(db, bill.id, layout=None)
+    for expected in [
+        "MB SOCIETY PDFX4", "ROAD NO.7, DAULAT NAGAR, MUMBAI, MAHARASHTRA 400066 , E-Mail : office@example.com",
+        "Registration No. : MUM/WRO/HSG/TC/16082/2021-22/2022",
+        "To,", "Sr. No. P A R T I C U L A R S Amount (INR)", "Grand Total Rs.", "Amount In Words : INR",
+        "Company's Bank Details", "Terms & Conditions :", "This is a Computer Generated Invoice. No Need for Signature",
+    ]:
+        assert expected in text, expected
+    assert "Maintenance Bill" not in text and "Regn. No." not in text     # no grey-band title, no band wording
+    # the other Boxed keeps its band letterhead and title
+    _, band = _bill_pdf(db, bill.id, layout="boxed")
+    assert "Regn. No. MUM/WRO/HSG/TC/16082/2021-22/2022" in band and "Maintenance Bill" in band
+    assert "E-Mail :" not in band

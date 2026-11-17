@@ -11,5 +11,6 @@ void main() {
     expect(MaintenanceRules.fromJson({'bill_layout': 'classic'}).billLayout, 'classic');
     expect(MaintenanceRules.fromJson({'bill_layout': 'standard'}).billLayout, 'standard');
     expect(MaintenanceRules.fromJson({'bill_layout': 'boxed'}).billLayout, 'boxed');
+    expect(MaintenanceRules.fromJson({'bill_layout': 'boxed_plain'}).billLayout, 'boxed_plain');
   });
 }
