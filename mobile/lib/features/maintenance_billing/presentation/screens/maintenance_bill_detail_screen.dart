@@ -177,11 +177,11 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              _Summary(bill: bill),
+              BillSummaryCard(bill: bill),
               const SizedBox(height: 16),
-              _Section(title: 'Charges', child: _LineItems(bill: bill)),
+              BillSection(title: 'Charges', child: BillChargesList(bill: bill)),
               const SizedBox(height: 16),
-              _Section(
+              BillSection(
                 title: 'Payments',
                 child: bill.payments.isEmpty
                     ? Padding(
@@ -218,7 +218,7 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
               ),
               if (bill.isCancelled && bill.cancellationReason != null) ...[
                 const SizedBox(height: 16),
-                _Section(title: 'Cancelled', child: Text(bill.cancellationReason!)),
+                BillSection(title: 'Cancelled', child: Text(bill.cancellationReason!)),
               ],
               if (!widget.canManage && bill.canRecordPayment) ...[
                 const SizedBox(height: 16),
@@ -279,9 +279,9 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
   }
 }
 
-class _Summary extends StatelessWidget {
+class BillSummaryCard extends StatelessWidget {
   final MaintenanceBill bill;
-  const _Summary({required this.bill});
+  const BillSummaryCard({required this.bill});
 
   @override
   Widget build(BuildContext context) {
@@ -354,10 +354,10 @@ class _Meta extends StatelessWidget {
       );
 }
 
-class _Section extends StatelessWidget {
+class BillSection extends StatelessWidget {
   final String title;
   final Widget child;
-  const _Section({required this.title, required this.child});
+  const BillSection({required this.title, required this.child});
 
   @override
   Widget build(BuildContext context) => Container(
@@ -376,9 +376,9 @@ class _Section extends StatelessWidget {
       );
 }
 
-class _LineItems extends StatelessWidget {
+class BillChargesList extends StatelessWidget {
   final MaintenanceBill bill;
-  const _LineItems({required this.bill});
+  const BillChargesList({required this.bill});
 
   Widget _row(String label, String value, {bool bold = false, Color? color}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
@@ -412,4 +412,45 @@ class _LineItems extends StatelessWidget {
               '${amountOf(bill.outstanding) + amountOf(bill.previousDues)}', bold: true),
         ],
       ]);
+}
+
+/// The bill exactly as the Maintenance Billing screen shows it (summary
+/// card, Charges, Payments), read-only, for embedding in other screens.
+class BillFormatView extends ConsumerWidget {
+  final String billId;
+  const BillFormatView({super.key, required this.billId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(maintenanceBillProvider(billId));
+    return async.when(
+      loading: () => const Padding(padding: EdgeInsets.all(24), child: AppLoader()),
+      error: (e, _) => AppErrorState(
+          message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(maintenanceBillProvider(billId))),
+      data: (bill) => Column(children: [
+        BillSummaryCard(bill: bill),
+        const SizedBox(height: 16),
+        BillSection(title: 'Charges', child: BillChargesList(bill: bill)),
+        const SizedBox(height: 16),
+        BillSection(
+          title: 'Payments',
+          child: bill.payments.isEmpty
+              ? const Text('No payments recorded yet', style: TextStyle(color: AppTheme.textSecondary))
+              : Column(children: [
+                  for (final p in bill.payments)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.check_circle_rounded, color: AppTheme.success),
+                      title: Text(formatRupees(p.amount), style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text([
+                        formatBillDate(p.paymentDate),
+                        paymentModeLabel(p.paymentMode),
+                        p.receiptNumber,
+                      ].join(' · ')),
+                    ),
+                ]),
+        ),
+      ]),
+    );
+  }
 }
