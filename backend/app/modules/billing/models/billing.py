@@ -252,7 +252,7 @@ class MaintenanceSettings(Base, TimestampMixin):
     bill_layout         = Column(String(20), default="standard", server_default="standard", nullable=False)
     # The order the Boxed bill lists its particulars in: "elements" (the order the society arranged its elements in on the
     # Maintenance Elements screen) or "amount" (the largest amount first).
-    particulars_order   = Column(String(20), default="elements", server_default="elements", nullable=False)
+    particulars_order   = Column(String(20), default="amount", server_default="amount", nullable=False)
 
     # "Billing in this app starts on": when set, each flat is billed for the days from the end of what it was last
     # billed for — or, for a flat never billed here, from its possession date (never earlier than this date) — up to

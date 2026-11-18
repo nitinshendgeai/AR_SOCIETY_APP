@@ -525,7 +525,7 @@ def bill_story(
     by_head: Dict[str, Decimal] = {h: ZERO for h in BILL_HEADS}
     for li in lines:
         by_head[bill_head(li, element_codes.get(li.description))] += Decimal(amount_of(li))
-    heads = list(by_head.items())
+    heads = sorted(by_head.items(), key=lambda kv: -kv[1])        # largest amount first; equal amounts keep head order
     if gst_charged:
         heads += gst_rows(lines)
 
@@ -802,7 +802,7 @@ def classic_bill_story(
         charged[name] = charged.get(name, ZERO) + Decimal(amount_of(li))
     # the society's other elements, so the bill shows every element it levies (0.00 where nothing is charged this time)
     others = sorted({element_of(head) for head in (element_names or element_codes)} - set(charged))
-    heads = list(charged.items()) + [(name, ZERO) for name in others]
+    heads = sorted(charged.items(), key=lambda kv: -kv[1]) + [(name, ZERO) for name in others]   # largest first
     if gst_charged:
         heads += gst_rows(lines)
 

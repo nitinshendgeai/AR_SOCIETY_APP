@@ -256,7 +256,7 @@ class MaintenanceRules {
     this.upiId,
     this.billNotes,
     this.billLayout = 'standard',
-    this.particularsOrder = 'elements',
+    this.particularsOrder = 'amount',
     this.billingStartDate,
     this.autoApproveAdminExpenses = false,
     this.roundToRupee = false,
@@ -277,7 +277,7 @@ class MaintenanceRules {
         upiId: j['upi_id'] as String?,
         billNotes: j['bill_notes'] as String?,
         billLayout: j['bill_layout'] as String? ?? 'standard',
-        particularsOrder: j['particulars_order'] as String? ?? 'elements',
+        particularsOrder: j['particulars_order'] as String? ?? 'amount',
         billingStartDate:
             j['billing_start_date'] == null ? null : DateTime.parse(j['billing_start_date'] as String),
         autoApproveAdminExpenses: j['auto_approve_admin_expenses'] as bool? ?? false,

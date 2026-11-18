@@ -429,7 +429,7 @@ def _settings_out(st) -> dict:
         "upi_id": st.upi_id,
         "bill_notes": st.bill_notes,
         "bill_layout": st.bill_layout or "standard",
-        "particulars_order": st.particulars_order or "elements",
+        "particulars_order": st.particulars_order or "amount",
         "billing_start_date": st.billing_start_date.isoformat() if st.billing_start_date else None,
         "auto_approve_admin_expenses": bool(st.auto_approve_admin_expenses),
         "round_to_rupee": bool(st.round_to_rupee),
