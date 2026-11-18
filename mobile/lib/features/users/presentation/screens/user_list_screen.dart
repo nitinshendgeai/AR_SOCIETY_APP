@@ -38,6 +38,12 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
     return AppPage(
       title: 'Users & Roles',
       actions: [
+          IconButton(
+            key: const Key('users-roles'),
+            icon: const Icon(Icons.badge_outlined),
+            tooltip: 'Manage roles',
+            onPressed: () => context.push(AppRoutes.roles),
+          ),
           _ResetRequestsButton(onPressed: () => context.push(AppRoutes.passwordResetRequests)),
           if (desktop)
             HeaderActionButton(icon: Icons.person_add_rounded, label: 'Create User', onPressed: _createUser)

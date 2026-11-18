@@ -85,6 +85,28 @@ class UserRemoteDataSource {
         .toList();
   }
 
+  /// Add a role of the society's own, optionally starting from another role's permissions and screens.
+  Future<RoleModel> createRole(String name, {String? description, String? copyFromRoleId}) async {
+    final r = await _dio.post('/roles/', data: {
+      'name': name,
+      if (description != null && description.trim().isNotEmpty) 'description': description.trim(),
+      if (copyFromRoleId != null) 'copy_from_role_id': copyFromRoleId,
+    });
+    return RoleModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<RoleModel> updateRole(String roleId, {String? name, String? description}) async {
+    final r = await _dio.patch('/roles/$roleId', data: {
+      if (name != null) 'name': name,
+      if (description != null) 'description': description,
+    });
+    return RoleModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<void> deleteRole(String roleId) async {
+    await _dio.delete('/roles/$roleId');
+  }
+
   Future<List<PermissionModel>> listPermissions() async {
     final r = await _dio.get('/roles/permissions');
     return (r.data as List)

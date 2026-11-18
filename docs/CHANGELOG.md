@@ -4,6 +4,25 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-17 (Roles screen)
+
+### feat: a society can create and manage its own roles
+
+Until now the only roles were the platform's standard ones (shared by every society) and there was no screen for roles at
+all. Users & Roles > **Manage roles** (`/roles`, Admin only, gated by `users_roles`) lists the standard roles for reference and
+the society's own, and lets the admin **add** a role (name, description, optionally *start from* another role's permissions and
+screens), **rename** it, and **delete** it once nobody holds it. A new role starts with nothing; its permissions and menu
+screens are then set in the Permission Matrix and the Forms Matrix (buttons on the role's card).
+
+- A society's own role is private to the society (`roles.society_id`, migration `e3a5c7d9f1b4`); two societies may each have a
+  "Gym Instructor". Another society's role reads as not found everywhere, including its matrix rows. Standard role names (and
+  "Platform Admin") can't be reused; standard roles can't be renamed or deleted here.
+- Giving a user a role by name now picks the society's own role of that name before a standard one.
+- API: `POST /roles/`, `PATCH /roles/{id}`, `DELETE /roles/{id}`; `GET /roles/` now also says whether a role is the society's
+  own and how many of its users hold it. Changes are audit-logged.
+- A custom role works through permissions and screens only: checks that name specific standard roles (for example "the
+  committee") do not recognise it, by design.
+
 ## 2026-11-17 (Staff attendance: location check)
 
 ### feat: staff check in and out only from places the society sets

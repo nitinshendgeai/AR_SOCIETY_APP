@@ -106,8 +106,17 @@ class UserRepository(BaseRepository[User]):
 
     # ── Role management ───────────────────────────────────────────────────────
 
+    def role_named(self, role_name: str, society_id) -> Optional[Role]:
+        """The role of this name for a society: the society's own role if it has one, else the standard role."""
+        q = self.db.query(Role).filter(Role.name == role_name)
+        if society_id is not None:
+            mine = q.filter(Role.society_id == society_id).first()
+            if mine is not None:
+                return mine
+        return q.filter(Role.society_id.is_(None)).first()
+
     def assign_role(self, user: User, role_name: str) -> None:
-        role = self.db.query(Role).filter(Role.name == role_name).first()
+        role = self.role_named(role_name, user.society_id)
         if not role:
             role = Role(name=role_name)
             self.db.add(role)
@@ -125,7 +134,7 @@ class UserRepository(BaseRepository[User]):
         return [ur.role.name for ur in user.user_roles if ur.role]
 
     def remove_role(self, user: User, role_name: str) -> None:
-        role = self.db.query(Role).filter(Role.name == role_name).first()
+        role = self.role_named(role_name, user.society_id)
         if not role:
             return
         ur = self.db.query(UserRole).filter(
