@@ -696,6 +696,30 @@ class BillLineItem {
       );
 }
 
+/// The bill as its printed table gives it: the charged heads (largest first), the Current Bill Amount, the
+/// arrears / interest / round-off rows and the total payable.
+class BillSummary {
+  final List<({String label, String amount})> heads;
+  final String currentBillAmount;
+  final List<({String label, String amount})> rows;
+  final String payable;
+
+  const BillSummary({required this.heads, required this.currentBillAmount, required this.rows, required this.payable});
+
+  factory BillSummary.fromJson(Map<String, dynamic> j) => BillSummary(
+        heads: [
+          for (final e in (j['heads'] as List? ?? const []))
+            (label: (e as Map)['name'] as String, amount: _str(e['amount']))
+        ],
+        currentBillAmount: _str(j['current_bill_amount']),
+        rows: [
+          for (final e in (j['rows'] as List? ?? const []))
+            (label: (e as Map)['label'] as String, amount: _str(e['amount']))
+        ],
+        payable: _str(j['payable']),
+      );
+}
+
 class BillPayment {
   final String receiptNumber;
   final DateTime paymentDate;
@@ -741,6 +765,8 @@ class MaintenanceBill {
   final String roundOff;
   final List<BillLineItem> lineItems;
   final List<BillPayment> payments;
+  /// The printed bill's table; null from an older server, when the screen lists the charges instead.
+  final BillSummary? summary;
 
   const MaintenanceBill({
     required this.id,
@@ -767,6 +793,7 @@ class MaintenanceBill {
     this.roundOff = '0',
     this.lineItems = const [],
     this.payments = const [],
+    this.summary,
   });
 
   String get flatLabel => [wingName, flatNumber].whereType<String>().join(' / ');
@@ -810,6 +837,9 @@ class MaintenanceBill {
           for (final e in (j['payments'] as List? ?? const []))
             BillPayment.fromJson(e as Map<String, dynamic>)
         ],
+        summary: j['summary'] is Map<String, dynamic>
+            ? BillSummary.fromJson(j['summary'] as Map<String, dynamic>)
+            : null,
       );
 }
 

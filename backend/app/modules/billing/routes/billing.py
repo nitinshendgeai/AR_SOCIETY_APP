@@ -25,6 +25,7 @@ from app.modules.billing.models.billing import (
 )
 from app.modules.billing.services.maintenance_calculator import cycle_months, money
 from app.modules.billing.services.billing_service import BillingService, RESIDENT_VISIBLE_BILL_STATUSES
+from app.modules.billing.services.bill_pdf import bill_summary
 from app.modules.billing.services.budget_suggestions import suggest_budgets
 from app.modules.billing.services.period_expenses import cycle_readiness
 from app.modules.billing.services.flat_charges import FlatChargeService
@@ -718,7 +719,7 @@ def _bill_out(b) -> dict:
         "round_off": str(b.round_off or 0),
     }
 
-def _bill_detail_out(b) -> dict:
+def _bill_detail_out(b, db: Session) -> dict:
     out = _bill_out(b)
     out["line_items"] = [{
         "charge_type": li.charge_type.value,
@@ -747,6 +748,9 @@ def _bill_detail_out(b) -> dict:
         "transaction_ref": a.payment.transaction_ref,
     } for a in b.allocations if a.is_live and payment_counts(a.payment)]
     out["payments"] = sorted(payments, key=lambda p: p["payment_date"])
+    # The bill as its printed table gives it (heads largest first, totals), for the bill screen
+    ctx = BillingService(db)._bill_print_context(b, with_receipts=False)
+    out["summary"] = bill_summary(b, ctx["element_codes"], ctx["accumulated_interest"])
     return out
 
 def _ensure_can_view_flat(db: Session, user: User, flat_id) -> None:
@@ -831,7 +835,7 @@ def my_ledger(flat_id: Optional[UUID] = None, db: Session = Depends(get_db), use
 
 @router.get("/bills/{bill_id}", dependencies=[Depends(any_member)])
 def get_bill(bill_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return _bill_detail_out(_get_viewable_bill(db, user, bill_id))
+    return _bill_detail_out(_get_viewable_bill(db, user, bill_id), db)
 
 @router.get("/bills/{bill_id}/pdf", dependencies=[Depends(any_member)])
 def get_bill_pdf(bill_id: UUID, with_receipts: bool = True, db: Session = Depends(get_db),
@@ -846,12 +850,12 @@ def get_bill_pdf(bill_id: UUID, with_receipts: bool = True, db: Session = Depend
 @router.post("/bills/{bill_id}/issue", dependencies=[Depends(manager_above)])
 def issue_bill(bill_id: UUID, request: Request, db: Session = Depends(get_db),
                user: User = Depends(get_current_user)):
-    return _bill_detail_out(BillingService(db).issue_bill(bill_id, user, request))
+    return _bill_detail_out(BillingService(db).issue_bill(bill_id, user, request), db)
 
 @router.post("/bills/{bill_id}/cancel", dependencies=[Depends(manager_above)])
 def cancel_bill(bill_id: UUID, data: CancelBillRequest, db: Session = Depends(get_db),
                 user: User = Depends(get_current_user)):
-    return _bill_detail_out(BillingService(db).cancel_bill(bill_id, data.reason, user))
+    return _bill_detail_out(BillingService(db).cancel_bill(bill_id, data.reason, user), db)
 
 @router.get("/bills/flat/{flat_id}", dependencies=[Depends(any_member)])
 def flat_bills(flat_id: UUID, outstanding_only: bool = False, skip: int = 0, limit: int = 50,

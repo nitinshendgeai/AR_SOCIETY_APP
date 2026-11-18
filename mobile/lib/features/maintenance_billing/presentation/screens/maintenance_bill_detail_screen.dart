@@ -378,7 +378,7 @@ class BillSection extends StatelessWidget {
 
 class BillChargesList extends StatelessWidget {
   final MaintenanceBill bill;
-  const BillChargesList({required this.bill});
+  const BillChargesList({super.key, required this.bill});
 
   Widget _row(String label, String value, {bool bold = false, Color? color}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
@@ -402,26 +402,34 @@ class BillChargesList extends StatelessWidget {
     return [for (final e in indexed) e.value];
   }
 
-  @override
-  Widget build(BuildContext context) => Column(children: [
-        for (final li in _byAmountDesc(bill.lineItems))
-          _row(
-            amountOf(li.taxAmount) > 0
-                ? '${li.description} (incl. ${formatRupees(li.taxAmount)} tax)'
-                : li.description,
-            li.total,
-          ),
+  /// The same table as the printed Maintenance Bill: the heads charged, the Current Bill Amount, the arrears /
+  /// interest rows and the Total Maintenance Payable Amount.
+  Widget _printed(BillSummary s) => Column(children: [
+        for (final h in s.heads) _row(h.label, h.amount),
         const Divider(height: 20),
-        if (amountOf(bill.penaltyAmount) > 0) _row('Late fee', bill.penaltyAmount),
-        if (amountOf(bill.roundOff) != 0) _row('Round off', bill.roundOff),
-        _row('Total', bill.totalAmount, bold: true),
-        if (amountOf(bill.paidAmount) > 0) _row('Paid', bill.paidAmount, color: AppTheme.success),
-        if (amountOf(bill.previousDues) > 0 && !bill.isCancelled) ...[
-          _row('Previous dues (earlier bills)', bill.previousDues, color: AppTheme.warning),
-          _row('Total payable',
-              '${amountOf(bill.outstanding) + amountOf(bill.previousDues)}', bold: true),
-        ],
+        _row('Current Bill Amount', s.currentBillAmount, bold: true),
+        for (final r in s.rows) _row(r.label, r.amount),
+        const Divider(height: 20),
+        _row('Total Maintenance Payable Amount', s.payable, bold: true),
       ]);
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = bill.summary;
+    if (summary != null && !bill.isCancelled) return _printed(summary);
+    return Column(children: [
+      for (final li in _byAmountDesc(bill.lineItems))
+        _row(
+          amountOf(li.taxAmount) > 0 ? '${li.description} (incl. ${formatRupees(li.taxAmount)} tax)' : li.description,
+          li.total,
+        ),
+      const Divider(height: 20),
+      if (amountOf(bill.penaltyAmount) > 0) _row('Late fee', bill.penaltyAmount),
+      if (amountOf(bill.roundOff) != 0) _row('Round off', bill.roundOff),
+      _row('Total', bill.totalAmount, bold: true),
+      if (amountOf(bill.paidAmount) > 0) _row('Paid', bill.paidAmount, color: AppTheme.success),
+    ]);
+  }
 }
 
 /// The bill exactly as the Maintenance Billing screen shows it (summary
