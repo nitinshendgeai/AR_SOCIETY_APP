@@ -693,7 +693,7 @@ def test_boxed_particulars_can_be_ordered_by_amount_highest_first(client, db):
     society, flat1, flat2, manager, resident, other = _rig(db, "pdfx7")
     h = manager["headers"]
     s = client.get(f"/api/v1/billing/maintenance-settings/{society.id}", headers=h).json()
-    assert s["particulars_order"] == "elements"                              # the default: the element list's order
+    assert s["particulars_order"] == "amount"                                # the default: largest amount first
     assert client.put(f"/api/v1/billing/maintenance-settings/{society.id}", json={"particulars_order": "random"},
                       headers=h).status_code == 422
     elements = {e["code"]: e["id"] for e in client.get(f"/api/v1/billing/elements/{society.id}", headers=h).json()}
@@ -709,13 +709,14 @@ def test_boxed_particulars_can_be_ordered_by_amount_highest_first(client, db):
     assert client.post(f"/api/v1/billing/cycles/{cycle_id}/generate-bills", headers=h).status_code == 200
     bill_id = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=flat1.id).one().id
 
-    _, by_elements = _bill_pdf(db, bill_id, layout=None)
-    assert by_elements.index("Service Charges") < by_elements.index("Amenities")
-
-    r = client.put(f"/api/v1/billing/maintenance-settings/{society.id}", json={"particulars_order": "amount"},
-                   headers=h)
-    assert r.status_code == 200 and r.json()["particulars_order"] == "amount"
-    db.expire_all()
     _, by_amount = _bill_pdf(db, bill_id, layout=None)
     assert by_amount.index("Amenities") < by_amount.index("Service Charges")     # 300.00 before 100.00
     assert "1 Amenities" in by_amount and "2 Service Charges" in by_amount       # and numbered in that order
+
+    # a society can still choose the element list's order
+    r = client.put(f"/api/v1/billing/maintenance-settings/{society.id}", json={"particulars_order": "elements"},
+                   headers=h)
+    assert r.status_code == 200 and r.json()["particulars_order"] == "elements"
+    db.expire_all()
+    _, by_elements = _bill_pdf(db, bill_id, layout=None)
+    assert by_elements.index("Service Charges") < by_elements.index("Amenities")

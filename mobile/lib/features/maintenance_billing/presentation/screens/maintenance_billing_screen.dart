@@ -1499,10 +1499,10 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
                   initialValue: _particularsOrder,
                   isExpanded: true,
                   items: const [
-                    DropdownMenuItem(value: 'elements', child: Text('Element list: the order set on Maintenance Elements')),
                     DropdownMenuItem(value: 'amount', child: Text('Amount: largest first')),
+                    DropdownMenuItem(value: 'elements', child: Text('Element list: the order set on Maintenance Elements')),
                   ],
-                  onChanged: (v) => setState(() => _particularsOrder = v ?? 'elements'),
+                  onChanged: (v) => setState(() => _particularsOrder = v ?? 'amount'),
                 ),
               ),
             ],
