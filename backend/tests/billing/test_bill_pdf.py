@@ -122,10 +122,11 @@ def test_bill_layout_heads_totals_and_notes(client, db):
         f"Due Date : {bill.due_date:%d-%b-%Y}",
         f"Bill Period : {cycle.cycle_start:%d-%b-%Y} to {cycle.cycle_end:%d-%b-%Y}",
         "No Head Amount (Rs.)",
-        # Maintenance + Water (monthly expenses) together; levies on their own heads
-        "1 Maintenance Charges 2,800.00 2 Sinking Fund 100.00 3 Repair & Maintenance Fund 0.00 "
-        "4 Contingency Fund 0.00 5 Property Tax 0.00 6 Non Occupancy Charges 0.00 7 Parking Charges 0.00 "
-        "8 Cheque Bounce Charges 0.00 9 In & Out Charges 0.00 10 Other Charges 50.00 11 CGST @ 9% 27.00 12 SGST @ 9% 27.00",
+        # Maintenance + Water (monthly expenses) together; levies on their own heads. Largest amount first, the
+        # heads with nothing charged (0.00) after them in the usual head order, then the GST rows.
+        "1 Maintenance Charges 2,800.00 2 Sinking Fund 100.00 3 Other Charges 50.00 4 Repair & Maintenance Fund 0.00 "
+        "5 Contingency Fund 0.00 6 Property Tax 0.00 7 Non Occupancy Charges 0.00 8 Parking Charges 0.00 "
+        "9 Cheque Bounce Charges 0.00 10 In & Out Charges 0.00 11 CGST @ 9% 27.00 12 SGST @ 9% 27.00",
         "Current Bill Amount 3,004.00 Arrears/Advances 0.00 Current Interest/ Late Fees 0.00 "
         "Previous Interest/ Late Fees 0.00 Total Maintenance Payable Amount Rs. 3,004.00",
         "Notes * We recommend payment through NEFT, giving following details",
@@ -505,7 +506,7 @@ def test_contingency_fund_prints_on_its_own_line(client, db):
     assert client.post(f"/api/v1/billing/cycles/{cycle_id}/generate-bills", headers=h).status_code == 200
     bill_id = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=flat1.id).one().id
     _, text = _bill_pdf(db, bill_id)
-    assert "1 Maintenance Charges 2,500.00" in text and "4 Contingency Fund 121.00" in text
+    assert "1 Maintenance Charges 2,500.00" in text and "2 Contingency Fund 121.00" in text      # largest first
     assert "Other Charges 0.00" in text             # not lumped into Other Charges
     assert "Current Bill Amount 2,621.00" in text
 
