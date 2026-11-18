@@ -392,9 +392,19 @@ class BillChargesList extends StatelessWidget {
         ]),
       );
 
+  /// Largest charge first; equal amounts keep their original order.
+  static List<T> _byAmountDesc<T extends BillLineItem>(List<T> items) {
+    final indexed = items.asMap().entries.toList()
+      ..sort((a, b) {
+        final c = amountOf(b.value.total).compareTo(amountOf(a.value.total));
+        return c != 0 ? c : a.key.compareTo(b.key);
+      });
+    return [for (final e in indexed) e.value];
+  }
+
   @override
   Widget build(BuildContext context) => Column(children: [
-        for (final li in bill.lineItems)
+        for (final li in _byAmountDesc(bill.lineItems))
           _row(
             amountOf(li.taxAmount) > 0
                 ? '${li.description} (incl. ${formatRupees(li.taxAmount)} tax)'
