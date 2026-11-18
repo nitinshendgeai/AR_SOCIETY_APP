@@ -1,6 +1,7 @@
 """Maintenance bill module — charge heads, cycles, generation, bulk issue,
 bill detail/PDF, and the resident's own-bills view."""
 from datetime import date, timedelta
+from decimal import Decimal
 from app.models.resident import Resident
 from app.models.notification import Notification
 from tests.conftest import make_user, make_society, make_wing, make_flat, place_in
@@ -99,6 +100,14 @@ def test_generation_builds_line_items_totals_and_links_resident(client, db):
     detail = client.get(f"/api/v1/billing/bills/{b['id']}", headers=manager["headers"]).json()
     assert {li["description"] for li in detail["line_items"]} == {"Maintenance", "Water"}
     assert detail["payments"] == []
+    # the bill as its printed table gives it: heads charged, largest first, then the totals
+    summary = detail["summary"]
+    assert [h["name"] for h in summary["heads"]] == ["Maintenance Charges", "CGST @ 9%", "SGST @ 9%"]
+    assert Decimal(summary["heads"][0]["amount"]) == Decimal("2800")
+    assert Decimal(summary["current_bill_amount"]) == Decimal("2854")
+    assert [r["label"] for r in summary["rows"]] == [
+        "Arrears/Advances", "Current Interest/ Late Fees", "Previous Interest/ Late Fees"]
+    assert Decimal(summary["payable"]) == Decimal("2854")
 
     cycle = client.get(f"/api/v1/billing/cycles/detail/{cycle_id}", headers=manager["headers"]).json()
     assert cycle["bills_count"] == 2

@@ -161,6 +161,45 @@ def gst_rows(lines) -> List[tuple]:
     return [("CGST", half), ("SGST", tax - half)]
 
 
+def bill_summary(bill: MaintenanceBill, element_codes: Optional[Dict[str, str]] = None,
+                 accumulated_interest=None) -> dict:
+    """The bill as the printed Maintenance Bill's table gives it, for the app's bill screen: the heads that are
+    charged (largest first, then the GST rows), the Current Bill Amount, the summary rows and the payable total."""
+    element_codes = element_codes or {}
+    gst_charged = (bill.tax_amount or 0) > 0
+    lines = [li for li in bill.line_items if not _is_interest(li)]
+    amount_of = (lambda li: li.amount) if gst_charged else (lambda li: li.total)
+    by_head: Dict[str, Decimal] = {}
+    for li in lines:
+        head = bill_head(li, element_codes.get(li.description))
+        by_head[head] = by_head.get(head, ZERO) + Decimal(amount_of(li))
+    heads = sorted(((h, a) for h, a in by_head.items() if a), key=lambda kv: -kv[1])
+    if gst_charged:
+        heads += gst_rows(lines)
+
+    current = sum((Decimal(li.total) for li in lines), ZERO)
+    current_interest = (sum((Decimal(li.total) for li in bill.line_items if _is_interest(li)), ZERO)
+                        + Decimal(bill.penalty_amount or 0))
+    arrears_total = Decimal(bill.previous_dues or 0)
+    prev_interest = min(max(Decimal(accumulated_interest or 0), ZERO), max(arrears_total, ZERO))
+    arrears = arrears_total - prev_interest
+    discount = Decimal(bill.discount_amount or 0)
+    round_off = Decimal(bill.round_off or 0)
+    payable = current + arrears + current_interest + prev_interest - discount + round_off
+    rows = [("Arrears/Advances", arrears), ("Current Interest/ Late Fees", current_interest),
+            ("Previous Interest/ Late Fees", prev_interest)]
+    if discount:
+        rows.append(("Less: Discount", -discount))
+    if round_off:
+        rows.append(("Round off", round_off))
+    return {
+        "heads": [{"name": n, "amount": str(a)} for n, a in heads],
+        "current_bill_amount": str(current),
+        "rows": [{"label": label, "amount": str(a)} for label, a in rows],
+        "payable": str(payable),
+    }
+
+
 # ── Formatting helpers ────────────────────────────────────────────────────────
 
 def _inr(v) -> str:
