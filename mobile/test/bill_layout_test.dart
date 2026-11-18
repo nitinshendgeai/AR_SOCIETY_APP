@@ -7,10 +7,10 @@ void main() {
     expect(MaintenanceRules.fromJson({'bill_layout': null}).billLayout, 'standard');
   });
 
-  test('the particulars order is read from the rules, the element list when none was chosen', () {
-    expect(MaintenanceRules.fromJson({}).particularsOrder, 'elements');
-    expect(MaintenanceRules.fromJson({'particulars_order': null}).particularsOrder, 'elements');
-    expect(MaintenanceRules.fromJson({'particulars_order': 'amount'}).particularsOrder, 'amount');
+  test('the particulars order is read from the rules, largest amount first when none was chosen', () {
+    expect(MaintenanceRules.fromJson({}).particularsOrder, 'amount');
+    expect(MaintenanceRules.fromJson({'particulars_order': null}).particularsOrder, 'amount');
+    expect(MaintenanceRules.fromJson({'particulars_order': 'elements'}).particularsOrder, 'elements');
   });
 
   test('the chosen layout is read from the rules', () {
