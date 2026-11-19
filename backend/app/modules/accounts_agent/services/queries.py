@@ -9,7 +9,11 @@ from sqlalchemy.orm import Session
 from app.modules.accounts_agent.models.agent import (
     OPEN_FINDING_STATUSES, SEVERITIES, AgentEvent, AgentFinding, AgentLearningRun, AgentProposal, AgentSettings,
 )
+from app.modules.accounts_agent.models.agent import UNIFIED_CLASS
 from app.modules.accounts_agent.services.engine import get_settings
+
+HUMAN_REVIEW = {"NEW": "PENDING_REVIEW", "UNDER_REVIEW": "IN_REVIEW", "APPROVED": "REVIEWED_CONFIRMED",
+                "REJECTED": "REVIEWED_NOT_AN_ISSUE", "RESOLVED": "REVIEWED_RESOLVED", "IGNORED": "REVIEWED_IGNORED"}
 from app.modules.accounts_agent.services.learning import WINDOW_MONTHS
 
 DELAY_AFTER = timedelta(minutes=5)
@@ -78,8 +82,14 @@ def finding_dict(f: AgentFinding, detail: bool = False) -> dict:
          "voucher_date": f.voucher_date.isoformat() if f.voucher_date else None, "category": f.category,
          "finding_class": f.finding_class, "severity": f.severity, "confidence": f.confidence, "rule_code": f.rule_code,
          "title": f.title, "status": f.status, "created_at": f.created_at.isoformat(), "learning_confidence": f.learning_confidence,
-         "explanation": f.explanation, "recommended_action": f.recommended_action}
+         "explanation": f.explanation, "recommended_action": f.recommended_action,
+         "classification": UNIFIED_CLASS.get(f.finding_class, "ADVISORY_OBSERVATION"),
+         "engine": f.engine or "accounting", "compliance_category": f.compliance_category,
+         "legal_rule_code": f.legal_rule_code, "flat_id": str(f.flat_id) if f.flat_id else None,
+         "vendor_id": str(f.vendor_id) if f.vendor_id else None,
+         "human_review_status": HUMAN_REVIEW.get(f.status, "PENDING_REVIEW"), "resolution_status": f.status}
     if detail:
+        d["legal_source"] = f.legal_source
         d.update({"expected_behaviour": f.expected_behaviour, "actual_behaviour": f.actual_behaviour, "evidence": f.evidence,
                   "reviewed_by": str(f.reviewed_by) if f.reviewed_by else None,
                   "reviewed_at": f.reviewed_at.isoformat() if f.reviewed_at else None, "resolution_note": f.resolution_note,
@@ -96,8 +106,23 @@ def proposal_dict(p: AgentProposal) -> dict:
 
 
 def list_findings(db: Session, society_id: UUID, *, severity=None, category=None, status=None, finding_class=None,
-                  date_from=None, date_to=None, q=None, page=1, page_size=25) -> dict:
+                  date_from=None, date_to=None, q=None, page=1, page_size=25, engine=None, compliance_category=None,
+                  classification=None, flat_id=None, vendor_id=None, section=None) -> dict:
+    from app.modules.accounts_agent.legal.sections import CLAIMED, SECTIONS
     qry = db.query(AgentFinding).filter(AgentFinding.society_id == society_id)
+    if section in SECTIONS:
+        cats = SECTIONS[section][1]
+        qry = qry.filter(AgentFinding.category.in_(cats) if cats else AgentFinding.category.notin_(CLAIMED))
+    if engine:
+        qry = qry.filter(AgentFinding.engine == engine)
+    if compliance_category:
+        qry = qry.filter(AgentFinding.compliance_category == compliance_category)
+    if classification:
+        qry = qry.filter(AgentFinding.finding_class.in_([k for k, v in UNIFIED_CLASS.items() if v == classification]))
+    if flat_id:
+        qry = qry.filter(AgentFinding.flat_id == flat_id)
+    if vendor_id:
+        qry = qry.filter(AgentFinding.vendor_id == vendor_id)
     if severity:
         qry = qry.filter(AgentFinding.severity == severity)
     if category:

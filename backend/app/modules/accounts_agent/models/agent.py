@@ -23,9 +23,18 @@ FINDING_STATUSES = ("NEW", "UNDER_REVIEW", "APPROVED", "REJECTED", "RESOLVED", "
 OPEN_FINDING_STATUSES = ("NEW", "UNDER_REVIEW", "APPROVED")
 # What the agent is actually claiming (never present a statistic as a confirmed error).
 FINDING_CLASSES = ("confirmed_validation_failure", "strongly_suspected_anomaly", "statistical_deviation", "informational")
+# The unified classification (Part 14). Engine A's original classes map onto it (see UNIFIED_CLASS); Engine B stores
+# these values directly in `finding_class`. A potential issue is never presented as a confirmed violation.
+UNIFIED_CLASSES = ("CONFIRMED_ACCOUNTING_ERROR", "CONFIRMED_STATUTORY_VALIDATION_FAILURE", "POTENTIAL_NON_COMPLIANCE",
+                   "SUSPECTED_ACCOUNTING_ANOMALY", "MISSING_DOCUMENTATION", "INTERNAL_POLICY_DEVIATION",
+                   "LEGAL_SOURCE_CONFLICT", "ADVISORY_OBSERVATION")
+UNIFIED_CLASS = {"confirmed_validation_failure": "CONFIRMED_ACCOUNTING_ERROR",
+                 "strongly_suspected_anomaly": "SUSPECTED_ACCOUNTING_ANOMALY",
+                 "statistical_deviation": "SUSPECTED_ACCOUNTING_ANOMALY",
+                 "informational": "ADVISORY_OBSERVATION", **{c: c for c in UNIFIED_CLASSES}}
 EVENT_STATUSES = ("pending", "processing", "done", "failed", "dead", "skipped")
 PROPOSAL_STATUSES = ("PENDING", "EXECUTED", "ACKNOWLEDGED", "REJECTED", "STALE", "FAILED")
-PROPOSAL_ACTIONS = ("edit_voucher", "cancel_voucher", "source_review")
+PROPOSAL_ACTIONS = ("edit_voucher", "cancel_voucher", "source_review", "remediation")
 
 
 class AgentSettings(Base, TimestampMixin):
@@ -132,6 +141,13 @@ class AgentFinding(Base, TimestampMixin):
     learning_confidence = Column(String(16), nullable=True)                      # the profile's label when this was raised
     source_event_id    = Column(UUID(as_uuid=True), nullable=True)
     voucher_date       = Column(Date, nullable=True, index=True)
+    # Engine B (legal & bye-law compliance) and the residential-accounting checks use the same table.
+    engine             = Column(String(12), nullable=False, default="accounting", server_default="accounting")
+    compliance_category = Column(String(40), nullable=True)
+    legal_rule_code    = Column(String(60), nullable=True, index=True)
+    legal_source       = Column(JSON, nullable=True)       # the rule version, its source, clause, status and verification
+    flat_id            = Column(UUID(as_uuid=True), ForeignKey("flats.id", ondelete="SET NULL"), nullable=True)
+    vendor_id          = Column(UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True)
 
     proposals = relationship("AgentProposal", back_populates="finding", order_by="AgentProposal.created_at")
 
