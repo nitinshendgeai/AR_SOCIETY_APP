@@ -139,3 +139,8 @@ from app.models.user_session import UserSession  # noqa: F401
 
 from app.modules.accounts.models.posting_errors import AccountingPostingError
 from app.modules.accounts.models.depreciation import AssetDepreciation, DepreciationRule
+
+# Accounts Agent (audit & monitoring of the books)
+import app.modules.accounts_agent.models.agent  # noqa: F401
+from app.modules.accounts_agent.services.outbox import install_outbox_listener  # noqa: E402
+install_outbox_listener()
