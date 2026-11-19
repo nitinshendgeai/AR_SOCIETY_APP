@@ -41,6 +41,7 @@ from reportlab.platypus import (
 )
 from xml.sax.saxutils import escape
 
+from app.modules.billing.services.maintenance_calculator import calendar_months
 from app.modules.billing.models.billing import (
     ChargeType, MaintenanceBill, MaintenanceSettings, PaymentMode, ReconciliationStatus,
 )
@@ -444,6 +445,7 @@ def generate_maintenance_bill_pdf(
     previous_bill: Optional[MaintenanceBill] = None,
     element_order: Optional[Dict[str, int]] = None,
     last_payment=None,
+    area_based: Optional[set] = None,
 ) -> bytes:
     """`element_codes`: {charge head name: standard element code} — decides
     which lines are monthly expenses. `accumulated_interest`: the unpaid
@@ -461,7 +463,7 @@ def generate_maintenance_bill_pdf(
     )
     doc.build(bill_story(bill, settings, doc.width, element_codes=element_codes, element_names=element_names,
                          accumulated_interest=accumulated_interest, previous_bill=previous_bill,
-                         element_order=element_order, last_payment=last_payment))
+                         element_order=element_order, last_payment=last_payment, area_based=area_based))
     return buf.getvalue()
 
 
@@ -480,7 +482,8 @@ def generate_bills_pdf(bills: List[dict], *, title: str, author: str, compress: 
                             element_codes=item.get("element_codes"), element_names=item.get("element_names"),
                             accumulated_interest=item.get("accumulated_interest", ZERO),
                             previous_bill=item.get("previous_bill"),
-                            element_order=item.get("element_order"), last_payment=item.get("last_payment"))
+                            element_order=item.get("element_order"), last_payment=item.get("last_payment"),
+                            area_based=item.get("area_based"))
     doc.build(story)
     return buf.getvalue()
 
@@ -496,11 +499,15 @@ def bill_story(
     previous_bill: Optional[MaintenanceBill] = None,
     element_order: Optional[Dict[str, int]] = None,
     last_payment=None,
+    area_based: Optional[set] = None,
 ) -> List:
     """The flowables of one printed bill (the letterhead down to the receipts towards the previous bill), in the layout
     the society chose (`MaintenanceSettings.bill_layout`). `element_order` and `last_payment` are used by the Boxed
     layouts only."""
     layout = getattr(settings, "bill_layout", None) if settings is not None else None
+    if layout == "adda":
+        return adda_bill_story(bill, settings, width, element_names=element_names, accumulated_interest=accumulated_interest,
+                               element_order=element_order, area_based=area_based)
     if layout in ("boxed", "boxed_plain"):
         return boxed_bill_story(bill, settings, width, element_codes=element_codes, element_names=element_names,
                                 accumulated_interest=accumulated_interest, previous_bill=previous_bill,
@@ -1226,6 +1233,208 @@ def boxed_bill_story(
     fitted = min(filler, max(3 * mm, page_room - others - (table_height - filler)))
     if abs(fitted - filler) > 0.5:
         story[table_at] = particulars_table(fitted)
+    return story
+
+
+# ── The ADDA layout ───────────────────────────────────────────────────────────
+# The invoice many apartment-management apps print: "INVOICE" over a centred letterhead, the unit and who it is for on
+# the left with the invoice number, dates and period on the right, an Accounts / Rate-Comments / Amount table with one
+# shaded row per maintenance element, Current Total and Payable with the amount in words, and the society's own payment
+# details below.
+
+_ADDA_HEAD = colors.HexColor("#E3EEFB")
+_ADDA_ROWS = (colors.HexColor("#EEF3FA"), colors.HexColor("#F7F7F7"))
+
+
+def _adda_period(start: date, end: date) -> str:
+    """'Jul-Aug-Sep 2026'; over a year end 'Nov-Dec 2026-Jan 2027'."""
+    months, cur = [], date(start.year, start.month, 1)
+    while cur <= end:
+        months.append(cur)
+        cur = date(cur.year + (cur.month == 12), cur.month % 12 + 1, 1)
+    if months[0].year == months[-1].year:
+        return "-".join(f"{m:%b}" for m in months) + f" {months[0].year}"
+    return " ".join(f"{m:%b}" if m.year == months[0].year else "" for m in months).strip().replace(" ", "-") \
+        + f" {months[0].year}-" + "-".join(f"{m:%b}" for m in months if m.year != months[0].year) + f" {months[-1].year}"
+
+
+def _adda_comment(amount: Decimal, months: Decimal, area, area_based: bool) -> str:
+    """How the amount came about: '702 Sq.ft x Rs.0.19010 per Sq.ft/month x 3 months' or 'Rs.10.00/month x 3 months'."""
+    m = months if months > 0 else Decimal(1)
+    count = f"{int(m)}" if m == int(m) else f"{m:.2f}"
+    unit = "month" if m == 1 else "months"
+    if area_based and area:
+        return f"{Decimal(area):,.0f} Sq.ft x Rs.{amount / Decimal(area) / m:.5f} per Sq.ft/month x {count} {unit}"
+    return f"Rs.{amount / m:.2f}/month x {count} {unit}"
+
+
+def adda_bill_story(
+    bill: MaintenanceBill,
+    settings: Optional[MaintenanceSettings],
+    width: float,
+    *,
+    element_names: Optional[Dict[str, str]] = None,
+    accumulated_interest: Decimal = ZERO,
+    element_order: Optional[Dict[str, int]] = None,
+    area_based: Optional[set] = None,
+) -> List:
+    """The flowables of one bill in the ADDA layout. `area_based`: the names of the charge heads worked out on the
+    flat's area (per sq ft, a % of its construction cost, a budget split by area); their Rate/Comments say so."""
+    element_names = element_names or {}
+    area_based = area_based or set()
+    society = bill.society
+    society_name = society.name if society else "Society"
+    flat = bill.flat
+    van = flat.virtual_account_number if flat else None
+    gst_charged = (bill.tax_amount or 0) > 0
+    st = {
+        "title": ParagraphStyle("ad_title", parent=_base, fontName="Helvetica", fontSize=11, leading=14,
+                                alignment=TA_CENTER),
+        "name": ParagraphStyle("ad_name", parent=_base, fontName="Helvetica-Bold", fontSize=11, leading=14,
+                               alignment=TA_CENTER),
+        "addr": ParagraphStyle("ad_addr", parent=_base, fontSize=7.5, leading=10, alignment=TA_CENTER),
+        "unit": ParagraphStyle("ad_unit", parent=_base, fontSize=11, leading=14),
+        "small": ParagraphStyle("ad_small", parent=_base, fontSize=7.5, leading=9.5),
+        "small_r": ParagraphStyle("ad_small_r", parent=_base, fontSize=7.5, leading=9.5, alignment=TA_RIGHT),
+        "mini": ParagraphStyle("ad_mini", parent=_base, fontSize=6.5, leading=8.5),
+        "tot": ParagraphStyle("ad_tot", parent=_base, fontSize=10, leading=13, alignment=TA_RIGHT),
+        "foot": ParagraphStyle("ad_foot", parent=_base, fontSize=6.5, leading=8, alignment=TA_CENTER),
+    }
+
+    def P(text, style="small") -> Paragraph:
+        return Paragraph(text, st[style] if isinstance(style, str) else style)
+
+    story: List = [P("INVOICE", "title"), Spacer(1, 4 * mm), P(escape(society_name), "name")]
+    address = ", ".join(x for x in [(society.address or "").strip() if society else "", society.city if society else None,
+                                    society.state if society else None] if x)
+    if society and society.pincode:
+        address = f"{address} - {society.pincode}".strip()
+    if address:
+        story.append(P(escape(address), "addr"))
+    ids = [x for x in [f"Society Reg No : {escape(society.registration_number)}" if society and society.registration_number else "",
+                       f"PAN : {escape(society.pan_number)}" if society and society.pan_number else ""] if x]
+    if ids:
+        story.append(P(" | ".join(ids), "addr"))
+    if society and society.gst_number:
+        story.append(P(f"GSTIN : {escape(society.gst_number)}", "addr"))
+    story.append(Spacer(1, 6 * mm))
+
+    # ── Unit and who it is for, and the invoice's own numbers ──
+    cycle = bill.cycle
+    p_start = bill.period_start or (cycle.cycle_start if cycle else bill.bill_date)
+    p_end = bill.period_end or (cycle.cycle_end if cycle else bill.bill_date)
+    names = " &amp; ".join(escape(n) for n in member_names(flat, bill.resident))
+    left = Table([[P(f"Unit : {escape(flat_label(flat))}", "unit")],
+                  [P(f"Kind Attn. : {names}", "small")]], colWidths=[width * 0.58])
+    right_rows = [("Invoice No", escape(bill.invoice_number)), ("Invoice Date", f"{bill.bill_date:%d-%b-%Y}"),
+                  ("Due Date", f"{bill.due_date:%d-%b-%Y}"),
+                  ("Invoice Period", _adda_period(p_start, p_end))]
+    if van:
+        right_rows.append(("Virtual A/c No.", escape(van)))
+    right = Table([[P(f"{k} : {v}", "small_r")] for k, v in right_rows], colWidths=[width * 0.42])
+    for t in (left, right):
+        t.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                               ("TOPPADDING", (0, 0), (-1, -1), 0.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 0.5)]))
+    top = Table([[left, right]], colWidths=[width * 0.58, width * 0.42])
+    top.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "BOTTOM"), ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                             ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
+    story += [top, Spacer(1, 3 * mm)]
+
+    # ── Accounts: one row per element, in the society's order or largest first ──
+    lines = [li for li in bill.line_items if not _is_interest(li)]
+    amount_of = (lambda li: li.amount) if gst_charged else (lambda li: li.total)
+    charged: Dict[str, Decimal] = {}
+    on_area: Dict[str, bool] = {}
+    place: Dict[str, int] = {}
+    order = element_order or {}
+    for li in lines:
+        name = element_names.get(li.description, li.description)
+        charged[name] = charged.get(name, ZERO) + Decimal(amount_of(li))
+        on_area[name] = on_area.get(name, True) and li.description in area_based
+        place[name] = min(place.get(name, 10 ** 9), order.get(li.description, 10 ** 9))
+    if getattr(settings, "particulars_order", None) == "elements":
+        ranked = sorted(enumerate(charged.items()), key=lambda pair: (place[pair[1][0]], pair[0]))
+    else:
+        ranked = sorted(enumerate(charged.items()), key=lambda pair: (-pair[1][1], place[pair[1][0]], pair[0]))
+    months = calendar_months(p_start, p_end)
+    area = flat.area_sqft if flat and flat.area_sqft else None
+    rows = [(name, _adda_comment(amount, months, area, on_area[name]), amount) for _, (name, amount) in ranked if amount]
+    if gst_charged:
+        rows += [(label, "", amount) for label, amount in gst_rows(lines)]
+
+    current = sum((Decimal(li.total) for li in lines), ZERO)
+    current_interest = (sum((Decimal(li.total) for li in bill.line_items if _is_interest(li)), ZERO)
+                        + Decimal(bill.penalty_amount or 0))
+    arrears_total = Decimal(bill.previous_dues or 0)
+    prev_interest = min(max(Decimal(accumulated_interest or 0), ZERO), max(arrears_total, ZERO))
+    arrears = arrears_total - prev_interest
+    discount = Decimal(bill.discount_amount or 0)
+    round_off = Decimal(bill.round_off or 0)
+    payable = current + arrears + current_interest + prev_interest - discount + round_off
+
+    cw = [width * 0.30, width * 0.52, width * 0.18]
+    data = [[P("Accounts", "small"), P("Rate/Comments", "small"), P("Amount", "small_r")]]
+    data += [[P(escape(name)), P(escape(comment), "mini"), P(_inr(amount), "small_r")] for name, comment, amount in rows]
+    t = Table(data, colWidths=cw)
+    style = [("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#C9D6EA")), ("BACKGROUND", (0, 0), (-1, 0), _ADDA_HEAD),
+             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 8),
+             ("RIGHTPADDING", (0, 0), (-1, -1), 8), ("TOPPADDING", (0, 0), (-1, -1), 3),
+             ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]
+    style += [("BACKGROUND", (0, i), (-1, i), _ADDA_ROWS[(i - 1) % 2]) for i in range(1, len(data))]
+    t.setStyle(TableStyle(style))
+    story += [t, Spacer(1, 4 * mm)]
+
+    # ── Totals: Current Total, what else is due, Payable and the amount in words ──
+    tot = [("Current Total", current)]
+    for label, amount in [("Arrears / Advance", arrears), ("Previous Interest / Late Fees", prev_interest),
+                          ("Current Interest / Late Fees", current_interest)]:
+        if amount:
+            tot.append((label, amount))
+    if discount:
+        tot.append(("Less: Discount", -discount))
+    if round_off:
+        tot.append(("Round off", round_off))
+    tot.append(("Payable", payable))
+    trows = [[P(label, "tot"), P(f"Rs.{_inr(amount)}" if label == "Payable" or i == 0 else _inr(amount), "tot")]
+             for i, (label, amount) in enumerate(tot)]
+    tt = Table(trows, colWidths=[width * 0.80, width * 0.20])
+    tt.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                            ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                            ("LINEABOVE", (1, 0), (1, 0), 0.5, colors.HexColor("#CCCCCC")),
+                            ("LINEABOVE", (1, len(trows) - 1), (1, len(trows) - 1), 0.5, colors.HexColor("#CCCCCC"))]))
+    story += [tt, P(escape(amount_in_words(payable)), "small_r"), Spacer(1, 8 * mm)]
+
+    working = _interest_working_table(bill, width)
+    if working is not None:
+        story += [working, Spacer(1, 4 * mm)]
+
+    # ── How to pay: the society's own details ──
+    pay_to = (settings.bank_account_name if settings else None) or society_name
+    story.append(P("<b>For payment through NEFT/RTGS or UPI</b>", st["small"]))
+    pay = [("Account Name", pay_to)]
+    if settings:
+        if van:
+            pay.append(("Virtual A/c No.", van))
+        elif settings.bank_account_number:
+            pay.append(("Account Number", settings.bank_account_number))
+        if settings.bank_ifsc:
+            pay.append(("IFSC Code", settings.bank_ifsc))
+        if settings.bank_name:
+            pay.append(("Bank Name", settings.bank_name))
+        if settings.upi_id:
+            pay.append(("UPI ID", settings.upi_id))
+    story += [P(f"{k}: {escape(v)}", "small") for k, v in pay]
+    story.append(Spacer(1, 3 * mm))
+    notes = []
+    rate = Decimal(settings.interest_rate_pct) if settings and settings.interest_rate_pct is not None else None
+    if rate and rate > 0:
+        grace = settings.interest_grace_days or 0
+        notes.append(f"Interest is charged @ {rate.normalize():f}% p.a. on outstanding maintenance"
+                     + (f" (grace period {grace} days)." if grace else "."))
+    if settings and settings.bill_notes:
+        notes += [escape(x.strip()) for x in settings.bill_notes.splitlines() if x.strip()]
+    story += [P(x, "small") for x in notes]
+    story += [Spacer(1, 6 * mm), P("Electronically Generated, does not require Signature.", "foot")]
     return story
 
 

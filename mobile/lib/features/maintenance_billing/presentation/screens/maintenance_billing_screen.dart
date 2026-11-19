@@ -1487,13 +1487,14 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
                     DropdownMenuItem(value: 'classic', child: Text('Classic: element by element')),
                     DropdownMenuItem(value: 'boxed', child: Text('Boxed: one framed page with receipt')),
                     DropdownMenuItem(value: 'boxed_plain', child: Text('Boxed, plain header: name, address, e-mail')),
+                    DropdownMenuItem(value: 'adda', child: Text('ADDA: accounts with rate and comments')),
                   ],
                   onChanged: (v) => setState(() => _billLayout = v ?? 'standard'),
                 ),
               ),
               const SizedBox(height: 12),
               FormFieldBox(
-                label: 'Order of the particulars (Boxed bills)',
+                label: 'Order of the particulars (Boxed and ADDA bills)',
                 child: DropdownButtonFormField<String>(
                   key: const ValueKey('particulars-order'),
                   initialValue: _particularsOrder,
