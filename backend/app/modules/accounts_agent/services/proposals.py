@@ -166,6 +166,15 @@ def approve_proposal(db: Session, society_id: UUID, proposal_id: UUID, user: Use
         db.commit()
         raise HTTPException(409, "The voucher has changed since this proposal was made. Nothing was applied — ask the "
                                  "agent to re-check it.")
+    if p.action_type == "cancel_voucher" and finding is not None and not _duplicate_still_holds(db, v, finding):
+        p.status, p.decided_by, p.decided_at = "STALE", user.id, datetime.utcnow()
+        p.decision_note = "The other copy is no longer live (already cancelled), so this voucher is not a duplicate; it was not cancelled."
+        finding.status, finding.resolved_at = "RESOLVED", datetime.utcnow()
+        finding.resolution_note = "No longer a duplicate: the other copy was cancelled"
+        audit.record(db, society_id, "proposal_stale", "proposal", p.id, user.id, {"reason": "duplicate no longer holds"})
+        db.commit()
+        raise HTTPException(409, "This voucher is no longer a duplicate (its other copy was already cancelled). Nothing was "
+                                 "applied, so the remaining voucher stays in the books.")
     p.decided_by, p.decided_at, p.decision_note = user.id, datetime.utcnow(), note
     svc = AccountsService(db)
     try:
@@ -205,6 +214,13 @@ def approve_proposal(db: Session, society_id: UUID, proposal_id: UUID, user: Use
         raise
     _verify(db, society_id, p, finding, user)
     return p
+
+
+def _duplicate_still_holds(db: Session, v: Voucher, finding: AgentFinding) -> bool:
+    """Re-run the checks on the voucher now: is the duplicate this proposal would remove still detected? Guards against
+    the worker not yet having processed the twin's cancellation."""
+    live = {d.dedupe_key(v.id) for d in engine.analyse(db, v, "voucher.edited")}
+    return finding.dedupe_key in live
 
 
 def _verify(db: Session, society_id: UUID, p: AgentProposal, finding: Optional[AgentFinding], user: User) -> None:

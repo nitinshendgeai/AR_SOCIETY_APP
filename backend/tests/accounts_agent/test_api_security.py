@@ -278,3 +278,67 @@ def test_dashboard_and_learning_report_real_numbers(client, rig, db):
     r = client.get(f"{API}/findings", params={"severity": "HIGH", "q": "unusually", "page_size": 5}, headers=rig.manager["headers"]).json()
     assert r["total"] >= 1 and r["items"][0]["severity"] == "HIGH"
     assert client.get(f"{API}/findings", params={"severity": "NOPE"}, headers=rig.manager["headers"]).status_code == 422
+
+
+# ── Duplicate pairs: never cancel both copies ─────────────────────────────────
+
+def _pair(rig, db):
+    ven = rig.vendor()
+    first = rig.payment(2, "security_charges", 25000, vendor=ven, reference="INV-DUP")
+    second = rig.payment(2, "security_charges", 25000, vendor=ven, reference="INV-DUP")
+    worker.run_once(db, "w", limit=500)
+    return first, second
+
+
+def _legacy_finding_on_first(rig, db, first, second):
+    """A duplicate finding on the EARLIER copy, as the agent used to create before only the later copy was flagged."""
+    from app.modules.accounts_agent.services import engine
+    from app.modules.accounts_agent.services.context import Draft
+    pair = ":".join(sorted([str(first.id), str(second.id)]))
+    d = Draft("R-DUP-02", "duplicate", "confirmed_validation_failure", "HIGH", 0.97, "Confirmed duplicate voucher",
+              "legacy", evidence={"other_voucher_id": str(second.id)}, subject=pair)
+    (f,) = engine.store_findings(db, first, [d], "limited")
+    db.commit()
+    return f
+
+
+def test_duplicate_pair_gets_one_finding_and_approval_keeps_the_original(client, rig, db):
+    first, second = _pair(rig, db)
+    dups = db.query(AgentFinding).filter(AgentFinding.society_id == rig.sid, AgentFinding.rule_code.like("R-DUP%")).all()
+    assert [f.voucher_id for f in dups] == [second.id]
+    p = make_proposal(client, rig, dups[0])
+    assert client.post(f"{API}/proposals/{p['id']}/approve", json={"confirm": True}, headers=rig.admin["headers"]).status_code == 200
+    db.refresh(first), db.refresh(second)
+    assert second.is_cancelled and not first.is_cancelled
+
+
+def test_twin_cancellation_makes_the_other_copys_proposal_stale(client, rig, db):
+    first, second = _pair(rig, db)
+    f_second = db.query(AgentFinding).filter(AgentFinding.voucher_id == second.id, AgentFinding.rule_code == "R-DUP-02").one()
+    f_first = _legacy_finding_on_first(rig, db, first, second)
+    p_second, p_first = make_proposal(client, rig, f_second), make_proposal(client, rig, f_first)
+    assert client.post(f"{API}/proposals/{p_second['id']}/approve", json={"confirm": True}, headers=rig.admin["headers"]).status_code == 200
+    worker.run_once(db, "w", limit=500)                    # the cancellation event closes the twin's finding
+    db.refresh(f_first)
+    assert f_first.status == "RESOLVED"
+    stale = db.query(AgentProposal).filter(AgentProposal.finding_id == f_first.id).one()
+    assert stale.status == "STALE"
+    r = client.post(f"{API}/proposals/{p_first['id']}/approve", json={"confirm": True}, headers=rig.admin["headers"])
+    assert r.status_code == 409
+    db.refresh(first)
+    assert not first.is_cancelled                          # the genuine voucher stays in the books
+
+
+def test_second_duplicate_approval_is_refused_even_before_the_worker_runs(client, rig, db):
+    """The approval itself re-checks the duplicate, so a lagging (or stopped) worker cannot lead to both copies being cancelled."""
+    first, second = _pair(rig, db)
+    f_second = db.query(AgentFinding).filter(AgentFinding.voucher_id == second.id, AgentFinding.rule_code == "R-DUP-02").one()
+    f_first = _legacy_finding_on_first(rig, db, first, second)
+    p_second, p_first = make_proposal(client, rig, f_second), make_proposal(client, rig, f_first)
+    assert client.post(f"{API}/proposals/{p_second['id']}/approve", json={"confirm": True}, headers=rig.admin["headers"]).status_code == 200
+    r = client.post(f"{API}/proposals/{p_first['id']}/approve", json={"confirm": True}, headers=rig.admin["headers"])
+    assert r.status_code == 409 and "no longer a duplicate" in r.json().get("detail", r.text)
+    db.refresh(first), db.refresh(f_first)
+    assert not first.is_cancelled and f_first.status == "RESOLVED"
+    import uuid
+    assert db.get(AgentProposal, uuid.UUID(p_first["id"])).status == "STALE"
