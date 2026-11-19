@@ -7,6 +7,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show formatInr;
 import 'package:ar_society_app/features/accounts_agent/data/accounts_agent_api.dart';
+import 'package:ar_society_app/features/accounts_agent/data/legal_api.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/providers/accounts_agent_providers.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_widgets.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
@@ -95,7 +96,7 @@ class _AgentFindingDetailScreenState extends ConsumerState<AgentFindingDetailScr
                 Wrap(spacing: 8, runSpacing: 6, children: [
                   SeverityChip(f.severity),
                   AppStatusChip(label: titleCase(f.status), tone: f.isOpen ? AppTone.warning : AppTone.neutral),
-                  AppStatusChip(label: findingClassLabel(f.findingClass), tone: AppTone.neutral),
+                  AppStatusChip(label: classificationLabel(f.classification), tone: classificationTone(f.classification)),
                 ]),
                 const SizedBox(height: 10),
                 Text(f.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
@@ -116,6 +117,10 @@ class _AgentFindingDetailScreenState extends ConsumerState<AgentFindingDetailScr
             ],
             const AgentSectionTitle('What was detected and why'),
             AgentCard(child: Text(f.explanation, style: const TextStyle(fontSize: 14, height: 1.45))),
+            if (LegalSource.from(f.legalSource) case final src?) ...[
+              const AgentSectionTitle('Which rule or bye-law applies'),
+              LegalSourceCard(source: src),
+            ],
             const AgentSectionTitle('Expected versus actual'),
             AgentCard(
               child: Column(children: [

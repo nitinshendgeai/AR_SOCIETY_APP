@@ -136,3 +136,9 @@ Results (all actually executed in this environment):
 - [ ] Confirm admin/committee users receive notifications; tune "notify from" severity.
 - [ ] Monitor worker logs for `[accounts-agent] ... failed` and the `failed_events` count on the dashboard.
 - [ ] Back up the database before migrating production (migration is additive and reversible).
+
+
+## Phase 2
+
+Maharashtra legal & bye-law intelligence (rule registry, documents, resolutions, compliance engine): see
+[ACCOUNTS_AGENT_LEGAL_REPORT.md](ACCOUNTS_AGENT_LEGAL_REPORT.md).

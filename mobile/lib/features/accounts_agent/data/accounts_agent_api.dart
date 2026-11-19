@@ -147,6 +147,15 @@ class AgentFinding {
   final AgentVoucher? voucher;
   final List<AgentProposal> proposals;
   final String? aiExplanation;
+  // Unified classification and the legal engine (Engine B)
+  final String classification;
+  final String engine;
+  final String? complianceCategory;
+  final String? legalRuleCode;
+  final Map<String, dynamic>? legalSource;
+  final String? flatId;
+  final String? vendorId;
+  final String? humanReviewStatus;
 
   const AgentFinding({
     required this.id,
@@ -170,6 +179,14 @@ class AgentFinding {
     this.voucher,
     this.proposals = const [],
     this.aiExplanation,
+    this.classification = 'ADVISORY_OBSERVATION',
+    this.engine = 'accounting',
+    this.complianceCategory,
+    this.legalRuleCode,
+    this.legalSource,
+    this.flatId,
+    this.vendorId,
+    this.humanReviewStatus,
   });
 
   factory AgentFinding.fromJson(Map<String, dynamic> j) => AgentFinding(
@@ -194,6 +211,14 @@ class AgentFinding {
         voucher: j['voucher'] == null ? null : AgentVoucher.fromJson(j['voucher'] as Map<String, dynamic>),
         proposals: [for (final p in (j['proposals'] as List? ?? const [])) AgentProposal.fromJson(p as Map<String, dynamic>)],
         aiExplanation: j['ai_explanation'] as String?,
+        classification: j['classification'] as String? ?? 'ADVISORY_OBSERVATION',
+        engine: j['engine'] as String? ?? 'accounting',
+        complianceCategory: j['compliance_category'] as String?,
+        legalRuleCode: j['legal_rule_code'] as String?,
+        legalSource: (j['legal_source'] as Map?)?.cast<String, dynamic>(),
+        flatId: j['flat_id'] as String?,
+        vendorId: j['vendor_id'] as String?,
+        humanReviewStatus: j['human_review_status'] as String?,
       );
 
   bool get isOpen => status == 'NEW' || status == 'UNDER_REVIEW' || status == 'APPROVED';
@@ -388,7 +413,8 @@ class FindingsFilter {
   final DateTime? to;
   final String query;
   final int page;
-  const FindingsFilter({this.severity, this.category, this.status, this.from, this.to, this.query = '', this.page = 1});
+  final String? section;
+  const FindingsFilter({this.severity, this.category, this.status, this.from, this.to, this.query = '', this.page = 1, this.section});
 
   FindingsFilter copyWith({String? severity, String? category, String? status, DateTime? from, DateTime? to, String? query, int? page, bool clearSeverity = false, bool clearCategory = false, bool clearStatus = false, bool clearDates = false}) =>
       FindingsFilter(
@@ -399,13 +425,14 @@ class FindingsFilter {
         to: clearDates ? null : (to ?? this.to),
         query: query ?? this.query,
         page: page ?? this.page,
+        section: section,
       );
 
   @override
   bool operator ==(Object other) =>
-      other is FindingsFilter && other.severity == severity && other.category == category && other.status == status && other.from == from && other.to == to && other.query == query && other.page == page;
+      other is FindingsFilter && other.severity == severity && other.category == category && other.status == status && other.from == from && other.to == to && other.query == query && other.page == page && other.section == section;
   @override
-  int get hashCode => Object.hash(severity, category, status, from, to, query, page);
+  int get hashCode => Object.hash(severity, category, status, from, to, query, page, section);
 }
 
 class AccountsAgentApi {
@@ -444,6 +471,7 @@ class AccountsAgentApi {
       if (f.from != null) 'date_from': _apiDate(f.from!),
       if (f.to != null) 'date_to': _apiDate(f.to!),
       if (f.query.trim().isNotEmpty) 'q': f.query.trim(),
+      if (f.section != null) 'section': f.section,
       'page': f.page,
       'page_size': pageSize,
     }));

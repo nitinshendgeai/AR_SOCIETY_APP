@@ -3,6 +3,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show formatInr;
 import 'package:ar_society_app/features/accounts_agent/data/accounts_agent_api.dart';
+import 'package:ar_society_app/features/accounts_agent/data/legal_api.dart';
 import 'package:ar_society_app/shared/widgets/app_status.dart';
 
 AppTone severityTone(String s) => switch (s) {
@@ -133,3 +134,48 @@ class LinesTable extends StatelessWidget {
 
 String agentFindingRoute(String id) => '/accounts-agent/findings/$id';
 String agentProposalRoute(String id) => '/accounts-agent/proposals/$id';
+
+AppTone classificationTone(String c) => switch (c) {
+      'CONFIRMED_ACCOUNTING_ERROR' || 'CONFIRMED_STATUTORY_VALIDATION_FAILURE' => AppTone.danger,
+      'POTENTIAL_NON_COMPLIANCE' || 'SUSPECTED_ACCOUNTING_ANOMALY' || 'LEGAL_SOURCE_CONFLICT' => AppTone.warning,
+      'MISSING_DOCUMENTATION' || 'INTERNAL_POLICY_DEVIATION' => AppTone.info,
+      _ => AppTone.neutral,
+    };
+
+/// The legal basis of a finding or an answer: source, section/clause, effective dates, status and — always — whether
+/// it is verified. Society-specific decisions are labelled as such, apart from law.
+class LegalSourceCard extends StatelessWidget {
+  final LegalSource source;
+  const LegalSourceCard({super.key, required this.source});
+  @override
+  Widget build(BuildContext context) {
+    final s = source;
+    final period = [if (s.effectiveFrom != null) 'from ${s.effectiveFrom}', if (s.effectiveUntil != null) 'until ${s.effectiveUntil}'].join(' ');
+    return AgentCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Wrap(spacing: 8, runSpacing: 6, children: [
+          AppStatusChip(label: verificationLabel(s.verificationStatus), tone: s.verified ? AppTone.success : AppTone.warning),
+          AppStatusChip(label: titleCase(s.legalStatus), tone: AppTone.neutral),
+          AppStatusChip(label: s.societySpecific ? 'Society decision / bye-law' : 'Law / jurisdiction', tone: AppTone.info),
+        ]),
+        const SizedBox(height: 8),
+        Text(s.title, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 4),
+        KeyValue('Rule', '${s.ruleCode} (version ${s.version})'),
+        KeyValue('Source', s.source),
+        KeyValue('Level', s.levelName),
+        KeyValue('Reference', s.reference),
+        KeyValue('In force', period.isEmpty ? null : period),
+        if (s.blockedBy.isNotEmpty) KeyValue('Open legal review', s.blockedBy.join('; ')),
+        if (s.uncertainty != null) ...[
+          const SizedBox(height: 6),
+          Text(s.uncertainty!, style: const TextStyle(fontSize: 12.5, color: AppTheme.warning, height: 1.35)),
+        ],
+        if (s.note != null) ...[
+          const SizedBox(height: 6),
+          Text(s.note!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.35)),
+        ],
+      ]),
+    );
+  }
+}

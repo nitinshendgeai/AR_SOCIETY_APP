@@ -64,8 +64,58 @@ def _get_finding(db: Session, society_id: UUID, finding_id: UUID) -> AgentFindin
     return f
 
 
+REMEDIATION_KIND = {"funds": "Fund reclassification / approval proposal", "fund_monitoring": "Fund reclassification proposal",
+                    "member_ledger": "Member allocation correction proposal",
+                    "maintenance_billing": "Maintenance recalculation proposal", "charges": "Maintenance recalculation proposal",
+                    "vendor_audit": "Duplicate / vendor transaction review proposal",
+                    "expenditure_approval": "Compliance remediation recommendation",
+                    "expenditure": "Compliance remediation recommendation"}
+
+
+def _remediation(db: Session, society_id: UUID, f: AgentFinding, user: User) -> AgentProposal:
+    """A compliance-scan finding gets a NON-EXECUTABLE proposal. It sets out everything a reviewer needs (existing entry,
+    issue, accounting rule, legal provision, resolution, proposed correction, debit/credit impact, who is affected,
+    documents, approval requirement); approving it records the decision only. Any actual correction is then made by an
+    authorised person through the normal Accounts / Billing screens, under their maker-checker rules. An AI-generated
+    legal conclusion never authorises a financial change."""
+    v = engine.load_voucher(db, society_id, f.voucher_id) if f.voucher_id else None
+    ev = f.evidence or {}
+    existing = ({"voucher_number": v.voucher_number, "voucher_date": v.voucher_date.isoformat(), "amount": str(money(v.amount)),
+                 "narration": v.narration, "lines": _lines(v)} if v else {"reference": f.transaction_ref, "evidence": ev})
+    src = f.legal_source or {}
+    kind = REMEDIATION_KIND.get(f.category, "Compliance remediation recommendation")
+    before = {
+        "existing_entry": existing,
+        "identified_issue": f.title,
+        "accounting_rule": f.expected_behaviour or None,
+        "legal_provision": ({k: src.get(k) for k in ("rule_code", "version", "title", "rule_number", "act_section",
+                                                      "bye_law_number", "clause", "verification_status", "legal_status")}
+                            if src else None),
+        "society_resolution": ev.get("resolutions"),
+        "affected": {"flat_id": str(f.flat_id) if f.flat_id else None, "vendor_id": str(f.vendor_id) if f.vendor_id else None},
+        "supporting_documents": (src.get("required_evidence") if src else None) or ["Voucher / bill", "Resolution", "Bye-law clause"],
+        "approval_requirement": "Admin / committee review. Any correction is posted separately through Accounts or Billing "
+                                "by an authorised person (maker–checker applies).",
+    }
+    p = AgentProposal(society_id=society_id, finding_id=f.id, voucher_id=v.id if v else None, action_type="remediation",
+                      status="PENDING", voucher_fingerprint=state_fingerprint(v) if v else "-", title=f"{kind}: {f.title}"[:200],
+                      explanation=f.recommended_action or "Review and decide the remediation.", before_values=before,
+                      after_values={"proposed_correction": f.recommended_action, "executes_automatically": False},
+                      impact=[], executable=False, created_by=user.id)
+    db.add(p)
+    f.status = "UNDER_REVIEW" if f.status == "NEW" else f.status
+    db.flush()
+    audit.record(db, society_id, "proposal_created", "proposal", p.id, user.id, {"finding": str(f.id), "action": "remediation"})
+    db.commit()
+    return p
+
+
 def create_proposal(db: Session, society_id: UUID, finding_id: UUID, user: User) -> AgentProposal:
     f = _get_finding(db, society_id, finding_id)
+    if (f.dedupe_key or "").startswith("SCAN:"):
+        if db.query(AgentProposal.id).filter(AgentProposal.finding_id == f.id, AgentProposal.status == "PENDING").first():
+            raise HTTPException(409, "This finding already has a proposal waiting for approval")
+        return _remediation(db, society_id, f, user)
     v = engine.load_voucher(db, society_id, f.voucher_id) if f.voucher_id else None
     if v is None:
         raise HTTPException(409, "The voucher this finding refers to no longer exists")
@@ -158,6 +208,14 @@ def approve_proposal(db: Session, society_id: UUID, proposal_id: UUID, user: Use
     if p.status != "PENDING":
         raise HTTPException(409, f"Proposal is already {p.status.lower()} and cannot be approved again")
     finding = db.get(AgentFinding, p.finding_id)
+    if p.action_type == "remediation":            # a recommendation: recorded, never executed
+        p.status, p.decided_by, p.decided_at, p.decision_note = "ACKNOWLEDGED", user.id, datetime.utcnow(), note
+        p.result = {"executed": False, "note": "Remediation accepted for action; no books were changed by the agent."}
+        audit.record(db, society_id, "proposal_acknowledged", "proposal", p.id, user.id)
+        if finding:
+            finding.status, finding.reviewed_by, finding.reviewed_at = "APPROVED", user.id, datetime.utcnow()
+        db.commit()
+        return p
     v = engine.load_voucher(db, society_id, p.voucher_id) if p.voucher_id else None
     if v is None or state_fingerprint(v) != p.voucher_fingerprint:
         p.status, p.decided_by, p.decided_at = "STALE", user.id, datetime.utcnow()

@@ -146,6 +146,35 @@ def run_once(db: Session, worker_id: Optional[str] = None, limit: int = BATCH_SI
     return out
 
 
+SCAN_EVERY = timedelta(hours=24)
+
+
+def scan_due(db: Session, limit: int = 20) -> int:
+    """The daily society-wide compliance scan (Engine B). One society at a time, each in its own transaction, so a
+    failure in one society never affects another and no society's data is read for another."""
+    from app.modules.accounts_agent.legal import compliance
+    from app.modules.accounts_agent.models.agent import AgentAuditLog, AgentSettings
+    cutoff = datetime.utcnow() - SCAN_EVERY
+    done = 0
+    for (sid,) in db.query(AgentSettings.society_id).filter(AgentSettings.monitoring_enabled == True).all():  # noqa: E712
+        if done >= limit:
+            break
+        last = (db.query(AgentAuditLog.created_at).filter(AgentAuditLog.society_id == sid, AgentAuditLog.action == "compliance_scan")
+                .order_by(AgentAuditLog.created_at.desc()).first())
+        if last and last[0] > cutoff:
+            continue
+        try:
+            out = compliance.run_scan(db, sid)
+            created = out.pop("_created")
+            db.commit()
+            done += 1
+            notify.notify_findings(db, sid, created)
+        except Exception:  # noqa: BLE001
+            db.rollback()
+            logger.exception("[accounts-agent] compliance scan failed society=%s", sid)
+    return done
+
+
 def maintenance(db: Session) -> int:
     """Drop old finished outbox rows (findings keep the record)."""
     cutoff = datetime.utcnow() - RETENTION
@@ -158,6 +187,7 @@ def maintenance(db: Session) -> int:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Accounts Agent monitoring worker")
     ap.add_argument("--once", action="store_true", help="process what is due, then exit")
+    ap.add_argument("--scan", action="store_true", help="run the due daily compliance scans, then exit")
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     import app.models  # noqa: F401 — register every model
@@ -166,6 +196,13 @@ def main(argv=None) -> int:
     for sig in (signal.SIGTERM, signal.SIGINT):
         signal.signal(sig, lambda *_: stop.update(flag=True))
     worker_id = f"{socket.gethostname()}:{os.getpid()}"
+    if args.scan:
+        db = get_session_factory()()
+        try:
+            logger.info("[accounts-agent] compliance scans run: %d", scan_due(db, limit=10_000))
+        finally:
+            db.close()
+        return 0
     logger.info("[accounts-agent] worker %s started", worker_id)
     last_maint = 0.0
     while not stop["flag"]:
@@ -174,6 +211,7 @@ def main(argv=None) -> int:
             counts = run_once(db, worker_id)
             if time.time() - last_maint > 3600:
                 maintenance(db)
+                scan_due(db)
                 last_maint = time.time()
         except Exception:  # noqa: BLE001 — the loop itself must survive a database blip
             logger.exception("[accounts-agent] worker pass failed")

@@ -87,6 +87,12 @@ import 'package:ar_society_app/features/accounts_agent/presentation/screens/acco
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_finding_detail_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_findings_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_learning_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_ask_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/compliance_hub_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/legal_library_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/recovery_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/resolutions_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/statutory_calendar_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_proposal_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/accounts_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/chart_of_accounts_screen.dart';
@@ -274,6 +280,12 @@ class AppRoutes {
   static const accountsAgentApprovals = '/accounts-agent/proposals';
   static const accountsAgentProposal  = '/accounts-agent/proposals/:id';
   static const accountsAgentLearning  = '/accounts-agent/learning';
+  static const accountsAgentCompliance   = '/accounts-agent/compliance';
+  static const accountsAgentLegalLibrary = '/accounts-agent/legal-library';
+  static const accountsAgentResolutions  = '/accounts-agent/resolutions';
+  static const accountsAgentStatutory    = '/accounts-agent/statutory';
+  static const accountsAgentRecovery     = '/accounts-agent/recovery';
+  static const accountsAgentAsk          = '/accounts-agent/ask';
   static const accountsVoucherNew = '/accounts/vouchers/new';
   static const accountsVoucherEdit = '/accounts/vouchers/:voucherId/edit';
   static const accountsLedger     = '/accounts/ledger/:accountId';
@@ -981,11 +993,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             (AppRoutes.accountsApprovals, (_) => const ApprovalsScreen()),
             (AppRoutes.accountsAgent, (_) => const AccountsAgentDashboardScreen()),
             (AppRoutes.accountsAgentFindings, (s) => AgentFindingsScreen(
-                initialSeverity: s.uri.queryParameters['severity'], initialStatus: s.uri.queryParameters['status'])),
+                initialSeverity: s.uri.queryParameters['severity'], initialStatus: s.uri.queryParameters['status'],
+                initialSection: s.uri.queryParameters['section'], title: s.uri.queryParameters['title'])),
             (AppRoutes.accountsAgentFinding, (s) => AgentFindingDetailScreen(findingId: s.pathParameters['id']!)),
             (AppRoutes.accountsAgentApprovals, (_) => const AgentApprovalsScreen()),
             (AppRoutes.accountsAgentProposal, (s) => AgentProposalScreen(proposalId: s.pathParameters['id']!)),
             (AppRoutes.accountsAgentLearning, (_) => const AgentLearningScreen()),
+            (AppRoutes.accountsAgentCompliance, (_) => const ComplianceHubScreen()),
+            (AppRoutes.accountsAgentLegalLibrary, (_) => const LegalLibraryScreen()),
+            (AppRoutes.accountsAgentResolutions, (_) => const ResolutionsScreen()),
+            (AppRoutes.accountsAgentStatutory, (_) => const StatutoryCalendarScreen()),
+            (AppRoutes.accountsAgentRecovery, (_) => const RecoveryScreen()),
+            (AppRoutes.accountsAgentAsk, (_) => const AgentAskScreen()),
             (AppRoutes.accountsVoucherNew, (s) {
               final type = s.uri.queryParameters['type'] ?? 'receipt';
               return VoucherFormScreen(key: ValueKey(type), type: type);

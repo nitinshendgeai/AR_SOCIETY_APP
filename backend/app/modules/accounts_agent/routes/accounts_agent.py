@@ -126,6 +126,11 @@ def list_findings(society_id: Optional[UUID] = None, severity: Optional[str] = N
                   status: Optional[str] = None, finding_class: Optional[str] = None, date_from: Optional[date] = None,
                   date_to: Optional[date] = None, q: Optional[str] = Query(None, max_length=100),
                   page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
+                  engine: Optional[str] = Query(None, pattern="^(accounting|legal)$"),
+                  compliance_category: Optional[str] = Query(None, max_length=40),
+                  classification: Optional[str] = Query(None, max_length=40),
+                  flat_id: Optional[UUID] = None, vendor_id: Optional[UUID] = None,
+                  section: Optional[str] = Query(None, max_length=30),
                   db: Session = Depends(get_db), user: User = Depends(require_manager_above)):
     sid = _sid(user, society_id)
     if severity and severity not in SEVERITIES:
@@ -133,7 +138,9 @@ def list_findings(society_id: Optional[UUID] = None, severity: Optional[str] = N
     if status and status not in FINDING_STATUSES:
         raise HTTPException(422, "Unknown status")
     return queries.list_findings(db, sid, severity=severity, category=category, status=status, finding_class=finding_class,
-                                 date_from=date_from, date_to=date_to, q=q, page=page, page_size=page_size)
+                                 date_from=date_from, date_to=date_to, q=q, page=page, page_size=page_size,
+                                 engine=engine, compliance_category=compliance_category, classification=classification,
+                                 flat_id=flat_id, vendor_id=vendor_id, section=section)
 
 
 def _finding(db: Session, sid: UUID, finding_id: UUID) -> AgentFinding:
