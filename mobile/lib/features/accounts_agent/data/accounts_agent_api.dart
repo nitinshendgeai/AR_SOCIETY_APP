@@ -3,7 +3,6 @@ import 'package:ar_society_app/core/api/api_client.dart';
 
 /// The Accounts Agent API. The society is always taken from the signed-in user by the server; this client never
 /// sends a society id for a society-scoped user.
-String? _s(Object? v) => v?.toString();
 double _d(Object? v) => double.tryParse('${v ?? 0}') ?? 0;
 int _i(Object? v) => (v is num) ? v.toInt() : int.tryParse('${v ?? 0}') ?? 0;
 String _apiDate(DateTime d) => '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
