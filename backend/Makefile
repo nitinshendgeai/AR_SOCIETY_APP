@@ -46,3 +46,7 @@ migrate:
 
 migration:
 	alembic revision --autogenerate -m "$(msg)"
+
+# Accounts Agent monitoring worker (separate process; see docs/ACCOUNTS_AGENT_IMPLEMENTATION_REPORT.md)
+agent-worker:
+	python -m app.modules.accounts_agent.worker

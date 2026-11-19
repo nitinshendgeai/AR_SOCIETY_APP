@@ -83,6 +83,11 @@ import 'package:ar_society_app/features/vendor/presentation/screens/vendors_work
 import 'package:ar_society_app/features/vendor/presentation/screens/work_order_detail_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/contract_detail_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/accounts_gateway_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/accounts_agent_dashboard_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_finding_detail_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_findings_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_learning_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_proposal_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/accounts_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/chart_of_accounts_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/day_book_screen.dart';
@@ -263,6 +268,12 @@ class AppRoutes {
   static const accountsReceivable = '/accounts/outstanding/receivable';
   static const accountsPayable    = '/accounts/outstanding/payable';
   static const accountsApprovals  = '/accounts/approvals';
+  static const accountsAgent          = '/accounts-agent';
+  static const accountsAgentFindings  = '/accounts-agent/findings';
+  static const accountsAgentFinding   = '/accounts-agent/findings/:id';
+  static const accountsAgentApprovals = '/accounts-agent/proposals';
+  static const accountsAgentProposal  = '/accounts-agent/proposals/:id';
+  static const accountsAgentLearning  = '/accounts-agent/learning';
   static const accountsVoucherNew = '/accounts/vouchers/new';
   static const accountsVoucherEdit = '/accounts/vouchers/:voucherId/edit';
   static const accountsLedger     = '/accounts/ledger/:accountId';
@@ -968,6 +979,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             (AppRoutes.accountsReceivable, (_) => const OutstandingScreen(initialKind: 'receivable')),
             (AppRoutes.accountsPayable, (_) => const OutstandingScreen(initialKind: 'payable')),
             (AppRoutes.accountsApprovals, (_) => const ApprovalsScreen()),
+            (AppRoutes.accountsAgent, (_) => const AccountsAgentDashboardScreen()),
+            (AppRoutes.accountsAgentFindings, (s) => AgentFindingsScreen(
+                initialSeverity: s.uri.queryParameters['severity'], initialStatus: s.uri.queryParameters['status'])),
+            (AppRoutes.accountsAgentFinding, (s) => AgentFindingDetailScreen(findingId: s.pathParameters['id']!)),
+            (AppRoutes.accountsAgentApprovals, (_) => const AgentApprovalsScreen()),
+            (AppRoutes.accountsAgentProposal, (s) => AgentProposalScreen(proposalId: s.pathParameters['id']!)),
+            (AppRoutes.accountsAgentLearning, (_) => const AgentLearningScreen()),
             (AppRoutes.accountsVoucherNew, (s) {
               final type = s.uri.queryParameters['type'] ?? 'receipt';
               return VoucherFormScreen(key: ValueKey(type), type: type);
