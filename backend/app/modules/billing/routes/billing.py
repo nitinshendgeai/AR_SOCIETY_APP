@@ -368,7 +368,7 @@ class MaintenanceSettingsUpdate(OrmBase):
     upi_id: Optional[str] = Field(None, max_length=100)
     bill_notes: Optional[str] = Field(None, max_length=1000)
     # How the bill prints: the standard layout, or the classic one (every head on its own line, a receipt slip at the foot)
-    bill_layout: Optional[Literal["standard", "classic", "boxed", "boxed_plain"]] = None
+    bill_layout: Optional[Literal["standard", "classic", "boxed", "boxed_plain", "adda"]] = None
     # The order the Boxed bill lists its particulars in: the society's element order, or the largest amount first
     particulars_order: Optional[Literal["elements", "amount"]] = None
     # Billing in this app starts on (empty clears it: every cycle then bills its own period only)

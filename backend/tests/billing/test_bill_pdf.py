@@ -721,3 +721,39 @@ def test_boxed_particulars_can_be_ordered_by_amount_highest_first(client, db):
     db.expire_all()
     _, by_elements = _bill_pdf(db, bill_id, layout=None)
     assert by_elements.index("Service Charges") < by_elements.index("Amenities")
+
+
+def test_adda_layout_lists_each_element_with_how_its_amount_came_about(client, db):
+    society, flat1, flat2, manager, resident, other = _rig(db, "pdfad")
+    society.registration_number, society.pan_number = "MUM/WR/N/HSG/TC/15759/2018-19/2018", "AAAEAN8498C"
+    society.address, society.city, society.pincode = "NL Complex, Dahisar East", "Mumbai", "400068"
+    flat1.area_sqft = 702
+    db.commit()
+    h = manager["headers"]
+    _charge(client, h, society.id, name="Service Charges", amount="4100.00")
+    _charge(client, h, society.id, name="Repair Fund", amount="0.80", basis="per_sqft")
+    _charge(client, h, society.id, name="Festival Fund", amount="215.00", charge_type="other")
+    r = client.put(f"/api/v1/billing/maintenance-settings/{society.id}", json={
+        "bill_layout": "adda", "bank_account_name": "PDFAD CHS LTD", "bank_name": "Indian Bank",
+        "bank_account_number": "50480394617", "bank_ifsc": "IDIB000D507",
+        "bill_notes": "Mail the NEFT details to the office."}, headers=h)
+    assert r.status_code == 200 and r.json()["bill_layout"] == "adda", r.text
+    cycle_id = _cycle(client, h, society.id).json()["id"]
+    assert client.post(f"/api/v1/billing/cycles/{cycle_id}/generate-bills", headers=h).status_code == 200
+    bill_id = db.query(MaintenanceBill).filter_by(cycle_id=UUID(cycle_id), flat_id=flat1.id).one().id
+    bill, text = _bill_pdf(db, bill_id, layout=None)
+    for expected in [
+        "INVOICE", "MB Society pdfad", "Society Reg No : MUM/WR/N/HSG/TC/15759/2018-19/2018 PAN : AAAEAN8498C",
+        "Unit : Tower A 101", "Kind Attn. : Asha Rao", f"Invoice No : {bill.invoice_number}", "Invoice Period :",
+        "Accounts Rate/Comments Amount", "Current Total", "Payable",
+        "For payment through NEFT/RTGS or UPI", "Account Name: PDFAD CHS LTD", "Account Number: 50480394617",
+        "IFSC Code: IDIB000D507", "Bank Name: Indian Bank", "Mail the NEFT details to the office.",
+        "Electronically Generated, does not require Signature.",
+    ]:
+        assert expected in text, expected
+    assert "/month x" in text                                    # a fixed element: Rs.4,100.00 a month times the months
+    assert "702 Sq.ft x Rs." in text and "per Sq.ft/month x" in text      # an element worked out on the flat's area
+    # the other applications' wording is not copied
+    assert "ADDA" not in text and "COVID" not in text and "Pay Now" not in text
+    # largest amount first, as on the other layouts
+    assert text.index("Service Charges") < text.index("Repair Fund") < text.index("Festival Fund")   # 4,100 / 561.60 / 215

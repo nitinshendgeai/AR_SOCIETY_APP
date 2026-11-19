@@ -1086,7 +1086,9 @@ class BillingService:
         heads = self._element_heads(cycle.society_id)
         names = self._element_names(cycle.society_id)
         order = self._element_order(cycle.society_id)
-        items = [{"bill": b, "settings": settings, **self._bill_print_context(b, heads, with_receipts, names, order)}
+        area_based = self._area_based_heads(cycle.society_id)
+        items = [{"bill": b, "settings": settings,
+                  **self._bill_print_context(b, heads, with_receipts, names, order, area_based)}
                  for b in bills]
         return cycle, items
 
@@ -1165,6 +1167,18 @@ class BillingService:
         )
         return {head: order for head, order in rows}
 
+    def _area_based_heads(self, society_id: UUID) -> set:
+        """The names of the society's charge heads that are worked out on a flat's area (per sq ft, a % of its
+        construction cost, a budget split by area): the ADDA bill says so in its Rate/Comments."""
+        rows = (
+            self.db.query(MaintenanceChargeConfig.name)
+            .filter(MaintenanceChargeConfig.society_id == society_id,
+                    MaintenanceChargeConfig.basis.in_([ChargeBasis.PER_SQFT, ChargeBasis.CONSTRUCTION_COST_PCT,
+                                                       ChargeBasis.BUDGET_AREA]))
+            .all()
+        )
+        return {name for (name,) in rows}
+
     def _last_payment(self, bill: MaintenanceBill):
         """The most recent payment the flat had made by the day the bill was generated, whatever it was for (against a
         bill, on account, or an advance): receipts not reversed and recorded payments not rejected. None if there is
@@ -1188,7 +1202,7 @@ class BillingService:
 
     def _bill_print_context(self, bill: MaintenanceBill, heads: Optional[dict] = None,
                             with_receipts: bool = True, names: Optional[dict] = None,
-                            order: Optional[dict] = None) -> dict:
+                            order: Optional[dict] = None, area_based: Optional[set] = None) -> dict:
         """What the printed bill needs beyond the bill itself: which standard
         element each charge head came from (decides the bill head it's shown
         under) and where its element stands in the society's list, the unpaid interest inside the arrears, and
@@ -1200,6 +1214,8 @@ class BillingService:
             names = self._element_names(bill.society_id)
         if order is None:
             order = self._element_order(bill.society_id)
+        if area_based is None:
+            area_based = self._area_based_heads(bill.society_id)
         earlier = (
             self.db.query(MaintenanceBill)
             .filter(MaintenanceBill.flat_id == bill.flat_id, MaintenanceBill.id != bill.id,
@@ -1220,6 +1236,7 @@ class BillingService:
             "element_codes": heads,
             "element_names": names,
             "element_order": order,
+            "area_based": area_based,
             "accumulated_interest": interest,
             "previous_bill": earlier[0] if earlier and with_receipts else None,
             "last_payment": self._last_payment(bill) if with_receipts else None,
