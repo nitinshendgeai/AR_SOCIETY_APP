@@ -272,6 +272,8 @@ def check_duplicates(c: Ctx) -> List[Draft]:
         Voucher.voucher_date <= v.voucher_date + timedelta(days=window))
         .order_by(Voucher.created_at).limit(50).all())
     for o in cands:
+        if _order(o) > _order(v):
+            continue                                  # only the LATER voucher of a pair is flagged (and may be cancelled)
         pair = ":".join(sorted([str(v.id), str(o.id)]))
         ev = {"other_voucher": o.voucher_number, "other_voucher_id": str(o.id), "amount": str(money(v.amount)),
               "dates": [v.voucher_date.isoformat(), o.voucher_date.isoformat()]}
@@ -306,9 +308,17 @@ def check_duplicates(c: Ctx) -> List[Draft]:
     return out
 
 
+def _order(v: Voucher) -> tuple:
+    """Which of two vouchers came first: creation time, then number and id as tie-breakers."""
+    from datetime import datetime
+    return (v.created_at or datetime.min, v.voucher_number or "", str(v.id))
+
+
 def line_signature_key(e) -> tuple:
     return (str(e.account_id), str(money(e.debit)), str(money(e.credit)), str(e.flat_id or ""), str(e.vendor_id or ""))
 
 
+from app.modules.accounts_agent.services.bill_checks import check_bill_posting  # noqa: E402
+
 DETERMINISTIC = (check_balance, check_accounts, check_type_rules, check_subledgers, check_integrity, check_reversal,
-                 check_journal, check_duplicates)
+                 check_journal, check_duplicates, check_bill_posting)

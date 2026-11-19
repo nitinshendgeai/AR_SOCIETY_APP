@@ -37,6 +37,22 @@ proposes, and executes only after an authorised person explicitly approves.
 * **Only derivable corrections are proposed:** duplicate → cancel the later voucher; vendor→ledger mapping drift → re-map the line.
   Other findings get an honest 422 ("no correction can be derived") and are closed by review.
 
+### Maintenance-bill posting checks (`services/bill_checks.py`)
+
+For live vouchers posted from a maintenance bill (on create/edit) the agent re-derives the posting from the bill, mirroring
+`AccountPostings.post_bill`, and compares — it does **not** recompute rates or areas:
+
+| Rule | Detects | Severity |
+|---|---|---|
+| `R-BILL-01` | the bill's own arithmetic is off (lines vs subtotal/GST, subtotal + GST + round-off vs total, line total) | Medium |
+| `R-BILL-02` | Members' Dues debited ≠ the bill's total (+ penalty) | High |
+| `R-BILL-03` | Members' Dues line names a different flat than the bill | High |
+| `R-BILL-04` | a charge head credited with a different amount/ledger than the bill charged | High |
+| `R-BILL-05` | a live posting for a bill that is not in an issued state | Medium |
+
+Not covered: whether the billing module's rates/areas/charge configuration are right, and flat-wise month-over-month
+comparison of bills.
+
 ### Documented conflict with an existing rule
 
 An "approved payment without approver" validator was drafted and **removed**: recurring-expense recording and bank
@@ -120,6 +136,7 @@ Results (all actually executed in this environment):
   (`mobile/test/accounts_agent_api_test.dart`) has not been executed. Run `flutter analyze && flutter test` before release.
 * The complete backend suite (~hours) was not run end-to-end here; the suites listed in §6 were. Run the full suite in CI.
 * No push/notification-tap deep-link wiring beyond `action_url` paths (`/accounts-agent`, `/accounts-agent/proposals/{id}`), which match the new routes.
+* Bill checks compare the books with the bill as issued; they cannot tell that the bill itself was calculated from a wrong rate.
 * Statistical detectors need history: with fewer than 6 samples per ledger (4 per vendor, 3 recurring) they stay silent by design.
 * Category names, rule codes and wording are English only (no l10n yet).
 * An edited payment/journal re-enters approval: after approving a correction the voucher may still need its normal approval.

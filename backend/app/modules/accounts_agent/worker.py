@@ -49,10 +49,7 @@ def backoff(attempts: int) -> timedelta:
 def claim_batch(db: Session, worker_id: str, limit: int = BATCH_SIZE, now: Optional[datetime] = None) -> List[UUID]:
     """Lease up to `limit` due events: new ones, ones whose retry time has come, and ones a dead worker left behind."""
     now = now or datetime.utcnow()
-    q = (db.query(AgentEvent).filter(or_(
-        and_(AgentEvent.status.in_(("pending", "failed")), AgentEvent.next_attempt_at <= now),
-        and_(AgentEvent.status == "processing", AgentEvent.locked_until < now)))
-        .order_by(AgentEvent.created_at).limit(limit))
+    q = db.query(AgentEvent).filter(_due_filter(now)).order_by(AgentEvent.created_at).limit(limit)
     if db.get_bind().dialect.name == "postgresql":
         q = q.with_for_update(skip_locked=True)
     ids = []
@@ -66,6 +63,20 @@ def claim_batch(db: Session, worker_id: str, limit: int = BATCH_SIZE, now: Optio
         ids.append(e.id)
     db.commit()
     return ids
+
+
+def _due_filter(now: datetime):
+    return or_(and_(AgentEvent.status.in_(("pending", "failed")), AgentEvent.next_attempt_at <= now),
+               and_(AgentEvent.status == "processing", AgentEvent.locked_until < now))
+
+
+def due_societies(db: Session, limit: int = BATCH_SIZE, now: Optional[datetime] = None) -> List[UUID]:
+    """Societies that have events due in the next batch (read only, no lease)."""
+    now = now or datetime.utcnow()
+    rows = db.query(AgentEvent.society_id, AgentEvent.created_at).filter(_due_filter(now)) \
+        .order_by(AgentEvent.created_at).limit(limit).all()
+    db.commit()                               # end the read transaction before learning starts its own work
+    return list(dict.fromkeys(r[0] for r in rows))
 
 
 def _ensure_profile(db: Session, society_id: UUID, done: set) -> None:
@@ -85,7 +96,10 @@ def _ensure_profile(db: Session, society_id: UUID, done: set) -> None:
             if last is None:
                 notify.notify_learning_complete(db, society_id, run)
         except Exception:  # noqa: BLE001 — a failed learning run must not stop monitoring
-            db.rollback()
+            try:
+                db.commit()                   # keep the run's "failed" record in the learning history
+            except Exception:  # noqa: BLE001
+                db.rollback()
             logger.exception("[accounts-agent] learning failed society=%s", society_id)
             try:
                 s = get_settings(db, society_id)
@@ -118,16 +132,20 @@ def _fail(db: Session, event_id: UUID, exc: Exception) -> None:
 def run_once(db: Session, worker_id: Optional[str] = None, limit: int = BATCH_SIZE) -> Dict[str, int]:
     """Claim and process one batch. Returns counts. Safe to call from tests or cron."""
     worker_id = worker_id or f"{socket.gethostname()}:{os.getpid()}"
+    learned: set = set()
+    # Refresh learning profiles BEFORE leasing anything: a long learning run must not outlast the leases of the batch
+    # (another worker would then re-claim and re-process those events).
+    for sid in due_societies(db, limit):
+        _ensure_profile(db, sid, learned)
     ids = claim_batch(db, worker_id, limit)
     out = {"claimed": len(ids), "done": 0, "failed": 0, "findings": 0}
-    learned: set = set()
     by_society: Dict[UUID, list] = {}
     for eid in ids:
         e = db.get(AgentEvent, eid)
         if e is None or e.status != "processing" or e.locked_by != worker_id:
             continue
         try:
-            _ensure_profile(db, e.society_id, learned)
+            _ensure_profile(db, e.society_id, learned)        # no-op unless the society was not due before the claim
             new = process_event(db, e)
             db.commit()
             out["done"] += 1

@@ -36,10 +36,14 @@ def get_settings(db: Session, society_id: UUID) -> AgentSettings:
     return s
 
 
-def load_voucher(db: Session, society_id: UUID, voucher_id: UUID) -> Optional[Voucher]:
-    """The voucher, only if it belongs to `society_id` (society isolation for every agent read)."""
-    return (db.query(Voucher).options(selectinload(Voucher.entries))
-            .filter(Voucher.id == voucher_id, Voucher.society_id == society_id).first())
+def load_voucher(db: Session, society_id: UUID, voucher_id: UUID, lock: bool = False) -> Optional[Voucher]:
+    """The voucher, only if it belongs to `society_id` (society isolation for every agent read). With `lock`, the voucher
+    row is held FOR UPDATE until the transaction ends (PostgreSQL; SQLite serialises writers anyway)."""
+    q = (db.query(Voucher).options(selectinload(Voucher.entries))
+         .filter(Voucher.id == voucher_id, Voucher.society_id == society_id))
+    if lock and db.get_bind().dialect.name == "postgresql":
+        q = q.with_for_update(of=Voucher)
+    return q.first()
 
 
 def analyse(db: Session, voucher: Voucher, event_type: str = "voucher.created",
@@ -107,6 +111,34 @@ def resolve_cleared(db: Session, voucher: Voucher, drafts: List[Draft], reason: 
     return n
 
 
+DUPLICATE_RULES = ("R-DUP-01", "R-DUP-02", "R-DUP-03", "R-DUP-04")
+
+
+def resolve_twin_duplicates(db: Session, cancelled: Voucher) -> int:
+    """A voucher was cancelled: open duplicate findings on OTHER vouchers that name it as their twin no longer hold
+    (the pair is down to one live voucher). Close them and mark their pending proposals stale, so a second approval can
+    never cancel the remaining, genuine voucher."""
+    from app.modules.accounts_agent.models.agent import AgentProposal
+    n = 0
+    for f in db.query(AgentFinding).filter(AgentFinding.society_id == cancelled.society_id,
+                                           AgentFinding.rule_code.in_(DUPLICATE_RULES),
+                                           AgentFinding.voucher_id != cancelled.id,
+                                           AgentFinding.status.in_(OPEN_FINDING_STATUSES)):
+        if (f.evidence or {}).get("other_voucher_id") != str(cancelled.id):
+            continue
+        f.status, f.resolved_at = "RESOLVED", datetime.utcnow()
+        f.resolution_note = f"Its duplicate {cancelled.voucher_number} was cancelled; this voucher is now the only copy"
+        audit.record(db, f.society_id, "finding_auto_resolved", "finding", f.id,
+                     details={"reason": "duplicate twin cancelled", "twin": cancelled.voucher_number})
+        for p in db.query(AgentProposal).filter(AgentProposal.society_id == f.society_id, AgentProposal.finding_id == f.id,
+                                                AgentProposal.status == "PENDING"):
+            p.status, p.decided_at = "STALE", datetime.utcnow()
+            p.decision_note = f"Not applied: its duplicate {cancelled.voucher_number} was already cancelled."
+            audit.record(db, p.society_id, "proposal_stale", "proposal", p.id, details={"reason": "duplicate twin cancelled"})
+        n += 1
+    return n
+
+
 def process_event(db: Session, event: AgentEvent) -> List[AgentFinding]:
     """Analyse one outbox event. Caller commits. Raises on failure so the worker can retry."""
     settings = get_settings(db, event.society_id)
@@ -123,6 +155,7 @@ def process_event(db: Session, event: AgentEvent) -> List[AgentFinding]:
                                                AgentFinding.status.in_(("NEW", "UNDER_REVIEW"))):
             f.status, f.resolved_at, f.resolution_note = "RESOLVED", datetime.utcnow(), "Voucher was cancelled"
             audit.record(db, f.society_id, "finding_auto_resolved", "finding", f.id, details={"reason": "voucher cancelled"})
+        resolve_twin_duplicates(db, voucher)
     elif event.event_type in ANALYSED_EVENTS and not (event.event_type == "voucher.approval_changed" and voucher.approval_status == "rejected"):
         profile = Profile(db, voucher.society_id)
         drafts = analyse(db, voucher, event.event_type, settings, profile)

@@ -14,7 +14,7 @@ from typing import List, Optional
 from app.modules.accounts.models.accounts import RecurringExpense
 from app.modules.accounts_agent.services import stats as st
 from app.modules.accounts_agent.services.context import Ctx, Draft, fmt, money
-from app.modules.accounts_agent.services.learning import Profile
+from app.modules.accounts_agent.services.learning import Profile, recurring_key
 
 STAT = "statistical_deviation"
 SUSPECTED = "strongly_suspected_anomaly"
@@ -105,8 +105,7 @@ def _recurring_key(c: Ctx) -> Optional[str]:
     exp = _expense_debit_lines(c)
     if v.voucher_type not in ("payment", "purchase", "journal") or not exp:
         return None
-    vendor_ids = {x for x in [v.vendor_id, *[e.vendor_id for e in c.entries]] if x}
-    return f"vendor:{next(iter(vendor_ids))}" if vendor_ids else f"account:{exp[0].account_id}"
+    return recurring_key(v, [e.account_id for e in exp])
 
 
 def detect_recurring_deviation(c: Ctx) -> List[Draft]:

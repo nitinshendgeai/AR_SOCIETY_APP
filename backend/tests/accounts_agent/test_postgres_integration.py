@@ -155,3 +155,25 @@ def test_compliance_scan_end_to_end_on_postgres(pg):
         assert registry.resolve(s, a.id, "charges.interest_on_arrears.max_rate_pct", today).effective_value == 12
         get_settings(s, b.id); s.commit()
         assert worker.scan_due(s) >= 1          # b is due; a was scanned just now
+
+
+def test_approval_holds_the_voucher_row_lock(pg):
+    """approve_proposal loads the voucher with lock=True: until it finishes, nobody else can edit that voucher, so the
+    stale-state check cannot be overtaken by a concurrent edit."""
+    from sqlalchemy.exc import OperationalError
+    from app.modules.accounts.models.accounts import Voucher
+    from app.modules.accounts_agent.services import engine
+    sid, ids = _setup(pg)
+    with Session(pg) as s:
+        vid = _post(s, sid, ids).id
+        s.commit()
+    holder, other = Session(pg), Session(pg)
+    try:
+        assert engine.load_voucher(holder, sid, vid, lock=True) is not None
+        with pytest.raises(OperationalError):          # NOWAIT: the row is locked by the approving transaction
+            other.query(Voucher).filter(Voucher.id == vid).with_for_update(nowait=True).one()
+        other.rollback()
+        holder.rollback()                              # lock released
+        assert other.query(Voucher).filter(Voucher.id == vid).with_for_update(nowait=True).one().id == vid
+    finally:
+        holder.rollback(); other.rollback(); holder.close(); other.close()
