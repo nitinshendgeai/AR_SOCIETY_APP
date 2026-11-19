@@ -36,10 +36,14 @@ def get_settings(db: Session, society_id: UUID) -> AgentSettings:
     return s
 
 
-def load_voucher(db: Session, society_id: UUID, voucher_id: UUID) -> Optional[Voucher]:
-    """The voucher, only if it belongs to `society_id` (society isolation for every agent read)."""
-    return (db.query(Voucher).options(selectinload(Voucher.entries))
-            .filter(Voucher.id == voucher_id, Voucher.society_id == society_id).first())
+def load_voucher(db: Session, society_id: UUID, voucher_id: UUID, lock: bool = False) -> Optional[Voucher]:
+    """The voucher, only if it belongs to `society_id` (society isolation for every agent read). With `lock`, the voucher
+    row is held FOR UPDATE until the transaction ends (PostgreSQL; SQLite serialises writers anyway)."""
+    q = (db.query(Voucher).options(selectinload(Voucher.entries))
+         .filter(Voucher.id == voucher_id, Voucher.society_id == society_id))
+    if lock and db.get_bind().dialect.name == "postgresql":
+        q = q.with_for_update(of=Voucher)
+    return q.first()
 
 
 def analyse(db: Session, voucher: Voucher, event_type: str = "voucher.created",

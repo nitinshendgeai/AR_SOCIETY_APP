@@ -112,3 +112,25 @@ def test_two_workers_claim_disjoint_batches(pg):
         got = worker.claim_batch(s, "pgw", limit=10)
         assert len(got) >= 6                       # earlier tests left their own events pending too
         assert worker.claim_batch(s, "pgw2", limit=10) == []
+
+
+def test_approval_holds_the_voucher_row_lock(pg):
+    """approve_proposal loads the voucher with lock=True: until it finishes, nobody else can edit that voucher, so the
+    stale-state check cannot be overtaken by a concurrent edit."""
+    from sqlalchemy.exc import OperationalError
+    from app.modules.accounts.models.accounts import Voucher
+    from app.modules.accounts_agent.services import engine
+    sid, ids = _setup(pg)
+    with Session(pg) as s:
+        vid = _post(s, sid, ids).id
+        s.commit()
+    holder, other = Session(pg), Session(pg)
+    try:
+        assert engine.load_voucher(holder, sid, vid, lock=True) is not None
+        with pytest.raises(OperationalError):          # NOWAIT: the row is locked by the approving transaction
+            other.query(Voucher).filter(Voucher.id == vid).with_for_update(nowait=True).one()
+        other.rollback()
+        holder.rollback()                              # lock released
+        assert other.query(Voucher).filter(Voucher.id == vid).with_for_update(nowait=True).one().id == vid
+    finally:
+        holder.rollback(); other.rollback(); holder.close(); other.close()

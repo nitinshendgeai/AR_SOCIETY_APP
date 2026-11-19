@@ -166,3 +166,59 @@ def test_notifications_are_grouped_and_only_to_this_societys_admins(rig, db):
     worker.run_once(db, "t1")
     again = db.query(Notification).filter(Notification.module == "accounts_agent", Notification.user_id == rig.admin["user"].id).count()
     assert again == len(mine)                                        # no spam on later passes
+
+
+def test_re_approval_after_an_edit_is_a_new_event(rig, db):
+    """approved → pending (edited) → approved again: the second approval used to reuse the first one's key and be dropped."""
+    v = rig.payment(1, "office_expenses", 500)                 # created (already approved in the same insert)
+    for _ in range(2):                                         # sent back for approval, approved again — twice
+        v.approval_status = "pending"
+        db.commit()
+        v.approval_status = "approved"
+        db.commit()
+    approvals = [e for e in events(db, rig, voucher_id=v.id, event_type="voucher.approval_changed")
+                 if e.idempotency_key.startswith(f"voucher.approval_changed:{v.id}:approved")]
+    assert len(approvals) == 2
+
+
+def test_learning_runs_before_events_are_leased(rig, db, monkeypatch):
+    """A long first learning run must not eat into the leases of the batch it was triggered for."""
+    rig.payment(1, "office_expenses", 500)
+    seen = []
+    real = worker.learn_society
+
+    def spy(s, society_id, *a, **kw):
+        seen.append([e.status for e in events(s, rig)])
+        return real(s, society_id, *a, **kw)
+
+    monkeypatch.setattr(worker, "learn_society", spy)
+    assert worker.run_once(db, "w")["done"] >= 1
+    assert seen and "processing" not in seen[0]
+
+
+def test_failed_learning_run_is_recorded_by_the_worker(rig, db, monkeypatch):
+    from app.modules.accounts_agent.models.agent import AgentLearningRun
+    from app.modules.accounts_agent.services import learning
+
+    def broken(*a, **kw):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(learning, "account_meta", broken)
+    rig.payment(1, "office_expenses", 500)
+    worker.run_once(db, "w")                                    # monitoring still runs
+    runs = db.query(AgentLearningRun).filter(AgentLearningRun.society_id == rig.sid).all()
+    assert [r.status for r in runs] == ["failed"] and "boom" in runs[0].error
+
+
+def test_recurring_key_is_stable_when_a_voucher_has_several_vendors(rig, db):
+    from app.modules.accounts_agent.services.learning import recurring_key
+    a, b = rig.vendor("A"), rig.vendor("B")
+    lines = [Line(rig.chart["housekeeping"], debit=D("300"), vendor_id=a.id),
+             Line(rig.chart["security_charges"], debit=D("200"), vendor_id=b.id),
+             Line(rig.chart["bank"], credit=D("500"))]
+    v = rig.svc.build_voucher(rig.sid, "journal", rig.today, lines, narration="split")
+    db.commit()
+    db.refresh(v)
+    want = f"vendor:{min(str(a.id), str(b.id))}"
+    for _ in range(5):
+        assert recurring_key(v, [rig.chart["housekeeping"]]) == want

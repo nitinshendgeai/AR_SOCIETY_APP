@@ -158,7 +158,8 @@ def approve_proposal(db: Session, society_id: UUID, proposal_id: UUID, user: Use
     if p.status != "PENDING":
         raise HTTPException(409, f"Proposal is already {p.status.lower()} and cannot be approved again")
     finding = db.get(AgentFinding, p.finding_id)
-    v = engine.load_voucher(db, society_id, p.voucher_id) if p.voucher_id else None
+    # Lock the voucher itself, so it cannot be edited between the stale-state check and the correction.
+    v = engine.load_voucher(db, society_id, p.voucher_id, lock=True) if p.voucher_id else None
     if v is None or state_fingerprint(v) != p.voucher_fingerprint:
         p.status, p.decided_by, p.decided_at = "STALE", user.id, datetime.utcnow()
         p.decision_note = "The voucher changed after this proposal was made; it was not applied."

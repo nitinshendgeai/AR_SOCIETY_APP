@@ -342,3 +342,17 @@ def test_second_duplicate_approval_is_refused_even_before_the_worker_runs(client
     assert not first.is_cancelled and f_first.status == "RESOLVED"
     import uuid
     assert db.get(AgentProposal, uuid.UUID(p_first["id"])).status == "STALE"
+
+
+def test_failed_learning_run_from_the_api_stays_in_the_history(client, rig, db, monkeypatch):
+    from app.modules.accounts_agent.services import learning
+
+    def broken(*a, **kw):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(learning, "account_meta", broken)
+    r = client.post(f"{API}/learning/run", headers=rig.admin["headers"])
+    assert r.status_code == 500 and "learning history" in r.text
+    hist = client.get(f"{API}/learning/history", headers=rig.admin["headers"])
+    assert hist.status_code == 200, hist.text
+    assert "failed" in hist.text

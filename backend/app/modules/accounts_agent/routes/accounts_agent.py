@@ -102,7 +102,10 @@ def run_learning(society_id: Optional[UUID] = None, db: Session = Depends(get_db
                      {"vouchers": run.voucher_count, "confidence": run.confidence_label})
         db.commit()
     except Exception:
-        db.rollback()
+        try:
+            db.commit()                       # keep the run's "failed" record so the learning history shows it
+        except Exception:  # noqa: BLE001
+            db.rollback()
         raise HTTPException(500, "Learning could not be completed; see the learning history.")
     try:
         notify.notify_learning_complete(db, sid, run)
