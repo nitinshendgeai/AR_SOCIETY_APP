@@ -294,6 +294,20 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
               },
             ),
           if (widget.filterFlat == null && (user?.isAdminOrCommittee ?? false))
+            PopupMenuButton<String>(
+              key: const ValueKey('residents-more-imports'),
+              tooltip: 'Import family members or vehicles',
+              icon: const Icon(Icons.group_add_rounded),
+              onSelected: (route) async {
+                final imported = await context.push<bool>(route);
+                if (imported == true) _load();
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: AppRoutes.familyImport, child: Text('Import family members')),
+                PopupMenuItem(value: AppRoutes.vehiclesImport, child: Text('Import vehicles')),
+              ],
+            ),
+          if (widget.filterFlat == null && (user?.isAdminOrCommittee ?? false))
             IconButton(
               key: const ValueKey('residents-login-report'),
               icon: const Icon(Icons.link_off_rounded),

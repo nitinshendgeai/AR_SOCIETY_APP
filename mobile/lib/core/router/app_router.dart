@@ -139,6 +139,8 @@ import 'package:ar_society_app/features/resident_master/presentation/screens/res
 import 'package:ar_society_app/features/resident_master/presentation/screens/resident_detail_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/resident_form_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/resident_import_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/flat_people_import_screen.dart';
+import 'package:ar_society_app/features/resident_master/data/flat_people_import.dart' show familyImportSpec, vehiclesImportSpec;
 import 'package:ar_society_app/features/resident_master/presentation/screens/edit_my_profile_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/my_home_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/pending_resident_changes_screen.dart';
@@ -285,6 +287,8 @@ class AppRoutes {
   static const residentDetail     = '/residents/detail';
   static const residentForm       = '/residents/form';
   static const residentImport     = '/residents/import';
+  static const familyImport       = '/residents/import-family';
+  static const vehiclesImport     = '/vehicles/import';
   static const residentLoginStatus = '/residents/login-status';
   static const myHome                  = '/residents/me';
   static const editMyProfile           = '/residents/me/edit';
@@ -1150,6 +1154,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.residentImport,
             builder: (_, __) => const ResidentImportScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.familyImport,
+            builder: (_, __) => const FlatPeopleImportScreen(spec: familyImportSpec),
+          ),
+          GoRoute(
+            path: AppRoutes.vehiclesImport,
+            builder: (_, __) => const FlatPeopleImportScreen(spec: vehiclesImportSpec),
           ),
           GoRoute(
             path: AppRoutes.myHome,

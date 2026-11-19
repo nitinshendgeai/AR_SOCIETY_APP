@@ -10,6 +10,7 @@ from app.schemas.resident_edit_request import (
     ResidentEditRequestCreate, ResidentEditRequestOut, ResidentEditRequestReject,
 )
 from app.services.resident_login_status import NEEDS_ATTENTION, resident_login_status
+from app.services.flat_people_import import FamilyImportRequest, ImportResult
 from app.services.resident_service import ResidentService
 from app.services.resident_edit_request_service import ResidentEditRequestService
 from app.services.resident_family_request_service import FamilyRequestService
@@ -66,6 +67,17 @@ def count_residents(
 
 REPORT_MAX_ROWS = 5000
 _XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+@router.post("/family-import", response_model=List[ImportResult])
+def import_family_file(data: FamilyImportRequest, db: Session = Depends(get_db),
+                       current_user: User = Depends(require_admin_committee)):
+    """Add family members and dependents to many flats from a sheet: one row per person, with their relationship, mobile
+    and date of birth. They go on the flat's Residents list as Family or Dependent; no app login is made for them. A
+    name already on the flat is skipped; a bad row is reported and the rest go in. `dry_run` (the default) checks every
+    row and writes nothing."""
+    from app.services.flat_people_import import import_family
+    return import_family(db, data.rows, data.dry_run, current_user)
 
 
 @router.get("/report-columns")

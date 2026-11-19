@@ -23,6 +23,8 @@ from app.core.tenant_scope import assert_society_access, resolve_create_society_
 from app.utils.vehicle_number import normalize_vehicle_number
 from app.repositories.flat_repo import FlatRepository
 
+from app.services.flat_people_import import ImportResult, VehicleImportRequest  # noqa: E402
+
 router = APIRouter(prefix="/vehicles", tags=["Vehicle Master"])
 
 committee_or_admin = require_admin_committee
@@ -190,6 +192,16 @@ def _validate_vehicle_links(db: Session, society_id: UUID, flat_id: Optional[UUI
             raise HTTPException(status_code=422, detail="tenant_id does not belong to flat_id")
         if flat_id is None and not FlatRepository(db).get(tenant.flat_id, society_id=society_id):
             raise HTTPException(status_code=404, detail="Tenant not found")
+
+
+@router.post("/import", response_model=List[ImportResult])
+def import_vehicles_file(data: VehicleImportRequest, db: Session = Depends(get_db),
+                         user: User = Depends(committee_or_admin)):
+    """Register many flats' vehicles from a sheet: one row per vehicle, with the same checks as the Add Vehicle form. A
+    vehicle already registered to the flat is skipped; a bad row is reported and the rest go in. `dry_run` (the default)
+    checks every row and writes nothing."""
+    from app.services.flat_people_import import import_vehicles
+    return import_vehicles(db, data.rows, data.dry_run, user)
 
 
 @router.post("/", response_model=VehicleOut, status_code=201)
