@@ -67,6 +67,17 @@ def account_meta(db: Session, society_id: UUID) -> Dict[UUID, dict]:
                    "nature": r[6], "group": r[7]} for r in rows}
 
 
+def recurring_key(v: Voucher, expense_account_ids) -> Optional[str]:
+    """The key a recurring expense is learned and checked under: the voucher's own vendor, else the smallest line vendor
+    id (stable across runs, unlike picking from a set), else the first expense ledger."""
+    if v.vendor_id:
+        return f"vendor:{v.vendor_id}"
+    line_vendors = sorted(str(e.vendor_id) for e in v.entries if e.vendor_id)
+    if line_vendors:
+        return f"vendor:{line_vendors[0]}"
+    return f"account:{expense_account_ids[0]}" if expense_account_ids else None
+
+
 def _sample(v: Voucher, amount) -> list:
     return [str(v.id), float(amount), v.voucher_date.isoformat()]
 
@@ -80,105 +91,110 @@ def learn_society(db: Session, society_id: UUID, triggered_by: Optional[UUID] = 
     db.add(run)
     db.flush()
     try:
-        meta = account_meta(db, society_id)
-        vouchers: List[Voucher] = (db.query(Voucher).options(selectinload(Voucher.entries))
-                                   .filter(Voucher.society_id == society_id, Voucher.voucher_date >= start,
-                                           Voucher.voucher_date <= end, Voucher.is_cancelled == False)  # noqa: E712
-                                   .order_by(Voucher.voucher_date).all())
-        vouchers = [v for v in vouchers if learnable(v)]
-
-        acct: Dict[str, list] = defaultdict(list)
-        vend: Dict[str, dict] = {}
-        pairs: Dict[str, int] = defaultdict(int)
-        vtypes: Dict[str, dict] = {}
-        rec: Dict[str, list] = defaultdict(list)
-        line_count = 0
-
-        for v in vouchers:
-            vt = vtypes.setdefault(v.voucher_type, {"count": 0, "by_month": defaultdict(int), "amounts": []})
-            vt["count"] += 1
-            vt["by_month"][v.voucher_date.strftime("%Y-%m")] += 1
-            vt["amounts"].append(_sample(v, v.amount))
-            drs, crs = [], []
-            for e in v.entries:
-                line_count += 1
-                dr, cr = float(e.debit or 0), float(e.credit or 0)
-                if dr > 0:
-                    acct[f"{e.account_id}:dr"].append(_sample(v, dr)); drs.append(str(e.account_id))
-                if cr > 0:
-                    acct[f"{e.account_id}:cr"].append(_sample(v, cr)); crs.append(str(e.account_id))
-            if 0 < len(set(drs)) <= MAX_PAIR_FANOUT and 0 < len(set(crs)) <= MAX_PAIR_FANOUT:
-                for d in set(drs):
-                    for c in set(crs):
-                        pairs[f"{v.voucher_type}|{d}|{c}"] += 1
-            vendor_ids = {x for x in [v.vendor_id, *[e.vendor_id for e in v.entries]] if x}
-            expense_accounts = [e.account_id for e in v.entries if float(e.debit or 0) > 0
-                                and meta.get(e.account_id, {}).get("nature") == "expense"]
-            for vid in vendor_ids:
-                p = vend.setdefault(str(vid), {"amounts": [], "accounts": defaultdict(int)})
-                p["amounts"].append(_sample(v, v.amount))
-                for a in expense_accounts:
-                    p["accounts"][str(a)] += 1
-            if v.voucher_type in ("payment", "purchase", "journal") and expense_accounts:
-                key = f"vendor:{next(iter(vendor_ids))}" if vendor_ids else f"account:{expense_accounts[0]}"
-                rec[key].append(_sample(v, v.amount))
-
-        patterns: List[AgentPattern] = []
-
-        def add(ptype, key, n, data):
-            patterns.append(AgentPattern(society_id=society_id, run_id=run.id, pattern_type=ptype, pattern_key=key[:200],
-                                         sample_count=n, stats=data))
-
-        for key, samples in acct.items():
-            samples = samples[-SAMPLE_CAP:]
-            add("account_amount", key, len(samples), {"samples": samples, **st.describe(s[1] for s in samples)})
-        for vid, p in vend.items():
-            samples = p["amounts"][-SAMPLE_CAP:]
-            add("vendor", vid, len(samples), {"samples": samples, "accounts": dict(p["accounts"]),
-                                              **st.describe(s[1] for s in samples)})
-        for key, count in pairs.items():
-            add("ledger_pair", key, count, {"count": count})
-        for vt_name, vt in vtypes.items():
-            samples = vt["amounts"][-SAMPLE_CAP:]
-            add("voucher_type", vt_name, vt["count"], {"count": vt["count"], "by_month": dict(vt["by_month"]),
-                                                       "samples": samples, **st.describe(s[1] for s in samples)})
-        recurring_found = 0
-        for key, samples in rec.items():
-            months = {s[2][:7] for s in samples}
-            # Recurring = roughly monthly: at least two months, and no more than ~1.5 postings per month on average
-            # (frequent, variable spending such as stationery is not a recurring expense).
-            if len(samples) >= 2 and len(months) >= 2 and len(samples) <= 1.5 * len(months):
-                amounts = [s[1] for s in samples]
-                days = [int(s[2][8:10]) for s in samples]
-                recurring_found += 1
-                add("recurring", key, len(samples), {
-                    "samples": samples[-SAMPLE_CAP:], "months": sorted(months), "typical_day": int(st.med(days)),
-                    **st.describe(amounts)})
-
-        db.query(AgentPattern).filter(AgentPattern.society_id == society_id).delete(synchronize_session=False)
-        db.flush()
-        db.add_all(patterns)
-
-        days_covered = ((vouchers[-1].voucher_date - vouchers[0].voucher_date).days + 1) if vouchers else 0
-        score, label = confidence(len(vouchers), days_covered)
-        run.voucher_count, run.line_count = len(vouchers), line_count
-        run.months_covered = len({v.voucher_date.strftime("%Y-%m") for v in vouchers})
-        run.days_covered, run.pattern_count = days_covered, len(patterns)
-        run.confidence_score, run.confidence_label = score, label
-        run.summary = {"voucher_types": {k: v["count"] for k, v in vtypes.items()}, "recurring_patterns": recurring_found,
-                       "vendors": len(vend), "ledgers": len({k.split(":")[0] for k in acct}),
-                       "note": ("Limited learning confidence: too little history in the window for reliable statistics."
-                                if label in ("none", "limited") else None)}
-        run.status, run.finished_at = "completed", datetime.utcnow()
-        db.flush()
-        logger.info("[accounts-agent] learning completed society=%s vouchers=%d patterns=%d confidence=%s",
-                    society_id, len(vouchers), len(patterns), label)
+        with db.begin_nested():               # a failure undoes only the learning work, not the run's own record
+            _learn_into(db, society_id, run, start, end)
         return run
     except Exception as exc:  # noqa: BLE001
-        run.status, run.finished_at, run.error = "failed", datetime.utcnow(), str(exc)[:500]
+        run.status, run.finished_at, run.error = "failed", datetime.utcnow(), f"{type(exc).__name__}: {str(exc)[:450]}"
         db.flush()
         logger.exception("[accounts-agent] learning failed society=%s", society_id)
         raise
+
+
+def _learn_into(db: Session, society_id: UUID, run: AgentLearningRun, start: date, end: date) -> None:
+    """Build the run's patterns and figures (runs inside the caller's SAVEPOINT)."""
+    meta = account_meta(db, society_id)
+    vouchers: List[Voucher] = (db.query(Voucher).options(selectinload(Voucher.entries))
+                               .filter(Voucher.society_id == society_id, Voucher.voucher_date >= start,
+                                       Voucher.voucher_date <= end, Voucher.is_cancelled == False)  # noqa: E712
+                               .order_by(Voucher.voucher_date).all())
+    vouchers = [v for v in vouchers if learnable(v)]
+
+    acct: Dict[str, list] = defaultdict(list)
+    vend: Dict[str, dict] = {}
+    pairs: Dict[str, int] = defaultdict(int)
+    vtypes: Dict[str, dict] = {}
+    rec: Dict[str, list] = defaultdict(list)
+    line_count = 0
+
+    for v in vouchers:
+        vt = vtypes.setdefault(v.voucher_type, {"count": 0, "by_month": defaultdict(int), "amounts": []})
+        vt["count"] += 1
+        vt["by_month"][v.voucher_date.strftime("%Y-%m")] += 1
+        vt["amounts"].append(_sample(v, v.amount))
+        drs, crs = [], []
+        for e in v.entries:
+            line_count += 1
+            dr, cr = float(e.debit or 0), float(e.credit or 0)
+            if dr > 0:
+                acct[f"{e.account_id}:dr"].append(_sample(v, dr)); drs.append(str(e.account_id))
+            if cr > 0:
+                acct[f"{e.account_id}:cr"].append(_sample(v, cr)); crs.append(str(e.account_id))
+        if 0 < len(set(drs)) <= MAX_PAIR_FANOUT and 0 < len(set(crs)) <= MAX_PAIR_FANOUT:
+            for d in set(drs):
+                for c in set(crs):
+                    pairs[f"{v.voucher_type}|{d}|{c}"] += 1
+        vendor_ids = {x for x in [v.vendor_id, *[e.vendor_id for e in v.entries]] if x}
+        expense_accounts = [e.account_id for e in v.entries if float(e.debit or 0) > 0
+                            and meta.get(e.account_id, {}).get("nature") == "expense"]
+        for vid in vendor_ids:
+            p = vend.setdefault(str(vid), {"amounts": [], "accounts": defaultdict(int)})
+            p["amounts"].append(_sample(v, v.amount))
+            for a in expense_accounts:
+                p["accounts"][str(a)] += 1
+        if v.voucher_type in ("payment", "purchase", "journal") and expense_accounts:
+            rec[recurring_key(v, expense_accounts)].append(_sample(v, v.amount))
+
+    patterns: List[AgentPattern] = []
+
+    def add(ptype, key, n, data):
+        patterns.append(AgentPattern(society_id=society_id, run_id=run.id, pattern_type=ptype, pattern_key=key[:200],
+                                     sample_count=n, stats=data))
+
+    for key, samples in acct.items():
+        samples = samples[-SAMPLE_CAP:]
+        add("account_amount", key, len(samples), {"samples": samples, **st.describe(s[1] for s in samples)})
+    for vid, p in vend.items():
+        samples = p["amounts"][-SAMPLE_CAP:]
+        add("vendor", vid, len(samples), {"samples": samples, "accounts": dict(p["accounts"]),
+                                          **st.describe(s[1] for s in samples)})
+    for key, count in pairs.items():
+        add("ledger_pair", key, count, {"count": count})
+    for vt_name, vt in vtypes.items():
+        samples = vt["amounts"][-SAMPLE_CAP:]
+        add("voucher_type", vt_name, vt["count"], {"count": vt["count"], "by_month": dict(vt["by_month"]),
+                                                   "samples": samples, **st.describe(s[1] for s in samples)})
+    recurring_found = 0
+    for key, samples in rec.items():
+        months = {s[2][:7] for s in samples}
+        # Recurring = roughly monthly: at least two months, and no more than ~1.5 postings per month on average
+        # (frequent, variable spending such as stationery is not a recurring expense).
+        if len(samples) >= 2 and len(months) >= 2 and len(samples) <= 1.5 * len(months):
+            amounts = [s[1] for s in samples]
+            days = [int(s[2][8:10]) for s in samples]
+            recurring_found += 1
+            add("recurring", key, len(samples), {
+                "samples": samples[-SAMPLE_CAP:], "months": sorted(months), "typical_day": int(st.med(days)),
+                **st.describe(amounts)})
+
+    db.query(AgentPattern).filter(AgentPattern.society_id == society_id).delete(synchronize_session=False)
+    db.flush()
+    db.add_all(patterns)
+
+    days_covered = ((vouchers[-1].voucher_date - vouchers[0].voucher_date).days + 1) if vouchers else 0
+    score, label = confidence(len(vouchers), days_covered)
+    run.voucher_count, run.line_count = len(vouchers), line_count
+    run.months_covered = len({v.voucher_date.strftime("%Y-%m") for v in vouchers})
+    run.days_covered, run.pattern_count = days_covered, len(patterns)
+    run.confidence_score, run.confidence_label = score, label
+    run.summary = {"voucher_types": {k: v["count"] for k, v in vtypes.items()}, "recurring_patterns": recurring_found,
+                   "vendors": len(vend), "ledgers": len({k.split(":")[0] for k in acct}),
+                   "note": ("Limited learning confidence: too little history in the window for reliable statistics."
+                            if label in ("none", "limited") else None)}
+    run.status, run.finished_at = "completed", datetime.utcnow()
+    db.flush()
+    logger.info("[accounts-agent] learning completed society=%s vouchers=%d patterns=%d confidence=%s",
+                society_id, len(vouchers), len(patterns), label)
 
 
 class Profile:

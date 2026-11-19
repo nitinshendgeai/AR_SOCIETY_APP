@@ -14,7 +14,7 @@ NOTHING (duplicate events are impossible) and every exception is logged and swal
 """
 import logging
 from datetime import datetime
-from typing import Iterable, List, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 from sqlalchemy import event, inspect as sa_inspect
 from sqlalchemy.orm import Session
@@ -42,8 +42,9 @@ def _changed(obj, attr: str):
     return hist.has_changes(), (hist.added[0] if hist.added else None)
 
 
-def collect_events(session: Session) -> List[Tuple[object, str, str]]:
+def collect_events(session: Session, now: Optional[datetime] = None) -> List[Tuple[object, str, str]]:
     """(voucher, event_type, key) for every voucher change in the flush that just happened."""
+    now = now or datetime.utcnow()
     from app.modules.accounts.models.accounts import Voucher
     out: List[Tuple[object, str, str]] = []
     for obj in session.new:
@@ -58,7 +59,12 @@ def collect_events(session: Session) -> List[Tuple[object, str, str]]:
                 continue
             if attr == "is_cancelled" and not new:
                 continue                                   # un-cancel never happens; ignore
-            token = new.isoformat() if isinstance(new, datetime) else str(new)
+            if isinstance(new, datetime):
+                token = new.isoformat()
+            else:
+                # A status can recur (approved → edited → pending → approved again): the flush time makes each
+                # transition its own event, while one flush still yields one event per change.
+                token = f"{new}@{now.isoformat()}"
             out.append((obj, etype, event_key(obj.id, etype, token)))
     return out
 
@@ -76,10 +82,10 @@ def _insert_ignoring_duplicates(connection, rows: Iterable[dict]) -> None:
 
 def _after_flush(session: Session, flush_context) -> None:
     try:
-        found = collect_events(session)
+        now = datetime.utcnow()
+        found = collect_events(session, now)
         if not found:
             return
-        now = datetime.utcnow()
         import uuid
         rows = [{
             "id": uuid.uuid4(), "society_id": v.society_id, "voucher_id": v.id, "event_type": etype,
