@@ -310,5 +310,7 @@ def line_signature_key(e) -> tuple:
     return (str(e.account_id), str(money(e.debit)), str(money(e.credit)), str(e.flat_id or ""), str(e.vendor_id or ""))
 
 
+from app.modules.accounts_agent.services.bill_checks import check_bill_posting  # noqa: E402
+
 DETERMINISTIC = (check_balance, check_accounts, check_type_rules, check_subledgers, check_integrity, check_reversal,
-                 check_journal, check_duplicates)
+                 check_journal, check_duplicates, check_bill_posting)
