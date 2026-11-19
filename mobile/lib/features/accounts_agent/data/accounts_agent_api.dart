@@ -402,8 +402,8 @@ class FindingsFilter {
       );
 
   @override
-  bool operator ==(Object o) =>
-      o is FindingsFilter && o.severity == severity && o.category == category && o.status == status && o.from == from && o.to == to && o.query == query && o.page == page;
+  bool operator ==(Object other) =>
+      other is FindingsFilter && other.severity == severity && other.category == category && other.status == status && other.from == from && other.to == to && other.query == query && other.page == page;
   @override
   int get hashCode => Object.hash(severity, category, status, from, to, query, page);
 }

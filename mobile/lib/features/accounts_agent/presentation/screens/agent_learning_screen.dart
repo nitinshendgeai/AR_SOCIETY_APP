@@ -51,7 +51,7 @@ class _AgentLearningScreenState extends ConsumerState<AgentLearningScreen> {
               TextField(controller: dup, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Duplicate window (days)')),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: sev,
+                initialValue: sev,
                 decoration: const InputDecoration(labelText: 'Notify me from this severity'),
                 items: [for (final x in severities) DropdownMenuItem(value: x, child: Text(titleCase(x)))],
                 onChanged: (v) => setS(() => sev = v ?? sev),
