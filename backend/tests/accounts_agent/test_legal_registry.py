@@ -165,8 +165,6 @@ def test_marathi_document_language_and_clauses(rig, db):
 def test_pdf_pages_and_missing_page_detection(rig, db):
     import io
     import shutil
-    if not shutil.which("pdftotext"):
-        pytest.skip("pdftotext not installed")
     from reportlab.pdfgen import canvas
     buf = io.BytesIO()
     c = canvas.Canvas(buf)
@@ -176,6 +174,14 @@ def test_pdf_pages_and_missing_page_detection(rig, db):
     c.drawString(72, 750, "Bye-law No. 158. Tenders shall be invited above the limit.")
     c.save()
     d = rig.upload(None, file_name="bylaws.pdf", data=buf.getvalue())
+    assert d.data == buf.getvalue()                      # the original is kept either way
+    if not shutil.which("pdftotext"):
+        # No extractor on this server: the PDF is stored, flagged for OCR / manual transcription and never
+        # treated as readable text.
+        assert d.extraction_quality == "OCR_REQUIRED" and d.extracted_text is None and d.status == "UNVERIFIED"
+        assert any("pdftotext" in i for i in d.extraction_issues)
+        assert db.query(LegalClause).filter(LegalClause.document_id == d.id).count() == 0
+        return
     assert d.page_count == 3 and d.extraction_quality == "POOR"
     assert any("Page(s) 2" in i for i in d.extraction_issues)
     clauses = {c.clause_ref: c.page_number for c in db.query(LegalClause).filter(LegalClause.document_id == d.id)}

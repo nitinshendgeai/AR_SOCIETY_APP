@@ -129,3 +129,10 @@ covered by the re-run of `tests/accounts_agent` (100 passed). The full suite was
 * The assistant is keyword-matched; questions outside its intents get a list of what it can answer.
 * Society rules must currently be entered by API (`POST legal/rules`); there is no Flutter form for them yet.
 * Flutter screens were analysed and unit/widget-tested, not run on a device.
+
+## 6. CI change
+
+Backend CI caps the full suite at 5 skipped tests. The Accounts Agent's PostgreSQL-only tests were only ever skipped
+there. They now run in the **Migrations (PostgreSQL 16)** job against its PostgreSQL service (`--max-skipped 0`), and
+the SQLite full-suite step no longer collects that file. The PDF extraction test checks the "no `pdftotext`" fallback
+(stored, flagged OCR_REQUIRED, no clauses) instead of skipping when the tool is missing.
