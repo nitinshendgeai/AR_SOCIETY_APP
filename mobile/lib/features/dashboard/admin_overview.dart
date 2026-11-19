@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/providers/accounts_agent_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 // ── Data ─────────────────────────────────────────────────────────────────────
@@ -233,6 +234,8 @@ class _Body extends StatelessWidget {
           const SizedBox(height: 10),
           _MoneyRow(m: o.money!),
         ],
+        const SizedBox(height: 20),
+        const _AccountsAgentTile(),
         const SizedBox(height: 20),
         const _Label('Society today'),
         const SizedBox(height: 10),
@@ -683,4 +686,36 @@ class _Stat extends StatelessWidget {
           ]),
         ]),
       );
+}
+
+
+/// A shortcut to the Accounts Agent with what it needs from the reader: findings waiting for review. If the agent can't be
+/// reached the tile still opens it, rather than disappearing.
+class _AccountsAgentTile extends ConsumerWidget {
+  const _AccountsAgentTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final d = ref.watch(agentDashboardProvider).valueOrNull;
+    final urgent = d == null ? null : (d.open['CRITICAL'] ?? 0) + (d.open['HIGH'] ?? 0);
+    final String note;
+    if (d == null) {
+      note = 'Audits new entries and explains anything unusual';
+    } else if (d.pendingApprovals > 0) {
+      note = '${d.pendingApprovals} correction(s) waiting for approval';
+    } else if (d.status.state != 'operational') {
+      note = d.status.monitoringEnabled ? 'Checking is delayed' : 'Monitoring is off';
+    } else {
+      note = '${d.transactionsAnalysed} transactions checked';
+    }
+    return KpiGrid(cards: [
+      KpiCard(
+          icon: Icons.policy_rounded,
+          label: 'Accounts Agent',
+          value: urgent == null ? 'Open' : (urgent == 0 ? 'All clear' : '$urgent to review'),
+          note: note,
+          color: (urgent ?? 0) > 0 ? AppTheme.error : AppTheme.primary,
+          onTap: () => context.push(AppRoutes.accountsAgent)),
+    ]);
+  }
 }
