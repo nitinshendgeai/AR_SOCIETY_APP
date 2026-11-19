@@ -204,6 +204,9 @@ class BillRow {
   final String status; // unpaid | part_paid | paid
   final String? enteredBy;
 
+  /// The voucher that booked the bill (what a row opens).
+  final String? voucherId;
+
   const BillRow({
     required this.invoiceId,
     required this.invoiceNumber,
@@ -220,6 +223,7 @@ class BillRow {
     required this.outstanding,
     required this.status,
     this.enteredBy,
+    this.voucherId,
   });
 
   factory BillRow.fromJson(Map<String, dynamic> j) => BillRow(
@@ -238,6 +242,7 @@ class BillRow {
         outstanding: _n(j['outstanding']),
         status: j['status'] as String? ?? '',
         enteredBy: j['entered_by'] as String?,
+        voucherId: j['voucher_id'] as String?,
       );
 }
 

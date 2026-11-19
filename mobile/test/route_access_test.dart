@@ -85,6 +85,7 @@ void main() {
       '/accounts/registers/attendance': 'accounts',
       '/accounts/petty-cash': 'accounts',
       '/accounts/registers/petty-cash': 'accounts',
+      '/accounts/registers/expenses': 'accounts',
       '/assets/a1': 'assets',
       '/stores/i1': 'inventory',
       '/visitors/pending': null,                      // member screens are left to the backend

@@ -31,6 +31,9 @@ class _RegisterPage<T> extends ConsumerStatefulWidget {
   final IconData emptyIcon;
   final String emptyTitle;
 
+  /// What a row does when tapped (null: nothing).
+  final void Function(BuildContext context, T row)? onRowTap;
+
   const _RegisterPage({
     required this.title,
     required this.subtitle,
@@ -44,6 +47,7 @@ class _RegisterPage<T> extends ConsumerStatefulWidget {
     required this.card,
     required this.emptyIcon,
     required this.emptyTitle,
+    this.onRowTap,
   });
 
   @override
@@ -100,14 +104,21 @@ class _RegisterPageState<T> extends ConsumerState<_RegisterPage<T>> {
                 if (r.rows.isEmpty)
                   AppEmptyState(icon: widget.emptyIcon, title: widget.emptyTitle, subtitle: 'Try another period or filter.')
                 else if (desktop)
-                  AppDataTable<T>(rows: r.rows, pageSize: 100, columns: widget.columns)
+                  AppDataTable<T>(
+                      rows: r.rows,
+                      pageSize: 100,
+                      columns: widget.columns,
+                      onRowTap: widget.onRowTap == null ? null : (row) => widget.onRowTap!(context, row))
                 else
                   Container(
                     decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM)),
                     child: Column(children: [
                       for (final (i, row) in r.rows.indexed) ...[
                         if (i > 0) const Divider(height: 1),
-                        Padding(padding: const EdgeInsets.fromLTRB(14, 10, 14, 10), child: widget.card(row)),
+                        InkWell(
+                          onTap: widget.onRowTap == null ? null : () => widget.onRowTap!(context, row),
+                          child: Padding(padding: const EdgeInsets.fromLTRB(14, 10, 14, 10), child: widget.card(row)),
+                        ),
                       ],
                     ]),
                   ),
@@ -251,5 +262,10 @@ class BillsRegisterScreen extends StatelessWidget {
         ),
         emptyIcon: Icons.receipt_long_outlined,
         emptyTitle: 'No bills in this period',
+        // a bill opens the voucher that booked it, with the documents filed there
+        onRowTap: (context, r) {
+          final id = r.voucherId;
+          if (id != null) showVoucherSheet(context, id);
+        },
       );
 }

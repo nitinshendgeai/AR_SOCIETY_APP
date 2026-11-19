@@ -255,6 +255,7 @@ class AppRoutes {
   static const accountsRegisterReceipts   = '/accounts/registers/receipts';
   static const accountsRegisterAttendance = '/accounts/registers/attendance';
   static const accountsRegisterPettyCash  = '/accounts/registers/petty-cash';
+  static const accountsRegisterExpenses   = '/accounts/registers/expenses';
   static const accountsTdsLedger  = '/accounts/registers/tds-ledger';
   static const accountsDepreciation = '/accounts/depreciation';
   static const accountsPettyCash          = '/accounts/petty-cash';
@@ -958,6 +959,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             (AppRoutes.accountsRegisterReceipts, (_) => const MoreRegisterScreen(kind: 'receipts')),
             (AppRoutes.accountsRegisterAttendance, (_) => const MoreRegisterScreen(kind: 'attendance')),
             (AppRoutes.accountsRegisterPettyCash, (_) => const MoreRegisterScreen(kind: 'petty_cash')),
+            (AppRoutes.accountsRegisterExpenses, (_) => const MoreRegisterScreen(kind: 'expenses')),
             (AppRoutes.accountsTdsLedger, (_) => const TdsLedgerScreen()),
             (AppRoutes.accountsDepreciation, (_) => const DepreciationScreen()),
             (AppRoutes.accountsPettyCash, (_) => const PettyCashScreen()),

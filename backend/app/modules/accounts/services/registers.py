@@ -125,6 +125,7 @@ class RegistersService:
         invoices: List[VendorInvoice] = query.order_by(VendorInvoice.invoice_date, VendorInvoice.invoice_number).all()
         # The bill is booked by a voucher posted when it is entered; that voucher carries who entered it.
         entered: Dict[UUID, Optional[str]] = {}
+        booked: Dict[UUID, str] = {}
         if invoices:
             vs = (self.db.query(Voucher).options(joinedload(Voucher.creator))
                   .filter(Voucher.society_id == society_id, Voucher.source_type == "vendor_invoice",
@@ -132,6 +133,7 @@ class RegistersService:
                   .order_by(Voucher.created_at).all())
             for v in vs:
                 entered.setdefault(v.source_id, v.creator.full_name if v.creator else None)
+                booked.setdefault(v.source_id, str(v.id))
         ledger = {a.id: a.name for a in self.accounts.list_accounts(society_id, True)}
         rows = []
         for i in invoices:
@@ -151,7 +153,7 @@ class RegistersService:
                 "amount": _s(i.amount), "gst": _s(i.gst_amount), "tds": _s(i.tds_amount), "total": _s(total),
                 "net_payable": _s(net), "paid": _s(paid),
                 "outstanding": _s(ZERO if state == "cancelled" else max(net - paid, ZERO)),
-                "status": state, "entered_by": entered.get(i.id),
+                "status": state, "entered_by": entered.get(i.id), "voucher_id": booked.get(i.id),
             })
         live = [r for r in rows if r["status"] != "cancelled"]          # a cancelled bill is shown, not counted
         return {"date_from": date_from.isoformat() if date_from else None,
