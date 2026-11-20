@@ -49,9 +49,20 @@ For live vouchers posted from a maintenance bill (on create/edit) the agent re-d
 | `R-BILL-03` | Members' Dues line names a different flat than the bill | High |
 | `R-BILL-04` | a charge head credited with a different amount/ledger than the bill charged | High |
 | `R-BILL-05` | a live posting for a bill that is not in an issued state | Medium |
+| `R-BILL-06` | flat-wise: an element is posted to a different ledger than on the flat's previous bill (re-mapped element) | Medium (strongly suspected) |
+| `R-BILL-07` | flat-wise: the bill's elements differ from the flat's previous bill (an element dropped or added) | Medium (strongly suspected) |
 
-Not covered: whether the billing module's rates/areas/charge configuration are right, and flat-wise month-over-month
-comparison of bills.
+**Flat-wise consistency (`R-BILL-06/07`).** Each bill is compared with the same flat's latest issued bill from an earlier
+cycle, so this month is checked against last month and every later month against the one before it. Only element and ledger
+changes are flagged; amounts are **not** compared, because usage-based elements (water and the like) change every month.
+Interest/penalty lines are ignored because they come and go with arrears. Which ledger an element went to last time is read
+from the voucher actually posted for the previous bill (the previous bill is run through today's mapping and compared with
+what was posted), so no extra table is needed and the check works from the first month after deployment. A change that
+affects every flat at once (the society re-mapped an element or dropped a charge) is reported once per billing cycle, not
+once per flat. A flat's first bill is not compared. If two elements that shared a ledger are re-mapped together and their
+old ledger cannot be told apart from the amounts, the finding says "another ledger" for the old side.
+
+Not covered: whether the billing module's rates/areas/charge configuration are right.
 
 ### Documented conflict with an existing rule
 
