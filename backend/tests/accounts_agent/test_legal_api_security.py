@@ -192,3 +192,30 @@ def test_findings_by_dashboard_section(client, two):
     assert funds and {i["category"] for i in funds} <= {"funds", "fund_monitoring", "borrowing"}
     bye = client.get(f"{API}/findings?section=bye_law_compliance", headers=a.manager["headers"]).json()["items"]
     assert any(i["rule_code"] == "L-CHG-INT-01" for i in bye)
+
+
+def test_society_rule_created_and_verified_as_the_app_does(client, two):
+    """The exact requests the Flutter "Add society rule" form and the Verify action send."""
+    a, _ = two
+    doc = _upload(client, a, text="Bye-law No. 70. Interest at 10 per cent per annum on arrears.").json()
+    body = {"rule_code": "SOC-BL70", "title": "Bye-law 70 interest", "topic": "charges.interest_on_arrears.max_rate_pct",
+            "rule_category": "charges", "source_level": "D", "source_document_id": doc["id"],
+            "calculation_method": {"type": "max_pct", "value": 10}, "bye_law_number": "70", "page_number": "14",
+            "effective_from": "2024-04-01", "severity": "MEDIUM"}
+    r = client.post(f"{API}/legal/rules", headers=a.admin["headers"], json=body)
+    assert r.status_code == 201, r.text
+    rule = r.json()
+    assert rule["verification_status"] == "PENDING_VERIFICATION" and rule["society_specific"]
+    verify = {"verification_status": "VERIFIED_SECONDARY_SOURCE", "note": "checked", "page_number": "14", "legal_status": "BINDING"}
+    # Not while its document is unverified.
+    assert client.post(f"{API}/legal/rules/{rule['id']}/verify", headers=a.admin["headers"], json=verify).status_code == 422
+    assert client.post(f"{API}/legal/documents/{doc['id']}/verify", headers=a.admin["headers"], json={
+        "status": "REGISTERED", "verification_status": "VERIFIED_SECONDARY_SOURCE", "note": "certified copy",
+        "approval_date": "2020-05-01"}).status_code == 200
+    assert client.post(f"{API}/legal/rules/{rule['id']}/verify", headers=a.manager["headers"], json=verify).status_code == 403
+    r = client.post(f"{API}/legal/rules/{rule['id']}/verify", headers=a.admin["headers"], json=verify)
+    assert r.status_code == 200 and r.json()["verification_status"] == "VERIFIED_SECONDARY_SOURCE"
+    app = client.get(f"{API}/legal/applicable?topic=charges.interest_on_arrears.max_rate_pct",
+                     headers=a.manager["headers"]).json()
+    assert app["effective_value"] == 10                       # the stricter bye-law now governs
+    assert client.post(f"{API}/legal/rules", headers=a.admin["headers"], json=body).status_code == 409   # one code, versions after

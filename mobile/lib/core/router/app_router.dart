@@ -92,6 +92,7 @@ import 'package:ar_society_app/features/accounts_agent/presentation/screens/comp
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/legal_library_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/recovery_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/resolutions_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/society_rule_form_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/statutory_calendar_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_proposal_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/accounts_screen.dart';
@@ -283,6 +284,7 @@ class AppRoutes {
   static const accountsAgentLearning  = '/accounts-agent/learning';
   static const accountsAgentCompliance   = '/accounts-agent/compliance';
   static const accountsAgentLegalLibrary = '/accounts-agent/legal-library';
+  static const accountsAgentSocietyRuleNew = '/accounts-agent/legal-library/rules/new';
   static const accountsAgentResolutions  = '/accounts-agent/resolutions';
   static const accountsAgentStatutory    = '/accounts-agent/statutory';
   static const accountsAgentRecovery     = '/accounts-agent/recovery';
@@ -1003,6 +1005,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             (AppRoutes.accountsAgentLearning, (_) => const AgentLearningScreen()),
             (AppRoutes.accountsAgentCompliance, (_) => const ComplianceHubScreen()),
             (AppRoutes.accountsAgentLegalLibrary, (_) => const LegalLibraryScreen()),
+            (AppRoutes.accountsAgentSocietyRuleNew, (_) => const SocietyRuleFormScreen()),
             (AppRoutes.accountsAgentResolutions, (_) => const ResolutionsScreen()),
             (AppRoutes.accountsAgentStatutory, (_) => const StatutoryCalendarScreen()),
             (AppRoutes.accountsAgentRecovery, (_) => const RecoveryScreen()),
