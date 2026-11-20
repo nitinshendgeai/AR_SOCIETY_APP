@@ -292,3 +292,8 @@ def detect_type_outlier(c: Ctx) -> List[Draft]:
 
 STATISTICAL = (detect_amount_outliers, detect_vendor_outliers, detect_recurring_deviation, detect_frequency,
                detect_ledger_mapping, detect_unusual_combination, detect_nature_mismatch, detect_type_outlier)
+
+
+from app.modules.accounts_agent.services.bill_checks import detect_bill_month_change  # noqa: E402
+
+STATISTICAL = STATISTICAL + (detect_bill_month_change,)

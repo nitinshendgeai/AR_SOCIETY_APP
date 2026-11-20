@@ -50,8 +50,24 @@ For live vouchers posted from a maintenance bill (on create/edit) the agent re-d
 | `R-BILL-04` | a charge head credited with a different amount/ledger than the bill charged | High |
 | `R-BILL-05` | a live posting for a bill that is not in an issued state | Medium |
 
-Not covered: whether the billing module's rates/areas/charge configuration are right, and flat-wise month-over-month
-comparison of bills.
+### Flat-wise month-over-month bill check (`detect_bill_month_change`)
+
+Compares a flat's new bill with **the same flat's bills in the last three months** (never one flat with another's amount, since
+areas and parking differ), head by head:
+
+| Rule | Detects | Severity / class |
+|---|---|---|
+| `S-BILLMOM-01` | a recurring head changed more than the tolerance (the society's "recurring tolerance", default 10 %) | Low <25 %, Medium ≥25 %, High ≥100 % (suspected anomaly, only with ≥2 earlier bills); always a statistical deviation otherwise |
+| `S-BILLMOM-02` | a head the flat always had is missing while the other flats still have it | Medium (Low if too few peers) |
+| `S-BILLMOM-03` | a head appeared on this flat that most flats don't have | Informational |
+
+What keeps it from crying wolf: society-wide revisions are allowed for (the other flats' average movement of the same head,
+excluding the flat itself); one-off / variable lines are never compared (penalties and interest, special assessments, "other"
+additional charges, actual-expense shares); bills for a different length of period (quarterly cycle, a flat that joined part-way)
+are skipped; a head whose own history isn't steady is skipped; no earlier bill in the window means no claim. Cost: a fixed handful
+of queries per bill (one grouped aggregate per cohort), covered by a test.
+
+Not covered: whether the billing rates/areas/charge configuration are right (the agent only compares a bill with its own history).
 
 ### Documented conflict with an existing rule
 
