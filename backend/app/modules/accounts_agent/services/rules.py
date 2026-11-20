@@ -6,6 +6,7 @@ impossible through the services, which is exactly why it is worth detecting (dir
 They deliberately mirror, never extend, the existing business rules.
 """
 from collections import Counter
+from decimal import Decimal
 from typing import List
 
 from app.models.flat import Flat
@@ -370,7 +371,59 @@ def line_signature_key(e) -> tuple:
     return (str(e.account_id), str(money(e.debit)), str(money(e.credit)), str(e.flat_id or ""), str(e.vendor_id or ""))
 
 
+LIMITED_FLOOR = Decimal("10000")         # never comment on an expense below this
+LIMITED_MULTIPLE = Decimal("10")         # ...nor on one less than 10× the largest earlier posting to the same ledger
+LIMITED_NO_HISTORY = Decimal("100000")   # with no earlier posting at all, only a single expense above ₹1,00,000
+
+
+def check_large_expense_limited_history(c: Ctx) -> List[Draft]:
+    """D-07 of the functional audit: while the learned history is too thin for statistics ("none" / "limited"), a
+    conservative DETERMINISTIC comparison still runs, so a young society is not left without any large-expense check.
+    It compares the expense with the largest earlier posting to the same ledger in the books (a plain fact, not a
+    distribution) and is always reported as informational — no statistical confidence is claimed."""
+    from datetime import timedelta
+    from sqlalchemy import func
+    from app.modules.accounts.models.accounts import VoucherEntry
+    v = c.voucher
+    if c.profile.label not in ("none", "limited") or v.voucher_type not in ("payment", "journal", "purchase") \
+            or v.is_cancelled or v.reversal_of_id or v.approval_status == "rejected":
+        return []
+    out: List[Draft] = []
+    for e in v.entries:
+        meta = c.meta.get(e.account_id, {})
+        amt = money(e.debit)
+        if meta.get("nature") != "expense" or amt < LIMITED_FLOOR:
+            continue
+        prior = (c.db.query(func.max(VoucherEntry.debit)).join(Voucher, Voucher.id == VoucherEntry.voucher_id)
+                 .filter(Voucher.society_id == v.society_id, Voucher.id != v.id, VoucherEntry.account_id == e.account_id,
+                         Voucher.is_cancelled == False, Voucher.approval_status == "approved",  # noqa: E712
+                         Voucher.voucher_date >= v.voucher_date - timedelta(days=365),
+                         Voucher.voucher_date <= v.voucher_date).scalar())
+        prior = money(prior) if prior else None
+        if prior and prior > 0:
+            if amt < prior * LIMITED_MULTIPLE:
+                continue
+            why = (f"it is {(amt / prior).quantize(Decimal('0.1'))}× the largest earlier posting to this ledger in the "
+                   f"last year ({fmt(prior)})")
+        else:
+            if amt < LIMITED_NO_HISTORY:
+                continue
+            why = "there is no earlier posting to this ledger in the last year to compare it with"
+        out.append(Draft("R-AMT-LIM-01", "unusual_amount", "informational", "MEDIUM", 0.4,
+                         f"Large expense while history is limited: {c.name(e.account_id)}",
+                         f"{v.voucher_number} posts {fmt(amt)} to {c.name(e.account_id)}; {why}. The agent's learned "
+                         f"history is '{c.profile.label}', so this is a plain comparison, not a statistical judgement.",
+                         expected=f"Below {fmt(prior * LIMITED_MULTIPLE) if prior else fmt(LIMITED_NO_HISTORY)}",
+                         actual=fmt(amt), recommended="Check the bill and the approval for this expense.",
+                         evidence={"amount": str(amt), "largest_prior_posting": str(prior) if prior else None,
+                                   "learning_confidence": c.profile.label, "method": "deterministic comparison",
+                                   "ledger": c.name(e.account_id)},
+                         subject=str(e.account_id)))
+    return out
+
+
 from app.modules.accounts_agent.services.bill_checks import check_bill_consistency, check_bill_posting  # noqa: E402
 
 DETERMINISTIC = (check_balance, check_accounts, check_type_rules, check_subledgers, check_integrity, check_reversal,
-                 check_journal, check_duplicates, check_bill_posting, check_bill_consistency)
+                 check_journal, check_duplicates, check_bill_posting, check_bill_consistency,
+                 check_large_expense_limited_history)

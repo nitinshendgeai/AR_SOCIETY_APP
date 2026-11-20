@@ -27,6 +27,8 @@ class AgentStatus {
   final String? lastError;
   final DateTime? lastLearningAt;
   final String learningConfidence;
+  final int recentFailedEvents;
+  final int acknowledgedFailedEvents;
   const AgentStatus({
     required this.state,
     required this.monitoringEnabled,
@@ -36,6 +38,8 @@ class AgentStatus {
     this.lastError,
     this.lastLearningAt,
     this.learningConfidence = 'none',
+    this.recentFailedEvents = 0,
+    this.acknowledgedFailedEvents = 0,
   });
   factory AgentStatus.fromJson(Map<String, dynamic> j) => AgentStatus(
         state: j['state'] as String? ?? 'operational',
@@ -46,6 +50,8 @@ class AgentStatus {
         lastError: j['last_error'] as String?,
         lastLearningAt: j['last_learning_at'] == null ? null : DateTime.parse(j['last_learning_at'] as String),
         learningConfidence: j['learning_confidence'] as String? ?? 'none',
+        recentFailedEvents: _i(j['recent_failed_events']),
+        acknowledgedFailedEvents: _i(j['acknowledged_failed_events']),
       );
 }
 
@@ -156,6 +162,13 @@ class AgentFinding {
   final String? flatId;
   final String? vendorId;
   final String? humanReviewStatus;
+  /// The voucher's approval status (list rows): a finding on an unapproved voucher is marked as such (D-19).
+  final String? voucherApprovalStatus;
+  /// The voucher as it stood when the finding was raised, and whether it has changed since (D-17).
+  final AgentVoucher? voucherAtDetection;
+  final bool voucherChangedSinceDetection;
+  /// Evidence with ids replaced by names (D-18). Empty when the server sent none.
+  final List<MapEntry<String, String>> evidenceDisplay;
 
   const AgentFinding({
     required this.id,
@@ -187,6 +200,10 @@ class AgentFinding {
     this.flatId,
     this.vendorId,
     this.humanReviewStatus,
+    this.voucherApprovalStatus,
+    this.voucherAtDetection,
+    this.voucherChangedSinceDetection = false,
+    this.evidenceDisplay = const [],
   });
 
   factory AgentFinding.fromJson(Map<String, dynamic> j) => AgentFinding(
@@ -219,9 +236,77 @@ class AgentFinding {
         flatId: j['flat_id'] as String?,
         vendorId: j['vendor_id'] as String?,
         humanReviewStatus: j['human_review_status'] as String?,
+        voucherApprovalStatus: j['voucher_approval_status'] as String? ?? (j['voucher'] as Map?)?['approval_status'] as String?,
+        voucherAtDetection: j['voucher_at_detection'] == null
+            ? null
+            : AgentVoucher.fromSnapshot(j['voucher_at_detection'] as Map<String, dynamic>),
+        voucherChangedSinceDetection: j['voucher_changed_since_detection'] as bool? ?? false,
+        evidenceDisplay: [
+          for (final e in (j['evidence_display'] as List? ?? const []))
+            MapEntry('${(e as Map)['label']}', '${e['value']}'),
+        ],
       );
 
   bool get isOpen => status == 'NEW' || status == 'UNDER_REVIEW' || status == 'APPROVED';
+
+  /// The voucher behind this finding has not been approved yet (it may still change or be rejected).
+  bool get onPendingVoucher => voucherApprovalStatus == 'pending';
+}
+
+/// One entry of a finding's audit trail (who did what, when) — GET /findings/{id}/history.
+class FindingHistoryEntry {
+  final DateTime at;
+  final String actor; // "Accounts Agent" | "User"
+  final String action;
+  final Map<String, dynamic> details;
+  const FindingHistoryEntry(this.at, this.actor, this.action, this.details);
+  factory FindingHistoryEntry.fromJson(Map<String, dynamic> j) => FindingHistoryEntry(
+        DateTime.parse(j['created_at'] as String),
+        j['actor'] as String? ?? 'User',
+        j['action'] as String? ?? '',
+        (j['details'] as Map?)?.cast<String, dynamic>() ?? const {},
+      );
+}
+
+/// Plain words for audit-trail actions.
+String historyActionLabel(String a) => switch (a) {
+      'finding_created' => 'Finding raised',
+      'finding_auto_resolved' => 'Closed by the agent after re-checking',
+      'finding_reopened' => 'Reopened — detected again',
+      'finding_reviewed' => 'Reviewed',
+      'proposal_created' => 'Correction proposed',
+      'proposal_approved' => 'Correction approved and applied',
+      'proposal_verified' => 'Agent re-checked the corrected voucher',
+      'proposal_rejected' => 'Correction rejected',
+      'proposal_stale' => 'Correction not applied — the voucher had changed',
+      'proposal_failed' => 'Correction failed — nothing was changed',
+      'proposal_acknowledged' => 'Recommendation acknowledged',
+      'proposal_self_approval_refused' => 'Approval refused — the proposer cannot approve their own correction',
+      _ => a.replaceAll('_', ' '),
+    };
+
+/// A monitoring job that failed repeatedly and was parked (D-10).
+class DeadEvent {
+  final String id;
+  final String eventType;
+  final String? lastError;
+  final DateTime? deadAt;
+  final int requeueCount;
+  final int requeuesLeft;
+  final bool acknowledged;
+  final String? acknowledgeNote;
+  const DeadEvent(this.id, this.eventType, this.lastError, this.deadAt, this.requeueCount, this.requeuesLeft,
+      this.acknowledged, this.acknowledgeNote);
+  factory DeadEvent.fromJson(Map<String, dynamic> j) => DeadEvent(
+        j['id'] as String,
+        j['event_type'] as String? ?? '',
+        j['last_error'] as String?,
+        j['dead_at'] == null ? null : DateTime.parse(j['dead_at'] as String),
+        _i(j['requeue_count']),
+        _i(j['requeues_left']),
+        j['acknowledged'] as bool? ?? false,
+        j['acknowledge_note'] as String?,
+      );
 }
 
 class AgentVoucherLine {
@@ -273,6 +358,23 @@ class AgentVoucher {
         sourceType: j['source_type'] as String?,
         lines: [for (final e in (j['entries'] as List? ?? const [])) AgentVoucherLine.fromJson(e as Map<String, dynamic>)],
       );
+
+  /// The snapshot the agent kept when it raised a finding (no id or type: it is a record, not a live voucher).
+  factory AgentVoucher.fromSnapshot(Map<String, dynamic> j) => AgentVoucher(
+        id: '',
+        number: j['voucher_number'] as String? ?? '',
+        type: '',
+        date: DateTime.parse(j['voucher_date'] as String),
+        amount: _d(j['amount']),
+        narration: j['narration'] as String?,
+        reference: j['reference'] as String?,
+        approvalStatus: j['approval_status'] as String? ?? '',
+        cancelled: j['is_cancelled'] as bool? ?? false,
+        lines: [
+          for (final (i, e) in (j['entries'] as List? ?? const []).indexed)
+            AgentVoucherLine(i + 1, '${(e as Map)['account'] ?? ''}', _d(e['debit']), _d(e['credit']), null),
+        ],
+      );
 }
 
 class ProposalLine {
@@ -307,6 +409,9 @@ class AgentProposal {
   final String? decisionNote;
   final String? verificationNote;
   final String? error;
+  /// Who proposed it, and whether a different person must approve it (maker–checker, D-09).
+  final String? createdBy;
+  final bool requiresOtherApprover;
 
   const AgentProposal({
     required this.id,
@@ -323,6 +428,8 @@ class AgentProposal {
     this.decisionNote,
     this.verificationNote,
     this.error,
+    this.createdBy,
+    this.requiresOtherApprover = false,
   });
 
   static List<ProposalLine> _lines(Object? v) => [
@@ -353,8 +460,13 @@ class AgentProposal {
       decisionNote: j['decision_note'] as String?,
       verificationNote: ((result?['verification']) as Map?)?['note'] as String?,
       error: result?['error'] as String?,
+      createdBy: j['created_by'] as String?,
+      requiresOtherApprover: j['requires_other_approver'] as bool? ?? false,
     );
   }
+
+  /// Maker–checker: the person who proposed a correction that changes the books cannot approve it.
+  bool proposedBy(String? userId) => userId != null && createdBy == userId;
 }
 
 class AgentSettings {
@@ -492,6 +604,19 @@ class AccountsAgentApi {
   /// Approval always sends `confirm: true`; the server refuses an approval without it.
   Future<AgentProposal> approve(String id, {String? note}) async =>
       AgentProposal.fromJson(_m(await _dio.post('$_base/proposals/$id/approve', data: {'confirm': true, if (note != null && note.isNotEmpty) 'note': note})));
+
+  /// The finding's audit trail: raised, reviewed, proposals and their decisions (D-11).
+  Future<List<FindingHistoryEntry>> findingHistory(String id) async {
+    final r = await _dio.get('$_base/findings/$id/history');
+    return [for (final x in (r.data as List)) FindingHistoryEntry.fromJson(x as Map<String, dynamic>)];
+  }
+
+  /// Parked monitoring jobs, and the two recovery actions (D-10). Both are audited by the server.
+  Future<List<DeadEvent>> deadEvents() async =>
+      [for (final e in (_m(await _dio.get('$_base/events/dead'))['items'] as List)) DeadEvent.fromJson(e as Map<String, dynamic>)];
+  Future<DeadEvent> requeueEvent(String id) async => DeadEvent.fromJson(_m(await _dio.post('$_base/events/$id/requeue')));
+  Future<DeadEvent> acknowledgeEvent(String id, String note) async =>
+      DeadEvent.fromJson(_m(await _dio.post('$_base/events/$id/acknowledge', data: {'note': note})));
 
   Future<AgentProposal> reject(String id, String reason) async =>
       AgentProposal.fromJson(_m(await _dio.post('$_base/proposals/$id/reject', data: {'reason': reason})));

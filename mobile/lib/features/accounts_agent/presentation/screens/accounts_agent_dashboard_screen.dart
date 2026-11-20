@@ -55,7 +55,9 @@ class _Body extends StatelessWidget {
   (String, AppTone, IconData) get _state => switch (d.status.state) {
         'operational' => ('Operational', AppTone.success, Icons.check_circle_rounded),
         'delayed' => ('Delayed — ${d.status.pendingEvents} waiting', AppTone.warning, Icons.schedule_rounded),
-        'degraded' => ('Degraded — ${d.status.failedEvents} job(s) failed', AppTone.danger, Icons.error_rounded),
+        'degraded' => ('Degraded — ${d.status.failedEvents} job(s) failed'
+            '${d.status.recentFailedEvents < d.status.failedEvents ? ' (${d.status.recentFailedEvents} this week)' : ''}',
+            AppTone.danger, Icons.error_rounded),
         _ => ('Monitoring is off', AppTone.neutral, Icons.pause_circle_rounded),
       };
 

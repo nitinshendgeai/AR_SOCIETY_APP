@@ -13,7 +13,7 @@ from app.modules.accounts_agent.models.agent import (
 )
 from app.modules.accounts_agent.services import audit
 from app.modules.accounts_agent.services.anomaly import STATISTICAL
-from app.modules.accounts_agent.services.context import Ctx, Draft
+from app.modules.accounts_agent.services.context import SNAPSHOT_KEY, Ctx, Draft, voucher_snapshot
 from app.modules.accounts_agent.services.learning import Profile, account_meta
 from app.modules.accounts_agent.services.rules import DETERMINISTIC
 
@@ -74,11 +74,15 @@ def store_findings(db: Session, voucher: Voucher, drafts: List[Draft], profile_l
     created: List[AgentFinding] = []
     existing = {k for (k,) in db.query(AgentFinding.dedupe_key).filter(AgentFinding.society_id == voucher.society_id,
                                                                        AgentFinding.voucher_id == voucher.id)}
+    snap = None
     for d in drafts:
         key = d.dedupe_key(voucher.id)
         if key in existing:
             continue
         existing.add(key)
+        if snap is None:
+            snap = voucher_snapshot(db, voucher)
+        d.evidence = {**(d.evidence or {}), SNAPSHOT_KEY: snap}
         f = AgentFinding(
             society_id=voucher.society_id, voucher_id=voucher.id, transaction_ref=voucher.voucher_number,
             voucher_date=voucher.voucher_date, category=d.category, finding_class=d.finding_class, severity=d.severity,

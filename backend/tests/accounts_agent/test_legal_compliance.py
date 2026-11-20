@@ -218,6 +218,7 @@ def test_legal_source_conflicts_and_missing_bye_laws(rig):
 
 
 def test_compliance_calendar_applicability_and_overdue(rig, db):
+    rig.registered(date(2005, 6, 1))                     # an established society: last year's obligations apply
     rig.scan()
     items = {(i.code, i.financial_period): i for i in db.query(ComplianceItem).filter(ComplianceItem.society_id == rig.sid)}
     last = fiscal_year(date(rig.today.year - (0 if rig.today.month >= 4 else 1) - 1, 4, 1))
@@ -241,6 +242,7 @@ def test_compliance_calendar_applicability_and_overdue(rig, db):
 
 
 def test_missing_audit_documentation(rig):
+    rig.registered(date(2005, 6, 1))
     rig.scan()
     if rig.today > date(rig.today.year, 9, 30) or rig.today.month < 4:
         assert one(rig, "L-AUD-01").finding_class == "MISSING_DOCUMENTATION"

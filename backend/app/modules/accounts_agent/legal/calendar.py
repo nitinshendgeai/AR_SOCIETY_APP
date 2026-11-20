@@ -22,6 +22,38 @@ from app.modules.accounts_agent.services import audit
 PV = "PROFESSIONAL_VERIFICATION_REQUIRED"
 
 
+def obligation_start(db: Session, society_id: UUID):
+    """From when the society's statutory obligations can be judged (D-05 of the functional audit): the registration
+    date in its legal profile when recorded ("REGISTRATION"); otherwise the day it started using the app
+    ("ONBOARDING"), which says nothing about whether earlier obligations existed — only that the app cannot know."""
+    from app.models.society import Society
+    from app.modules.accounts_agent.legal.models import LegalProfile
+    p = db.query(LegalProfile).filter(LegalProfile.society_id == society_id).first()
+    if p and p.registration_date:
+        return p.registration_date, "REGISTRATION"
+    soc = db.get(Society, society_id)
+    created = getattr(soc, "created_at", None)
+    return (created.date() if created else None), "ONBOARDING"
+
+
+def _before_start(items: List[dict], fy_end: date, start: Optional[date], basis: str) -> None:
+    """A year that ended before the society was registered is NOT_APPLICABLE; one that ended before it joined the app
+    (registration date unknown) needs confirmation rather than being declared overdue."""
+    if not start or fy_end >= start:
+        return
+    for it in items:
+        if basis == "REGISTRATION":
+            it["applicability"] = "NOT_APPLICABLE"
+            it["applicability_reason"] = (f"The society was registered on {start:%d %b %Y}, after this financial year "
+                                          "ended.")
+        elif it["applicability"] == "APPLICABLE":
+            it["applicability"] = PV
+            it["applicability_reason"] = (f"This financial year ended before the society started using the app "
+                                          f"({start:%d %b %Y}) and its registration date is not recorded: confirm "
+                                          "whether it applies (record the registration date in the legal profile), "
+                                          "or mark it done with the evidence.")
+
+
 def _templates(db: Session, society_id: UUID, fy: str) -> List[dict]:
     from app.models.society import Society
     from app.modules.billing.models.billing import MaintenanceSettings
@@ -78,6 +110,7 @@ def _templates(db: Session, society_id: UUID, fy: str) -> List[dict]:
     ]
     for it in items:
         it.update(financial_period=fy, verification_status="PENDING_VERIFICATION")
+    _before_start(items, end, *obligation_start(db, society_id))
     return items
 
 
@@ -88,14 +121,30 @@ def ensure_items(db: Session, society_id: UUID, today: date) -> int:
     last = fiscal_year(date(fiscal_year_bounds(current)[0].year - 1, 4, 1))
     have = {(c, p) for c, p in db.query(ComplianceItem.code, ComplianceItem.financial_period)
             .filter(ComplianceItem.society_id == society_id)}
+    existing = {(c.code, c.financial_period): c for c in db.query(ComplianceItem)
+                .filter(ComplianceItem.society_id == society_id)}
     for fy in (last, current):
         for t in _templates(db, society_id, fy):
-            if (t["code"], fy) in have:
-                continue
-            db.add(ComplianceItem(society_id=society_id, completion_status="PENDING", **t))
-            n += 1
+            it = existing.get((t["code"], fy))
+            if it is None:
+                db.add(ComplianceItem(society_id=society_id, completion_status="PENDING", **t))
+                n += 1
+            elif _untouched(db, it) and it.applicability == "APPLICABLE" and t["applicability"] != "APPLICABLE":
+                # An item created before the registration / onboarding date was taken into account, never edited by
+                # anyone: bring its applicability in line (a person's own choice is never overwritten).
+                it.applicability, it.applicability_reason = t["applicability"], t["applicability_reason"]
     db.flush()
     return n
+
+
+def _untouched(db: Session, it: ComplianceItem) -> bool:
+    """Never edited by a person: still pending, and no `compliance_item_updated` entry in the agent's audit log."""
+    from app.modules.accounts_agent.models.agent import AgentAuditLog
+    if it.completion_status != "PENDING" or it.verification_status != "PENDING_VERIFICATION":
+        return False
+    return not (db.query(AgentAuditLog.id).filter(AgentAuditLog.society_id == it.society_id,
+                                                  AgentAuditLog.action == "compliance_item_updated",
+                                                  AgentAuditLog.entity_id == str(it.id)).first())
 
 
 def update_item(db: Session, it: ComplianceItem, user, data: dict) -> ComplianceItem:

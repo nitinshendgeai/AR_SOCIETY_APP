@@ -26,6 +26,17 @@ class LRig(Rig):
         registry.ensure_jurisdiction_pack(db)
         db.commit()
 
+    def registered(self, on):
+        """Record the society's registration date in its legal profile (the start of its statutory obligations)."""
+        from app.modules.accounts_agent.legal.models import LegalProfile
+        p = self.db.query(LegalProfile).filter(LegalProfile.society_id == self.sid).first()
+        if p is None:
+            p = LegalProfile(society_id=self.sid)
+            self.db.add(p)
+        p.registration_date = on
+        self.db.commit()
+        return p
+
     # Billing configuration ---------------------------------------------------------------------------------------
     def settings(self, **kw):
         s = self.db.query(MaintenanceSettings).filter(MaintenanceSettings.society_id == self.sid).first()

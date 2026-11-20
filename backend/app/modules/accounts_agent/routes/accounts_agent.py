@@ -2,10 +2,12 @@
 `society_id` query value is never trusted on its own. Read: manager and above. Review, propose, approve/reject,
 settings and learning: admin / committee."""
 from datetime import date
+from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.dependencies import require_admin_committee, require_manager_above
@@ -27,7 +29,14 @@ router = APIRouter(prefix="/accounts-agent", tags=["Accounts Agent"])
 
 
 def _sid(user: User, society_id: Optional[UUID]) -> UUID:
-    return resolve_create_society_id(user, society_id)
+    """The caller's own society. Reading or acting on another society is refused with a message that says so
+    (D-15 of the functional audit: the shared helper's wording speaks only of creating resources)."""
+    try:
+        return resolve_create_society_id(user, society_id)
+    except HTTPException as exc:
+        if exc.status_code == 403:
+            raise HTTPException(403, "You can only view or act on your own society's Accounts Agent data.") from exc
+        raise
 
 
 @router.get("/status")
@@ -161,9 +170,11 @@ def _voucher_detail(db: Session, sid: UUID, voucher_id) -> Optional[dict]:
     if not v:
         return None
     return {"id": str(v.id), "voucher_number": v.voucher_number, "voucher_type": v.voucher_type, "voucher_date": v.voucher_date.isoformat(),
-            "amount": str(v.amount), "narration": v.narration, "reference": v.reference, "approval_status": v.approval_status,
+            "amount": str(Decimal(str(v.amount)).quantize(Decimal("0.01"))), "narration": v.narration, "reference": v.reference, "approval_status": v.approval_status,
             "is_cancelled": v.is_cancelled, "source_type": v.source_type,
-            "entries": [{"line_no": e.line_no, "account": e.account.name if e.account else None, "debit": str(e.debit), "credit": str(e.credit),
+            "entries": [{"line_no": e.line_no, "account": e.account.name if e.account else None,
+                         "debit": str(Decimal(str(e.debit)).quantize(Decimal("0.01"))),
+                         "credit": str(Decimal(str(e.credit)).quantize(Decimal("0.01"))),
                          "vendor": e.vendor.company_name if e.vendor else None, "narration": e.narration} for e in v.entries]}
 
 
@@ -174,6 +185,17 @@ def finding_detail(finding_id: UUID, society_id: Optional[UUID] = None, db: Sess
     f = _finding(db, sid, finding_id)
     d = queries.finding_dict(f, detail=True)
     d["voucher"] = _voucher_detail(db, sid, f.voucher_id)
+    # D-17: the voucher as it stood when the finding was raised, and whether it has changed since.
+    snap = (f.evidence or {}).get("_voucher_at_detection")
+    d["voucher_at_detection"] = snap
+    cur = d["voucher"]
+    d["voucher_changed_since_detection"] = bool(snap and cur and (
+        snap.get("amount") != cur["amount"] or snap.get("reference") != cur["reference"]
+        or snap.get("is_cancelled") != cur["is_cancelled"] or snap.get("approval_status") != cur["approval_status"]
+        or [(e["account"], e["debit"], e["credit"]) for e in snap.get("entries", [])]
+        != [(e["account"], e["debit"], e["credit"]) for e in cur["entries"]]))
+    d["evidence"] = {k: v for k, v in (f.evidence or {}).items() if not str(k).startswith("_")}
+    d["evidence_display"] = queries.evidence_display(db, sid, f.evidence)          # D-18: names, not ids
     d["proposals"] = [queries.proposal_dict(p) for p in f.proposals]
     s = get_settings(db, sid)
     d["ai_explanation"] = llm.explain_finding(s.llm_provider, d)
@@ -244,6 +266,35 @@ def _audit_dict(r: AgentAuditLog) -> dict:
     return {"id": str(r.id), "created_at": r.created_at.isoformat(), "actor_id": str(r.actor_id) if r.actor_id else None,
             "actor": "Accounts Agent" if r.actor_id is None else "User", "action": r.action, "entity_type": r.entity_type,
             "entity_id": r.entity_id, "details": r.details}
+
+
+# ── Dead monitoring events: administrative recovery (functional audit D-10) ─────────────────────────────────────
+
+@router.get("/events/dead")
+def dead_events(society_id: Optional[UUID] = None, include_acknowledged: bool = True, db: Session = Depends(get_db),
+                user: User = Depends(require_admin_committee)):
+    from app.modules.accounts_agent.services import event_recovery
+    sid = _sid(user, society_id)
+    return {"items": event_recovery.list_dead(db, sid, include_acknowledged), **event_recovery.counts(db, sid),
+            "max_requeues": event_recovery.MAX_REQUEUES}
+
+
+@router.post("/events/{event_id}/requeue")
+def requeue_event(event_id: UUID, society_id: Optional[UUID] = None, db: Session = Depends(get_db),
+                  user: User = Depends(require_admin_committee)):
+    from app.modules.accounts_agent.services import event_recovery
+    return event_recovery.event_dict(event_recovery.requeue(db, _sid(user, society_id), event_id, user))
+
+
+class EventAcknowledge(BaseModel):
+    note: str = Field(..., min_length=5, max_length=500)
+
+
+@router.post("/events/{event_id}/acknowledge")
+def acknowledge_event(event_id: UUID, data: EventAcknowledge, society_id: Optional[UUID] = None,
+                      db: Session = Depends(get_db), user: User = Depends(require_admin_committee)):
+    from app.modules.accounts_agent.services import event_recovery
+    return event_recovery.event_dict(event_recovery.acknowledge(db, _sid(user, society_id), event_id, user, data.note))
 
 
 @router.get("/audit-logs")

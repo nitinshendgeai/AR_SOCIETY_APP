@@ -35,7 +35,14 @@ router = APIRouter(prefix="/accounts-agent", tags=["Accounts Agent — Legal & C
 
 
 def _sid(user: User, society_id: Optional[UUID]) -> UUID:
-    return resolve_create_society_id(user, society_id)
+    """The caller's own society. Reading or acting on another society is refused with a message that says so
+    (D-15 of the functional audit: the shared helper's wording speaks only of creating resources)."""
+    try:
+        return resolve_create_society_id(user, society_id)
+    except HTTPException as exc:
+        if exc.status_code == 403:
+            raise HTTPException(403, "You can only view or act on your own society's Accounts Agent data.") from exc
+        raise
 
 
 # ── Schemas ────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -613,6 +620,26 @@ def section_of(f: AgentFinding) -> str:
     return sections.section_of(f.category)
 
 
+def _fund_and_bank_balances(db: Session, sid: UUID) -> dict:
+    """Bank / cash and fund balances for the health card (D-12 of the functional audit), read through the accounting
+    service's own balance calculation (approved, live vouchers plus opening balances) — never recomputed here."""
+    from app.modules.accounts.services.accounts_service import AccountsService
+    from app.modules.accounts_agent.legal.compliance import FUND_KEYS
+    svc = AccountsService(db)
+    bal = svc.balances(sid)
+    bank, funds = [], []
+    for a in svc.list_accounts(sid, True):
+        b = bal.get(a.id)
+        if b is None:
+            continue
+        if a.is_bank or a.is_cash:
+            bank.append({"name": a.name, "balance": str(b), "kind": "bank" if a.is_bank else "cash"})
+        elif a.system_key in FUND_KEYS:
+            held = -b                                         # a fund is a credit balance: money held for its purpose
+            funds.append({"name": a.name, "balance": str(held), "overdrawn": held < 0})
+    return {"bank_and_cash": bank, "funds": funds, "balances_basis": "Approved vouchers and opening balances"}
+
+
 @router.get("/compliance/overview")
 def overview(society_id: Optional[UUID] = None, db: Session = Depends(get_db), user: User = Depends(require_manager_above)):
     """The unified dashboard: every section's open findings by class and severity, plus the legal library state."""
@@ -641,7 +668,8 @@ def overview(society_id: Optional[UUID] = None, db: Session = Depends(get_db), u
                                                                           audit.AgentAuditLog.action == "compliance_scan").scalar())
     return {"sections": list(tiles.values()),
             "financial_health": {"member_dues_outstanding": rep["total_outstanding"], "ageing": rep["ageing_totals"],
-                                 "defaulters": sum(1 for r in rep["flats"] if r["defaulter"])},
+                                 "defaulters": sum(1 for r in rep["flats"] if r["defaulter"]),
+                                 **_fund_and_bank_balances(db, sid)},
             "pending_approvals": pending or 0,
             "legal_library": {"documents_by_status": {s: n for s, n in docs},
                               "rules_verified": sum(1 for r in rules if r.verification_status in VERIFIED),

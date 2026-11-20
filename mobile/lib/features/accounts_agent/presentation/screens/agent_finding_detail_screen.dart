@@ -97,6 +97,7 @@ class _AgentFindingDetailScreenState extends ConsumerState<AgentFindingDetailScr
                   SeverityChip(f.severity),
                   AppStatusChip(label: titleCase(f.status), tone: f.isOpen ? AppTone.warning : AppTone.neutral),
                   AppStatusChip(label: classificationLabel(f.classification), tone: classificationTone(f.classification)),
+                  if (f.onPendingVoucher) const AppStatusChip(label: 'Voucher not yet approved', tone: AppTone.info),
                 ]),
                 const SizedBox(height: 10),
                 Text(f.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
@@ -111,8 +112,19 @@ class _AgentFindingDetailScreenState extends ConsumerState<AgentFindingDetailScr
                   ),
               ]),
             ),
-            if (f.voucher != null) ...[
-              const AgentSectionTitle('Original voucher'),
+            // D-17: the evidence as it was when the finding was raised, kept apart from the voucher as it is now.
+            if (f.voucherAtDetection != null && f.voucherChangedSinceDetection) ...[
+              const AgentSectionTitle('Voucher when the finding was raised'),
+              _VoucherCard(v: f.voucherAtDetection!),
+              if (f.voucher != null) ...[
+                const AgentSectionTitle('Voucher now'),
+                const _Note('This voucher has changed since the finding was raised.'),
+                _VoucherCard(v: f.voucher!),
+              ],
+            ] else if (f.voucher != null) ...[
+              const AgentSectionTitle('Voucher'),
+              if (f.voucherAtDetection == null)
+                const _Note('Shown as it is today: no copy was kept when this finding was raised.'),
               _VoucherCard(v: f.voucher!),
             ],
             const AgentSectionTitle('What was detected and why'),
@@ -131,7 +143,10 @@ class _AgentFindingDetailScreenState extends ConsumerState<AgentFindingDetailScr
                 ]),
               ]),
             ),
-            if (f.evidence.isNotEmpty) ...[
+            if (f.evidenceDisplay.isNotEmpty) ...[
+              const AgentSectionTitle('Evidence'),
+              AgentCard(child: Column(children: [for (final e in f.evidenceDisplay) KeyValue(e.key, e.value)])),
+            ] else if (f.evidence.isNotEmpty) ...[
               const AgentSectionTitle('Evidence'),
               AgentCard(
                 child: Column(children: [
@@ -167,6 +182,8 @@ class _AgentFindingDetailScreenState extends ConsumerState<AgentFindingDetailScr
               const AgentSectionTitle('Resolution'),
               AgentCard(child: Text(f.resolutionNote!)),
             ],
+            const AgentSectionTitle('History'),
+            _History(findingId: f.id),
             // Only people who may decide see the action buttons.
             if (mayDecide && f.isOpen) ...[
               const AgentSectionTitle('Review'),
@@ -187,6 +204,54 @@ class _AgentFindingDetailScreenState extends ConsumerState<AgentFindingDetailScr
   }
 
   static String _plain(Object? v) => v is double ? (v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(2)) : '$v';
+}
+
+class _Note extends StatelessWidget {
+  final String text;
+  const _Note(this.text);
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(text, style: const TextStyle(fontSize: 12.5, color: AppTheme.warning)),
+      );
+}
+
+/// The finding's audit trail (D-11): who raised, reviewed, proposed, approved or re-checked it, and when.
+class _History extends ConsumerWidget {
+  final String findingId;
+  const _History({required this.findingId});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(agentFindingHistoryProvider(findingId));
+    return async.when(
+      loading: () => const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator())),
+      error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), compact: true,
+          onRetry: () => ref.invalidate(agentFindingHistoryProvider(findingId))),
+      data: (rows) => AgentCard(
+        child: rows.isEmpty
+            ? const Text('No history recorded yet.', style: TextStyle(color: AppTheme.textSecondary))
+            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                for (final h in rows)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Icon(Icons.history_rounded, size: 16, color: AppTheme.textSecondary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(historyActionLabel(h.action), style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                          Text('${h.actor} · ${day(h.at)} ${h.at.toLocal().hour.toString().padLeft(2, '0')}:'
+                              '${h.at.toLocal().minute.toString().padLeft(2, '0')}'
+                              '${h.details['reason'] != null ? ' · ${h.details['reason']}' : ''}',
+                              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        ]),
+                      ),
+                    ]),
+                  ),
+              ]),
+      ),
+    );
+  }
 }
 
 class _Compare extends StatelessWidget {
@@ -213,7 +278,7 @@ class _VoucherCard extends StatelessWidget {
             Text(formatInr(v.amount), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
           ]),
           const SizedBox(height: 4),
-          Text('${titleCase(v.type)} · ${day(v.date)} · ${titleCase(v.approvalStatus)}${v.cancelled ? ' · Cancelled' : ''}',
+          Text('${v.type.isEmpty ? '' : '${titleCase(v.type)} · '}${day(v.date)} · ${titleCase(v.approvalStatus)}${v.cancelled ? ' · Cancelled' : ''}',
               style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
           if ((v.narration ?? '').isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(v.narration!, style: const TextStyle(fontSize: 13))),
           if ((v.reference ?? '').isNotEmpty) KeyValue('Reference', v.reference),

@@ -35,6 +35,7 @@ from app.modules.accounts_agent.legal.models import (
 )
 from app.modules.accounts_agent.models.agent import AgentFinding
 from app.modules.accounts_agent.services import audit
+from app.modules.accounts_agent.services.context import SNAPSHOT_KEY, voucher_snapshot
 from app.modules.billing.models.billing import (
     BillingCycle, BillStatus, ChargeBasis, ChargeType, InvoiceLineItem, MaintenanceBill, MaintenanceChargeConfig,
     MaintenanceSettings, PaymentReceipt,
@@ -364,6 +365,54 @@ def chk_bill_allocation(s: Scan) -> List[LDraft]:
     return out
 
 
+def interest_cause(bill, cap) -> dict:
+    """Read the bill's own interest working (what the billing calculator printed on the bill) and say WHY the interest
+    is high (D-06 of the functional audit): a rate above the ceiling, an accrual period that runs past the bill date,
+    both, or — without a working — that the cause cannot be shown. Only explains; never recalculates the bill."""
+    import json
+    try:
+        rows = json.loads(bill.interest_working) if bill.interest_working else []
+    except (ValueError, TypeError):
+        rows = []
+    if not rows:
+        return {"cause": "UNKNOWN", "rows": [],
+                "explanation": "The bill carries no interest working, so whether the rate or the period is wrong cannot be "
+                               "shown from the bill.",
+                "recommended": "Recompute the interest for this flat; issue a credit note for any excess."}
+    checked, late, high = [], [], []
+    for r in rows:
+        try:
+            rate = Decimal(str(r.get("rate", "0")).replace("%", "").strip() or "0")
+            start, end = date.fromisoformat(r["from"]), date.fromisoformat(r["to"])
+        except (KeyError, ValueError, ArithmeticError):
+            continue
+        extra = max((end - bill.bill_date).days, 0)
+        row = {"bill": r.get("bill"), "from": r["from"], "to": r["to"], "days": r.get("days"), "rate": str(rate),
+               "days_after_bill_date": extra}
+        checked.append(row)
+        if extra:
+            late.append(row)
+        if cap is not None and rate > Decimal(str(cap)):
+            high.append(row)
+    parts = []
+    if high:
+        parts.append(f"The working applies {', '.join(sorted({h['rate'] for h in high}))}% p.a., above the {cap}% ceiling.")
+    if late:
+        worst = max(late, key=lambda x: x["days_after_bill_date"])
+        parts.append(f"The working counts interest up to {worst['to']}, {worst['days_after_bill_date']} day(s) after the "
+                     f"bill date ({bill.bill_date}): the accrual period, not only the rate, explains the excess.")
+    cause = "RATE_AND_PERIOD" if (high and late) else "RATE" if high else "PERIOD" if late else "UNKNOWN"
+    if cause == "UNKNOWN":
+        parts.append("The working's rate and dates are within limits, so the difference lies elsewhere (e.g. the "
+                     "principal it was charged on).")
+    rec = {"PERIOD": "Check how Billing dates the interest period (it should not run past the bill date); recompute "
+                     "this flat's interest and issue a credit note for the excess.",
+           "RATE": "Correct the interest rate in the billing settings; recompute and credit the excess.",
+           "RATE_AND_PERIOD": "Correct the rate and the interest period in Billing; recompute and credit the excess."
+           }.get(cause, "Recompute the interest for this flat; issue a credit note for any excess.")
+    return {"cause": cause, "rows": checked, "explanation": " ".join(parts), "recommended": rec}
+
+
 def chk_bill_interest(s: Scan) -> List[LDraft]:
     """Interest charged on a bill compared with the most it could be at the ceiling in force on the bill date."""
     out = []
@@ -394,15 +443,21 @@ def chk_bill_interest(s: Scan) -> List[LDraft]:
         days = max((b.bill_date - earliest).days, 0) if earliest else 0
         most = (arrears * Decimal(str(cap)) / 100 * Decimal(days) / Decimal(365)).quantize(Decimal("0.01"))
         if interest > most + Decimal("1.00"):
-            out.append(s.legal("L-CHG-INT-02", "charges", "interest_on_arrears", app,
-                               f"Interest on {b.invoice_number} is more than {cap}% p.a. on the arrears could give",
+            cause = interest_cause(b, cap)
+            title = {"PERIOD": f"Interest on {b.invoice_number} runs past the bill date",
+                     "RATE": f"Interest on {b.invoice_number} uses a rate above {cap}% p.a.",
+                     "RATE_AND_PERIOD": f"Interest on {b.invoice_number}: rate above {cap}% p.a. and period past the bill date",
+                     }.get(cause["cause"], f"Interest on {b.invoice_number} is more than {cap}% p.a. on the arrears could give")
+            out.append(s.legal("L-CHG-INT-02", "charges", "interest_on_arrears", app, title,
                                f"{s.flat_label(b.flat_id)} was charged {inr(interest)} interest. Even if all arrears of "
                                f"{inr(arrears)} had been overdue since the earliest due date ({earliest}, {days} days), "
-                               f"{cap}% p.a. simple interest would be at most {inr(most)}.",
+                               f"{cap}% p.a. simple interest up to the bill date would be at most {inr(most)}. "
+                               + cause["explanation"],
                                deterministic=False, expected=f"≤ {inr(most)}", actual=inr(interest),
-                               recommended="Recompute the interest for this flat; issue a credit note for any excess.",
+                               recommended=cause["recommended"],
                                evidence={"interest": str(interest), "arrears": str(arrears), "days": days, "cap_pct": cap,
-                                         "calculation": f"{arrears} × {cap}% × {days}/365 = {most}"},
+                                         "calculation": f"{arrears} × {cap}% × {days}/365 = {most}",
+                                         "cause": cause["cause"], "working_checked": cause["rows"]},
                                subject=str(b.id), flat_id=b.flat_id, transaction_ref=b.invoice_number,
                                voucher_date=b.bill_date))
     return out
@@ -529,6 +584,7 @@ class Threshold:
     source_rule: Optional[object]     # the LegalRule the figure comes from (None for a society setting)
     members: int
     governing: registry.Applicable    # what the registry says governs the topic
+    members_basis: str = ""           # how the member count was found (D-20)
 
 
 def _slab(rule, members: int) -> Optional[Decimal]:
@@ -555,6 +611,7 @@ def committee_threshold(s: Scan, on: date) -> Threshold:
     app = s.rule("expenditure.committee_limit", on)
     limits = procurement_limits(s.db, s.sid)
     members = int(limits["members"])
+    mbasis = limits.get("members_basis", "")
     cands = app.candidates
     for r in cands:
         if r.source_level in registry.STATUTORY and _slab(r, members) is not None:
@@ -572,8 +629,8 @@ def committee_threshold(s: Scan, on: date) -> Threshold:
     for r in cands:
         if r.source_level == "H" and _slab(r, members) is not None:
             return Threshold(_slab(r, members), f"the model bye-law {(r.bye_law_number or '157').replace('(model)', '').strip()} reference figure for "
-                             f"{members} members — a MODEL figure, binding only if your registered bye-laws adopted it "
-                             "unchanged, and not verified", "MODEL_REFERENCE", r, members, app)
+                             f"{members} members ({mbasis}) — a MODEL figure, binding only if your registered bye-laws "
+                             "adopted it unchanged, and not verified", "MODEL_REFERENCE", r, members, app, mbasis)
     return Threshold(None, "no committee limit is loaded", "NONE", None, members, app)
 
 
@@ -587,6 +644,7 @@ def threshold_draft(s: Scan, th: Threshold, code, category, ccat, title, explana
                           + (" and is under legal review" if gov.blocked else "") + ".")
     ev = {**kw.pop("evidence", {}), "threshold": str(th.amount) if th.amount is not None else None,
           "threshold_basis": th.basis, "threshold_source": th.label, "members_counted": th.members,
+          "members_basis": th.members_basis or None,
           "governing_rule": gov.rule.rule_code if gov.rule else None}
     if th.source_rule is None:                     # a society setting: an internal-policy deviation at most
         return LDraft(code, "legal", category, ccat, "INTERNAL_POLICY_DEVIATION", "MEDIUM", 0.6, title,
@@ -926,7 +984,9 @@ def chk_calendar(s: Scan) -> List[LDraft]:
         out.append(LDraft("L-CAL-01", "legal", "statutory_compliance", it.category.lower(),
                           "POTENTIAL_NON_COMPLIANCE" if applicable else "ADVISORY_OBSERVATION",
                           "HIGH" if applicable else "LOW", 0.6 if applicable else 0.3,
-                          f"{it.title} ({it.financial_period}) was due on {it.due_date} and is not marked done",
+                          (f"{it.title} ({it.financial_period}) is overdue: due {it.due_date}, not marked done"
+                           if applicable else
+                           f"{it.title} ({it.financial_period}): confirm whether it applies (due {it.due_date})"),
                           f"{it.title}: due {it.due_date} ({it.due_date_basis or 'due date as configured'}). "
                           + ("" if applicable else "Applicability is not established: professional verification required. "),
                           recommended=f"Responsible: {it.responsible_role or 'committee'}. Mark it done with the evidence, "
@@ -937,17 +997,28 @@ def chk_calendar(s: Scan) -> List[LDraft]:
     # Audit report for the last completed financial year.
     last_fy = fiscal_year(fiscal_year_bounds(fiscal_year(s.today))[0] - timedelta(days=1))
     _, last_end = fiscal_year_bounds(last_fy)
-    if s.today > date(last_end.year, 9, 30):
+    start, basis = compliance_calendar.obligation_start(s.db, s.sid)
+    before = bool(start and last_end < start)
+    if s.today > date(last_end.year, 9, 30) and not (before and basis == "REGISTRATION"):
         has = (s.db.query(LegalDocument.id).filter(LegalDocument.society_id == s.sid, LegalDocument.document_type == "AUDIT_REPORT",
                                                    LegalDocument.status != "REJECTED",
                                                    (LegalDocument.issue_date.is_(None)) | (LegalDocument.issue_date > last_end))
                .first())
         if not has:
-            out.append(LDraft("L-AUD-01", "legal", "statutory_compliance", "statutory_audit", "MISSING_DOCUMENTATION",
-                              "MEDIUM", 0.8, f"No statutory audit report for {last_fy} is on record",
-                              f"The {last_fy} audit report has not been uploaded to the Legal Library.",
-                              recommended="Upload the audit report (and the rectification report once filed).",
-                              subject=last_fy))
+            if before:      # the year ended before the society joined the app and no registration date is known
+                out.append(LDraft("L-AUD-01", "legal", "statutory_compliance", "statutory_audit", "ADVISORY_OBSERVATION",
+                                  "LOW", 0.3, f"Audit report for {last_fy}: confirm whether it applies",
+                                  f"{last_fy} ended before the society started using the app ({start:%d %b %Y}) and its "
+                                  "registration date is not recorded, so the app cannot tell whether an audit was due. "
+                                  "Upload the report if there is one, or record the registration date in the legal profile.",
+                                  recommended="Upload the audit report, or record the society's registration date.",
+                                  evidence={"obligation_start": start.isoformat(), "basis": basis}, subject=last_fy))
+            else:
+                out.append(LDraft("L-AUD-01", "legal", "statutory_compliance", "statutory_audit", "MISSING_DOCUMENTATION",
+                                  "MEDIUM", 0.8, f"No statutory audit report for {last_fy} is on record",
+                                  f"The {last_fy} audit report has not been uploaded to the Legal Library.",
+                                  recommended="Upload the audit report (and the rectification report once filed).",
+                                  subject=last_fy))
     return out
 
 
@@ -1024,6 +1095,9 @@ def store(db: Session, society_id: UUID, drafts: List[LDraft]):
         live.add(d.key)
         f = existing.get(d.key)
         if f is not None:
+            keep = (f.evidence or {}).get(SNAPSHOT_KEY)
+            if keep is not None:
+                d.evidence = {**(d.evidence or {}), SNAPSHOT_KEY: keep}
             if f.status in ("NEW", "UNDER_REVIEW"):
                 f.explanation, f.evidence, f.severity, f.finding_class = d.explanation, d.evidence, d.severity, d.finding_class
                 f.legal_source, f.actual_behaviour = d.legal_source, d.actual
@@ -1032,6 +1106,11 @@ def store(db: Session, society_id: UUID, drafts: List[LDraft]):
                 f.explanation, f.evidence = d.explanation, d.evidence
                 audit.record(db, society_id, "finding_reopened", "finding", f.id, details={"rule": d.rule_code})
             continue
+        if d.voucher_id:
+            v = db.query(Voucher).options(selectinload(Voucher.entries)).filter(
+                Voucher.id == d.voucher_id, Voucher.society_id == society_id).first()
+            if v is not None:
+                d.evidence = {**(d.evidence or {}), SNAPSHOT_KEY: voucher_snapshot(db, v)}
         f = AgentFinding(society_id=society_id, voucher_id=d.voucher_id, transaction_ref=d.transaction_ref,
                          voucher_date=d.voucher_date, category=d.category, finding_class=d.finding_class,
                          severity=d.severity, confidence=d.confidence, rule_code=d.rule_code, dedupe_key=d.key,

@@ -327,3 +327,40 @@ def test_maker_checker_on_postgres(pg):
         out = proposals.approve_proposal(s, sid, p.id, chair, "checked"); s.commit()
         assert out.status == "EXECUTED" and out.decided_by == chair.id
         assert s.get(Voucher, f.voucher_id).is_cancelled
+
+
+def test_drain_and_dead_event_requeue_on_postgres(pg, monkeypatch):
+    """D-08 / D-10 on real PostgreSQL: --once drains several batches; a dead event requeued by an admin is processed
+    once, with no duplicate findings, and the audit log records it."""
+    from datetime import datetime, timedelta
+    from types import SimpleNamespace
+    from app.modules.accounts_agent import worker
+    from app.modules.accounts_agent.models.agent import AgentAuditLog, AgentEvent, AgentFinding
+    from app.modules.accounts_agent.services import event_recovery
+    sid, ids = _setup(pg)
+    with Session(pg) as s:
+        for i in range(7):
+            _post(s, sid, ids, amount=f"{100 + i}.00").approval_status = "approved"
+        s.commit()
+        out = worker.drain(s, "pg-d", limit=3)
+        assert out["passes"] >= 3
+        assert s.query(AgentEvent).filter(AgentEvent.society_id == sid, AgentEvent.status == "pending").count() == 0
+        v = _post(s, sid, ids, amount="999.00"); s.commit()
+        ev = s.query(AgentEvent).filter(AgentEvent.voucher_id == v.id).first()
+        with monkeypatch.context() as m:
+            m.setattr(worker, "process_event", lambda d, e: (_ for _ in ()).throw(RuntimeError("down")))
+            for _ in range(worker.MAX_ATTEMPTS):
+                ev.next_attempt_at = datetime.utcnow() - timedelta(seconds=1); s.commit()
+                worker.run_once(s, "pg-d")
+                s.refresh(ev)
+        assert ev.status == "dead"
+        admin = SimpleNamespace(id=None)
+        event_recovery.requeue(s, sid, ev.id, admin)
+        worker.drain(s, "pg-d"); s.refresh(ev)
+        assert ev.status == "done"
+        n = s.query(AgentFinding).filter(AgentFinding.voucher_id == v.id).count()
+        ev.status = "dead"; s.commit()                       # a second failure and requeue: still no duplicates
+        event_recovery.requeue(s, sid, ev.id, admin)
+        worker.drain(s, "pg-d")
+        assert s.query(AgentFinding).filter(AgentFinding.voucher_id == v.id).count() == n
+        assert s.query(AgentAuditLog).filter(AgentAuditLog.society_id == sid, AgentAuditLog.action == "event_requeued").count() == 2

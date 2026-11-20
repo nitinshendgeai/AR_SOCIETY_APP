@@ -1,6 +1,6 @@
 """Read models for the API. Every query filters by society_id."""
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy import func, or_
@@ -48,7 +48,9 @@ def status(db: Session, society_id: UUID) -> dict:
         AgentEvent.society_id == society_id, AgentEvent.status.in_(("pending", "failed", "processing"))).scalar() or 0
     oldest = db.query(func.min(AgentEvent.created_at)).filter(
         AgentEvent.society_id == society_id, AgentEvent.status.in_(("pending", "failed", "processing"))).scalar()
-    dead = db.query(func.count(AgentEvent.id)).filter(AgentEvent.society_id == society_id, AgentEvent.status == "dead").scalar() or 0
+    from app.modules.accounts_agent.services import event_recovery
+    dc = event_recovery.counts(db, society_id, now)
+    dead = dc["unacknowledged"]                 # acknowledged historical failures no longer degrade monitoring
     if not s.monitoring_enabled:
         state = "disabled"
     elif dead:
@@ -59,7 +61,8 @@ def status(db: Session, society_id: UUID) -> dict:
         state = "operational"
     run = last_completed_run(db, society_id)
     return {"state": state, "monitoring_enabled": s.monitoring_enabled, "last_monitored_at": s.last_monitored_at.isoformat() if s.last_monitored_at else None,
-            "pending_events": backlog, "failed_events": dead, "last_error": s.last_error,
+            "pending_events": backlog, "failed_events": dead, "recent_failed_events": dc["recent"],
+            "acknowledged_failed_events": dc["acknowledged"], "last_error": s.last_error,
             "last_learning_at": run.finished_at.isoformat() if run and run.finished_at else None,
             "learning_confidence": run.confidence_label if run else "none"}
 
@@ -146,4 +149,64 @@ def list_findings(db: Session, society_id: UUID, *, severity=None, category=None
     from sqlalchemy import case
     order = case(*[(AgentFinding.severity == s, i) for s, i in rank.items()], else_=9)
     rows = qry.order_by(order, AgentFinding.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
-    return {"items": [finding_dict(f) for f in rows], "total": total, "page": page, "page_size": page_size}
+    from app.modules.accounts.models.accounts import Voucher
+    vids = [f.voucher_id for f in rows if f.voucher_id]
+    vstat = dict(db.query(Voucher.id, Voucher.approval_status).filter(Voucher.society_id == society_id,
+                                                                       Voucher.id.in_(vids)).all()) if vids else {}
+    items = []
+    for f in rows:
+        d = finding_dict(f)
+        d["voucher_approval_status"] = vstat.get(f.voucher_id)       # D-19: a finding on an unapproved voucher says so
+        items.append(d)
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+
+_UUID_RE = __import__("re").compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+
+
+def evidence_display(db: Session, society_id: UUID, evidence: Optional[dict]) -> List[dict]:
+    """Evidence as label / value pairs a person can read (D-18 of the functional audit): ledger, vendor, voucher and flat
+    ids are replaced by their names (looked up in THIS society only); internal keys are left out."""
+    from app.models.flat import Flat
+    from app.models.wing import Wing
+    from app.modules.accounts.models.accounts import Account, Voucher
+    from app.modules.vendor.models.vendor import Vendor
+    ev = {k: v for k, v in (evidence or {}).items() if not str(k).startswith("_")}
+    ids = set()
+    for v in ev.values():
+        for x in (v if isinstance(v, list) else [v]):
+            if isinstance(x, str) and _UUID_RE.match(x):
+                ids.add(x)
+    names: dict = {}
+    if ids:
+        uu = [UUID(x) for x in ids]
+        names.update({str(i): n for i, n in db.query(Account.id, Account.name)
+                      .filter(Account.society_id == society_id, Account.id.in_(uu))})
+        names.update({str(i): n for i, n in db.query(Vendor.id, Vendor.company_name)
+                      .filter(Vendor.society_id == society_id, Vendor.id.in_(uu))})
+        names.update({str(i): n for i, n in db.query(Voucher.id, Voucher.voucher_number)
+                      .filter(Voucher.society_id == society_id, Voucher.id.in_(uu))})
+        names.update({str(f.id): f"{w.name}-{f.flat_number}" for f, w in db.query(Flat, Wing)
+                      .join(Wing, Wing.id == Flat.wing_id).filter(Wing.society_id == society_id, Flat.id.in_(uu))})
+
+    def show(x):
+        if isinstance(x, dict):
+            return " · ".join(str(show(v)) for v in x.values() if v not in (None, ""))
+        if isinstance(x, str) and _UUID_RE.match(x):
+            return names.get(x, "(not in this society's records)")
+        return x
+
+    out = []
+    for k, v in ev.items():
+        label = str(k)
+        for suffix in ("_ids", "_id"):
+            if label.endswith(suffix):
+                label = label[: -len(suffix)]
+        label = label.replace("_", " ").strip().capitalize()
+        if v is None or v == [] or v == {}:
+            continue
+        value = "; ".join(str(show(x)) for x in v) if isinstance(v, list) else show(v)
+        if any(o["label"] == label and str(o["value"]) == str(value) for o in out):
+            continue                                  # e.g. "usual_ledger" and "usual_ledger_id" naming the same ledger
+        out.append({"label": label, "value": value})
+    return out

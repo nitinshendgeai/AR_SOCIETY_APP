@@ -109,6 +109,12 @@ class AgentEvent(Base, TimestampMixin):
     locked_by       = Column(String(60), nullable=True)
     last_error      = Column(Text, nullable=True)
     processed_at    = Column(DateTime, nullable=True)
+    # Administrative recovery of a dead event (functional audit D-10)
+    dead_at         = Column(DateTime, nullable=True)
+    requeue_count   = Column(Integer, default=0, nullable=False, server_default="0")
+    acknowledged_at = Column(DateTime, nullable=True)
+    acknowledged_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    acknowledge_note = Column(Text, nullable=True)
 
 
 class AgentFinding(Base, TimestampMixin):

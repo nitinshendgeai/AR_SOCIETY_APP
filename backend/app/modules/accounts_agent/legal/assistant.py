@@ -177,8 +177,15 @@ def ask(db: Session, society_id: UUID, question: str) -> dict:
         if pat.search(question or ""):
             text, sources, data = fn(db, society_id, today)
             sources = [s for s in sources if s]
-            return {"intent": name, "answer": text, "sources": sources,
-                    "verified_law": bool(sources) and all(s.get("verified") for s in sources),
+            verified = bool(sources) and all(s.get("verified") for s in sources)
+            unverified = [s for s in sources if not s.get("verified")]
+            if unverified:
+                # D-13: an answer resting on an unverified source says so in its first words, not only in a side field.
+                codes = ", ".join(sorted({s.get("rule_code") or "?" for s in unverified}))
+                text = (f"UNVERIFIED — based on legal source(s) not yet checked against the original publication "
+                        f"({codes}); treat this as guidance for review, not as settled law. " + text)
+            return {"intent": name, "answer": text, "sources": sources, "answer_unverified": bool(unverified),
+                    "verified_law": verified,
                     "society_specific_sources": [s for s in sources if s.get("society_specific")],
                     "uncertainty": _uncertainty(sources), "data": data,
                     "disclaimer": "Generated from this society's records and the legal registry by fixed rules, not by "

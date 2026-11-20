@@ -87,6 +87,18 @@ class _ComplianceHubScreenState extends ConsumerState<ComplianceHubScreen> {
                 KeyValue('Member dues outstanding', formatInr(double.tryParse('${o.financialHealth['member_dues_outstanding']}') ?? 0)),
                 KeyValue('Defaulters (beyond period)', '${o.financialHealth['defaulters'] ?? 0}'),
                 KeyValue('Pending approvals', '${o.pendingApprovals}'),
+                // D-12: money actually held, from the books (approved vouchers and opening balances).
+                for (final b in (o.financialHealth['bank_and_cash'] as List? ?? const []))
+                  KeyValue('${(b as Map)['name']}', formatInr(double.tryParse('${b['balance']}') ?? 0)),
+                for (final x in (o.financialHealth['funds'] as List? ?? const []))
+                  _FundRow(name: '${(x as Map)['name']}', balance: double.tryParse('${x['balance']}') ?? 0,
+                      overdrawn: x['overdrawn'] == true),
+                if (o.financialHealth['balances_basis'] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text('Balances: ${o.financialHealth['balances_basis']}.',
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  ),
               ]),
             ),
             const AgentSectionTitle('Sections'),
@@ -197,4 +209,17 @@ class _SectionTile extends StatelessWidget {
       ]),
     );
   }
+}
+
+
+class _FundRow extends StatelessWidget {
+  final String name;
+  final double balance;
+  final bool overdrawn;
+  const _FundRow({required this.name, required this.balance, required this.overdrawn});
+  @override
+  Widget build(BuildContext context) => Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(child: KeyValue(name, formatInr(balance))),
+        if (overdrawn) const Padding(padding: EdgeInsets.only(top: 4), child: AppStatusChip(label: 'Overdrawn', tone: AppTone.danger)),
+      ]);
 }

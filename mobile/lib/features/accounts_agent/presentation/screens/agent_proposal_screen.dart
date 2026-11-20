@@ -85,6 +85,7 @@ class _AgentProposalScreenState extends ConsumerState<AgentProposalScreen> {
   @override
   Widget build(BuildContext context) {
     final mayDecide = ref.watch(currentUserProvider)?.isAdminOrCommittee ?? false;
+    final me = ref.watch(currentUserProvider)?.id;
     final async = ref.watch(agentProposalProvider(widget.proposalId));
     return AppPage(
       title: 'Correction proposal',
@@ -157,11 +158,19 @@ class _AgentProposalScreenState extends ConsumerState<AgentProposalScreen> {
                     onPressed: _busy ? null : () => _reject(p),
                     child: const Text('Reject')),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton(onPressed: _busy ? null : () => _approve(p), child: Text(p.executable ? 'Approve & apply' : 'Confirm review')),
-              ),
+              if (!(p.requiresOtherApprover && p.proposedBy(me))) const SizedBox(width: 12),
+              // Maker–checker (D-09): the person who proposed a correction to the books cannot approve it.
+              if (!(p.requiresOtherApprover && p.proposedBy(me)))
+                Expanded(
+                  child: FilledButton(onPressed: _busy ? null : () => _approve(p), child: Text(p.executable ? 'Approve & apply' : 'Confirm review')),
+                ),
             ]),
+            if (p.requiresOtherApprover && p.proposedBy(me))
+              const Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: Text('You proposed this correction, so another administrator or committee member must approve it. '
+                    'You can still withdraw it with Reject.', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+              ),
           ] else if (!mayDecide && p.status == 'PENDING')
             const Padding(
               padding: EdgeInsets.only(top: 16),

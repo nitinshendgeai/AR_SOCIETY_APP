@@ -110,3 +110,21 @@ def state_fingerprint(v: Voucher) -> str:
 
 def fmt(amount) -> str:
     return f"₹{money(amount):,.2f}"
+
+
+SNAPSHOT_KEY = "_voucher_at_detection"
+
+
+def voucher_snapshot(db, voucher) -> Optional[dict]:
+    """The voucher as it stood when a finding was raised (D-17 of the functional audit), so the finding can show the
+    ORIGINAL evidence next to the voucher's current state after later edits. Ledger names are resolved now."""
+    if voucher is None:
+        return None
+    from app.modules.accounts.models.accounts import Account
+    names = dict(db.query(Account.id, Account.name).filter(Account.id.in_([e.account_id for e in voucher.entries])).all()) \
+        if voucher.entries else {}
+    return {"voucher_number": voucher.voucher_number, "voucher_date": voucher.voucher_date.isoformat(),
+            "amount": str(money(voucher.amount)), "reference": voucher.reference, "narration": voucher.narration,
+            "approval_status": voucher.approval_status, "is_cancelled": bool(voucher.is_cancelled),
+            "entries": [{"account": names.get(e.account_id), "debit": str(money(e.debit)), "credit": str(money(e.credit))}
+                        for e in sorted(voucher.entries, key=lambda x: x.line_no or 0)]}
