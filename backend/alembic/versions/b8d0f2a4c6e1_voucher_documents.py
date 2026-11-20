@@ -1,7 +1,7 @@
 """Documents filed against a voucher (voucher_documents)
 
 Revision ID: b8d0f2a4c6e1
-Revises: a7c9e1b3d5f2
+Revises: c8f1e2d3a4b9
 Create Date: 2026-11-19
 
 The supplier's bill, a receipt or a photo of the work, filed against the voucher that booked the expense and opened
@@ -12,7 +12,7 @@ from alembic import op
 from sqlalchemy.dialects.postgresql import UUID
 
 revision      = 'b8d0f2a4c6e1'
-down_revision = 'a7c9e1b3d5f2'
+down_revision = 'c8f1e2d3a4b9'
 branch_labels = None
 depends_on    = None
 
