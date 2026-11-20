@@ -67,6 +67,19 @@ additional charges, actual-expense shares); bills for a different length of peri
 are skipped; a head whose own history isn't steady is skipped; no earlier bill in the window means no claim. Cost: a fixed handful
 of queries per bill (one grouped aggregate per cohort), covered by a test.
 
+### Flat-wise ledger check (`check_bill_consistency`)
+
+| Rule | Detects | Severity / class |
+|---|---|---|
+| `R-BILL-06` | an element is posted to a different ledger than on the same flat's previous bill (a re-mapped element) | Medium (strongly suspected) |
+
+Each bill is compared with the same flat's latest issued bill from an earlier cycle, so every month is checked against the one
+before it. Which ledger an element went to last time is read from the voucher actually posted for the previous bill (that bill
+is run through today's element → ledger mapping and compared with what was posted), so no extra table is needed and the check
+works from the first month after deployment. A re-mapping hits every flat billed with the element, so it is reported once per
+billing cycle, not once per flat. A flat's first bill is not compared. If two elements that shared a ledger are re-mapped
+together and their old ledger cannot be told apart from the amounts, the finding says "another ledger" for the old side.
+
 Not covered: whether the billing rates/areas/charge configuration are right (the agent only compares a bill with its own history).
 
 ### Documented conflict with an existing rule
