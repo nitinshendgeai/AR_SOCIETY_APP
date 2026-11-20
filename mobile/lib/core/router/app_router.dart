@@ -89,6 +89,7 @@ import 'package:ar_society_app/features/accounts_agent/presentation/screens/agen
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_learning_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_ask_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/compliance_hub_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/ledger_map_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/legal_library_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/recovery_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/resolutions_screen.dart';
@@ -285,6 +286,7 @@ class AppRoutes {
   static const accountsAgentCompliance   = '/accounts-agent/compliance';
   static const accountsAgentLegalLibrary = '/accounts-agent/legal-library';
   static const accountsAgentSocietyRuleNew = '/accounts-agent/legal-library/rules/new';
+  static const accountsAgentLedgerMap = '/accounts-agent/ledger-map';
   static const accountsAgentResolutions  = '/accounts-agent/resolutions';
   static const accountsAgentStatutory    = '/accounts-agent/statutory';
   static const accountsAgentRecovery     = '/accounts-agent/recovery';
@@ -1006,6 +1008,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             (AppRoutes.accountsAgentCompliance, (_) => const ComplianceHubScreen()),
             (AppRoutes.accountsAgentLegalLibrary, (_) => const LegalLibraryScreen()),
             (AppRoutes.accountsAgentSocietyRuleNew, (_) => const SocietyRuleFormScreen()),
+            (AppRoutes.accountsAgentLedgerMap, (_) => const LedgerMapScreen()),
             (AppRoutes.accountsAgentResolutions, (_) => const ResolutionsScreen()),
             (AppRoutes.accountsAgentStatutory, (_) => const StatutoryCalendarScreen()),
             (AppRoutes.accountsAgentRecovery, (_) => const RecoveryScreen()),

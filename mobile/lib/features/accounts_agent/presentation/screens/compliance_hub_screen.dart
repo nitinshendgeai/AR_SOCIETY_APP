@@ -139,6 +139,8 @@ class _ComplianceHubScreenState extends ConsumerState<ComplianceHubScreen> {
                     '${o.statutory['pending'] ?? 0} pending · ${o.statutory['overdue'] ?? 0} overdue', AppRoutes.accountsAgentStatutory),
                 link('10', 'Pending approvals', Icons.approval_outlined, '${o.pendingApprovals} awaiting a decision', AppRoutes.accountsAgentApprovals),
                 link('11', 'Legal document library', Icons.menu_book_outlined, 'Bye-laws, rules, sources, reviews', AppRoutes.accountsAgentLegalLibrary),
+                link('11a', 'Element → ledger map', Icons.account_tree_outlined, 'Which ledger each charge is credited to; sign-off',
+                    AppRoutes.accountsAgentLedgerMap),
                 link('12', 'Learning & agent settings', Icons.tune_rounded, 'Three-month learning baseline', AppRoutes.accountsAgentLearning),
               ]);
             }),

@@ -163,6 +163,12 @@ class CalendarItemIn(BaseModel):
     responsible_role: Optional[str] = Field(None, max_length=60)
 
 
+class SignOffIn(BaseModel):
+    role: str = Field(..., pattern="^(COMMITTEE|AUDITOR)$")
+    note: str = Field(..., min_length=3, max_length=500)
+    fingerprint: str = Field(..., min_length=64, max_length=64)
+
+
 class AskIn(BaseModel):
     question: str = Field(..., min_length=3, max_length=500)
 
@@ -343,6 +349,27 @@ def hierarchy(user: User = Depends(require_manager_above)):
                 "Conflicts are recorded and sent for legal review; uncertain interpretations are not enforced."]}
 
 
+def _check_ledger_rule(db: Session, sid: UUID, topic: str, calc: Optional[dict]) -> None:
+    """An element → ledger rule must name one of this society's elements and one of its own active ledgers."""
+    from app.modules.accounts_agent.legal import ledger_mapping as lm
+    from app.modules.billing.models.billing import MaintenanceElement
+    if not topic.startswith(lm.TOPIC_PREFIX):
+        return
+    code = topic[len(lm.TOPIC_PREFIX):]
+    if not db.query(MaintenanceElement.id).filter(MaintenanceElement.society_id == sid, MaintenanceElement.code == code).first():
+        raise HTTPException(422, f"Element '{code}' does not exist in this society")
+    calc = calc or {}
+    if calc.get("type") != lm.CALC_TYPE or not calc.get("account_id"):
+        raise HTTPException(422, "An element → ledger rule needs calculation_method {type: element_ledger, account_id}")
+    try:
+        acc = db.get(Account, UUID(str(calc["account_id"])))
+    except ValueError:
+        acc = None
+    if acc is None or acc.society_id != sid or not acc.is_active:
+        raise HTTPException(422, "The ledger is not an active ledger of this society")
+    calc["element"] = code
+
+
 @router.get("/legal/rules")
 def list_rules(society_id: Optional[UUID] = None, category: Optional[str] = None, topic: Optional[str] = None,
                include_history: bool = False, db: Session = Depends(get_db), user: User = Depends(require_manager_above)):
@@ -382,6 +409,7 @@ def create_society_rule(data: RuleIn, society_id: Optional[UUID] = None, db: Ses
         raise HTTPException(422, "A society rule must cite one of this society's own documents")
     if db.query(LegalRule.id).filter(LegalRule.scope == str(sid), LegalRule.rule_code == data.rule_code).first():
         raise HTTPException(409, "A rule with this code exists; add a new version instead")
+    _check_ledger_rule(db, sid, data.topic, data.calculation_method)
     r = LegalRule(scope=str(sid), society_id=sid, version=1, jurisdiction=registry.scopes_for(db, sid)[1],
                   legal_status="UNVERIFIED", verification_status="PENDING_VERIFICATION", created_by=user.id,
                   source_document_title=doc.title, source_authority="Society", **data.model_dump())
@@ -401,6 +429,8 @@ def add_rule_version(rule_id: UUID, data: RuleVersionIn, society_id: Optional[UU
         raise HTTPException(403, "Jurisdiction-wide law is revised by a platform administrator")
     changes = data.model_dump(exclude_none=True)
     note = changes.pop("change_note")
+    if r.society_id is not None and "calculation_method" in changes:
+        _check_ledger_rule(db, sid, r.topic, changes["calculation_method"])
     nv = registry.new_version(db, r, changes, user, note)
     db.commit()
     return registry.rule_dict(nv, detail=True)
@@ -679,4 +709,30 @@ def ask(data: AskIn, society_id: Optional[UUID] = None, db: Session = Depends(ge
     out = assistant.ask(db, sid, data.question)
     audit.record(db, sid, "assistant_question", "assistant", None, user.id, {"intent": out["intent"]})
     db.commit()
+    return out
+
+
+# ── Element → ledger map ───────────────────────────────────────────────────────────────────────────────────────────
+
+@router.get("/ledger-mapping")
+def ledger_map(society_id: Optional[UUID] = None, db: Session = Depends(get_db), user: User = Depends(require_manager_above)):
+    """Every active charge head: its element, the ledger bills are credited to and why, the society's own rule (if
+    any), what was actually posted recently, and whether the current map has been signed off."""
+    from app.modules.accounts_agent.legal import ledger_mapping as lm
+    sid = _sid(user, society_id)
+    registry.ensure_jurisdiction_pack(db)
+    db.commit()
+    return lm.mapping(db, sid, society_today(db, sid))
+
+
+@router.post("/ledger-mapping/sign-off")
+def sign_off_ledger_map(data: SignOffIn, society_id: Optional[UUID] = None, db: Session = Depends(get_db),
+                        user: User = Depends(require_admin_committee)):
+    """Record that the committee or auditor reviewed exactly the map that was shown (its fingerprint)."""
+    from app.modules.accounts_agent.legal import ledger_mapping as lm
+    sid = _sid(user, society_id)
+    out = lm.sign_off(db, sid, user, data.role, data.note, data.fingerprint, society_today(db, sid))
+    db.commit()
+    out["signed_off"] = lm.last_sign_off(db, sid)
+    out["signed_off_current"] = True
     return out
