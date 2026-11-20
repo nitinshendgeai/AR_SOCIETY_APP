@@ -183,6 +183,7 @@ class ParkingAllocationEntity {
   final int? monthlyCharge;
   final String? slotNumber;
   final String? vehicleNumber;
+  final String? vehicleType;
   final String? flatNumber;
   final String? wingName;
 
@@ -199,6 +200,7 @@ class ParkingAllocationEntity {
     this.monthlyCharge,
     this.slotNumber,
     this.vehicleNumber,
+    this.vehicleType,
     this.flatNumber,
     this.wingName,
   });
@@ -252,3 +254,24 @@ class VehicleParkingEntity {
   String get flatLabel =>
       [if (wingName != null) wingName, if (flatNumber != null) flatNumber].where((s) => s != null).join(' — ');
 }
+
+
+// ── Two-wheeler / four-wheeler ───────────────────────────────────────────────
+
+/// How parking reports group vehicles. Autos (three-wheelers) and "other" belong to neither group.
+enum WheelerClass { all, four, two }
+
+const _twoWheelers = {'motorcycle', 'scooter', 'bicycle'};
+const _fourWheelers = {'car', 'van', 'truck'};
+
+/// The group a vehicle type falls in, or null for a type that is neither (auto, other, unknown).
+WheelerClass? wheelerClassOf(String? vehicleType) {
+  final t = (vehicleType ?? '').toLowerCase();
+  if (_twoWheelers.contains(t)) return WheelerClass.two;
+  if (_fourWheelers.contains(t)) return WheelerClass.four;
+  return null;
+}
+
+/// Whether a vehicle of this type is shown under the chosen filter.
+bool matchesWheeler(WheelerClass filter, String? vehicleType) =>
+    filter == WheelerClass.all || wheelerClassOf(vehicleType) == filter;

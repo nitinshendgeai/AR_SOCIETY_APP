@@ -435,6 +435,7 @@ class _VehiclesTab extends ConsumerStatefulWidget {
 
 class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
   _VehicleFilter _filter = _VehicleFilter.noParking;
+  WheelerClass _wheels = WheelerClass.all;
   final _search = TextEditingController();
 
   @override
@@ -459,6 +460,7 @@ class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
           final without = all.where((v) => !v.hasParking).length;
           final query = _search.text.trim().toUpperCase().replaceAll(RegExp(r'[\s-]'), '');
           final shown = all.where((v) {
+            if (!matchesWheeler(_wheels, v.vehicleType)) return false;
             if (_filter == _VehicleFilter.noParking && v.hasParking) return false;
             if (_filter == _VehicleFilter.allotted && !v.hasParking) return false;
             if (query.isEmpty) return true;
@@ -487,6 +489,12 @@ class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 10),
+              WheelerFilter(
+                value: _wheels,
+                types: [for (final v in all) v.vehicleType],
+                onChanged: (w) => setState(() => _wheels = w),
+              ),
+              const SizedBox(height: 8),
               Wrap(spacing: 8, children: [
                 for (final f in _VehicleFilter.values)
                   ChoiceChip(
@@ -666,12 +674,20 @@ class _AllotVehicleSheetState extends ConsumerState<_AllotVehicleSheet> {
 
 // ── Allocations tab ────────────────────────────────────────────────────────
 
-class _AllocationsTab extends ConsumerWidget {
+class _AllocationsTab extends ConsumerStatefulWidget {
   final String societyId;
   const _AllocationsTab({required this.societyId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_AllocationsTab> createState() => _AllocationsTabState();
+}
+
+class _AllocationsTabState extends ConsumerState<_AllocationsTab> {
+  WheelerClass _wheels = WheelerClass.all;
+
+  @override
+  Widget build(BuildContext context) {
+    final societyId = widget.societyId;
     final allocationsAsync = ref.watch(parkingAllocationsProvider(societyId));
 
     return RefreshIndicator(
@@ -694,15 +710,61 @@ class _AllocationsTab extends ConsumerWidget {
               ),
             ]);
           }
-          return ListView.separated(
+          final shown = active.where((a) => matchesWheeler(_wheels, a.vehicleType)).toList();
+          return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
-            itemCount: active.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (_, i) => _AllocationTile(allocation: active[i], societyId: societyId),
+            children: [
+              WheelerFilter(
+                value: _wheels,
+                types: [for (final a in active) a.vehicleType],
+                onChanged: (w) => setState(() => _wheels = w),
+              ),
+              const SizedBox(height: 12),
+              if (shown.isEmpty)
+                const EmptyState(icon: Icons.local_parking_rounded, title: 'No allocations for this vehicle type', subtitle: '')
+              else
+                for (final a in shown) ...[
+                  _AllocationTile(allocation: a, societyId: societyId),
+                  const SizedBox(height: 10),
+                ],
+            ],
           );
         },
       ),
     );
+  }
+}
+
+/// All / Four wheeler / Two wheeler, with how many vehicles each choice shows.
+class WheelerFilter extends StatelessWidget {
+  final WheelerClass value;
+  final List<String?> types;
+  final ValueChanged<WheelerClass> onChanged;
+  const WheelerFilter({super.key, required this.value, required this.types, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    int count(WheelerClass w) => types.where((t) => matchesWheeler(w, t)).length;
+    return Wrap(spacing: 8, children: [
+      for (final w in WheelerClass.values)
+        ChoiceChip(
+          avatar: Icon(
+            switch (w) {
+              WheelerClass.all => Icons.local_parking_rounded,
+              WheelerClass.four => Icons.directions_car_rounded,
+              WheelerClass.two => Icons.two_wheeler_rounded,
+            },
+            size: 16,
+          ),
+          label: Text('${switch (w) {
+            WheelerClass.all => 'All',
+            WheelerClass.four => 'Four wheeler',
+            WheelerClass.two => 'Two wheeler',
+          }} (${count(w)})'),
+          selected: value == w,
+          onSelected: (_) => onChanged(w),
+        ),
+    ]);
   }
 }
 

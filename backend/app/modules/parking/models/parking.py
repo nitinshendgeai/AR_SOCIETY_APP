@@ -178,6 +178,13 @@ class ParkingAllocation(Base, TimestampMixin):
         return self.vehicle.vehicle_number if self.vehicle else None
 
     @property
+    def vehicle_type(self):
+        """The allotted vehicle's type (car, motorcycle, scooter …), so reports can tell two- and four-wheelers apart."""
+        if not self.vehicle or self.vehicle.vehicle_type is None:
+            return None
+        return getattr(self.vehicle.vehicle_type, "value", self.vehicle.vehicle_type)
+
+    @property
     def flat_number(self):
         return self.flat.flat_number if self.flat else None
 
