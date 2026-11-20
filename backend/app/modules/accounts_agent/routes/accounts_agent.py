@@ -6,6 +6,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.dependencies import require_admin_committee, require_manager_above
@@ -244,6 +245,35 @@ def _audit_dict(r: AgentAuditLog) -> dict:
     return {"id": str(r.id), "created_at": r.created_at.isoformat(), "actor_id": str(r.actor_id) if r.actor_id else None,
             "actor": "Accounts Agent" if r.actor_id is None else "User", "action": r.action, "entity_type": r.entity_type,
             "entity_id": r.entity_id, "details": r.details}
+
+
+# ── Dead monitoring events: administrative recovery (functional audit D-10) ─────────────────────────────────────
+
+@router.get("/events/dead")
+def dead_events(society_id: Optional[UUID] = None, include_acknowledged: bool = True, db: Session = Depends(get_db),
+                user: User = Depends(require_admin_committee)):
+    from app.modules.accounts_agent.services import event_recovery
+    sid = _sid(user, society_id)
+    return {"items": event_recovery.list_dead(db, sid, include_acknowledged), **event_recovery.counts(db, sid),
+            "max_requeues": event_recovery.MAX_REQUEUES}
+
+
+@router.post("/events/{event_id}/requeue")
+def requeue_event(event_id: UUID, society_id: Optional[UUID] = None, db: Session = Depends(get_db),
+                  user: User = Depends(require_admin_committee)):
+    from app.modules.accounts_agent.services import event_recovery
+    return event_recovery.event_dict(event_recovery.requeue(db, _sid(user, society_id), event_id, user))
+
+
+class EventAcknowledge(BaseModel):
+    note: str = Field(..., min_length=5, max_length=500)
+
+
+@router.post("/events/{event_id}/acknowledge")
+def acknowledge_event(event_id: UUID, data: EventAcknowledge, society_id: Optional[UUID] = None,
+                      db: Session = Depends(get_db), user: User = Depends(require_admin_committee)):
+    from app.modules.accounts_agent.services import event_recovery
+    return event_recovery.event_dict(event_recovery.acknowledge(db, _sid(user, society_id), event_id, user, data.note))
 
 
 @router.get("/audit-logs")

@@ -48,7 +48,9 @@ def status(db: Session, society_id: UUID) -> dict:
         AgentEvent.society_id == society_id, AgentEvent.status.in_(("pending", "failed", "processing"))).scalar() or 0
     oldest = db.query(func.min(AgentEvent.created_at)).filter(
         AgentEvent.society_id == society_id, AgentEvent.status.in_(("pending", "failed", "processing"))).scalar()
-    dead = db.query(func.count(AgentEvent.id)).filter(AgentEvent.society_id == society_id, AgentEvent.status == "dead").scalar() or 0
+    from app.modules.accounts_agent.services import event_recovery
+    dc = event_recovery.counts(db, society_id, now)
+    dead = dc["unacknowledged"]                 # acknowledged historical failures no longer degrade monitoring
     if not s.monitoring_enabled:
         state = "disabled"
     elif dead:
@@ -59,7 +61,8 @@ def status(db: Session, society_id: UUID) -> dict:
         state = "operational"
     run = last_completed_run(db, society_id)
     return {"state": state, "monitoring_enabled": s.monitoring_enabled, "last_monitored_at": s.last_monitored_at.isoformat() if s.last_monitored_at else None,
-            "pending_events": backlog, "failed_events": dead, "last_error": s.last_error,
+            "pending_events": backlog, "failed_events": dead, "recent_failed_events": dc["recent"],
+            "acknowledged_failed_events": dc["acknowledged"], "last_error": s.last_error,
             "last_learning_at": run.finished_at.isoformat() if run and run.finished_at else None,
             "learning_confidence": run.confidence_label if run else "none"}
 

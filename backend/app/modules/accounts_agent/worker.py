@@ -57,6 +57,7 @@ def claim_batch(db: Session, worker_id: str, limit: int = BATCH_SIZE, now: Optio
         e.attempts += 1
         if e.attempts > MAX_ATTEMPTS:
             e.status, e.last_error, e.locked_until = "dead", (e.last_error or "gave up after repeated crashes"), None
+            e.dead_at = now
             notify.notify_job_failure(db, e.society_id, e.id, e.attempts - 1)
             continue
         e.status, e.locked_by, e.locked_until = "processing", worker_id, now + timedelta(seconds=LEASE_SECONDS)
@@ -117,7 +118,7 @@ def _fail(db: Session, event_id: UUID, exc: Exception) -> None:
     e.last_error = f"{type(exc).__name__}: {str(exc)[:300]}"          # no financial data in the error text
     e.locked_until = None
     if e.attempts >= MAX_ATTEMPTS:
-        e.status = "dead"
+        e.status, e.dead_at = "dead", datetime.utcnow()
         notify.notify_job_failure(db, e.society_id, e.id, e.attempts)
     else:
         e.status, e.next_attempt_at = "failed", datetime.utcnow() + backoff(e.attempts)
@@ -164,6 +165,25 @@ def run_once(db: Session, worker_id: Optional[str] = None, limit: int = BATCH_SI
     return out
 
 
+MAX_DRAIN_PASSES = 1000          # a hard stop for --once: 1,000 batches of BATCH_SIZE events
+
+
+def drain(db: Session, worker_id: Optional[str] = None, limit: int = BATCH_SIZE,
+          max_passes: int = MAX_DRAIN_PASSES) -> Dict[str, int]:
+    """Process every event that is due NOW, batch by batch, until a claim comes back empty (D-08 of the functional
+    audit: `--once` used to stop after one batch). It cannot loop forever on a failing event: a failure sets the event's
+    next attempt in the future (backoff), so it is not due again during this drain, and the number of passes is capped."""
+    total = {"claimed": 0, "done": 0, "failed": 0, "findings": 0, "passes": 0}
+    for _ in range(max_passes):
+        counts = run_once(db, worker_id, limit)
+        total["passes"] += 1
+        for k in ("claimed", "done", "failed", "findings"):
+            total[k] += counts.get(k, 0)
+        if not counts.get("claimed"):
+            break
+    return total
+
+
 SCAN_EVERY = timedelta(hours=24)
 
 
@@ -204,7 +224,8 @@ def maintenance(db: Session) -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Accounts Agent monitoring worker")
-    ap.add_argument("--once", action="store_true", help="process what is due, then exit")
+    ap.add_argument("--once", action="store_true",
+                    help="process every event that is due now, batch by batch, then exit")
     ap.add_argument("--scan", action="store_true", help="run the due daily compliance scans, then exit")
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -226,6 +247,10 @@ def main(argv=None) -> int:
     while not stop["flag"]:
         db = get_session_factory()()
         try:
+            if args.once:
+                counts = drain(db, worker_id)
+                logger.info("[accounts-agent] drained: %s", counts)
+                break
             counts = run_once(db, worker_id)
             if time.time() - last_maint > 3600:
                 maintenance(db)
