@@ -123,9 +123,10 @@ covered by the re-run of `tests/accounts_agent` (100 passed). The full suite was
 * No OCR engine is bundled: scanned PDFs are stored and flagged `OCR_REQUIRED`; `.doc` is stored but not parsed.
   PDF text needs `pdftotext` (poppler) on the server, otherwise the document is flagged for manual transcription.
 * Clause extraction is pattern-based; every clause is marked for human verification.
-* Not implemented: vendor bank-account change detection (no history of vendor bank details exists), owner→owner ledger
-  transition checks, parking-allotment vs charge reconciliation, unadjusted advance detection. Interest checking is an
-  upper-bound test (exact recomputation of the billing calculator was not duplicated).
+* Interest checking is an upper-bound test (exact recomputation of the billing calculator was not duplicated).
+* Parking reconciliation compares *whether* a held slot was billed (latest cycle), not the rate charged per slot; parking
+  deposits and refunds are not reconciled. Ownership transfers are inferred from owner residents' move-out / move-in
+  dates (and `OWNERSHIP_TRANSFER` occupancy events, which the app does not yet write).
 * The assistant is keyword-matched; questions outside its intents get a list of what it can answer.
 * Society rules are added from Legal Library → Legal rules → "Add society rule" and verified there; revising one (a new version) is still API-only (`POST legal/rules/{id}/versions`).
 * Flutter screens were analysed and unit/widget-tested, not run on a device.
@@ -136,3 +137,22 @@ Backend CI caps the full suite at 5 skipped tests. The Accounts Agent's PostgreS
 there. They now run in the **Migrations (PostgreSQL 16)** job against its PostgreSQL service (`--max-skipped 0`), and
 the SQLite full-suite step no longer collects that file. The PDF extraction test checks the "no `pdftotext`" fallback
 (stored, flagged OCR_REQUIRED, no clauses) instead of skipping when the tool is missing.
+
+## 7. Residential checks added later (`legal/residential_checks.py`)
+
+| Rule | What it flags | Class |
+|---|---|---|
+| A-VEN-BANK-01 | A vendor's bank account / IFSC changed (any route: vendor screen, import, direct edit) within 180 days; HIGH when money was paid after the change or it changed twice in 90 days. Who/when from the vendor audit trail; first scan rebuilds recent changes from it. Account numbers are stored and shown masked (last 4 digits), with a SHA-256 fingerprint of account + IFSC (the bank's name is free text and ignored). | Suspected anomaly |
+| A-HND-01 | After a change of owner, bills due before the transfer still unpaid on the flat | Missing documentation |
+| A-HND-02 | The previous owner's unadjusted advance still on the flat | Suspected anomaly |
+| A-HND-03 | No transfer premium / fee credited for the flat within four months of the transfer | Advisory |
+| A-HND-04 | A new owner moved in while the earlier owner has no move-out date | Advisory |
+| A-PRK-01 / 02 | Latest cycle: a held, chargeable slot not billed / parking billed with no slot held (two-wheeler rate and released slots respected) | Suspected anomaly |
+| A-PRK-03 | One slot allotted to two flats for overlapping periods | Suspected anomaly |
+| A-PRK-04 | An allotment pointing at another society's slot | Confirmed error |
+| A-PRK-05 | Slots allotted but no parking charge head | Advisory |
+| A-ADV-01 | A member's advance not set off while the flat has unpaid bills (with the amount that could be set off) | Suspected anomaly |
+| A-ADV-02 | An advance unused for more than 180 days with nothing due | Advisory |
+
+Migration `d4e6f8a0b2c4` adds `accounts_agent_vendor_bank_records` (the agent's own history). Nothing else is written;
+no bill, receipt, vendor or voucher is changed. Tests: `tests/accounts_agent/test_residential_checks.py` (13).

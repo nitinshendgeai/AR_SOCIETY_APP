@@ -9,7 +9,8 @@ Principles enforced here:
   a model bye-law gives an ADVISORY_OBSERVATION, a blocking review prevents a confirmed violation;
 - each transaction is judged by the rule in force on ITS date (registry.resolve(topic, date));
 - a statistic or a budget overrun is never presented as a legal violation;
-- the scan reads only; it never changes a voucher, bill or balance.
+- the scan never changes a voucher, bill, receipt, vendor or balance; the only rows it writes are the agent's own
+  (findings, legal reviews, the compliance calendar, and its record of vendor bank details).
 """
 import logging
 from collections import Counter, defaultdict
@@ -900,6 +901,11 @@ CHECKS = [chk_interest_setting, chk_non_occupancy_setting, chk_non_occupancy_bil
           chk_calendar, chk_recovery]
 
 
+def _residential():
+    from app.modules.accounts_agent.legal.residential_checks import CHECKS as RESIDENTIAL
+    return RESIDENTIAL
+
+
 def run_scan(db: Session, society_id: UUID, actor_id: Optional[UUID] = None) -> dict:
     """Run every check for ONE society and store the results. Caller commits."""
     registry.ensure_jurisdiction_pack(db)
@@ -908,7 +914,7 @@ def run_scan(db: Session, society_id: UUID, actor_id: Optional[UUID] = None) -> 
     registry.detect_conflicts(db, society_id, s.today)
     drafts: List[LDraft] = []
     failed: List[str] = []
-    for fn in CHECKS:
+    for fn in CHECKS + _residential():
         try:
             with db.begin_nested():
                 drafts += fn(s)
@@ -917,7 +923,7 @@ def run_scan(db: Session, society_id: UUID, actor_id: Optional[UUID] = None) -> 
             failed.append(fn.__name__)
     created, live = store(db, society_id, drafts)
     resolved = auto_resolve(db, society_id, live)
-    summary = {"checks": len(CHECKS), "failed_checks": failed, "detected": len(drafts), "new_findings": len(created),
+    summary = {"checks": len(CHECKS) + len(_residential()), "failed_checks": failed, "detected": len(drafts), "new_findings": len(created),
                "auto_resolved": resolved, "scanned_at": datetime.utcnow().isoformat()}
     audit.record(db, society_id, "compliance_scan", "society", society_id, actor_id,
                  {k: v for k, v in summary.items() if k != "scanned_at"})
