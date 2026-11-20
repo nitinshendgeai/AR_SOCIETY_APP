@@ -219,3 +219,32 @@ def test_society_rule_created_and_verified_as_the_app_does(client, two):
                      headers=a.manager["headers"]).json()
     assert app["effective_value"] == 10                       # the stricter bye-law now governs
     assert client.post(f"{API}/legal/rules", headers=a.admin["headers"], json=body).status_code == 409   # one code, versions after
+
+
+def test_society_rule_revised_as_the_app_does(client, two):
+    """The request the Flutter "Revise rule" screen sends: a new version with a new figure and a change note."""
+    a, _ = two
+    doc = _upload(client, a, text="Bye-law No. 70. Interest at 10 per cent per annum on arrears.").json()
+    client.post(f"{API}/legal/documents/{doc['id']}/verify", headers=a.admin["headers"], json={
+        "status": "REGISTERED", "verification_status": "VERIFIED_SECONDARY_SOURCE", "note": "certified copy",
+        "approval_date": "2020-05-01"})
+    rule = client.post(f"{API}/legal/rules", headers=a.admin["headers"], json={
+        "rule_code": "SOC-REV", "title": "Bye-law 70 interest", "topic": "charges.interest_on_arrears.max_rate_pct",
+        "rule_category": "charges", "source_level": "D", "source_document_id": doc["id"], "page_number": "14",
+        "effective_from": "2024-04-01", "calculation_method": {"type": "max_pct", "value": 10}}).json()
+    client.post(f"{API}/legal/rules/{rule['id']}/verify", headers=a.admin["headers"], json={
+        "verification_status": "VERIFIED_SECONDARY_SOURCE", "note": "checked", "page_number": "14"})
+    body = {"effective_from": "2026-10-01", "change_note": "GB resolution 7/2026 lowered the rate",
+            "calculation_method": {"type": "max_pct", "value": 9}, "page_number": "15"}
+    assert client.post(f"{API}/legal/rules/{rule['id']}/versions", headers=a.manager["headers"], json=body).status_code == 403
+    r = client.post(f"{API}/legal/rules/{rule['id']}/versions", headers=a.admin["headers"], json=body)
+    assert r.status_code == 201, r.text
+    assert r.json()["version"] == 2 and r.json()["verification_status"] == "PENDING_VERIFICATION"
+    detail = client.get(f"{API}/legal/rules/{rule['id']}", headers=a.manager["headers"]).json()
+    v1, v2 = detail["versions"]
+    assert v1["legal_status"] == "SUPERSEDED" and v1["effective_until"] == "2026-09-30"
+    assert v2["change_note"] == "GB resolution 7/2026 lowered the rate"
+    old = client.get(f"{API}/legal/applicable?topic=charges.interest_on_arrears.max_rate_pct&on_date=2025-06-01",
+                     headers=a.manager["headers"]).json()
+    assert old["effective_value"] == 10                   # earlier dates still use version 1
+    assert client.post(f"{API}/legal/rules/{rule['id']}/versions", headers=a.admin["headers"], json=body).status_code == 409

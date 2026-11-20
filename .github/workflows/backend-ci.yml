@@ -58,6 +58,11 @@ jobs:
           python -m pip install --require-hashes -r requirements-dev.txt
           python -m pip check
 
+      # The legal-document reader uses these (as nixpacks.toml installs them in production), so its OCR and .doc tests
+      # exercise the real tools rather than only the "not installed" fallback.
+      - name: Install document tools (poppler, tesseract with Marathi, antiword)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils tesseract-ocr tesseract-ocr-mar tesseract-ocr-eng antiword
+
       - name: Python syntax and import check
         run: |
           python -m compileall -q app tests scripts

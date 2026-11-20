@@ -177,7 +177,8 @@ def chk_vendor_bank_changes(s) -> List:
 # ── Ownership handover ─────────────────────────────────────────────────────────────────────────────────────────────
 
 def ownership_transfers(s) -> List[dict]:
-    """Recent changes of owner, per flat: from owner residents' move-out / move-in dates and ownership-transfer events."""
+    """Recent changes of owner, per flat. A transfer recorded through Occupancy (an OWNERSHIP_TRANSFER entry) is used as
+    recorded; otherwise one is inferred from owner residents' move-out / move-in dates."""
     from app.models.flat import Flat
     from app.models.occupancy_log import OccupancyEventType, OccupancyLog
     from app.models.resident import Resident, ResidentType
@@ -189,10 +190,22 @@ def ownership_transfers(s) -> List[dict]:
     by_flat = defaultdict(list)
     for r in owners:
         by_flat[r.flat_id].append(r)
-    out, seen = [], set()
+    out = []
+    for e in (s.db.query(OccupancyLog).filter(OccupancyLog.society_id == s.sid,
+                                              OccupancyLog.event_type == OccupancyEventType.OWNERSHIP_TRANSFER,
+                                              OccupancyLog.event_date >= since).order_by(OccupancyLog.event_date)):
+        rows = by_flat.get(e.flat_id, [])
+        new = next((r for r in rows if r.id == e.resident_id), None)
+        prev = [r for r in rows if r.move_out_date == e.event_date and r.id != e.resident_id]
+        out.append({"flat_id": e.flat_id, "date": e.event_date, "recorded": True, "notes": e.notes,
+                    "previous_owner": ", ".join(r.full_name for r in prev) or None,
+                    "new_owner": new.full_name if new else None, "previous_still_active": False})
+
+    def recorded_near(flat_id, when) -> bool:
+        return any(t["flat_id"] == flat_id and abs((t["date"] - when).days) <= 30 for t in out)
+
     for flat_id, rows in by_flat.items():
-        movers = [r for r in rows if r.move_out_date]
-        for old in movers:
+        for old in [r for r in rows if r.move_out_date]:
             new = sorted([r for r in rows if r.id != old.id and r.move_in_date
                           and abs((r.move_in_date - old.move_out_date).days) <= 90
                           and (old.move_in_date is None or r.move_in_date >= old.move_in_date)],
@@ -200,26 +213,18 @@ def ownership_transfers(s) -> List[dict]:
             if not new:
                 continue
             when = new[0].move_in_date
-            if when < since or (flat_id, when) in seen:
+            if when < since or recorded_near(flat_id, when):
                 continue
-            seen.add((flat_id, when))
-            out.append({"flat_id": flat_id, "date": when, "previous_owner": old.full_name, "new_owner": new[0].full_name,
-                        "previous_still_active": False})
+            out.append({"flat_id": flat_id, "date": when, "recorded": False, "notes": None,
+                        "previous_owner": old.full_name, "new_owner": new[0].full_name, "previous_still_active": False})
         # A newer owner moved in while an earlier owner was never marked as moved out.
         dated = sorted([r for r in rows if r.move_in_date], key=lambda r: r.move_in_date)
         for a, b in zip(dated, dated[1:]):
-            if a.move_out_date is None and b.move_in_date >= since and b.move_in_date > a.move_in_date \
-                    and (flat_id, b.move_in_date) not in seen and a.resident_type == ResidentType.OWNER \
-                    and b.resident_type == ResidentType.OWNER:
-                seen.add((flat_id, b.move_in_date))
-                out.append({"flat_id": flat_id, "date": b.move_in_date, "previous_owner": a.full_name,
-                            "new_owner": b.full_name, "previous_still_active": True})
-    for e in s.db.query(OccupancyLog).filter(OccupancyLog.society_id == s.sid,
-                                             OccupancyLog.event_type == OccupancyEventType.OWNERSHIP_TRANSFER,
-                                             OccupancyLog.event_date >= since):
-        if not any(t["flat_id"] == e.flat_id and abs((t["date"] - e.event_date).days) <= 30 for t in out):
-            out.append({"flat_id": e.flat_id, "date": e.event_date, "previous_owner": None, "new_owner": None,
-                        "previous_still_active": False})
+            if (a.move_out_date is None and a.is_active and b.move_in_date >= since and b.move_in_date > a.move_in_date
+                    and a.resident_type == ResidentType.OWNER and b.resident_type == ResidentType.OWNER
+                    and not recorded_near(flat_id, b.move_in_date)):
+                out.append({"flat_id": flat_id, "date": b.move_in_date, "recorded": False, "notes": None,
+                            "previous_owner": a.full_name, "new_owner": b.full_name, "previous_still_active": True})
     return out
 
 
@@ -257,7 +262,8 @@ def chk_ownership_handover(s) -> List:
                               recommended="Record who is liable: recover from the previous owner, or file the new owner's "
                                           "undertaking with the transfer papers.",
                               evidence={"bills": [b.invoice_number for b in old_bills], "outstanding": str(due),
-                                        "transfer_date": when.isoformat()}, subject=subject, flat_id=fid))
+                                        "transfer_date": when.isoformat(), "transfer_recorded": t.get("recorded", False),
+                                        "transfer_notes": t.get("notes")}, subject=subject, flat_id=fid))
         subs = (s.db.query(OnlinePaymentSubmission).filter(OnlinePaymentSubmission.society_id == s.sid,
                                                            OnlinePaymentSubmission.flat_id == fid,
                                                            OnlinePaymentSubmission.is_active == True,  # noqa: E712
@@ -367,9 +373,34 @@ def chk_parking(s) -> List:
     for a in allocs:
         if a.flat_id and _overlaps(a.start_date, _held_until(a), cycle.cycle_start, cycle.cycle_end):
             held[a.flat_id].append(a)
+    from app.modules.billing.services.maintenance_calculator import FREQUENCY_MONTHS
+    months = FREQUENCY_MONTHS.get(cycle.frequency, 1)
+    rate_head = paying[0] if len(paying) == 1 and not paying[0].auto_from_expenses else None
     for b in bills:
         billed = sum((_money(li.amount) for li in b.line_items if li.charge_type == ChargeType.PARKING), D0)
         slots_held = [a for a in held.get(b.flat_id, []) if a.monthly_charge != 0]
+        full_period = not (b.period_start and b.period_end and (b.period_start != cycle.cycle_start or b.period_end != cycle.cycle_end))
+        whole = [a for a in held.get(b.flat_id, []) if a.start_date <= cycle.cycle_start
+                 and (_held_until(a) is None or _held_until(a) >= cycle.cycle_end)]
+        if (rate_head is not None and billed and full_period and slots_held
+                and len(whole) == len(held.get(b.flat_id, []))):
+            exp, working = expected_parking(rate_head, whole, b.flat_id in tw_flats, months)
+            if abs(exp - billed) > Decimal("1.00"):
+                out.append(LDraft("A-PRK-06", "accounting", "maintenance_billing", "parking", "SUSPECTED_ACCOUNTING_ANOMALY",
+                                  "MEDIUM", 0.75,
+                                  f"{s.flat_label(b.flat_id)} was billed {_inr(billed)} for parking; its slots work out to {_inr(exp)}",
+                                  f"For {cycle.name} ({months} month(s)), {s.flat_label(b.flat_id)} held {len(whole)} slot(s) for the "
+                                  f"whole period. At the rates on record ({'; '.join(working)}) that is {_inr(exp)}, but bill "
+                                  f"{b.invoice_number} charges {_inr(billed)}. A slot or zone rate may have changed after billing, "
+                                  "or the bill was edited.",
+                                  expected=_inr(exp), actual=_inr(billed),
+                                  recommended="Check the slot's own monthly charge, the zone rate and the parking head's rate; "
+                                              "correct the difference by a credit or debit note.",
+                                  evidence={"cycle": cycle.name, "months": months, "billed": str(billed), "expected": str(exp),
+                                            "working": working, "bill": b.invoice_number,
+                                            "calculation": " + ".join(working) + f" = {exp}"},
+                                  subject=f"rate:{cycle.id}:{b.flat_id}", flat_id=b.flat_id, transaction_ref=b.invoice_number,
+                                  voucher_date=b.bill_date))
         if slots_held and not billed:
             nums = [slots[a.slot_id].slot_number for a in slots_held if a.slot_id in slots]
             out.append(LDraft("A-PRK-01", "accounting", "maintenance_billing", "parking", "SUSPECTED_ACCOUNTING_ANOMALY", "MEDIUM", 0.75,
@@ -393,6 +424,33 @@ def chk_parking(s) -> List:
                               subject=f"{cycle.id}:{b.flat_id}", flat_id=b.flat_id, transaction_ref=b.invoice_number,
                               voucher_date=b.bill_date))
     return out
+
+
+def expected_parking(head, allocations, has_two_wheeler: bool, months: int):
+    """What a flat's parking should come to, the way the billing calculator prices it: a slot's own monthly charge; else,
+    for a car, its zone's monthly rate; else the head's rate (the two-wheeler rate for a two-wheeler's slot when the
+    head has one). A flat with a registered two-wheeler but no two-wheeler slot pays the two-wheeler rate once.
+    Returns (amount for the cycle, readable working)."""
+    rate = _money(head.default_amount)
+    tw_rate = _money(head.two_wheeler_rate) if head.two_wheeler_rate is not None else rate
+    total, working, any_tw = D0, [], False
+    for a in allocations:
+        vt = getattr(a.vehicle.vehicle_type, "value", a.vehicle.vehicle_type) if a.vehicle else None
+        is_tw = vt in TWO_WHEELERS
+        any_tw = any_tw or is_tw
+        num = a.slot.slot_number if a.slot else "slot"
+        if a.monthly_charge is not None:
+            amt, why = _money(a.monthly_charge), "slot's own charge"
+        elif not is_tw and a.slot is not None and a.slot.zone is not None and a.slot.zone.monthly_rate is not None:
+            amt, why = _money(a.slot.zone.monthly_rate), f"{a.slot.zone.name} zone rate"
+        else:
+            amt, why = (tw_rate, "two-wheeler rate") if is_tw else (rate, "parking head rate")
+        total += amt * months
+        working.append(f"{num} {_inr(amt)} × {months} ({why})")
+    if head.two_wheeler_rate is not None and has_two_wheeler and not any_tw:
+        total += tw_rate * months
+        working.append(f"registered two-wheeler {_inr(tw_rate)} × {months}")
+    return total.quantize(Decimal("0.01")), working
 
 
 # ── Unadjusted advances ────────────────────────────────────────────────────────────────────────────────────────────

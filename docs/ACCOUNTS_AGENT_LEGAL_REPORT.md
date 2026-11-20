@@ -120,15 +120,16 @@ covered by the re-run of `tests/accounts_agent` (100 passed). The full suite was
   discrepancy reviews against the Marathi text, then verify each rule with its page.
 * 106C-7 and 106C-13 slab figures are not loaded; 106C-13 checks fall back to the society's procurement limits / model
   bye-law 157 and are labelled accordingly.
-* No OCR engine is bundled: scanned PDFs are stored and flagged `OCR_REQUIRED`; `.doc` is stored but not parsed.
-  PDF text needs `pdftotext` (poppler) on the server, otherwise the document is flagged for manual transcription.
+* Scanned PDF pages and photos (PNG/JPG) are read by OCR (Tesseract, Marathi + English) and legacy `.doc` files by
+  antiword, when those tools are installed (`nixpacks.toml` installs them; without them the file is stored and flagged
+  for manual transcription). OCR text is always marked for verification, with a confidence per page.
 * Clause extraction is pattern-based; every clause is marked for human verification.
 * Interest checking is an upper-bound test (exact recomputation of the billing calculator was not duplicated).
-* Parking reconciliation compares *whether* a held slot was billed (latest cycle), not the rate charged per slot; parking
-  deposits and refunds are not reconciled. Ownership transfers are inferred from owner residents' move-out / move-in
-  dates (and `OWNERSHIP_TRANSFER` occupancy events, which the app does not yet write).
+* Parking rate checking (A-PRK-06) covers full-period bills of flats holding their slots for the whole cycle with one
+  parking head not priced from expenses; other cases are not judged. The parking module records no deposits or
+  refunds, so there is nothing to reconcile for those.
 * The assistant is keyword-matched; questions outside its intents get a list of what it can answer.
-* Society rules are added from Legal Library → Legal rules → "Add society rule" and verified there; revising one (a new version) is still API-only (`POST legal/rules/{id}/versions`).
+* Society rules are added, revised (new version, with history) and verified from Legal Library → Legal rules.
 * Flutter screens were analysed and unit/widget-tested, not run on a device.
 
 ## 6. CI change
@@ -177,3 +178,18 @@ was shown is refused (409). Flutter: Compliance hub → "Element → ledger map"
 
 The posting table itself is unchanged: a society rule changes what the agent checks against, not how bills post. A
 difference is corrected by a person (re-linking the charge head's element in Billing and a journal), never by the agent.
+
+## 9. Follow-ups
+
+* **Rule revisions in the app**: Legal rules → "Revise" shows every version and saves a new one (new figure / ledger,
+  clause, page, text, effective date, reason). The earlier version is kept and closed the day before.
+* **OCR and .doc** (`legal/documents.py`): pages with no text layer are rendered (poppler) and read by Tesseract
+  (`mar+eng`), with a mean word confidence per page; photos of documents are read the same way; `.doc` via antiword.
+  Quality `OCR_TEXT` (or `POOR` below 60 % confidence); verifying such a document needs a note on how it was checked.
+  Backend CI installs the same tools, so the OCR tests run against the real engine.
+* **Parking rate check** (A-PRK-06): the bill's parking amount against the slots held, priced the way the billing
+  calculator prices them (slot charge → zone rate for cars → head rate / two-wheeler rate, × months in the cycle).
+* **Ownership transfer**: `POST /occupancy/ownership-transfer` (admin / committee) and "Transfer ownership" on a
+  resident: the previous owner(s) move out on the date (vehicles unassigned as on any move-out), the new owner becomes
+  primary, and an `OWNERSHIP_TRANSFER` entry (with share-certificate / deed references) is written. The agent's
+  handover checks use the recorded event, falling back to move-in / move-out dates when none was recorded.

@@ -33,6 +33,16 @@ class TenantMoveOutRequest(OrmBase):
     flat_id: UUID; tenant_id: UUID; move_out_date: date
 
 
+class OwnershipTransferRequest(OrmBase):
+    flat_id: UUID
+    new_owner_id: UUID
+    transfer_date: date
+    previous_owner_ids: Optional[List[UUID]] = None     # default: every current owner / co-owner of the flat
+    share_certificate_no: Optional[str] = None
+    deed_reference: Optional[str] = None
+    notes: Optional[str] = None
+
+
 class OccupancyLogOut(TimestampSchema):
     flat_id: UUID; event_type: OccupancyEventType; event_date: date
     resident_id: Optional[UUID]; tenant_id: Optional[UUID]; notes: Optional[str]
@@ -48,6 +58,17 @@ def resident_move_in(data: MoveInRequest, db: Session = Depends(get_db),
 def resident_move_out(data: MoveOutRequest, db: Session = Depends(get_db),
                       user: User = Depends(get_current_user)):
     return OccupancyService(db).resident_move_out(data.flat_id, data.resident_id, data.move_out_date, user)
+
+
+@router.post("/ownership-transfer", dependencies=[Depends(committee_or_admin)])
+def ownership_transfer(data: OwnershipTransferRequest, db: Session = Depends(get_db),
+                       user: User = Depends(get_current_user)):
+    """Record a change of owner: previous owner(s) out, new owner in, and an ownership-transfer entry in the flat's
+    history. Changes no accounts."""
+    r = OccupancyService(db).ownership_transfer(
+        data.flat_id, data.new_owner_id, data.transfer_date, user, previous_owner_ids=data.previous_owner_ids,
+        share_certificate_no=data.share_certificate_no, deed_reference=data.deed_reference, notes=data.notes)
+    return {"new_owner_id": str(r.id), "flat_id": str(r.flat_id), "transfer_date": data.transfer_date.isoformat()}
 
 
 @router.post("/tenant/move-in", dependencies=[Depends(committee_or_admin)])

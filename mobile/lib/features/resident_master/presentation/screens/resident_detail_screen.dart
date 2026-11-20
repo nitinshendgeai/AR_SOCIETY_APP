@@ -9,6 +9,7 @@ import 'package:ar_society_app/features/resident_master/data/models/resident_mas
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/occupancy_action_sheets.dart';
+import 'package:ar_society_app/features/resident_master/presentation/widgets/ownership_transfer_sheet.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/vehicle_form_sheet.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
@@ -234,6 +235,16 @@ class _ResidentDetailBody extends ConsumerWidget {
             ),
           ]),
 
+          if (canEdit && canMoveOut &&
+              (resident.residentType == ResidentType.owner || resident.residentType == ResidentType.coOwner)) ...[
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              onPressed: () => showOwnershipTransferSheet(context, ref, from: resident),
+              icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+              label: const Text('Transfer ownership'),
+              style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 44)),
+            ),
+          ],
           if (canEdit && (canMoveIn || canMoveOut)) ...[
             const SizedBox(height: 24),
             if (canMoveIn)

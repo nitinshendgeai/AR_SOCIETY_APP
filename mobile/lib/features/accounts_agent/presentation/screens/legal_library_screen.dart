@@ -282,10 +282,17 @@ class _Rules extends ConsumerWidget {
                 if (r.calcValue != null) KeyValue('Figure', '${calcValueLabels[r.calcType] ?? titleCase(r.calcType ?? '')}: ${r.calcValue}'),
                 KeyValue('In force', [if (r.effectiveFrom != null) 'from ${r.effectiveFrom}', if (r.effectiveUntil != null) 'until ${r.effectiveUntil}'].join(' ')),
                 if (r.note != null) Text(r.note!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                if (mayDecide && r.societySpecific && !r.isVerified && r.isLatest)
+                if (mayDecide && r.societySpecific && r.isLatest)
                   Align(
                     alignment: Alignment.centerRight,
-                    child: TextButton.icon(onPressed: () => _verify(context, ref, r), icon: const Icon(Icons.verified_outlined), label: const Text('Verify')),
+                    child: Wrap(spacing: 4, children: [
+                      TextButton.icon(
+                          onPressed: () => context.push(AppRoutes.accountsAgentRuleRevise.replaceFirst(':id', r.id)),
+                          icon: const Icon(Icons.history_edu_outlined),
+                          label: const Text('Revise')),
+                      if (!r.isVerified)
+                        TextButton.icon(onPressed: () => _verify(context, ref, r), icon: const Icon(Icons.verified_outlined), label: const Text('Verify')),
+                    ]),
                   ),
               ]),
             ),

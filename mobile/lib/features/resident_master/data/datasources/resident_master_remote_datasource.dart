@@ -240,6 +240,27 @@ class ResidentMasterRemoteDataSource {
     });
   }
 
+  /// POST /occupancy/ownership-transfer — previous owner(s) out, new owner in, one ownership-transfer entry.
+  Future<void> ownershipTransfer({
+    required String flatId,
+    required String newOwnerId,
+    required String transferDate,
+    List<String>? previousOwnerIds,
+    String? shareCertificateNo,
+    String? deedReference,
+    String? notes,
+  }) async {
+    await _dio.post('/occupancy/ownership-transfer', data: {
+      'flat_id': flatId,
+      'new_owner_id': newOwnerId,
+      'transfer_date': transferDate,
+      if (previousOwnerIds != null) 'previous_owner_ids': previousOwnerIds,
+      if (shareCertificateNo != null && shareCertificateNo.isNotEmpty) 'share_certificate_no': shareCertificateNo,
+      if (deedReference != null && deedReference.isNotEmpty) 'deed_reference': deedReference,
+      if (notes != null && notes.isNotEmpty) 'notes': notes,
+    });
+  }
+
   /// POST /occupancy/tenant/move-in
   Future<void> tenantMoveIn({
     required String flatId,
