@@ -75,6 +75,7 @@ class AllocationOut(TimestampSchema):
     monthly_charge: Optional[int]; released_at: Optional[datetime]
     slot_number: Optional[str] = None
     vehicle_number: Optional[str] = None
+    vehicle_type: Optional[str] = None
     flat_number: Optional[str] = None
     wing_name: Optional[str] = None
 

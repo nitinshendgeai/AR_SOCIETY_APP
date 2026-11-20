@@ -163,3 +163,29 @@ def test_allocation_out_includes_slot_flat_vehicle_details(client, db):
     assert body["flat_number"] == "P-101"
     assert body["wing_name"] == "Wing P"
     assert body["vehicle_number"] == "MH12CC0001"
+    assert body["vehicle_type"] == "car"               # the default type; lets reports split 2- and 4-wheelers
+
+
+def test_allocation_out_reports_a_two_wheelers_type(client, db):
+    """The allocations list carries the vehicle type so the parking screens can filter two- and four-wheelers."""
+    from tests.conftest import make_wing, make_flat
+    from datetime import date
+    admin   = make_user(db, "adm7@park.com", role="Society Admin")
+    society = make_society(db, "Parking Society 8")
+    flat    = make_flat(db, make_wing(db, society.id, "Wing Q").id, "Q-101")
+    vr = client.post("/api/v1/vehicles/", json={
+        "society_id": str(society.id), "flat_id": str(flat.id),
+        "vehicle_number": "MH12SC0002", "vehicle_type": "scooter",
+    }, headers=admin["headers"])
+    assert vr.status_code in (200, 201), vr.text
+    zone_id = _create_zone(client, admin["headers"], society.id, "Zone Q").json()["id"]
+    slot_id = _create_slot(client, admin["headers"], society.id, zone_id, "Q-T1").json()["id"]
+    r = client.post("/api/v1/parking/allocations", json={
+        "society_id": str(society.id), "slot_id": slot_id, "flat_id": str(flat.id),
+        "vehicle_id": vr.json()["id"], "allocation_type": "resident", "start_date": str(date.today()),
+    }, headers=admin["headers"])
+    assert r.status_code == 201, r.text
+    assert r.json()["vehicle_type"] == "scooter"
+    listed = client.get(f"/api/v1/parking/allocations/society/{society.id}", headers=admin["headers"])
+    assert listed.status_code == 200, listed.text
+    assert [a["vehicle_type"] for a in listed.json()] == ["scooter"]

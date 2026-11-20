@@ -188,6 +188,7 @@ class ParkingAllocationModel {
   final int? monthlyCharge;
   final String? slotNumber;
   final String? vehicleNumber;
+  final String? vehicleType;
   final String? flatNumber;
   final String? wingName;
 
@@ -204,6 +205,7 @@ class ParkingAllocationModel {
     this.monthlyCharge,
     this.slotNumber,
     this.vehicleNumber,
+    this.vehicleType,
     this.flatNumber,
     this.wingName,
   });
@@ -221,6 +223,7 @@ class ParkingAllocationModel {
         monthlyCharge: j['monthly_charge'] as int?,
         slotNumber: j['slot_number'] as String?,
         vehicleNumber: j['vehicle_number'] as String?,
+        vehicleType: j['vehicle_type'] as String?,
         flatNumber: j['flat_number'] as String?,
         wingName: j['wing_name'] as String?,
       );
@@ -238,6 +241,7 @@ class ParkingAllocationModel {
         monthlyCharge: monthlyCharge,
         slotNumber: slotNumber,
         vehicleNumber: vehicleNumber,
+        vehicleType: vehicleType,
         flatNumber: flatNumber,
         wingName: wingName,
       );
