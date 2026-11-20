@@ -1,6 +1,6 @@
 from typing import List, Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, Request, Query
+from fastapi import APIRouter, Depends, Request, Query, Response
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -19,7 +19,10 @@ from app.modules.parking.schemas.parking import (
     AccessLogCreate, AccessLogOut, GateVehicleLookupOut, VehicleParkingOut,
 )
 from app.modules.parking.models.parking import SlotType
+from app.models.society import Society
 from app.modules.parking.services.parking_service import ParkingService
+from app.modules.parking.services.vehicle_report import VehicleReportService
+from app.modules.parking.services.vehicle_report_files import render_vehicle_report_pdf, render_vehicle_report_xlsx
 
 router = APIRouter(prefix="/parking", tags=["Parking Management"])
 
@@ -188,3 +191,32 @@ def vehicle_access_history(vehicle_number: str, society_id: Optional[UUID] = Que
                            db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """A plate's gate history in the caller's own society."""
     return ParkingService(db).get_vehicle_access_history(vehicle_number, user, society_id)
+
+
+# ── The vehicle report ────────────────────────────────────────────────────────
+_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+REPORT_SCREEN_ROWS = 100          # rows per list on the screen; the printout and the file carry them all
+
+
+@router.get("/report/{society_id}", dependencies=[Depends(require_manager_above)])
+def vehicle_report(society_id: UUID, month: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}$"),
+                   wing_id: Optional[UUID] = None, flat_id: Optional[UUID] = None,
+                   db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Vehicles, parking, the month's violations and fines, and the month's gate movements - narrowed to a wing or a flat."""
+    return VehicleReportService(db).build(society_id, user, month, wing_id, flat_id, limit=REPORT_SCREEN_ROWS)
+
+
+@router.get("/report/{society_id}/file", dependencies=[Depends(require_manager_above)])
+def vehicle_report_file(society_id: UUID, format: str = Query("pdf", pattern="^(pdf|xlsx)$"),
+                        month: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}$"),
+                        wing_id: Optional[UUID] = None, flat_id: Optional[UUID] = None,
+                        db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """The same report in full, as a PDF to print or an Excel file."""
+    data = VehicleReportService(db).build(society_id, user, month, wing_id, flat_id, limit=None)
+    society = db.query(Society).filter(Society.id == society_id).first()
+    stem = f"Vehicle-Report-{data['month']}"
+    if format == "xlsx":
+        return Response(content=render_vehicle_report_xlsx(data, society), media_type=_XLSX,
+                        headers={"Content-Disposition": f"attachment; filename={stem}.xlsx"})
+    return Response(content=render_vehicle_report_pdf(data, society), media_type="application/pdf",
+                    headers={"Content-Disposition": f"inline; filename={stem}.pdf"})

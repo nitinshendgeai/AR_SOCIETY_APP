@@ -8,6 +8,7 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/features/parking/domain/entities/parking_entities.dart';
 import 'package:ar_society_app/features/parking/presentation/providers/parking_providers.dart';
 import 'package:ar_society_app/features/parking/presentation/screens/parking_violations_tab.dart';
+import 'package:ar_society_app/features/parking/presentation/screens/vehicle_report_tab.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
@@ -40,7 +41,7 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 4, vsync: this);
+    _tab = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -77,7 +78,7 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
           if (isDesktopLayout(context))
             AnimatedBuilder(
               animation: _tab,
-              builder: (_, __) => HeaderActionButton(
+              builder: (_, __) => _tab.index == 4 ? const SizedBox.shrink() : HeaderActionButton(
                 icon: _tab.index == 0 ? Icons.add_road_rounded : _tab.index == 3 ? Icons.report_gmailerrorred_rounded : Icons.assignment_add,
                 label: _tab.index == 0 ? 'Add Slot' : _tab.index == 3 ? 'Report Violation' : 'Allocate Parking',
                 onPressed: societyId.isEmpty ? null : () => _primaryAction(context, societyId),
@@ -86,11 +87,11 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
         ],
       bottom: TabBar(
           controller: _tab,
-          tabs: const [Tab(text: 'Slots'), Tab(text: 'Allocations'), Tab(text: 'Vehicles'), Tab(text: 'Violations')],
+          tabs: const [Tab(text: 'Slots'), Tab(text: 'Allocations'), Tab(text: 'Vehicles'), Tab(text: 'Violations'), Tab(text: 'Report')],
         ),
       floatingActionButton: isDesktopLayout(context) ? null : AnimatedBuilder(
         animation: _tab,
-        builder: (_, __) => FloatingActionButton.extended(
+        builder: (_, __) => _tab.index == 4 ? const SizedBox.shrink() : FloatingActionButton.extended(
           onPressed: societyId.isEmpty ? null : () => _primaryAction(context, societyId),
           backgroundColor: AppTheme.primary,
           foregroundColor: Colors.white,
@@ -107,6 +108,7 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
                 _AllocationsTab(societyId: societyId),
                 _VehiclesTab(societyId: societyId),
                 ViolationsTab(societyId: societyId),
+                VehicleReportTab(societyId: societyId),
               ],
             ),
     );

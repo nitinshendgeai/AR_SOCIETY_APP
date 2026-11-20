@@ -4,6 +4,24 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-20 (Parking: the vehicle report)
+
+### feat: one vehicle report - vehicles, parking, violations and fines, gate and visitor vehicles
+
+- **Report tab** in Parking Management, four sections: **Vehicles** (every resident and tenant vehicle with its type, flat, parking and
+  insurance - expired or expiring within 30 days first - plus occupied flats with no vehicle), **Parking** (slots by zone: allotted, free,
+  blocked; flats with more vehicles than parking; parking that ends within 30 days), **Violations** (the month's violations by type,
+  fines charged, on bills, taken off or not yet charged, and repeat offenders) and **Gate** (the month's entries and exits for
+  residents, visitors and unknown vehicles, how many were not allowed in, visitor-parking stays and visitor vehicles inside now,
+  with those past the time they were given flagged).
+- **Filters** - a wing, or a flat of it. The month (arrows) applies to violations and the gate; vehicles and parking are as on today.
+  A wing or flat narrows to its residents' vehicles: a visitor's or a stranger's plate belongs to no flat, so the gate list then shows
+  residents only.
+- **Print or download** - the whole report, not just the first rows the screen shows, as a PDF (print, open or share) or an Excel
+  file with a sheet for each part.
+- `GET /parking/report/{society}` and `/parking/report/{society}/file?format=pdf|xlsx`, for the Manager and above.
+- Tests: `backend/tests/parking/test_vehicle_report.py`, `mobile/test/vehicle_report_test.dart`.
+
 ## 2026-11-20 (Accounts: residents' vouchers and operations vouchers told apart)
 
 ### feat: the Day Book separates what concerns the residents from the society's own operations

@@ -652,6 +652,7 @@ class ParkingService:
                 "flat_id": v.flat_id, "flat_number": v.flat.flat_number if v.flat else None,
                 "wing_name": v.flat.wing.name if v.flat and v.flat.wing else None,
                 "owner_name": owner,
+                "insurance_expiry": v.insurance_expiry,
                 "category": "tenant" if v.tenant_id else "resident",
                 "has_parking": has, "parking_slot": slot,
                 "allocation_id": alloc.id if alloc else None,
