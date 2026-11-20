@@ -64,6 +64,9 @@ const kVoucherTypes = <String, String>{
 
 String voucherTypeLabel(String t) => kVoucherTypes[t] ?? t;
 
+/// The two kinds of voucher a Day Book tells apart: (api value, label).
+const kVoucherScopes = <(String, String)>[('members', 'Residents'), ('society', 'Operations')];
+
 String voucherTypeHint(String t) => switch (t) {
       'receipt' => 'Money received into cash or bank — interest, deposits, other income.',
       'payment' => 'Money paid out of cash or bank — electricity, salaries, repairs, taxes.',
@@ -251,6 +254,10 @@ class Voucher {
   /// `approved`, or `pending` / `rejected` for a manual payment waiting on the committee.
   final String approvalStatus;
   final String? sourceType;
+
+  /// `members` for a voucher about the residents' flats (their bills, what they paid, an entry against a flat), `society`
+  /// for the society's own running: vendors, salaries, the bank, repairs.
+  final String scope;
   final bool isAuto;
   final bool isCancelled;
 
@@ -293,6 +300,7 @@ class Voucher {
     this.vendorName,
     this.approvalStatus = 'approved',
     this.sourceType,
+    this.scope = 'society',
     required this.isAuto,
     required this.isCancelled,
     this.isLocked = false,
@@ -325,6 +333,7 @@ class Voucher {
         vendorName: j['vendor_name'] as String?,
         approvalStatus: j['approval_status'] as String? ?? 'approved',
         sourceType: j['source_type'] as String?,
+        scope: j['scope'] as String? ?? 'society',
         isAuto: j['is_auto'] as bool? ?? false,
         isCancelled: j['is_cancelled'] as bool? ?? false,
         isLocked: j['is_locked'] as bool? ?? false,
@@ -1008,13 +1017,15 @@ class AccountsApi {
   Future<MembersLedger> members(String societyId) async =>
       MembersLedger.fromJson((await _dio.get('/accounts/members/$societyId')).data as Map<String, dynamic>);
 
+  /// [scope]: `members` for only the residents' vouchers, `society` for only the society's own; null for all.
   Future<List<Voucher>> vouchers(String societyId,
-      {String? type, DateTime? from, DateTime? to, String? vendorId}) async {
+      {String? type, DateTime? from, DateTime? to, String? vendorId, String? scope}) async {
     // Every page: a society books far more than 500 vouchers a year, and the Day Book total must cover them all.
     final rows = await getAllPages(_dio, '/accounts/vouchers/society/$societyId',
         query: {
           if (type != null) 'voucher_type': type,
           if (vendorId != null) 'vendor_id': vendorId,
+          if (scope != null) 'scope': scope,
           if (from != null) 'date_from': apiDate(from),
           if (to != null) 'date_to': apiDate(to),
         },
@@ -1109,9 +1120,10 @@ class AccountsApi {
         if (vendorId != null) 'vendor_id': vendorId,
       });
 
-  Future<Uint8List> dayBookPdf(String societyId, {String? type, DateTime? from, DateTime? to}) =>
+  Future<Uint8List> dayBookPdf(String societyId, {String? type, DateTime? from, DateTime? to, String? scope}) =>
       _pdf('/accounts/day-book/$societyId/pdf', {
         if (type != null) 'voucher_type': type,
+        if (scope != null) 'scope': scope,
         if (from != null) 'date_from': apiDate(from),
         if (to != null) 'date_to': apiDate(to),
       });

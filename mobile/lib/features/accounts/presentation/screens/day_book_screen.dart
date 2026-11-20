@@ -26,6 +26,7 @@ class DayBookScreen extends ConsumerStatefulWidget {
 
 class _DayBookScreenState extends ConsumerState<DayBookScreen> {
   String? _type;
+  String? _scope; // null: every voucher; members: the residents'; society: the society's own (operations)
   late DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   bool _allDates = false;
   String _q = '';
@@ -36,7 +37,7 @@ class _DayBookScreenState extends ConsumerState<DayBookScreen> {
     if (societyId == null) return const Scaffold(body: Center(child: Text('No society context')));
     final from = _allDates ? null : _month;
     final to = _allDates ? null : DateTime(_month.year, _month.month + 1, 0);
-    final key = (societyId: societyId, type: _type, from: from, to: to);
+    final key = (societyId: societyId, type: _type, scope: _scope, from: from, to: to);
     final async = ref.watch(vouchersProvider(key));
     final desktop = isDesktopLayout(context);
     final q = _q.toLowerCase();
@@ -52,8 +53,8 @@ class _DayBookScreenState extends ConsumerState<DayBookScreen> {
       title: 'Day Book',
       actions: [
         PdfActions(
-          load: () => ref.read(accountsApiProvider).dayBookPdf(societyId, type: _type, from: from, to: to),
-          fileName: 'Day-Book-${_allDates ? 'all' : apiDate(_month).substring(0, 7)}.pdf',
+          load: () => ref.read(accountsApiProvider).dayBookPdf(societyId, type: _type, scope: _scope, from: from, to: to),
+          fileName: 'Day-Book${_scope == null ? '' : '-$_scope'}-${_allDates ? 'all' : apiDate(_month).substring(0, 7)}.pdf',
           subject: 'Day Book — ${_allDates ? 'all dates' : _monthLabel(_month)}',
         ),
         if (desktop)
@@ -94,6 +95,16 @@ class _DayBookScreenState extends ConsumerState<DayBookScreen> {
                 ),
               ]),
               const SizedBox(height: 6),
+              // Residents' vouchers (bills, what they paid, anything against a flat) and the society's own operations.
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final (value, label) in [(null, 'All vouchers'), ...kVoucherScopes])
+                  AppFilterPill(
+                      key: Key('scope-${value ?? 'all'}'),
+                      label: label,
+                      selected: _scope == value,
+                      onTap: () => setState(() => _scope = value)),
+              ]),
+              const SizedBox(height: 10),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(children: [
@@ -152,7 +163,7 @@ class _DayBookScreenState extends ConsumerState<DayBookScreen> {
                                       fontWeight: FontWeight.w600,
                                       decoration: v.isCancelled ? TextDecoration.lineThrough : null)),
                               const SizedBox(height: 2),
-                              VoucherTypeChip(v.voucherType),
+                              Wrap(spacing: 4, children: [VoucherTypeChip(v.voucherType), VoucherScopeChip(v.scope)]),
                             ]),
                           ),
                           AppDataColumn(
@@ -233,6 +244,8 @@ class _VoucherTile extends StatelessWidget {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
                   VoucherTypeChip(v.voucherType),
+                  const SizedBox(width: 4),
+                  VoucherScopeChip(v.scope),
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(v.voucherNumber,

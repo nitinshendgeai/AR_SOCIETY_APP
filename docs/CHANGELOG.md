@@ -4,6 +4,20 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-20 (Accounts: residents' vouchers and operations vouchers told apart)
+
+### feat: the Day Book separates what concerns the residents from the society's own operations
+
+- **One rule** - a voucher is a *residents'* voucher when the app posted it for a flat (member bills, what a flat paid, an advance,
+  an amenity deposit) or when any of its lines is against a flat, such as a waiver an accountant enters for a member. Every other
+  voucher is *operations*: vendors, salaries, repairs, bank charges, interest, year-end.
+- **Day Book** - three choices above the type filter: **All vouchers**, **Residents** and **Operations**. They work with the month,
+  the type and the search, and the printed Day Book follows them. Every voucher also carries a small "Residents" or "Operations"
+  tag in the list and on its sheet.
+- **Server** - `GET /accounts/vouchers/society/{id}` and the Day Book PDF take `scope=members|society`; every voucher carries its
+  `scope`. Nothing is posted or counted differently: this only changes what is listed.
+- Tests: `backend/tests/accounts/test_voucher_scope.py`, `mobile/test/day_book_scope_test.dart`.
+
 ## 2026-11-17 (Roles screen)
 
 ### feat: a society can create and manage its own roles

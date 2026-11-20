@@ -23,7 +23,7 @@ from typing import Dict, List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import func
+from sqlalchemy import exists, func, not_, or_
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.models.audit_log import AuditAction
@@ -103,6 +103,21 @@ class Line:
     vendor_id: Optional[UUID] = None
     entity_account_id: Optional[UUID] = None
     narration: Optional[str] = None
+
+
+# What the app posts for the members (flat owners and tenants); everything else is the society's own running.
+MEMBER_VOUCHER_SOURCES = (
+    "maintenance_bill", "payment_receipt", "online_payment", "advance_allocation",
+    "amenity_deposit", "amenity_deposit_refund", "amenity_booking", "amenity_booking_extra", "parking_violation",
+)
+
+
+def voucher_scope(voucher: Voucher) -> str:
+    """"members" for a voucher about the residents' flats, "society" for the society's own: vendors, salaries, the
+    bank, repairs, year-end. Same rule as `AccountsService.member_voucher_clause`."""
+    if voucher.source_type in MEMBER_VOUCHER_SOURCES or any(e.flat_id for e in voucher.entries):
+        return "members"
+    return "society"
 
 
 class AccountsService:
@@ -820,8 +835,12 @@ class AccountsService:
     def list_vouchers(self, society_id: UUID, voucher_type: Optional[str] = None,
                       date_from: Optional[date] = None, date_to: Optional[date] = None,
                       include_cancelled: bool = True, skip: int = 0, limit: int = 100,
-                      vendor_id: Optional[UUID] = None) -> List[Voucher]:
+                      vendor_id: Optional[UUID] = None, scope: Optional[str] = None) -> List[Voucher]:
         q = self.db.query(Voucher).options(*self._voucher_loads()).filter(Voucher.society_id == society_id)
+        if scope == "members":
+            q = q.filter(self.member_voucher_clause())
+        elif scope == "society":
+            q = q.filter(not_(self.member_voucher_clause()))
         if vendor_id:
             q = q.filter(Voucher.vendor_id == vendor_id)
         if voucher_type:
@@ -834,6 +853,15 @@ class AccountsService:
             q = q.filter(Voucher.is_cancelled == False)
         return (q.order_by(Voucher.voucher_date.desc(), Voucher.created_at.desc())
                 .offset(skip).limit(limit).all())
+
+    # ── Members' vouchers and the society's own ───────────────────────────────
+
+    @staticmethod
+    def member_voucher_clause():
+        """SQL for "a voucher about the members": one the app posts for a flat (its bill, what it paid, an advance, a
+        deposit) or any voucher with a line against a flat, such as a receipt an accountant enters for a member."""
+        has_flat_line = exists().where(VoucherEntry.voucher_id == Voucher.id, VoucherEntry.flat_id.isnot(None))
+        return or_(Voucher.source_type.in_(MEMBER_VOUCHER_SOURCES), has_flat_line)
 
     # ── Balances & statements ─────────────────────────────────────────────────
 

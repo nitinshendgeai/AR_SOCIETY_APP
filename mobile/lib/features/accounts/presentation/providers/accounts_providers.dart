@@ -31,10 +31,10 @@ final ledgerStatementProvider = FutureProvider.autoDispose.family<LedgerStatemen
       .statement(k.accountId, from: k.from, to: k.to, flatId: k.flatId, vendorId: k.vendorId),
 );
 
-typedef VouchersKey = ({String societyId, String? type, DateTime? from, DateTime? to});
+typedef VouchersKey = ({String societyId, String? type, String? scope, DateTime? from, DateTime? to});
 
 final vouchersProvider = FutureProvider.autoDispose.family<List<Voucher>, VouchersKey>(
-  (ref, k) => ref.watch(accountsApiProvider).vouchers(k.societyId, type: k.type, from: k.from, to: k.to),
+  (ref, k) => ref.watch(accountsApiProvider).vouchers(k.societyId, type: k.type, scope: k.scope, from: k.from, to: k.to),
 );
 
 final voucherProvider = FutureProvider.autoDispose.family<Voucher, String>(
