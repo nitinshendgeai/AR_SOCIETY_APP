@@ -326,3 +326,21 @@ class ComplianceItem(Base, TimestampMixin):
     evidence_ref        = Column(String(200), nullable=True)
     verification_status = Column(String(30), nullable=False, default="PENDING_VERIFICATION")
     updated_by          = _user()
+
+
+class VendorBankRecord(Base, TimestampMixin):
+    """The agent's own history of each vendor's bank details, so a change is noticed whichever way it was made (vendor
+    screen, import, direct edit). Holds a SHA-256 fingerprint of the normalised details and a masked copy (last four
+    digits only) — never the full account number. One row per distinct set of details a vendor has had."""
+    __tablename__ = "accounts_agent_vendor_bank_records"
+    __table_args__ = (UniqueConstraint("vendor_id", "fingerprint", "first_seen_at", name="uq_agent_vendor_bank_record"),
+                      Index("ix_agent_vendor_bank_vendor", "vendor_id", "first_seen_at"))
+
+    society_id    = _soc()
+    vendor_id     = Column(UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="CASCADE"), nullable=False)
+    fingerprint   = Column(String(64), nullable=False)
+    masked        = Column(JSON, nullable=False)              # {"bank": .., "account": "XXXX1234", "ifsc": ..}
+    first_seen_at = Column(DateTime, nullable=False)
+    is_baseline   = Column(Boolean, nullable=False, default=False)   # the details the agent first saw: not a change
+    source        = Column(String(20), nullable=False, default="scan")  # scan | audit_log
+    changed_by    = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
