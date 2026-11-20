@@ -260,6 +260,42 @@ class AssistantAnswer {
   List<String> get suggestions => [for (final x in (data['suggestions'] as List? ?? const [])) '$x'];
 }
 
+class LedgerMapRow {
+  final Map<String, dynamic> raw;
+  const LedgerMapRow(this.raw);
+  String get head => raw['charge_head'] as String? ?? '';
+  String? get elementCode => raw['element_code'] as String?;
+  String? get element => raw['element'] as String?;
+  String get postedLedger => raw['posted_ledger'] as String? ?? '';
+  String get sourceLabel => raw['source_label'] as String? ?? '';
+  String get source => raw['source'] as String? ?? '';
+  String? get ruleLedger => raw['society_rule_ledger'] as String?;
+  LegalSource? get rule => LegalSource.from(raw['society_rule']);
+  Map<String, dynamic>? get pendingRule => (raw['pending_society_rule'] as Map?)?.cast<String, dynamic>();
+  String get status => raw['status'] as String? ?? 'ok';
+  List<Map<String, dynamic>> get recent => _list(raw['recent_postings']);
+}
+
+class LedgerMap {
+  final List<LedgerMapRow> rows;
+  final List<Map<String, dynamic>> unmatched, ledgers;
+  final String fingerprint;
+  final Map<String, dynamic>? signedOff;
+  final bool signedOffCurrent;
+  final String note;
+  const LedgerMap(this.rows, this.unmatched, this.ledgers, this.fingerprint, this.signedOff, this.signedOffCurrent, this.note);
+  factory LedgerMap.fromJson(Map<String, dynamic> j) => LedgerMap(
+        [for (final r in _list(j['rows'])) LedgerMapRow(r)],
+        _list(j['unmatched_bill_lines']),
+        _list(j['ledgers']),
+        j['fingerprint'] as String? ?? '',
+        (j['signed_off'] as Map?)?.cast<String, dynamic>(),
+        j['signed_off_current'] as bool? ?? false,
+        j['note'] as String? ?? '',
+      );
+  int get flagged => rows.where((r) => r.status != 'ok').length;
+}
+
 class LegalApi {
   final Dio _dio;
   LegalApi({Dio? dio}) : _dio = dio ?? ApiClient.instance;
@@ -336,6 +372,12 @@ class LegalApi {
 
   Future<ArrearsReport> arrears() async => ArrearsReport.fromJson(_m(await _dio.get('$_base/recovery/arrears')));
   Future<Map<String, dynamic>> checklist(String flatId) async => _m(await _dio.get('$_base/recovery/checklist/$flatId'));
+
+  Future<LedgerMap> ledgerMap() async => LedgerMap.fromJson(_m(await _dio.get('$_base/ledger-mapping')));
+
+  /// Signs off exactly the map that was shown: the server refuses (409) if it changed since.
+  Future<LedgerMap> signOffLedgerMap({required String role, required String note, required String fingerprint}) async =>
+      LedgerMap.fromJson(_m(await _dio.post('$_base/ledger-mapping/sign-off', data: {'role': role, 'note': note, 'fingerprint': fingerprint})));
 
   Future<AssistantAnswer> ask(String q) async => AssistantAnswer.fromJson(_m(await _dio.post('$_base/assistant/ask', data: {'question': q.trim()})));
 }

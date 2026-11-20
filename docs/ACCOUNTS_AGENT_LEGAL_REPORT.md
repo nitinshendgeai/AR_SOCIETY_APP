@@ -156,3 +156,24 @@ the SQLite full-suite step no longer collects that file. The PDF extraction test
 
 Migration `d4e6f8a0b2c4` adds `accounts_agent_vendor_bank_records` (the agent's own history). Nothing else is written;
 no bill, receipt, vendor or voucher is changed. Tests: `tests/accounts_agent/test_residential_checks.py` (13).
+
+## 8. Element → ledger against the society's own rules (`legal/ledger_mapping.py`)
+
+Bills are posted with one standard table (`bill_line_ledger_key` / `ELEMENT_LEDGER`), the same for every society. The
+agent now checks that table against each society's rules and reports where it does not fit:
+
+| Rule | What it flags | Class |
+|---|---|---|
+| A-LED-01 | Recent bill lines credited to a ledger other than the society's **verified** element → ledger rule (topic `ledger.element.<code>`, from registered bye-laws, a General Body resolution or the accounting policy). The rule in force on each bill's date is used. | Potential non-compliance (bye-law) / internal policy deviation (policy) |
+| A-LED-02 | Lines posted to a default ledger because the charge head has no element, or a custom element not in the standard table; MEDIUM when it lands in the catch-all "Other Charges Recovered" | Suspected anomaly / advisory |
+| A-LED-03 | Bill lines whose description matches no charge head (e.g. head renamed after billing) | Suspected anomaly |
+| A-LED-04 | Active charge heads with no element at all | Advisory |
+
+`GET /accounts-agent/ledger-mapping` lists every active charge head with its element, the ledger it posts to and why,
+the society's rule (verified or pending), what was posted in the last 100 days, and any bill lines matching no head.
+`POST /accounts-agent/ledger-mapping/sign-off` (admin / committee) records a committee or auditor sign-off of the map
+with its fingerprint; a later change shows the map as "changed since sign-off", and signing a map that changed since it
+was shown is refused (409). Flutter: Compliance hub → "Element → ledger map" (rows, "Set society rule", sign-off).
+
+The posting table itself is unchanged: a society rule changes what the agent checks against, not how bills post. A
+difference is corrected by a person (re-linking the charge head's element in Billing and a journal), never by the agent.

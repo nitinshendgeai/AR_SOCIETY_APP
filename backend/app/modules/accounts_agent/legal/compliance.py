@@ -902,8 +902,9 @@ CHECKS = [chk_interest_setting, chk_non_occupancy_setting, chk_non_occupancy_bil
 
 
 def _residential():
+    from app.modules.accounts_agent.legal.ledger_mapping import CHECKS as LEDGER
     from app.modules.accounts_agent.legal.residential_checks import CHECKS as RESIDENTIAL
-    return RESIDENTIAL
+    return RESIDENTIAL + LEDGER
 
 
 def run_scan(db: Session, society_id: UUID, actor_id: Optional[UUID] = None) -> dict:

@@ -2,7 +2,7 @@
 every category not claimed by another section (Engine A's per-voucher findings)."""
 SECTIONS = {
     "accounting_audit": ("Accounting Audit", None),
-    "bye_law_compliance": ("Bye-law Compliance", ("charges", "legal_sources", "transfer")),
+    "bye_law_compliance": ("Bye-law Compliance", ("charges", "legal_sources", "transfer", "element_ledger")),
     "member_ledger": ("Member Ledger Audit", ("member_ledger", "maintenance_billing", "recovery")),
     "vendor_expense": ("Vendor and Expense Audit", ("vendor_audit", "expenditure")),
     "funds": ("Fund Monitoring", ("funds", "fund_monitoring", "borrowing")),
