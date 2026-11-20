@@ -102,7 +102,9 @@ def proposal_dict(p: AgentProposal) -> dict:
             "action_type": p.action_type, "status": p.status, "title": p.title, "explanation": p.explanation,
             "before": p.before_values, "after": p.after_values, "impact": p.impact, "executable": p.executable,
             "created_at": p.created_at.isoformat(), "decided_at": p.decided_at.isoformat() if p.decided_at else None,
-            "decision_note": p.decision_note, "result": p.result}
+            "decision_note": p.decision_note, "result": p.result,
+            "created_by": str(p.created_by) if p.created_by else None, "decided_by": str(p.decided_by) if p.decided_by else None,
+            "requires_other_approver": p.action_type in ("cancel_voucher", "edit_voucher")}
 
 
 def list_findings(db: Session, society_id: UUID, *, severity=None, category=None, status=None, finding_class=None,

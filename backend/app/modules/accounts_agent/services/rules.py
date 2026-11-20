@@ -12,7 +12,7 @@ from app.models.flat import Flat
 from app.models.wing import Wing
 from app.modules.accounts.models.accounts import FinancialYearClosing, Voucher
 from app.modules.accounts.services.accounts_service import fiscal_year
-from app.modules.accounts_agent.services.context import Ctx, Draft, ZERO, fingerprint, fmt, money
+from app.modules.accounts_agent.services.context import Ctx, Draft, ZERO, fmt, money
 
 CONFIRMED = "confirmed_validation_failure"
 SUSPECTED = "strongly_suspected_anomaly"
@@ -256,14 +256,42 @@ def check_journal(c: Ctx) -> List[Draft]:
     return []
 
 
+def _ref(v: Voucher) -> str:
+    return (v.reference or "").strip().lower()
+
+
+def vendor_of(v: Voucher):
+    """The party a voucher is tagged to: the voucher's own vendor tag, else a vendor tag on one of its lines."""
+    return v.vendor_id or next((e.vendor_id for e in v.entries if e.vendor_id), None)
+
+
+def content_key(v: Voucher) -> list:
+    """The accounting substance of a voucher, WITHOUT vendor tags: ledgers, amounts and flats. Vendor tags are
+    descriptive and can be removed or changed by an edit, so they must never be what makes two vouchers different."""
+    return sorted((str(e.account_id), str(money(e.debit)), str(money(e.credit)), str(e.flat_id or "")) for e in v.entries)
+
+
 def check_duplicates(c: Ctx) -> List[Draft]:
+    """Duplicate detection. The evidence compared is: voucher type, amount, date, ledger lines (ignoring vendor tags),
+    reference and source document. The vendor tag only raises or lowers confidence; it is never the sole identifier.
+
+    - Two different source documents, or two different non-empty references, are two different transactions.
+    - R-DUP-01  same source document posted twice                                 → CONFIRMED
+    - R-DUP-02  same date, same lines, same non-empty reference, vendor tags agree  → CONFIRMED
+                (a tag missing on one side still agrees; the explanation says so)
+    - R-DUP-04  payment to the same vendor, same amount, within 3 days, and AT LEAST ONE of the two has no
+                reference                                                           → SUSPECTED
+    - R-DUP-03  same lines within the window otherwise (incl. same reference on different dates, conflicting or
+                missing vendor tags)                                                → SUSPECTED
+    Every pair finding is keyed on the pair (not on the rule's inputs), so an edit to a vendor tag re-classifies the
+    pair but never silently clears a genuine duplicate."""
     from datetime import timedelta
     v = c.voucher
     if v.voucher_type == "closing" or v.reversal_of_id or v.is_cancelled or v.approval_status == "rejected":
         return []
     out: List[Draft] = []
     window = max(1, int(c.settings.duplicate_window_days))
-    mine = fingerprint(v)
+    mine, my_ref, my_vendor = content_key(v), _ref(v), vendor_of(v)
     cands = (c.db.query(Voucher).filter(
         Voucher.society_id == v.society_id, Voucher.id != v.id, Voucher.is_cancelled == False,  # noqa: E712
         Voucher.approval_status != "rejected", Voucher.reversal_of_id.is_(None), Voucher.reversed_at.is_(None),
@@ -275,8 +303,12 @@ def check_duplicates(c: Ctx) -> List[Draft]:
         if _order(o) > _order(v):
             continue                                  # only the LATER voucher of a pair is flagged (and may be cancelled)
         pair = ":".join(sorted([str(v.id), str(o.id)]))
+        days = abs((o.voucher_date - v.voucher_date).days)
+        o_ref, o_vendor = _ref(o), vendor_of(o)
         ev = {"other_voucher": o.voucher_number, "other_voucher_id": str(o.id), "amount": str(money(v.amount)),
-              "dates": [v.voucher_date.isoformat(), o.voucher_date.isoformat()]}
+              "dates": [v.voucher_date.isoformat(), o.voucher_date.isoformat()],
+              "references": [v.reference or None, o.reference or None],
+              "vendor_ids": [str(my_vendor) if my_vendor else None, str(o_vendor) if o_vendor else None]}
         if v.source_id and o.source_id and v.source_type == o.source_type and v.source_id == o.source_id:
             out.append(Draft("R-DUP-01", "duplicate", CONFIRMED, "HIGH", 0.99, "Same source posted twice",
                              f"{v.voucher_number} and {o.voucher_number} both post the same {v.source_type} document; it is in the books twice.",
@@ -285,24 +317,44 @@ def check_duplicates(c: Ctx) -> List[Draft]:
             continue
         if v.source_id and o.source_id and v.source_id != o.source_id:
             continue                                  # two different source documents are different transactions
-        same_ref = bool((v.reference or "").strip()) and (v.reference or "").strip().lower() == (o.reference or "").strip().lower()
-        if fingerprint(o) == mine and same_ref and v.voucher_date == o.voucher_date:
-            out.append(Draft("R-DUP-02", "duplicate", CONFIRMED, "HIGH", 0.97, "Confirmed duplicate voucher",
-                             f"{v.voucher_number} duplicates {o.voucher_number}: same date, amount, ledgers, party and reference ('{v.reference}').",
+        if my_ref and o_ref and my_ref != o_ref:
+            continue                                  # two different references: evidence of two different bills
+        same_ref = bool(my_ref) and my_ref == o_ref
+        same_lines = content_key(o) == mine
+        vendors_conflict = bool(my_vendor and o_vendor and my_vendor != o_vendor)
+        vendors_agree = not vendors_conflict
+        tag_note = "" if (my_vendor and o_vendor) or not (my_vendor or o_vendor) else \
+            " One of the two has no vendor tag; the match rests on the date, amount, ledgers and reference."
+        if same_lines and same_ref and v.voucher_date == o.voucher_date and vendors_agree:
+            conf = 0.97 if (my_vendor and o_vendor) or not (my_vendor or o_vendor) else 0.92
+            out.append(Draft("R-DUP-02", "duplicate", CONFIRMED, "HIGH", conf, "Confirmed duplicate voucher",
+                             f"{v.voucher_number} duplicates {o.voucher_number}: same date, amount, ledgers and reference "
+                             f"('{v.reference}').{tag_note}",
                              "A reference is used once", "Identical voucher with the same reference",
                              "Cancel the later voucher.", {**ev, "reference": v.reference}, subject=pair))
-        elif o.vendor_id == v.vendor_id and v.vendor_id and v.voucher_type == "payment" and not same_ref \
-                and abs((o.voucher_date - v.voucher_date).days) <= 3:
+        elif v.voucher_type == "payment" and my_vendor and my_vendor == o_vendor and days <= 3 \
+                and not (my_ref and o_ref):
+            missing = "neither payment carries" if not (my_ref or o_ref) else \
+                f"{o.voucher_number if not o_ref else v.voucher_number} carries no"
             out.append(Draft("R-DUP-04", "duplicate", SUSPECTED, "MEDIUM", 0.7, "Possible duplicate payment",
-                             f"{v.voucher_number} pays the same vendor the same amount ({fmt(v.amount)}) as {o.voucher_number} within "
-                             f"{abs((o.voucher_date - v.voucher_date).days)} day(s), with no matching reference to show they are different bills.",
+                             f"{v.voucher_number} pays the same vendor the same amount ({fmt(v.amount)}) as {o.voucher_number} "
+                             f"within {days} day(s), and {missing} bill reference, so nothing shows they settle different bills.",
                              "Each payment settles a different bill", "Same vendor, same amount, days apart",
-                             "Check the vendor's bills; cancel the payment if it was entered twice.", ev, subject=pair))
-        elif [line_signature_key(e) for e in sorted(o.entries, key=line_signature_key)] == \
-                [line_signature_key(e) for e in sorted(v.entries, key=line_signature_key)] and not same_ref:
-            out.append(Draft("R-DUP-03", "duplicate", SUSPECTED, "MEDIUM", 0.65, "Potential duplicate voucher",
-                             f"{v.voucher_number} has the same amount, ledgers and party as {o.voucher_number} within {window} day(s). "
-                             "It may be a genuine repeat — the evidence is the similarity, not proof.",
+                             "Check the vendor's bills and record the bill reference; cancel the payment if it was entered "
+                             "twice.", ev, subject=pair))
+        elif same_lines:
+            if same_ref:
+                why = (f"same amount, ledgers and reference ('{v.reference}')" +
+                       (f", {days} day(s) apart" if days else "") +
+                       (", but tagged to different vendors" if vendors_conflict else ""))
+            elif my_ref or o_ref:
+                why = f"same amount and ledgers within {days} day(s); only one of them carries a reference"
+            else:
+                why = f"same amount and ledgers within {days} day(s); neither carries a reference"
+            out.append(Draft("R-DUP-03", "duplicate", SUSPECTED, "MEDIUM", 0.75 if same_ref else 0.65,
+                             "Potential duplicate voucher",
+                             f"{v.voucher_number} and {o.voucher_number} have the {why}. It may be a genuine repeat — "
+                             "the evidence is the similarity, not proof.",
                              "Repeated entries are intentional", "Near-identical vouchers",
                              "Compare the two and cancel one if it is a duplicate.", ev, subject=pair))
     return out
