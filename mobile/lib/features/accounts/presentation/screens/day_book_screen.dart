@@ -242,19 +242,15 @@ class _VoucherTile extends StatelessWidget {
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
+                // Wraps rather than overflows: the two tags and the number do not always fit one line on a narrow phone.
+                Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
                   VoucherTypeChip(v.voucherType),
-                  const SizedBox(width: 4),
                   VoucherScopeChip(v.scope),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(v.voucherNumber,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            decoration: v.isCancelled ? TextDecoration.lineThrough : null)),
-                  ),
+                  Text(v.voucherNumber,
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          decoration: v.isCancelled ? TextDecoration.lineThrough : null)),
                 ]),
                 const SizedBox(height: 4),
                 Text(_particulars(v),
