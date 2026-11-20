@@ -138,6 +138,13 @@ class LegalRule {
   const LegalRule(this.raw);
   String get id => raw['id'] as String;
   String get code => raw['rule_code'] as String? ?? '';
+  String get topic => raw['topic'] as String? ?? '';
+  String get sourceLevel => raw['source_level'] as String? ?? '';
+  Map<String, dynamic> get calculation => _map(raw['calculation_method']);
+  String? get calcType => calculation['type'] as String?;
+  Object? get calcValue => calculation['value'];
+  bool get isVerified => verification == 'VERIFIED_PRIMARY_SOURCE' || verification == 'VERIFIED_SECONDARY_SOURCE';
+  bool get isLatest => raw['superseded_by_id'] == null;
   int get version => _i(raw['version']);
   String get title => raw['title'] as String? ?? '';
   String get category => raw['rule_category'] as String? ?? '';
@@ -293,6 +300,19 @@ class LegalApi {
 
   Future<List<LegalRule>> rules({bool history = false}) async =>
       [for (final r in _list(_m(await _dio.get('$_base/legal/rules', queryParameters: {'include_history': history}))['items'])) LegalRule(r)];
+
+  /// A society's own rule (from its bye-laws, a resolution or a policy). The server keeps it UNVERIFIED: it does not
+  /// govern compliance until it is verified against an operative document of this society.
+  Future<LegalRule> createSocietyRule(Map<String, dynamic> data) async =>
+      LegalRule(_m(await _dio.post('$_base/legal/rules', data: data)));
+
+  Future<LegalRule> verifyRule(String id, {required String verification, required String note, String? pageNumber, String? legalStatus}) async =>
+      LegalRule(_m(await _dio.post('$_base/legal/rules/$id/verify', data: {
+        'verification_status': verification,
+        'note': note,
+        if (pageNumber != null && pageNumber.isNotEmpty) 'page_number': pageNumber,
+        if (legalStatus != null) 'legal_status': legalStatus,
+      })));
 
   Future<List<LegalReview>> reviews() async => [for (final r in _l(await _dio.get('$_base/legal/reviews'))) LegalReview(r)];
 

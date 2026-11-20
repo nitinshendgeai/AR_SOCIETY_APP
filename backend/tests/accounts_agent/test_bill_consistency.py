@@ -1,7 +1,6 @@
-"""Flat-wise consistency: a flat's bill should charge the same elements, posted to the same ledgers, as its previous bill.
-Amounts are deliberately not compared (usage-based elements such as water change every month)."""
+"""Flat-wise ledger consistency: each element on a flat's bill is posted to the same ledger as on its previous bill.
+(Elements dropped/added and amount changes are S-BILLMOM-*, tested in test_bill_month_change.py.)"""
 from datetime import date, timedelta
-from decimal import Decimal
 from uuid import UUID
 
 import pytest
@@ -11,11 +10,11 @@ from app.modules.accounts_agent import worker
 from app.modules.accounts_agent.models.agent import AgentFinding
 from app.modules.accounts_agent.services import engine
 from app.modules.billing.models.billing import (
-    InvoiceLineItem, MaintenanceBill, MaintenanceChargeConfig, MaintenanceElement,
+    MaintenanceBill, MaintenanceChargeConfig, MaintenanceElement,
 )
 from tests.billing.test_maintenance_billing import _charge, _rig
 
-RULES = ("R-BILL-06", "R-BILL-07")
+RULES = ("R-BILL-06",)
 
 
 def _run_cycle(client, db, h, sid, start: date, name: str):
@@ -74,38 +73,7 @@ def test_a_flats_first_bill_has_nothing_to_compare_with(society):
     assert drafts(db, v) == []
 
 
-def test_amount_changes_are_not_flagged(society):
-    db = society["db"]
-    water = db.query(MaintenanceChargeConfig).filter_by(society_id=society["soc"].id, name="Water").one()
-    water.default_amount = Decimal("950.00")                   # usage-based element: a different amount every month
-    db.commit()
-    cid = this_month(society)
-    assert drafts(db, voucher_of(db, cid, society["flats"][0])[1]) == []
 
-
-def test_element_missing_on_one_flats_bill_is_flagged_for_that_flat(society):
-    db = society["db"]
-    cid = this_month(society)
-    bill, v = voucher_of(db, cid, society["flats"][0])
-    db.query(InvoiceLineItem).filter_by(bill_id=bill.id, description="Sinking Fund").delete()
-    db.commit()
-    db.expire_all()
-    (d,) = drafts(db, v)
-    assert d.rule_code == "R-BILL-07" and d.evidence["missing_elements"] == ["Sinking Fund"]
-    assert d.finding_class == "strongly_suspected_anomaly" and d.severity == "MEDIUM"
-    assert drafts(db, voucher_of(db, cid, society["flats"][1])[1]) == []      # the other flat is unchanged
-
-
-def test_element_dropped_for_every_flat_is_reported_once(society):
-    db = society["db"]
-    water = db.query(MaintenanceChargeConfig).filter_by(society_id=society["soc"].id, name="Water").one()
-    water.is_active = False
-    db.commit()
-    cid = this_month(society)
-    worker.run_once(db, "w", limit=500)
-    found = [f for f in stored(db, society["soc"].id) if f.rule_code == "R-BILL-07"]
-    assert len(found) == 1 and found[0].evidence["missing_elements"] == ["Water"]
-    assert found[0].evidence["cycle_id"] == str(cid)
 
 
 def test_element_moved_to_another_ledger_is_flagged_once_with_old_and_new_ledger(society):
@@ -135,3 +103,15 @@ def test_the_month_after_a_remap_is_clean_again(society):
     nxt = _run_cycle(society["client"], db, society["h"], sid, society["today"] + timedelta(days=30), "Next month")
     for flat in society["flats"]:
         assert drafts(db, voucher_of(db, nxt, flat)[1]) == []
+
+
+def test_an_element_dropped_for_one_flat_is_not_a_ledger_finding(society):
+    """Elements dropped/added belong to S-BILLMOM-02/03; the ledger check must not report them a second time."""
+    from app.modules.billing.models.billing import InvoiceLineItem
+    db = society["db"]
+    cid = this_month(society)
+    bill, v = voucher_of(db, cid, society["flats"][0])
+    db.query(InvoiceLineItem).filter_by(bill_id=bill.id, description="Sinking Fund").delete()
+    db.commit()
+    db.expire_all()
+    assert drafts(db, v) == []

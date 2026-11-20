@@ -49,20 +49,38 @@ For live vouchers posted from a maintenance bill (on create/edit) the agent re-d
 | `R-BILL-03` | Members' Dues line names a different flat than the bill | High |
 | `R-BILL-04` | a charge head credited with a different amount/ledger than the bill charged | High |
 | `R-BILL-05` | a live posting for a bill that is not in an issued state | Medium |
-| `R-BILL-06` | flat-wise: an element is posted to a different ledger than on the flat's previous bill (re-mapped element) | Medium (strongly suspected) |
-| `R-BILL-07` | flat-wise: the bill's elements differ from the flat's previous bill (an element dropped or added) | Medium (strongly suspected) |
 
-**Flat-wise consistency (`R-BILL-06/07`).** Each bill is compared with the same flat's latest issued bill from an earlier
-cycle, so this month is checked against last month and every later month against the one before it. Only element and ledger
-changes are flagged; amounts are **not** compared, because usage-based elements (water and the like) change every month.
-Interest/penalty lines are ignored because they come and go with arrears. Which ledger an element went to last time is read
-from the voucher actually posted for the previous bill (the previous bill is run through today's mapping and compared with
-what was posted), so no extra table is needed and the check works from the first month after deployment. A change that
-affects every flat at once (the society re-mapped an element or dropped a charge) is reported once per billing cycle, not
-once per flat. A flat's first bill is not compared. If two elements that shared a ledger are re-mapped together and their
-old ledger cannot be told apart from the amounts, the finding says "another ledger" for the old side.
+### Flat-wise month-over-month bill check (`detect_bill_month_change`)
 
-Not covered: whether the billing module's rates/areas/charge configuration are right.
+Compares a flat's new bill with **the same flat's bills in the last three months** (never one flat with another's amount, since
+areas and parking differ), head by head:
+
+| Rule | Detects | Severity / class |
+|---|---|---|
+| `S-BILLMOM-01` | a recurring head changed more than the tolerance (the society's "recurring tolerance", default 10 %) | Low <25 %, Medium ≥25 %, High ≥100 % (suspected anomaly, only with ≥2 earlier bills); always a statistical deviation otherwise |
+| `S-BILLMOM-02` | a head the flat always had is missing while the other flats still have it | Medium (Low if too few peers) |
+| `S-BILLMOM-03` | a head appeared on this flat that most flats don't have | Informational |
+
+What keeps it from crying wolf: society-wide revisions are allowed for (the other flats' average movement of the same head,
+excluding the flat itself); one-off / variable lines are never compared (penalties and interest, special assessments, "other"
+additional charges, actual-expense shares); bills for a different length of period (quarterly cycle, a flat that joined part-way)
+are skipped; a head whose own history isn't steady is skipped; no earlier bill in the window means no claim. Cost: a fixed handful
+of queries per bill (one grouped aggregate per cohort), covered by a test.
+
+### Flat-wise ledger check (`check_bill_consistency`)
+
+| Rule | Detects | Severity / class |
+|---|---|---|
+| `R-BILL-06` | an element is posted to a different ledger than on the same flat's previous bill (a re-mapped element) | Medium (strongly suspected) |
+
+Each bill is compared with the same flat's latest issued bill from an earlier cycle, so every month is checked against the one
+before it. Which ledger an element went to last time is read from the voucher actually posted for the previous bill (that bill
+is run through today's element → ledger mapping and compared with what was posted), so no extra table is needed and the check
+works from the first month after deployment. A re-mapping hits every flat billed with the element, so it is reported once per
+billing cycle, not once per flat. A flat's first bill is not compared. If two elements that shared a ledger are re-mapped
+together and their old ledger cannot be told apart from the amounts, the finding says "another ledger" for the old side.
+
+Not covered: whether the billing rates/areas/charge configuration are right (the agent only compares a bill with its own history).
 
 ### Documented conflict with an existing rule
 

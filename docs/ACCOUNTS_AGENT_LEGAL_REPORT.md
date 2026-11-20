@@ -127,7 +127,7 @@ covered by the re-run of `tests/accounts_agent` (100 passed). The full suite was
   transition checks, parking-allotment vs charge reconciliation, unadjusted advance detection. Interest checking is an
   upper-bound test (exact recomputation of the billing calculator was not duplicated).
 * The assistant is keyword-matched; questions outside its intents get a list of what it can answer.
-* Society rules must currently be entered by API (`POST legal/rules`); there is no Flutter form for them yet.
+* Society rules are added from Legal Library → Legal rules → "Add society rule" and verified there; revising one (a new version) is still API-only (`POST legal/rules/{id}/versions`).
 * Flutter screens were analysed and unit/widget-tested, not run on a device.
 
 ## 6. CI change
