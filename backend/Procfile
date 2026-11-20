@@ -1,1 +1,2 @@
 web: bash start.sh
+accounts_agent_worker: python -m app.modules.accounts_agent.worker

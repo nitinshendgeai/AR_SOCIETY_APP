@@ -78,7 +78,10 @@ jobs:
       - name: Full backend test suite
         run: |
           python -m pytest -ra -q -o log_cli=false -p no:cacheprovider \
+            --ignore=tests/accounts_agent/test_postgres_integration.py \
             --junitxml=test-results/backend.xml
+        # tests/accounts_agent/test_postgres_integration.py needs a real PostgreSQL server: it runs in the Migrations job
+        # below (against its PostgreSQL 16 service) instead of being collected here only to be skipped.
 
       # pytest's exit code is the primary gate. This second check refuses a "green" run that is empty, truncated, or
       # missing the security package (see scripts/ci/check_test_results.py).
@@ -158,3 +161,15 @@ jobs:
           python -m pytest tests/ci -ra -q -o log_cli=false -p no:cacheprovider --junitxml=test-results/ci-scripts.xml
           python scripts/ci/check_test_results.py test-results/ci-scripts.xml --min-tests 15 --max-skipped 0 \
             --title "CI script self-tests"
+
+      # The Accounts Agent's PostgreSQL-only tests: outbox atomicity under real transactions, FOR UPDATE SKIP LOCKED
+      # claiming, the voucher row lock on approval, and the legal compliance scan end to end. A throwaway database.
+      - name: Accounts Agent PostgreSQL integration tests
+        env:
+          AGENT_TEST_PG_URL: postgresql://ci:ci-throwaway-password@localhost:5432/agent_test
+        run: |
+          python -c "import sqlalchemy as sa; e = sa.create_engine('$ADMIN_DB_URL', isolation_level='AUTOCOMMIT'); c = e.connect(); c.execute(sa.text('DROP DATABASE IF EXISTS agent_test')); c.execute(sa.text('CREATE DATABASE agent_test'))"
+          python -m pytest tests/accounts_agent/test_postgres_integration.py -ra -q -o log_cli=false -p no:cacheprovider \
+            --junitxml=test-results/agent-postgres.xml
+          python scripts/ci/check_test_results.py test-results/agent-postgres.xml --min-tests 5 --max-skipped 0 \
+            --title "Accounts Agent PostgreSQL tests"

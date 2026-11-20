@@ -23,6 +23,30 @@ screens are then set in the Permission Matrix and the Forms Matrix (buttons on t
 - A custom role works through permissions and screens only: checks that name specific standard roles (for example "the
   committee") do not recognise it, by design.
 
+## 2026-11-19 (Import each flat's vehicles and family members)
+
+### feat: bulk import of vehicles and of family members, checked row by row before anything is saved
+
+- **Where** - Residents list, the **group icon** in the top bar (Admin and committee): **Import family members** and **Import vehicles**.
+  Each opens the same way as the Tenants import: **Download Template**, fill it in (or use your own sheet: columns are found by
+  their headings, in any order), **Choose CSV File**, check the preview, then **Import**.
+- **Vehicles** - one row per vehicle: Wing, Flat No, Vehicle Number, Type, Make, Model, Colour, Parking Slot, Owner Name, Remarks.
+  Same checks as the Add Vehicle form (number format; one active vehicle per number in the society). Spaces and dashes in the number
+  do not matter. Type is read the way people write it (Car, 4W, Bike, Two Wheeler, Scooter, Activa, Cycle, Auto...); a blank type is a
+  car and an unknown one is saved as Other with a note. **Owner Name** links the vehicle to that resident or tenant of the flat; a
+  name that does not match is saved without an owner, with a note.
+- **Family members** - one row per person: Wing, Flat No, Name, Relationship, Mobile, Email, Date of Birth. Son, Daughter, Child...
+  are added as **Dependent**; Wife, Husband, Father, Mother and the rest as **Family**. They go on the flat's Residents list (and so
+  into the gym list). **No app login is made** for them (the office can give one later), unlike the Residents import, which logs in
+  everyone with a mobile number. The flat's owners are still added with Import Residents.
+- **Repeat-safe** - a vehicle already on the flat, or a name already on the flat, is skipped, so a corrected file can be imported
+  again. A vehicle number registered to another flat is reported. A bad row is reported with the reason and the rest go in; error rows
+  can be downloaded to fix. Rows are checked first (nothing saved) and only written when you press Import.
+- **No change to** existing vehicle or resident rules, billing, accounting or RBAC; no migration.
+  API: `POST /vehicles/import` and `POST /residents/family-import` (`dry_run` defaults to true); Admin and committee only.
+- **Tests** - eight backend tests (type and relationship reading, dry run, owner linking, repeats and duplicates in the file, bad rows,
+  no login for family, permissions) and six app tests (column reading, templates, both import screens).
+
 ## 2026-11-17 (Staff attendance: location check)
 
 ### feat: staff check in and out only from places the society sets

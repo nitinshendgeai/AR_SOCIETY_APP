@@ -83,6 +83,17 @@ import 'package:ar_society_app/features/vendor/presentation/screens/vendors_work
 import 'package:ar_society_app/features/vendor/presentation/screens/work_order_detail_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/contract_detail_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/accounts_gateway_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/accounts_agent_dashboard_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_finding_detail_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_findings_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_learning_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_ask_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/compliance_hub_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/legal_library_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/recovery_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/resolutions_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/statutory_calendar_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_proposal_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/accounts_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/chart_of_accounts_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/day_book_screen.dart';
@@ -139,6 +150,8 @@ import 'package:ar_society_app/features/resident_master/presentation/screens/res
 import 'package:ar_society_app/features/resident_master/presentation/screens/resident_detail_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/resident_form_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/resident_import_screen.dart';
+import 'package:ar_society_app/features/resident_master/presentation/screens/flat_people_import_screen.dart';
+import 'package:ar_society_app/features/resident_master/data/flat_people_import.dart' show familyImportSpec, vehiclesImportSpec;
 import 'package:ar_society_app/features/resident_master/presentation/screens/edit_my_profile_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/my_home_screen.dart';
 import 'package:ar_society_app/features/resident_master/presentation/screens/pending_resident_changes_screen.dart';
@@ -262,6 +275,18 @@ class AppRoutes {
   static const accountsReceivable = '/accounts/outstanding/receivable';
   static const accountsPayable    = '/accounts/outstanding/payable';
   static const accountsApprovals  = '/accounts/approvals';
+  static const accountsAgent          = '/accounts-agent';
+  static const accountsAgentFindings  = '/accounts-agent/findings';
+  static const accountsAgentFinding   = '/accounts-agent/findings/:id';
+  static const accountsAgentApprovals = '/accounts-agent/proposals';
+  static const accountsAgentProposal  = '/accounts-agent/proposals/:id';
+  static const accountsAgentLearning  = '/accounts-agent/learning';
+  static const accountsAgentCompliance   = '/accounts-agent/compliance';
+  static const accountsAgentLegalLibrary = '/accounts-agent/legal-library';
+  static const accountsAgentResolutions  = '/accounts-agent/resolutions';
+  static const accountsAgentStatutory    = '/accounts-agent/statutory';
+  static const accountsAgentRecovery     = '/accounts-agent/recovery';
+  static const accountsAgentAsk          = '/accounts-agent/ask';
   static const accountsVoucherNew = '/accounts/vouchers/new';
   static const accountsVoucherEdit = '/accounts/vouchers/:voucherId/edit';
   static const accountsLedger     = '/accounts/ledger/:accountId';
@@ -286,6 +311,8 @@ class AppRoutes {
   static const residentDetail     = '/residents/detail';
   static const residentForm       = '/residents/form';
   static const residentImport     = '/residents/import';
+  static const familyImport       = '/residents/import-family';
+  static const vehiclesImport     = '/vehicles/import';
   static const residentLoginStatus = '/residents/login-status';
   static const myHome                  = '/residents/me';
   static const editMyProfile           = '/residents/me/edit';
@@ -966,6 +993,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             (AppRoutes.accountsReceivable, (_) => const OutstandingScreen(initialKind: 'receivable')),
             (AppRoutes.accountsPayable, (_) => const OutstandingScreen(initialKind: 'payable')),
             (AppRoutes.accountsApprovals, (_) => const ApprovalsScreen()),
+            (AppRoutes.accountsAgent, (_) => const AccountsAgentDashboardScreen()),
+            (AppRoutes.accountsAgentFindings, (s) => AgentFindingsScreen(
+                initialSeverity: s.uri.queryParameters['severity'], initialStatus: s.uri.queryParameters['status'],
+                initialSection: s.uri.queryParameters['section'], title: s.uri.queryParameters['title'])),
+            (AppRoutes.accountsAgentFinding, (s) => AgentFindingDetailScreen(findingId: s.pathParameters['id']!)),
+            (AppRoutes.accountsAgentApprovals, (_) => const AgentApprovalsScreen()),
+            (AppRoutes.accountsAgentProposal, (s) => AgentProposalScreen(proposalId: s.pathParameters['id']!)),
+            (AppRoutes.accountsAgentLearning, (_) => const AgentLearningScreen()),
+            (AppRoutes.accountsAgentCompliance, (_) => const ComplianceHubScreen()),
+            (AppRoutes.accountsAgentLegalLibrary, (_) => const LegalLibraryScreen()),
+            (AppRoutes.accountsAgentResolutions, (_) => const ResolutionsScreen()),
+            (AppRoutes.accountsAgentStatutory, (_) => const StatutoryCalendarScreen()),
+            (AppRoutes.accountsAgentRecovery, (_) => const RecoveryScreen()),
+            (AppRoutes.accountsAgentAsk, (_) => const AgentAskScreen()),
             (AppRoutes.accountsVoucherNew, (s) {
               final type = s.uri.queryParameters['type'] ?? 'receipt';
               return VoucherFormScreen(key: ValueKey(type), type: type);
@@ -1152,6 +1193,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.residentImport,
             builder: (_, __) => const ResidentImportScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.familyImport,
+            builder: (_, __) => const FlatPeopleImportScreen(spec: familyImportSpec),
+          ),
+          GoRoute(
+            path: AppRoutes.vehiclesImport,
+            builder: (_, __) => const FlatPeopleImportScreen(spec: vehiclesImportSpec),
           ),
           GoRoute(
             path: AppRoutes.myHome,
