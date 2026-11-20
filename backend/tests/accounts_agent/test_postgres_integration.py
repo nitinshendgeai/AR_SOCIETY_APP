@@ -112,3 +112,68 @@ def test_two_workers_claim_disjoint_batches(pg):
         got = worker.claim_batch(s, "pgw", limit=10)
         assert len(got) >= 6                       # earlier tests left their own events pending too
         assert worker.claim_batch(s, "pgw2", limit=10) == []
+
+
+def test_compliance_scan_end_to_end_on_postgres(pg):
+    """Engine B on real PostgreSQL: rule pack seeding, date-based rule resolution, a scan storing legal findings
+    (JSON legal_source, LIKE on dedupe keys), idempotent re-scan, and strict per-society results."""
+    from datetime import timedelta
+    from decimal import Decimal
+    from app.modules.accounts.services.accounts_service import AccountsService, Line
+    from app.modules.accounts_agent import worker
+    from app.modules.accounts_agent.legal import compliance, registry
+    from app.modules.accounts_agent.models.agent import AgentFinding
+    from app.modules.accounts_agent.services.engine import get_settings
+    from app.modules.billing.models.billing import MaintenanceSettings
+    from app.models.society import Society
+    from app.utils.local_time import society_today
+    with Session(pg) as s:
+        socs = []
+        for tag in ("a", "b"):
+            soc = Society(name=f"PG legal {tag} {uuid.uuid4().hex[:6]}", city="Mumbai", state="Maharashtra")
+            s.add(soc); s.commit()
+            chart = AccountsService(s).ensure_chart(soc.id)
+            socs.append((soc, chart))
+        (a, chart_a), (b, _) = socs
+        s.add(MaintenanceSettings(society_id=a.id, interest_rate_pct=18, non_occupancy_pct=0))
+        today = society_today(s, a.id)
+        svc = AccountsService(s)
+        v = svc.build_voucher(a.id, "payment", today - timedelta(days=5),
+                              [Line(chart_a["sinking_fund"], debit=Decimal("40000")), Line(chart_a["bank"], credit=Decimal("40000"))],
+                              narration="Sinking fund use", reference="SF-PG")
+        v.approval_status = "approved"
+        s.commit()
+        out = compliance.run_scan(s, a.id); out.pop("_created"); s.commit()
+        assert not out["failed_checks"], out
+        codes = {f.rule_code: f for f in s.query(AgentFinding).filter(AgentFinding.society_id == a.id)}
+        assert {"L-CHG-INT-01", "L-FND-USE-01", "A-FND-BAL-01", "L-SRC-CON-01"} <= set(codes)
+        assert codes["L-CHG-INT-01"].legal_source["verified"] is False
+        assert codes["L-CHG-INT-01"].finding_class == "POTENTIAL_NON_COMPLIANCE"
+        again = compliance.run_scan(s, a.id); again.pop("_created"); s.commit()
+        assert again["new_findings"] == 0
+        assert s.query(AgentFinding).filter(AgentFinding.society_id == b.id, AgentFinding.rule_code == "L-CHG-INT-01").count() == 0
+        assert registry.resolve(s, a.id, "charges.interest_on_arrears.max_rate_pct", today).effective_value == 12
+        get_settings(s, b.id); s.commit()
+        assert worker.scan_due(s) >= 1          # b is due; a was scanned just now
+
+
+def test_approval_holds_the_voucher_row_lock(pg):
+    """approve_proposal loads the voucher with lock=True: until it finishes, nobody else can edit that voucher, so the
+    stale-state check cannot be overtaken by a concurrent edit."""
+    from sqlalchemy.exc import OperationalError
+    from app.modules.accounts.models.accounts import Voucher
+    from app.modules.accounts_agent.services import engine
+    sid, ids = _setup(pg)
+    with Session(pg) as s:
+        vid = _post(s, sid, ids).id
+        s.commit()
+    holder, other = Session(pg), Session(pg)
+    try:
+        assert engine.load_voucher(holder, sid, vid, lock=True) is not None
+        with pytest.raises(OperationalError):          # NOWAIT: the row is locked by the approving transaction
+            other.query(Voucher).filter(Voucher.id == vid).with_for_update(nowait=True).one()
+        other.rollback()
+        holder.rollback()                              # lock released
+        assert other.query(Voucher).filter(Voucher.id == vid).with_for_update(nowait=True).one().id == vid
+    finally:
+        holder.rollback(); other.rollback(); holder.close(); other.close()

@@ -33,7 +33,7 @@ class _MoreRegisterScreenState extends ConsumerState<MoreRegisterScreen> {
   MoreRegisterKey _key(String societyId, MoreRegister? reg) {
     final (from, to) = _period.range;
     final usesMonth = reg?.usesMonth ?? widget.kind == 'attendance';
-    final usesPeriod = reg?.usesPeriod ?? widget.kind == 'receipts' || widget.kind == 'petty_cash';
+    final usesPeriod = reg?.usesPeriod ?? widget.kind == 'receipts' || widget.kind == 'petty_cash' || widget.kind == 'expenses';
     return (
       kind: widget.kind,
       societyId: societyId,
@@ -156,7 +156,11 @@ class _MoreRegisterScreenState extends ConsumerState<MoreRegisterScreen> {
             columns: [for (final c in r.columns) DataColumn(label: Text(c.label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)), numeric: c.right)],
             rows: [
               for (final row in r.rows)
-                DataRow(cells: [for (final c in r.columns) DataCell(Text(row[c.key] ?? '', style: const TextStyle(fontSize: 12.5)))]),
+                DataRow(
+                  // a row that carries a voucher opens it, with the documents filed there
+                  onSelectChanged: (row['voucher_id'] ?? '').isEmpty ? null : (_) => showVoucherSheet(context, row['voucher_id']!),
+                  cells: [for (final c in r.columns) DataCell(Text(row[c.key] ?? '', style: const TextStyle(fontSize: 12.5)))],
+                ),
             ],
           ),
         ),
@@ -171,7 +175,9 @@ class _MoreRegisterScreenState extends ConsumerState<MoreRegisterScreen> {
       child: Column(children: [
         for (final (i, row) in r.rows.indexed) ...[
           if (i > 0) const Divider(height: 1),
-          Padding(
+          InkWell(
+            onTap: (row['voucher_id'] ?? '').isEmpty ? null : () => showVoucherSheet(context, row['voucher_id']!),
+            child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(row[head.key] ?? '', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
@@ -183,6 +189,7 @@ class _MoreRegisterScreenState extends ConsumerState<MoreRegisterScreen> {
                     child: Text('${c.label}: ${row[c.key]}', style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
                   ),
             ]),
+          ),
           ),
         ],
       ]),

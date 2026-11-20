@@ -28,10 +28,10 @@ Every voucher balances: total debits == total credits.
   version is kept, with who changed it, when and why.
 """
 from sqlalchemy import (
-    JSON, Boolean, Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint,
+    JSON, Boolean, Column, Date, DateTime, ForeignKey, Integer, LargeBinary, Numeric, String, Text, UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import deferred, relationship
 
 from app.db.base import Base, TimestampMixin
 
@@ -159,6 +159,8 @@ class Voucher(Base, TimestampMixin):
     edited_at = Column(DateTime, nullable=True)
     edited_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
+    documents = relationship("VoucherDocument", back_populates="voucher", cascade="all, delete-orphan",
+                             order_by="VoucherDocument.created_at", lazy="select")
     entries = relationship("VoucherEntry", back_populates="voucher", cascade="all, delete-orphan",
                            order_by="VoucherEntry.line_no")
     vendor  = relationship("Vendor", foreign_keys=[vendor_id])
@@ -171,6 +173,23 @@ class Voucher(Base, TimestampMixin):
 
     def __repr__(self):
         return f"<Voucher {self.voucher_number} ₹{self.amount}>"
+
+
+class VoucherDocument(Base, TimestampMixin):
+    """A document filed against a voucher: the supplier's bill, a receipt, a photo of the work. The file itself is kept
+    in the row (like a payment's screenshot) and is only read when the document is opened."""
+    __tablename__ = "voucher_documents"
+
+    society_id  = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    voucher_id  = Column(UUID(as_uuid=True), ForeignKey("vouchers.id", ondelete="CASCADE"), nullable=False, index=True)
+    file_name   = Column(String(255), nullable=False)
+    mime_type   = Column(String(100), nullable=False)
+    size_bytes  = Column(Integer, nullable=False)
+    data        = deferred(Column(LargeBinary, nullable=False))
+    uploaded_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    voucher  = relationship("Voucher", back_populates="documents")
+    uploader = relationship("User", foreign_keys=[uploaded_by])
 
 
 class VoucherEntry(Base, TimestampMixin):

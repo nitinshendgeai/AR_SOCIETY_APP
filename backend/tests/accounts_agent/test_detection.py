@@ -198,3 +198,13 @@ def test_unusually_frequent_repeat_is_flagged_as_a_low_statistical_deviation(rig
     rig.learn()
     d = next(x for x in rig.analyse(rig.payment(8, "garden", 5000, vendor=ven, reference="W-EARLY")) if x.rule_code == "S-FREQ-01")
     assert d.finding_class == "statistical_deviation" and d.severity == "LOW" and d.evidence["normal_gap_days"] == 14
+
+
+def test_only_the_later_voucher_of_a_duplicate_pair_is_flagged(rig):
+    """Each copy of a duplicate sees the other; only the later one may carry the finding (and a cancel proposal)."""
+    ven = rig.vendor()
+    first = rig.payment(2, "security_charges", 25000, vendor=ven, reference="INV-88")
+    second = rig.payment(2, "security_charges", 25000, vendor=ven, reference="INV-88")
+    assert "R-DUP-02" in codes(rig.analyse(second))
+    for event in ("voucher.created", "voucher.approval_changed", "voucher.edited"):
+        assert not [c for c in codes(rig.analyse(first, event)) if c.startswith("R-DUP")]

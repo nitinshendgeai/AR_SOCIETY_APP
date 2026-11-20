@@ -26,6 +26,11 @@ class AccountsAgentDashboardScreen extends ConsumerWidget {
       maxWidth: 960,
       actions: [
         IconButton(
+          tooltip: 'Compliance & bye-laws',
+          icon: const Icon(Icons.gavel_rounded),
+          onPressed: () => context.push(AppRoutes.accountsAgentCompliance),
+        ),
+        IconButton(
           tooltip: 'Learning & settings',
           icon: const Icon(Icons.tune_rounded),
           onPressed: () => context.push(AppRoutes.accountsAgentLearning),
@@ -98,6 +103,10 @@ class _Body extends StatelessWidget {
       const SizedBox(height: 16),
       Wrap(spacing: 10, runSpacing: 10, children: [
         FilledButton.icon(onPressed: () => findings(), icon: const Icon(Icons.fact_check_outlined), label: const Text('All findings')),
+        FilledButton.tonalIcon(
+            onPressed: () => context.push(AppRoutes.accountsAgentCompliance),
+            icon: const Icon(Icons.gavel_rounded),
+            label: const Text('Bye-law & compliance intelligence')),
         OutlinedButton.icon(
             onPressed: () => context.push(AppRoutes.accountsAgentApprovals), icon: const Icon(Icons.approval_outlined), label: const Text('Proposals awaiting approval')),
         OutlinedButton.icon(

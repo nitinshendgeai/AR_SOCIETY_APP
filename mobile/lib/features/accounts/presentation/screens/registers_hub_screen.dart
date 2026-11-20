@@ -13,6 +13,8 @@ class RegistersHubScreen extends StatelessWidget {
         AppRoutes.accountsInvoices),
     ('bills', 'Bills Register', 'Bills received from vendors: billed, paid and still to pay', Icons.inventory_2_rounded,
         AppRoutes.accountsBills),
+    ('expenses', 'Expenses Register', 'Every expense booked, with its bill or receipt; open one to see the voucher and its documents',
+        Icons.shopping_bag_outlined, AppRoutes.accountsRegisterExpenses),
     ('cash', 'Cash & Bank Book', 'Every receipt and payment through each cash and bank account', Icons.menu_book_rounded,
         AppRoutes.accountsCashBook),
     ('receipts', 'Receipts Register', 'Payments received from members, what they settled and any advance',

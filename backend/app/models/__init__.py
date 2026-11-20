@@ -124,7 +124,8 @@ from app.modules.vendor.models.vendor import (
 # Accounts module models
 from app.modules.accounts.models.entities import Entity, EntityAccount
 from app.modules.accounts.models.accounts import (
-    Account, AccountGroup, FinancialYearClosing, Voucher, VoucherEntry, RecurringExpense, RecurringExpenseRun,
+    Account, AccountGroup, FinancialYearClosing, Voucher, VoucherDocument, VoucherEntry, RecurringExpense,
+    RecurringExpenseRun,
 )
 
 # Handover models
@@ -142,5 +143,6 @@ from app.modules.accounts.models.depreciation import AssetDepreciation, Deprecia
 
 # Accounts Agent (audit & monitoring of the books)
 import app.modules.accounts_agent.models.agent  # noqa: F401
+import app.modules.accounts_agent.legal.models  # noqa: F401  (legal & bye-law registry)
 from app.modules.accounts_agent.services.outbox import install_outbox_listener  # noqa: E402
 install_outbox_listener()

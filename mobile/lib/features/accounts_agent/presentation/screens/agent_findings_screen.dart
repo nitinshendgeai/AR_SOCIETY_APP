@@ -5,6 +5,7 @@ import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
 import 'package:ar_society_app/features/accounts_agent/data/accounts_agent_api.dart';
+import 'package:ar_society_app/features/accounts_agent/data/legal_api.dart' show classificationLabel;
 import 'package:ar_society_app/features/accounts_agent/presentation/providers/accounts_agent_providers.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
@@ -21,7 +22,10 @@ const _categories = [
 class AgentFindingsScreen extends ConsumerStatefulWidget {
   final String? initialSeverity;
   final String? initialStatus;
-  const AgentFindingsScreen({super.key, this.initialSeverity, this.initialStatus});
+  /// A dashboard section (e.g. "funds", "bye_law_compliance"): only that section's findings.
+  final String? initialSection;
+  final String? title;
+  const AgentFindingsScreen({super.key, this.initialSeverity, this.initialStatus, this.initialSection, this.title});
 
   @override
   ConsumerState<AgentFindingsScreen> createState() => _AgentFindingsScreenState();
@@ -29,7 +33,8 @@ class AgentFindingsScreen extends ConsumerStatefulWidget {
 
 class _AgentFindingsScreenState extends ConsumerState<AgentFindingsScreen> {
   static const _pageSize = 25;
-  late FindingsFilter _filter = FindingsFilter(severity: widget.initialSeverity, status: widget.initialStatus);
+  late FindingsFilter _filter =
+      FindingsFilter(severity: widget.initialSeverity, status: widget.initialStatus, section: widget.initialSection);
   final _search = TextEditingController();
   int _pages = 1;
 
@@ -59,8 +64,8 @@ class _AgentFindingsScreenState extends ConsumerState<AgentFindingsScreen> {
   Widget build(BuildContext context) {
     final f = _filter;
     return AppPage(
-      title: 'Findings',
-      subtitle: 'What the agent noticed in the books',
+      title: widget.title ?? 'Findings',
+      subtitle: widget.initialSection == null ? 'What the agent noticed in the books' : 'Findings in this section',
       maxWidth: 960,
       body: RefreshIndicator(
         onRefresh: () async => invalidateAgent(ref),
@@ -173,7 +178,8 @@ class _FindingCard extends StatelessWidget {
           Wrap(spacing: 8, runSpacing: 6, children: [
             SeverityChip(f.severity),
             AppStatusChip(label: titleCase(f.status), tone: f.isOpen ? AppTone.warning : AppTone.neutral),
-            AppStatusChip(label: findingClassLabel(f.findingClass), tone: AppTone.neutral),
+            AppStatusChip(label: classificationLabel(f.classification), tone: classificationTone(f.classification)),
+            if (f.engine == 'legal') const AppStatusChip(label: 'Legal & bye-law', tone: AppTone.info),
           ]),
           const SizedBox(height: 8),
           Text(f.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),

@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -33,6 +33,7 @@ from app.modules.accounts.services.reports_pdf import render_report_pdf
 from app.modules.accounts.services.tds_ledger import TdsLedgerService, summary_out as tds_ledger_out
 from app.modules.accounts.services.outstanding import OutstandingService
 from app.modules.accounts.services.registers import RegistersService
+from app.modules.accounts.services.voucher_documents import VoucherDocumentService, document_out
 from app.modules.accounts.services.more_registers import REGISTERS, MoreRegistersService, register_to_csv
 from app.modules.accounts.services.registers_pdf import (
     render_bills_register_pdf, render_cash_bank_pdf, render_invoice_register_pdf, render_outstanding_pdf,
@@ -426,6 +427,8 @@ def more_register(kind: str, society_id: UUID, date_from: Optional[date] = None,
             reg = svc.receipts_register(society_id, date_from, date_to, status, q)
         elif kind == "petty_cash":
             reg = PettyCashService(db).book_register(society_id, date_from, date_to)
+        elif kind == "expenses":
+            reg = svc.expenses_register(society_id, date_from, date_to, status, q)
         else:
             reg = svc.attendance_register(society_id, month, status, q)
     except ValueError as exc:
@@ -612,7 +615,38 @@ def get_voucher(voucher_id: UUID, db: Session = Depends(get_db), user: User = De
     svc = AccountsService(db)
     v = svc.get_voucher(voucher_id)
     assert_society_access(user, v.society_id)
-    return _voucher_out(v, frozenset(svc.closed_years(v.society_id)))
+    out = _voucher_out(v, frozenset(svc.closed_years(v.society_id)))
+    out["documents"] = [document_out(d) for d in VoucherDocumentService(db).list_for(v.id)]
+    return out
+
+
+@router.post("/vouchers/{voucher_id}/documents", status_code=201)
+def add_voucher_document(voucher_id: UUID, file: UploadFile = File(...), db: Session = Depends(get_db),
+                         user: User = Depends(get_current_user)):
+    """File a bill, receipt or photo against a voucher (PDF, JPG, PNG, WEBP or HEIC; up to 8 MB; ten a voucher)."""
+    v = AccountsService(db).get_voucher(voucher_id)
+    assert_society_access(user, v.society_id)
+    data = file.file.read(8 * 1024 * 1024 + 1)
+    return document_out(VoucherDocumentService(db).add(v, file.filename, file.content_type, data, user))
+
+
+@router.get("/voucher-documents/{document_id}/file")
+def open_voucher_document(document_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """The filed document itself."""
+    doc = VoucherDocumentService(db).get(document_id)
+    assert_society_access(user, doc.society_id)
+    safe = doc.file_name.replace('"', "")
+    return Response(content=doc.data, media_type=doc.mime_type,
+                    headers={"Content-Disposition": f'inline; filename="{safe}"'})
+
+
+@router.delete("/voucher-documents/{document_id}", status_code=204)
+def remove_voucher_document(document_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    svc = VoucherDocumentService(db)
+    doc = svc.get(document_id)
+    assert_society_access(user, doc.society_id)
+    svc.remove(doc)
+    return Response(status_code=204)
 
 
 @router.get("/vouchers/{voucher_id}/pdf")

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:ar_society_app/core/motion/loading.dart';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +12,7 @@ import 'package:ar_society_app/core/layout/app_sheet.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart';
+import 'package:ar_society_app/features/accounts/data/more_registers_api.dart' show moreRegisterProvider;
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/shared/utils/file_saver.dart';
@@ -356,6 +358,153 @@ class _FlatPickerSheetState extends State<_FlatPickerSheet> {
 Future<void> showVoucherSheet(BuildContext context, String voucherId) =>
     showAppSheet(context: context, panelWidth: 560, builder: (_) => _VoucherSheet(voucherId: voucherId));
 
+/// The bills, receipts and photos filed against a voucher: open one, file another, or remove a wrong one.
+class _VoucherDocuments extends ConsumerStatefulWidget {
+  final Voucher voucher;
+  const _VoucherDocuments({required this.voucher});
+
+  @override
+  ConsumerState<_VoucherDocuments> createState() => _VoucherDocumentsState();
+}
+
+class _VoucherDocumentsState extends ConsumerState<_VoucherDocuments> {
+  bool _busy = false;
+
+  void _refresh() {
+    ref.invalidate(voucherProvider(widget.voucher.id));
+    ref.invalidate(moreRegisterProvider);              // the expenses register says whether a document is filed
+    ref.invalidate(billsRegisterProvider);
+  }
+
+  Future<void> _attach() async {
+    final picked = await FilePicker.platform.pickFiles(
+        type: FileType.custom, allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'heic'], withData: true);
+    final file = picked?.files.single;
+    if (file == null) return;
+    final bytes = file.bytes;
+    final mime = voucherDocumentMime(file.name);
+    if (bytes == null || mime == null) {
+      if (mounted) showErrorToast(context, Exception('Pick a PDF or a picture (JPG, PNG, WEBP or HEIC)'));
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await ref.read(accountsApiProvider).addVoucherDocument(widget.voucher.id,
+          bytes: bytes, fileName: file.name, mimeType: mime);
+      _refresh();
+      if (mounted) AppToast.success(context, '${file.name} filed');
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// A browser shows it in a tab; the phone app shows a picture here and hands a PDF to the share sheet.
+  Future<void> _open(VoucherDocument d) async {
+    Future<Uint8List> load() => ref.read(accountsApiProvider).voucherDocumentBytes(d.id);
+    setState(() => _busy = true);
+    try {
+      if (await openFileBytes(load, mimeType: d.mimeType)) return;
+      if (!mounted) return;
+      if (d.isImage) {
+        final bytes = await load();
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => Dialog(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Flexible(child: InteractiveViewer(child: Image.memory(bytes, fit: BoxFit.contain))),
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                  TextButton(
+                      onPressed: () async {
+                        await saveFileBytes(bytes, d.fileName, mimeType: d.mimeType);
+                      },
+                      child: const Text('Download')),
+                  TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+                ]),
+              ),
+            ]),
+          ),
+        );
+      } else {
+        await deliverPdf(context, load, d.fileName, share: true, subject: d.fileName);
+      }
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _remove(VoucherDocument d) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove this document?'),
+        content: Text('${d.fileName} will be removed from the voucher.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(accountsApiProvider).deleteVoucherDocument(d.id);
+      _refresh();
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final docs = widget.voucher.documents;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Row(children: [
+        Expanded(
+          child: Text(docs.isEmpty ? 'Documents' : 'Documents (${docs.length})',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+        ),
+        TextButton.icon(
+          key: const ValueKey('voucher-attach'),
+          onPressed: _busy ? null : _attach,
+          icon: const Icon(Icons.attach_file_rounded, size: 18),
+          label: const Text('Attach bill / receipt'),
+        ),
+      ]),
+      if (docs.isEmpty)
+        const Text('No bill or receipt filed against this voucher yet.',
+            style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+      for (final d in docs)
+        ListTile(
+          key: ValueKey('voucher-doc-${d.id}'),
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(d.isImage ? Icons.image_outlined : Icons.picture_as_pdf_outlined, color: AppTheme.primary),
+          title: Text(d.fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Text([d.sizeLabel, if (d.uploadedByName != null) 'by ${d.uploadedByName}'].join(' · ')),
+          onTap: _busy ? null : () => _open(d),
+          trailing: IconButton(
+            tooltip: 'Remove',
+            icon: const Icon(Icons.delete_outline_rounded, size: 20),
+            onPressed: _busy ? null : () => _remove(d),
+          ),
+        ),
+    ]);
+  }
+}
+
 class _VoucherSheet extends ConsumerStatefulWidget {
   final String voucherId;
   const _VoucherSheet({required this.voucherId});
@@ -528,6 +677,8 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
               ),
             ]),
           ],
+          const SizedBox(height: 16),
+          _VoucherDocuments(voucher: v),
           const SizedBox(height: 18),
           Wrap(spacing: 10, runSpacing: 10, children: [
             OutlinedButton.icon(

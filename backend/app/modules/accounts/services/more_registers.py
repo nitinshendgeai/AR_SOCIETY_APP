@@ -3,7 +3,9 @@
 - the rental register: every flat and shop that is let out, with the tenant, agreement, rent and deposit, and how long
   the agreement still has to run;
 - the receipts register: every payment received from members, what it was set off against, and any advance left;
-- the staff attendance register: a month's grid of present, absent, half-day and leave for each staff member.
+- the staff attendance register: a month's grid of present, absent, half-day and leave for each staff member;
+- the expenses register: every expense booked to an expense ledger, voucher by voucher, with whether a bill or receipt
+  is filed against it (a row opens its voucher, and the documents filed there).
 
 Each is read-only. A register is {title, subtitle, columns, rows, totals, statuses, uses_period, uses_month} where
 `columns` say what to draw (key, label, whether it is a number, its width on paper, whether a phone shows it) and every
@@ -26,7 +28,9 @@ from app.models.agreement_tracker import AgreementStatus, AgreementTracker
 from app.models.flat import Flat
 from app.models.tenant import Tenant
 from app.models.wing import Wing
+from app.modules.accounts.models.accounts import Account, AccountGroup, Voucher, VoucherEntry
 from app.modules.accounts.services.accounts_service import money
+from app.modules.accounts.services.voucher_documents import VoucherDocumentService
 from app.modules.billing.models.billing import OnlinePaymentSubmission, ReconciliationStatus
 from app.modules.billing.services.allocations import allocated, payment_counts, unapplied
 from app.modules.billing.services.bill_pdf import flat_label, member_name
@@ -208,6 +212,68 @@ class MoreRegistersService:
             "uses_period": True, "uses_month": False,
         }
 
+    # ── Expenses register ─────────────────────────────────────────────────────
+
+    EXPENSE_STATUSES = [(None, "All"), ("with_document", "With a document"), ("without_document", "No document")]
+
+    def expenses_register(self, society_id: UUID, date_from: Optional[date] = None, date_to: Optional[date] = None,
+                          status: Optional[str] = None, q: Optional[str] = None) -> dict:
+        """Every line booked to an expense ledger (a payment, a vendor bill, a journal), oldest first: only approved,
+        live vouchers, the same rule as the reports; a refund shows as a negative amount."""
+        query = (self.db.query(VoucherEntry, Voucher, Account)
+                 .join(Voucher, Voucher.id == VoucherEntry.voucher_id)
+                 .join(Account, Account.id == VoucherEntry.account_id)
+                 .join(AccountGroup, AccountGroup.id == Account.group_id)
+                 .options(joinedload(Voucher.vendor), joinedload(Voucher.creator), joinedload(VoucherEntry.vendor))
+                 .filter(Voucher.society_id == society_id, AccountGroup.nature == "expense",
+                         Voucher.is_cancelled == False, Voucher.approval_status == "approved",     # noqa: E712
+                         Voucher.voucher_type != "closing"))
+        if date_from:
+            query = query.filter(Voucher.voucher_date >= date_from)
+        if date_to:
+            query = query.filter(Voucher.voucher_date <= date_to)
+        found = query.order_by(Voucher.voucher_date, Voucher.voucher_number, VoucherEntry.line_no).all()
+        docs = VoucherDocumentService(self.db).counts(list({v.id for _, v, _ in found}))
+        needle = (q or "").strip().lower()
+        rows, total, with_doc = [], ZERO, 0
+        for entry, v, account in found:
+            n_docs = docs.get(v.id, 0)
+            if status == "with_document" and not n_docs:
+                continue
+            if status == "without_document" and n_docs:
+                continue
+            vendor = entry.vendor or v.vendor
+            particulars = entry.narration or v.narration or ""
+            haystack = f"{v.voucher_number} {account.name} {vendor.company_name if vendor else ''} {particulars} " \
+                       f"{v.reference or ''}".lower()
+            if needle and needle not in haystack:
+                continue
+            amount = money(entry.debit) - money(entry.credit)
+            total += amount
+            with_doc += 1 if n_docs else 0
+            rows.append({
+                "voucher_id": str(v.id), "date": _fmt_date(v.voucher_date), "voucher_no": v.voucher_number,
+                "head": account.name, "vendor": vendor.company_name if vendor else "", "particulars": particulars,
+                "reference": v.reference or "", "amount": _amt(amount),
+                "document": f"{n_docs} filed" if n_docs else "None",
+                "entered_by": v.creator.full_name if v.creator else ""})
+        return {
+            "kind": "expenses", "title": "Expenses Register",
+            "subtitle": "Every expense booked, with its bill or receipt; tap a row to open the voucher",
+            "columns": [
+                _col("date", "Date", 19, phone=True), _col("voucher_no", "Voucher", 24, phone=True),
+                _col("head", "Expense head", 0, phone=True), _col("vendor", "Paid to", 0, phone=True),
+                _col("particulars", "Particulars", 0), _col("reference", "Bill / Ref.", 22),
+                _col("amount", "Amount Rs.", 22, True, True), _col("document", "Document", 17, phone=True),
+                _col("entered_by", "Entered by", 26)],
+            "rows": rows,
+            "totals": [{"label": "Entries", "value": str(len(rows))}, {"label": "Spent Rs.", "value": _amt(total)},
+                       {"label": "With a document", "value": str(with_doc)},
+                       {"label": "No document", "value": str(len(rows) - with_doc)}],
+            "statuses": [{"value": v, "label": l} for v, l in self.EXPENSE_STATUSES],
+            "uses_period": True, "uses_month": False,
+        }
+
     # ── Staff attendance register ─────────────────────────────────────────────
 
     MARKS = {AttendanceStatus.PRESENT: "P", AttendanceStatus.ABSENT: "A", AttendanceStatus.HALF_DAY: "H",
@@ -308,4 +374,4 @@ def register_to_csv(reg: dict) -> str:
 
 REGISTERS: Dict[str, str] = {"rental": "rental_register", "receipts": "receipts_register",
                              "attendance": "attendance_register",
-                             "petty_cash": "petty_cash_book"}
+                             "petty_cash": "petty_cash_book", "expenses": "expenses_register"}
