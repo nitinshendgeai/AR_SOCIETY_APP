@@ -98,16 +98,76 @@ def store_findings(db: Session, voucher: Voucher, drafts: List[Draft], profile_l
     return created
 
 
-def resolve_cleared(db: Session, voucher: Voucher, drafts: List[Draft], reason: str) -> int:
-    """After an edit: open findings of this voucher whose rule no longer fires are closed — the agent re-verified."""
+def _closing_note(f: AgentFinding, drafts: List[Draft], reason: str) -> str:
+    """A duplicate pair that is still flagged under another duplicate rule was RE-CLASSIFIED, not cleared: say so."""
+    if f.rule_code in DUPLICATE_RULES:
+        subject = f.dedupe_key.split(":", 2)[2] if f.dedupe_key.count(":") >= 2 else ""
+        other = next((d.rule_code for d in drafts if d.rule_code in DUPLICATE_RULES and d.subject == subject), None)
+        if other:
+            return f"Re-classified as {other} after the change; the pair is still flagged"
+    return reason
+
+
+def resolve_cleared(db: Session, voucher: Voucher, drafts: List[Draft], reason: str,
+                    only_rules: Optional[tuple] = None, only_other: Optional[str] = None) -> int:
+    """After an edit: open findings of this voucher whose rule no longer fires are closed — the agent re-verified.
+    `only_rules` / `only_other` narrow it to the duplicate findings that name one particular partner voucher."""
     live = {d.dedupe_key(voucher.id) for d in drafts}
     n = 0
-    for f in db.query(AgentFinding).filter(AgentFinding.society_id == voucher.society_id, AgentFinding.voucher_id == voucher.id,
-                                           AgentFinding.status.in_(("NEW", "UNDER_REVIEW"))):
+    q = db.query(AgentFinding).filter(AgentFinding.society_id == voucher.society_id, AgentFinding.voucher_id == voucher.id,
+                                      AgentFinding.status.in_(("NEW", "UNDER_REVIEW")))
+    if only_rules:
+        q = q.filter(AgentFinding.rule_code.in_(only_rules))
+    for f in q:
+        if only_other and (f.evidence or {}).get("other_voucher_id") != only_other:
+            continue
         if f.dedupe_key not in live:
-            f.status, f.resolved_at, f.resolution_note = "RESOLVED", datetime.utcnow(), reason
-            audit.record(db, f.society_id, "finding_auto_resolved", "finding", f.id, details={"reason": reason})
+            note = _closing_note(f, drafts, reason)
+            f.status, f.resolved_at, f.resolution_note = "RESOLVED", datetime.utcnow(), note
+            audit.record(db, f.society_id, "finding_auto_resolved", "finding", f.id, details={"reason": note})
+            _stale_pending_proposals(db, f, note)
             n += 1
+    return n
+
+
+def _stale_pending_proposals(db: Session, f: AgentFinding, note: str) -> None:
+    from app.modules.accounts_agent.models.agent import AgentProposal
+    for p in db.query(AgentProposal).filter(AgentProposal.society_id == f.society_id, AgentProposal.finding_id == f.id,
+                                            AgentProposal.status == "PENDING"):
+        p.status, p.decided_at = "STALE", datetime.utcnow()
+        p.decision_note = f"Not applied: the finding was closed ({note})."
+        audit.record(db, p.society_id, "proposal_stale", "proposal", p.id, details={"reason": note})
+
+
+def reanalyse_related(db: Session, changed: Voucher, settings: AgentSettings, profile: Profile) -> int:
+    """A voucher changed. Duplicate findings are stored on the LATER voucher of a pair, so the partner of `changed`
+    must be re-checked too: (a) vouchers whose open duplicate findings name `changed` as their twin, and (b) later
+    vouchers that could now pair with it. Only the duplicate rules are re-run; nothing in the books changes."""
+    from datetime import timedelta
+    from app.modules.accounts_agent.services.rules import _order, check_duplicates
+    ids = {f.voucher_id for f in db.query(AgentFinding).filter(
+        AgentFinding.society_id == changed.society_id, AgentFinding.rule_code.in_(DUPLICATE_RULES),
+        AgentFinding.voucher_id != changed.id, AgentFinding.status.in_(OPEN_FINDING_STATUSES))
+        if (f.evidence or {}).get("other_voucher_id") == str(changed.id)}
+    window = max(1, int(settings.duplicate_window_days))
+    for o in (db.query(Voucher).filter(
+            Voucher.society_id == changed.society_id, Voucher.id != changed.id, Voucher.is_cancelled == False,  # noqa: E712
+            Voucher.voucher_type == changed.voucher_type, Voucher.amount == changed.amount,
+            Voucher.voucher_date >= changed.voucher_date - timedelta(days=window),
+            Voucher.voucher_date <= changed.voucher_date + timedelta(days=window)).limit(50)):
+        if _order(o) > _order(changed):
+            ids.add(o.id)
+    n = 0
+    meta = account_meta(db, changed.society_id)
+    for vid in ids:
+        r = load_voucher(db, changed.society_id, vid)
+        if r is None:
+            continue
+        drafts = check_duplicates(Ctx(db=db, voucher=r, meta=meta, settings=settings, profile=profile,
+                                      event_type="voucher.related_changed"))
+        n += len(store_findings(db, r, drafts, profile.label))
+        resolve_cleared(db, r, drafts, f"No longer detected after {changed.voucher_number} was changed",
+                        only_rules=DUPLICATE_RULES, only_other=str(changed.id))
     return n
 
 
@@ -162,6 +222,7 @@ def process_event(db: Session, event: AgentEvent) -> List[AgentFinding]:
         new = store_findings(db, voucher, drafts, profile.label, event)
         if event.event_type == "voucher.edited":
             resolve_cleared(db, voucher, drafts, "No longer detected after the voucher was edited")
+            reanalyse_related(db, voucher, settings, profile)
     event.status, event.processed_at, event.last_error = "done", datetime.utcnow(), None
     settings.last_monitored_at, settings.last_error = datetime.utcnow(), None
     logger.info("[accounts-agent] event processed society=%s type=%s new_findings=%d", event.society_id, event.event_type, len(new))

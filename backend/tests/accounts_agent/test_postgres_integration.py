@@ -177,3 +177,105 @@ def test_approval_holds_the_voucher_row_lock(pg):
         assert other.query(Voucher).filter(Voucher.id == vid).with_for_update(nowait=True).one().id == vid
     finally:
         holder.rollback(); other.rollback(); holder.close(); other.close()
+
+
+# ── Remediation (functional audit D-02 / D-04 / D-14) on real PostgreSQL ────────────────────────────────────────────
+
+def _worker_drain(s):
+    from app.modules.accounts_agent import worker
+    while worker.run_once(s, "pg-w", limit=500).get("claimed", 0):
+        pass
+
+
+def test_vendor_tag_removal_keeps_the_confirmed_duplicate_on_postgres(pg):
+    """The edit goes through AccountsService → outbox (voucher.edited) → real worker; the R-DUP-02 finding survives and
+    the partner's pair finding is re-checked in the same transaction as the event."""
+    from datetime import timedelta
+    from decimal import Decimal
+    from app.modules.accounts.models.accounts import Account
+    from app.modules.accounts.services.accounts_service import AccountsService, Line
+    from app.modules.accounts_agent.models.agent import AgentFinding
+    from app.modules.vendor.models.vendor import Vendor, VendorCategory
+    from app.utils.local_time import society_today
+    sid, ids = _setup(pg)
+    with Session(pg) as s:
+        ven = Vendor(society_id=sid, vendor_code="PG1", company_name="SecureCo", mobile="9999999999",
+                     category=list(VendorCategory)[0])
+        s.add(ven); s.commit()
+        svc, day = AccountsService(s), society_today(s, sid)
+        sec, bank = s.get(Account, ids["security_charges"]), s.get(Account, ids["bank"])
+        made = []
+        for ref, vend in (("SG-1", ven.id), ("SG-1", ven.id), (None, ven.id)):
+            v = svc.build_voucher(sid, "payment", day - timedelta(days=1),
+                                  [Line(sec, debit=Decimal("25000")), Line(bank, credit=Decimal("25000"))],
+                                  reference=ref, vendor_id=vend, narration="Security")
+            v.approval_status = "approved"
+            s.commit()
+            made.append(v)
+        _worker_drain(s); s.commit()
+        first, dup, noref = made
+        f02 = s.query(AgentFinding).filter(AgentFinding.voucher_id == dup.id, AgentFinding.rule_code == "R-DUP-02").one()
+        f04 = next(f for f in s.query(AgentFinding).filter(AgentFinding.voucher_id == noref.id,
+                                                           AgentFinding.rule_code == "R-DUP-04")
+                   if f.evidence["other_voucher_id"] == str(dup.id))
+        svc.update_manual_voucher(dup.id, {
+            "voucher_date": dup.voucher_date, "narration": dup.narration, "reference": dup.reference, "vendor_id": None,
+            "entries": [{"account_id": e.account_id, "debit": e.debit, "credit": e.credit} for e in dup.entries],
+            "reason": "vendor tag removed"}, None)
+        s.commit()
+        _worker_drain(s); s.commit()
+        s.refresh(f02); s.refresh(f04)
+        assert f02.status in ("NEW", "UNDER_REVIEW")                     # the genuine duplicate is not hidden
+        assert f04.status == "RESOLVED" and f04.resolution_note.startswith("Re-classified as R-DUP-03")
+        assert s.query(AgentFinding).filter(AgentFinding.voucher_id == noref.id, AgentFinding.rule_code == "R-DUP-03",
+                                            AgentFinding.status == "NEW").count() == 1
+
+
+def test_receipt_on_the_wrong_flat_on_postgres_and_rollback_leaves_nothing(pg):
+    from datetime import timedelta
+    from decimal import Decimal
+    from app.models.society import Society
+    from app.models.wing import Wing
+    from app.models.flat import Flat
+    from app.modules.accounts.services.accounts_service import AccountsService, Line
+    from app.modules.accounts.services.postings import AccountPostings
+    from app.modules.accounts_agent.legal import compliance
+    from app.modules.accounts_agent.models.agent import AgentFinding
+    from app.modules.billing.models.billing import (BillingCycle, BillStatus, ChargeType, InvoiceLineItem,
+                                                    MaintenanceBill)
+    from app.utils.local_time import society_today
+    with Session(pg) as s:
+        soc = Society(name=f"PG mar {uuid.uuid4().hex[:6]}", city="Pune", state="Maharashtra")
+        s.add(soc); s.commit()
+        chart = AccountsService(s).ensure_chart(soc.id); s.commit()
+        w = Wing(society_id=soc.id, name="A"); s.add(w); s.commit()
+        f1, f5 = Flat(wing_id=w.id, flat_number="101"), Flat(wing_id=w.id, flat_number="105")
+        s.add_all([f1, f5]); s.commit()
+        day = society_today(s, soc.id)
+        cy = BillingCycle(society_id=soc.id, name="Oct", cycle_start=day - timedelta(days=40),
+                          cycle_end=day - timedelta(days=10), due_date=day - timedelta(days=10))
+        s.add(cy); s.commit()
+        b = MaintenanceBill(society_id=soc.id, cycle_id=cy.id, flat_id=f5.id, invoice_number="INV-PG-1",
+                            bill_status=BillStatus.ISSUED, bill_date=cy.cycle_start, due_date=cy.due_date,
+                            subtotal=Decimal("2020"), total_amount=Decimal("2020"), paid_amount=Decimal("0"),
+                            outstanding=Decimal("2020"), previous_dues=Decimal("0"))
+        b.line_items.append(InvoiceLineItem(charge_type=ChargeType.MAINTENANCE, description="Service Charges",
+                                            unit_rate=Decimal("2020"), amount=Decimal("2020"), total=Decimal("2020")))
+        s.add(b); s.commit()
+        svc = AccountsService(s)
+        AccountPostings(s, svc).post_bill(b); s.commit()
+
+        def receipt():
+            v = svc.build_voucher(soc.id, "receipt", day - timedelta(days=1),
+                                  [Line(chart["bank"], debit=Decimal("2020")),
+                                   Line(chart["members_dues"], credit=Decimal("2020"), flat_id=f1.id)])
+            v.approval_status = "approved"
+            return v
+        receipt(); s.rollback()                                           # never committed: nothing to find
+        out = compliance.run_scan(s, soc.id); out.pop("_created"); s.commit()
+        assert not out["failed_checks"]
+        assert s.query(AgentFinding).filter(AgentFinding.society_id == soc.id, AgentFinding.rule_code.like("A-MAR%")).count() == 0
+        rv = receipt(); s.commit()
+        out = compliance.run_scan(s, soc.id); out.pop("_created"); s.commit()
+        f = s.query(AgentFinding).filter(AgentFinding.society_id == soc.id, AgentFinding.rule_code == "A-MAR-01").one()
+        assert f.flat_id == f1.id and f.voucher_id == rv.id and f.evidence["manual_receipts"][0]["voucher"] == rv.voucher_number

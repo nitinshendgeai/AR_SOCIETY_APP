@@ -3,7 +3,9 @@
 - vendor bank-account changes (a classic payment-diversion risk);
 - the ledger handover when a flat changes owner;
 - parking: allotted slots against what was billed, and double allotments;
-- members' advances that sit unused while the flat has unpaid bills.
+- members' advances that sit unused while the flat has unpaid bills;
+- the member ledger (vouchers) against what was billed and collected: a credit on a flat that owes nothing — typically
+  a receipt posted to the wrong flat.
 
 They only read the books (plus the agent's own record of vendor bank details) and never change a bill, receipt,
 vendor or voucher. Every finding is an accounting observation for a person to review — none of them is a legal
@@ -14,6 +16,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional
+from uuid import UUID
 
 from sqlalchemy import or_
 
@@ -501,4 +504,90 @@ def chk_unadjusted_advances(s) -> List:
     return out
 
 
-CHECKS = [chk_vendor_bank_changes, chk_ownership_handover, chk_parking, chk_unadjusted_advances]
+# ── Member ledger against billing (receipts posted to the wrong flat) ─────────────────────────────────────────────
+
+MAR_RECENT_DAYS = 400
+
+
+def chk_member_ledger_reconciliation(s) -> List:
+    """Compare each flat's member AR ledger (live, approved vouchers) with its billing position, reusing
+    MemberARService.society_reconciliation — the same figures the Accounts › Member AR reconciliation report shows.
+
+    A-MAR-01: the ledger shows MORE credit than billing explains (ledger balance below the bills' outstanding), and the
+              flat's ledger is in credit. The usual cause is a manual receipt posted to this flat for another flat's
+              money; a genuine overpayment is the other. Never asserted as an error: the receipts behind it, and any
+              flats with unpaid bills of the same amount, are listed as evidence for a person to check.
+    A-MAR-02: any other difference between ledger and billing (advisory)."""
+    from app.modules.accounts.models.accounts import Voucher, VoucherEntry
+    from app.modules.accounts.models.entities import EntityAccount
+    from app.modules.accounts.services.member_ar import MemberARService
+    from app.modules.accounts_agent.legal.compliance import LDraft
+    rec = MemberARService(s.db).society_reconciliation(s.sid)
+    rows = rec.get("members", [])
+    owing = [(r["flat_label"], _money(r["operational_outstanding"])) for r in rows if _money(r["operational_outstanding"]) > 0]
+    out = []
+    for r in rows:
+        diff = _money(r["reconciliation_difference"])
+        if abs(diff) < Decimal("1"):
+            continue
+        fid = UUID(r["flat_id"]) if isinstance(r["flat_id"], str) else r["flat_id"]
+        closing, outstanding = _money(r["closing_ar"]), _money(r["operational_outstanding"])
+        base_ev = {"ledger_balance": str(closing), "billing_outstanding": str(outstanding),
+                   "billed": r["operational_demand"], "collected_per_billing": r["operational_collected"],
+                   "difference": str(diff), "advance_balance": r["advance_balance"],
+                   "reconciliation": "Accounts › Member AR reconciliation",
+                   "calculation": f"{closing} (ledger) − {outstanding} (billing) = {diff}"}
+        if diff < 0 and closing < 0:
+            excess = -diff
+            receipts = (s.db.query(Voucher.id, Voucher.voucher_number, Voucher.voucher_date, VoucherEntry.credit)
+                        .join(VoucherEntry, VoucherEntry.voucher_id == Voucher.id)
+                        .join(EntityAccount, EntityAccount.id == VoucherEntry.entity_account_id)
+                        .filter(Voucher.society_id == s.sid, VoucherEntry.flat_id == fid, EntityAccount.subledger_type == "AR",
+                                VoucherEntry.credit > 0, Voucher.source_type.is_(None), Voucher.is_cancelled == False,  # noqa: E712
+                                Voucher.reversed_at.is_(None), Voucher.approval_status == "approved",
+                                Voucher.voucher_date >= s.today - timedelta(days=MAR_RECENT_DAYS))
+                        .order_by(Voucher.voucher_date.desc()).limit(5).all())
+            manual = [{"voucher": n, "date": d.isoformat(), "amount": str(_money(c))} for _, n, d, c in receipts]
+            # Other flats whose unpaid bills could cover one of those receipts (candidates only, never a conclusion).
+            same_amount = [lbl for lbl, due in owing if lbl != r["flat_label"]
+                           and any(due >= _money(x["amount"]) for x in manual)]
+            first = receipts[0] if receipts else None
+            if manual:
+                why = (f"Manual receipt(s) credited to this flat outside Billing: "
+                       + ", ".join(f"{x['voucher']} ({_inr(x['amount'])}, {x['date']})" for x in manual) + ". ")
+                cls, sev, conf = "SUSPECTED_ACCOUNTING_ANOMALY", "MEDIUM", 0.7
+            else:
+                why = "No manual receipt explains it; it may come from an opening balance or a journal. "
+                cls, sev, conf = "ADVISORY_OBSERVATION", "LOW", 0.4
+            hint = (f"Flats with unpaid bills that could be the intended payer: {', '.join(same_amount[:5])}. "
+                    if same_amount else "")
+            out.append(LDraft("A-MAR-01", "accounting", "member_ledger", "member_reconciliation", cls, sev, conf,
+                              f"{r['flat_label']}: ledger credit of {_inr(excess)} that its bills do not explain",
+                              f"{r['flat_label']}'s member ledger shows a credit balance of {_inr(-closing)} while its bills show "
+                              f"{_inr(outstanding)} outstanding, so the ledger holds {_inr(excess)} more credit than billing "
+                              f"accounts for. {why}{hint}This is often a receipt posted to the wrong flat; it can also be a "
+                              "genuine advance payment, which should then sit in the member's advance account.",
+                              expected="Ledger balance equals the bills' outstanding", actual=f"Ledger short by {_inr(excess)}",
+                              recommended="Check the receipt against the bank entry and the payer. If it belongs to another "
+                                          "flat, correct the voucher through Accounts (it goes through normal approval); if it "
+                                          "is an advance, record it as one.",
+                              evidence={**base_ev, "manual_receipts": manual, "possible_payers": same_amount[:5]},
+                              subject=str(fid), flat_id=fid,
+                              voucher_id=first[0] if first else None, transaction_ref=first[1] if first else None,
+                              voucher_date=first[2] if first else None))
+        elif closing != 0:
+            # A flat with bills but no ledger postings at all is a posting gap (the bill-posting checks cover it), not
+            # a per-flat reconciliation difference; staying silent there avoids flagging every flat of such a society.
+            out.append(LDraft("A-MAR-02", "accounting", "member_ledger", "member_reconciliation", "ADVISORY_OBSERVATION",
+                              "LOW", 0.4, f"{r['flat_label']}: member ledger and bills differ by {_inr(abs(diff))}",
+                              f"{r['flat_label']}'s member ledger balance is {_inr(closing)} and its bills show {_inr(outstanding)} "
+                              f"outstanding (difference {_inr(diff)}). A bill or collection may be missing from the books, or "
+                              "an entry was made outside Billing.",
+                              expected="Ledger balance equals the bills' outstanding", actual=f"Difference {_inr(diff)}",
+                              recommended="Open the Member AR reconciliation for this flat and match the entries.",
+                              evidence=base_ev, subject=str(fid), flat_id=fid))
+    return out
+
+
+CHECKS = [chk_vendor_bank_changes, chk_ownership_handover, chk_parking, chk_unadjusted_advances,
+          chk_member_ledger_reconciliation]
