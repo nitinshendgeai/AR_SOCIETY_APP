@@ -1,6 +1,9 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/society_rule_form_screen.dart' show calcValueLabels;
+import 'package:ar_society_app/core/router/app_router.dart';
+import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -34,7 +37,7 @@ class LegalLibraryScreen extends ConsumerWidget {
             : null,
         body: TabBarView(children: [
           _Documents(mayDecide: mayDecide),
-          const _Rules(),
+          _Rules(mayDecide: mayDecide),
           _Reviews(mayDecide: mayDecide),
         ]),
       ),
@@ -201,7 +204,45 @@ class _Documents extends ConsumerWidget {
 }
 
 class _Rules extends ConsumerWidget {
-  const _Rules();
+  final bool mayDecide;
+  const _Rules({required this.mayDecide});
+
+  Future<void> _verify(BuildContext context, WidgetRef ref, LegalRule r) async {
+    final note = TextEditingController();
+    final page = TextEditingController(text: r.raw['page_number'] as String? ?? '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Verify ${r.code}'),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Confirm the figure and wording match the verified society document. The document itself must already '
+                'be verified (registered / approved).', style: TextStyle(fontSize: 13)),
+            TextField(controller: page, decoration: const InputDecoration(labelText: 'Page checked (required)')),
+            TextField(controller: note, maxLines: 2, decoration: const InputDecoration(labelText: 'How it was checked (required)')),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Verify')),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    if (note.text.trim().length < 3 || page.text.trim().isEmpty) {
+      showErrorToast(context, Exception('Record the page and how it was checked'));
+      return;
+    }
+    try {
+      await ref.read(legalApiProvider).verifyRule(r.id,
+          verification: 'VERIFIED_SECONDARY_SOURCE', note: note.text.trim(), pageNumber: page.text.trim(), legalStatus: 'BINDING');
+      invalidateLegal(ref);
+      if (context.mounted) AppToast.success(context, 'Rule verified — it now governs the agent\'s checks');
+    } catch (e) {
+      if (context.mounted) showErrorToast(context, e);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(legalRulesProvider);
@@ -211,6 +252,17 @@ class _Rules extends ConsumerWidget {
       data: (rules) => ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 96), children: [
         const Text('Rules are versioned. A rule that is not verified against the original Gazette or your registered bye-laws can only '
             'raise potential issues for review, never a confirmed violation.', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+        if (mayDecide) ...[
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: () => context.push(AppRoutes.accountsAgentSocietyRuleNew),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Add society rule'),
+            ),
+          ),
+        ],
         const SizedBox(height: 10),
         for (final r in rules)
           Padding(
@@ -218,7 +270,7 @@ class _Rules extends ConsumerWidget {
             child: AgentCard(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Wrap(spacing: 8, runSpacing: 6, children: [
-                  AppStatusChip(label: verificationLabel(r.verification), tone: r.verification.startsWith('VERIFIED') ? AppTone.success : AppTone.warning),
+                  AppStatusChip(label: verificationLabel(r.verification), tone: r.isVerified ? AppTone.success : AppTone.warning),
                   AppStatusChip(label: titleCase(r.legalStatus), tone: AppTone.neutral),
                   if (r.societySpecific) const AppStatusChip(label: 'Society rule', tone: AppTone.info),
                 ]),
@@ -227,8 +279,14 @@ class _Rules extends ConsumerWidget {
                 KeyValue('Rule', '${r.code} v${r.version}'),
                 KeyValue('Level', r.levelName),
                 KeyValue('Reference', r.reference),
+                if (r.calcValue != null) KeyValue('Figure', '${calcValueLabels[r.calcType] ?? titleCase(r.calcType ?? '')}: ${r.calcValue}'),
                 KeyValue('In force', [if (r.effectiveFrom != null) 'from ${r.effectiveFrom}', if (r.effectiveUntil != null) 'until ${r.effectiveUntil}'].join(' ')),
                 if (r.note != null) Text(r.note!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                if (mayDecide && r.societySpecific && !r.isVerified && r.isLatest)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(onPressed: () => _verify(context, ref, r), icon: const Icon(Icons.verified_outlined), label: const Text('Verify')),
+                  ),
               ]),
             ),
           ),
