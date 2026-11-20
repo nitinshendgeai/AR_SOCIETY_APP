@@ -87,6 +87,8 @@ def test_bills_register_lists_vendor_bills_with_who_entered_them_and_what_is_lef
     assert row["invoice_number"] == "SS/112" and row["vendor"] == "Shield Security"
     assert row["entered_by"] == manager["user"].full_name and row["status"] == "part_paid"
     assert row["total"] == "47200.00" and row["paid"] == "20000.00" and row["outstanding"] == "27200.00"
+    booked = client.get(f"{A}/vouchers/{row['voucher_id']}", headers=h)           # the row opens the voucher that booked it
+    assert booked.status_code == 200 and booked.json()["source_id"] == row["invoice_id"]
     assert client.get(f"{A}/registers/bills/{sid}", params={"status": "paid"}, headers=h).json()["rows"] == []
     assert client.get(f"{A}/registers/bills/{sid}", params={"vendor_id": vendor_id}, headers=h).json()["totals"]["count"] == 1
     pdf = client.get(f"{A}/registers/bills/{sid}", params={"format": "pdf"}, headers=h)

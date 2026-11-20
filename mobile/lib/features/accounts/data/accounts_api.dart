@@ -276,6 +276,9 @@ class Voucher {
   final List<VoucherRevision> revisions;
   final List<VoucherEntry> entries;
 
+  /// Bills, receipts and photos filed against it (only sent when one voucher is opened).
+  final List<VoucherDocument> documents;
+
   const Voucher({
     required this.id,
     required this.voucherType,
@@ -305,6 +308,7 @@ class Voucher {
     this.editedByName,
     this.revisions = const [],
     required this.entries,
+    this.documents = const [],
   });
 
   factory Voucher.fromJson(Map<String, dynamic> j) => Voucher(
@@ -339,6 +343,9 @@ class Voucher {
             .toList(),
         entries:
             (j['entries'] as List? ?? const []).map((e) => VoucherEntry.fromJson(e as Map<String, dynamic>)).toList(),
+        documents: (j['documents'] as List? ?? const [])
+            .map((e) => VoucherDocument.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 
   /// Entered by the society, not cancelled, in an open year.
@@ -362,6 +369,41 @@ class Voucher {
         _ => null,
       };
 }
+
+/// A bill, receipt or photo filed against a voucher.
+class VoucherDocument {
+  final String id;
+  final String fileName;
+  final String mimeType;
+  final int sizeBytes;
+  final String? uploadedByName;
+
+  const VoucherDocument(
+      {required this.id, required this.fileName, required this.mimeType, required this.sizeBytes, this.uploadedByName});
+
+  factory VoucherDocument.fromJson(Map<String, dynamic> j) => VoucherDocument(
+        id: j['id'] as String,
+        fileName: j['file_name'] as String? ?? 'document',
+        mimeType: j['mime_type'] as String? ?? 'application/octet-stream',
+        sizeBytes: (j['size_bytes'] as num?)?.toInt() ?? 0,
+        uploadedByName: j['uploaded_by_name'] as String?,
+      );
+
+  bool get isImage => mimeType.startsWith('image/');
+  String get sizeLabel => sizeBytes >= 1024 * 1024
+      ? '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB'
+      : '${(sizeBytes / 1024).ceil()} KB';
+}
+
+/// The MIME type a picked file goes up as, from its extension (null: not a type a voucher keeps).
+String? voucherDocumentMime(String fileName) => switch (fileName.split('.').last.toLowerCase()) {
+      'pdf' => 'application/pdf',
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      'heic' => 'image/heic',
+      _ => null,
+    };
 
 /// A voucher as it stood before one of its edits.
 class VoucherRevision {
@@ -1040,6 +1082,23 @@ class AccountsApi {
 
   /// The voucher printed with signature boxes.
   Future<Uint8List> voucherPdf(String id) => _pdf('/accounts/vouchers/$id/pdf');
+
+  /// File a bill, receipt or photo against a voucher.
+  Future<VoucherDocument> addVoucherDocument(String voucherId,
+      {required Uint8List bytes, required String fileName, required String mimeType}) async {
+    final form = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: fileName, contentType: DioMediaType.parse(mimeType)),
+    });
+    final r = await _dio.post('/accounts/vouchers/$voucherId/documents', data: form);
+    return VoucherDocument.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// A filed document's bytes.
+  Future<Uint8List> voucherDocumentBytes(String documentId) => _pdf('/accounts/voucher-documents/$documentId/file');
+
+  Future<void> deleteVoucherDocument(String documentId) async {
+    await _dio.delete('/accounts/voucher-documents/$documentId');
+  }
 
   Future<Uint8List> statementPdf(String accountId, {DateTime? from, DateTime? to, String? flatId, String? vendorId}) =>
       _pdf('/accounts/ledgers/$accountId/statement', {

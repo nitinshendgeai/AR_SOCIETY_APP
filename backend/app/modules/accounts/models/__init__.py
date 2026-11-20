@@ -1,5 +1,5 @@
 from app.modules.accounts.models.accounts import (
-    Account, AccountGroup, FinancialYearClosing, Voucher, VoucherEntry,
+    Account, AccountGroup, FinancialYearClosing, Voucher, VoucherDocument, VoucherEntry,
     RecurringExpense, RecurringExpenseRun,
 )
 from app.modules.accounts.models.entities import Entity, EntityAccount

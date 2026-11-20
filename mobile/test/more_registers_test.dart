@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show Voucher;
 import 'package:ar_society_app/features/accounts/data/more_registers_api.dart';
+import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart' show voucherProvider;
 import 'package:ar_society_app/features/accounts/presentation/screens/more_register_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/registers_hub_screen.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
@@ -32,6 +34,33 @@ MoreRegister _attendance() => MoreRegister.fromJson({
       'uses_period': false,
       'uses_month': true,
       'month': '2026-09',
+    });
+
+MoreRegister _expenses() => MoreRegister.fromJson({
+      'kind': 'expenses',
+      'title': 'Expenses Register',
+      'subtitle': 'Every expense booked',
+      'columns': [
+        {'key': 'date', 'label': 'Date', 'right': false, 'phone': true},
+        {'key': 'head', 'label': 'Expense head', 'right': false, 'phone': true},
+        {'key': 'amount', 'label': 'Amount Rs.', 'right': true, 'phone': true},
+        {'key': 'document', 'label': 'Document', 'right': false, 'phone': true},
+      ],
+      'rows': [
+        {'voucher_id': 'v1', 'date': '05-11-2026', 'head': 'Security Charges', 'amount': '30000.00', 'document': '1 filed'},
+        {'voucher_id': 'v2', 'date': '06-11-2026', 'head': 'Lift Maintenance', 'amount': '1500.00', 'document': 'None'},
+      ],
+      'totals': [
+        {'label': 'Entries', 'value': '2'},
+        {'label': 'With a document', 'value': '1'},
+      ],
+      'statuses': [
+        {'value': null, 'label': 'All'},
+        {'value': 'with_document', 'label': 'With a document'},
+        {'value': 'without_document', 'label': 'No document'},
+      ],
+      'uses_period': true,
+      'uses_month': false,
     });
 
 MoreRegister _rental() => MoreRegister.fromJson({
@@ -70,6 +99,47 @@ Widget _app(String kind, MoreRegister Function() build, List<MoreRegisterKey> as
     );
 
 void main() {
+  testWidgets('an expense opens its voucher, with the bill filed against it', (tester) async {
+    final asked = <MoreRegisterKey>[];
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        currentUserProvider.overrideWithValue(
+            const UserEntity(id: 'u', email: 'u@t.com', fullName: 'U', roles: ['Society Admin'], societyId: 's1')),
+        moreRegisterProvider.overrideWith((ref, key) async {
+          asked.add(key);
+          return _expenses();
+        }),
+        voucherProvider.overrideWith((ref, id) async => Voucher.fromJson({
+              'id': id,
+              'voucher_type': 'payment',
+              'voucher_number': 'PV/26-27/0007',
+              'voucher_date': '2026-11-05',
+              'amount': '30000.00',
+              'entries': [],
+              'documents': [
+                {'id': 'd1', 'file_name': 'security-bill.pdf', 'mime_type': 'application/pdf', 'size_bytes': 2048},
+              ],
+            })),
+      ],
+      child: const MaterialApp(home: MoreRegisterScreen(kind: 'expenses')),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Expense head: Security Charges'), findsOneWidget);   // a phone card: headed by the date
+    expect(find.text('Document: 1 filed'), findsOneWidget);
+    expect(asked.last.status, isNull);
+
+    await tester.tap(find.byKey(const ValueKey('register-status-with_document')));
+    await tester.pumpAndSettle();
+    expect(asked.last.status, 'with_document');                         // the register can be narrowed to expenses with a bill
+
+    await tester.tap(find.text('Expense head: Security Charges'));
+    await tester.pumpAndSettle();
+    expect(find.text('PV/26-27/0007'), findsOneWidget);                 // the voucher opened
+    expect(find.text('Documents (1)'), findsOneWidget);
+    expect(find.text('security-bill.pdf'), findsOneWidget);
+    expect(find.byKey(const ValueKey('voucher-attach')), findsOneWidget);
+  });
+
   testWidgets('a phone shows one card per staff member with the totals, not thirty columns', (tester) async {
     final asked = <MoreRegisterKey>[];
     await tester.pumpWidget(_app('attendance', _attendance, asked));
@@ -122,11 +192,11 @@ void main() {
   });
 
   testWidgets('the Registers page lists every register once', (tester) async {
-    tester.view.physicalSize = const Size(800, 1600);   // all seven tiles fit; a list builds only what is on screen
+    tester.view.physicalSize = const Size(800, 1600);   // all eight tiles fit; a list builds only what is on screen
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(const MaterialApp(home: RegistersHubScreen()));
-    for (final id in ['invoices', 'bills', 'cash', 'receipts', 'rental', 'attendance', 'petty_cash']) {
+    for (final id in ['invoices', 'bills', 'expenses', 'cash', 'receipts', 'rental', 'attendance', 'petty_cash']) {
       expect(find.byKey(ValueKey('register-$id')), findsOneWidget, reason: id);
     }
     expect(find.text('Rental Register'), findsOneWidget);
