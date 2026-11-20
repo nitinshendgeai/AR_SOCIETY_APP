@@ -861,7 +861,9 @@ class AccountsService:
         """SQL for "a voucher about the members": one the app posts for a flat (its bill, what it paid, an advance, a
         deposit) or any voucher with a line against a flat, such as a receipt an accountant enters for a member."""
         has_flat_line = exists().where(VoucherEntry.voucher_id == Voucher.id, VoucherEntry.flat_id.isnot(None))
-        return or_(Voucher.source_type.in_(MEMBER_VOUCHER_SOURCES), has_flat_line)
+        # coalesce: a voucher entered by hand has no source, and "NULL IN (...)" is neither true nor false in SQL, which
+        # would drop it from the members' list and (negated) from the society's own too.
+        return or_(func.coalesce(Voucher.source_type, "").in_(MEMBER_VOUCHER_SOURCES), has_flat_line)
 
     # ── Balances & statements ─────────────────────────────────────────────────
 
