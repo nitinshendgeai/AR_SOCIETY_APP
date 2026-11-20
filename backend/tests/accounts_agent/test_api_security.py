@@ -77,12 +77,12 @@ def test_agent_proposes_but_changes_nothing_until_approved(client, rig, db, dup)
 def test_approved_correction_runs_through_the_accounting_service_with_audit_trail(client, rig, db, dup):
     v, f = dup
     p = make_proposal(client, rig, f)
-    r = client.post(f"{API}/proposals/{p['id']}/approve", json={"confirm": True, "note": "yes dup"}, headers=rig.admin["headers"])
+    r = client.post(f"{API}/proposals/{p['id']}/approve", json={"confirm": True, "note": "yes dup"}, headers=rig.chair["headers"])
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["status"] == "EXECUTED" and body["result"]["verification"]["finding_cleared"] is True
     db.refresh(v)
-    assert v.is_cancelled and v.cancelled_by == rig.admin["user"].id and "Accounts Agent correction" in v.cancel_reason
+    assert v.is_cancelled and v.cancelled_by == rig.chair["user"].id and "Accounts Agent correction" in v.cancel_reason
     assert db.query(Voucher).filter(Voucher.id == v.id).count() == 1                   # never deleted
     db.refresh(f)
     assert f.status == "RESOLVED"
@@ -95,8 +95,8 @@ def test_approved_correction_runs_through_the_accounting_service_with_audit_trai
 def test_double_approval_executes_once(client, rig, db, dup):
     v, f = dup
     p = make_proposal(client, rig, f)
-    ok = client.post(f"{API}/proposals/{p['id']}/approve", json={"confirm": True}, headers=rig.admin["headers"])
-    again = client.post(f"{API}/proposals/{p['id']}/approve", json={"confirm": True}, headers=rig.admin["headers"])
+    ok = client.post(f"{API}/proposals/{p['id']}/approve", json={"confirm": True}, headers=rig.chair["headers"])
+    again = client.post(f"{API}/proposals/{p['id']}/approve", json={"confirm": True}, headers=rig.chair["headers"])
     assert ok.status_code == 200 and again.status_code == 409
     db.refresh(v)
     first_cancel = v.cancelled_at
@@ -108,7 +108,7 @@ def test_rejected_proposal_cannot_execute(client, rig, db, dup):
     v, f = dup
     p = make_proposal(client, rig, f)
     assert client.post(f"{API}/proposals/{p['id']}/reject", json={"reason": "it is genuine"}, headers=rig.admin["headers"]).status_code == 200
-    r = client.post(f"{API}/proposals/{p['id']}/approve", json={"confirm": True}, headers=rig.admin["headers"])
+    r = client.post(f"{API}/proposals/{p['id']}/approve", json={"confirm": True}, headers=rig.chair["headers"])
     assert r.status_code == 409
     db.refresh(v)
     assert not v.is_cancelled
@@ -119,7 +119,7 @@ def test_stale_proposal_cannot_execute(client, rig, db, dup):
     p = make_proposal(client, rig, f)
     v.narration = "edited after the proposal"                 # the voucher changed behind the proposal's back
     db.commit()
-    r = client.post(f"{API}/proposals/{p['id']}/approve", json={"confirm": True}, headers=rig.admin["headers"])
+    r = client.post(f"{API}/proposals/{p['id']}/approve", json={"confirm": True}, headers=rig.chair["headers"])
     assert r.status_code == 409 and "changed" in r.json()["detail"].lower() if "detail" in r.json() else r.status_code == 409
     db.refresh(v)
     assert not v.is_cancelled
@@ -134,7 +134,7 @@ def test_ledger_mapping_correction_edits_via_voucher_service_keeping_revision(cl
     p = make_proposal(client, rig, f)
     assert p["action_type"] == "edit_voucher"
     assert any(i["account"] == "Housekeeping & Cleaning" for i in p["impact"])
-    r = client.post(f"{API}/proposals/{p['id']}/approve", json={"confirm": True}, headers=rig.admin["headers"])
+    r = client.post(f"{API}/proposals/{p['id']}/approve", json={"confirm": True}, headers=rig.chair["headers"])
     assert r.status_code == 200, r.text
     db.expire_all()
     names = {e.account.name for e in db.get(Voucher, bad.id).entries}
@@ -155,7 +155,7 @@ def test_auto_posted_voucher_gets_a_source_review_not_an_edit(client, rig, db):
     f = db.query(AgentFinding).filter(AgentFinding.voucher_id == b.id, AgentFinding.rule_code == "R-DUP-01").one()
     p = make_proposal(client, rig, f)
     assert p["action_type"] == "source_review" and p["executable"] is False and p["after"] is None
-    r = client.post(f"{API}/proposals/{p['id']}/approve", json={"confirm": True}, headers=rig.admin["headers"])
+    r = client.post(f"{API}/proposals/{p['id']}/approve", json={"confirm": True}, headers=rig.chair["headers"])
     assert r.json()["status"] == "ACKNOWLEDGED"
     db.refresh(b)
     assert not b.is_cancelled                                 # books untouched
@@ -307,7 +307,7 @@ def test_duplicate_pair_gets_one_finding_and_approval_keeps_the_original(client,
     dups = db.query(AgentFinding).filter(AgentFinding.society_id == rig.sid, AgentFinding.rule_code.like("R-DUP%")).all()
     assert [f.voucher_id for f in dups] == [second.id]
     p = make_proposal(client, rig, dups[0])
-    assert client.post(f"{API}/proposals/{p['id']}/approve", json={"confirm": True}, headers=rig.admin["headers"]).status_code == 200
+    assert client.post(f"{API}/proposals/{p['id']}/approve", json={"confirm": True}, headers=rig.chair["headers"]).status_code == 200
     db.refresh(first), db.refresh(second)
     assert second.is_cancelled and not first.is_cancelled
 
@@ -317,13 +317,13 @@ def test_twin_cancellation_makes_the_other_copys_proposal_stale(client, rig, db)
     f_second = db.query(AgentFinding).filter(AgentFinding.voucher_id == second.id, AgentFinding.rule_code == "R-DUP-02").one()
     f_first = _legacy_finding_on_first(rig, db, first, second)
     p_second, p_first = make_proposal(client, rig, f_second), make_proposal(client, rig, f_first)
-    assert client.post(f"{API}/proposals/{p_second['id']}/approve", json={"confirm": True}, headers=rig.admin["headers"]).status_code == 200
+    assert client.post(f"{API}/proposals/{p_second['id']}/approve", json={"confirm": True}, headers=rig.chair["headers"]).status_code == 200
     worker.run_once(db, "w", limit=500)                    # the cancellation event closes the twin's finding
     db.refresh(f_first)
     assert f_first.status == "RESOLVED"
     stale = db.query(AgentProposal).filter(AgentProposal.finding_id == f_first.id).one()
     assert stale.status == "STALE"
-    r = client.post(f"{API}/proposals/{p_first['id']}/approve", json={"confirm": True}, headers=rig.admin["headers"])
+    r = client.post(f"{API}/proposals/{p_first['id']}/approve", json={"confirm": True}, headers=rig.chair["headers"])
     assert r.status_code == 409
     db.refresh(first)
     assert not first.is_cancelled                          # the genuine voucher stays in the books
@@ -335,8 +335,8 @@ def test_second_duplicate_approval_is_refused_even_before_the_worker_runs(client
     f_second = db.query(AgentFinding).filter(AgentFinding.voucher_id == second.id, AgentFinding.rule_code == "R-DUP-02").one()
     f_first = _legacy_finding_on_first(rig, db, first, second)
     p_second, p_first = make_proposal(client, rig, f_second), make_proposal(client, rig, f_first)
-    assert client.post(f"{API}/proposals/{p_second['id']}/approve", json={"confirm": True}, headers=rig.admin["headers"]).status_code == 200
-    r = client.post(f"{API}/proposals/{p_first['id']}/approve", json={"confirm": True}, headers=rig.admin["headers"])
+    assert client.post(f"{API}/proposals/{p_second['id']}/approve", json={"confirm": True}, headers=rig.chair["headers"]).status_code == 200
+    r = client.post(f"{API}/proposals/{p_first['id']}/approve", json={"confirm": True}, headers=rig.chair["headers"])
     assert r.status_code == 409 and "no longer a duplicate" in r.json().get("detail", r.text)
     db.refresh(first), db.refresh(f_first)
     assert not first.is_cancelled and f_first.status == "RESOLVED"

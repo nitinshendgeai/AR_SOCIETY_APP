@@ -520,17 +520,93 @@ def chk_resolution_amounts(s: Scan) -> List[LDraft]:
     return out
 
 
+@dataclass
+class Threshold:
+    """A figure used to test a transaction, with where it came from. It is never stated as more certain than its source."""
+    amount: Optional[Decimal]
+    label: str                        # how the figure is described to the user
+    basis: str                        # STATUTE | SOCIETY_RULE | SOCIETY_SETTING | MODEL_REFERENCE | NONE
+    source_rule: Optional[object]     # the LegalRule the figure comes from (None for a society setting)
+    members: int
+    governing: registry.Applicable    # what the registry says governs the topic
+
+
+def _slab(rule, members: int) -> Optional[Decimal]:
+    calc = rule.calculation_method or {}
+    slabs = calc.get("slabs")
+    if slabs:
+        for upto, amount in slabs:
+            if upto is None or members <= upto:
+                return money(amount)
+    if calc.get("value") is not None and calc.get("type") in ("max_amount", "reference_amount", "membership_slab_limit"):
+        return money(calc["value"])
+    return None
+
+
+def committee_threshold(s: Scan, on: date) -> Threshold:
+    """The committee's spending threshold, resolved through the legal source registry (D-03 of the functional audit).
+
+    Order: a statutory rule whose figure is loaded → the society's own registered bye-law / resolution / policy in the
+    registry → the limit the society set explicitly in Procurement settings (a society setting, not a legal source) →
+    the model bye-law 157 reference (MODEL_REFERENCE: binding only if the registered bye-laws adopted it unchanged).
+    The figure is always labelled with its source and status; it is never presented as a binding legal limit unless
+    it comes from a verified binding source."""
+    from app.modules.vendor.services.work_orders import procurement_limits
+    app = s.rule("expenditure.committee_limit", on)
+    limits = procurement_limits(s.db, s.sid)
+    members = int(limits["members"])
+    cands = app.candidates
+    for r in cands:
+        if r.source_level in registry.STATUTORY and _slab(r, members) is not None:
+            verified = r.verification_status in registry.VERIFIED
+            return Threshold(_slab(r, members), f"the limit under {r.rule_code} for {members} members"
+                             + ("" if verified else " (statutory source not yet verified)"), "STATUTE", r, members, app)
+    for r in cands:
+        if r.source_level in registry.SOCIETY_LEVELS and _slab(r, members) is not None:
+            return Threshold(_slab(r, members), f"the limit in your {registry.LEVEL_NAMES[r.source_level]} ({r.rule_code})"
+                             + ("" if r.verification_status in registry.VERIFIED else ", not yet verified"),
+                             "SOCIETY_RULE", r, members, app)
+    if limits.get("committee_limit_set"):
+        return Threshold(money(limits["committee_limit"]), "the committee limit entered in the society's Procurement "
+                         "settings (a society setting, not a verified legal source)", "SOCIETY_SETTING", None, members, app)
+    for r in cands:
+        if r.source_level == "H" and _slab(r, members) is not None:
+            return Threshold(_slab(r, members), f"the model bye-law {(r.bye_law_number or '157').replace('(model)', '').strip()} reference figure for "
+                             f"{members} members — a MODEL figure, binding only if your registered bye-laws adopted it "
+                             "unchanged, and not verified", "MODEL_REFERENCE", r, members, app)
+    return Threshold(None, "no committee limit is loaded", "NONE", None, members, app)
+
+
+def threshold_draft(s: Scan, th: Threshold, code, category, ccat, title, explanation, **kw) -> LDraft:
+    """A finding judged against a Threshold: classified by the strength of the FIGURE's source (a model or unverified
+    figure can never give more than a potential issue), citing both that source and the governing statutory rule."""
+    gov = th.governing
+    statutory_note = ""
+    if gov.rule is not None and gov.rule.source_level in registry.STATUTORY and th.basis != "STATUTE":
+        statutory_note = (f" The statutory limit ({gov.rule.rule_code}) is not loaded"
+                          + (" and is under legal review" if gov.blocked else "") + ".")
+    ev = {**kw.pop("evidence", {}), "threshold": str(th.amount) if th.amount is not None else None,
+          "threshold_basis": th.basis, "threshold_source": th.label, "members_counted": th.members,
+          "governing_rule": gov.rule.rule_code if gov.rule else None}
+    if th.source_rule is None:                     # a society setting: an internal-policy deviation at most
+        return LDraft(code, "legal", category, ccat, "INTERNAL_POLICY_DEVIATION", "MEDIUM", 0.6, title,
+                      explanation + statutory_note, legal_rule_code=gov.rule.rule_code if gov.rule else None,
+                      legal_source=registry.source_ref(gov.rule, gov), evidence=ev, **kw)
+    app = registry.Applicable(topic=gov.topic, on=gov.on, rule=th.source_rule, candidates=gov.candidates,
+                              conflicts=gov.conflicts,
+                              blocked_by=registry.blocking_reviews(s.db, s.sid, th.source_rule.rule_code))
+    return s.legal(code, category, ccat, app, title, explanation + statutory_note, evidence=ev, **kw)
+
+
 def chk_work_orders(s: Scan) -> List[LDraft]:
     """Work orders: payments beyond the sanctioned amount, and sanctions above the committee's limit without a General
     Body resolution."""
     from app.modules.vendor.models.vendor import (
         SanctionLevel, VendorInvoice, VendorPaymentTransaction, WorkOrder, WorkOrderStatus,
     )
-    from app.modules.vendor.services.work_orders import procurement_limits
     out = []
-    limits = procurement_limits(s.db, s.sid)
-    committee = Decimal(limits["committee_limit"])
-    app = s.rule("expenditure.committee_limit", s.today)
+    th = committee_threshold(s, s.today)
+    committee = th.amount
     for wo in s.db.query(WorkOrder).filter(WorkOrder.society_id == s.sid, WorkOrder.status != WorkOrderStatus.CANCELLED):
         paid = sum((money(a) for (a,) in s.db.query(VendorPaymentTransaction.amount)
                     .join(VendorInvoice, VendorInvoice.id == VendorPaymentTransaction.invoice_id)
@@ -549,32 +625,34 @@ def chk_work_orders(s: Scan) -> List[LDraft]:
                               evidence={"sanctioned": str(money(wo.sanctioned_amount)), "additional": str(extra.approved_total),
                                         "paid": str(paid)}, subject=str(wo.id), vendor_id=wo.vendor_id))
         amount = money(wo.sanctioned_amount or wo.estimated_cost)
-        if amount > committee and wo.sanction_level != SanctionLevel.GENERAL_BODY and not wo.gb_resolution_no:
+        if committee is not None and amount > committee and wo.sanction_level != SanctionLevel.GENERAL_BODY \
+                and not wo.gb_resolution_no:
             gb = resolutions.authorising(s.db, s.sid, on=s.today, work_order_id=wo.id, vendor_id=wo.vendor_id,
                                          authority="GENERAL_BODY")
             if gb.resolutions:
                 continue
-            out.append(s.legal("L-EXP-WO-02", "expenditure", "expenditure_approval", app,
-                               f"Work order {wo.wo_number} ({inr(amount)}) is above the committee's limit without a "
-                               "General Body resolution",
-                               f"'{wo.title}' is for {inr(amount)}. The committee may sanction up to {inr(committee)} "
-                               f"({'set by the General Body' if limits['committee_limit_set'] else 'model bye-law 157 slab for ' + str(limits['members']) + ' members'}). "
-                               "No General Body resolution is recorded for it.",
-                               expected="General Body approval above the committee limit", actual="Committee / none",
-                               recommended="Record the General Body resolution (number and date) on the work order, or "
-                                           "place it before the General Body.",
-                               evidence={"amount": str(amount), "committee_limit": str(committee), "limits": limits},
-                               subject=str(wo.id), vendor_id=wo.vendor_id))
+            out.append(threshold_draft(s, th, "L-EXP-WO-02", "expenditure", "expenditure_approval",
+                                       f"Work order {wo.wo_number} ({inr(amount)}) is above the committee threshold "
+                                       "without a General Body resolution",
+                                       f"'{wo.title}' is for {inr(amount)}, above {inr(committee)} — {th.label}. "
+                                       "No General Body resolution is recorded for it.",
+                                       expected="General Body approval above the committee threshold",
+                                       actual="Committee / none",
+                                       recommended="Record the General Body resolution (number and date) on the work "
+                                                   "order, or place it before the General Body. Check the limit in "
+                                                   "your registered bye-laws.",
+                                       evidence={"amount": str(amount)}, subject=str(wo.id), vendor_id=wo.vendor_id))
     return out
 
 
 def chk_repair_payments(s: Scan) -> List[LDraft]:
     """A one-time repair payment above the committee's limit with no work order or resolution behind it, and the
     financial year's cumulative repair spend."""
-    from app.modules.vendor.services.work_orders import procurement_limits
     out = []
-    limits = procurement_limits(s.db, s.sid)
-    committee = Decimal(limits["committee_limit"])
+    th = committee_threshold(s, s.today)
+    committee = th.amount
+    if committee is None:
+        return out
     repair_ids = {s.accounts[k].id for k in REPAIR_KEYS if k in s.accounts}
     if not repair_ids:
         return out
@@ -586,30 +664,35 @@ def chk_repair_payments(s: Scan) -> List[LDraft]:
             continue
         if v.voucher_date >= fy_start:
             cumulative += amt
-        if amt <= committee or v.source_type in ("vendor_invoice", "vendor_payment"):
+        if v.source_type in ("vendor_invoice", "vendor_payment"):
             continue
-        app = s.rule("expenditure.committee_limit", v.voucher_date)
         ok = resolutions.authorising(s.db, s.sid, on=v.voucher_date, vendor_id=v.vendor_id,
                                      account_id=next(iter(e.account_id for e in v.entries if e.account_id in repair_ids)),
                                      authority="GENERAL_BODY")
         if ok.resolutions and ok.approved_total >= amt:
             continue
-        out.append(s.legal("L-EXP-REP-01", "expenditure", "expenditure_approval", app,
-                           f"Repair expense {v.voucher_number} ({inr(amt)}) exceeds the committee limit with no approval on record",
-                           f"{v.voucher_number} books {inr(amt)} of repairs in one payment. The committee's limit is "
-                           f"{inr(committee)}; no work order or General Body resolution covering it was found.",
-                           expected="General Body approval above the committee limit", actual="No resolution found",
-                           recommended="Record the resolution that approved this work, or obtain ratification.",
-                           evidence={"amount": str(amt), "committee_limit": str(committee)}, subject=str(v.id),
-                           voucher_id=v.id, transaction_ref=v.voucher_number, voucher_date=v.voucher_date,
-                           vendor_id=v.vendor_id))
+        vth = committee_threshold(s, v.voucher_date)
+        if vth.amount is None or amt <= vth.amount:
+            continue
+        out.append(threshold_draft(s, vth, "L-EXP-REP-01", "expenditure", "expenditure_approval",
+                                   f"Repair expense {v.voucher_number} ({inr(amt)}) is above the committee threshold "
+                                   "with no approval on record",
+                                   f"{v.voucher_number} books {inr(amt)} of repairs in one payment, above {inr(vth.amount)} "
+                                   f"— {vth.label}. No work order or General Body resolution covering it was found.",
+                                   expected="General Body approval above the committee threshold",
+                                   actual="No resolution found",
+                                   recommended="Record the resolution that approved this work, or obtain ratification. "
+                                               "Check the limit in your registered bye-laws.",
+                                   evidence={"amount": str(amt)}, subject=str(v.id), voucher_id=v.id,
+                                   transaction_ref=v.voucher_number, voucher_date=v.voucher_date, vendor_id=v.vendor_id))
     if cumulative > committee * 4:
         out.append(LDraft("L-EXP-REP-02", "legal", "expenditure", "expenditure_approval", "ADVISORY_OBSERVATION", "LOW", 0.4,
                           f"Repairs this financial year total {inr(cumulative)}",
-                          f"Cumulative repair spending this year is {inr(cumulative)}, more than four times the committee's "
-                          f"one-time limit ({inr(committee)}). Rule 106C-13 also measures cumulative expenditure; its slabs "
-                          "are pending verification.", recommended="Check the budget approved by the General Body.",
-                          evidence={"cumulative": str(cumulative)}, subject=fiscal_year(s.today)))
+                          f"Cumulative repair spending this year is {inr(cumulative)}, more than four times {inr(committee)} "
+                          f"({th.label}). Rule 106C-13 also measures cumulative expenditure; its slabs are pending "
+                          "verification.", recommended="Check the budget approved by the General Body.",
+                          evidence={"cumulative": str(cumulative), "threshold": str(committee),
+                                    "threshold_basis": th.basis}, subject=fiscal_year(s.today)))
     return out
 
 

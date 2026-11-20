@@ -279,3 +279,51 @@ def test_receipt_on_the_wrong_flat_on_postgres_and_rollback_leaves_nothing(pg):
         out = compliance.run_scan(s, soc.id); out.pop("_created"); s.commit()
         f = s.query(AgentFinding).filter(AgentFinding.society_id == soc.id, AgentFinding.rule_code == "A-MAR-01").one()
         assert f.flat_id == f1.id and f.voucher_id == rv.id and f.evidence["manual_receipts"][0]["voucher"] == rv.voucher_number
+
+
+def test_maker_checker_on_postgres(pg):
+    """D-09 on real PostgreSQL: the proposer's approval is refused (audited, nothing changed); a second committee member's
+    approval executes through AccountsService under the voucher row lock."""
+    from datetime import timedelta
+    from decimal import Decimal
+    from fastapi import HTTPException
+    from app.models.role import Role
+    from app.models.user import User, UserRole, UserStatus
+    from app.modules.accounts.models.accounts import Account, Voucher
+    from app.modules.accounts.services.accounts_service import AccountsService, Line
+    from app.modules.accounts_agent.models.agent import AgentAuditLog, AgentFinding
+    from app.modules.accounts_agent.services import proposals
+    from app.utils.local_time import society_today
+    sid, ids = _setup(pg)
+    with Session(pg) as s:
+        people = []
+        for role_name in ("Society Admin", "Committee Chairman"):
+            role = s.query(Role).filter(Role.name == role_name).first() or Role(name=role_name)
+            s.add(role); s.flush()
+            u = User(email=f"{uuid.uuid4().hex[:8]}@pg-mc.com", full_name=role_name, hashed_password="x",
+                     status=UserStatus.ACTIVE, society_id=sid)
+            s.add(u); s.flush()
+            s.add(UserRole(user_id=u.id, role_id=role.id))
+            people.append(u)
+        s.commit()
+        admin, chair = people
+        svc, day = AccountsService(s), society_today(s, sid)
+        sec, bank = s.get(Account, ids["security_charges"]), s.get(Account, ids["bank"])
+        for _ in range(2):
+            v = svc.build_voucher(sid, "payment", day - timedelta(days=1),
+                                  [Line(sec, debit=Decimal("9000")), Line(bank, credit=Decimal("9000"))], reference="MC-1")
+            v.approval_status = "approved"
+            s.commit()
+        _worker_drain(s); s.commit()
+        f = s.query(AgentFinding).filter(AgentFinding.society_id == sid, AgentFinding.rule_code == "R-DUP-02").one()
+        p = proposals.create_proposal(s, sid, f.id, admin); s.commit()
+        with pytest.raises(HTTPException) as e:
+            proposals.approve_proposal(s, sid, p.id, admin, None)
+        assert e.value.status_code == 403
+        s.rollback()
+        assert not s.get(Voucher, f.voucher_id).is_cancelled
+        assert s.query(AgentAuditLog).filter(AgentAuditLog.society_id == sid,
+                                             AgentAuditLog.action == "proposal_self_approval_refused").count() == 1
+        out = proposals.approve_proposal(s, sid, p.id, chair, "checked"); s.commit()
+        assert out.status == "EXECUTED" and out.decided_by == chair.id
+        assert s.get(Voucher, f.voucher_id).is_cancelled

@@ -203,10 +203,38 @@ def reject_proposal(db: Session, society_id: UUID, proposal_id: UUID, user: User
     return p
 
 
+EXECUTABLE_ACTIONS = ("cancel_voucher", "edit_voucher")
+
+
+def other_approvers(db: Session, society_id: UUID, proposer_id) -> List[UUID]:
+    """Active administrators / committee members of THIS society other than the proposer."""
+    from app.modules.accounts_agent.services import notify
+    return [u for u in notify.recipients(db, society_id) if u != proposer_id]
+
+
+def assert_maker_checker(db: Session, society_id: UUID, p: AgentProposal, user: User) -> None:
+    """Maker–checker (D-09 of the functional audit): a correction that changes the books must be approved by a
+    different authorised person than the one who proposed it. There is no single-user bypass; a society with no
+    second authorised person is told so plainly. The refusal is audited and nothing is changed."""
+    if p.action_type not in EXECUTABLE_ACTIONS or p.created_by is None or p.created_by != user.id:
+        return
+    others = other_approvers(db, society_id, p.created_by)
+    audit.record(db, society_id, "proposal_self_approval_refused", "proposal", p.id, user.id,
+                 {"action": p.action_type, "proposed_by": str(p.created_by), "other_approvers": len(others)})
+    db.commit()
+    if not others:
+        raise HTTPException(403, "Maker–checker: you proposed this correction, so someone else must approve it, and this "
+                                 "society has no other active administrator or committee member who can. Add one "
+                                 "(Administration › Users & roles) and ask them to review it. Nothing was changed.")
+    raise HTTPException(403, "Maker–checker: you proposed this correction, so another administrator or committee member "
+                             "must approve it. Nothing was changed.")
+
+
 def approve_proposal(db: Session, society_id: UUID, proposal_id: UUID, user: User, note: Optional[str]) -> AgentProposal:
     p = _get_proposal(db, society_id, proposal_id, lock=True)
     if p.status != "PENDING":
         raise HTTPException(409, f"Proposal is already {p.status.lower()} and cannot be approved again")
+    assert_maker_checker(db, society_id, p, user)
     finding = db.get(AgentFinding, p.finding_id)
     if p.action_type == "remediation":            # a recommendation: recorded, never executed
         p.status, p.decided_by, p.decided_at, p.decision_note = "ACKNOWLEDGED", user.id, datetime.utcnow(), note
@@ -246,7 +274,10 @@ def approve_proposal(db: Session, society_id: UUID, proposal_id: UUID, user: Use
             return p
         reason = f"Accounts Agent correction approved by reviewer: {p.title}"[:300]
         p.status = "EXECUTED"                         # committed together with the accounting change by the service
-        audit.record(db, society_id, "proposal_approved", "proposal", p.id, user.id, {"action": p.action_type})
+        audit.record(db, society_id, "proposal_approved", "proposal", p.id, user.id,
+                     {"action": p.action_type, "proposed_by": str(p.created_by) if p.created_by else None,
+                      "approved_by": str(user.id), "decided_at": p.decided_at.isoformat(),
+                      "voucher": v.voucher_number})
         if p.action_type == "cancel_voucher":
             svc.cancel_manual_voucher(v.id, reason, user)
         elif p.action_type == "edit_voucher":

@@ -130,7 +130,12 @@ def test_unapproved_repair_expense_and_general_body_approval(rig):
     v = rig.payment(15, "repairs_building", 150000, reference="TERRACE-1", narration="Terrace waterproofing")
     rig.scan()
     f = one(rig, "L-EXP-REP-01")
-    assert f.voucher_id == v.id and f.finding_class == "POTENTIAL_NON_COMPLIANCE"
+    # The only figure loaded is the model bye-law 157 slab: it is labelled as such and never treated as binding law
+    # (functional audit D-03), so the finding is an advisory observation, not a potential violation.
+    assert f.voucher_id == v.id and f.finding_class == "ADVISORY_OBSERVATION"
+    assert f.evidence["threshold_basis"] == "MODEL_REFERENCE" and f.evidence["threshold"] == "25000.00"
+    assert "MODEL figure" in f.explanation and "committee's limit is" not in f.explanation
+    assert f.legal_source["rule_code"] == "MH-EXP-BYELAW157"
     rig.resolution(resolution_number="SGM-2", meeting_type="SGM", account_id=rig.chart["repairs_building"].id,
                    approved_amount=D("150000"), meeting_date=rig.today - timedelta(days=60), purpose="Waterproofing")
     rig.scan()
@@ -145,7 +150,8 @@ def test_work_order_above_committee_limit_without_general_body(rig, db):
     db.commit()
     rig.scan()
     f = one(rig, "L-EXP-WO-02")
-    assert f.finding_class == "POTENTIAL_NON_COMPLIANCE" and f.evidence["committee_limit"] == "25000"
+    assert f.finding_class == "ADVISORY_OBSERVATION" and f.evidence["threshold"] == "25000.00"
+    assert f.evidence["threshold_basis"] == "MODEL_REFERENCE" and "MODEL figure" in f.explanation
 
 
 def test_duplicate_vendor_invoice_and_missing_invoice(rig, db):

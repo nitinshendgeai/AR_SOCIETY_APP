@@ -23,6 +23,8 @@ class Rig:
         db.commit()
         self.admin = place_in(db, make_user(db, f"admin@agent{tag}.com", role="Society Admin"), self.society)
         self.manager = place_in(db, make_user(db, f"mgr@agent{tag}.com", role="Manager"), self.society)
+        # A second authorised person: the checker for corrections the admin proposes (maker–checker).
+        self.chair = place_in(db, make_user(db, f"chair@agent{tag}.com", role="Committee Chairman"), self.society)
         self.today = society_today(db, self.sid)
         self._n = 0
 
