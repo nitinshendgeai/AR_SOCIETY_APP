@@ -342,6 +342,16 @@ class LegalApi {
   Future<LegalRule> createSocietyRule(Map<String, dynamic> data) async =>
       LegalRule(_m(await _dio.post('$_base/legal/rules', data: data)));
 
+  /// The rule with its full text and every version (oldest first).
+  Future<(LegalRule, List<LegalRule>)> ruleWithVersions(String id) async {
+    final j = _m(await _dio.get('$_base/legal/rules/$id'));
+    return (LegalRule(j), [for (final v in _list(j['versions'])) LegalRule(v)]);
+  }
+
+  /// A new version of a rule. The current version is kept and closed the day before [effective_from].
+  Future<LegalRule> reviseRule(String id, Map<String, dynamic> data) async =>
+      LegalRule(_m(await _dio.post('$_base/legal/rules/$id/versions', data: data)));
+
   Future<LegalRule> verifyRule(String id, {required String verification, required String note, String? pageNumber, String? legalStatus}) async =>
       LegalRule(_m(await _dio.post('$_base/legal/rules/$id/verify', data: {
         'verification_status': verification,

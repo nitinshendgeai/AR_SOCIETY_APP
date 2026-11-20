@@ -93,6 +93,7 @@ import 'package:ar_society_app/features/accounts_agent/presentation/screens/ledg
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/legal_library_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/recovery_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/resolutions_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/rule_revision_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/society_rule_form_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/statutory_calendar_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_proposal_screen.dart';
@@ -287,6 +288,7 @@ class AppRoutes {
   static const accountsAgentLegalLibrary = '/accounts-agent/legal-library';
   static const accountsAgentSocietyRuleNew = '/accounts-agent/legal-library/rules/new';
   static const accountsAgentLedgerMap = '/accounts-agent/ledger-map';
+  static const accountsAgentRuleRevise = '/accounts-agent/legal-library/rules/:id/revise';
   static const accountsAgentResolutions  = '/accounts-agent/resolutions';
   static const accountsAgentStatutory    = '/accounts-agent/statutory';
   static const accountsAgentRecovery     = '/accounts-agent/recovery';
@@ -1009,6 +1011,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             (AppRoutes.accountsAgentLegalLibrary, (_) => const LegalLibraryScreen()),
             (AppRoutes.accountsAgentSocietyRuleNew, (_) => const SocietyRuleFormScreen()),
             (AppRoutes.accountsAgentLedgerMap, (_) => const LedgerMapScreen()),
+            (AppRoutes.accountsAgentRuleRevise, (s) => RuleRevisionScreen(ruleId: s.pathParameters['id']!)),
             (AppRoutes.accountsAgentResolutions, (_) => const ResolutionsScreen()),
             (AppRoutes.accountsAgentStatutory, (_) => const StatutoryCalendarScreen()),
             (AppRoutes.accountsAgentRecovery, (_) => const RecoveryScreen()),

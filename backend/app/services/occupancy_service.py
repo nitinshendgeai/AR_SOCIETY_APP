@@ -185,6 +185,70 @@ class OccupancyService:
         self.db.commit()
         return resident
 
+    # ── Ownership transfer ────────────────────────────────────────────────────
+
+    def ownership_transfer(self, flat_id: UUID, new_owner_id: UUID, transfer_date: date, user: User,
+                           previous_owner_ids: Optional[List[UUID]] = None, share_certificate_no: Optional[str] = None,
+                           deed_reference: Optional[str] = None, notes: Optional[str] = None) -> Resident:
+        """Record a change of owner as one event: the previous owner(s) move out on the transfer date (their vehicles
+        are unassigned, as on any move-out), the new owner becomes the flat's primary owner from that date, and an
+        OWNERSHIP_TRANSFER entry is written to the flat's history. The new owner must already be recorded as an owner or
+        co-owner of this flat. Nothing in the accounts is changed: dues, advances and the transfer premium are reviewed
+        separately (the Accounts Agent's handover checks read this event)."""
+        from app.models.resident import ResidentType
+        flat = self._flat_or_404(flat_id, society_id=user.society_id)
+        owner_types = (ResidentType.OWNER, ResidentType.CO_OWNER)
+        new = self.db.query(Resident).filter(Resident.id == new_owner_id, Resident.flat_id == flat_id).first()
+        if not new:
+            raise HTTPException(status_code=404, detail="New owner not found on this flat")
+        if new.resident_type not in owner_types:
+            raise HTTPException(status_code=422, detail="The new owner must be recorded as an owner or co-owner")
+        if new.move_out_date is not None or not new.is_active:
+            raise HTTPException(status_code=422, detail="The new owner is recorded as moved out")
+        current = (self.db.query(Resident).filter(Resident.flat_id == flat_id, Resident.id != new.id,
+                                                  Resident.resident_type.in_(owner_types), Resident.is_active == True,  # noqa: E712
+                                                  Resident.move_out_date.is_(None)).all())
+        if previous_owner_ids is None:
+            previous = current
+        else:
+            wanted = set(previous_owner_ids)
+            previous = [r for r in current if r.id in wanted]
+            if len(previous) != len(wanted):
+                raise HTTPException(status_code=404, detail="A previous owner was not found among this flat's current owners")
+        if not previous:
+            raise HTTPException(status_code=422, detail="There is no current owner to transfer from")
+        for r in previous:
+            if r.move_in_date and transfer_date < r.move_in_date:
+                raise HTTPException(status_code=422, detail="The transfer date is before a previous owner's move-in date")
+        if transfer_date > date.today():
+            raise HTTPException(status_code=422, detail="The transfer date cannot be in the future")
+        for r in previous:
+            r.move_out_date, r.is_active, r.is_primary = transfer_date, False, False
+            self._unassign_vehicles(resident_id=r.id, user=user)
+            self._log_event(flat, OccupancyEventType.RESIDENT_MOVE_OUT, transfer_date, user, resident_id=r.id,
+                            notes="Moved out on ownership transfer")
+        self.db.flush()                     # release the old primary first: one active primary resident per flat
+        new.is_primary = True
+        if new.move_in_date is None or new.move_in_date > transfer_date:
+            new.move_in_date = transfer_date
+        details = [f"Ownership transferred from {', '.join(r.full_name for r in previous)} to {new.full_name}"]
+        if share_certificate_no:
+            details.append(f"Share certificate: {share_certificate_no.strip()}")
+        if deed_reference:
+            details.append(f"Deed / registration: {deed_reference.strip()}")
+        if notes:
+            details.append(notes.strip())
+        self._log_event(flat, OccupancyEventType.OWNERSHIP_TRANSFER, transfer_date, user, resident_id=new.id,
+                        notes=". ".join(details)[:2000])
+        self._sync_status(flat)
+        AuditService.log(db=self.db, action=AuditAction.UPDATE, module="occupancy", entity_id=str(flat_id),
+                         entity_type="Flat", user=user,
+                         new_values={"event": "ownership_transfer", "date": str(transfer_date), "new_owner": str(new.id),
+                                     "previous_owners": [str(r.id) for r in previous],
+                                     "share_certificate_no": share_certificate_no, "deed_reference": deed_reference})
+        self.db.commit()
+        return new
+
     # ── Tenant move-in / move-out ─────────────────────────────────────────────
 
     def check_tenant_move_in(self, flat: Flat, exclude_tenant_id: Optional[UUID] = None,

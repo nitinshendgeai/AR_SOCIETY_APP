@@ -271,6 +271,24 @@ class ResidentMasterRepository {
     }
   }
 
+  Future<RmResult<void>> ownershipTransfer({
+    required String flatId,
+    required String newOwnerId,
+    required String transferDate,
+    List<String>? previousOwnerIds,
+    String? shareCertificateNo,
+    String? deedReference,
+    String? notes,
+  }) async {
+    try {
+      await _ds.ownershipTransfer(flatId: flatId, newOwnerId: newOwnerId, transferDate: transferDate,
+          previousOwnerIds: previousOwnerIds, shareCertificateNo: shareCertificateNo, deedReference: deedReference, notes: notes);
+      return RmSuccess(null);
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
   Future<RmResult<void>> tenantMoveIn({
     required String flatId,
     required String tenantId,

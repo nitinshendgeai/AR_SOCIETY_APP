@@ -32,8 +32,9 @@ from app.modules.accounts_agent.legal.models import (
 from app.modules.accounts_agent.services import audit
 
 MAX_BYTES = 15 * 1024 * 1024
+IMAGE_EXT = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
 ALLOWED_EXT = {".pdf": "application/pdf", ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-               ".doc": "application/msword", ".txt": "text/plain"}
+               ".doc": "application/msword", ".txt": "text/plain", **IMAGE_EXT}
 DRAFT_MARKERS = re.compile(r"\b(draft|proposed|for discussion|not for circulation)\b|प्रारूप|मसुदा|प्रस्तावित", re.I)
 DEVANAGARI = re.compile(r"[ऀ-ॿ]")
 LATIN = re.compile(r"[A-Za-z]")
@@ -64,24 +65,148 @@ def detect_language(text: str) -> str:
     return "mr" if share > 0.7 else ("en" if share < 0.1 else "mixed")
 
 
-def _pdf_pages(data: bytes) -> Tuple[Optional[List[str]], str, List[str]]:
-    if not shutil.which("pdftotext"):
-        return None, "none", ["PDF text extraction is not installed on this server (poppler pdftotext); the file is "
-                              "stored and must be transcribed or verified manually."]
-    with tempfile.NamedTemporaryFile(suffix=".pdf") as fh:
+OCR_LANGS = "mar+eng"          # Marathi and English, as the society's documents are
+OCR_MAX_PAGES = 60             # a longer scan is OCR'd up to this page; the rest is reported for manual reading
+OCR_DPI = 300
+WEAK_PAGE_CHARS = 40
+
+
+def ocr_available() -> bool:
+    """Tesseract with the Marathi and English language data, and Poppler to render PDF pages."""
+    if not (shutil.which("tesseract") and shutil.which("pdftoppm")):
+        return False
+    try:
+        res = subprocess.run(["tesseract", "--list-langs"], capture_output=True, timeout=20)
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+    langs = set(res.stdout.decode("utf-8", "replace").split())
+    return {"mar", "eng"} <= langs
+
+
+def _ocr_image(path: str) -> Tuple[str, Optional[float]]:
+    """Text of one image and Tesseract's mean word confidence (0–100), from its TSV output."""
+    res = subprocess.run(["tesseract", path, "stdout", "-l", OCR_LANGS, "--psm", "3", "tsv"], capture_output=True, timeout=120)
+    if res.returncode != 0:
+        return "", None
+    lines: dict = {}
+    confs: List[float] = []
+    for row in res.stdout.decode("utf-8", "replace").splitlines()[1:]:
+        cols = row.split("\t")
+        if len(cols) < 12 or not cols[11].strip():
+            continue
+        try:
+            conf = float(cols[10])
+        except ValueError:
+            continue
+        if conf < 0:
+            continue
+        confs.append(conf)
+        key = (int(cols[2]), int(cols[3]), int(cols[4]))           # block, paragraph, line
+        lines.setdefault(key, []).append(cols[11])
+    text = "\n".join(" ".join(words) for _k, words in sorted(lines.items()))
+    return text, (round(sum(confs) / len(confs), 1) if confs else None)
+
+
+def _ocr_pdf_page(pdf_path: str, page: int, workdir: str) -> Tuple[str, Optional[float]]:
+    prefix = f"{workdir}/p{page}"
+    res = subprocess.run(["pdftoppm", "-r", str(OCR_DPI), "-f", str(page), "-l", str(page), "-png", "-singlefile",
+                          pdf_path, prefix], capture_output=True, timeout=120)
+    if res.returncode != 0:
+        return "", None
+    return _ocr_image(prefix + ".png")
+
+
+def _pdf_page_count(pdf_path: str) -> Optional[int]:
+    if not shutil.which("pdfinfo"):
+        return None
+    res = subprocess.run(["pdfinfo", pdf_path], capture_output=True, timeout=30)
+    for line in res.stdout.decode("utf-8", "replace").splitlines():
+        if line.startswith("Pages:"):
+            try:
+                return int(line.split()[1])
+            except (IndexError, ValueError):
+                return None
+    return None
+
+
+def _pdf_pages(data: bytes) -> Tuple[Optional[List[dict]], str, List[str]]:
+    """Pages as [{"text", "ocr", "confidence"}]: the PDF's own text layer, and OCR for pages that have (almost) none."""
+    have_text, have_ocr = bool(shutil.which("pdftotext")), ocr_available()
+    if not have_text and not have_ocr:
+        return None, "none", ["PDF text extraction is not installed on this server (poppler pdftotext / tesseract); "
+                              "the file is stored and must be transcribed or verified manually."]
+    issues: List[str] = []
+    with tempfile.TemporaryDirectory() as work:
+        path = f"{work}/doc.pdf"
+        with open(path, "wb") as fh:
+            fh.write(data)
+        texts: List[str] = []
+        if have_text:
+            try:
+                res = subprocess.run(["pdftotext", "-layout", "-enc", "UTF-8", path, "-"], capture_output=True, timeout=60)
+            except subprocess.TimeoutExpired:
+                return None, "pdftotext", ["Text extraction timed out"]
+            if res.returncode != 0:
+                return None, "pdftotext", ["The PDF could not be read (damaged or encrypted)"]
+            texts = res.stdout.decode("utf-8", "replace").split("\f")
+            if texts and not texts[-1].strip():
+                texts = texts[:-1]
+        if not texts:
+            texts = [""] * (_pdf_page_count(path) or 0)
+        pages = [{"text": t, "ocr": False, "confidence": None} for t in texts]
+        weak = [i for i, p in enumerate(pages, start=1) if len(p["text"].strip()) < WEAK_PAGE_CHARS]
+        method = "pdftotext" if have_text else "none"
+        if weak and have_ocr:
+            done = 0
+            for n in weak:
+                if done >= OCR_MAX_PAGES:
+                    issues.append(f"Only the first {OCR_MAX_PAGES} scanned pages were read by OCR; page {n} onwards needs "
+                                  "manual reading")
+                    break
+                try:
+                    text, conf = _ocr_pdf_page(path, n, work)
+                except subprocess.TimeoutExpired:
+                    text, conf = "", None
+                done += 1
+                if text.strip():
+                    pages[n - 1] = {"text": text, "ocr": True, "confidence": conf}
+            method = "pdftotext+ocr" if have_text else "ocr"
+        elif weak:
+            issues.append("OCR is not installed on this server (tesseract with Marathi data): scanned pages cannot be read")
+    return pages, method, issues
+
+
+def _image_pages(data: bytes, ext: str) -> Tuple[Optional[List[dict]], str, List[str]]:
+    if not ocr_available():
+        return None, "none", ["OCR is not installed on this server (tesseract with Marathi data); the image is stored "
+                              "and must be transcribed manually"]
+    with tempfile.TemporaryDirectory() as work:
+        path = f"{work}/page{ext}"
+        with open(path, "wb") as fh:
+            fh.write(data)
+        try:
+            text, conf = _ocr_image(path)
+        except subprocess.TimeoutExpired:
+            return None, "ocr", ["OCR timed out"]
+    return [{"text": text, "ocr": True, "confidence": conf}], "ocr", []
+
+
+def _doc_text(data: bytes) -> Tuple[Optional[List[dict]], str, List[str]]:
+    """A legacy Word (.doc) file, read with antiword."""
+    if not shutil.which("antiword"):
+        return None, "none", ["Legacy .doc files cannot be read on this server (antiword is not installed); save as DOCX "
+                              "or PDF, or transcribe the clauses manually"]
+    with tempfile.NamedTemporaryFile(suffix=".doc") as fh:
         fh.write(data)
         fh.flush()
         try:
-            res = subprocess.run(["pdftotext", "-layout", "-enc", "UTF-8", fh.name, "-"], capture_output=True, timeout=60)
+            res = subprocess.run(["antiword", "-m", "UTF-8.txt", "-w", "0", fh.name], capture_output=True, timeout=60)
         except subprocess.TimeoutExpired:
-            return None, "pdftotext", ["Text extraction timed out"]
+            return None, "antiword", ["Reading the .doc file timed out"]
     if res.returncode != 0:
-        return None, "pdftotext", ["The PDF could not be read (damaged or encrypted)"]
-    text = res.stdout.decode("utf-8", "replace")
-    pages = text.split("\f")
-    if pages and not pages[-1].strip():
-        pages = pages[:-1]
-    return pages, "pdftotext", []
+        return None, "antiword", ["The .doc file could not be read (damaged, password-protected or not a Word file)"]
+    return ([{"text": res.stdout.decode("utf-8", "replace"), "ocr": False, "confidence": None}], "antiword",
+            ["A .doc has no fixed pages: clause page references are not available"])
 
 
 def _docx_text(data: bytes) -> Tuple[Optional[List[str]], str, List[str]]:
@@ -93,40 +218,58 @@ def _docx_text(data: bytes) -> Tuple[Optional[List[str]], str, List[str]]:
     ns = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
     root = ElementTree.fromstring(xml)
     paras = ["".join(t.text or "" for t in p.iter(f"{ns}t")) for p in root.iter(f"{ns}p")]
-    return ["\n".join(paras)], "docx-xml", ["A DOCX has no fixed pages: clause page references are not available"]
+    return ([{"text": "\n".join(paras), "ocr": False, "confidence": None}], "docx-xml",
+            ["A DOCX has no fixed pages: clause page references are not available"])
 
 
 def extract(file_name: str, data: bytes) -> dict:
     ext = ("." + file_name.rsplit(".", 1)[-1].lower()) if "." in file_name else ""
-    issues: List[str] = []
+    paged = ext == ".pdf"
     if ext == ".pdf":
         pages, method, issues = _pdf_pages(data)
     elif ext == ".docx":
         pages, method, issues = _docx_text(data)
-    elif ext == ".txt":
-        pages, method = [data.decode("utf-8", "replace")], "text"
+    elif ext == ".doc":
+        pages, method, issues = _doc_text(data)
+    elif ext in IMAGE_EXT:
+        pages, method, issues = _image_pages(data, ext)
+        paged = True
     else:
-        pages, method, issues = None, "none", ["Legacy .doc files are stored but not parsed; save as DOCX or PDF, or "
-                                               "transcribe the clauses manually"]
+        pages, method, issues = [{"text": data.decode("utf-8", "replace"), "ocr": False, "confidence": None}], "text", []
     if pages is None:
-        return {"pages": None, "text": None, "method": method, "quality": "OCR_REQUIRED" if ext == ".pdf" else "NONE",
+        return {"pages": None, "text": None, "method": method,
+                "quality": "OCR_REQUIRED" if ext == ".pdf" or ext in IMAGE_EXT else "NONE",
                 "issues": issues, "language": "unknown", "draft_markers": []}
-    page_rows, weak = [], []
-    for i, t in enumerate(pages, start=1):
+    page_rows, weak, ocr_pages, confs = [], [], [], []
+    for i, p in enumerate(pages, start=1):
+        t = p["text"]
         chars = len(t.strip())
-        page_rows.append({"page": i if ext == ".pdf" else None, "text": t, "chars": chars})
-        if ext == ".pdf" and chars < 40:
+        row = {"page": i if paged else None, "text": t, "chars": chars}
+        if p.get("ocr"):
+            row.update(ocr=True, ocr_confidence=p.get("confidence"))
+            ocr_pages.append(i)
+            if p.get("confidence") is not None:
+                confs.append(p["confidence"])
+        page_rows.append(row)
+        if paged and chars < WEAK_PAGE_CHARS:
             weak.append(i)
     text = "\n".join(p["text"] for p in page_rows)
-    if ext == ".pdf" and weak:
-        issues.append(f"Page(s) {', '.join(map(str, weak[:20]))} have little or no text: scanned image or missing page — "
-                      "OCR / manual verification needed")
+    if ocr_pages:
+        mean = round(sum(confs) / len(confs), 1) if confs else None
+        issues.append(f"Page(s) {', '.join(map(str, ocr_pages[:20]))} were read by OCR"
+                      + (f" (mean confidence {mean}%)" if mean is not None else "")
+                      + ": OCR text can misread words, numbers and Marathi characters — verify against the original")
+    if paged and weak:
+        issues.append(f"Page(s) {', '.join(map(str, weak[:20]))} have little or no text even after OCR: blank, missing or "
+                      "unreadable page — manual verification needed")
     quality = "GOOD"
-    if ext == ".pdf" and page_rows and len(weak) == len(page_rows):
+    if paged and page_rows and len(weak) == len(page_rows):
         quality = "OCR_REQUIRED"
-    elif weak or "�" in text:
+    elif weak or "\ufffd" in text or (confs and min(confs) < 60):
         quality = "POOR"
-    if "�" in text:
+    elif ocr_pages:
+        quality = "OCR_TEXT"
+    if "\ufffd" in text:
         issues.append("Some characters could not be decoded (font encoding); verify the Marathi text against the original")
     markers = sorted({m.group(0).lower() for m in DRAFT_MARKERS.finditer(text[:20000])})
     if markers:
@@ -174,7 +317,7 @@ def upload(db: Session, *, society_id: Optional[UUID], user, file_name: str, dat
         raise HTTPException(422, "Unknown document status")
     ext = ("." + file_name.rsplit(".", 1)[-1].lower()) if "." in file_name else ""
     if ext not in ALLOWED_EXT:
-        raise HTTPException(422, "Upload a PDF, DOCX, DOC or TXT file")
+        raise HTTPException(422, "Upload a PDF, DOCX, DOC, TXT, PNG or JPG file")
     if not data:
         raise HTTPException(422, "The file is empty")
     if len(data) > MAX_BYTES:
@@ -203,7 +346,7 @@ def upload(db: Session, *, society_id: Optional[UUID], user, file_name: str, dat
     db.flush()
     for c in extract_clauses(ex["pages"], ex["language"]):
         db.add(LegalClause(document_id=doc.id, society_id=society_id, needs_verification=True, **c))
-    if society_id and (ex["draft_markers"] or ex["quality"] in ("OCR_REQUIRED", "POOR")):
+    if society_id and (ex["draft_markers"] or ex["quality"] in ("OCR_REQUIRED", "POOR", "OCR_TEXT")):
         db.add(LegalReview(scope=str(society_id), society_id=society_id, review_type="DOCUMENT_VERIFICATION",
                            dedupe_key=f"document:{doc.id}", blocking=False, status="OPEN",
                            title=f"Check '{doc.title[:200]}' before it is relied on",
@@ -245,8 +388,9 @@ def verify(db: Session, doc: LegalDocument, user, *, status: str, verification_s
                                      "version: give a reason (override_draft_warning) citing the registration details.")
         if doc.society_id and status in ("REGISTERED", "APPROVED_AMENDMENT") and not (approval_date or doc.approval_date):
             raise HTTPException(422, "Record the date the Registrar registered / approved it (approval_date)")
-        if doc.extraction_quality in ("OCR_REQUIRED", "NONE") and not note:
-            raise HTTPException(422, "The text could not be extracted; record in the note how the content was verified")
+        if doc.extraction_quality in ("OCR_REQUIRED", "NONE", "OCR_TEXT", "POOR") and len((note or "").strip()) < 10:
+            raise HTTPException(422, "The text was read by OCR or could not be extracted: record in the note how it was "
+                                     "checked against the original")
     for k, v in (("issue_date", issue_date), ("approval_date", approval_date), ("effective_from", effective_from),
                  ("effective_until", effective_until)):
         if v is not None:
@@ -302,7 +446,8 @@ def document_dict(d: LegalDocument, detail: bool = False) -> dict:
            "duplicate_of_id": str(d.duplicate_of_id) if d.duplicate_of_id else None,
            "created_at": d.created_at.isoformat()}
     if detail:
-        out["pages"] = [{"page": p.get("page"), "chars": p.get("chars"), "text": (p.get("text") or "")[:20000]}
+        out["pages"] = [{"page": p.get("page"), "chars": p.get("chars"), "text": (p.get("text") or "")[:20000],
+                         "ocr": bool(p.get("ocr")), "ocr_confidence": p.get("ocr_confidence")}
                         for p in (d.pages or [])][:500]
     return out
 

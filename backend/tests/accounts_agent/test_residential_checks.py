@@ -232,3 +232,41 @@ def test_old_advance_with_nothing_due(rig, db):
 def test_new_checks_run_inside_the_scan_without_failures(rig):
     out = rig.scan()
     assert out["failed_checks"] == []
+
+
+# ── Parking rates ────────────────────────────────────────────────────────────────────────────────────────────────
+
+def test_parking_rate_matches_and_mismatches(rig, db):
+    from app.modules.billing.models.billing import CycleFrequency
+    s1, s2, s3 = _parking(rig)
+    s3.zone.monthly_rate = D("700")                       # all three slots share the zone; set per-slot charges below
+    rig.config("Parking", ChargeType.PARKING, ChargeBasis.PARKING, 500)
+    a, b, c = rig.flat_rows[:3]
+    _allot(rig, s1, a, monthly_charge=800)              # own charge 800
+    _allot(rig, s2, b, monthly_charge=500)              # own charge 500
+    _allot(rig, s3, c)                                  # no own charge: zone rate 700
+    cy = rig.cycle(rig.today - timedelta(days=90), rig.today - timedelta(days=1), name="Q")
+    cy.frequency = CycleFrequency.QUARTERLY
+    db.commit()
+    rig.bill(a, cy, [(ChargeType.PARKING, "Parking", 500, 1500)])          # should be 800 × 3 = 2400
+    rig.bill(b, cy, [(ChargeType.PARKING, "Parking", 500, 1500)])          # 500 × 3: right
+    rig.bill(c, cy, [(ChargeType.PARKING, "Parking", 700, 2100)])          # zone 700 × 3: right
+    rig.scan()
+    f = one(rig, "A-PRK-06")
+    assert f.flat_id == a.id and f.evidence["expected"] == "2400.00" and f.evidence["billed"] == "1500.00"
+    assert "slot's own charge" in f.evidence["working"][0]
+
+
+def test_parking_rate_not_judged_for_part_period_or_partial_holding(rig, db):
+    s1, s2, _ = _parking(rig)
+    rig.config("Parking", ChargeType.PARKING, ChargeBasis.PARKING, 500)
+    a, b = rig.flat_rows[:2]
+    _allot(rig, s1, a, start_days_ago=10)               # allotted part-way through the cycle
+    _allot(rig, s2, b)
+    cy = rig.cycle(rig.today - timedelta(days=30), rig.today - timedelta(days=1))
+    rig.bill(a, cy, [(ChargeType.PARKING, "Parking", 500, 170)])
+    bb = rig.bill(b, cy, [(ChargeType.PARKING, "Parking", 500, 250)])
+    bb.period_start, bb.period_end = cy.cycle_start + timedelta(days=15), cy.cycle_end    # a part-period bill
+    db.commit()
+    rig.scan()
+    assert rig.findings("A-PRK-06") == []

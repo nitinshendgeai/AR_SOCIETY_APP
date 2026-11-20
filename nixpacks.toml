@@ -1,5 +1,9 @@
 [phases.setup]
 nixPkgs = ["python312", "gcc"]
+# Legal document reading for the Accounts Agent: PDF text and page images (poppler), OCR of scanned pages in Marathi
+# and English (tesseract), and legacy Word .doc files (antiword). Without them documents are still stored, and are
+# flagged for manual transcription.
+aptPkgs = ["poppler-utils", "tesseract-ocr", "tesseract-ocr-mar", "tesseract-ocr-eng", "antiword"]
 
 [phases.install]
 cmds = [

@@ -483,6 +483,17 @@ class OccupancyActionNotifier extends StateNotifier<OccupancyActionState> {
     };
   }
 
+  Future<void> ownershipTransfer({required String flatId, required String fromResidentId, required String newOwnerId,
+      required String transferDate, String? shareCertificateNo, String? deedReference, String? notes}) async {
+    state = OccupancyActionLoading();
+    final result = await _repo.ownershipTransfer(flatId: flatId, newOwnerId: newOwnerId, transferDate: transferDate,
+        previousOwnerIds: [fromResidentId], shareCertificateNo: shareCertificateNo, deedReference: deedReference, notes: notes);
+    state = switch (result) {
+      RmSuccess() => OccupancyActionSuccess('Ownership transfer recorded'),
+      RmFailure(:final message) => OccupancyActionError(message),
+    };
+  }
+
   Future<void> tenantMoveIn(String flatId, String tenantId, String moveInDate) async {
     state = OccupancyActionLoading();
     final result = await _repo.tenantMoveIn(flatId: flatId, tenantId: tenantId, moveInDate: moveInDate);

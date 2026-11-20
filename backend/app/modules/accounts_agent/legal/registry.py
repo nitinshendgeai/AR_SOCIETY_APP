@@ -361,11 +361,11 @@ def rule_dict(r: LegalRule, detail: bool = False) -> dict:
          "human_review_required": r.human_review_required,
          "superseded_by_id": str(r.superseded_by_id) if r.superseded_by_id else None,
          "last_verified_at": r.last_verified_at.isoformat() if r.last_verified_at else None,
-         "verification_note": r.verification_note}
+         "verification_note": r.verification_note, "change_note": r.change_note}
     if detail:
         d.update({"original_text": r.original_text, "translated_text": r.translated_text,
                   "applicability_conditions": r.applicability_conditions, "validation_expression": r.validation_expression,
-                  "required_evidence": r.required_evidence, "change_note": r.change_note})
+                  "required_evidence": r.required_evidence})
     return d
 
 
