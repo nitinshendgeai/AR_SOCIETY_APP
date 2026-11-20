@@ -172,6 +172,28 @@ Color voucherTypeColor(String type) => switch (type) {
       _ => AppTheme.textSecondary,
     };
 
+/// "Residents" / "Operations": whether a voucher is about the residents' flats or the society's own running.
+class VoucherScopeChip extends StatelessWidget {
+  final String scope;
+  const VoucherScopeChip(this.scope, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final members = scope == 'members';
+    final color = members ? AppTheme.primary : AppTheme.textSecondary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Text(members ? 'Residents' : 'Operations',
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+    );
+  }
+}
+
 /// "RV · Receipt" style chip for a voucher type.
 class VoucherTypeChip extends StatelessWidget {
   final String type;
@@ -588,6 +610,8 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
         data: (v) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
             VoucherTypeChip(v.voucherType),
+            const SizedBox(width: 6),
+            VoucherScopeChip(v.scope),
             const SizedBox(width: 8),
             Expanded(
               child: Text(v.voucherNumber, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),

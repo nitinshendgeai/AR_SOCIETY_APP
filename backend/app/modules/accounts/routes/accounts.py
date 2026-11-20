@@ -17,7 +17,9 @@ from app.models.society import Society
 from app.models.user import User
 from app.modules.accounts.models.accounts import VOUCHER_TYPES, Account, Voucher
 from app.modules.accounts.models.posting_errors import AccountingPostingError
-from app.modules.accounts.services.accounts_service import AccountsService, dr_cr, fiscal_year, fiscal_year_start, money
+from app.modules.accounts.services.accounts_service import (
+    AccountsService, dr_cr, fiscal_year, fiscal_year_start, money, voucher_scope,
+)
 from app.modules.accounts.services.bank_reconciliation import BankReconciliationService
 from app.modules.accounts.services.expense_by_element import expenses_by_element
 from app.modules.accounts.services.petty_cash import PettyCashService
@@ -92,6 +94,7 @@ def _voucher_out(v: Voucher, closed_years: frozenset = frozenset()) -> dict:
         "vendor_id": str(v.vendor_id) if v.vendor_id else None,
         "vendor_name": v.vendor.company_name if v.vendor else None,
         "source_type": v.source_type, "source_id": str(v.source_id) if v.source_id else None,
+        "scope": voucher_scope(v),
         "is_auto": v.source_type is not None or v.voucher_type == "closing" or v.reversal_of_id is not None,
         "approval_status": v.approval_status,
         "submitted_at": v.submitted_at.isoformat() if v.submitted_at else None,
@@ -519,12 +522,13 @@ def member_ar_statement(society_id: UUID, flat_id: UUID,
 def list_vouchers(society_id: UUID, voucher_type: Optional[str] = None,
                   date_from: Optional[date] = None, date_to: Optional[date] = None,
                   include_cancelled: bool = True, skip: int = 0, limit: int = Query(100, le=500),
-                  vendor_id: Optional[UUID] = None,
+                  vendor_id: Optional[UUID] = None, scope: Optional[str] = Query(None, pattern="^(members|society)$"),
                   db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    """The day book (`vendor_id`: only what was paid to that vendor)."""
+    """The day book (`vendor_id`: only what was paid to that vendor; `scope`: only the members' vouchers, or only the
+    society's own)."""
     assert_society_access(user, society_id)
     svc = AccountsService(db)
-    rows = svc.list_vouchers(society_id, voucher_type, date_from, date_to, include_cancelled, skip, limit, vendor_id)
+    rows = svc.list_vouchers(society_id, voucher_type, date_from, date_to, include_cancelled, skip, limit, vendor_id, scope)
     closed = frozenset(svc.closed_years(society_id))
     return [_voucher_out(v, closed) for v in rows]
 
@@ -543,13 +547,13 @@ def next_voucher_number(society_id: UUID, voucher_type: str, on: Optional[date] 
 @router.get("/day-book/{society_id}/pdf")
 def day_book_pdf(society_id: UUID, voucher_type: Optional[str] = None,
                  date_from: Optional[date] = None, date_to: Optional[date] = None,
-                 include_cancelled: bool = True, db: Session = Depends(get_db),
-                 user: User = Depends(get_current_user)):
+                 include_cancelled: bool = True, scope: Optional[str] = Query(None, pattern="^(members|society)$"),
+                 db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """The printed day book: every voucher of the period, oldest first,
     with its lines."""
     assert_society_access(user, society_id)
     svc = AccountsService(db)
-    rows = svc.list_vouchers(society_id, voucher_type, date_from, date_to, include_cancelled, 0, None)
+    rows = svc.list_vouchers(society_id, voucher_type, date_from, date_to, include_cancelled, 0, None, None, scope)
     rows.sort(key=lambda v: (v.voucher_date, v.created_at or datetime.min))
     label = VOUCHER_TYPES[voucher_type][1] if voucher_type in VOUCHER_TYPES else None
     pdf = render_day_book_pdf([_voucher_out(v) for v in rows], _society(db, society_id), date_from, date_to,
