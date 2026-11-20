@@ -151,6 +151,10 @@ class _AgentLearningScreenState extends ConsumerState<AgentLearningScreen> {
                   ]),
                 ),
               ),
+              if (mayEdit) ...[
+                const AgentSectionTitle('Failed monitoring jobs'),
+                _DeadEvents(busy: _busy, run: _do),
+              ],
               const AgentSectionTitle('Learning history'),
               history.when(
                 loading: () => const AppLoader(),
@@ -173,6 +177,74 @@ class _AgentLearningScreenState extends ConsumerState<AgentLearningScreen> {
             ]);
           },
         ),
+      ),
+    );
+  }
+}
+
+
+/// Monitoring jobs that failed repeatedly and were parked (D-10). An administrator can retry one (a limited number of
+/// times) or acknowledge it with a note; both are recorded in the audit log. Acknowledged failures stay listed but no
+/// longer mark monitoring as degraded.
+class _DeadEvents extends ConsumerWidget {
+  final bool busy;
+  final Future<void> Function(Future<void> Function() job, String done) run;
+  const _DeadEvents({required this.busy, required this.run});
+
+  Future<void> _acknowledge(BuildContext context, WidgetRef ref, DeadEvent e) async {
+    final c = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Acknowledge failed job'),
+        content: TextField(controller: c, maxLines: 2, decoration: const InputDecoration(labelText: 'Why (required)')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Acknowledge')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final note = c.text.trim();
+    if (note.length < 5) {
+      if (context.mounted) showErrorToast(context, Exception('Please say why, in a few words'));
+      return;
+    }
+    await run(() async { await ref.read(accountsAgentApiProvider).acknowledgeEvent(e.id, note); }, 'Acknowledged');
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(agentDeadEventsProvider);
+    return async.when(
+      loading: () => const AppLoader(),
+      error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), compact: true, onRetry: () => ref.invalidate(agentDeadEventsProvider)),
+      data: (rows) => AgentCard(
+        child: rows.isEmpty
+            ? const Text('No failed jobs.', style: TextStyle(color: AppTheme.textSecondary))
+            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                for (final e in rows)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('${titleCase(e.eventType.replaceAll('.', ' '))}${e.deadAt == null ? '' : ' · failed ${day(e.deadAt!)}'}',
+                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                      if (e.lastError != null)
+                        Text(e.lastError!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      if (e.acknowledged)
+                        Text('Acknowledged: ${e.acknowledgeNote ?? ''}', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary))
+                      else
+                        Wrap(spacing: 8, children: [
+                          if (e.requeuesLeft > 0)
+                            TextButton(
+                                onPressed: busy ? null : () => run(() async { await ref.read(accountsAgentApiProvider).requeueEvent(e.id); },
+                                    'Queued again'),
+                                child: Text('Retry (${e.requeuesLeft} left)')),
+                          TextButton(onPressed: busy ? null : () => _acknowledge(context, ref, e), child: const Text('Acknowledge')),
+                        ]),
+                    ]),
+                  ),
+              ]),
       ),
     );
   }

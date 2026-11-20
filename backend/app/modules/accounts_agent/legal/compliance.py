@@ -35,6 +35,7 @@ from app.modules.accounts_agent.legal.models import (
 )
 from app.modules.accounts_agent.models.agent import AgentFinding
 from app.modules.accounts_agent.services import audit
+from app.modules.accounts_agent.services.context import SNAPSHOT_KEY, voucher_snapshot
 from app.modules.billing.models.billing import (
     BillingCycle, BillStatus, ChargeBasis, ChargeType, InvoiceLineItem, MaintenanceBill, MaintenanceChargeConfig,
     MaintenanceSettings, PaymentReceipt,
@@ -583,6 +584,7 @@ class Threshold:
     source_rule: Optional[object]     # the LegalRule the figure comes from (None for a society setting)
     members: int
     governing: registry.Applicable    # what the registry says governs the topic
+    members_basis: str = ""           # how the member count was found (D-20)
 
 
 def _slab(rule, members: int) -> Optional[Decimal]:
@@ -609,6 +611,7 @@ def committee_threshold(s: Scan, on: date) -> Threshold:
     app = s.rule("expenditure.committee_limit", on)
     limits = procurement_limits(s.db, s.sid)
     members = int(limits["members"])
+    mbasis = limits.get("members_basis", "")
     cands = app.candidates
     for r in cands:
         if r.source_level in registry.STATUTORY and _slab(r, members) is not None:
@@ -626,8 +629,8 @@ def committee_threshold(s: Scan, on: date) -> Threshold:
     for r in cands:
         if r.source_level == "H" and _slab(r, members) is not None:
             return Threshold(_slab(r, members), f"the model bye-law {(r.bye_law_number or '157').replace('(model)', '').strip()} reference figure for "
-                             f"{members} members — a MODEL figure, binding only if your registered bye-laws adopted it "
-                             "unchanged, and not verified", "MODEL_REFERENCE", r, members, app)
+                             f"{members} members ({mbasis}) — a MODEL figure, binding only if your registered bye-laws "
+                             "adopted it unchanged, and not verified", "MODEL_REFERENCE", r, members, app, mbasis)
     return Threshold(None, "no committee limit is loaded", "NONE", None, members, app)
 
 
@@ -641,6 +644,7 @@ def threshold_draft(s: Scan, th: Threshold, code, category, ccat, title, explana
                           + (" and is under legal review" if gov.blocked else "") + ".")
     ev = {**kw.pop("evidence", {}), "threshold": str(th.amount) if th.amount is not None else None,
           "threshold_basis": th.basis, "threshold_source": th.label, "members_counted": th.members,
+          "members_basis": th.members_basis or None,
           "governing_rule": gov.rule.rule_code if gov.rule else None}
     if th.source_rule is None:                     # a society setting: an internal-policy deviation at most
         return LDraft(code, "legal", category, ccat, "INTERNAL_POLICY_DEVIATION", "MEDIUM", 0.6, title,
@@ -1091,6 +1095,9 @@ def store(db: Session, society_id: UUID, drafts: List[LDraft]):
         live.add(d.key)
         f = existing.get(d.key)
         if f is not None:
+            keep = (f.evidence or {}).get(SNAPSHOT_KEY)
+            if keep is not None:
+                d.evidence = {**(d.evidence or {}), SNAPSHOT_KEY: keep}
             if f.status in ("NEW", "UNDER_REVIEW"):
                 f.explanation, f.evidence, f.severity, f.finding_class = d.explanation, d.evidence, d.severity, d.finding_class
                 f.legal_source, f.actual_behaviour = d.legal_source, d.actual
@@ -1099,6 +1106,11 @@ def store(db: Session, society_id: UUID, drafts: List[LDraft]):
                 f.explanation, f.evidence = d.explanation, d.evidence
                 audit.record(db, society_id, "finding_reopened", "finding", f.id, details={"rule": d.rule_code})
             continue
+        if d.voucher_id:
+            v = db.query(Voucher).options(selectinload(Voucher.entries)).filter(
+                Voucher.id == d.voucher_id, Voucher.society_id == society_id).first()
+            if v is not None:
+                d.evidence = {**(d.evidence or {}), SNAPSHOT_KEY: voucher_snapshot(db, v)}
         f = AgentFinding(society_id=society_id, voucher_id=d.voucher_id, transaction_ref=d.transaction_ref,
                          voucher_date=d.voucher_date, category=d.category, finding_class=d.finding_class,
                          severity=d.severity, confidence=d.confidence, rule_code=d.rule_code, dedupe_key=d.key,

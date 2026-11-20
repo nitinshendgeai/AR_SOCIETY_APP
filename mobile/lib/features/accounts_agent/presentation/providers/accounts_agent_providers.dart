@@ -27,6 +27,14 @@ final agentPendingProposalsProvider = FutureProvider.autoDispose<List<AgentPropo
   (ref) => ref.watch(accountsAgentApiProvider).pendingProposals(),
 );
 
+final agentFindingHistoryProvider = FutureProvider.autoDispose.family<List<FindingHistoryEntry>, String>(
+  (ref, id) => ref.watch(accountsAgentApiProvider).findingHistory(id),
+);
+
+final agentDeadEventsProvider = FutureProvider.autoDispose<List<DeadEvent>>(
+  (ref) => ref.watch(accountsAgentApiProvider).deadEvents(),
+);
+
 /// Re-read everything the agent screens show after a change.
 void invalidateAgent(WidgetRef ref) {
   ref.invalidate(agentDashboardProvider);
@@ -37,4 +45,6 @@ void invalidateAgent(WidgetRef ref) {
   ref.invalidate(agentLearningStatusProvider);
   ref.invalidate(agentLearningHistoryProvider);
   ref.invalidate(agentSettingsProvider);
+  ref.invalidate(agentFindingHistoryProvider);
+  ref.invalidate(agentDeadEventsProvider);
 }

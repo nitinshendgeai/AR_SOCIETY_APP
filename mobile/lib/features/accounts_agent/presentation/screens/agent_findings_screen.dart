@@ -12,10 +12,15 @@ import 'package:ar_society_app/shared/widgets/app_form.dart';
 import 'package:ar_society_app/shared/widgets/app_status.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
+/// Every category a finding can carry: the accounting checks, then the legal / bye-law and residential checks (D-16).
 const _categories = [
+  // Accounting (per voucher)
   'duplicate', 'debit_credit', 'ledger_validation', 'sub_ledger', 'vendor_mapping', 'integrity', 'reversal',
   'unusual_journal', 'unusual_amount', 'unusual_vendor_payment', 'recurring_deviation', 'unusual_frequency',
   'ledger_mapping', 'unexpected_combination',
+  // Legal, bye-law and society-wide checks
+  'expenditure', 'expenditure_approval', 'funds', 'fund_monitoring', 'charges', 'maintenance_billing', 'member_ledger',
+  'recovery', 'statutory_compliance', 'vendor_audit', 'budget', 'borrowing', 'transfer', 'element_ledger', 'legal_sources',
 ];
 
 /// Findings, most severe first, with the filters an auditor reaches for: severity, category, status, dates and search.
@@ -180,6 +185,7 @@ class _FindingCard extends StatelessWidget {
             AppStatusChip(label: titleCase(f.status), tone: f.isOpen ? AppTone.warning : AppTone.neutral),
             AppStatusChip(label: classificationLabel(f.classification), tone: classificationTone(f.classification)),
             if (f.engine == 'legal') const AppStatusChip(label: 'Legal & bye-law', tone: AppTone.info),
+            if (f.onPendingVoucher) const AppStatusChip(label: 'Voucher not yet approved', tone: AppTone.info),
           ]),
           const SizedBox(height: 8),
           Text(f.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),

@@ -88,20 +88,47 @@ def bye_law_slab(members: int) -> Decimal:
     return Decimal("100000")
 
 
-def member_count(db: Session, society_id: UUID) -> int:
+def member_count_with_basis(db: Session, society_id: UUID):
+    """The number of members the bye-law slab is applied to (D-20 of the Accounts Agent functional audit) and how it
+    was found: the membership recorded in the society's legal profile; else the flats that have an active owner or
+    co-owner (one membership per flat — vacant or unsold flats are not members); else, as before, the active flats."""
+    from datetime import date
     from app.models.flat import Flat
-    return db.query(func.count(Flat.id)).filter(
+    from app.models.resident import Resident, ResidentType
+    try:
+        from app.modules.accounts_agent.legal.models import LegalProfile
+        p = db.query(LegalProfile).filter(LegalProfile.society_id == society_id).first()
+        if p and p.number_of_members:
+            return int(p.number_of_members), "recorded in the society's legal profile"
+    except Exception:  # noqa: BLE001 — the agent module may be absent; fall through to the books
+        pass
+    owned = (db.query(func.count(func.distinct(Resident.flat_id)))
+             .join(Flat, Flat.id == Resident.flat_id)
+             .filter(Flat.wing.has(society_id=society_id), Flat.is_active == True,  # noqa: E712
+                     Resident.is_active == True,  # noqa: E712
+                     Resident.resident_type.in_((ResidentType.OWNER, ResidentType.CO_OWNER)),
+                     (Resident.move_out_date.is_(None)) | (Resident.move_out_date > date.today()))
+             .scalar() or 0)
+    if owned:
+        return int(owned), "flats with an active owner"
+    flats = db.query(func.count(Flat.id)).filter(
         Flat.wing.has(society_id=society_id), Flat.is_active == True).scalar() or 0  # noqa: E712
+    return int(flats), "active flats (no owners recorded)"
+
+
+def member_count(db: Session, society_id: UUID) -> int:
+    return member_count_with_basis(db, society_id)[0]
 
 
 def procurement_limits(db: Session, society_id: UUID) -> dict:
     s = db.query(ProcurementSettings).filter(ProcurementSettings.society_id == society_id).first()
-    members = member_count(db, society_id)
+    members, members_basis = member_count_with_basis(db, society_id)
     slab = bye_law_slab(members)
     committee = money(s.committee_limit) if s and s.committee_limit is not None else slab
     tender = money(s.tender_limit) if s and s.tender_limit is not None else committee
     return {
         "members": members,
+        "members_basis": members_basis,
         "bye_law_limit": str(slab),
         "committee_limit": str(committee),
         "committee_limit_set": bool(s and s.committee_limit is not None),

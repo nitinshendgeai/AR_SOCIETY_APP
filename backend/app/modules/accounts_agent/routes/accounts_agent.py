@@ -2,6 +2,7 @@
 `society_id` query value is never trusted on its own. Read: manager and above. Review, propose, approve/reject,
 settings and learning: admin / committee."""
 from datetime import date
+from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
@@ -28,7 +29,14 @@ router = APIRouter(prefix="/accounts-agent", tags=["Accounts Agent"])
 
 
 def _sid(user: User, society_id: Optional[UUID]) -> UUID:
-    return resolve_create_society_id(user, society_id)
+    """The caller's own society. Reading or acting on another society is refused with a message that says so
+    (D-15 of the functional audit: the shared helper's wording speaks only of creating resources)."""
+    try:
+        return resolve_create_society_id(user, society_id)
+    except HTTPException as exc:
+        if exc.status_code == 403:
+            raise HTTPException(403, "You can only view or act on your own society's Accounts Agent data.") from exc
+        raise
 
 
 @router.get("/status")
@@ -162,9 +170,11 @@ def _voucher_detail(db: Session, sid: UUID, voucher_id) -> Optional[dict]:
     if not v:
         return None
     return {"id": str(v.id), "voucher_number": v.voucher_number, "voucher_type": v.voucher_type, "voucher_date": v.voucher_date.isoformat(),
-            "amount": str(v.amount), "narration": v.narration, "reference": v.reference, "approval_status": v.approval_status,
+            "amount": str(Decimal(str(v.amount)).quantize(Decimal("0.01"))), "narration": v.narration, "reference": v.reference, "approval_status": v.approval_status,
             "is_cancelled": v.is_cancelled, "source_type": v.source_type,
-            "entries": [{"line_no": e.line_no, "account": e.account.name if e.account else None, "debit": str(e.debit), "credit": str(e.credit),
+            "entries": [{"line_no": e.line_no, "account": e.account.name if e.account else None,
+                         "debit": str(Decimal(str(e.debit)).quantize(Decimal("0.01"))),
+                         "credit": str(Decimal(str(e.credit)).quantize(Decimal("0.01"))),
                          "vendor": e.vendor.company_name if e.vendor else None, "narration": e.narration} for e in v.entries]}
 
 
@@ -175,6 +185,17 @@ def finding_detail(finding_id: UUID, society_id: Optional[UUID] = None, db: Sess
     f = _finding(db, sid, finding_id)
     d = queries.finding_dict(f, detail=True)
     d["voucher"] = _voucher_detail(db, sid, f.voucher_id)
+    # D-17: the voucher as it stood when the finding was raised, and whether it has changed since.
+    snap = (f.evidence or {}).get("_voucher_at_detection")
+    d["voucher_at_detection"] = snap
+    cur = d["voucher"]
+    d["voucher_changed_since_detection"] = bool(snap and cur and (
+        snap.get("amount") != cur["amount"] or snap.get("reference") != cur["reference"]
+        or snap.get("is_cancelled") != cur["is_cancelled"] or snap.get("approval_status") != cur["approval_status"]
+        or [(e["account"], e["debit"], e["credit"]) for e in snap.get("entries", [])]
+        != [(e["account"], e["debit"], e["credit"]) for e in cur["entries"]]))
+    d["evidence"] = {k: v for k, v in (f.evidence or {}).items() if not str(k).startswith("_")}
+    d["evidence_display"] = queries.evidence_display(db, sid, f.evidence)          # D-18: names, not ids
     d["proposals"] = [queries.proposal_dict(p) for p in f.proposals]
     s = get_settings(db, sid)
     d["ai_explanation"] = llm.explain_finding(s.llm_provider, d)
