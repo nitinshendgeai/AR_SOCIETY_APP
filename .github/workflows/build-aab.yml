@@ -68,6 +68,53 @@ jobs:
             --dart-define=APP_ENV=production \
             --dart-define=APP_EDITION=field
 
+      # Fails the job unless the bundle is signed, the signature is valid, and the signing certificate is the one in
+      # the configured upload keystore (a debug-signed or wrongly-signed bundle would pass `jarsigner -verify` alone,
+      # so the fingerprint comparison is the real check). Prints only public certificate fingerprints; passwords are
+      # read by keytool from environment variables and never appear on a command line or in the log.
+      - name: Verify AAB signature
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/upload-keystore.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          AAB=mobile/build/app/outputs/bundle/release/app-release.aab
+          test -s "$AAB" || { echo "::error::AAB not found at $AAB"; exit 1; }
+
+          # 1. Signed, and the signature is valid.
+          VERIFY_OUT="$(jarsigner -verify "$AAB" 2>&1 || true)"
+          if echo "$VERIFY_OUT" | grep -qi "jar is unsigned"; then
+            echo "::error::The AAB is unsigned."; exit 1
+          fi
+          if ! echo "$VERIFY_OUT" | grep -q "^jar verified"; then
+            echo "::error::jarsigner could not verify the AAB signature."
+            echo "$VERIFY_OUT" | head -20; exit 1
+          fi
+          echo "jarsigner: jar verified"
+
+          # 2. SHA-256 of the certificate that signed the AAB.
+          AAB_SHA="$(keytool -printcert -jarfile "$AAB" 2>/dev/null | grep -m1 'SHA256:' | sed 's/.*SHA256:[[:space:]]*//' | tr -d '[:space:]')"
+
+          # 3. SHA-256 of the configured upload keystore's certificate.
+          KS_SHA="$(keytool -list -v -keystore "$ANDROID_KEYSTORE_FILE" -alias "$ANDROID_KEY_ALIAS" \
+            -storepass:env ANDROID_KEYSTORE_PASSWORD 2>/dev/null | grep -m1 'SHA256:' | sed 's/.*SHA256:[[:space:]]*//' | tr -d '[:space:]')"
+
+          [ -n "$AAB_SHA" ] || { echo "::error::Could not read the signing certificate from the AAB."; exit 1; }
+          [ -n "$KS_SHA" ] || { echo "::error::Could not read the upload certificate from the keystore (wrong alias or password?)."; exit 1; }
+
+          echo "AAB signing certificate SHA-256:     $AAB_SHA"
+          echo "Upload keystore certificate SHA-256: $KS_SHA"
+          if [ "$AAB_SHA" != "$KS_SHA" ]; then
+            echo "::error::AAB is not signed with the configured upload key (fingerprints differ)."; exit 1
+          fi
+          echo "Fingerprints match: the AAB is signed with the upload key."
+          {
+            echo "### AAB signature verified"
+            echo "- Certificate SHA-256: \`$AAB_SHA\`"
+            echo "- Register this as the upload key fingerprint in Play Console if asked."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Remove keystore
         if: always()
         run: rm -f "$RUNNER_TEMP/upload-keystore.jks"
