@@ -364,6 +364,13 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
                 if (imported == true) _load();
               },
             ),
+          if (widget.filterFlat == null && (user?.isAdminOrCommittee ?? false))
+            IconButton(
+              key: const ValueKey('tenants-import-vehicles'),
+              icon: const Icon(Icons.directions_car_rounded),
+              tooltip: 'Import tenants\' vehicles',
+              onPressed: () => context.push<bool>(AppRoutes.vehiclesImport),
+            ),
           if (user?.isAdminOrCommittee == true || user?.isManager == true)
             PopupMenuButton<PdfDelivery>(
               key: const ValueKey('tenants-print'),

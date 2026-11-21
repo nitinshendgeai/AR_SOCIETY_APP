@@ -39,8 +39,8 @@ const vehiclesImportSpec = PeopleImportSpec(
   plural: 'Vehicles',
   fileName: 'vehicles_import',
   endpoint: '/vehicles/import',
-  templateHeader: ['Wing', 'Flat No', 'Vehicle Number', 'Type', 'Make', 'Model', 'Colour', 'Parking Slot', 'Owner Name', 'Remarks'],
-  keys: ['wing', 'flat_number', 'vehicle_number', 'vehicle_type', 'make', 'model', 'color', 'parking_slot', 'owner_name', 'remarks'],
+  templateHeader: ['Wing', 'Flat No', 'Vehicle Number', 'Type', 'Make', 'Model', 'Colour', 'Parking Slot', 'Owner Name', 'Owner Type', 'Remarks'],
+  keys: ['wing', 'flat_number', 'vehicle_number', 'vehicle_type', 'make', 'model', 'color', 'parking_slot', 'owner_name', 'owner_type', 'remarks'],
   aliases: {
     'wing': _wing,
     'flat_number': _flat,
@@ -55,20 +55,21 @@ const vehiclesImportSpec = PeopleImportSpec(
     'color': ['colour', 'color', 'vehicle colour', 'vehicle color'],
     'parking_slot': ['parking slot', 'parking', 'slot', 'parking no', 'parking number', 'parking slot no', 'slot no'],
     'owner_name': ['owner name', 'owner', 'vehicle owner', 'registered to', 'registered owner', 'user', 'resident name'],
+    'owner_type': ['owner type', 'owner kind', 'type of owner', 'resident or tenant', 'occupant type', 'belongs to'],
     'remarks': ['remarks', 'notes', 'note', 'remark', 'comments'],
   },
   required: ['flat_number', 'vehicle_number'],
   templateExamples: [
-    ['A', '101', 'MH12AB1234', 'Car', 'Honda', 'City', 'White', 'P-12', 'Asha Rao', ''],
-    ['A', '101', 'MH12CD5678', 'Bike', 'Hero', 'Splendor', 'Black', '', '', ''],
-    ['B', '201', 'MH14EF0001', 'Scooter', 'Honda', 'Activa', 'Red', 'P-30', 'Priya Nair', ''],
+    ['A', '101', 'MH12AB1234', 'Car', 'Honda', 'City', 'White', 'P-12', 'Asha Rao', 'Resident', ''],
+    ['A', '101', 'MH12CD5678', 'Bike', 'Hero', 'Splendor', 'Black', '', '', '', ''],
+    ['B', '201', 'MH14EF0001', 'Scooter', 'Honda', 'Activa', 'Red', 'P-30', 'Priya Nair', 'Tenant', ''],
   ],
   intro: '1. Download the template and fill it in (Excel, Google Sheets…), or use your own sheet: columns are found by their '
       'headings (Wing, Flat No, Vehicle Number, Type, Make, Colour…), in any order.\n'
       '2. One row per vehicle: a flat with three vehicles has three rows. Wing and Flat No must match a flat already in the '
       'society; only Flat No and Vehicle Number are required. Spaces and dashes in the number do not matter.\n'
       '3. Type can be written the way people say it: Car, 4W, Bike, Two Wheeler, Scooter, Activa, Cycle, Auto… A blank type '
-      'is a car. Owner Name links the vehicle to that resident or tenant of the flat when the name matches.\n'
+      'is a car. Owner Name links the vehicle to that resident or tenant of the flat when the name matches; write Tenant or Resident under Owner Type to say which (a tenant vehicle with no name is linked when the flat has one tenant).\n'
       '4. A vehicle already registered to the flat is skipped, so you can import a corrected file again. A number registered '
       'to another flat is reported. Each row is checked first and nothing is saved until you press Import.',
 );
