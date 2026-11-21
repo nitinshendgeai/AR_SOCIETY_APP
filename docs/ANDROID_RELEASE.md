@@ -46,8 +46,9 @@ flutter build appbundle --release --build-number=2 \
 
 Output: `mobile/build/app/outputs/bundle/release/app-release.aab`.
 
-Without a keystore the release build falls back to the debug key (so the existing APK workflow keeps working).
-A debug-signed bundle is rejected by Play.
+`bundleRelease` (the .aab) **fails immediately** if the keystore file, passwords or alias are missing -- there is no
+debug-key fallback. APK builds (`flutter build apk`) still work without a key for testing; such an APK is debug-signed
+and must never be uploaded to Play.
 
 ## 3. Upload
 

@@ -5,17 +5,43 @@ plugins {
 }
 
 // Release signing. Reads android/key.properties (local builds) or the ANDROID_KEYSTORE_* environment
-// variables (CI). With neither present the release build falls back to the debug key, so a plain
-// `flutter build apk --release` still works for testing -- but such a build cannot go on the Play Store.
+// variables (CI).
+//  - Play Store bundles (`bundleRelease`) REQUIRE a valid upload key: the build fails immediately if the
+//    keystore, passwords or alias are missing or the keystore file does not exist. There is no debug-key fallback.
+//  - APK builds (`assembleRelease`, `assembleDebug`) are for development/testing and keep working without a
+//    key: a release APK is then debug-signed and must never be uploaded to Play.
 // See docs/ANDROID_RELEASE.md.
 def keyProps = new Properties()
 def keyPropsFile = rootProject.file("key.properties")
 if (keyPropsFile.exists()) {
     keyPropsFile.withInputStream { keyProps.load(it) }
 }
-def signingValue = { String prop, String env -> keyProps.getProperty(prop) ?: System.getenv(env) }
+def signingValue = { String prop, String env ->
+    def v = keyProps.getProperty(prop) ?: System.getenv(env)
+    (v == null || v.trim().isEmpty()) ? null : v
+}
 def releaseStoreFile = signingValue("storeFile", "ANDROID_KEYSTORE_FILE")
-def hasReleaseKey = releaseStoreFile != null
+def releaseStorePassword = signingValue("storePassword", "ANDROID_KEYSTORE_PASSWORD")
+def releaseKeyAlias = signingValue("keyAlias", "ANDROID_KEY_ALIAS")
+def releaseKeyPassword = signingValue("keyPassword", "ANDROID_KEY_PASSWORD")
+def hasReleaseKey = releaseStoreFile != null && releaseStorePassword != null &&
+        releaseKeyAlias != null && releaseKeyPassword != null &&
+        file(releaseStoreFile).isFile()
+
+// Fail before any compilation starts when a bundle is requested without a usable key.
+gradle.taskGraph.whenReady { graph ->
+    def bundling = graph.allTasks.any { it.name ==~ /bundle.*Release/ }
+    if (bundling && !hasReleaseKey) {
+        def missing = []
+        if (releaseStoreFile == null) missing << "storeFile / ANDROID_KEYSTORE_FILE"
+        else if (!file(releaseStoreFile).isFile()) missing << "keystore file not found at the configured path"
+        if (releaseStorePassword == null) missing << "storePassword / ANDROID_KEYSTORE_PASSWORD"
+        if (releaseKeyAlias == null) missing << "keyAlias / ANDROID_KEY_ALIAS"
+        if (releaseKeyPassword == null) missing << "keyPassword / ANDROID_KEY_PASSWORD"
+        throw new GradleException("Release signing is not configured, refusing to build a Play Store bundle " +
+                "with the debug key. Problem(s): " + missing.join("; ") + ". See docs/ANDROID_RELEASE.md.")
+    }
+}
 
 android {
     namespace "in.duxos.society"
@@ -43,9 +69,9 @@ android {
         if (hasReleaseKey) {
             release {
                 storeFile file(releaseStoreFile)
-                storePassword signingValue("storePassword", "ANDROID_KEYSTORE_PASSWORD")
-                keyAlias signingValue("keyAlias", "ANDROID_KEY_ALIAS")
-                keyPassword signingValue("keyPassword", "ANDROID_KEY_PASSWORD")
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
             }
         }
     }

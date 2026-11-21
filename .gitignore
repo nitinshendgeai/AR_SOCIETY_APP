@@ -64,3 +64,6 @@ backend/test-results/
 mobile/android/key.properties
 *.jks
 *.keystore
+
+# Per-machine Flutter/Android SDK paths
+mobile/android/local.properties
