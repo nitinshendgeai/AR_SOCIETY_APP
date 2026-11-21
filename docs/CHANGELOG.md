@@ -4,6 +4,25 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-21 (Accounts audit, last pass: petty cash count, amount fields)
+
+### fix: counting the petty cash no longer shows a shortage for expenses waiting for approval
+
+- **The problem** - an expense paid from petty cash takes its cash out of the box at once, but the books only show it once the admin or
+  committee approves it. A cash count was compared with the books' balance alone, so counting the box while an expense waited for
+  approval showed a false shortage of exactly that amount (and "Top up" asked for too little, because it ignored the cash already
+  paid out).
+- **The fix** - a count is now compared with what should physically be in the box: the books' balance less expenses already paid out and
+  waiting for approval, and the count window says so ("₹2,300.00 should be in the box, after ₹300.00 of expenses waiting for
+  approval"). The Petty Cash Book's "Count vs books" column follows the same rule. "Top up needed" is the float less the cash in the
+  box. Once the expense is approved nothing changes for the person counting.
+- **Amount fields** - the Add Expense amount and a ledger's opening balance accepted any number of decimals and several dots; they now
+  take rupees and at most two decimals, like every other money field.
+- **Reviewed and found sound** - the voucher form's validation and totals, the Bank Reconciliation Statement arithmetic (books balance
+  plus cheques not cleared less deposits in transit, over approved, live vouchers only), the match bar (paise, not floats), and the
+  Accounts widgets' number formatting.
+- Tests: `backend/tests/accounts/test_petty_cash.py`, `mobile/test/petty_cash_test.dart`.
+
 ## 2026-11-20 (Parking: the vehicle report)
 
 ### feat: one vehicle report - vehicles, parking, violations and fines, gate and visitor vehicles

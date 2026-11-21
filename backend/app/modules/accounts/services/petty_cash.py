@@ -62,15 +62,23 @@ class PettyCashService:
         acct = self.account(society_id)
         return self.accounts.balances(society_id, as_of).get(acct.id, ZERO)
 
-    def pending_out(self, society_id: UUID) -> Decimal:
-        """Petty cash already committed by expenses still waiting for approval."""
+    def pending_out(self, society_id: UUID, as_of: Optional[date] = None) -> Decimal:
+        """Petty cash already committed by expenses still waiting for approval (dated up to [as_of]). The cash has left
+        the box, though the books do not show it until the expense is approved."""
         acct = self.account(society_id)
-        total = (self.db.query(func.coalesce(func.sum(VoucherEntry.credit), 0))
-                 .join(Voucher, Voucher.id == VoucherEntry.voucher_id)
-                 .filter(VoucherEntry.account_id == acct.id, Voucher.society_id == society_id,
-                         Voucher.is_cancelled == False, Voucher.approval_status == "pending")  # noqa: E712
-                 .scalar())
-        return money(total)
+        q = (self.db.query(func.coalesce(func.sum(VoucherEntry.credit), 0))
+             .join(Voucher, Voucher.id == VoucherEntry.voucher_id)
+             .filter(VoucherEntry.account_id == acct.id, Voucher.society_id == society_id,
+                     Voucher.is_cancelled == False, Voucher.approval_status == "pending"))  # noqa: E712
+        if as_of is not None:
+            q = q.filter(Voucher.voucher_date <= as_of)
+        return money(q.scalar())
+
+    def in_the_box(self, society_id: UUID, as_of: Optional[date] = None) -> Decimal:
+        """What should physically be in the box: the books' balance less the expenses already paid out but still waiting
+        for approval. A cash count is compared with this, not with the books alone, or every expense awaiting approval
+        would show up as a shortage."""
+        return self.balance(society_id, as_of) - self.pending_out(society_id, as_of)
 
     # ── Settings ──────────────────────────────────────────────────────────────
 
@@ -115,7 +123,8 @@ class PettyCashService:
             "float_amount": _amt(float_amount) if float_amount is not None else None,
             "expense_limit": _amt(cfg.expense_limit) if cfg and cfg.expense_limit is not None else None,
             "custodian_name": cfg.custodian_name if cfg else None,
-            "top_up_needed": _amt(max(float_amount - balance, ZERO)) if float_amount is not None else None,
+            # The float is a level of cash in the box, and an expense awaiting approval has already taken its cash out.
+            "top_up_needed": _amt(max(float_amount - available, ZERO)) if float_amount is not None else None,
             "spent_today": _amt(spent_today), "spent_month": _amt(spent_month),
             "last_count": self._count_out(last) if last else None,
             "today": today.isoformat(),
@@ -209,7 +218,7 @@ class PettyCashService:
         day = data.get("count_date") or self.today(society_id)
         if day > self.today(society_id):
             raise HTTPException(422, "The date can't be in the future")
-        book = self.balance(society_id, day)
+        book = self.in_the_box(society_id, day)           # what the box should hold, expenses awaiting approval included
         row = PettyCashCount(society_id=society_id, count_date=day, counted_amount=counted, book_balance=book,
                              note=(data.get("note") or "").strip() or None, counted_by=user.id)
         self.db.add(row)
@@ -268,7 +277,8 @@ class PettyCashService:
             spent = info["out"] if info else ZERO
             running = opening + received - spent
             count = counts.get(d)
-            diff = (money(count.counted_amount) - running) if count else None
+            # the running balance is the books': expenses still waiting for approval have taken their cash out already
+            diff = (money(count.counted_amount) - (running - self.pending_out(society_id, d))) if count else None
             if diff is not None:
                 if diff < 0:
                     short += -diff

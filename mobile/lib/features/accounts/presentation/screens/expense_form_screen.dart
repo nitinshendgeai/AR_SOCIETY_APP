@@ -436,7 +436,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                 controller: _amount,
                 textInputAction: TextInputAction.next,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                // rupees and at most two decimals: a third decimal or a second dot would be rounded or rejected when saved
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,10}(\.\d{0,2})?'))],
                 decoration: const InputDecoration(prefixText: '₹ ', hintText: '0.00'),
               ),
             ),
