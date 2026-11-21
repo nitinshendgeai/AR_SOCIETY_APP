@@ -4,6 +4,16 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-21 (Vehicle import for tenants)
+
+### feat: import tenants' vehicles
+
+- **Where** - the Tenants screen now has an **Import tenants' vehicles** button (admin and committee), opening the same vehicle import.
+- **Owner Type column** - new optional column: write *Tenant* or *Resident*. With a name, only that kind is searched, so a tenant and a
+  resident who share a name no longer get mixed up. A Tenant row with no name is linked when the flat has exactly one tenant.
+  Anything else is reported on the row; old files without the column work as before.
+- Tests: `backend/tests/master/test_flat_people_import.py`.
+
 ## 2026-11-21 (Accounts Agent on the manager's dashboard)
 
 ### feat: the Manager can open the Accounts Agent from their dashboard

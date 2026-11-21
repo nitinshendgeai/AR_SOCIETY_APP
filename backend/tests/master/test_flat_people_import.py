@@ -102,6 +102,23 @@ def test_vehicles_dry_run_writes_nothing_then_the_import_adds_them(client, db, r
     assert sorted(v["vehicle_number"] for v in shown) == ["MH12AB1234", "MH12CD5678"]
 
 
+def test_owner_type_links_a_vehicle_to_the_tenant(client, db, rig):
+    flat = {"wing": "A", "flat_number": "102"}
+    rows = _lines([
+        {**flat, "vehicle_number": "MH12TT0001", "owner_name": "meena shah", "owner_type": "Tenant"},
+        {**flat, "vehicle_number": "MH12TT0002", "owner_type": "tenant"},                    # no name: the flat's one tenant
+        {**flat, "vehicle_number": "MH12TT0003", "owner_name": "Meena Shah", "owner_type": "Resident"},
+        {**flat, "vehicle_number": "MH12TT0004", "owner_type": "landlord"},
+    ])
+    out = client.post(VEH, json={"rows": rows, "dry_run": False}, headers=rig["h"]).json()
+    assert [r["status"] for r in out] == ["created", "created", "created", "error"]
+    assert "not a resident of this flat" in out[2]["message"] and "Owner type" in out[3]["message"]
+    cars = {v.vehicle_number: v for v in db.query(Vehicle).all()}
+    assert cars["MH12TT0001"].tenant_id is not None and cars["MH12TT0001"].resident_id is None
+    assert cars["MH12TT0002"].tenant_id == cars["MH12TT0001"].tenant_id
+    assert cars["MH12TT0003"].tenant_id is None and cars["MH12TT0003"].resident_id is None
+
+
 def test_a_second_import_skips_what_is_there_and_repeats_are_caught(client, db, rig):
     rows = _lines([_veh(vehicle_number="MH12AB1234")])
     assert client.post(VEH, json={"rows": rows, "dry_run": False}, headers=rig["h"]).json()[0]["status"] == "created"

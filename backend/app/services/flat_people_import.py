@@ -50,6 +50,7 @@ class VehicleImportRow(_Row):
     color: Optional[str] = None
     parking_slot: Optional[str] = None
     owner_name: Optional[str] = None
+    owner_type: Optional[str] = None            # "tenant" or "resident": who the vehicle belongs to (optional)
     remarks: Optional[str] = None
 
 
@@ -187,18 +188,33 @@ def import_vehicles(db: Session, rows: List[VehicleImportRow], dry_run: bool, us
             vtype, type_note = parse_vehicle_type(row.vehicle_type)
             owner_note, resident_id, tenant_id = None, None, None
             wanted = _norm_name(row.owner_name)
+            kind = (clean(row.owner_type) or "").lower()
+            if kind and kind not in ("tenant", "resident"):
+                raise ValueError('Owner type must be "Tenant" or "Resident"')
+            residents = db.query(Resident).filter(Resident.flat_id == flat.id, Resident.is_active == True).all()  # noqa: E712
+            tenants = db.query(Tenant).filter(Tenant.flat_id == flat.id, Tenant.is_active == True).all()         # noqa: E712
             if wanted:
-                resident = next((r for r in db.query(Resident).filter(Resident.flat_id == flat.id, Resident.is_active == True)  # noqa: E712
-                                 if _norm_name(r.full_name) == wanted), None)
-                if resident:
-                    resident_id = resident.id
+                def by_name(people):
+                    return next((p for p in people if _norm_name(p.full_name) == wanted), None)
+                # The owner type narrows the search; with none given a resident wins, then a tenant, as before.
+                if kind == "tenant":
+                    found = by_name(tenants)
+                elif kind == "resident":
+                    found = by_name(residents)
                 else:
-                    tenant = next((t for t in db.query(Tenant).filter(Tenant.flat_id == flat.id, Tenant.is_active == True)      # noqa: E712
-                                   if _norm_name(t.full_name) == wanted), None)
-                    if tenant:
-                        tenant_id = tenant.id
-                    else:
-                        owner_note = f'"{clean(row.owner_name)}" is not a resident or tenant of this flat: saved without an owner'
+                    found = by_name(residents) or by_name(tenants)
+                if found is None:
+                    owner_note = f'"{clean(row.owner_name)}" is not a {kind or "resident or tenant"} of this flat: saved without an owner'
+                elif isinstance(found, Tenant):
+                    tenant_id = found.id
+                else:
+                    resident_id = found.id
+            elif kind == "tenant":
+                # No name, but the sheet says a tenant's vehicle: link it when the flat has exactly one tenant.
+                if len(tenants) == 1:
+                    tenant_id = tenants[0].id
+                else:
+                    owner_note = "Owner name is needed to link the vehicle to one of the tenants: saved without an owner"
             try:
                 data = VehicleCreate.model_validate({
                     "society_id": society_id, "flat_id": flat.id, "resident_id": resident_id, "tenant_id": tenant_id,
