@@ -13,7 +13,7 @@ void main() {
       final row = ['1', 'MH12 AB 1234', 'A', '101', 'White', 'Four wheeler', 'Honda', 'Asha Rao'];
       expect(cols.fields(row), {
         'wing': 'A', 'flat_number': '101', 'vehicle_number': 'MH12 AB 1234', 'vehicle_type': 'Four wheeler', 'make': 'Honda',
-        'model': '', 'color': 'White', 'parking_slot': '', 'owner_name': 'Asha Rao', 'remarks': '',
+        'model': '', 'color': 'White', 'parking_slot': '', 'owner_name': 'Asha Rao', 'owner_type': '', 'remarks': '',
       });
     });
 

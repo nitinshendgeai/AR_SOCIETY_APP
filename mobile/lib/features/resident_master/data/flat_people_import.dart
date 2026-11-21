@@ -60,9 +60,9 @@ const vehiclesImportSpec = PeopleImportSpec(
   },
   required: ['flat_number', 'vehicle_number'],
   templateExamples: [
-    ['A', '101', 'MH12AB1234', 'Car', 'Honda', 'City', 'White', 'P-12', 'Asha Rao', ''],
-    ['A', '101', 'MH12CD5678', 'Bike', 'Hero', 'Splendor', 'Black', '', '', ''],
-    ['B', '201', 'MH14EF0001', 'Scooter', 'Honda', 'Activa', 'Red', 'P-30', 'Priya Nair', ''],
+    ['A', '101', 'MH12AB1234', 'Car', 'Honda', 'City', 'White', 'P-12', 'Asha Rao', 'Resident', ''],
+    ['A', '101', 'MH12CD5678', 'Bike', 'Hero', 'Splendor', 'Black', '', '', '', ''],
+    ['B', '201', 'MH14EF0001', 'Scooter', 'Honda', 'Activa', 'Red', 'P-30', 'Priya Nair', 'Tenant', ''],
   ],
   intro: '1. Download the template and fill it in (Excel, Google Sheets…), or use your own sheet: columns are found by their '
       'headings (Wing, Flat No, Vehicle Number, Type, Make, Colour…), in any order.\n'
