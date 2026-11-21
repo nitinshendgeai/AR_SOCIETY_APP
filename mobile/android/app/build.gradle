@@ -29,8 +29,15 @@ def hasReleaseKey = releaseStoreFile != null && releaseStorePassword != null &&
         file(releaseStoreFile).isFile()
 
 // Fail before any compilation starts when a bundle is requested without a usable key.
+// Only THIS app module's Play Store bundle task counts (bundleRelease, or bundle<Flavor>Release). A plain
+// `bundle.*Release` pattern also matched ordinary APK-build tasks, e.g. the plugin library modules'
+// bundleLibRuntimeToJarRelease, and made every `assembleRelease` (flutter build apk) fail.
+def appProjectPath = project.path
 gradle.taskGraph.whenReady { graph ->
-    def bundling = graph.allTasks.any { it.name ==~ /bundle.*Release/ }
+    def bundling = graph.allTasks.any {
+        it.project.path == appProjectPath && it.name ==~ /bundle([A-Z][A-Za-z0-9]*)?Release/ &&
+                !it.name.startsWith("bundleLib")
+    }
     if (bundling && !hasReleaseKey) {
         def missing = []
         if (releaseStoreFile == null) missing << "storeFile / ANDROID_KEYSTORE_FILE"
