@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/providers/accounts_agent_providers.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
@@ -59,6 +60,7 @@ Widget _app(Widget screen, UserEntity user, List<Override> overrides) => Provide
       overrides: [
         currentUserProvider.overrideWithValue(user),
         myFormCodesProvider.overrideWith((ref) async => const []),
+        agentDashboardProvider.overrideWith((ref) async => throw Exception('offline')),
         staffRepositoryProvider.overrideWithValue(_repo()),
         ...overrides,
       ],
@@ -167,6 +169,37 @@ void main() {
       await t.tap(find.text(_retryNote).first);
       await t.pump();
       expect(approval.loads, 1);
+    });
+
+    // The Accounts Agent belongs to the Accounts service, which a society can switch off.
+    List<Override> managerData() => [
+          approvalProvider.overrideWith((ref) => _FakeApproval(ApprovalLoaded(pendingCheckin: const [], pendingCheckout: const []))),
+          staffListProvider.overrideWith((ref) => _FakeStaffList()),
+          openComplaintsCountProvider('s1').overrideWith((ref) async => 0),
+          societyDutiesProvider('s1').overrideWith((ref) async => const <DutyEntity>[]),
+          attendanceSummaryProvider('s1').overrideWith((ref) async => {'absent': 0, 'late': 0, 'total_staff': 3}),
+          billingCyclesProvider('s1').overrideWith((ref) async => const []),
+        ];
+    UserEntity managerWith(List<String> services) => UserEntity(
+        id: 'u1', email: 'u@example.com', fullName: 'Test User', roles: const ['Manager'], societyId: 's1',
+        enabledServices: services);
+
+    testWidgets('the Accounts Agent is on the manager\'s dashboard, as it is on the admin\'s', (t) async {
+      _tall(t);
+      await t.pumpWidget(_app(const ManagerDashboardScreen(), managerWith(const ['staff', 'complaints', 'visitors', 'accounts']),
+          managerData()));
+      await _settle(t);
+
+      expect(find.text('Accounts'), findsOneWidget);
+      expect(find.text('Accounts Agent'), findsOneWidget);      // still opens when the agent cannot be reached
+    });
+
+    testWidgets('with the Accounts service switched off the manager does not see the Accounts Agent', (t) async {
+      _tall(t);
+      await t.pumpWidget(_app(const ManagerDashboardScreen(), _user('Manager'), managerData()));
+      await _settle(t);
+
+      expect(find.text('Accounts Agent'), findsNothing);
     });
 
     testWidgets('real zeros are shown as 0', (t) async {

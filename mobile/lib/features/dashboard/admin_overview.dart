@@ -235,7 +235,7 @@ class _Body extends StatelessWidget {
           _MoneyRow(m: o.money!),
         ],
         const SizedBox(height: 20),
-        const _AccountsAgentTile(),
+        const AccountsAgentTile(),
         const SizedBox(height: 20),
         const _Label('Society today'),
         const SizedBox(height: 10),
@@ -690,9 +690,9 @@ class _Stat extends StatelessWidget {
 
 
 /// A shortcut to the Accounts Agent with what it needs from the reader: findings waiting for review. If the agent can't be
-/// reached the tile still opens it, rather than disappearing.
-class _AccountsAgentTile extends ConsumerWidget {
-  const _AccountsAgentTile();
+/// reached the tile still opens it, rather than disappearing. On the dashboards of the admin, the committee and the manager.
+class AccountsAgentTile extends ConsumerWidget {
+  const AccountsAgentTile();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
