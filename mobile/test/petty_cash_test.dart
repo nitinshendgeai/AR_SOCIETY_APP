@@ -166,4 +166,17 @@ void main() {
     await t.pumpAndSettle();
     expect(api.counted, [2600.0]);
   });
+
+  testWidgets('with expenses waiting for approval, the count is checked against what should physically be in the box', (t) async {
+    await _pump(t, pending: '300.00');                      // the books say 2,600; 300 of it has already been spent
+    await t.tap(find.byKey(const ValueKey('petty-count')));
+    await t.pumpAndSettle();
+    expect(find.textContaining('should be in the box, after ₹300.00 of expenses waiting for approval'), findsOneWidget);
+    await t.enterText(find.byKey(const ValueKey('petty-counted')), '2300');
+    await t.pumpAndSettle();
+    expect(find.text('Tallies with the books.'), findsOneWidget);
+    await t.enterText(find.byKey(const ValueKey('petty-counted')), '2600');
+    await t.pumpAndSettle();
+    expect(find.text('Excess of ₹300.00.'), findsOneWidget);
+  });
 }

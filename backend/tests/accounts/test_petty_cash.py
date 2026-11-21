@@ -176,3 +176,37 @@ def test_each_societys_petty_cash_is_its_own(client, db):
     assert client.get(f"{A}/petty-cash/{society.id}", headers=outsider["headers"]).status_code in (403, 404)
     assert _top_up(client, outsider["headers"], society.id, "100").status_code in (403, 404)
     assert _overview(client, outsider["headers"], other.id)["balance"] == "0.00"
+
+
+def test_an_expense_awaiting_approval_is_not_a_shortage_when_the_cash_is_counted(client, db):
+    """The cash for an expense leaves the box when it is paid; the books only show it once it is approved. Counting the
+    box in between must compare with what should physically be there, and the top-up must restore the float of cash."""
+    society, admin, manager = _rigged(db, "pc4")
+    sid = society.id
+    head = _ledgers(client, admin, sid)["office_expenses"]["id"]
+    _top_up(client, manager, sid, "3000")
+    assert client.put(f"{A}/petty-cash/{sid}/settings", headers=admin, json={"float_amount": "3000"}).status_code == 200
+    v = _spend(client, manager, sid, [{"expense_account_id": head, "amount": "400", "note": "Bulbs"}]).json()
+    assert v["approval_status"] == "pending"
+
+    o = _overview(client, admin, sid)
+    assert (o["balance"], o["pending"], o["available"]) == ("3000.00", "400.00", "2600.00")
+    assert o["top_up_needed"] == "400.00"                    # 2600 is in the box; the float is 3000
+
+    counted = client.post(f"{A}/petty-cash/counts", headers=manager, json={"society_id": str(sid), "counted_amount": "2600"})
+    assert counted.status_code == 201, counted.text
+    assert counted.json()["state"] == "tallies" and counted.json()["book"] == "2600.00"
+    short = client.post(f"{A}/petty-cash/counts", headers=manager,
+                        json={"society_id": str(sid), "counted_amount": "2500"}).json()
+    assert short["state"] == "short" and short["difference"] == "-100.00"
+    book = client.get(f"{A}/registers/petty_cash/{sid}", headers=manager).json()
+    assert book["rows"][0]["difference"] == "-100.00"          # the day's last count stands, against what should be there
+
+    # Once approved the books catch up and nothing changes for the person counting
+    approver = _staff(db, society, "boss4@pc.com")
+    assert client.post(f"{A}/vouchers/{v['id']}/approve", json={}, headers=approver).status_code == 200
+    again = client.post(f"{A}/petty-cash/counts", headers=manager, json={"society_id": str(sid), "counted_amount": "2600"}).json()
+    assert again["state"] == "tallies" and again["book"] == "2600.00"
+    o2 = _overview(client, admin, sid)
+    assert (o2["balance"], o2["pending"], o2["top_up_needed"]) == ("2600.00", "0.00", "400.00")
+    assert client.get(f"{A}/registers/petty_cash/{sid}", headers=manager).json()["rows"][0]["difference"] == "Tallies"

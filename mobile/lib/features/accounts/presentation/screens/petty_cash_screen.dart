@@ -494,12 +494,17 @@ class _PettyCountSheetState extends ConsumerState<PettyCountSheet> {
   @override
   Widget build(BuildContext context) {
     final societyId = ref.watch(currentUserProvider)?.societyId ?? '';
-    final book = widget.box?.balance;
+    // What should physically be there: the books' balance less expenses already paid out and waiting for approval.
+    final book = widget.box?.available;
+    final waiting = widget.box?.pending ?? 0;
     final counted = parseMoney(_counted.text);
     final diff = counted == null || book == null ? null : counted - book;
     return BillingSheetFrame(
       title: 'Count the cash',
-      subtitle: book == null ? null : 'The books say ${formatInr(book)} should be in the box.',
+      subtitle: book == null
+          ? null
+          : 'The books say ${formatInr(book)} should be in the box'
+              '${waiting > 0 ? ', after ${formatInr(waiting)} of expenses waiting for approval' : ''}.',
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         TextField(
           key: const ValueKey('petty-counted'),

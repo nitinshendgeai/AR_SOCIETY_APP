@@ -386,7 +386,8 @@ class _LedgerSheetState extends ConsumerState<_LedgerSheet> {
               child: FormFieldBox(label: 'Opening balance (₹)', child: TextFormField(
                 controller: _opening,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                // rupees and at most two decimals: a third decimal or a second dot would be rounded or rejected when saved
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,10}(\.\d{0,2})?'))],
                 decoration: const InputDecoration(hintText: '0.00'),
                 validator: (v) =>
                     (v ?? '').trim().isNotEmpty && double.tryParse(v!.trim()) == null ? 'Enter an amount' : null,
