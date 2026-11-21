@@ -1350,6 +1350,14 @@ class ManagerDashboardScreen extends ConsumerWidget {
             _QuickActionChip(icon: Icons.report_problem_rounded, label: 'Complaints', route: AppRoutes.complaintsAssigned),
         ]),
         const SizedBox(height: 18),
+        // The manager keeps the books with the committee, and may read everything the Accounts Agent finds; deciding on
+        // a finding or a correction stays with the admin and the committee.
+        if (_on(user, 'accounts')) ...[
+          const _SectionLabel('Accounts'),
+          const SizedBox(height: 10),
+          const AccountsAgentTile(),
+          const SizedBox(height: 18),
+        ],
         const _SectionLabel('Maintenance'),
         const SizedBox(height: 10),
         GridView(

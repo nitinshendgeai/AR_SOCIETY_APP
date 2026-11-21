@@ -4,6 +4,18 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-21 (Accounts Agent on the manager's dashboard)
+
+### feat: the Manager can open the Accounts Agent from their dashboard
+
+- **Where** - the Manager's dashboard now has an **Accounts** section with the Accounts Agent tile, the same one the admin and the
+  committee see: findings waiting for review, corrections waiting for approval, or "All clear".
+- **What a manager can do** - read everything the agent finds: the dashboard, findings and their history, proposed corrections, the
+  legal library, the statutory calendar and the rest of the compliance hub (these were already open to the Manager on the server; only
+  the dashboard shortcut was missing). Deciding stays with the admin and the committee: reviewing a finding, approving or rejecting a
+  correction, changing the agent's settings, switching monitoring and the failed-jobs list.
+- Tests: `mobile/test/dashboard_states_test.dart`.
+
 ## 2026-11-21 (Accounts audit, last pass: petty cash count, amount fields)
 
 ### fix: counting the petty cash no longer shows a shortage for expenses waiting for approval
