@@ -75,3 +75,63 @@ def expenses_by_element(db: Session, society_id: UUID, date_from: date, date_to:
         "linked_total": str(money(linked_total)), "unlinked_total": str(money(unlinked_total)),
         "elements": rows, "unlinked": unlinked,
     }
+
+
+def _months_between(start: date, end: date) -> List[date]:
+    """The first day of every calendar month from `start`'s to `end`'s."""
+    out, cur = [], date(start.year, start.month, 1)
+    while cur <= end:
+        out.append(cur)
+        cur = date(cur.year + (cur.month == 12), cur.month % 12 + 1, 1)
+    return out
+
+
+def element_months(db: Session, society_id: UUID, element_id: str, date_from: date, date_to: date) -> dict:
+    """One element's spend month by month between two dates, with the ledgers behind each month: what the books show
+    was spent on the element's expense ledgers, the same rule as `expenses_by_element` (net of refunds, approved and
+    live vouchers only). `element_id` is an element's id, or "none" for the expense ledgers no element covers. Every
+    month in the range is listed, an empty one at zero."""
+    ledgers = (
+        db.query(Account)
+        .join(AccountGroup, AccountGroup.id == Account.group_id)
+        .filter(Account.society_id == society_id, AccountGroup.nature == "expense", Account.is_active == True)  # noqa: E712
+        .order_by(Account.sort_order, Account.name)
+        .all()
+    )
+    if element_id == "none":
+        title = "Not counted towards any element"
+        chosen = [a for a in ledgers if a.maintenance_element_id is None]
+    else:
+        element = db.get(MaintenanceElement, UUID(element_id))
+        if element is None or element.society_id != society_id:
+            raise ValueError("No such element")
+        title = element.name
+        chosen = [a for a in ledgers if a.maintenance_element_id == element.id]
+
+    spend: Dict[tuple, Decimal] = {}               # (month's first day, ledger id) -> net spend
+    if chosen:
+        rows = (
+            db.query(Voucher.voucher_date, VoucherEntry.account_id, VoucherEntry.debit, VoucherEntry.credit)
+            .join(Voucher, Voucher.id == VoucherEntry.voucher_id)
+            .filter(Voucher.society_id == society_id, Voucher.is_cancelled == False,  # noqa: E712
+                    Voucher.approval_status == "approved", Voucher.voucher_type != "closing",
+                    Voucher.voucher_date >= date_from, Voucher.voucher_date <= date_to,
+                    VoucherEntry.account_id.in_([a.id for a in chosen]))
+            .all()
+        )
+        for day, account_id, debit, credit in rows:
+            key = (date(day.year, day.month, 1), account_id)
+            spend[key] = spend.get(key, ZERO) + Decimal(str(debit or 0)) - Decimal(str(credit or 0))
+
+    months, grand = [], ZERO
+    for first in _months_between(date_from, date_to):
+        per = [(a, spend.get((first, a.id), ZERO)) for a in chosen]
+        total = sum((amount for _, amount in per), ZERO)
+        grand += total
+        months.append({
+            "month": f"{first:%Y-%m}", "label": f"{first:%b %Y}", "total": str(money(total)),
+            "ledgers": [{"account_id": str(a.id), "name": a.name, "amount": str(money(amount))}
+                        for a, amount in per if amount != 0],
+        })
+    return {"element_id": element_id, "title": title, "date_from": date_from.isoformat(),
+            "date_to": date_to.isoformat(), "total": str(money(grand)), "months": months}

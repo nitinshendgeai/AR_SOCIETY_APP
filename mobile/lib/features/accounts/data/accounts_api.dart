@@ -733,6 +733,40 @@ class LedgerSpend {
       LedgerSpend(accountId: j['account_id'] as String, name: j['name'] as String, amount: _num(j['amount']));
 }
 
+/// One calendar month of an element's spend, with the ledgers behind it.
+class MonthSpend {
+  final String month; // 2026-09
+  final String label; // Sep 2026
+  final double total;
+  final List<LedgerSpend> ledgers;
+  const MonthSpend({required this.month, required this.label, required this.total, required this.ledgers});
+
+  factory MonthSpend.fromJson(Map<String, dynamic> j) => MonthSpend(
+        month: j['month'] as String,
+        label: j['label'] as String,
+        total: _num(j['total']),
+        ledgers: ((j['ledgers'] as List?) ?? const []).map((e) => LedgerSpend.fromJson(e as Map<String, dynamic>)).toList(),
+      );
+}
+
+/// One element's spend month by month between two dates.
+class ElementMonths {
+  final String title;
+  final DateTime from;
+  final DateTime to;
+  final double total;
+  final List<MonthSpend> months;
+  const ElementMonths({required this.title, required this.from, required this.to, required this.total, required this.months});
+
+  factory ElementMonths.fromJson(Map<String, dynamic> j) => ElementMonths(
+        title: j['title'] as String,
+        from: DateTime.parse(j['date_from'] as String),
+        to: DateTime.parse(j['date_to'] as String),
+        total: _num(j['total']),
+        months: ((j['months'] as List?) ?? const []).map((e) => MonthSpend.fromJson(e as Map<String, dynamic>)).toList(),
+      );
+}
+
 class ElementSpend {
   final String elementId;
   final String code;
@@ -985,6 +1019,12 @@ class AccountsApi {
   Future<ExpensesByElement> expensesByElement(String societyId, DateTime from, DateTime to) async =>
       ExpensesByElement.fromJson((await _dio.get('/accounts/expenses-by-element/$societyId',
               queryParameters: {'date_from': apiDate(from), 'date_to': apiDate(to)}))
+          .data as Map<String, dynamic>);
+
+  /// One element's spend month by month ([elementId] "none": the expense heads no element covers).
+  Future<ElementMonths> elementMonths(String societyId, String elementId, DateTime from, DateTime to) async =>
+      ElementMonths.fromJson((await _dio.get('/accounts/expenses-by-element/$societyId/months',
+              queryParameters: {'element_id': elementId, 'date_from': apiDate(from), 'date_to': apiDate(to)}))
           .data as Map<String, dynamic>);
 
   Future<List<AccountGroupRow>> chart(String societyId) async =>

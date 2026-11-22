@@ -9,6 +9,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart';
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/accounts_screen.dart' show ledgerRoute;
+import 'package:ar_society_app/features/accounts/presentation/screens/element_months_screen.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart';
@@ -181,6 +182,17 @@ class _ExpensesByElementScreenState extends ConsumerState<ExpensesByElementScree
           'budget. Link each head to the element it belongs to.',
           style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.4),
         ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            key: const ValueKey('element-none'),
+            onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                    builder: (_) => const ElementMonthsScreen(elementId: 'none', name: 'Not counted towards any element'))),
+            child: const Text('Month by month'),
+          ),
+        ),
         const SizedBox(height: 8),
         for (final l in r.unlinked) ...[
           AppCard(
@@ -206,15 +218,30 @@ class _ElementCard extends StatelessWidget {
     final nothing = spend.total == 0;
     return AppCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(
-            child: Text(spend.name,
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: nothing ? AppTheme.textSecondary : AppTheme.textPrimary)),
+        // The element opens its month-by-month spend
+        InkWell(
+          key: ValueKey('element-${spend.elementId}'),
+          onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                  builder: (_) => ElementMonthsScreen(elementId: spend.elementId, name: spend.name))),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(spend.name,
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: nothing ? AppTheme.textSecondary : AppTheme.textPrimary)),
+                  const Text('Month by month', style: TextStyle(fontSize: 11.5, color: AppTheme.primary)),
+                ]),
+              ),
+              Text(nothing ? 'Nothing recorded' : formatInr(spend.total),
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700, color: nothing ? AppTheme.warning : AppTheme.textPrimary, fontSize: nothing ? 12 : 15)),
+              const Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.textSecondary),
+            ]),
           ),
-          Text(nothing ? 'Nothing recorded' : formatInr(spend.total),
-              style: TextStyle(
-                  fontWeight: FontWeight.w700, color: nothing ? AppTheme.warning : AppTheme.textPrimary, fontSize: nothing ? 12 : 15)),
-        ]),
+        ),
         const SizedBox(height: 6),
         for (final l in spend.ledgers)
           InkWell(
