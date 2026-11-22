@@ -1258,6 +1258,125 @@ class EstimateChange {
       };
 }
 
+// ── Budget planner ───────────────────────────────────────────────────────────
+
+/// One line of the plan: what an element or common area costs the society each month, and how it is shared.
+class PlanLineInput {
+  final String name;
+  final double amount;
+  final String split; // area | equal
+  const PlanLineInput(this.name, this.amount, {this.split = 'area'});
+
+  Map<String, dynamic> toJson() => {'name': name, 'amount': amount, 'split': split};
+}
+
+class PlanLine {
+  final String name;
+  final String amount;
+  final String split;
+  final String? ratePerSqft;
+  final String? perFlat;
+  const PlanLine({required this.name, required this.amount, required this.split, this.ratePerSqft, this.perFlat});
+
+  factory PlanLine.fromJson(Map<String, dynamic> j) => PlanLine(
+        name: j['name'] as String,
+        amount: _str(j['amount']),
+        split: j['split'] as String? ?? 'area',
+        ratePerSqft: j['rate_per_sqft']?.toString(),
+        perFlat: j['per_flat']?.toString(),
+      );
+}
+
+class PlanShare {
+  final String name;
+  final String amount;
+  const PlanShare(this.name, this.amount);
+}
+
+/// What one flat would pay under the plan, with its share of each line.
+class PlanFlat {
+  final String flatLabel;
+  final double? areaSqft;
+  final List<PlanShare> shares;
+  final String total;
+  final String? perSqft;
+  final String? current;
+  final String? change;
+
+  const PlanFlat(
+      {required this.flatLabel,
+      this.areaSqft,
+      required this.shares,
+      required this.total,
+      this.perSqft,
+      this.current,
+      this.change});
+
+  factory PlanFlat.fromJson(Map<String, dynamic> j) => PlanFlat(
+        flatLabel: j['flat_label'] as String? ?? '',
+        areaSqft: (j['area_sqft'] as num?)?.toDouble(),
+        shares: [
+          for (final s in (j['shares'] as List? ?? const []))
+            PlanShare((s as Map)['name'] as String, _str(s['amount']))
+        ],
+        total: _str(j['total']),
+        perSqft: j['per_sqft']?.toString(),
+        current: j['current']?.toString(),
+        change: j['change']?.toString(),
+      );
+}
+
+class BillPlan {
+  final List<PlanLine> lines;
+  final String total;
+  final double areaTotalSqft;
+  final int flatsCount;
+  final String? ratePerSqft; // the lines shared by area
+  final String perFlatEqual; // the lines shared equally
+  final String? averagePerSqft;
+  final List<PlanFlat> flats;
+  final bool compared;
+  final String? monthLabel;
+  final String? currentTotal;
+  final String? changeTotal;
+  final List<String> notes;
+
+  const BillPlan({
+    required this.lines,
+    required this.total,
+    required this.areaTotalSqft,
+    required this.flatsCount,
+    this.ratePerSqft,
+    required this.perFlatEqual,
+    this.averagePerSqft,
+    required this.flats,
+    required this.compared,
+    this.monthLabel,
+    this.currentTotal,
+    this.changeTotal,
+    this.notes = const [],
+  });
+
+  factory BillPlan.fromJson(Map<String, dynamic> j) {
+    final t = j['totals'] as Map<String, dynamic>?;
+    return BillPlan(
+      lines: [for (final e in (j['lines'] as List? ?? const [])) PlanLine.fromJson(e as Map<String, dynamic>)],
+      total: _str(j['total']),
+      areaTotalSqft: (j['area_total_sqft'] as num?)?.toDouble() ?? 0,
+      flatsCount: j['flats_count'] as int? ?? 0,
+      ratePerSqft: j['rate_per_sqft']?.toString(),
+      perFlatEqual: _str(j['per_flat_equal']),
+      averagePerSqft: j['average_per_sqft']?.toString(),
+      flats: [for (final e in (j['flats'] as List? ?? const [])) PlanFlat.fromJson(e as Map<String, dynamic>)],
+      compared: j['compared'] as bool? ?? false,
+      monthLabel: j['month_label'] as String?,
+      currentTotal: t?['current']?.toString(),
+      changeTotal: t?['change']?.toString(),
+      notes: [for (final n in (j['notes'] as List? ?? const [])) n as String],
+    );
+  }
+}
+
 class MaintenanceBillingApi {
   final Dio _dio;
   MaintenanceBillingApi({Dio? dio}) : _dio = dio ?? ApiClient.instance;
@@ -1446,6 +1565,17 @@ class MaintenanceBillingApi {
       'adjustments': [for (final c in changes) c.toJson()],
     });
     return BillEstimate.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// The budget planner: [lines] shared over the flats by area (or equally): total, rate per sq ft and each flat's
+  /// share, beside what the charge heads would bill it now when [compare]. Nothing is saved.
+  Future<BillPlan> planMaintenance(String societyId, List<PlanLineInput> lines, {bool compare = true}) async {
+    final r = await _dio.post('/billing/estimate/plan', data: {
+      'society_id': societyId,
+      'compare': compare,
+      'lines': [for (final l in lines) l.toJson()],
+    });
+    return BillPlan.fromJson(r.data as Map<String, dynamic>);
   }
 
   Future<int> generateBills(String cycleId) async {

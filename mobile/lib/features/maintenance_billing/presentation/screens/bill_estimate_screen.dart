@@ -7,6 +7,7 @@ import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/maintenance_billing/data/maintenance_billing_api.dart';
+import 'package:ar_society_app/features/maintenance_billing/presentation/screens/bill_planner_panel.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/providers/maintenance_billing_providers.dart' show maintenanceBillingApiProvider;
 import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets.dart' show AppCard, EmptyState;
 import 'package:ar_society_app/shared/widgets/app_form.dart';
@@ -31,6 +32,7 @@ class _BillEstimateScreenState extends ConsumerState<BillEstimateScreen> {
   BillEstimate? _data;
   Object? _error;
   bool _loading = true;
+  bool _planner = false; // the budget planner instead of the estimate from the charge heads
   String _search = '';
   int _request = 0; // only the latest answer is shown
 
@@ -165,6 +167,20 @@ class _BillEstimateScreenState extends ConsumerState<BillEstimateScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 60),
             children: [
+              SegmentedButton<bool>(
+                key: const ValueKey('estimate-mode'),
+                segments: const [
+                  ButtonSegment(value: false, label: Text('From charge heads'), icon: Icon(Icons.receipt_long_outlined)),
+                  ButtonSegment(value: true, label: Text('Budget planner'), icon: Icon(Icons.pie_chart_outline_rounded)),
+                ],
+                selected: {_planner},
+                showSelectedIcon: false,
+                onSelectionChanged: (s) => setState(() => _planner = s.first),
+              ),
+              const SizedBox(height: 12),
+              if (_planner)
+                BillPlannerPanel(current: d?.elements ?? const [])
+              else ...[
               _monthBar(),
               const SizedBox(height: 10),
               if (_error != null && d == null)
@@ -188,6 +204,7 @@ class _BillEstimateScreenState extends ConsumerState<BillEstimateScreen> {
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(n, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   ),
+              ],
               ],
             ],
           ),
