@@ -26,7 +26,7 @@ class _BillEstimateScreenState extends ConsumerState<BillEstimateScreen> {
   late DateTime _month = DateTime(DateTime.now().year, DateTime.now().month + 1);
   final Map<String, TextEditingController> _pct = {};
   final Map<String, TextEditingController> _total = {};
-  final Map<String, TextEditingController> _rate = {};
+  final Map<String, TextEditingController> _perSqft = {};
   final Set<String> _byArea = {}; // elements to be shared out by flat area
   BillEstimate? _data;
   Object? _error;
@@ -42,7 +42,7 @@ class _BillEstimateScreenState extends ConsumerState<BillEstimateScreen> {
 
   @override
   void dispose() {
-    for (final c in [..._pct.values, ..._total.values, ..._rate.values]) {
+    for (final c in [..._pct.values, ..._total.values, ..._perSqft.values]) {
       c.dispose();
     }
     super.dispose();
@@ -50,14 +50,14 @@ class _BillEstimateScreenState extends ConsumerState<BillEstimateScreen> {
 
   TextEditingController _pctFor(String element) => _pct.putIfAbsent(element, TextEditingController.new);
   TextEditingController _totalFor(String element) => _total.putIfAbsent(element, TextEditingController.new);
-  TextEditingController _rateFor(String element) => _rate.putIfAbsent(element, TextEditingController.new);
+  TextEditingController _rateFor(String element) => _perSqft.putIfAbsent(element, TextEditingController.new);
 
   /// The what-if typed in, per element: a rate per sq ft, or a percentage, or a new monthly total (the first one
   /// filled, in that order), shared out by area when "By area" is on. "By area" alone keeps the society's total.
   List<EstimateChange>? _changes() {
     final out = <EstimateChange>[];
-    for (final element in {..._pct.keys, ..._total.keys, ..._rate.keys, ..._byArea}) {
-      final r = _rate[element]?.text.trim() ?? '';
+    for (final element in {..._pct.keys, ..._total.keys, ..._perSqft.keys, ..._byArea}) {
+      final r = _perSqft[element]?.text.trim() ?? '';
       final p = _pct[element]?.text.trim() ?? '';
       final t = _total[element]?.text.trim() ?? '';
       final byArea = _byArea.contains(element);
@@ -118,7 +118,7 @@ class _BillEstimateScreenState extends ConsumerState<BillEstimateScreen> {
   }
 
   void _reset() {
-    for (final c in [..._pct.values, ..._total.values, ..._rate.values]) {
+    for (final c in [..._pct.values, ..._total.values, ..._perSqft.values]) {
       c.clear();
     }
     _byArea.clear();
@@ -129,7 +129,7 @@ class _BillEstimateScreenState extends ConsumerState<BillEstimateScreen> {
   /// per sq ft without the society collecting any more or less.
   void _allByArea() {
     final names = _data?.elements.map((e) => e.element) ?? const <String>[];
-    for (final c in [..._pct.values, ..._total.values, ..._rate.values]) {
+    for (final c in [..._pct.values, ..._total.values, ..._perSqft.values]) {
       c.clear();
     }
     setState(() {
