@@ -131,3 +131,73 @@ def test_only_the_societys_own_books_staff_can_read_it(client, db):
     assert client.get(f"{A}/expenses-by-element/{society.id}", headers=outsider["headers"]).status_code == 403
     assert client.get(f"{A}/expenses-by-element/{society.id}", headers=resident["headers"]).status_code == 403
     assert client.get(f"{A}/expenses-by-element/{society.id}", headers=manager).status_code == 200
+
+
+def _months(client, h, sid, element_id, **params):
+    q = "&".join(f"{k}={v}" for k, v in params.items())
+    r = client.get(f"{A}/expenses-by-element/{sid}/months?element_id={element_id}" + (f"&{q}" if q else ""), headers=h)
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_an_element_shows_month_by_month_with_the_ledgers_behind_each_month(client, db):
+    society, admin, manager, _ = _rig(db, "ee8")
+    L = _ledgers(client, admin, society.id)
+    _pay(client, admin, society.id, L, "security_charges", 30000, on="2026-08-10")
+    _pay(client, admin, society.id, L, "security_charges", 31000, on="2026-10-05")
+    _pay(client, admin, society.id, L, "cctv_maintenance", 1500, on="2026-10-20")          # another element
+    _pay(client, admin, society.id, L, "housekeeping", 9000, on="2026-09-10")             # another element
+    report = _report(client, admin, society.id, date_from="2026-08-01", date_to="2026-10-31")
+    security = _by_name(report)["Security Services"]
+    m = _months(client, admin, society.id, security["element_id"], date_from="2026-08-01", date_to="2026-10-31")
+    assert m["title"] == "Security Services" and m["total"] == "61000.00"
+    assert [(x["month"], x["label"], x["total"]) for x in m["months"]] == [
+        ("2026-08", "Aug 2026", "30000.00"), ("2026-09", "Sep 2026", "0.00"), ("2026-10", "Oct 2026", "31000.00")]
+    assert m["months"][0]["ledgers"] == [{"account_id": L["security_charges"]["id"], "name": "Security Charges",
+                                          "amount": "30000.00"}]
+    assert m["months"][1]["ledgers"] == []                                                   # an empty month is listed
+    assert m["total"] == security["total"]                                                    # the same figure as the report
+
+
+def test_the_months_follow_the_dates_asked_for_and_leave_out_cancelled_and_refunded_spend(client, db):
+    society, admin, manager, _ = _rig(db, "ee9")
+    L = _ledgers(client, admin, society.id)
+    _pay(client, admin, society.id, L, "security_charges", 30000, on="2026-08-31")        # the last day of a month
+    _pay(client, admin, society.id, L, "security_charges", 31000, on="2026-09-01")        # the first of the next
+    wrong = _pay(client, admin, society.id, L, "security_charges", 999, on="2026-09-15")
+    assert client.post(f"{A}/vouchers/{wrong['id']}/cancel", json={"reason": "Entered twice"}, headers=admin).status_code == 200
+    refund = client.post(f"{A}/vouchers", headers=admin, json={
+        "society_id": str(society.id), "voucher_type": "receipt", "voucher_date": "2026-09-20",
+        "entries": [{"account_id": L["cash"]["id"], "debit": "1000"},
+                    {"account_id": L["security_charges"]["id"], "credit": "1000"}]})
+    assert refund.status_code == 201, refund.text
+    if refund.json()["approval_status"] == "pending":
+        assert client.post(f"{A}/vouchers/{refund.json()['id']}/approve", json={}, headers=admin).status_code == 200
+    eid = _by_name(_report(client, admin, society.id))["Security Services"]["element_id"]
+    both = _months(client, admin, society.id, eid, date_from="2026-08-01", date_to="2026-09-30")
+    assert [(x["month"], x["total"]) for x in both["months"]] == [("2026-08", "30000.00"), ("2026-09", "30000.00")]
+    sep = _months(client, admin, society.id, eid, date_from="2026-09-01", date_to="2026-09-30")
+    assert [(x["month"], x["total"]) for x in sep["months"]] == [("2026-09", "30000.00")]      # 31,000 - 1,000 refund
+    aug = _months(client, admin, society.id, eid, date_from="2026-08-15", date_to="2026-08-31")
+    assert aug["total"] == "30000.00" and len(aug["months"]) == 1                              # a part month still counts
+    assert _months(client, admin, society.id, eid, date_from="2026-06-01", date_to="2026-07-31")["total"] == "0.00"
+
+
+def test_spend_no_element_covers_has_its_own_month_view_and_bad_requests_are_refused(client, db):
+    society, admin, manager, _ = _rig(db, "ee10")
+    L = _ledgers(client, admin, society.id)
+    _pay(client, admin, society.id, L, "repairs_plumbing", 700, on="2026-09-03")           # linked to no element
+    none = _months(client, admin, society.id, "none", date_from="2026-09-01", date_to="2026-09-30")
+    assert none["title"] == "Not counted towards any element" and none["total"] == "700.00"
+    assert [l["amount"] for l in none["months"][0]["ledgers"]] == ["700.00"]               # the ledger behind the month
+    base = f"{A}/expenses-by-element/{society.id}/months"
+    assert client.get(f"{base}?element_id=none&date_from=2026-09-30&date_to=2026-09-01", headers=admin).status_code == 422
+    assert client.get(f"{base}?element_id=none&date_from=2020-01-01&date_to=2026-09-01", headers=admin).status_code == 422
+    assert client.get(f"{base}?element_id=not-an-id", headers=admin).status_code == 422
+    assert client.get(f"{base}?element_id=00000000-0000-0000-0000-000000000000", headers=admin).status_code == 404
+    other = make_society(db, "Other Months Society")
+    outsider = make_user(db, "ee10-out@test.com", role="Society Admin")
+    outsider["user"].society_id = other.id
+    db.commit()
+    assert client.get(f"{base}?element_id=none", headers=outsider["headers"]).status_code == 403
+    assert client.get(f"{base}?element_id=none", headers=manager).status_code == 200
