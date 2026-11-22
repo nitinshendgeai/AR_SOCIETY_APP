@@ -57,10 +57,10 @@ def test_resident_who_moved_out_is_refused(client, db, rig):
 def test_resident_with_a_bill_is_refused(client, db, rig):
     from app.modules.billing.models.billing import BillingCycle, MaintenanceBill
     r = _resident(client, rig)
-    cycle = BillingCycle(society_id=rig["soc"].id, name="Apr", start_date=date(2026, 4, 1), end_date=date(2026, 4, 30),
+    cycle = BillingCycle(society_id=rig["soc"].id, name="Apr", cycle_start=date(2026, 4, 1), cycle_end=date(2026, 4, 30),
                          due_date=date(2026, 5, 10))
     db.add(cycle); db.commit()
-    db.add(MaintenanceBill(society_id=rig["soc"].id, cycle_id=cycle.id, flat_id=rig["flat"].id, resident_id=r["id"],
+    db.add(MaintenanceBill(society_id=rig["soc"].id, cycle_id=cycle.id, flat_id=rig["flat"].id, resident_id=__import__("uuid").UUID(r["id"]),
                            invoice_number="INV-1", bill_date=date(2026, 4, 1), due_date=date(2026, 5, 10)))
     db.commit()
     d = client.delete(f"/api/v1/residents/{r['id']}", headers=rig["admin"])
