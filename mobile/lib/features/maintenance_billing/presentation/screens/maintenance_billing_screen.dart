@@ -64,6 +64,12 @@ class _MaintenanceBillingScreenState extends ConsumerState<MaintenanceBillingScr
     return AppPage(
       title: 'Maintenance Billing',
       actions: [
+          IconButton(
+            key: const ValueKey('open-bill-estimate'),
+            tooltip: 'Bill estimate: what each flat would pay, and a what-if for any element',
+            icon: const Icon(Icons.calculate_outlined),
+            onPressed: () => context.push(AppRoutes.billEstimate),
+          ),
           if (desktop && !onRules)
             HeaderActionButton(
               icon: Icons.add_rounded,
