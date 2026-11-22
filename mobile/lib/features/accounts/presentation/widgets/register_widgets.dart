@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
-import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show financialYearStart, formatAccountsDate, formatInr;
+import 'package:ar_society_app/features/accounts/data/accounts_api.dart'
+    show financialYearStart, formatAccountsDate, formatInr, kVoucherScopes;
+import 'package:ar_society_app/shared/widgets/app_widgets.dart' show AppFilterPill;
 
 enum RegisterPeriodKind { thisMonth, thisYear, lastYear, all, custom }
 
@@ -123,3 +125,26 @@ class EnteredBy extends StatelessWidget {
     };
 
 String inr(num v) => v == 0 ? '' : formatInr(v);
+
+/// Residents' accounts (bills, what flats paid, advances, deposits), the society's own operations (vendors, salaries,
+/// repairs), or everything. [value] is `members`, `society` or null for all; the same names the server's `scope` takes.
+class ScopePills extends StatelessWidget {
+  final String? value;
+  final ValueChanged<String?> onChanged;
+  final String allLabel;
+  const ScopePills({super.key, required this.value, required this.onChanged, this.allLabel = 'All'});
+
+  @override
+  Widget build(BuildContext context) => Wrap(spacing: 8, runSpacing: 8, children: [
+        for (final (v, label) in [(null, allLabel), ...kVoucherScopes])
+          AppFilterPill(key: Key('scope-${v ?? 'all'}'), label: label, selected: value == v, onTap: () => onChanged(v)),
+      ]);
+}
+
+/// A line under a scoped book or report saying what is and isn't counted.
+String scopeNote(String? scope) => switch (scope) {
+      'members' => "Residents' vouchers only. The accounts' opening balances are not included.",
+      'society' => "Operations only. The accounts' opening balances are not included.",
+      _ => '',
+    };
+

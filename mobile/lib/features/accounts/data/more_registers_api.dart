@@ -69,6 +69,7 @@ typedef MoreRegisterKey = ({
   String? month,
   String? status,
   String search,
+  String? scope,
 });
 
 class MoreRegistersApi {
@@ -83,6 +84,7 @@ class MoreRegistersApi {
       if (k.month != null) 'month': k.month,
       if (k.status != null) 'status': k.status,
       if (k.search.isNotEmpty) 'q': k.search,
+      if (k.scope != null) 'scope': k.scope,
     };
   }
 

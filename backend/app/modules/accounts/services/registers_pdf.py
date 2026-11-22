@@ -87,6 +87,8 @@ def render_cash_bank_pdf(book: dict, society, *, compress: bool = True) -> bytes
             out.append(_p("No cash or bank accounts.", "note"))
         return out
 
+    if book.get("scope_label"):
+        period = f"{period} · {book['scope_label']}"
     return _build("Cash and Bank Book", period, society, parts)
 
 

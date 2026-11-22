@@ -4,6 +4,23 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-22 (Residents and operations kept apart in the books)
+
+### feat: filter registers and reports to residents, operations or everything
+
+- **Why** - receipts, payments and invoices all showed together; the committee wants the residents' side (maintenance) and the
+  society's own operations (vendors, salaries, repairs) apart, or together.
+- **Where** - the same Residents / Operations / All choice the Day Book already had is now on the **Cash & Bank Book**, the
+  **Expenses register**, and the **Trial Balance**, **Income & Expenditure** and **Receipts & Payments** reports (screen and PDF).
+  The Invoice register is always residents and the Bills register always vendors, so they need no filter; the Balance Sheet and
+  Schedule of Funds stay whole-society.
+- **How it is told apart** - a voucher is the residents' if the app posted it for a flat (bill, receipt, advance, deposit) or any of
+  its lines is against a flat; everything else is operations. The two halves always add up to the whole.
+- **Opening balances** - a split book or report counts only that kind of voucher, so the accounts' own opening balances are left out,
+  and it says so.
+- **API** - `scope=members|society` on `/accounts/registers/cash-bank`, `/accounts/registers/expenses`,
+  `/accounts/ledgers/{id}/statement` and `/accounts/reports/{society}/{trial-balance|income-expenditure|receipts-payments}`.
+
 ## 2026-11-22 (Remove wrongly entered residents and tenants)
 
 ### feat: remove a resident or tenant entered by mistake

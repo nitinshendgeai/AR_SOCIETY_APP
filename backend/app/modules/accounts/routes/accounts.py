@@ -34,7 +34,7 @@ from app.modules.accounts.services.documents_pdf import (
 from app.modules.accounts.services.reports_pdf import render_report_pdf
 from app.modules.accounts.services.tds_ledger import TdsLedgerService, summary_out as tds_ledger_out
 from app.modules.accounts.services.outstanding import OutstandingService
-from app.modules.accounts.services.registers import RegistersService
+from app.modules.accounts.services.registers import SCOPE_LABELS, RegistersService
 from app.modules.accounts.services.voucher_documents import VoucherDocumentService, document_out
 from app.modules.accounts.services.more_registers import REGISTERS, MoreRegistersService, register_to_csv
 from app.modules.accounts.services.registers_pdf import (
@@ -296,16 +296,19 @@ def update_ledger(account_id: UUID, data: AccountUpdate, db: Session = Depends(g
 @router.get("/ledgers/{account_id}/statement")
 def ledger_statement(account_id: UUID, date_from: Optional[date] = None, date_to: Optional[date] = None,
                      flat_id: Optional[UUID] = None, vendor_id: Optional[UUID] = None,
+                     scope: Optional[str] = Query(None, pattern="^(members|society)$"),
                      format: str = Query("json", pattern="^(json|pdf)$"),
                      db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """A ledger's postings in a period with the running balance — or, with
-    `flat_id` / `vendor_id`, a member's or vendor's account. ?format=pdf: the
+    `flat_id` / `vendor_id`, a member's or vendor's account. `scope`: only the residents' vouchers (members) or
+    only the society's own (society); the ledger's own opening balance is then left out. ?format=pdf: the
     printed ledger account."""
     svc = AccountsService(db)
     account = svc.get_account(account_id)
     assert_society_access(user, account.society_id)
-    st = svc.ledger_statement(account_id, date_from, date_to, flat_id, vendor_id)
+    st = svc.ledger_statement(account_id, date_from, date_to, flat_id, vendor_id, scope)
     out = _statement_out(st, date_from, date_to)
+    out["scope"] = scope
     if format == "pdf":
         title = None
         if flat_id:
@@ -368,12 +371,14 @@ def tds_ledger(society_id: UUID, date_from: Optional[date] = None, date_to: Opti
 
 @router.get("/registers/cash-bank/{society_id}")
 def cash_bank_book(society_id: UUID, date_from: Optional[date] = None, date_to: Optional[date] = None,
-                   account_id: Optional[UUID] = None, format: str = Query("json", pattern="^(json|pdf)$"),
+                   account_id: Optional[UUID] = None, scope: Optional[str] = Query(None, pattern="^(members|society)$"),
+                   format: str = Query("json", pattern="^(json|pdf)$"),
                    db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """The cash and bank book: each cash and bank account's receipts and payments with the running balance and
-    who entered and who approved each. ?format=pdf: the printed book."""
+    who entered and who approved each. `scope`: only the residents' vouchers (members) or only the society's own
+    (society, the operations). ?format=pdf: the printed book."""
     assert_society_access(user, society_id)
-    book = RegistersService(db).cash_bank_book(society_id, date_from, date_to, account_id)
+    book = RegistersService(db).cash_bank_book(society_id, date_from, date_to, account_id, scope)
     db.commit()
     if format == "pdf":
         return _pdf(render_cash_bank_pdf(book, _society(db, society_id)),
@@ -414,6 +419,7 @@ def bills_register(society_id: UUID, date_from: Optional[date] = None, date_to: 
 def more_register(kind: str, society_id: UUID, date_from: Optional[date] = None, date_to: Optional[date] = None,
                   status: Optional[str] = None, q: Optional[str] = None,
                   month: Optional[str] = Query(None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$"),
+                  scope: Optional[str] = Query(None, pattern="^(members|society)$"),
                   format: str = Query("json", pattern="^(json|pdf|csv)$"),
                   db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """The rental, receipts and staff attendance registers, in one shape (columns, rows, totals) the app draws and the
@@ -431,7 +437,10 @@ def more_register(kind: str, society_id: UUID, date_from: Optional[date] = None,
         elif kind == "petty_cash":
             reg = PettyCashService(db).book_register(society_id, date_from, date_to)
         elif kind == "expenses":
-            reg = svc.expenses_register(society_id, date_from, date_to, status, q)
+            reg = svc.expenses_register(society_id, date_from, date_to, status, q, scope)
+            if scope:
+                reg["scope"] = scope
+                reg["subtitle"] = f"{reg['subtitle']} · {SCOPE_LABELS[scope]}"
         else:
             reg = svc.attendance_register(society_id, month, status, q)
     except ValueError as exc:
@@ -962,14 +971,16 @@ class ReopenYearRequest(BaseModel):
 
 @router.get("/reports/{society_id}/{report}")
 def financial_report(society_id: UUID, report: str, fy: Optional[str] = None,
+                     scope: Optional[str] = Query(None, pattern="^(members|society)$"),
                      format: str = Query("json", pattern="^(json|pdf)$"),
                      db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Trial Balance, Income & Expenditure, Balance Sheet, Receipts &
     Payments or Schedule of Funds for a financial year ('2026-27'; default:
-    the current one) — as data, or ?format=pdf in the printed format."""
+    the current one) — as data, or ?format=pdf in the printed format. `scope` (members or society) limits the Trial
+    Balance, Income & Expenditure and Receipts & Payments to the residents' vouchers or the society's own."""
     assert_society_access(user, society_id)
     fy = fy or fiscal_year(society_today(db, society_id))
-    data = FinancialReports(db).report(society_id, report, fy)
+    data = FinancialReports(db, scope=scope).report(society_id, report, fy)
     if format == "pdf":
         society = db.query(Society).filter(Society.id == society_id).first()
         name = REPORTS[report].replace("&", "and").replace(" ", "-")

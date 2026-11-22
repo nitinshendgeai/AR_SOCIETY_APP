@@ -24,7 +24,7 @@ from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy import exists, func, not_, or_
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session, aliased, joinedload, selectinload
 
 from app.models.audit_log import AuditAction
 from app.models.flat import Flat
@@ -837,10 +837,7 @@ class AccountsService:
                       include_cancelled: bool = True, skip: int = 0, limit: int = 100,
                       vendor_id: Optional[UUID] = None, scope: Optional[str] = None) -> List[Voucher]:
         q = self.db.query(Voucher).options(*self._voucher_loads()).filter(Voucher.society_id == society_id)
-        if scope == "members":
-            q = q.filter(self.member_voucher_clause())
-        elif scope == "society":
-            q = q.filter(not_(self.member_voucher_clause()))
+        q = self.scope_filter(q, scope)
         if vendor_id:
             q = q.filter(Voucher.vendor_id == vendor_id)
         if voucher_type:
@@ -860,19 +857,32 @@ class AccountsService:
     def member_voucher_clause():
         """SQL for "a voucher about the members": one the app posts for a flat (its bill, what it paid, an advance, a
         deposit) or any voucher with a line against a flat, such as a receipt an accountant enters for a member."""
-        has_flat_line = exists().where(VoucherEntry.voucher_id == Voucher.id, VoucherEntry.flat_id.isnot(None))
+        # an alias, so the same clause works inside a query that is itself over voucher entries
+        line = aliased(VoucherEntry)
+        has_flat_line = exists().where(line.voucher_id == Voucher.id, line.flat_id.isnot(None))
         # coalesce: a voucher entered by hand has no source, and "NULL IN (...)" is neither true nor false in SQL, which
         # would drop it from the members' list and (negated) from the society's own too.
         return or_(func.coalesce(Voucher.source_type, "").in_(MEMBER_VOUCHER_SOURCES), has_flat_line)
 
+    @classmethod
+    def scope_filter(cls, q, scope: Optional[str]):
+        """Keep only the residents' vouchers (`members`) or only the society's own (`society`); None keeps all. The query
+        must already be over `Voucher`."""
+        if scope == "members":
+            return q.filter(cls.member_voucher_clause())
+        if scope == "society":
+            return q.filter(not_(cls.member_voucher_clause()))
+        return q
+
     # ── Balances & statements ─────────────────────────────────────────────────
 
     def _movements(self, society_id: UUID, *, before: Optional[date] = None, upto: Optional[date] = None,
-                   group_by=VoucherEntry.account_id, **filters):
+                   group_by=VoucherEntry.account_id, scope: Optional[str] = None, **filters):
         q = (self.db.query(group_by, func.coalesce(func.sum(VoucherEntry.debit), 0),
                            func.coalesce(func.sum(VoucherEntry.credit), 0))
              .join(Voucher, Voucher.id == VoucherEntry.voucher_id)
              .filter(Voucher.society_id == society_id, Voucher.is_cancelled == False, Voucher.approval_status == "approved"))
+        q = self.scope_filter(q, scope)
         if before:
             q = q.filter(Voucher.voucher_date < before)
         if upto:
@@ -898,21 +908,22 @@ class AccountsService:
 
     def ledger_statement(self, account_id: UUID, date_from: Optional[date] = None,
                          date_to: Optional[date] = None, flat_id: Optional[UUID] = None,
-                         vendor_id: Optional[UUID] = None) -> dict:
+                         vendor_id: Optional[UUID] = None, scope: Optional[str] = None) -> dict:
         """Opening balance, each posting in the period with the ledgers on
         the other side of it and the running balance, and the closing
         balance. With `flat_id` (Members' Dues) or `vendor_id` (Sundry
-        Creditors): that member's or vendor's own account."""
+        Creditors): that member's or vendor's own account. With `scope` (members or society) only that kind of voucher
+        is counted, so the account's own opening balance is left out: the book is that scope's movement alone."""
         account = self.get_account(account_id)
         filters = {"account_id": account.id}
         if flat_id:
             filters["flat_id"] = flat_id
         if vendor_id:
             filters["vendor_id"] = vendor_id
-        opening = ZERO if (flat_id or vendor_id) else signed_opening(account)
+        opening = ZERO if (flat_id or vendor_id or scope) else signed_opening(account)
         if date_from:
             opening += self._movements(account.society_id, before=date_from, group_by=VoucherEntry.account_id,
-                                       **filters).get(account.id, ZERO)
+                                       scope=scope, **filters).get(account.id, ZERO)
 
         # Only approved vouchers count (the opening balance above and every report use the same rule), so a
         # payment still waiting for approval is not in the account yet.
@@ -922,6 +933,7 @@ class AccountsService:
                       joinedload(Voucher.creator), joinedload(Voucher.approver))
              .filter(Voucher.society_id == account.society_id, Voucher.is_cancelled == False,
                      Voucher.approval_status == "approved"))
+        q = self.scope_filter(q, scope)
         for column, value in filters.items():
             q = q.filter(getattr(VoucherEntry, column) == value)
         if date_from:

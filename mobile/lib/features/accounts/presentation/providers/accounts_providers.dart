@@ -57,19 +57,19 @@ final elementMonthsProvider = FutureProvider.autoDispose.family<ElementMonths, E
   (ref, k) => ref.watch(accountsApiProvider).elementMonths(k.societyId, k.elementId, k.from, k.to),
 );
 
-typedef ReportKey = ({String societyId, String report, String fy});
+typedef ReportKey = ({String societyId, String report, String fy, String? scope});
 
 final financialReportProvider = FutureProvider.autoDispose.family<FinancialReport, ReportKey>(
-  (ref, k) => ref.watch(accountsApiProvider).report(k.societyId, k.report, k.fy),
+  (ref, k) => ref.watch(accountsApiProvider).report(k.societyId, k.report, k.fy, scope: k.scope),
 );
 
 final registersApiProvider = Provider<RegistersApi>((_) => RegistersApi());
 
-typedef BookKey = ({String societyId, DateTime? from, DateTime? to, String? accountId});
+typedef BookKey = ({String societyId, DateTime? from, DateTime? to, String? accountId, String? scope});
 
 /// The cash and bank book: every cash and bank account's receipts and payments, with who entered each.
 final cashBankBookProvider = FutureProvider.autoDispose.family<CashBankBook, BookKey>(
-  (ref, k) => ref.watch(registersApiProvider).cashBankBook(k.societyId, from: k.from, to: k.to, accountId: k.accountId),
+  (ref, k) => ref.watch(registersApiProvider).cashBankBook(k.societyId, from: k.from, to: k.to, accountId: k.accountId, scope: k.scope),
 );
 
 typedef RegisterKey = ({String societyId, DateTime? from, DateTime? to, String? status, String search});

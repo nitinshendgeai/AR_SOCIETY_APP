@@ -27,15 +27,16 @@ class CashBankBookScreen extends ConsumerStatefulWidget {
 class _CashBankBookScreenState extends ConsumerState<CashBankBookScreen> {
   RegisterPeriod _period = RegisterPeriod.thisYear;
   String? _accountId;
+  String? _scope; // null: all vouchers; members: the residents'; society: the operations
 
   @override
   Widget build(BuildContext context) {
     final societyId = ref.watch(currentUserProvider)?.societyId ?? '';
     final (from, to) = _period.range;
-    final key = (societyId: societyId, from: from, to: to, accountId: _accountId);
+    final key = (societyId: societyId, from: from, to: to, accountId: _accountId, scope: _scope);
     final async = ref.watch(cashBankBookProvider(key));
     // The account chips come from the unfiltered book so they stay put while one is chosen.
-    final all = ref.watch(cashBankBookProvider((societyId: societyId, from: from, to: to, accountId: null)));
+    final all = ref.watch(cashBankBookProvider((societyId: societyId, from: from, to: to, accountId: null, scope: _scope)));
     final desktop = isDesktopLayout(context);
 
     return VoucherHotkeys(child: AppPage(
@@ -45,8 +46,8 @@ class _CashBankBookScreenState extends ConsumerState<CashBankBookScreen> {
         PdfActions(
           load: async.valueOrNull == null
               ? null
-              : () => ref.read(registersApiProvider).cashBankPdf(societyId, from: from, to: to, accountId: _accountId),
-          fileName: 'Cash-Bank-Book.pdf',
+              : () => ref.read(registersApiProvider).cashBankPdf(societyId, from: from, to: to, accountId: _accountId, scope: _scope),
+          fileName: 'Cash-Bank-Book${_scope == null ? '' : '-$_scope'}.pdf',
           subject: 'Cash and bank book',
         ),
       ],
@@ -56,6 +57,13 @@ class _CashBankBookScreenState extends ConsumerState<CashBankBookScreen> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
           children: [
             RegisterPeriodBar(value: _period, onChanged: (p) => setState(() => _period = p)),
+            const SizedBox(height: 10),
+            ScopePills(value: _scope, allLabel: 'All', onChanged: (v) => setState(() => _scope = v)),
+            if (_scope != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(scopeNote(_scope), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              ),
             if (all.valueOrNull case final book? when book.sections.length > 1) ...[
               const SizedBox(height: 10),
               Wrap(spacing: 8, runSpacing: 8, children: [

@@ -277,9 +277,10 @@ class RegistersApi {
         ...?more,
       };
 
-  Future<CashBankBook> cashBankBook(String societyId, {DateTime? from, DateTime? to, String? accountId}) async =>
+  Future<CashBankBook> cashBankBook(String societyId,
+          {DateTime? from, DateTime? to, String? accountId, String? scope}) async =>
       CashBankBook.fromJson((await _dio.get('/accounts/registers/cash-bank/$societyId',
-              queryParameters: _q(from, to, {if (accountId != null) 'account_id': accountId})))
+              queryParameters: _q(from, to, {if (accountId != null) 'account_id': accountId, if (scope != null) 'scope': scope})))
           .data as Map<String, dynamic>);
 
   Future<Register<InvoiceRow>> invoices(String societyId,
@@ -306,8 +307,9 @@ class RegistersApi {
     return Uint8List.fromList(r.data!);
   }
 
-  Future<Uint8List> cashBankPdf(String societyId, {DateTime? from, DateTime? to, String? accountId}) =>
-      _pdf('/accounts/registers/cash-bank/$societyId', _q(from, to, {if (accountId != null) 'account_id': accountId}));
+  Future<Uint8List> cashBankPdf(String societyId, {DateTime? from, DateTime? to, String? accountId, String? scope}) =>
+      _pdf('/accounts/registers/cash-bank/$societyId',
+          _q(from, to, {if (accountId != null) 'account_id': accountId, if (scope != null) 'scope': scope}));
 
   Future<Uint8List> invoicesPdf(String societyId, {DateTime? from, DateTime? to, String? status}) =>
       _pdf('/accounts/registers/invoices/$societyId', _q(from, to, {if (status != null) 'status': status}));
