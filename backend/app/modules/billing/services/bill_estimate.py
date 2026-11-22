@@ -5,8 +5,9 @@ never saved, so every charge head, basis (fixed, per sq ft, budget...), flat typ
 way it will on the bill. What an estimate leaves out: arrears and interest (they are not part of the month's charges),
 fines, and each flat's own billing start date (every flat is taken as billed for the whole month).
 
-What-if: an element can be raised or lowered by a percentage, or set to the monthly total the society wants from it;
-the estimate then shows the bill each flat would get and the rate per sq ft, beside the figures as they stand. Nothing
+What-if: an element can be raised or lowered by a percentage, set to the monthly total the society wants from it, or
+billed by flat area: a rate per sq ft of its own, or its total (as it stands, raised or set) spread over the flats by
+their areas so each pays area x rate. The estimate then shows the bill each flat would get and the rate per sq ft, beside the figures as they stand. Nothing
 is written: the cycle is never added to the session, no object is changed and nothing is committed.
 """
 import calendar
@@ -30,10 +31,13 @@ class _EstimateCalculator(MaintenanceCalculator):
     """The real calculation, for one month, ignoring what the bills themselves would depend on (earlier bills) and
     scaling the elements being tried out."""
 
-    def __init__(self, db: Session, society_id: UUID, element_of: Dict[str, str], factors: Dict[str, Decimal]):
+    def __init__(self, db: Session, society_id: UUID, element_of: Dict[str, str], factors: Dict[str, Decimal],
+                 rates: Dict[str, Decimal]):
         super().__init__(db, society_id)
         self._element_of = element_of
         self._factors = factors
+        self._rates = rates                       # element -> rate per sq ft per month: billed by the flat's area
+        self._rated: set = set()                  # (flat, element) already given its amount
 
     def _open_bills_by_flat(self, exclude_cycle_id):
         return {}
@@ -53,7 +57,15 @@ class _EstimateCalculator(MaintenanceCalculator):
 
     def _charge_lines(self, charge: MaintenanceChargeConfig, flat: Flat, months: Decimal, service_base=None):
         lines = super()._charge_lines(charge, flat, months, service_base)
-        factor = self._factors.get(self._element_of.get(charge.name, charge.name))
+        element = self._element_of.get(charge.name, charge.name)
+        rate = self._rates.get(element)
+        if rate is not None:
+            if not lines or (flat.id, element) in self._rated:     # not billed to this flat, or its head is already done
+                return []
+            self._rated.add((flat.id, element))
+            area = Decimal(str(flat.area_sqft)) if flat.area_sqft else ZERO
+            return [(lines[0][0], money(area * rate * months))] if area else []
+        factor = self._factors.get(element)
         return lines if factor is None else [(description, money(amount * factor)) for description, amount in lines]
 
 
@@ -78,10 +90,10 @@ class BillEstimateService:
         return {head: element for head, element in rows}
 
     def _run(self, society_id: UUID, start: date, end: date, element_of: Dict[str, str],
-             factors: Dict[str, Decimal]) -> list:
+             factors: Dict[str, Decimal], rates: Dict[str, Decimal]) -> list:
         cycle = BillingCycle(id=uuid4(), society_id=society_id, name="Estimate", cycle_start=start, cycle_end=end,
                              due_date=end, frequency=CycleFrequency.MONTHLY)
-        calc = _EstimateCalculator(self.db, society_id, element_of, factors)
+        calc = _EstimateCalculator(self.db, society_id, element_of, factors, rates)
         return calc.calculate(cycle, start)
 
     @staticmethod
@@ -99,25 +111,48 @@ class BillEstimateService:
     def _estimate(self, society_id: UUID, month: Optional[str], adjustments: List[dict], today: date) -> dict:
         start, end = month_bounds(month, today)
         element_of = self._element_names(society_id)
-        base = self._run(society_id, start, end, element_of, {})
+        base = self._run(society_id, start, end, element_of, {}, {})
         base_totals: Dict[str, Decimal] = {}
+        area_billed: Dict[str, Decimal] = {}          # element -> area of the flats that are billed for it
+        no_area: Dict[str, int] = {}                  # element -> flats billed for it that have no area recorded
         for d in base:
+            area = Decimal(str(d.flat.area_sqft)) if d.flat.area_sqft else ZERO
             for name, amount in self._by_element(d, element_of).items():
                 base_totals[name] = base_totals.get(name, ZERO) + amount
+                if amount > 0:
+                    area_billed[name] = area_billed.get(name, ZERO) + area
+                    no_area[name] = no_area.get(name, 0) + (0 if area else 1)
 
         factors: Dict[str, Decimal] = {}
+        rates: Dict[str, Decimal] = {}
+        notes = ["Arrears, interest and fines are not part of an estimate.",
+                 "Heads billed from actual expenses show what the books hold for this month."]
         for a in adjustments:
             name = a["element"]
-            if a.get("target_total") is not None:
+            if a.get("per_sqft") is not None:
+                rates[name] = Decimal(a["per_sqft"])
+            else:
                 current = base_totals.get(name, ZERO)
                 if current <= 0:
-                    raise ValueError(f"{name} has nothing billed in this month to set a total against")
-                factors[name] = Decimal(a["target_total"]) / current
-            else:
-                factors[name] = Decimal(1) + Decimal(a.get("percent") or 0) / Decimal(100)
-            if factors[name] < 0:
-                raise ValueError(f"{name} can't go below nothing")
-        est = self._run(society_id, start, end, element_of, factors) if factors else base
+                    raise ValueError(f"{name} has nothing billed in this month to change")
+                if a.get("target_total") is not None:
+                    new_total = Decimal(a["target_total"])
+                elif a.get("percent") is not None:
+                    new_total = current * (Decimal(1) + Decimal(a["percent"]) / Decimal(100))
+                else:
+                    new_total = current
+                if new_total < 0:
+                    raise ValueError(f"{name} can't go below nothing")
+                if a.get("by_area"):
+                    if not area_billed.get(name):
+                        raise ValueError(f"{name} can't be billed by area: no flat billed for it has an area recorded")
+                    rates[name] = new_total / area_billed[name]
+                else:
+                    factors[name] = new_total / current
+            if name in rates and no_area.get(name):
+                notes.append(f"{no_area[name]} flat(s) have no area recorded and would pay nothing for {name} "
+                             f"billed by area.")
+        est = self._run(society_id, start, end, element_of, factors, rates) if (factors or rates) else base
 
         by_flat_base = {d.flat.id: d for d in base}
         flats, est_totals = [], {}
@@ -158,10 +193,10 @@ class BillEstimateService:
                 "change_pct": str(((new - cur) / cur * 100).quantize(Decimal("0.01"))) if cur else None,
                 "current_per_sqft": str(self._per(cur, area_base)) if area_base else None,
                 "estimate_per_sqft": str(self._per(new, area_est)) if area_est else None,
-                "adjusted": name in factors,
+                "adjusted": name in factors or name in rates, "by_area": name in rates,
             })
         return {
-            "month": f"{start:%Y-%m}", "month_label": f"{start:%B %Y}", "adjusted": bool(factors),
+            "month": f"{start:%Y-%m}", "month_label": f"{start:%B %Y}", "adjusted": bool(factors or rates),
             "flats_count": len(flats), "total_area_sqft": float(area_est),
             "elements": elements, "flats": flats,
             "totals": {
@@ -170,8 +205,7 @@ class BillEstimateService:
                 "current_per_sqft": str(self._per(total_base, area_base)) if area_base else None,
                 "estimate_per_sqft": str(self._per(total_est, area_est)) if area_est else None,
             },
-            "notes": ["Arrears, interest and fines are not part of an estimate.",
-                      "Heads billed from actual expenses show what the books hold for this month."],
+            "notes": notes,
         }
 
     @staticmethod

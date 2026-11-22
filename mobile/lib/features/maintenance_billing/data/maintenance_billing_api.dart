@@ -1104,6 +1104,8 @@ class EstimateElement {
   final String? currentPerSqft;
   final String? estimatePerSqft;
   final bool adjusted;
+  /// Billed by flat area in this estimate (a rate per sq ft, or its total spread over the flats by area).
+  final bool byArea;
 
   const EstimateElement({
     required this.element,
@@ -1114,6 +1116,7 @@ class EstimateElement {
     this.currentPerSqft,
     this.estimatePerSqft,
     this.adjusted = false,
+    this.byArea = false,
   });
 
   factory EstimateElement.fromJson(Map<String, dynamic> j) => EstimateElement(
@@ -1125,6 +1128,7 @@ class EstimateElement {
         currentPerSqft: j['current_per_sqft']?.toString(),
         estimatePerSqft: j['estimate_per_sqft']?.toString(),
         adjusted: j['adjusted'] as bool? ?? false,
+        byArea: j['by_area'] as bool? ?? false,
       );
 }
 
@@ -1233,17 +1237,24 @@ class BillEstimate {
   }
 }
 
-/// One what-if: an element raised or lowered by [percent], or set to the monthly total [targetTotal] (one of the two).
+/// One what-if on an element: raised or lowered by [percent], set to the monthly total [targetTotal], or billed at
+/// [perSqft] a sq ft (at most one of the three). [byArea] spreads its total (as it stands, or after the percentage or
+/// total) over the flats by their areas, so each flat pays its area x the rate; with none of the three it alone is the
+/// change: the same society total, shared by area.
 class EstimateChange {
   final String element;
   final double? percent;
   final double? targetTotal;
-  const EstimateChange(this.element, {this.percent, this.targetTotal});
+  final double? perSqft;
+  final bool byArea;
+  const EstimateChange(this.element, {this.percent, this.targetTotal, this.perSqft, this.byArea = false});
 
   Map<String, dynamic> toJson() => {
         'element': element,
         if (percent != null) 'percent': percent,
         if (targetTotal != null) 'target_total': targetTotal,
+        if (perSqft != null) 'per_sqft': perSqft,
+        if (byArea) 'by_area': true,
       };
 }
 

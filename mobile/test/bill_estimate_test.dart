@@ -163,4 +163,41 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.calls.last.month, first);
   });
+
+  testWidgets('billing by area: a rate per sq ft, the By area switch, and every element by area at once', (tester) async {
+    tall(tester);
+    final api = _FakeBilling();
+    await tester.pumpWidget(_app(api));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const ValueKey('estimate-rate-Service Charges')), '2.5');
+    await tester.tap(find.byKey(const ValueKey('estimate-calc')));
+    await tester.pumpAndSettle();
+    expect(api.calls.last.changes, [
+      {'element': 'Service Charges', 'per_sqft': 2.5}
+    ]);
+
+    await tester.enterText(find.byKey(const ValueKey('estimate-rate-Service Charges')), '');
+    await tester.enterText(find.byKey(const ValueKey('estimate-pct-Water Charges')), '5');
+    await tester.tap(find.byKey(const ValueKey('estimate-area-Water Charges')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('estimate-calc')));
+    await tester.pumpAndSettle();
+    expect(api.calls.last.changes, [
+      {'element': 'Water Charges', 'percent': 5.0, 'by_area': true}
+    ]);                                                                  // a rise, shared out by area
+
+    await tester.tap(find.byKey(const ValueKey('estimate-reset')));
+    await tester.pumpAndSettle();
+    expect(api.calls.last.changes, isEmpty);
+
+    await tester.tap(find.byKey(const ValueKey('estimate-all-by-area')));
+    await tester.pumpAndSettle();
+    expect(
+        api.calls.last.changes,
+        unorderedEquals([
+          {'element': 'Water Charges', 'by_area': true},
+          {'element': 'Service Charges', 'by_area': true},
+        ]));                                                             // the same totals, shared by flat area
+  });
 }

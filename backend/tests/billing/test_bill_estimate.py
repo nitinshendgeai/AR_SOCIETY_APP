@@ -114,3 +114,54 @@ def test_the_month_defaults_to_the_next_and_the_estimate_is_for_managers_of_the_
     outsider["user"].society_id = make_society(db, "Other be5").id
     db.commit()
     assert client.post(URL, json={"society_id": str(society.id)}, headers=outsider["headers"]).status_code == 403
+
+
+def test_an_element_can_be_billed_by_flat_area_keeping_the_societys_total(client, db):
+    society, flats, h = _setup(client, db, "be6")          # Service Charges: 1,000 a flat = 2,000 for 600 + 1,200 sq ft
+    est = _estimate(client, h, society, adjustments=[{"element": "Service Charges", "by_area": True}])
+    small, large = _flat(est, "101"), _flat(est, "201")
+    service = lambda f: next(l for l in f["lines"] if l["element"] == "Service Charges")
+    assert (service(small)["current"], service(small)["estimate"]) == ("1000.00", "666.67")     # 600 x 2,000 / 1,800
+    assert (service(large)["current"], service(large)["estimate"]) == ("1000.00", "1333.33")    # 1,200 x 2,000 / 1,800
+    assert _el(est, "Service Charges")["estimate_total"] == "2000.00"                            # the society's total is kept
+    assert _el(est, "Service Charges")["by_area"] is True and _el(est, "Water Charges")["by_area"] is False
+    assert (small["estimate_total"], large["estimate_total"]) == ("1866.67", "3733.33")
+    assert est["totals"]["estimate"] == "5600.00" and est["totals"]["current"] == "5600.00"
+    assert est["adjusted"] is True
+
+
+def test_by_area_can_follow_a_rise_or_a_new_total_and_a_rate_per_sq_ft_can_be_set(client, db):
+    society, flats, h = _setup(client, db, "be7")
+    rise = _estimate(client, h, society, adjustments=[{"element": "Service Charges", "percent": "10", "by_area": True}])
+    assert _el(rise, "Service Charges")["estimate_total"] == "2200.00"                          # 2,000 + 10%, spread by area
+    assert [next(l for l in _flat(rise, e)["lines"] if l["element"] == "Service Charges")["estimate"]
+            for e in ("101", "201")] == ["733.33", "1466.67"]
+    total = _estimate(client, h, society, adjustments=[{"element": "Service Charges", "target_total": "3600",
+                                                        "by_area": True}])
+    assert _el(total, "Service Charges")["estimate_total"] == "3600.00"                         # 2 a sq ft on 1,800 sq ft
+    rate = _estimate(client, h, society, adjustments=[{"element": "Service Charges", "per_sqft": "3"}])
+    assert [next(l for l in _flat(rate, e)["lines"] if l["element"] == "Service Charges")["estimate"]
+            for e in ("101", "201")] == ["1800.00", "3600.00"]                                   # area x 3
+    assert _el(rate, "Service Charges")["estimate_total"] == "5400.00"
+    assert _el(rate, "Service Charges")["estimate_per_sqft"] == "3.00"
+    assert (_flat(rate, "101")["estimate_total"], _flat(rate, "201")["estimate_total"]) == ("3000.00", "6000.00")
+
+
+def test_by_area_needs_an_area_and_one_clear_change(client, db):
+    society, flats, h = _setup(client, db, "be8")
+    for f in flats:
+        f.area_sqft = None
+    db.commit()
+    nobody = client.post(URL, json={"society_id": str(society.id), "month": "2030-06", "adjustments": [
+        {"element": "Service Charges", "by_area": True}]}, headers=h)
+    assert nobody.status_code == 422 and "area" in nobody.text
+    rated = client.post(URL, json={"society_id": str(society.id), "month": "2030-06", "adjustments": [
+        {"element": "Service Charges", "per_sqft": "3"}]}, headers=h)
+    assert rated.status_code == 200
+    assert any("no area recorded" in n for n in rated.json()["notes"])                           # they would pay nothing
+    two = client.post(URL, json={"society_id": str(society.id), "adjustments": [
+        {"element": "Service Charges", "per_sqft": "3", "percent": "5"}]}, headers=h)
+    assert two.status_code == 422
+    both = client.post(URL, json={"society_id": str(society.id), "adjustments": [
+        {"element": "Service Charges", "per_sqft": "3", "by_area": True}]}, headers=h)
+    assert both.status_code == 422

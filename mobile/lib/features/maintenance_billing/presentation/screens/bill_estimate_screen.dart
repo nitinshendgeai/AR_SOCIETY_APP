@@ -26,6 +26,8 @@ class _BillEstimateScreenState extends ConsumerState<BillEstimateScreen> {
   late DateTime _month = DateTime(DateTime.now().year, DateTime.now().month + 1);
   final Map<String, TextEditingController> _pct = {};
   final Map<String, TextEditingController> _total = {};
+  final Map<String, TextEditingController> _perSqft = {};
+  final Set<String> _byArea = {}; // elements to be shared out by flat area
   BillEstimate? _data;
   Object? _error;
   bool _loading = true;
@@ -40,7 +42,7 @@ class _BillEstimateScreenState extends ConsumerState<BillEstimateScreen> {
 
   @override
   void dispose() {
-    for (final c in [..._pct.values, ..._total.values]) {
+    for (final c in [..._pct.values, ..._total.values, ..._perSqft.values]) {
       c.dispose();
     }
     super.dispose();
@@ -48,27 +50,40 @@ class _BillEstimateScreenState extends ConsumerState<BillEstimateScreen> {
 
   TextEditingController _pctFor(String element) => _pct.putIfAbsent(element, TextEditingController.new);
   TextEditingController _totalFor(String element) => _total.putIfAbsent(element, TextEditingController.new);
+  TextEditingController _rateFor(String element) => _perSqft.putIfAbsent(element, TextEditingController.new);
 
-  /// The what-if typed in: a percentage or a new monthly total per element (a percentage wins if both are filled).
+  /// The what-if typed in, per element: a rate per sq ft, or a percentage, or a new monthly total (the first one
+  /// filled, in that order), shared out by area when "By area" is on. "By area" alone keeps the society's total.
   List<EstimateChange>? _changes() {
     final out = <EstimateChange>[];
-    for (final element in {..._pct.keys, ..._total.keys}) {
+    for (final element in {..._pct.keys, ..._total.keys, ..._perSqft.keys, ..._byArea}) {
+      final r = _perSqft[element]?.text.trim() ?? '';
       final p = _pct[element]?.text.trim() ?? '';
       final t = _total[element]?.text.trim() ?? '';
-      if (p.isNotEmpty) {
+      final byArea = _byArea.contains(element);
+      if (r.isNotEmpty) {
+        final v = double.tryParse(r.replaceAll(',', ''));
+        if (v == null || v < 0) {
+          AppToast.warning(context, 'Enter the rate per sq ft for $element as an amount, e.g. 2.5');
+          return null;
+        }
+        out.add(EstimateChange(element, perSqft: v));
+      } else if (p.isNotEmpty) {
         final v = double.tryParse(p);
         if (v == null || v < -100) {
           AppToast.warning(context, 'Enter the change for $element as a percentage, e.g. 10 or -5');
           return null;
         }
-        out.add(EstimateChange(element, percent: v));
+        out.add(EstimateChange(element, percent: v, byArea: byArea));
       } else if (t.isNotEmpty) {
         final v = double.tryParse(t.replaceAll(',', ''));
         if (v == null || v < 0) {
           AppToast.warning(context, 'Enter the new monthly total for $element as an amount');
           return null;
         }
-        out.add(EstimateChange(element, targetTotal: v));
+        out.add(EstimateChange(element, targetTotal: v, byArea: byArea));
+      } else if (byArea) {
+        out.add(EstimateChange(element, byArea: true));
       }
     }
     return out;
@@ -103,10 +118,26 @@ class _BillEstimateScreenState extends ConsumerState<BillEstimateScreen> {
   }
 
   void _reset() {
-    for (final c in [..._pct.values, ..._total.values]) {
+    for (final c in [..._pct.values, ..._total.values, ..._perSqft.values]) {
       c.clear();
     }
+    _byArea.clear();
     _load(keepChanges: false);
+  }
+
+  /// Every element billed by flat area with the society's total kept: what each flat would pay if maintenance went
+  /// per sq ft without the society collecting any more or less.
+  void _allByArea() {
+    final names = _data?.elements.map((e) => e.element) ?? const <String>[];
+    for (final c in [..._pct.values, ..._total.values, ..._perSqft.values]) {
+      c.clear();
+    }
+    setState(() {
+      _byArea
+        ..clear()
+        ..addAll(names);
+    });
+    _load();
   }
 
   void _moveMonth(int by) {
@@ -209,10 +240,18 @@ class _BillEstimateScreenState extends ConsumerState<BillEstimateScreen> {
           const Text('Elements — what if?', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
           const SizedBox(height: 2),
           const Text(
-              'Type a change in % (10 raises it by a tenth, -5 cuts it) or the new monthly total you want from an '
-              'element, then Calculate.',
+              'Try a rise or a cut: a change in % (10 raises it by a tenth, -5 cuts it), or the new monthly total you '
+              'want from an element. To bill an element by flat area, give a rate per sq ft, or tick By area to share '
+              'its total over the flats by their areas (a flat pays its area x the rate). Then Calculate.',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4)),
           const SizedBox(height: 10),
+          OutlinedButton.icon(
+            key: const ValueKey('estimate-all-by-area'),
+            onPressed: _loading ? null : _allByArea,
+            icon: const Icon(Icons.square_foot_rounded, size: 18),
+            label: const Text('Bill every element by area (same society total)'),
+          ),
+          const SizedBox(height: 14),
           for (final e in d.elements) ...[
             Row(children: [
               Expanded(child: Text(e.element, style: const TextStyle(fontWeight: FontWeight.w600))),
@@ -222,7 +261,8 @@ class _BillEstimateScreenState extends ConsumerState<BillEstimateScreen> {
             Text(
                 e.adjusted
                     ? 'Was ${formatRupees(e.currentTotal)} (${_rate(e.currentPerSqft)}) · now ${_rate(e.estimatePerSqft)}'
-                        '${e.changePct == null ? '' : ' · ${amountOf(e.changePct!) > 0 ? '+' : ''}${e.changePct}%'}'
+                        '${e.changePct == null || amountOf(e.change) == 0 ? '' : ' · ${amountOf(e.changePct!) > 0 ? '+' : ''}${e.changePct}%'}'
+                        '${e.byArea ? ' · by area' : ''}'
                     : _rate(e.currentPerSqft),
                 style: TextStyle(fontSize: 12, color: e.adjusted ? AppTheme.warning : AppTheme.textSecondary)),
             const SizedBox(height: 6),
@@ -247,6 +287,27 @@ class _BillEstimateScreenState extends ConsumerState<BillEstimateScreen> {
                   decoration: const InputDecoration(labelText: 'Or new total ₹', isDense: true),
                   onSubmitted: (_) => _load(),
                 ),
+              ),
+            ]),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(
+                child: TextField(
+                  key: ValueKey('estimate-rate-${e.element}'),
+                  controller: _rateFor(e.element),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                  decoration: const InputDecoration(labelText: 'Or ₹ per sq ft', isDense: true),
+                  onSubmitted: (_) => _load(),
+                ),
+              ),
+              const SizedBox(width: 10),
+              FilterChip(
+                key: ValueKey('estimate-area-${e.element}'),
+                label: const Text('By area'),
+                avatar: const Icon(Icons.square_foot_rounded, size: 16),
+                selected: _byArea.contains(e.element),
+                onSelected: (on) => setState(() => on ? _byArea.add(e.element) : _byArea.remove(e.element)),
               ),
             ]),
             const SizedBox(height: 12),
