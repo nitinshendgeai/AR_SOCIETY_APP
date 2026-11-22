@@ -303,6 +303,24 @@ class ResidentMasterRemoteDataSource {
         .toList();
   }
 
+  // ── Tenant family ──────────────────────────────────────────────────────
+
+  /// GET /tenants/{id}/family
+  Future<List<TenantFamilyModel>> tenantFamily(String tenantId) async {
+    final r = await _dio.get('/tenants/$tenantId/family');
+    return (r.data as List).map((e) => TenantFamilyModel.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// POST /tenants/{id}/family
+  Future<TenantFamilyModel> addTenantFamily(String tenantId, Map<String, dynamic> data) async {
+    final r = await _dio.post('/tenants/$tenantId/family', data: data);
+    return TenantFamilyModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  /// DELETE /tenants/{id}/family/{member_id}
+  Future<void> removeTenantFamily(String tenantId, String memberId) =>
+      _dio.delete('/tenants/$tenantId/family/$memberId');
+
   // ── Vehicles ───────────────────────────────────────────────────────────
 
   /// POST /vehicles/

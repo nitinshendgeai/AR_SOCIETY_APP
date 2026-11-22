@@ -530,6 +530,16 @@ final flatHistoryProvider = FutureProvider.family<List<OccupancyLogModel>, Strin
   };
 });
 
+// ── Tenant family ─────────────────────────────────────────────────────────
+
+final tenantFamilyProvider = FutureProvider.family<List<TenantFamilyModel>, String>((ref, tenantId) async {
+  final result = await ref.read(residentMasterRepositoryProvider).tenantFamily(tenantId);
+  return switch (result) {
+    RmSuccess(:final data) => data,
+    RmFailure(:final message) => throw Exception(message),
+  };
+});
+
 // ── Vehicles by flat ──────────────────────────────────────────────────────
 
 final vehiclesByFlatProvider =

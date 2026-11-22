@@ -12,6 +12,7 @@ from app.models.resident     import Resident, ResidentType, CommunicationPrefere
 from app.models.resident_edit_request import ResidentEditRequest, ResidentEditRequestStatus
 from app.models.resident_family_request import ResidentFamilyRequest
 from app.models.tenant       import Tenant, PoliceVerificationStatus
+from app.models.tenant_family import TenantFamilyMember
 from app.models.vehicle      import Vehicle, VehicleType
 from app.models.audit_log    import AuditLog, AuditAction
 from app.models.notification import Notification, NotificationChannel, NotificationStatus, NotificationType
