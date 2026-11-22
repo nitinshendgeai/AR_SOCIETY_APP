@@ -12,6 +12,8 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
+import 'package:ar_society_app/shared/widgets/confirm_remove.dart';
+import 'package:go_router/go_router.dart';
 
 /// One amenity: its hours and rules, who has it when on the day you pick, and a Book button. The committee also
 /// sets it up here: its details, rules, rates and closed dates.
@@ -36,6 +38,23 @@ class _AmenityDetailScreenState extends ConsumerState<AmenityDetailScreen> {
     }
   }
 
+  Future<void> _remove(AmenityItem a) async {
+    final ok = await confirmRemove(context,
+        title: 'Remove ${a.name}?',
+        message: 'Use this for an amenity entered by mistake. It can\'t be removed while it has upcoming bookings: cancel them first.');
+    if (!ok) return;
+    try {
+      await ref.read(amenitiesApiProvider).deleteAmenity(a.id);
+      invalidateAmenities(ref);
+      if (mounted) {
+        AppToast.success(context, '${a.name} removed');
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
@@ -49,6 +68,13 @@ class _AmenityDetailScreenState extends ConsumerState<AmenityDetailScreen> {
               tooltip: 'Edit',
               icon: const Icon(Icons.edit_outlined),
               onPressed: () => showAppSheet(context: context, builder: (_) => AmenityFormSheet(amenity: async.value)),
+            ),
+          if (setup && async.valueOrNull != null)
+            IconButton(
+              key: const Key('amenity-remove'),
+              tooltip: 'Remove',
+              icon: const Icon(Icons.delete_outline_rounded),
+              onPressed: () => _remove(async.value!),
             ),
         ],
       body: RefreshIndicator(

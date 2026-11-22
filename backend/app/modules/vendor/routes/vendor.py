@@ -705,6 +705,11 @@ def update_vendor(vendor_id: UUID, data: VendorUpdate, request: Request, db: Ses
                   user: User = Depends(admin_committee)):
     return _vendor_out(VendorService_(db).update_vendor(vendor_id, data.model_dump(exclude_unset=True), user, request))
 
+@router.delete("/{vendor_id}", status_code=204)
+def delete_vendor(vendor_id: UUID, request: Request, db: Session = Depends(get_db), user: User = Depends(admin_committee)):
+    """Remove a vendor entered by mistake. Refused (409) once it has bills, payments, work, contracts or vouchers."""
+    VendorService_(db).delete_vendor(vendor_id, user, request)
+
 @router.get("/society/{society_id}")
 def list_vendors(society_id: UUID, skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500),
                  db: Session = Depends(get_db), user: User = Depends(manager_above)):

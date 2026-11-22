@@ -14,6 +14,7 @@ import 'package:ar_society_app/features/vendor/presentation/screens/vendors_work
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
+import 'package:ar_society_app/shared/widgets/confirm_remove.dart';
 
 /// One asset: what it is, when it is next due, and everything that has been done to it.
 class AssetDetailScreen extends ConsumerWidget {
@@ -76,10 +77,30 @@ class _StatusMenu extends ConsumerWidget {
     }
   }
 
+  Future<void> _remove(BuildContext context, WidgetRef ref) async {
+    final ok = await confirmRemove(context,
+        title: 'Remove ${asset.name}?',
+        message: 'Use this for an asset entered by mistake. It is taken off the register. An asset that has service '
+            'records, an AMC or linked work can\'t be removed: retire it instead.');
+    if (!ok) return;
+    try {
+      await ref.read(assetsApiProvider).delete(asset.id);
+      invalidateAssets(ref);
+      if (context.mounted) {
+        AppToast.success(context, '${asset.name} removed');
+        context.pop();
+      }
+    } catch (e) {
+      if (context.mounted) showErrorToast(context, e);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) => PopupMenuButton<String>(
+        key: const Key('asset-menu'),
         tooltip: 'More',
         onSelected: (v) => switch (v) {
+          'remove' => _remove(context, ref),
           'active' => _set(context, ref, 'active', 'Put ${asset.name} back in use?'),
           'under_maintenance' => _set(context, ref, 'under_maintenance', 'Mark ${asset.name} as under repair?'),
           'retired' => _set(context, ref, 'retired', 'Retire ${asset.name}?'),
@@ -93,6 +114,8 @@ class _StatusMenu extends ConsumerWidget {
           if (!asset.isRetired) const PopupMenuItem(value: 'retired', child: Text('Retire')),
           if (!asset.isRetired) const PopupMenuItem(value: 'disposed', child: Text('Sold or scrapped')),
           if (!asset.isRetired) const PopupMenuItem(value: 'lost', child: Text('Lost')),
+          const PopupMenuDivider(),
+          const PopupMenuItem(value: 'remove', child: Text('Remove (entered by mistake)')),
         ],
       );
 }

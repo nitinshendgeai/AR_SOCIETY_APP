@@ -53,6 +53,12 @@ def update_item(item_id: UUID, data: ItemUpdate, db: Session = Depends(get_db),
                 user: User = Depends(get_current_user)):
     return InventoryService(db).update_item(item_id, data, user)
 
+@router.delete("/items/{item_id}", status_code=204)
+def delete_item(item_id: UUID, request: Request, db: Session = Depends(get_db),
+                user: User = Depends(admin_or_committee)):
+    """Remove a stores item entered by mistake. Refused (409) while there is stock of it or some is out."""
+    InventoryService(db).delete_item(item_id, user, request)
+
 @router.get("/items/society/{society_id}/low-stock", response_model=List[ItemOut],
             dependencies=[Depends(admin_or_committee)])
 def low_stock_items(society_id: UUID, db: Session = Depends(get_db),
@@ -154,6 +160,12 @@ async def import_assets(society_id: UUID, request: Request, file: UploadFile = F
             raise HTTPException(status_code=422, detail="mapping must be a JSON object of heading to field")
     data = await file.read(MAX_BYTES + 1)
     return InventoryService(db).import_assets(society_id, data, file.filename or "", chosen, dry_run, user, request)
+
+@router.delete("/assets/{asset_id}", status_code=204)
+def delete_asset(asset_id: UUID, request: Request, db: Session = Depends(get_db),
+                 user: User = Depends(admin_or_committee)):
+    """Remove an asset entered by mistake. Refused (409) once it has service records, an AMC or linked work."""
+    InventoryService(db).delete_asset(asset_id, user, request)
 
 @router.get("/assets/summary/{society_id}", response_model=AssetSummaryOut,
             dependencies=[Depends(any_auth)])

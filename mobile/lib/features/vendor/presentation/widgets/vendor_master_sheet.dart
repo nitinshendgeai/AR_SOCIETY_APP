@@ -9,6 +9,7 @@ import 'package:ar_society_app/features/vendor/presentation/providers/vendor_pro
 import 'package:ar_society_app/features/vendor/presentation/providers/vendors_work_providers.dart';
 import 'package:ar_society_app/features/vendor/presentation/widgets/procurement_widgets.dart' show DateField;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/confirm_remove.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 /// The Vendor Master form: the one place a vendor is entered or edited, from Vendors & Work and from every form that
@@ -60,6 +61,29 @@ class _VendorSheetState extends ConsumerState<VendorSheet> {
   }
 
   String? _t(TextEditingController c) => c.text.trim().isEmpty ? null : c.text.trim();
+
+  Future<void> _remove() async {
+    final ok = await confirmRemove(context,
+        title: 'Remove ${e!.companyName}?',
+        message: 'Use this for a vendor entered by mistake. It is taken off the list and its name can be used again. '
+            'A vendor that has bills, payments or work can\'t be removed: set it Inactive instead.');
+    if (!ok) return;
+    setState(() => _saving = true);
+    try {
+      await ref.read(vendorsWorkApiProvider).deleteVendor(e!.id);
+      ref.invalidate(vendorRecordsProvider(widget.societyId));
+      ref.invalidate(vendorsProvider(widget.societyId));
+      if (mounted) {
+        AppToast.success(context, '${e!.companyName} removed');
+        Navigator.of(context).pop();
+      }
+    } catch (err) {
+      if (mounted) {
+        setState(() => _saving = false);
+        showErrorToast(context, err);
+      }
+    }
+  }
 
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
@@ -282,6 +306,7 @@ class _VendorSheetState extends ConsumerState<VendorSheet> {
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                 : Text(e == null ? 'Add Vendor' : 'Save'),
           ),
+          if (e != null) RemoveButton(key: const Key('vendor-remove'), label: 'Remove this vendor', onPressed: _saving ? null : _remove),
         ]),
       ),
     );

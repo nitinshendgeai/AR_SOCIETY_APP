@@ -67,6 +67,12 @@ class ParkingRemoteDataSource {
     return ParkingZoneModel.fromJson(r.data as Map<String, dynamic>);
   }
 
+  /// DELETE /parking/zones/{id}: refused (409) while the zone still has slots.
+  Future<void> deleteZone(String zoneId) => _dio.delete('/parking/zones/$zoneId');
+
+  /// DELETE /parking/slots/{id}: refused (409) while the slot is allotted.
+  Future<void> deleteSlot(String slotId) => _dio.delete('/parking/slots/$slotId');
+
   // ── Slots ──────────────────────────────────────────────────────────────────
 
   /// GET /parking/slots/society/{society_id} — every slot regardless of status.

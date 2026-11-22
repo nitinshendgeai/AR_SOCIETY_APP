@@ -164,6 +164,13 @@ def update_amenity(amenity_id: UUID, data: AmenityUpdate, request: Request,
     return AmenityService(db).update_amenity(amenity_id, data, user, request)
 
 
+@router.delete("/{amenity_id}", status_code=204, dependencies=[Depends(committee_or_admin)])
+def delete_amenity(amenity_id: UUID, request: Request, db: Session = Depends(get_db),
+                   user: User = Depends(get_current_user)):
+    """Remove an amenity entered by mistake. Refused (409) while it has bookings still to come."""
+    AmenityService(db).delete_amenity(amenity_id, user, request)
+
+
 @router.get("/{amenity_id}", response_model=AmenityOut,
             dependencies=[Depends(any_member)])
 def get_amenity(amenity_id: UUID, db: Session = Depends(get_db),

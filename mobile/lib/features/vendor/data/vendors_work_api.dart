@@ -647,6 +647,9 @@ class VendorsWorkApi {
   Future<VendorRecord> createVendor(Map<String, dynamic> body) async =>
       VendorRecord.fromJson((await _dio.post('/vendors/', data: body)).data as Map<String, dynamic>);
 
+  /// Remove a vendor entered by mistake. The server refuses (409, with the reason) once it has bills, work or vouchers.
+  Future<void> deleteVendor(String id) => _dio.delete('/vendors/$id');
+
   Future<VendorRecord> updateVendor(String id, Map<String, dynamic> body) async =>
       VendorRecord.fromJson((await _dio.patch('/vendors/$id', data: body)).data as Map<String, dynamic>);
 

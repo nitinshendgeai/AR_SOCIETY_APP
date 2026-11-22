@@ -117,6 +117,32 @@ class ParkingService:
         # Only the fields the caller sent: a null rate is a real value here (clears it), an absent one is not.
         return self.zone_repo.update(zone, data.model_dump(exclude_unset=True))
 
+    def delete_zone(self, zone_id: UUID, user: User) -> None:
+        """Remove a parking zone entered by mistake: only once it has no slots left (remove or move those first)."""
+        from app.core.removal import refuse_if_in_use
+        zone = self._scoped_or_404(self.zone_repo.get(zone_id), user, "Parking zone")
+        slots = self.db.query(func.count(ParkingSlot.id)).filter(
+            ParkingSlot.zone_id == zone.id, ParkingSlot.is_active == True).scalar() or 0  # noqa: E712
+        refuse_if_in_use(f"Zone {zone.name}", {"slot(s)": int(slots)}, "Remove its slots first.")
+        zone.is_active = False
+        self._audit(AuditAction.DELETE, zone, "ParkingZone", user, None, old_values={"name": zone.name, "code": zone.code})
+        self.db.commit()
+
+    def delete_slot(self, slot_id: UUID, user: User) -> None:
+        """Remove a parking slot entered by mistake: its number can be used again. Refused while it is allocated."""
+        from app.core.removal import refuse_if_in_use
+        slot = self._slot_or_404(slot_id, user)
+        live = self.db.query(func.count(ParkingAllocation.id)).filter(
+            ParkingAllocation.slot_id == slot.id, ParkingAllocation.is_active == True,  # noqa: E712
+            ParkingAllocation.status.in_([AllocationStatus.ACTIVE, AllocationStatus.SUSPENDED])).scalar() or 0
+        refuse_if_in_use(f"Slot {slot.slot_number}", {"current allocation(s)": int(live)}, "Release it first.")
+        slot.is_active = False
+        zone = self.zone_repo.get(slot.zone_id)
+        if zone is not None and zone.total_slots > 0:
+            zone.total_slots -= 1
+        self._audit(AuditAction.DELETE, slot, "ParkingSlot", user, None, old_values={"slot": slot.slot_number})
+        self.db.commit()
+
     def list_zones(self, society_id: UUID, user: User) -> List[ParkingZone]:
         assert_society_access(user, society_id)
         return self.zone_repo.get_by_society(society_id)
