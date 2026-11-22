@@ -60,6 +60,9 @@ REPORTS = {
     "funds": "Schedule of Funds",
 }
 DEFAULT_RESERVE_PCT = Decimal("25")
+# The reports that can be limited to the residents' vouchers or the society's own.
+SCOPABLE_REPORTS = ("trial-balance", "income-expenditure", "receipts-payments")
+SCOPE_WORDS = {"members": "Residents' accounts only", "society": "Operations only"}
 
 
 def _ordinal(n: int) -> str:
@@ -78,9 +81,12 @@ def _a(v: Decimal) -> str:
 
 class FinancialReports:
 
-    def __init__(self, db: Session, accounts: Optional[AccountsService] = None):
+    def __init__(self, db: Session, accounts: Optional[AccountsService] = None, scope: Optional[str] = None):
         self.db = db
         self.acc = accounts or AccountsService(db)
+        # `members`: only the residents' vouchers; `society`: only the society's own (operations); None: everything.
+        # A scoped report is that scope's movement alone, so the ledgers' opening balances are left out.
+        self.scope = scope
 
     # ── Data helpers ──────────────────────────────────────────────────────────
 
@@ -105,6 +111,7 @@ class FinancialReports:
             q = q.filter(Voucher.voucher_date <= date_to)
         if skip_closing_from:
             q = q.filter(not_(and_(Voucher.voucher_type == "closing", Voucher.voucher_date >= skip_closing_from)))
+        q = AccountsService.scope_filter(q, self.scope)
         for column, value in filters.items():
             q = q.filter(getattr(VoucherEntry, column) == value)
         out = {}
@@ -115,7 +122,7 @@ class FinancialReports:
 
     def _balances(self, sid: UUID, upto: date, skip_closing_from: Optional[date] = None) -> Dict[UUID, Decimal]:
         moves = self._sums(sid, date_to=upto, skip_closing_from=skip_closing_from)
-        return {a.id: signed_opening(a) + moves.get(a.id, ZERO) for a in self._accounts(sid)}
+        return {a.id: (ZERO if self.scope else signed_opening(a)) + moves.get(a.id, ZERO) for a in self._accounts(sid)}
 
     def _year_moves(self, sid: UUID, fy: str, upto: Optional[date] = None) -> Dict[UUID, Decimal]:
         """Each ledger's movement in the year, before its closing entry."""
@@ -368,6 +375,9 @@ class FinancialReports:
                                 Voucher.approval_status == "approved",
                                 Voucher.voucher_date >= start, Voucher.voucher_date <= as_at,
                                 VoucherEntry.account_id.in_(cash_ids)))
+        if self.scope:
+            cash_vouchers = cash_vouchers.where(AccountsService.member_voucher_clause() if self.scope == "members"
+                                                else not_(AccountsService.member_voucher_clause()))
         moves = (self.db.query(VoucherEntry.account_id, func.coalesce(func.sum(VoucherEntry.debit), 0),
                                func.coalesce(func.sum(VoucherEntry.credit), 0))
                  .filter(VoucherEntry.voucher_id.in_(cash_vouchers), VoucherEntry.account_id.not_in(cash_ids))
@@ -450,7 +460,17 @@ class FinancialReports:
         if key not in builders:
             raise HTTPException(404, "Unknown report")
         fiscal_year_bounds(fy)
+        if self.scope and key not in SCOPABLE_REPORTS:
+            raise HTTPException(422, f"The {REPORTS[key]} can't be split into residents and operations: it is for "
+                                     "the whole society")
         data = builders[key](sid, fy)
+        if self.scope:
+            data["scope"] = self.scope
+            data["heading"] = f"{data['heading']} — {SCOPE_WORDS[self.scope]}"
+            data["notes"].append("Only the " + ("residents' vouchers (bills, receipts, advances, deposits)"
+                                                if self.scope == "members" else "society's own vouchers (vendors, "
+                                                "salaries, repairs and the like)")
+                                 + " are counted, so the ledgers' opening balances are not included.")
         self.db.commit()  # the standard chart, if this was the first visit
         return data
 

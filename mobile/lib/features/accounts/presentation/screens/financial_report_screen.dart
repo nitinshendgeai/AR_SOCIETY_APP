@@ -10,6 +10,7 @@ import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart';
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
+import 'package:ar_society_app/features/accounts/presentation/widgets/register_widgets.dart' show ScopePills;
 import 'package:ar_society_app/features/accounts/presentation/screens/accounts_screen.dart' show ledgerRoute;
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/shared/utils/file_saver.dart';
@@ -32,6 +33,9 @@ class FinancialReportScreen extends ConsumerStatefulWidget {
 
 class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
   bool _busy = false;
+  String? _scope; // the trial balance, income & expenditure and receipts & payments only
+
+  bool get _canSplit => const ['trial-balance', 'income-expenditure', 'receipts-payments'].contains(widget.report);
 
   String get _title => kFinancialReports[widget.report]?.$1 ?? 'Statement';
 
@@ -39,7 +43,7 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
     setState(() => _busy = true);
     final fileName = '${_title.replaceAll('&', 'and').replaceAll(' ', '-')}-FY-${widget.fy}.pdf';
     try {
-      final Uint8List bytes = await ref.read(accountsApiProvider).reportPdf(societyId, widget.report, widget.fy);
+      final Uint8List bytes = await ref.read(accountsApiProvider).reportPdf(societyId, widget.report, widget.fy, scope: _canSplit ? _scope : null);
       if (share) {
         await Share.shareXFiles(
           [XFile.fromData(bytes, name: fileName, mimeType: 'application/pdf')],
@@ -69,7 +73,7 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
   Widget build(BuildContext context) {
     final societyId = ref.watch(currentUserProvider)?.societyId;
     if (societyId == null) return const Scaffold(body: Center(child: Text('No society context')));
-    final key = (societyId: societyId, report: widget.report, fy: widget.fy);
+    final key = (societyId: societyId, report: widget.report, fy: widget.fy, scope: _canSplit ? _scope : null);
     final async = ref.watch(financialReportProvider(key));
     final desktop = isDesktopLayout(context);
 
@@ -104,6 +108,10 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
               children: [
+                if (_canSplit) ...[
+                  Center(child: ScopePills(value: _scope, allLabel: 'Whole society', onChanged: (v) => setState(() => _scope = v))),
+                  const SizedBox(height: 12),
+                ],
                 Text(r.heading, textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                 if (r.provisional)

@@ -25,6 +25,9 @@ from app.modules.vendor.models.vendor import VendorInvoice
 
 ZERO = Decimal("0.00")
 
+# What the scope filter is called on screen and in print.
+SCOPE_LABELS = {"members": "Residents' accounts only", "society": "Operations (society's own) only"}
+
 
 def _s(v) -> str:
     return str(money(v))
@@ -38,16 +41,18 @@ class RegistersService:
     # ── Cash and bank book ────────────────────────────────────────────────────
 
     def cash_bank_book(self, society_id: UUID, date_from: Optional[date] = None, date_to: Optional[date] = None,
-                       account_id: Optional[UUID] = None) -> dict:
+                       account_id: Optional[UUID] = None, scope: Optional[str] = None) -> dict:
         """One section per cash or bank account (or only `account_id`): opening balance, receipts (debits) and
-        payments (credits) in order with the balance after each, and the closing balance."""
+        payments (credits) in order with the balance after each, and the closing balance. `scope`: only the residents'
+        vouchers (`members`) or the society's own, the operations (`society`); then the accounts' own opening balances
+        are left out and each section is that scope's movement alone."""
         accounts = [a for a in self.accounts.list_accounts(society_id) if a.is_cash or a.is_bank]
         if account_id:
             accounts = [a for a in accounts if a.id == account_id]
         sections = []
         total_in = total_out = opening = closing = ZERO
         for a in accounts:
-            st = self.accounts.ledger_statement(a.id, date_from, date_to)
+            st = self.accounts.ledger_statement(a.id, date_from, date_to, scope=scope)
             sections.append({
                 "account_id": str(a.id), "account_name": a.name, "kind": "cash" if a.is_cash else "bank",
                 "bank_name": a.bank_name, "bank_account_number": a.bank_account_number,
@@ -67,6 +72,7 @@ class RegistersService:
             total_out += st["total_credit"]
         return {"date_from": date_from.isoformat() if date_from else None,
                 "date_to": date_to.isoformat() if date_to else None,
+                "scope": scope, "scope_label": SCOPE_LABELS.get(scope),
                 "sections": sections,
                 "totals": {"opening": _s(opening), "receipts": _s(total_in), "payments": _s(total_out),
                            "closing": _s(closing)}}

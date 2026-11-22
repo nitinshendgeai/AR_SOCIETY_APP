@@ -29,7 +29,7 @@ from app.models.flat import Flat
 from app.models.tenant import Tenant
 from app.models.wing import Wing
 from app.modules.accounts.models.accounts import Account, AccountGroup, Voucher, VoucherEntry
-from app.modules.accounts.services.accounts_service import money
+from app.modules.accounts.services.accounts_service import AccountsService, money
 from app.modules.accounts.services.voucher_documents import VoucherDocumentService
 from app.modules.billing.models.billing import OnlinePaymentSubmission, ReconciliationStatus
 from app.modules.billing.services.allocations import allocated, payment_counts, unapplied
@@ -217,7 +217,7 @@ class MoreRegistersService:
     EXPENSE_STATUSES = [(None, "All"), ("with_document", "With a document"), ("without_document", "No document")]
 
     def expenses_register(self, society_id: UUID, date_from: Optional[date] = None, date_to: Optional[date] = None,
-                          status: Optional[str] = None, q: Optional[str] = None) -> dict:
+                          status: Optional[str] = None, q: Optional[str] = None, scope: Optional[str] = None) -> dict:
         """Every line booked to an expense ledger (a payment, a vendor bill, a journal), oldest first: only approved,
         live vouchers, the same rule as the reports; a refund shows as a negative amount."""
         query = (self.db.query(VoucherEntry, Voucher, Account)
@@ -228,6 +228,7 @@ class MoreRegistersService:
                  .filter(Voucher.society_id == society_id, AccountGroup.nature == "expense",
                          Voucher.is_cancelled == False, Voucher.approval_status == "approved",     # noqa: E712
                          Voucher.voucher_type != "closing"))
+        query = AccountsService.scope_filter(query, scope)
         if date_from:
             query = query.filter(Voucher.voucher_date >= date_from)
         if date_to:

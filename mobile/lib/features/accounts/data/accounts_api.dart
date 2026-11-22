@@ -1214,10 +1214,13 @@ class AccountsApi {
   Future<void> reopenYear(String societyId, String fy, String reason) =>
       _dio.post('/accounts/years/$societyId/$fy/reopen', data: {'reason': reason});
 
-  Future<FinancialReport> report(String societyId, String report, String fy) async => FinancialReport.fromJson(
-      (await _dio.get('/accounts/reports/$societyId/$report', queryParameters: {'fy': fy})).data
-          as Map<String, dynamic>);
+  /// [scope]: `members` for only the residents' vouchers, `society` for only the operations; null for everything.
+  /// Only the trial balance, income & expenditure and receipts & payments can be split.
+  Future<FinancialReport> report(String societyId, String report, String fy, {String? scope}) async =>
+      FinancialReport.fromJson((await _dio.get('/accounts/reports/$societyId/$report',
+              queryParameters: {'fy': fy, if (scope != null) 'scope': scope}))
+          .data as Map<String, dynamic>);
 
-  Future<Uint8List> reportPdf(String societyId, String report, String fy) =>
-      _pdf('/accounts/reports/$societyId/$report', {'fy': fy, 'format': 'pdf'});
+  Future<Uint8List> reportPdf(String societyId, String report, String fy, {String? scope}) =>
+      _pdf('/accounts/reports/$societyId/$report', {'fy': fy, if (scope != null) 'scope': scope, 'format': 'pdf'});
 }

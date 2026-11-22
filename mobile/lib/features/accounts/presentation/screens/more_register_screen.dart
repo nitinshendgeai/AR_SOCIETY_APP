@@ -29,6 +29,7 @@ class _MoreRegisterScreenState extends ConsumerState<MoreRegisterScreen> {
   late DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   String? _status;
   String _search = '';
+  String? _scope; // the expenses register only: null all, members the residents', society the operations
 
   MoreRegisterKey _key(String societyId, MoreRegister? reg) {
     final (from, to) = _period.range;
@@ -42,6 +43,7 @@ class _MoreRegisterScreenState extends ConsumerState<MoreRegisterScreen> {
       month: usesMonth ? DateFormat('yyyy-MM').format(_month) : null,
       status: _status,
       search: _search,
+      scope: widget.kind == 'expenses' ? _scope : null,
     );
   }
 
@@ -98,6 +100,10 @@ class _MoreRegisterScreenState extends ConsumerState<MoreRegisterScreen> {
                     onSelected: (_) => setState(() => _status = value),
                   ),
               ]),
+              const SizedBox(height: 12),
+            ],
+            if (widget.kind == 'expenses') ...[
+              ScopePills(value: _scope, allLabel: 'All expenses', onChanged: (v) => setState(() => _scope = v)),
               const SizedBox(height: 12),
             ],
             TextField(
