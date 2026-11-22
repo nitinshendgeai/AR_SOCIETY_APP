@@ -1092,6 +1092,161 @@ class BudgetSuggestions {
       );
 }
 
+// ── Bill estimate ────────────────────────────────────────────────────────────
+
+/// What one element comes to for the month across the society, as it stands and with the what-if applied.
+class EstimateElement {
+  final String element;
+  final String currentTotal;
+  final String estimateTotal;
+  final String change;
+  final String? changePct;
+  final String? currentPerSqft;
+  final String? estimatePerSqft;
+  final bool adjusted;
+
+  const EstimateElement({
+    required this.element,
+    required this.currentTotal,
+    required this.estimateTotal,
+    required this.change,
+    this.changePct,
+    this.currentPerSqft,
+    this.estimatePerSqft,
+    this.adjusted = false,
+  });
+
+  factory EstimateElement.fromJson(Map<String, dynamic> j) => EstimateElement(
+        element: j['element'] as String,
+        currentTotal: _str(j['current_total']),
+        estimateTotal: _str(j['estimate_total']),
+        change: _str(j['change']),
+        changePct: j['change_pct']?.toString(),
+        currentPerSqft: j['current_per_sqft']?.toString(),
+        estimatePerSqft: j['estimate_per_sqft']?.toString(),
+        adjusted: j['adjusted'] as bool? ?? false,
+      );
+}
+
+/// One element's amount on a flat's estimated bill.
+class EstimateLine {
+  final String element;
+  final String current;
+  final String estimate;
+  const EstimateLine({required this.element, required this.current, required this.estimate});
+
+  factory EstimateLine.fromJson(Map<String, dynamic> j) => EstimateLine(
+        element: j['element'] as String,
+        current: _str(j['current']),
+        estimate: _str(j['estimate']),
+      );
+}
+
+/// A flat's estimated bill for the month.
+class EstimateFlat {
+  final String flatLabel;
+  final double? areaSqft;
+  final List<EstimateLine> lines;
+  final String tax;
+  final String roundOff;
+  final String currentTotal;
+  final String estimateTotal;
+  final String change;
+  final String? currentPerSqft;
+  final String? estimatePerSqft;
+
+  const EstimateFlat({
+    required this.flatLabel,
+    this.areaSqft,
+    required this.lines,
+    this.tax = '0',
+    this.roundOff = '0',
+    required this.currentTotal,
+    required this.estimateTotal,
+    required this.change,
+    this.currentPerSqft,
+    this.estimatePerSqft,
+  });
+
+  factory EstimateFlat.fromJson(Map<String, dynamic> j) => EstimateFlat(
+        flatLabel: j['flat_label'] as String? ?? '',
+        areaSqft: (j['area_sqft'] as num?)?.toDouble(),
+        lines: [for (final e in (j['lines'] as List? ?? const [])) EstimateLine.fromJson(e as Map<String, dynamic>)],
+        tax: _str(j['tax']),
+        roundOff: _str(j['round_off']),
+        currentTotal: _str(j['current_total']),
+        estimateTotal: _str(j['estimate_total']),
+        change: _str(j['change']),
+        currentPerSqft: j['current_per_sqft']?.toString(),
+        estimatePerSqft: j['estimate_per_sqft']?.toString(),
+      );
+}
+
+class BillEstimate {
+  final String month; // 2026-12
+  final String monthLabel;
+  final bool adjusted;
+  final int flatsCount;
+  final double totalAreaSqft;
+  final List<EstimateElement> elements;
+  final List<EstimateFlat> flats;
+  final String current;
+  final String estimate;
+  final String change;
+  final String? currentPerSqft;
+  final String? estimatePerSqft;
+  final List<String> notes;
+
+  const BillEstimate({
+    required this.month,
+    required this.monthLabel,
+    required this.adjusted,
+    required this.flatsCount,
+    required this.totalAreaSqft,
+    required this.elements,
+    required this.flats,
+    required this.current,
+    required this.estimate,
+    required this.change,
+    this.currentPerSqft,
+    this.estimatePerSqft,
+    this.notes = const [],
+  });
+
+  factory BillEstimate.fromJson(Map<String, dynamic> j) {
+    final t = j['totals'] as Map<String, dynamic>;
+    return BillEstimate(
+      month: j['month'] as String,
+      monthLabel: j['month_label'] as String? ?? '',
+      adjusted: j['adjusted'] as bool? ?? false,
+      flatsCount: j['flats_count'] as int? ?? 0,
+      totalAreaSqft: (j['total_area_sqft'] as num?)?.toDouble() ?? 0,
+      elements: [for (final e in (j['elements'] as List? ?? const [])) EstimateElement.fromJson(e as Map<String, dynamic>)],
+      flats: [for (final e in (j['flats'] as List? ?? const [])) EstimateFlat.fromJson(e as Map<String, dynamic>)],
+      current: _str(t['current']),
+      estimate: _str(t['estimate']),
+      change: _str(t['change']),
+      currentPerSqft: t['current_per_sqft']?.toString(),
+      estimatePerSqft: t['estimate_per_sqft']?.toString(),
+      notes: [for (final n in (j['notes'] as List? ?? const [])) n as String],
+    );
+  }
+}
+
+/// One what-if: an element raised or lowered by [percent], or set to the monthly total [targetTotal] (one of the two).
+class EstimateChange {
+  final String element;
+  final double? percent;
+  final double? targetTotal;
+  const EstimateChange(this.element, {this.percent, this.targetTotal});
+
+  Map<String, dynamic> toJson() => {
+        'element': element,
+        if (percent != null) 'percent': percent,
+        if (targetTotal != null) 'target_total': targetTotal,
+      };
+}
+
 class MaintenanceBillingApi {
   final Dio _dio;
   MaintenanceBillingApi({Dio? dio}) : _dio = dio ?? ApiClient.instance;
@@ -1270,6 +1425,17 @@ class MaintenanceBillingApi {
 
   /// Making or issuing every bill of a society takes longer than the 15 seconds an ordinary request is given.
   static final _longRunning = Options(receiveTimeout: const Duration(minutes: 3));
+
+  /// Next month's (or [month]'s, as "2026-12") bills flat by flat and element by element, with the what-if [changes].
+  /// Nothing is saved.
+  Future<BillEstimate> estimateBills(String societyId, {String? month, List<EstimateChange> changes = const []}) async {
+    final r = await _dio.post('/billing/estimate', data: {
+      'society_id': societyId,
+      if (month != null) 'month': month,
+      'adjustments': [for (final c in changes) c.toJson()],
+    });
+    return BillEstimate.fromJson(r.data as Map<String, dynamic>);
+  }
 
   Future<int> generateBills(String cycleId) async {
     final r = await _dio.post('/billing/cycles/$cycleId/generate-bills', options: _longRunning);

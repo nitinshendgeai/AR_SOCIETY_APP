@@ -108,6 +108,7 @@ import 'package:ar_society_app/features/accounts/presentation/screens/approvals_
 import 'package:ar_society_app/features/accounts/presentation/screens/cash_bank_book_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/invoice_bill_registers_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/more_register_screen.dart';
+import 'package:ar_society_app/features/maintenance_billing/presentation/screens/bill_estimate_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/depreciation_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/registers_hub_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/tds_ledger_screen.dart';
@@ -248,6 +249,7 @@ class AppRoutes {
   static const workOrderDetail    = '/vendors/work-orders/:id';
   static const contractDetail     = '/vendors/contracts/:id';
   static const maintenanceBilling = '/billing/maintenance';
+  static const billEstimate = '/billing/maintenance/estimate';
   static const myBills            = '/billing/my-bills';
   static const myLedger           = '/billing/my-bills/ledger';
   static const gym                = '/gym';
@@ -1070,6 +1072,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               return null;
             },
             builder: (_, __) => const MaintenanceBillingScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.billEstimate,
+            redirect: (_, __) {
+              if (authState is AuthAuthenticated) {
+                final user = (authState as AuthAuthenticated).user;
+                if (!(user.isAdminOrCommittee || user.isManager)) return userRoleHome(user);
+              }
+              return null;
+            },
+            builder: (_, __) => const BillEstimateScreen(),
           ),
           GoRoute(
             path: AppRoutes.maintenanceElements,

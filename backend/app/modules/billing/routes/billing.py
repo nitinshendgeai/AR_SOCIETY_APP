@@ -25,6 +25,7 @@ from app.modules.billing.models.billing import (
 )
 from app.modules.billing.services.maintenance_calculator import cycle_months, money
 from app.modules.billing.services.billing_service import BillingService, RESIDENT_VISIBLE_BILL_STATUSES
+from app.modules.billing.services.bill_estimate import BillEstimateService
 from app.modules.billing.services.bill_pdf import bill_summary
 from app.modules.billing.services.budget_suggestions import suggest_budgets
 from app.modules.billing.services.period_expenses import cycle_readiness
@@ -554,6 +555,35 @@ def tower_parking_preview(cycle_id: UUID, db: Session = Depends(get_db), user: U
         "total": str(money(sum((z["total"] for z in zone_totals.values()), Decimal(0)))),
         "warnings": [w for w in calc.warnings if any(w.startswith(n) for n in head_names)],
     }
+
+
+class EstimateAdjustment(OrmBase):
+    element: str = Field(min_length=1, max_length=150)
+    percent: Optional[Decimal] = Field(default=None, ge=-100, le=1000)        # raise (+) or lower (-) the element by this
+    target_total: Optional[Decimal] = Field(default=None, ge=0)               # or: the monthly total wanted from it
+
+
+class EstimateRequest(OrmBase):
+    society_id: UUID
+    month: Optional[str] = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")      # default: next month
+    adjustments: List[EstimateAdjustment] = Field(default_factory=list, max_length=40)
+
+
+@router.post("/estimate", dependencies=[Depends(manager_above)])
+def estimate_bills(data: EstimateRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """What next month's (or any month's) bills would be, flat by flat and element by element, with what-if changes to
+    elements: the bill each flat would get and the rate per sq ft. The same calculation as the real bills, on a cycle
+    that is never saved."""
+    assert_society_access(user, data.society_id)
+    adjustments = [a.model_dump() for a in data.adjustments]
+    for a in adjustments:
+        if (a["percent"] is None) == (a["target_total"] is None):
+            raise HTTPException(422, f"Give {a['element']} either a percentage or a monthly total, not both or neither")
+    try:
+        return BillEstimateService(db).estimate(data.society_id, data.month, adjustments,
+                                                society_today(db, data.society_id))
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
 
 
 @router.get("/cycles/{cycle_id}/preview", dependencies=[Depends(manager_above)])
