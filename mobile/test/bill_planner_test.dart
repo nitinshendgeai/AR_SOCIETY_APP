@@ -177,7 +177,8 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('plan-remove-0')));
     await tester.pumpAndSettle();
-    expect(find.text('Podium'), findsNothing);
+    expect(find.byKey(const ValueKey('plan-name-0')), findsNothing);
     expect(find.byKey(const ValueKey('plan-name-1')), findsOneWidget);                      // a blank line is left to type in
+    expect(tester.widget<TextField>(find.byKey(const ValueKey('plan-name-1'))).controller!.text, '');   // not the removed one
   });
 }

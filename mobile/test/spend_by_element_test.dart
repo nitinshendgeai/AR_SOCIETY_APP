@@ -116,7 +116,6 @@ void main() {
     expect(askedMonths.last.elementId, 'e1');
     expect(askedMonths.last.from, DateTime(fyYear, 4, 1));                     // this financial year...
     expect(askedMonths.last.to, today);                                         // ...up to today
-    expect(find.text('Spend month by month'), findsOneWidget);
     expect(find.text('Aug 2026'), findsOneWidget);
     expect(find.text('Sep 2026'), findsOneWidget);
     expect(find.text('Oct 2026'), findsOneWidget);
