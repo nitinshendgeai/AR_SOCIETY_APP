@@ -243,3 +243,20 @@ class ResidentService:
             new_values={k: (v.value if hasattr(v, "value") else v) for k, v in patch.items()},
         )
         return self._enrich(updated)
+
+    # ── Remove (entered by mistake) ──────────────────────────────────────────
+
+    def delete(self, id: UUID, current_user: User) -> None:
+        """Take a wrongly entered resident off the books (kept in the database, hidden everywhere). Refused, with the
+        reason, once there is real history; Move out is the action for someone who actually lived here."""
+        from app.services.person_removal import remove_resident
+        resident = self.repo.get_any(id, society_id=current_user.society_id)
+        if not resident:
+            raise HTTPException(status_code=404, detail="Resident not found")
+        name = resident.full_name
+        remove_resident(self.db, resident)
+        self.db.commit()
+        AuditService.log(
+            db=self.db, action=AuditAction.DELETE, module="resident",
+            entity_id=str(id), entity_type="Resident", user=current_user, old_values={"full_name": name},
+        )

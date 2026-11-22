@@ -4,6 +4,16 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-22 (Remove wrongly entered residents and tenants)
+
+### feat: remove a resident or tenant entered by mistake
+
+- **Remove (entered by mistake)** - a button at the bottom of the resident and tenant screens (admin and committee). The person is hidden
+  from every list with their vehicles and open agreement, the flat's occupancy is worked out again, and the person can be entered again.
+- **Their login** - the app login made for them is switched off too, but only if it was never used and nobody else shares it.
+- **Refused once there is history** - bills, gym visits, a parking allotment, a move-out, or a tenant's renewed or ended agreements. The
+  message says why and points to **Move out**, which keeps the history.
+
 ## 2026-11-22 (Remove wrongly entered masters)
 
 ### feat: remove vendors, assets, store items, parking zones/slots and amenities

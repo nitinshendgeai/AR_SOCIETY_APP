@@ -143,6 +143,14 @@ def get_tenant(tenant_id: UUID, db: Session = Depends(get_db),
     return hide_private(TenantService(db).get_or_404(tenant_id, current_user), current_user, TENANT_PRIVATE_FIELDS)
 
 
+@router.delete("/{tenant_id}", status_code=204)
+def delete_tenant(tenant_id: UUID, db: Session = Depends(get_db),
+                   current_user: User = Depends(require_admin_committee)):
+    """Remove a tenant entered by mistake. Refused (409, with the reason) once they have renewed or ended agreements,
+    a parking allotment or have moved out: use Move out for someone who lived here."""
+    TenantService(db).delete(tenant_id, current_user)
+
+
 @router.patch("/{tenant_id}", response_model=TenantOut)
 def update_tenant(tenant_id: UUID, data: TenantUpdate, db: Session = Depends(get_db),
                    current_user: User = Depends(require_admin_committee)):

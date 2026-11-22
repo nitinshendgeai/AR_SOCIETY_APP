@@ -93,6 +93,24 @@ class ResidentMasterRepository {
     }
   }
 
+  Future<RmResult<void>> deleteResident(String id) async {
+    try {
+      await _ds.deleteResident(id);
+      return RmSuccess(null);
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  Future<RmResult<void>> deleteTenant(String id) async {
+    try {
+      await _ds.deleteTenant(id);
+      return RmSuccess(null);
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
   Future<RmResult<ResidentModel>> updateResident(String id, Map<String, dynamic> data) async {
     try {
       return RmSuccess(await _ds.updateResident(id, data));

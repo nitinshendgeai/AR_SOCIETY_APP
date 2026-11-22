@@ -69,6 +69,12 @@ class ResidentMasterRemoteDataSource {
     return ResidentModel.fromJson(r.data as Map<String, dynamic>);
   }
 
+  /// DELETE /residents/{id}: refused (409, with the reason) once there is bills, a move-out or other history.
+  Future<void> deleteResident(String id) => _dio.delete('/residents/$id');
+
+  /// DELETE /tenants/{id}: refused (409, with the reason) once there are renewed agreements, a move-out or other history.
+  Future<void> deleteTenant(String id) => _dio.delete('/tenants/$id');
+
   /// PATCH /residents/{id}
   Future<ResidentModel> updateResident(String id, Map<String, dynamic> data) async {
     final r = await _dio.patch('/residents/$id', data: data);

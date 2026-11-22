@@ -221,3 +221,20 @@ class TenantService:
             monthly_rent=monthly_rent, security_deposit=security_deposit,
             document_url=document_url, channel=channel, channel_name=channel_name,
         )
+
+    # ── Remove (entered by mistake) ──────────────────────────────────────────
+
+    def delete(self, id: UUID, current_user: User) -> None:
+        """Take a wrongly entered tenant off the books (kept in the database, hidden everywhere). Refused, with the
+        reason, once there is real history; Move out is the action for someone who actually lived here."""
+        from app.services.person_removal import remove_tenant
+        tenant = self.repo.get_any(id, society_id=current_user.society_id)
+        if not tenant:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+        name = tenant.full_name
+        remove_tenant(self.db, tenant)
+        self.db.commit()
+        AuditService.log(
+            db=self.db, action=AuditAction.DELETE, module="tenant",
+            entity_id=str(id), entity_type="Tenant", user=current_user, old_values={"full_name": name},
+        )

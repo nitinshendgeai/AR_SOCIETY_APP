@@ -11,7 +11,9 @@ import 'package:ar_society_app/features/resident_master/data/models/resident_mas
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/occupancy_action_sheets.dart';
+import 'package:ar_society_app/features/resident_master/presentation/widgets/remove_person.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/vehicle_form_sheet.dart';
+import 'package:ar_society_app/shared/widgets/confirm_remove.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/agreement_renewal_sheet.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
@@ -300,6 +302,15 @@ class _TenantDetailBody extends ConsumerWidget {
                   minimumSize: const Size(double.infinity, 44),
                 ),
               ),
+          ],
+          if (canEdit && tenant.isActive && tenant.moveOutDate == null) ...[
+            const SizedBox(height: 16),
+            RemoveButton(
+              key: const Key('tenant-remove'),
+              label: 'Remove (entered by mistake)',
+              onPressed: () => removePerson(context, ref,
+                  tenant: true, id: tenant.id, name: tenant.fullName, flatId: tenant.flatId),
+            ),
           ],
           const SizedBox(height: 24),
         ],
