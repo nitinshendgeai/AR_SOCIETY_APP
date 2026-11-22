@@ -16,6 +16,7 @@ from app.models.flat import Flat
 from app.models.resident import Resident
 from app.models.role import Role
 from app.models.tenant import Tenant
+from app.models.tenant_family import TenantFamilyMember
 from app.models.user import User, UserRole, UserStatus
 from app.models.vehicle import Vehicle
 from app.modules.parking.models.parking import AllocationStatus, ParkingAllocation
@@ -92,4 +93,6 @@ def remove_tenant(db: Session, tenant: Tenant) -> None:
     }, _HINT)
     for a in agreements:
         a.is_active = False
+    for m in db.query(TenantFamilyMember).filter(TenantFamilyMember.tenant_id == tenant.id):
+        m.is_active = False
     _finish(db, tenant, vehicles, tenant.flat_id)

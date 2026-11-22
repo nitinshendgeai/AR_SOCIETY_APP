@@ -344,6 +344,33 @@ class ResidentMasterRepository {
     }
   }
 
+  // ── Tenant family ──────────────────────────────────────────────────────
+
+  Future<RmResult<List<TenantFamilyModel>>> tenantFamily(String tenantId) async {
+    try {
+      return RmSuccess(await _ds.tenantFamily(tenantId));
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  Future<RmResult<TenantFamilyModel>> addTenantFamily(String tenantId, Map<String, dynamic> data) async {
+    try {
+      return RmSuccess(await _ds.addTenantFamily(tenantId, data));
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  Future<RmResult<void>> removeTenantFamily(String tenantId, String memberId) async {
+    try {
+      await _ds.removeTenantFamily(tenantId, memberId);
+      return RmSuccess(null);
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
   // ── Vehicles ───────────────────────────────────────────────────────────
 
   Future<RmResult<VehicleModel>> createVehicle(Map<String, dynamic> data) async {

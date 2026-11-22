@@ -6,11 +6,13 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models.tenant import Tenant
+from app.models.tenant_family import TenantFamilyMember
 from app.models.agreement_tracker import AgreementTracker, AgreementStatus
 from app.models.user import User
 from app.models.audit_log import AuditAction
 from app.repositories.tenant_repo import TenantRepository
 from app.repositories.flat_repo import FlatRepository
+from app.schemas.tenant_family import TenantFamilyCreate
 from app.schemas.tenant import TenantCreate, TenantUpdate, TenantOut, TenantCreateOut
 from app.core.privacy import can_search_contacts
 from app.core.tenant_scope import assert_user_in_society
@@ -237,4 +239,52 @@ class TenantService:
         AuditService.log(
             db=self.db, action=AuditAction.DELETE, module="tenant",
             entity_id=str(id), entity_type="Tenant", user=current_user, old_values={"full_name": name},
+        )
+
+    # ── Family living with the tenant ────────────────────────────────────────
+
+    def _family_tenant(self, id: UUID, current_user: User) -> Tenant:
+        tenant = self.repo.get(id, society_id=current_user.society_id)
+        if not tenant:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+        return tenant
+
+    def list_family(self, id: UUID, current_user: User) -> List[TenantFamilyMember]:
+        tenant = self.repo.get_any(id, society_id=current_user.society_id)
+        if not tenant:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+        return (self.db.query(TenantFamilyMember)
+                .filter(TenantFamilyMember.tenant_id == tenant.id, TenantFamilyMember.is_active == True)  # noqa: E712
+                .order_by(TenantFamilyMember.created_at).all())
+
+    def add_family(self, id: UUID, data: TenantFamilyCreate, current_user: User) -> TenantFamilyMember:
+        tenant = self._family_tenant(id, current_user)
+        name = data.full_name.strip().lower()
+        for m in self.list_family(tenant.id, current_user):
+            if m.full_name.strip().lower() == name and (m.relation or None) == (data.relation or None):
+                raise HTTPException(status_code=409, detail=f"{data.full_name} is already listed")
+        member = TenantFamilyMember(tenant_id=tenant.id, **data.model_dump())
+        self.db.add(member)
+        self.db.commit()
+        self.db.refresh(member)
+        AuditService.log(
+            db=self.db, action=AuditAction.CREATE, module="tenant",
+            entity_id=str(member.id), entity_type="TenantFamilyMember", user=current_user,
+            new_values={"tenant_id": str(tenant.id), "full_name": member.full_name, "relation": member.relation},
+        )
+        return member
+
+    def remove_family(self, id: UUID, member_id: UUID, current_user: User) -> None:
+        tenant = self._family_tenant(id, current_user)
+        member = self.db.query(TenantFamilyMember).filter(
+            TenantFamilyMember.id == member_id, TenantFamilyMember.tenant_id == tenant.id,
+            TenantFamilyMember.is_active == True).first()  # noqa: E712
+        if not member:
+            raise HTTPException(status_code=404, detail="Family member not found")
+        member.is_active = False
+        name = member.full_name
+        self.db.commit()
+        AuditService.log(
+            db=self.db, action=AuditAction.DELETE, module="tenant",
+            entity_id=str(member_id), entity_type="TenantFamilyMember", user=current_user, old_values={"full_name": name},
         )
