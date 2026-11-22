@@ -9,6 +9,7 @@ from app.schemas.tenant import (
     TenantCreate, TenantUpdate, TenantOut, TenantCreateOut, AgreementRenewalRequest,
 )
 from app.schemas.agreement import AgreementOut
+from app.schemas.tenant_family import TenantFamilyCreate, TenantFamilyOut
 from app.services.tenant_service import TenantService
 from app.services.tenant_import import TenantImportRequest, TenantImportResult, import_tenants
 from app.core.dependencies import require_admin_committee, require_manager_above, get_current_user
@@ -141,6 +142,25 @@ def tenants_report_pdf(
 def get_tenant(tenant_id: UUID, db: Session = Depends(get_db),
                 current_user: User = Depends(get_current_user)):
     return hide_private(TenantService(db).get_or_404(tenant_id, current_user), current_user, TENANT_PRIVATE_FIELDS)
+
+
+@router.get("/{tenant_id}/family", response_model=List[TenantFamilyOut])
+def list_tenant_family(tenant_id: UUID, db: Session = Depends(get_db),
+                        current_user: User = Depends(require_manager_above)):
+    """The people who live with this tenant."""
+    return TenantService(db).list_family(tenant_id, current_user)
+
+
+@router.post("/{tenant_id}/family", response_model=TenantFamilyOut, status_code=201)
+def add_tenant_family(tenant_id: UUID, data: TenantFamilyCreate, db: Session = Depends(get_db),
+                       current_user: User = Depends(require_admin_committee)):
+    return TenantService(db).add_family(tenant_id, data, current_user)
+
+
+@router.delete("/{tenant_id}/family/{member_id}", status_code=204)
+def remove_tenant_family(tenant_id: UUID, member_id: UUID, db: Session = Depends(get_db),
+                          current_user: User = Depends(require_admin_committee)):
+    TenantService(db).remove_family(tenant_id, member_id, current_user)
 
 
 @router.delete("/{tenant_id}", status_code=204)
