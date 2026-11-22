@@ -340,6 +340,9 @@ class AmenitiesApi {
   Future<AmenityItem> create(Map<String, dynamic> body) async =>
       AmenityItem.fromJson((await _dio.post('/amenities/', data: body)).data as Map<String, dynamic>);
 
+  /// Remove an amenity entered by mistake; the server refuses (409) while it has upcoming bookings.
+  Future<void> deleteAmenity(String id) => _dio.delete('/amenities/$id');
+
   Future<AmenityItem> update(String id, Map<String, dynamic> body) async =>
       AmenityItem.fromJson((await _dio.patch('/amenities/$id', data: body)).data as Map<String, dynamic>);
 

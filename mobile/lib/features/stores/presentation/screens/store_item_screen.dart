@@ -12,6 +12,8 @@ import 'package:ar_society_app/features/stores/presentation/screens/stores_scree
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
+import 'package:ar_society_app/shared/widgets/confirm_remove.dart';
+import 'package:go_router/go_router.dart';
 
 /// One item: how much is in stock, buttons to bring stock in, issue it, or correct the count, who has some of it
 /// now, and every movement of stock.
@@ -72,6 +74,28 @@ class StoreItemScreen extends ConsumerWidget {
                   ),
                   OutlinedButton.icon(onPressed: () => showAppSheet(context: context, builder: (_) => CountSheet(item: i)), icon: const Icon(Icons.fact_check_outlined, size: 18), label: const Text('Correct the count')),
                 ]),
+                const SizedBox(height: 6),
+                RemoveButton(
+                  key: const Key('store-item-remove'),
+                  label: 'Remove this item',
+                  onPressed: () async {
+                    final ok = await confirmRemove(context,
+                        title: 'Remove ${i.name}?',
+                        message: 'Use this for an item entered by mistake. It can\'t be removed while stock is left or someone still has some: '
+                            'correct the count to zero first.');
+                    if (!ok) return;
+                    try {
+                      await ref.read(storesApiProvider).deleteItem(i.id);
+                      invalidateStores(ref);
+                      if (context.mounted) {
+                        AppToast.success(context, '${i.name} removed');
+                        context.pop();
+                      }
+                    } catch (e) {
+                      if (context.mounted) showErrorToast(context, e);
+                    }
+                  },
+                ),
                 if (out.isNotEmpty) ...[
                   const SizedBox(height: 22),
                   const Text('With people now', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),

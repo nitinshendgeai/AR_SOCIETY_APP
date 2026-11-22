@@ -244,6 +244,9 @@ class StoresApi {
   Future<StoreItem> createItem(Map<String, dynamic> body) async =>
       StoreItem.fromJson((await _dio.post('/inventory/items', data: body)).data as Map<String, dynamic>);
 
+  /// Remove an item entered by mistake; the server refuses (409) while stock remains or it is out with someone.
+  Future<void> deleteItem(String id) => _dio.delete('/inventory/items/$id');
+
   Future<StoreItem> updateItem(String id, Map<String, dynamic> body) async =>
       StoreItem.fromJson((await _dio.patch('/inventory/items/$id', data: body)).data as Map<String, dynamic>);
 

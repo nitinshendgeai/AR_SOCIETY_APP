@@ -17,6 +17,7 @@ import 'package:ar_society_app/features/staff/presentation/widgets/staff_widgets
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
+import 'package:ar_society_app/shared/widgets/confirm_remove.dart';
 
 /// Admin/Committee screen for the parking setup that gate validation
 /// depends on: define zones and slots, then allocate a slot to a specific
@@ -299,7 +300,23 @@ class _SlotsTab extends ConsumerWidget {
               }
               final zone = zones[i - 1];
               final zoneSlots = slots.where((s) => s.zoneId == zone.id).toList();
-              return _ZoneCard(zone: zone, slots: zoneSlots, onEditRate: () => _editZoneRate(context, ref, societyId, zone));
+              return _ZoneCard(
+                zone: zone,
+                slots: zoneSlots,
+                onEditRate: () => _editZoneRate(context, ref, societyId, zone),
+                onRemoveZone: () async {
+                  final ok = await confirmRemove(context,
+                      title: 'Remove ${zone.name}?',
+                      message: 'Use this for a zone entered by mistake. Remove its slots first: a zone with slots can\'t be removed.');
+                  if (ok) ref.read(parkingManagementProvider.notifier).removeZone(societyId: societyId, zoneId: zone.id);
+                },
+                onRemoveSlot: (slot) async {
+                  final ok = await confirmRemove(context,
+                      title: 'Remove slot ${slot.slotNumber}?',
+                      message: 'Use this for a slot entered by mistake. A slot that is allotted can\'t be removed: release it first.');
+                  if (ok) ref.read(parkingManagementProvider.notifier).removeSlot(societyId: societyId, slotId: slot.id);
+                },
+              );
             },
           );
         },
@@ -344,7 +361,9 @@ class _ZoneCard extends StatelessWidget {
   final ParkingZoneEntity zone;
   final List<ParkingSlotEntity> slots;
   final VoidCallback onEditRate;
-  const _ZoneCard({required this.zone, required this.slots, required this.onEditRate});
+  final VoidCallback onRemoveZone;
+  final void Function(ParkingSlotEntity) onRemoveSlot;
+  const _ZoneCard({required this.zone, required this.slots, required this.onEditRate, required this.onRemoveZone, required this.onRemoveSlot});
 
   @override
   Widget build(BuildContext context) {
@@ -359,6 +378,13 @@ class _ZoneCard extends StatelessWidget {
             ),
             Text('${slots.length} slot${slots.length == 1 ? '' : 's'}',
                 style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            IconButton(
+              key: ValueKey('zone-remove-${zone.id}'),
+              tooltip: 'Remove zone',
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.error),
+              onPressed: onRemoveZone,
+            ),
           ]),
           const SizedBox(height: 4),
           InkWell(
@@ -383,7 +409,7 @@ class _ZoneCard extends StatelessWidget {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: slots.map((s) => _SlotChip(slot: s)).toList(),
+              children: slots.map((s) => _SlotChip(slot: s, onRemove: () => onRemoveSlot(s))).toList(),
             ),
           ],
         ],
@@ -394,7 +420,8 @@ class _ZoneCard extends StatelessWidget {
 
 class _SlotChip extends StatelessWidget {
   final ParkingSlotEntity slot;
-  const _SlotChip({required this.slot});
+  final VoidCallback onRemove;
+  const _SlotChip({required this.slot, required this.onRemove});
 
   Color get _color {
     switch (slot.status) {
@@ -407,7 +434,10 @@ class _SlotChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      key: ValueKey('slot-chip-${slot.id}'),
+      onLongPress: onRemove,
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: _color.withOpacity(0.1),
@@ -419,7 +449,7 @@ class _SlotChip extends StatelessWidget {
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _color)),
         Text(slot.status.label, style: TextStyle(fontSize: 10, color: _color)),
       ]),
-    );
+    ));
   }
 }
 

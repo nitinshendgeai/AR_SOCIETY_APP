@@ -11,6 +11,7 @@ from typing import Dict, List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.tenant_scope import assert_society_access, resolve_create_society_id
@@ -170,6 +171,19 @@ class AmenityService:
         self.db.commit()
         self.db.refresh(amenity)
         return amenity
+
+    def delete_amenity(self, amenity_id: UUID, user: User, request=None) -> None:
+        """Remove an amenity entered by mistake: taken off the list and its name freed. Refused while it has bookings still
+        to come (cancel them first); past bookings stay on record."""
+        from app.core.removal import refuse_if_in_use
+        amenity = self._get_amenity_or_404(amenity_id, user)
+        upcoming = self.db.query(func.count(AmenityBooking.id)).filter(
+            AmenityBooking.amenity_id == amenity.id, AmenityBooking.booking_date >= date.today(),
+            AmenityBooking.status.in_([BookingStatus.PENDING, BookingStatus.APPROVED])).scalar() or 0
+        refuse_if_in_use(amenity.name, {"upcoming booking(s)": int(upcoming)}, "Cancel those first.")
+        amenity.is_active = False
+        self._audit(AuditAction.DELETE, amenity, "Amenity", user, request, old_values={"name": amenity.name})
+        self.db.commit()
 
     def list_amenities(self, society_id: UUID, user: Optional[User] = None, include_closed: bool = False) -> List[Amenity]:
         if user is not None:

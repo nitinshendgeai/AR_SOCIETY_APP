@@ -183,6 +183,32 @@ class ParkingManagementNotifier extends StateNotifier<ParkingActionState> {
     }
   }
 
+  Future<void> removeZone({required String societyId, required String zoneId}) async {
+    state = ParkingActionLoading();
+    final result = await _repo.deleteZone(zoneId);
+    switch (result) {
+      case ParkingSuccess():
+        state = ParkingActionSuccess('Zone removed');
+        _ref.invalidate(parkingZonesProvider(societyId));
+      case ParkingFailure(:final message):
+        state = ParkingActionError(message);
+    }
+  }
+
+  Future<void> removeSlot({required String societyId, required String slotId}) async {
+    state = ParkingActionLoading();
+    final result = await _repo.deleteSlot(slotId);
+    switch (result) {
+      case ParkingSuccess():
+        state = ParkingActionSuccess('Slot removed');
+        _ref.invalidate(parkingSlotsProvider(societyId));
+        _ref.invalidate(parkingAvailableSlotsProvider(societyId));
+        _ref.invalidate(parkingZonesProvider(societyId));
+      case ParkingFailure(:final message):
+        state = ParkingActionError(message);
+    }
+  }
+
   Future<void> createSlot({
     required String societyId,
     required String zoneId,

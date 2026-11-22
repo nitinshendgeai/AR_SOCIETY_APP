@@ -499,6 +499,10 @@ class AssetsApi {
   Future<Asset> create(Map<String, dynamic> body) async =>
       Asset.fromJson((await _dio.post('/inventory/assets', data: body)).data as Map<String, dynamic>);
 
+  /// Remove an asset entered by mistake. The server refuses (409, with the reason) once it has service records, an AMC
+  /// or linked work.
+  Future<void> delete(String assetId) => _dio.delete('/inventory/assets/$assetId');
+
   /// Only the keys present are changed; a null value clears the field.
   Future<Asset> update(String assetId, Map<String, dynamic> body) async =>
       Asset.fromJson((await _dio.patch('/inventory/assets/$assetId', data: body)).data as Map<String, dynamic>);

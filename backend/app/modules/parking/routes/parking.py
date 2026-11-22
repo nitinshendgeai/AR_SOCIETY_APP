@@ -40,6 +40,11 @@ def create_zone(data: ZoneCreate, db: Session = Depends(get_db), user: User = De
 def update_zone(zone_id: UUID, data: ZoneUpdate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return ParkingService(db).update_zone(zone_id, data, user)
 
+@router.delete("/zones/{zone_id}", status_code=204, dependencies=[Depends(admin_committee)])
+def delete_zone(zone_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Remove a zone entered by mistake. Refused (409) while it still has slots."""
+    ParkingService(db).delete_zone(zone_id, user)
+
 @router.get("/zones/{society_id}", response_model=List[ZoneOut], dependencies=[Depends(any_member)])
 def list_zones(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return ParkingService(db).list_zones(society_id, user)
@@ -59,6 +64,11 @@ def create_slot(data: SlotCreate, db: Session = Depends(get_db), user: User = De
 @router.patch("/slots/{slot_id}", response_model=SlotOut, dependencies=[Depends(admin_committee)])
 def update_slot(slot_id: UUID, data: SlotUpdate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return ParkingService(db).update_slot(slot_id, data, user)
+
+@router.delete("/slots/{slot_id}", status_code=204, dependencies=[Depends(admin_committee)])
+def delete_slot(slot_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Remove a slot entered by mistake. Refused (409) while it is allocated."""
+    ParkingService(db).delete_slot(slot_id, user)
 
 @router.get("/slots/{slot_id}", response_model=SlotOut, dependencies=[Depends(any_member)])
 def get_slot(slot_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):

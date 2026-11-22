@@ -188,6 +188,24 @@ class InventoryService:
         self.item_repo.update(item, changes)
         return self._with_stock([item])[0]
 
+    def delete_item(self, item_id: UUID, user: User, request=None) -> None:
+        """Remove a stores item entered by mistake: taken off the list and its name freed. Refused while there is stock of
+        it or some is out with someone (the stock history is kept, so a used item can be removed once counted down)."""
+        item = self._item_or_404(item_id, user)
+        stock = self.stock_repo.get_by_item(item.id)
+        from app.core.removal import refuse_if_in_use
+        out = self.db.query(func.count(InventoryIssue.id)).filter(
+            InventoryIssue.item_id == item.id,
+            InventoryIssue.status.in_([IssueStatus.ISSUED, IssueStatus.PARTIALLY_RETURNED])).scalar() or 0
+        refuse_if_in_use(item.name, {
+            "unit(s) in stock": int(stock.current_quantity) if stock and stock.current_quantity > 0 else 0,
+            "issue(s) still out with someone": int(out)},
+            "Count the stock down to zero and get issued items back first.")
+        item.is_active = False
+        self._audit(AuditAction.DELETE, item, "InventoryItem", user, request,
+                    old_values={"code": item.item_code, "name": item.name})
+        self.db.commit()
+
     def get_item(self, item_id: UUID, user: Optional[User] = None) -> InventoryItem:
         return self._with_stock([self._item_or_404(item_id, user)])[0]
 
@@ -590,6 +608,30 @@ class InventoryService:
         self.db.commit()
         self.db.refresh(asset)
         return asset
+
+    def delete_asset(self, asset_id: UUID, user: User, request=None) -> None:
+        """Remove an asset entered by mistake: taken off every list. Refused once it has service records, an AMC,
+        depreciation or work orders and contracts linked to it (retire it instead: it then stays on record)."""
+        from app.core.removal import refuse_if_in_use
+        from app.modules.accounts.models.depreciation import AssetDepreciation
+        from app.modules.vendor.models.vendor import AMCContract, WorkOrder
+        asset = self._asset_or_404(asset_id, user)
+
+        def count(model):
+            q = self.db.query(func.count(model.id)).filter(model.asset_id == asset.id)
+            if hasattr(model, "is_active"):
+                q = q.filter(model.is_active == True)  # noqa: E712
+            return int(q.scalar() or 0)
+
+        refuse_if_in_use(asset.name, {
+            "service record(s)": count(AssetMaintenance), "AMC(s)": count(AssetAMC),
+            "depreciation entr(ies)": count(AssetDepreciation), "annual contract(s)": count(AMCContract),
+            "work order(s)": count(WorkOrder)},
+            "Retire it instead: it then stays on record but is out of use.")
+        asset.is_active = False
+        self._audit(AuditAction.DELETE, asset, "Asset", user, request,
+                    old_values={"code": asset.asset_code, "name": asset.name})
+        self.db.commit()
 
     def get_asset(self, asset_id: UUID, user: Optional[User] = None) -> Asset:
         return self._asset_or_404(asset_id, user)

@@ -118,6 +118,24 @@ class ParkingRepository {
     }
   }
 
+  Future<ParkingResult<void>> deleteZone(String zoneId) async {
+    try {
+      await _ds.deleteZone(zoneId);
+      return ParkingSuccess(null);
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
+  Future<ParkingResult<void>> deleteSlot(String slotId) async {
+    try {
+      await _ds.deleteSlot(slotId);
+      return ParkingSuccess(null);
+    } catch (e) {
+      return _handle(e);
+    }
+  }
+
   Future<ParkingResult<ParkingSlotEntity>> createSlot({
     required String societyId,
     required String zoneId,

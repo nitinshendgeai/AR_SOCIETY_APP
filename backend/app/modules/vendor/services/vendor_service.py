@@ -165,6 +165,31 @@ class VendorService_:  # trailing underscore avoids clash with model name
         self.db.refresh(v)
         return v
 
+    def delete_vendor(self, vendor_id: UUID, user: User, request=None) -> None:
+        """Remove a vendor entered by mistake: it is taken off every list (its code is not reused). Refused once the vendor
+        has bills, payments, work orders, contracts, service requests, quotations or vouchers: mark it Inactive instead."""
+        from app.core.removal import refuse_if_in_use
+        from app.modules.accounts.models.accounts import Voucher
+        from app.modules.vendor.models.vendor import (
+            ServiceRequest as SR, VendorInvoice as VI, VendorPaymentTransaction as VP, WorkOrder as WO, Quotation as Q,
+        )
+        v = self.get_vendor(vendor_id, user)
+
+        def count(model, **extra):
+            q = self.db.query(func.count(model.id)).filter(model.vendor_id == v.id)
+            if hasattr(model, "is_active"):
+                q = q.filter(model.is_active == True)  # noqa: E712
+            return int(q.scalar() or 0)
+
+        refuse_if_in_use(v.company_name, {
+            "bill(s)": count(VI), "payment(s)": count(VP), "work order(s)": count(WO),
+            "contract(s)": count(AMCContract), "service request(s)": count(SR), "quotation(s)": count(Q),
+            "voucher(s)": count(Voucher)},
+            "Mark it Inactive instead: it then stays on record but can't be given new work.")
+        v.is_active = False
+        self._audit(AuditAction.DELETE, v, "Vendor", user, request, old_values={"code": v.vendor_code, "name": v.company_name})
+        self.db.commit()
+
     def get_vendor(self, vendor_id: UUID, user: Optional[User] = None) -> Vendor:
         v = self.vendor_repo.get(vendor_id)
         if not v: raise HTTPException(404, "Vendor not found")

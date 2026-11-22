@@ -4,6 +4,17 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-22 (Remove wrongly entered masters)
+
+### feat: remove vendors, assets, store items, parking zones/slots and amenities
+
+- **Why** - something entered or uploaded by mistake could only be edited, never taken away.
+- **Remove** - each master form now has a Remove action (vendor sheet, asset menu, store item, amenity screen, parking zone and slot).
+  It hides the record and keeps its history; the name or number can be used again.
+- **Refused while in use** - a clear message says why (e.g. a vendor with bills, an item with stock, a slot that is allotted, an amenity
+  with upcoming bookings) and what to do instead (mark Inactive, retire, release, cancel).
+- **Who** - whoever can create or edit that master; other societies' records are not found.
+
 ## 2026-11-21 (Vehicle import for tenants)
 
 ### feat: import tenants' vehicles
