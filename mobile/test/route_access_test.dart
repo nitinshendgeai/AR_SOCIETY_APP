@@ -65,6 +65,7 @@ void main() {
       '/staff/attendance/s1': null,
       '/manager-checklist': 'manager_checklist',
       '/billing/maintenance': 'maintenance_billing',
+      '/billing/maintenance/estimate': 'maintenance_billing',
       '/billing/maintenance-elements': 'maintenance_elements',
       '/billing/online-payments': 'online_payments',
       '/billing/bank-reconciliation': 'bank_reconciliation',

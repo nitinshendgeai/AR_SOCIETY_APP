@@ -25,6 +25,8 @@ from app.modules.billing.models.billing import (
 )
 from app.modules.billing.services.maintenance_calculator import cycle_months, money
 from app.modules.billing.services.billing_service import BillingService, RESIDENT_VISIBLE_BILL_STATUSES
+from app.modules.billing.services.bill_estimate import BillEstimateService
+from app.modules.billing.services.bill_planner import BillPlannerService
 from app.modules.billing.services.bill_pdf import bill_summary
 from app.modules.billing.services.budget_suggestions import suggest_budgets
 from app.modules.billing.services.period_expenses import cycle_readiness
@@ -554,6 +556,67 @@ def tower_parking_preview(cycle_id: UUID, db: Session = Depends(get_db), user: U
         "total": str(money(sum((z["total"] for z in zone_totals.values()), Decimal(0)))),
         "warnings": [w for w in calc.warnings if any(w.startswith(n) for n in head_names)],
     }
+
+
+class EstimateAdjustment(OrmBase):
+    element: str = Field(min_length=1, max_length=150)
+    percent: Optional[Decimal] = Field(default=None, ge=-100, le=1000)        # raise (+) or lower (-) the element by this
+    target_total: Optional[Decimal] = Field(default=None, ge=0)               # or: the monthly total wanted from it
+    per_sqft: Optional[Decimal] = Field(default=None, ge=0, le=100000)        # or: bill it at this rate per sq ft
+    by_area: bool = False                       # spread its total (as it stands, raised or set) over the flats by area
+
+
+class EstimateRequest(OrmBase):
+    society_id: UUID
+    month: Optional[str] = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")      # default: next month
+    adjustments: List[EstimateAdjustment] = Field(default_factory=list, max_length=40)
+
+
+@router.post("/estimate", dependencies=[Depends(manager_above)])
+def estimate_bills(data: EstimateRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """What next month's (or any month's) bills would be, flat by flat and element by element, with what-if changes to
+    elements: the bill each flat would get and the rate per sq ft. The same calculation as the real bills, on a cycle
+    that is never saved."""
+    assert_society_access(user, data.society_id)
+    adjustments = [a.model_dump() for a in data.adjustments]
+    for a in adjustments:
+        given = [k for k in ("percent", "target_total", "per_sqft") if a[k] is not None]
+        if len(given) > 1 or (not given and not a["by_area"]):
+            raise HTTPException(422, f"Give {a['element']} one change: a percentage, a monthly total, a rate per "
+                                     f"sq ft, or just 'by area'")
+        if a["per_sqft"] is not None and a["by_area"]:
+            raise HTTPException(422, f"{a['element']}: a rate per sq ft is already by area; leave 'by area' off")
+    try:
+        return BillEstimateService(db).estimate(data.society_id, data.month, adjustments,
+                                                society_today(db, data.society_id))
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+
+class PlanLine(OrmBase):
+    name: str = Field(min_length=1, max_length=150)
+    amount: Decimal = Field(ge=0, le=Decimal("1000000000"))                    # what it costs the society each month
+    split: Literal["area", "equal"] = "area"                                   # shared by flat area, or equally
+
+
+class PlanRequest(OrmBase):
+    society_id: UUID
+    lines: List[PlanLine] = Field(min_length=1, max_length=60)
+    month: Optional[str] = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")   # the month to compare with
+    compare: bool = True
+
+
+@router.post("/estimate/plan", dependencies=[Depends(manager_above)])
+def plan_maintenance(data: PlanRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """A budget planner: the monthly cost of each element or common area, shared over the flats by area (or equally),
+    giving the total, the rate per sq ft and each flat's share, beside what the charge heads would bill it now.
+    Nothing is saved."""
+    assert_society_access(user, data.society_id)
+    try:
+        return BillPlannerService(db).plan(data.society_id, [l.model_dump() for l in data.lines], data.month,
+                                           data.compare, society_today(db, data.society_id))
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
 
 
 @router.get("/cycles/{cycle_id}/preview", dependencies=[Depends(manager_above)])

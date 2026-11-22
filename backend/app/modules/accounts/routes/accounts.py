@@ -21,7 +21,7 @@ from app.modules.accounts.services.accounts_service import (
     AccountsService, dr_cr, fiscal_year, fiscal_year_start, money, voucher_scope,
 )
 from app.modules.accounts.services.bank_reconciliation import BankReconciliationService
-from app.modules.accounts.services.expense_by_element import expenses_by_element
+from app.modules.accounts.services.expense_by_element import element_months, expenses_by_element
 from app.modules.accounts.services.petty_cash import PettyCashService
 from app.modules.accounts.services.recurring_expenses import RecurringExpenseService, first_of
 from app.modules.accounts.services.postings import AccountPostings
@@ -760,6 +760,28 @@ def expenses_by_element_report(society_id: UUID, date_from: Optional[date] = Non
     AccountsService(db).ensure_chart(society_id)        # the books are opened the first time anyone looks
     db.commit()
     return expenses_by_element(db, society_id, start, end)
+
+
+@router.get("/expenses-by-element/{society_id}/months")
+def expenses_by_element_months(society_id: UUID, element_id: str = Query(..., pattern="^(none|[0-9a-fA-F-]{36})$"),
+                               date_from: Optional[date] = None, date_to: Optional[date] = None,
+                               db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """One element's spend month by month between two dates (default: the financial year so far), with the ledgers
+    behind each month. `element_id` is "none" for the expense ledgers no element covers."""
+    assert_society_access(user, society_id)
+    today = society_today(db, society_id)
+    start = date_from or fiscal_year_start(today)
+    end = date_to or today
+    if end < start:
+        raise HTTPException(status_code=422, detail="The end date can't be before the start date")
+    if (end.year - start.year) * 12 + end.month - start.month > 36:
+        raise HTTPException(status_code=422, detail="Pick at most three years")
+    AccountsService(db).ensure_chart(society_id)
+    db.commit()
+    try:
+        return element_months(db, society_id, element_id, start, end)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @router.get("/pending-postings/{society_id}")
