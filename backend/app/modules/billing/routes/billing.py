@@ -561,6 +561,8 @@ class EstimateAdjustment(OrmBase):
     element: str = Field(min_length=1, max_length=150)
     percent: Optional[Decimal] = Field(default=None, ge=-100, le=1000)        # raise (+) or lower (-) the element by this
     target_total: Optional[Decimal] = Field(default=None, ge=0)               # or: the monthly total wanted from it
+    per_sqft: Optional[Decimal] = Field(default=None, ge=0, le=100000)        # or: bill it at this rate per sq ft
+    by_area: bool = False                       # spread its total (as it stands, raised or set) over the flats by area
 
 
 class EstimateRequest(OrmBase):
@@ -577,8 +579,12 @@ def estimate_bills(data: EstimateRequest, db: Session = Depends(get_db), user: U
     assert_society_access(user, data.society_id)
     adjustments = [a.model_dump() for a in data.adjustments]
     for a in adjustments:
-        if (a["percent"] is None) == (a["target_total"] is None):
-            raise HTTPException(422, f"Give {a['element']} either a percentage or a monthly total, not both or neither")
+        given = [k for k in ("percent", "target_total", "per_sqft") if a[k] is not None]
+        if len(given) > 1 or (not given and not a["by_area"]):
+            raise HTTPException(422, f"Give {a['element']} one change: a percentage, a monthly total, a rate per "
+                                     f"sq ft, or just 'by area'")
+        if a["per_sqft"] is not None and a["by_area"]:
+            raise HTTPException(422, f"{a['element']}: a rate per sq ft is already by area; leave 'by area' off")
     try:
         return BillEstimateService(db).estimate(data.society_id, data.month, adjustments,
                                                 society_today(db, data.society_id))
