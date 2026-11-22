@@ -6,6 +6,7 @@ import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/resident_master/data/agreement_channel.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
+import 'package:ar_society_app/features/resident_master/presentation/widgets/person_extras.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
@@ -27,6 +28,7 @@ class TenantFormScreen extends ConsumerStatefulWidget {
 
 class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _drafts = PersonDrafts(); // family and vehicles added on the Add form, saved with the tenant
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
@@ -171,10 +173,19 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
     final wingsAsync = ref.watch(wingsProvider);
     final flatsAsync = ref.watch(flatsBySocietyProvider);
 
-    ref.listen(tenantFormProvider, (_, next) {
+    ref.listen(tenantFormProvider, (_, next) async {
       if (next is TenantFormSuccess) {
+        String? problem;
+        if (!_isEdit && !_drafts.isEmpty) {
+          problem = await savePersonDrafts(ref, _drafts,
+              tenant: true, personId: next.tenant.id, flatId: next.tenant.flatId);
+          ref.invalidate(vehiclesByFlatProvider(next.tenant.flatId));
+        }
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(next.message), backgroundColor: AppTheme.success, behavior: SnackBarBehavior.floating,
+          content: Text(problem ?? next.message),
+          backgroundColor: problem == null ? AppTheme.success : AppTheme.warning,
+          behavior: SnackBarBehavior.floating,
         ));
         ref.read(tenantListProvider.notifier).refresh();
         ref.invalidate(tenantsByFlatProvider(next.tenant.flatId));
@@ -443,6 +454,13 @@ class _TenantFormScreenState extends ConsumerState<TenantFormScreen> {
               child: TextFormField(controller: _idProofNumberCtrl, inputFormatters: [LengthLimitingTextInputFormatter(100)]),
             ),
           ],
+        ),
+        PersonExtrasSections(
+          tenant: true,
+          personId: widget.tenant?.id,
+          flatId: widget.tenant?.flatId,
+          drafts: _drafts,
+          onDraftsChanged: () => setState(() {}),
         ),
         FormSection(
           title: 'Emergency contact and notes',

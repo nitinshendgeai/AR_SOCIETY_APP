@@ -556,3 +556,43 @@ class ResidentEditRequestModel {
         createdAt: j['created_at'] as String,
       );
 }
+
+/// A person who lives with a tenant (kept apart from residents).
+class TenantFamilyModel {
+  final String id;
+  final String tenantId;
+  final String fullName;
+  final String? relation;
+  final String? phone;
+  final String? dateOfBirth;
+
+  const TenantFamilyModel({
+    required this.id,
+    required this.tenantId,
+    required this.fullName,
+    this.relation,
+    this.phone,
+    this.dateOfBirth,
+  });
+
+  factory TenantFamilyModel.fromJson(Map<String, dynamic> j) => TenantFamilyModel(
+        id: j['id'] as String,
+        tenantId: j['tenant_id'] as String,
+        fullName: j['full_name'] as String,
+        relation: j['relation'] as String?,
+        phone: j['phone'] as String?,
+        dateOfBirth: j['date_of_birth'] as String?,
+      );
+}
+
+/// The ways a tenant's family member can be related (the value the server stores, and its label).
+const tenantFamilyRelations = <String, String>{
+  'spouse': 'Spouse',
+  'child': 'Child',
+  'parent': 'Parent',
+  'sibling': 'Sibling',
+  'other': 'Other',
+};
+
+String tenantRelationLabel(String? relation) => tenantFamilyRelations[relation] ?? 'Family';
+

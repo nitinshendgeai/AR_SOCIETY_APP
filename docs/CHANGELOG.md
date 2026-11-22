@@ -4,6 +4,18 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-22 (Family members and vehicles on the resident and tenant forms)
+
+### feat: add and remove family members and vehicles on the forms
+
+- **Where** - the Add and Edit forms for residents and tenants now have **Family members** and **Vehicles** sections.
+- **Add form** - add them before saving; they are saved with the person, and anything that could not be saved is named in the message.
+- **Edit form** - add or remove straight away. A family member or vehicle added by mistake can be removed (family: same rules as
+  removing a resident; vehicles: deregistered).
+- **Tenant family** - a tenant's family is kept in its own list (name, relation, phone), apart from the owner's family:
+  `GET/POST /tenants/{id}/family`, `DELETE /tenants/{id}/family/{member_id}`. New table `tenant_family_members` (migration
+  `a7c9e1b3d5f7`). Removing a tenant removes their family list too.
+
 ## 2026-11-22 (Remove wrongly entered residents and tenants)
 
 ### feat: remove a resident or tenant entered by mistake

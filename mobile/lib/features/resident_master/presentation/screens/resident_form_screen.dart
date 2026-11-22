@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/resident_master/data/models/resident_master_models.dart';
 import 'package:ar_society_app/features/resident_master/presentation/providers/resident_master_providers.dart';
+import 'package:ar_society_app/features/resident_master/presentation/widgets/person_extras.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_login_link.dart';
 import 'package:ar_society_app/features/resident_master/presentation/widgets/resident_master_widgets.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
@@ -46,6 +47,7 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
   bool _recordMoveIn = false;
   DateTime? _moveInDate;
   String? _userId; // the app login linked to this resident (edit only)
+  final _drafts = PersonDrafts(); // family and vehicles added on the Add form, saved with the person
 
   bool get _isEdit => widget.resident != null;
 
@@ -149,11 +151,18 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
     final wingsAsync = ref.watch(wingsProvider);
     final flatsAsync = ref.watch(flatsBySocietyProvider);
 
-    ref.listen(residentFormProvider, (_, next) {
+    ref.listen(residentFormProvider, (_, next) async {
       if (next is ResidentFormSuccess) {
+        String? problem;
+        if (!_isEdit && !_drafts.isEmpty) {
+          problem = await savePersonDrafts(ref, _drafts,
+              tenant: false, personId: next.resident.id, flatId: next.resident.flatId);
+          ref.invalidate(vehiclesByFlatProvider(next.resident.flatId));
+        }
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(next.message),
-          backgroundColor: AppTheme.success,
+          content: Text(problem ?? next.message),
+          backgroundColor: problem == null ? AppTheme.success : AppTheme.warning,
           behavior: SnackBarBehavior.floating,
         ));
         ref.read(residentListProvider.notifier).refresh();
@@ -365,6 +374,13 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
                 'a login is linked to their record.',
             children: [ResidentLoginLink(userId: _userId, onChanged: (id) => setState(() => _userId = id))],
           ),
+        PersonExtrasSections(
+          tenant: false,
+          personId: widget.resident?.id,
+          flatId: widget.resident?.flatId,
+          drafts: _drafts,
+          onDraftsChanged: () => setState(() {}),
+        ),
         FormSection(
           title: 'Status',
           description: 'Primary contact and verification.',

@@ -136,6 +136,38 @@ class _FakeDataSource extends ResidentMasterRemoteDataSource {
   Object? throwOnListAgreements;
   Object? throwOnDeregisterVehicle;
   Object? throwOnDelete;
+  final List<Map<String, dynamic>> createdResidents = [];
+  final List<Map<String, dynamic>> createdVehicles = [];
+  final List<Map<String, dynamic>> addedFamily = [];
+  final List<String> removedFamily = [];
+  List<TenantFamilyModel> family = [];
+
+  @override
+  Future<List<TenantFamilyModel>> tenantFamily(String tenantId) async => family;
+
+  @override
+  Future<TenantFamilyModel> addTenantFamily(String tenantId, Map<String, dynamic> data) async {
+    addedFamily.add(data);
+    final m = TenantFamilyModel(
+        id: 'fam-${addedFamily.length}', tenantId: tenantId, fullName: data['full_name'] as String,
+        relation: data['relation'] as String?);
+    family = [...family, m];
+    return m;
+  }
+
+  @override
+  Future<void> removeTenantFamily(String tenantId, String memberId) async {
+    removedFamily.add(memberId);
+    family = family.where((m) => m.id != memberId).toList();
+  }
+
+  @override
+  Future<VehicleModel> createVehicle(Map<String, dynamic> data) async {
+    createdVehicles.add(data);
+    final v = _vehicle(id: 'veh-new', vehicleNumber: data['vehicle_number'] as String);
+    vehicles = [...vehicles, v];
+    return v;
+  }
   final List<String> deleted = [];
 
   @override
@@ -172,6 +204,7 @@ class _FakeDataSource extends ResidentMasterRemoteDataSource {
   @override
   Future<ResidentModel> createResident(Map<String, dynamic> data) async {
     if (throwOnCreateResident != null) throw throwOnCreateResident!;
+    createdResidents.add(data);
     final r = _resident(id: 'new-res', fullName: data['full_name'] as String);
     residents = [...residents, r];
     return r;
@@ -925,6 +958,130 @@ void main() {
 
       expect(find.text('Occupancy status'), findsOneWidget);
       expect(find.text('Select status (optional)'), findsOneWidget);
+    });
+  });
+
+  // ── Family members and vehicles on the forms ─────────────────────────────
+
+  group('Family members and vehicles on the forms', () {
+    void bigScreen(WidgetTester tester) {
+      tester.view.physicalSize = const Size(800, 4000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+    }
+
+    Future<void> tapKey(WidgetTester tester, Key key) async {
+      await tester.ensureVisible(find.byKey(key));
+      await tester.tap(find.byKey(key));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('Add Resident: family and vehicle are kept, removable, and saved with the person', (tester) async {
+      bigScreen(tester);
+      final ds = _FakeDataSource();
+      final router = GoRouter(initialLocation: '/', routes: [
+        GoRoute(path: '/', builder: (_, __) => Builder(builder: (c) => ElevatedButton(
+            onPressed: () => GoRouter.of(c).push('/form'), child: const Text('open')))),
+        GoRoute(path: '/form', builder: (_, __) => ResidentFormScreen(defaultFlat: _flat())),
+      ]);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          currentUserProvider.overrideWithValue(_adminUser()),
+          flatsBySocietyProvider.overrideWith(() => _FakeFlatsNotifier([_flat()])),
+          wingsProvider.overrideWith(() => _FakeWingsNotifier([_wing()])),
+          residentMasterRepositoryProvider.overrideWithValue(ResidentMasterRepository(ds: ds)),
+        ],
+        child: MaterialApp.router(theme: AppTheme.lightTheme, routerConfig: router),
+      ));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      // a family member, added then removed again
+      await tapKey(tester, const Key('family-add'));
+      await tester.enterText(find.byKey(const Key('family-name')), 'Wrong Person');
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('family-draft-0')), findsOneWidget);
+      await tapKey(tester, const Key('family-draft-remove-0'));
+      expect(find.byKey(const Key('family-draft-0')), findsNothing);
+
+      // one to keep, and a vehicle
+      await tapKey(tester, const Key('family-add'));
+      await tester.enterText(find.byKey(const Key('family-name')), 'Kid Resident');
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add'));
+      await tester.pumpAndSettle();
+      await tapKey(tester, const Key('vehicle-add'));
+      await tester.enterText(find.byKey(const Key('vehicle-number')), 'MH12AB1234');
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add'));
+      await tester.pumpAndSettle();
+      expect(find.text('MH12AB1234'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextFormField).first, 'New Resident');
+      await tester.ensureVisible(find.widgetWithText(ElevatedButton, 'Add Resident'));
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add Resident'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(ds.createdResidents.map((r) => r['full_name']), ['New Resident', 'Kid Resident']);
+      expect(ds.createdResidents.last['resident_type'], 'family');
+      expect(ds.createdVehicles.single['vehicle_number'], 'MH12AB1234');
+      expect(ds.createdVehicles.single['resident_id'], 'new-res');
+    });
+
+    testWidgets('Edit Tenant: a family member can be removed from the form', (tester) async {
+      bigScreen(tester);
+      final ds = _FakeDataSource()
+        ..tenants = [_tenant(id: 'ten-1')]
+        ..family = [const TenantFamilyModel(id: 'fam-9', tenantId: 'ten-1', fullName: 'Sam Tenant', relation: 'spouse')];
+      await tester.pumpWidget(_wrap(
+        TenantFormScreen(tenant: _tenant(id: 'ten-1')),
+        overrides: [residentMasterRepositoryProvider.overrideWithValue(ResidentMasterRepository(ds: ds))],
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('Sam Tenant'), findsOneWidget);
+      expect(find.text('Spouse'), findsOneWidget);
+
+      await tapKey(tester, const Key('family-remove-fam-9'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
+      await tester.pumpAndSettle();
+      expect(ds.removedFamily, ['fam-9']);
+      expect(find.text('Sam Tenant'), findsNothing);
+    });
+
+    testWidgets('Edit Tenant: adding a family member saves straight away', (tester) async {
+      bigScreen(tester);
+      final ds = _FakeDataSource()..tenants = [_tenant(id: 'ten-1')];
+      await tester.pumpWidget(_wrap(
+        TenantFormScreen(tenant: _tenant(id: 'ten-1')),
+        overrides: [residentMasterRepositoryProvider.overrideWithValue(ResidentMasterRepository(ds: ds))],
+      ));
+      await tester.pumpAndSettle();
+      await tapKey(tester, const Key('family-add'));
+      await tester.enterText(find.byKey(const Key('family-name')), 'Kid Tenant');
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add'));
+      await tester.pumpAndSettle();
+      expect(ds.addedFamily.single['full_name'], 'Kid Tenant');
+      expect(ds.addedFamily.single['relation'], 'spouse');
+      expect(find.text('Kid Tenant'), findsOneWidget);
+    });
+
+    testWidgets('Edit Resident: own vehicle is listed and can be deregistered', (tester) async {
+      bigScreen(tester);
+      final ds = _FakeDataSource()
+        ..residents = [_resident(id: 'res-1')]
+        ..vehicles = [_vehicle(id: 'veh-1', vehicleNumber: 'MH01XY9999', residentId: 'res-1')];
+      await tester.pumpWidget(_wrap(
+        ResidentFormScreen(resident: _resident(id: 'res-1')),
+        overrides: [
+          flatsBySocietyProvider.overrideWith(() => _FakeFlatsNotifier([_flat()])),
+          residentMasterRepositoryProvider.overrideWithValue(ResidentMasterRepository(ds: ds)),
+        ],
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('MH01XY9999'), findsOneWidget);
+      expect(find.byKey(const Key('vehicle-remove-veh-1')), findsOneWidget);
     });
   });
 
