@@ -188,6 +188,14 @@ def get_resident(resident_id: UUID, db: Session = Depends(get_db),
     return hide_private(ResidentService(db).get_or_404(resident_id, current_user), current_user, RESIDENT_PRIVATE_FIELDS)
 
 
+@router.delete("/{resident_id}", status_code=204)
+def delete_resident(resident_id: UUID, db: Session = Depends(get_db),
+                     current_user: User = Depends(require_admin_committee)):
+    """Remove a resident entered by mistake. Refused (409, with the reason) once they have bills, gym visits, a parking
+    allotment or have moved out: use Move out for someone who lived here."""
+    ResidentService(db).delete(resident_id, current_user)
+
+
 @router.patch("/{resident_id}", response_model=ResidentOut)
 def update_resident(resident_id: UUID, data: ResidentUpdate, db: Session = Depends(get_db),
                      current_user: User = Depends(require_admin_committee)):

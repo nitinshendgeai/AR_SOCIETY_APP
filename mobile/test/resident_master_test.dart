@@ -135,6 +135,22 @@ class _FakeDataSource extends ResidentMasterRemoteDataSource {
   Object? throwOnCreateTenant;
   Object? throwOnListAgreements;
   Object? throwOnDeregisterVehicle;
+  Object? throwOnDelete;
+  final List<String> deleted = [];
+
+  @override
+  Future<void> deleteResident(String id) async {
+    if (throwOnDelete != null) throw throwOnDelete!;
+    deleted.add(id);
+    residents = residents.where((r) => r.id != id).toList();
+  }
+
+  @override
+  Future<void> deleteTenant(String id) async {
+    if (throwOnDelete != null) throw throwOnDelete!;
+    deleted.add(id);
+    tenants = tenants.where((t) => t.id != id).toList();
+  }
 
   @override
   Future<List<ResidentModel>> listResidents({
@@ -909,6 +925,96 @@ void main() {
 
       expect(find.text('Occupancy status'), findsOneWidget);
       expect(find.text('Select status (optional)'), findsOneWidget);
+    });
+  });
+
+  // ── Remove (entered by mistake) ──────────────────────────────────────────
+
+  group('Remove a wrongly entered person', () {
+    Future<_FakeDataSource> openResident(WidgetTester tester, {Object? failWith}) async {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final ds = _FakeDataSource()
+        ..residents = [_resident(id: 'res-1', fullName: 'Wrong Person')]
+        ..throwOnDelete = failWith;
+      final router = GoRouter(initialLocation: '/residents', routes: [
+        GoRoute(path: '/residents', builder: (_, __) => const ResidentListScreen()),
+        GoRoute(path: '/residents/detail', builder: (_, s) => ResidentDetailScreen(resident: s.extra as ResidentModel)),
+      ]);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          currentUserProvider.overrideWithValue(_adminUser()),
+          flatsBySocietyProvider.overrideWith(() => _FakeFlatsNotifier([_flat()])),
+          residentMasterRepositoryProvider.overrideWithValue(ResidentMasterRepository(ds: ds)),
+        ],
+        child: MaterialApp.router(theme: AppTheme.lightTheme, routerConfig: router),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Wrong Person'));
+      await tester.pumpAndSettle();
+      return ds;
+    }
+
+    testWidgets('Keep it leaves the resident alone', (tester) async {
+      final ds = await openResident(tester);
+      await tester.ensureVisible(find.byKey(const Key('resident-remove')));
+      await tester.tap(find.byKey(const Key('resident-remove')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Keep it'));
+      await tester.pumpAndSettle();
+      expect(ds.deleted, isEmpty);
+      expect(find.text('Profile'), findsOneWidget);
+    });
+
+    testWidgets('confirming removes them and returns to the list', (tester) async {
+      final ds = await openResident(tester);
+      await tester.ensureVisible(find.byKey(const Key('resident-remove')));
+      await tester.tap(find.byKey(const Key('resident-remove')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
+      await tester.pumpAndSettle();
+      expect(ds.deleted, ['res-1']);
+      expect(find.text('Profile'), findsNothing);
+    });
+
+    testWidgets('a refusal shows the reason and stays on the person', (tester) async {
+      final ds = await openResident(
+        tester,
+        failWith: DioException(
+          requestOptions: RequestOptions(path: '/residents/res-1'),
+          response: Response(
+            requestOptions: RequestOptions(path: '/residents/res-1'),
+            statusCode: 409,
+            data: {'detail': 'Wrong Person can\'t be removed: it has 1 bill(s).'},
+          ),
+        ),
+      );
+      await tester.ensureVisible(find.byKey(const Key('resident-remove')));
+      await tester.tap(find.byKey(const Key('resident-remove')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
+      await tester.pumpAndSettle();
+      expect(ds.deleted, isEmpty);
+      expect(find.textContaining('1 bill'), findsOneWidget);
+      expect(find.text('Profile'), findsOneWidget);
+    });
+
+    testWidgets('a tenant has the same button', (tester) async {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(_wrap(
+        TenantDetailScreen(tenant: _tenant(id: 'ten-1')),
+        overrides: [
+          residentMasterRepositoryProvider
+              .overrideWithValue(ResidentMasterRepository(ds: _FakeDataSource()..tenants = [_tenant(id: 'ten-1')])),
+        ],
+      ));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('tenant-remove')), findsOneWidget);
     });
   });
 
