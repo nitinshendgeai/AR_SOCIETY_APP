@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/features/auth/domain/entities/user_entity.dart';
+import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/parking/data/vehicle_report_api.dart';
 import 'package:ar_society_app/features/parking/presentation/screens/vehicle_report_tab.dart';
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart';
@@ -35,7 +37,7 @@ Map<String, dynamic> _report(String month) => {
         },
         'rows': [
           {
-            'vehicle_number': 'MH12AA1111', 'type': 'Car', 'make_model': 'Honda City', 'color': '', 'flat': 'A 101', 'flat_id': 'f101',
+            'id': 'v1', 'vehicle_number': 'MH12AA1111', 'type': 'Car', 'make_model': 'Honda City', 'color': '', 'flat': 'A 101', 'flat_id': 'f101',
             'wing': 'A', 'owner': 'Asha', 'category': 'Owner / resident', 'has_parking': true, 'parking_slot': 'P1',
             'insurance_expiry': '2026-11-01', 'insurance': 'expired',
           }
@@ -94,14 +96,22 @@ Map<String, dynamic> _report(String month) => {
       },
     };
 
-Widget _wrap(List<Map<String, dynamic>> asked) {
+Widget _wrap(List<Map<String, dynamic>> asked,
+    {List<String> roles = const ['Society Admin'], List<Map<String, dynamic>>? deregistered}) {
   final dio = Dio();
   dio.interceptors.add(InterceptorsWrapper(onRequest: (o, h) {
+    if (o.path == '/vehicles/deregister') {
+      final ids = ((o.data as Map)['vehicle_ids'] as List).cast<String>();
+      deregistered?.add({'ids': ids});
+      h.resolve(Response(requestOptions: o, statusCode: 200, data: {'deregistered': ids.length, 'not_found': 0}));
+      return;
+    }
     asked.add(Map<String, dynamic>.from(o.queryParameters));
     h.resolve(Response(requestOptions: o, statusCode: 200, data: _report((o.queryParameters['month'] as String?) ?? '2026-11')));
   }));
   return ProviderScope(
     overrides: [
+      currentUserProvider.overrideWithValue(UserEntity(id: 'u', email: 'u@t.com', fullName: 'U', roles: roles, societyId: 's1')),
       wingsProvider.overrideWith(() => _FakeWings()),
       flatsByWingProvider.overrideWith(() => _FakeFlats()),
       vehicleReportApiProvider.overrideWithValue(VehicleReportApi(dio: dio)),
@@ -210,5 +220,66 @@ void main() {
     for (final k in ['pdf-open', 'pdf-share', 'xlsx-download', 'xlsx-share']) {
       expect(find.byKey(Key('vr-$k')), findsOneWidget, reason: k);
     }
+  });
+
+  testWidgets('a vehicle can be deregistered from its row on the report, after asking', (t) async {
+    phone(t);
+    final posted = <Map<String, dynamic>>[];
+    final asked = <Map<String, dynamic>>[];
+    await t.pumpWidget(_wrap(asked, deregistered: posted));
+    await t.pumpAndSettle();
+
+    await t.tap(find.byKey(const Key('vr-remove-v1')));
+    await t.pumpAndSettle();
+    expect(find.text('Deregister this vehicle?'), findsOneWidget);
+    await t.tap(find.text('Keep it'));                                      // asked first: keeping it sends nothing
+    await t.pumpAndSettle();
+    expect(posted, isEmpty);
+
+    await t.tap(find.byKey(const Key('vr-remove-v1')));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Deregister'));
+    await t.pumpAndSettle();
+    expect(posted, [
+      {'ids': ['v1']}
+    ]);
+    expect(asked.length, greaterThan(1));                                    // and the report was asked for again
+  });
+
+  testWidgets('several vehicles are selected and deregistered together', (t) async {
+    phone(t);
+    final posted = <Map<String, dynamic>>[];
+    await t.pumpWidget(_wrap([], deregistered: posted));
+    await t.pumpAndSettle();
+
+    expect(find.byKey(const Key('vr-remove-v1')), findsOneWidget);          // one at a time until Select is chosen
+    await t.tap(find.byKey(const Key('vr-select')));
+    await t.pumpAndSettle();
+    expect(find.byKey(const Key('vr-remove-v1')), findsNothing);            // ticks replace the row buttons
+    expect(find.byKey(const Key('vr-select-v1')), findsOneWidget);
+    expect(t.widget<FilledButton>(find.byKey(const Key('vr-deregister-selected'))).onPressed, isNull);   // nothing ticked
+
+    await t.tap(find.byKey(const Key('vr-select-all')));
+    await t.pumpAndSettle();
+    expect(find.text('Deregister 1 selected'), findsOneWidget);
+    await t.tap(find.byKey(const Key('vr-deregister-selected')));
+    await t.pumpAndSettle();
+    expect(find.text('Deregister 1 vehicles?'), findsNothing);              // one vehicle is worded as one
+    expect(find.text('Deregister this vehicle?'), findsOneWidget);
+    await t.tap(find.text('Deregister'));
+    await t.pumpAndSettle();
+    expect(posted, [
+      {'ids': ['v1']}
+    ]);
+    expect(find.byKey(const Key('vr-select-v1')), findsNothing);            // selecting ends once done
+  });
+
+  testWidgets('only committee and admin get the delete controls', (t) async {
+    phone(t);
+    await t.pumpWidget(_wrap([], roles: const ['Manager']));
+    await t.pumpAndSettle();
+    expect(find.text('MH12AA1111 · Car'), findsOneWidget);
+    expect(find.byKey(const Key('vr-remove-v1')), findsNothing);
+    expect(find.byKey(const Key('vr-select')), findsNothing);
   });
 }
