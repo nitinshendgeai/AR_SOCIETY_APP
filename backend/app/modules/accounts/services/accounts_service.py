@@ -474,12 +474,17 @@ class AccountsService:
             raise HTTPException(422, "Flat not found in this society")
         return flat
 
-    def create_manual_voucher(self, data: dict, user: User, request=None) -> Voucher:
+    def create_manual_voucher(self, data: dict, user: User, request=None, *, keep_pending: bool = False,
+                              approval_note: Optional[str] = None) -> Voucher:
         """Receipt, Payment, Journal or Contra entered by the society. The
         usual rules: a Receipt brings money into cash/bank (debit cash/bank,
         credit the rest), a Payment takes it out (credit cash/bank, debit the
         rest), a Contra moves it between cash and bank only, and a Journal
-        never touches cash or bank."""
+        never touches cash or bank.
+
+        `keep_pending` (used for entries the Accounts Agent drafts): the voucher is always saved as pending, whatever
+        its type and whatever the society's auto-approval setting, so it counts in the books only after someone
+        approves it through the normal approval (maker-checker applies)."""
         society_id, vtype = data["society_id"], data["voucher_type"]
         if vtype not in MANUAL_VOUCHER_TYPES:
             raise HTTPException(422, f"Voucher type must be one of: {', '.join(MANUAL_VOUCHER_TYPES)}")
@@ -487,14 +492,16 @@ class AccountsService:
         vendor = self.vendor_in_society(data.get("vendor_id"), society_id)
         if vendor and vtype != "payment":
             raise HTTPException(422, "Only a payment can be made to a vendor")
-        requires_approval = vtype in ("payment", "journal")
-        posts_directly = requires_approval and vtype == "payment" and self._posts_without_second_approver(society_id, user)
+        requires_approval = keep_pending or vtype in ("payment", "journal")
+        posts_directly = (not keep_pending and requires_approval and vtype == "payment"
+                          and self._posts_without_second_approver(society_id, user))
         voucher = self.build_voucher(
             society_id, vtype, data["voucher_date"], lines,
             narration=data.get("narration"), reference=data.get("reference"),
             vendor_id=vendor.id if vendor else None, user=user,
             approval_status="pending" if requires_approval and not posts_directly else "approved",
-            approval_note=("Posted directly: this society lets admin / committee payments skip the second approval"
+            approval_note=(approval_note if keep_pending and approval_note else
+                           "Posted directly: this society lets admin / committee payments skip the second approval"
                            if posts_directly else
                            "Manual voucher submitted for committee/admin approval" if requires_approval else None),
         )

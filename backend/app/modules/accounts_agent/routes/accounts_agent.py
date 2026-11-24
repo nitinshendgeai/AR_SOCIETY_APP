@@ -60,7 +60,9 @@ def get_agent_settings(society_id: Optional[UUID] = None, db: Session = Depends(
     sid = _sid(user, society_id)
     s = get_settings(db, sid)
     db.commit()
-    return {**queries.settings_dict(s), "llm_status": llm.provider_status(s.llm_provider)}
+    from app.modules.accounts_agent.assist import claude
+    return {**queries.settings_dict(s), "llm_status": llm.provider_status(s.llm_provider),
+            "ai_configured": claude.configured(), "ai_enabled": claude.enabled(s)}
 
 
 @router.put("/settings")

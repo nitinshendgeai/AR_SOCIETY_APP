@@ -476,6 +476,11 @@ class AgentSettings {
   final double recurringTolerancePct;
   final int duplicateWindowDays;
   final int learningWindowMonths;
+  /// "anthropic" when the society switched on Claude for bye-law answers and entry reading; "disabled" otherwise.
+  final String aiProvider;
+  /// The deployment has an Anthropic API key (without it the switch has no effect).
+  final bool aiConfigured;
+  final bool aiEnabled;
   const AgentSettings({
     required this.monitoringEnabled,
     required this.notifyMinSeverity,
@@ -483,6 +488,9 @@ class AgentSettings {
     required this.recurringTolerancePct,
     required this.duplicateWindowDays,
     required this.learningWindowMonths,
+    this.aiProvider = 'disabled',
+    this.aiConfigured = false,
+    this.aiEnabled = false,
   });
   factory AgentSettings.fromJson(Map<String, dynamic> j) => AgentSettings(
         monitoringEnabled: j['monitoring_enabled'] as bool? ?? true,
@@ -491,6 +499,9 @@ class AgentSettings {
         recurringTolerancePct: _d(j['recurring_tolerance_pct']),
         duplicateWindowDays: _i(j['duplicate_window_days']),
         learningWindowMonths: _i(j['learning_window_months']),
+        aiProvider: j['llm_provider'] as String? ?? 'disabled',
+        aiConfigured: j['ai_configured'] as bool? ?? false,
+        aiEnabled: j['ai_enabled'] as bool? ?? false,
       );
 }
 
@@ -558,8 +569,9 @@ class AccountsAgentApi {
   Future<AgentDashboard> dashboard() async => AgentDashboard.fromJson(_m(await _dio.get('$_base/dashboard')));
   Future<AgentSettings> settings() async => AgentSettings.fromJson(_m(await _dio.get('$_base/settings')));
 
-  Future<AgentSettings> updateSettings({double? zThreshold, double? recurringTolerancePct, int? duplicateWindowDays, String? notifyMinSeverity}) async =>
+  Future<AgentSettings> updateSettings({double? zThreshold, double? recurringTolerancePct, int? duplicateWindowDays, String? notifyMinSeverity, String? aiProvider}) async =>
       AgentSettings.fromJson(_m(await _dio.put('$_base/settings', data: {
+        if (aiProvider != null) 'llm_provider': aiProvider,
         if (zThreshold != null) 'z_threshold': zThreshold,
         if (recurringTolerancePct != null) 'recurring_tolerance_pct': recurringTolerancePct,
         if (duplicateWindowDays != null) 'duplicate_window_days': duplicateWindowDays,

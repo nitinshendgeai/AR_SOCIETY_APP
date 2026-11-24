@@ -34,6 +34,7 @@ from app.modules.platform_admin.routes.platform_admin import router as platform_
 from app.modules.assistant.routes.assistant         import router as assistant_router
 from app.modules.accounts_agent.routes.accounts_agent import router as accounts_agent_router
 from app.modules.accounts_agent.routes.legal import router as accounts_agent_legal_router
+from app.modules.accounts_agent.routes.assist import router as accounts_agent_assist_router
 
 api_router = APIRouter()
 api_router.include_router(auth.router)
@@ -76,3 +77,4 @@ api_router.include_router(platform_admin_router)
 api_router.include_router(assistant_router)
 api_router.include_router(accounts_agent_router)
 api_router.include_router(accounts_agent_legal_router)
+api_router.include_router(accounts_agent_assist_router)
