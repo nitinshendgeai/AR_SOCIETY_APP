@@ -142,6 +142,21 @@ class _AgentLearningScreenState extends ConsumerState<AgentLearningScreen> {
                       value: s.monitoringEnabled,
                       onChanged: (!mayEdit || _busy) ? null : (v) => _do(() async { await ref.read(accountsAgentApiProvider).setMonitoring(v); }, v ? 'Monitoring on' : 'Monitoring off'),
                     ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('AI wording (Claude)'),
+                      subtitle: Text(!s.aiConfigured
+                          ? 'Not available: the server has no Anthropic API key. Bye-law answers list the matching clauses.'
+                          : s.aiProvider == 'anthropic'
+                              ? 'On: bye-law answers are worded by Claude from the clauses found, and entry descriptions are read by Claude. Nothing is posted or published without a person.'
+                              : 'Off: bye-law answers list the matching clauses; entries are filled from your choices and past postings.'),
+                      value: s.aiProvider == 'anthropic',
+                      onChanged: (!mayEdit || _busy || !s.aiConfigured)
+                          ? null
+                          : (v) => _do(() async {
+                                await ref.read(accountsAgentApiProvider).updateSettings(aiProvider: v ? 'anthropic' : 'disabled');
+                              }, v ? 'AI wording on' : 'AI wording off'),
+                    ),
                     const Divider(),
                     KeyValue('Outlier threshold', '${s.zThreshold} (modified z-score)'),
                     KeyValue('Recurring tolerance', '${s.recurringTolerancePct}%'),

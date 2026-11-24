@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ar_society_app/features/accounts_agent/data/assist_api.dart';
 import 'package:ar_society_app/features/accounts_agent/data/legal_api.dart';
 
 final legalApiProvider = Provider<LegalApi>((_) => LegalApi());
+final assistApiProvider = Provider<AssistApi>((_) => AssistApi());
 
 final complianceOverviewProvider = FutureProvider.autoDispose<ComplianceOverview>((ref) => ref.watch(legalApiProvider).overview());
 final legalDocumentsProvider = FutureProvider.autoDispose<List<LegalDocument>>((ref) => ref.watch(legalApiProvider).documents());

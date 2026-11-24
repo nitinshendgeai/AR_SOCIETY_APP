@@ -88,6 +88,8 @@ import 'package:ar_society_app/features/accounts_agent/presentation/screens/agen
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_findings_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_learning_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_ask_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_entry_draft_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_notice_draft_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/compliance_hub_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/ledger_map_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/legal_library_screen.dart';
@@ -295,6 +297,8 @@ class AppRoutes {
   static const accountsAgentStatutory    = '/accounts-agent/statutory';
   static const accountsAgentRecovery     = '/accounts-agent/recovery';
   static const accountsAgentAsk          = '/accounts-agent/ask';
+  static const accountsAgentEntryDraft   = '/accounts-agent/draft-entry';
+  static const accountsAgentNotices      = '/accounts-agent/notices';
   static const accountsVoucherNew = '/accounts/vouchers/new';
   static const accountsVoucherEdit = '/accounts/vouchers/:voucherId/edit';
   static const accountsLedger     = '/accounts/ledger/:accountId';
@@ -1018,6 +1022,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             (AppRoutes.accountsAgentStatutory, (_) => const StatutoryCalendarScreen()),
             (AppRoutes.accountsAgentRecovery, (_) => const RecoveryScreen()),
             (AppRoutes.accountsAgentAsk, (_) => const AgentAskScreen()),
+            (AppRoutes.accountsAgentEntryDraft, (_) => const AgentEntryDraftScreen()),
+            (AppRoutes.accountsAgentNotices, (_) => const AgentNoticeDraftScreen()),
             (AppRoutes.accountsVoucherNew, (s) {
               final type = s.uri.queryParameters['type'] ?? 'receipt';
               return VoucherFormScreen(key: ValueKey(type), type: type);

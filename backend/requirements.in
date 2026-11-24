@@ -39,3 +39,5 @@ openpyxl
 
 # Bank statement PDFs (the bank reconciliation reads the bank's own "Account Statement" PDF)
 pdfminer.six
+# Claude API: optional bye-law answers and entry drafting in the Accounts Agent (off unless ANTHROPIC_API_KEY is set)
+anthropic>=2.13,<3

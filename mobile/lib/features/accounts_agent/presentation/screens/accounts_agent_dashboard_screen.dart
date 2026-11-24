@@ -114,6 +114,15 @@ class _Body extends StatelessWidget {
         OutlinedButton.icon(
             onPressed: () => context.push(AppRoutes.accountsAgentLearning), icon: const Icon(Icons.school_outlined), label: const Text('Learning & settings')),
       ]),
+      const SizedBox(height: 10),
+      Wrap(spacing: 10, runSpacing: 10, children: [
+        FilledButton.tonalIcon(
+            onPressed: () => context.push(AppRoutes.accountsAgentAsk), icon: const Icon(Icons.menu_book_outlined), label: const Text('Ask about bye-laws')),
+        FilledButton.tonalIcon(
+            onPressed: () => context.push(AppRoutes.accountsAgentEntryDraft), icon: const Icon(Icons.edit_note_rounded), label: const Text('Draft an entry')),
+        FilledButton.tonalIcon(
+            onPressed: () => context.push(AppRoutes.accountsAgentNotices), icon: const Icon(Icons.campaign_outlined), label: const Text('Notices & agendas')),
+      ]),
     ]);
   }
 }
