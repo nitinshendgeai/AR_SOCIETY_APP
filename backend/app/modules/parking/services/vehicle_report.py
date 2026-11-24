@@ -139,6 +139,7 @@ class VehicleReportService:
             if not self._in(scope, r["flat_id"]):
                 continue
             rows.append({
+                "id": str(r["id"]),                                # lets the screen deregister a vehicle from its row
                 "vehicle_number": r["vehicle_number"], "type": VEHICLE_WORDS.get(r["vehicle_type"], r["vehicle_type"]),
                 "make_model": " ".join(p for p in (r["make"], r["model"]) if p), "color": r["color"] or "",
                 "flat": flat_text(r["flat_id"]), "flat_id": str(r["flat_id"]) if r["flat_id"] else None,

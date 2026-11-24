@@ -14,11 +14,14 @@ import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 /// The common areas a society usually has to maintain, offered as quick additions.
 const commonAreas = ['Refuse Area', 'Gym', 'Podium', 'Club house', 'Office'];
 
+const _periodWords = <String, String>{'month': 'Per month', 'quarter': 'Per quarter', 'year': 'Per year'};
+
 class _Line {
   final int id;
   final TextEditingController name;
   final TextEditingController amount;
   String split = 'area';
+  String period = 'month';
   _Line(this.id, {String name = '', String amount = ''})
       : name = TextEditingController(text: name),
         amount = TextEditingController(text: amount);
@@ -29,9 +32,10 @@ class _Line {
   }
 }
 
-/// A budget planner: list what the society needs each month (its elements and common areas such as the Refuse Area,
-/// Gym, Podium, Club house and Office), and see the total, the rate per sq ft, and what each flat would pay for its
-/// own area (or an equal share, per line). Nothing is saved.
+/// A budget planner: list what the society needs (its elements and common areas such as the Refuse Area, Gym, Podium,
+/// Club house and Office), each per month, quarter or year, with the society's total area, and see the total for a
+/// month, a quarter and a year, the rate per sq ft, and what any flat would pay for its own area (or an equal share,
+/// per line). Nothing is saved.
 class BillPlannerPanel extends ConsumerStatefulWidget {
   /// What the charge heads bill now, per element, to start a plan from.
   final List<EstimateElement> current;
@@ -43,12 +47,16 @@ class BillPlannerPanel extends ConsumerStatefulWidget {
 
 class _BillPlannerPanelState extends ConsumerState<BillPlannerPanel> {
   final List<_Line> _lines = [];
+  final TextEditingController _area = TextEditingController();
   int _next = 0;
   bool _compare = true;
   bool _loading = false;
   BillPlan? _plan;
   Object? _error;
   String _search = '';
+  String _period = 'monthly'; // the one shown on a narrow screen, and in the flat list
+  String? _wing; // the flat picked to see on its own
+  String? _flatNumber;
 
   @override
   void initState() {
@@ -61,6 +69,7 @@ class _BillPlannerPanelState extends ConsumerState<BillPlannerPanel> {
     for (final l in _lines) {
       l.dispose();
     }
+    _area.dispose();
     super.dispose();
   }
 
@@ -113,25 +122,37 @@ class _BillPlannerPanelState extends ConsumerState<BillPlannerPanel> {
       if (name.isEmpty && raw.isEmpty) continue;
       final amount = double.tryParse(raw.replaceAll(',', ''));
       if (name.isEmpty || amount == null || amount < 0) {
-        AppToast.warning(context, 'Give each line a name and a monthly amount');
+        AppToast.warning(context, 'Give each line a name and an amount');
         return;
       }
-      inputs.add(PlanLineInput(name, amount, split: l.split));
+      inputs.add(PlanLineInput(name, amount, split: l.split, period: l.period));
     }
     if (inputs.isEmpty) {
-      AppToast.warning(context, 'Add at least one element or common area with its monthly amount');
+      AppToast.warning(context, 'Add at least one element or common area with its amount');
       return;
+    }
+    double? area;
+    final rawArea = _area.text.trim();
+    if (rawArea.isNotEmpty) {
+      area = double.tryParse(rawArea.replaceAll(',', ''));
+      if (area == null || area <= 0) {
+        AppToast.warning(context, 'Enter the total area as a number of sq ft, or leave it empty to use the flats\' areas');
+        return;
+      }
     }
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final p = await ref.read(maintenanceBillingApiProvider).planMaintenance(societyId, inputs, compare: _compare);
+      final p = await ref
+          .read(maintenanceBillingApiProvider)
+          .planMaintenance(societyId, inputs, compare: _compare, totalAreaSqft: area);
       if (!mounted) return;
       setState(() {
         _plan = p;
         _loading = false;
+        if (!p.flats.any((f) => f.wing == _wing && f.number == _flatNumber)) _flatNumber = null; // the picked flat is gone
       });
     } catch (e) {
       if (!mounted) return;
@@ -143,6 +164,12 @@ class _BillPlannerPanelState extends ConsumerState<BillPlannerPanel> {
   }
 
   static String _rate(String? v) => v == null ? '—' : '₹$v / sq ft';
+
+  static String _periodNoun(String period) => switch (period) {
+        'quarterly' => 'quarter',
+        'yearly' => 'year',
+        _ => 'month',
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -160,8 +187,9 @@ class _BillPlannerPanelState extends ConsumerState<BillPlannerPanel> {
       else if (p != null) ...[
         _summary(p),
         const SizedBox(height: 14),
-        _lineTotals(p),
+        _byElement(p),
         const SizedBox(height: 14),
+        _onePicked(p),
         _flats(p),
         const SizedBox(height: 12),
         for (final n in p.notes)
@@ -173,15 +201,32 @@ class _BillPlannerPanelState extends ConsumerState<BillPlannerPanel> {
     ]);
   }
 
+  // ── The budget to enter ──
+
   Widget _editor() => AppCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Monthly budget', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+          const Text('Budget', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
           const SizedBox(height: 2),
           const Text(
-              'List what the society needs each month: its elements and common areas. Each line is shared by flat '
-              'area (a flat pays its area x the rate) or equally between all flats. Then Calculate.',
+              'List what the society needs: its elements and common areas, each per month, quarter or year, and the '
+              'total area of the society. Each line is shared by flat area (a flat pays its area x the rate) or equally '
+              'between all flats. Then Calculate: the totals come out monthly, quarterly and yearly.',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4)),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
+          TextField(
+            key: const ValueKey('plan-area'),
+            controller: _area,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+            decoration: InputDecoration(
+              labelText: 'Total society area (sq ft)',
+              isDense: true,
+              helperText: _plan == null
+                  ? "Leave empty to use the flats' areas added up"
+                  : "Leave empty to use the flats' areas: ${_plan!.flatsAreaSqft.toStringAsFixed(0)} sq ft",
+            ),
+          ),
+          const SizedBox(height: 12),
           Wrap(spacing: 8, runSpacing: 8, children: [
             for (final c in commonAreas)
               ActionChip(
@@ -249,7 +294,7 @@ class _BillPlannerPanelState extends ConsumerState<BillPlannerPanel> {
               controller: l.amount,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-              decoration: const InputDecoration(labelText: 'Monthly ₹', isDense: true),
+              decoration: const InputDecoration(labelText: 'Amount ₹', isDense: true),
             ),
           ),
           IconButton(
@@ -260,61 +305,209 @@ class _BillPlannerPanelState extends ConsumerState<BillPlannerPanel> {
           ),
         ]),
         const SizedBox(height: 6),
-        SegmentedButton<String>(
-          key: ValueKey('plan-split-${l.id}'),
-          segments: const [
-            ButtonSegment(value: 'area', label: Text('By flat area')),
-            ButtonSegment(value: 'equal', label: Text('Equal per flat')),
-          ],
-          selected: {l.split},
-          showSelectedIcon: false,
-          style: const ButtonStyle(visualDensity: VisualDensity.compact),
-          onSelectionChanged: (s) => setState(() => l.split = s.first),
-        ),
+        Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          DropdownButton<String>(
+            key: ValueKey('plan-period-${l.id}'),
+            value: l.period,
+            isDense: true,
+            items: [for (final e in _periodWords.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+            onChanged: (v) => setState(() => l.period = v ?? 'month'),
+          ),
+          SegmentedButton<String>(
+            key: ValueKey('plan-split-${l.id}'),
+            segments: const [
+              ButtonSegment(value: 'area', label: Text('By flat area')),
+              ButtonSegment(value: 'equal', label: Text('Equal per flat')),
+            ],
+            selected: {l.split},
+            showSelectedIcon: false,
+            style: const ButtonStyle(visualDensity: VisualDensity.compact),
+            onSelectionChanged: (s) => setState(() => l.split = s.first),
+          ),
+        ]),
       ]);
 
-  Widget _summary(BillPlan p) => AppCard(
+  // ── The results ──
+
+  Widget _periodSwitch() => SegmentedButton<String>(
+        key: const ValueKey('plan-period'),
+        segments: [for (final (k, label) in planPeriods) ButtonSegment(value: k, label: Text(label))],
+        selected: {_period},
+        showSelectedIcon: false,
+        style: const ButtonStyle(visualDensity: VisualDensity.compact),
+        onSelectionChanged: (s) => setState(() => _period = s.first),
+      );
+
+  Widget _summary(BillPlan p) {
+    final per = p.of(_period);
+    final noun = _periodNoun(_period);
+    final shortfall = amountOf(per.shortfall);
+    final currentNow = p.compared && p.currentTotal != null ? amountOf(p.currentTotal!) * (planPeriodMonths[_period] ?? 1) : null;
+    final collected = amountOf(per.collected);
+    return AppCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _periodSwitch(),
+        const SizedBox(height: 10),
+        Text('Total the society needs each $noun', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        Text(formatRupees(per.total), key: const ValueKey('plan-total'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 6),
+        Text('Rate by area: ${_rate(per.ratePerSqft)}${_period == 'monthly' ? '' : ' per $noun'}',
+            key: const ValueKey('plan-rate'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        if (amountOf(per.perFlatEqual) > 0)
+          Text('Plus an equal share: ${formatRupees(per.perFlatEqual)} per flat', style: const TextStyle(fontSize: 13)),
+        Text(
+            '${p.flatsCount} flats · ${p.areaTotalSqft.toStringAsFixed(0)} sq ft '
+            '(${p.areaSource == 'typed' ? 'as typed' : "the flats' areas"}) · average ${_rate(per.averagePerSqft)}',
+            style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+        if (shortfall != 0) ...[
+          const SizedBox(height: 8),
+          Text(
+              'The flats would pay ${formatRupees(per.collected)} together: '
+              '${shortfall > 0 ? 'short of' : 'over'} the budget by ${formatRupees(shortfall.abs().toStringAsFixed(2))}',
+              key: const ValueKey('plan-shortfall'),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.warning)),
+        ],
+        if (currentNow != null) ...[
+          const SizedBox(height: 8),
+          Text('Charge heads now (${p.monthLabel}): ${formatRupees(currentNow.toStringAsFixed(2))}', style: const TextStyle(fontSize: 13)),
+          Text(
+              'Difference: ${collected - currentNow > 0 ? '+' : ''}${formatRupees((collected - currentNow).toStringAsFixed(2))} a $noun',
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: collected - currentNow > 0 ? AppTheme.warning : AppTheme.success)),
+        ],
+      ]),
+    );
+  }
+
+  /// A table of rows against the periods: all three side by side where there is room, else the period chosen.
+  Widget _periodTable({
+    required List<(String, Map<String, String>)> rows,
+    required (String, Map<String, String>) total,
+    (String, Map<String, String>)? rate,
+    (String, Map<String, String>)? extra,
+  }) =>
+      LayoutBuilder(builder: (context, c) {
+        final wide = c.maxWidth >= 520;
+        final shown = wide ? [for (final (k, _) in planPeriods) k] : [_period];
+        Widget head() => Row(children: [
+              const Expanded(flex: 3, child: SizedBox()),
+              for (final k in shown)
+                Expanded(
+                  flex: 2,
+                  child: Text(planPeriods.firstWhere((e) => e.$1 == k).$2,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
+                ),
+            ]);
+        Widget row((String, Map<String, String>) r, {bool bold = false, bool rupees = true, Color? color}) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(children: [
+                Expanded(
+                  flex: 3,
+                  child: Text(r.$1, style: TextStyle(fontSize: 13, fontWeight: bold ? FontWeight.w700 : FontWeight.w400, color: color)),
+                ),
+                for (final k in shown)
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                        rupees
+                            ? formatRupees(r.$2[k] ?? '0')
+                            : (r.$2[k] == null || r.$2[k] == '—' ? '—' : '₹${r.$2[k]}'),
+                        textAlign: TextAlign.right,
+                        style: TextStyle(fontSize: 13, fontWeight: bold ? FontWeight.w700 : FontWeight.w500, color: color)),
+                  ),
+              ]),
+            );
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          head(),
+          const Divider(height: 10),
+          for (final r in rows) row(r),
+          const Divider(height: 14),
+          row(total, bold: true),
+          if (rate != null) row(rate, rupees: false, color: AppTheme.textSecondary),
+          if (extra != null) row(extra, color: AppTheme.warning),
+        ]);
+      });
+
+  Widget _byElement(BillPlan p) => AppCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Total the society needs each month', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-          Text(formatRupees(p.total), key: const ValueKey('plan-total'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 6),
-          Text('Rate by area: ${_rate(p.ratePerSqft)}', key: const ValueKey('plan-rate'),
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-          if (amountOf(p.perFlatEqual) > 0)
-            Text('Plus an equal share: ${formatRupees(p.perFlatEqual)} per flat', style: const TextStyle(fontSize: 13)),
-          Text('${p.flatsCount} flats · ${p.areaTotalSqft.toStringAsFixed(0)} sq ft · average ${_rate(p.averagePerSqft)}',
-              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-          if (p.compared && p.currentTotal != null) ...[
-            const SizedBox(height: 8),
-            Text('Charge heads now (${p.monthLabel}): ${formatRupees(p.currentTotal!)}', style: const TextStyle(fontSize: 13)),
-            Text(
-                'Difference: ${amountOf(p.changeTotal ?? '0') > 0 ? '+' : ''}${formatRupees(p.changeTotal ?? '0')} a month',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: amountOf(p.changeTotal ?? '0') > 0 ? AppTheme.warning : AppTheme.success)),
-          ],
+          const Text('The society, element by element', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          _periodTable(
+            rows: [for (final l in p.lines) (l.name, l.byPeriod)],
+            total: ('Total', {for (final (k, _) in planPeriods) k: p.of(k).total}),
+            rate: ('Rate per sq ft (by area)', {for (final (k, _) in planPeriods) k: p.of(k).ratePerSqft ?? '—'}),
+          ),
         ]),
       );
 
-  Widget _lineTotals(BillPlan p) => AppCard(
+  // ── One flat, picked ──
+
+  Widget _onePicked(BillPlan p) {
+    final wings = <String>{for (final f in p.flats) f.wing}.toList();
+    final inWing = [for (final f in p.flats) if (f.wing == _wing) f];
+    final flat = inWing.where((f) => f.number == _flatNumber).firstOrNull;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      AppCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Each line', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 6),
-          for (final l in p.lines) ...[
-            Row(children: [
-              Expanded(child: Text(l.name, style: const TextStyle(fontWeight: FontWeight.w600))),
-              Text(formatRupees(l.amount), style: const TextStyle(fontWeight: FontWeight.w700)),
-            ]),
+          const Text('Pick a flat', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                key: const ValueKey('plan-pick-wing'),
+                value: wings.contains(_wing) ? _wing : null,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Wing', isDense: true),
+                items: [for (final w in wings) DropdownMenuItem(value: w, child: Text(w.isEmpty ? '—' : w))],
+                onChanged: (v) => setState(() {
+                  _wing = v;
+                  _flatNumber = null;
+                }),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                key: const ValueKey('plan-pick-flat'),
+                value: inWing.any((f) => f.number == _flatNumber) ? _flatNumber : null,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Flat', isDense: true),
+                items: [for (final f in inWing) DropdownMenuItem(value: f.number, child: Text(f.number))],
+                onChanged: _wing == null ? null : (v) => setState(() => _flatNumber = v),
+              ),
+            ),
+          ]),
+          if (flat != null) ...[
+            const SizedBox(height: 12),
             Text(
-                l.split == 'area'
-                    ? 'By area: ${l.ratePerSqft == null ? '—' : '₹${l.ratePerSqft} / sq ft'}'
-                    : 'Equal: ${formatRupees(l.perFlat ?? '0')} per flat',
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-            const SizedBox(height: 8),
+                '${flat.flatLabel} · ${flat.areaSqft == null ? 'no area recorded' : '${flat.areaSqft!.toStringAsFixed(0)} sq ft'}',
+                key: const ValueKey('plan-picked'), style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 6),
+            _periodTable(
+              rows: [
+                for (var i = 0; i < p.lines.length; i++)
+                  (p.lines[i].name, {
+                    for (final (k, _) in planPeriods)
+                      k: i < flat.of(k).shares.length ? flat.of(k).shares[i].amount : '0'
+                  })
+              ],
+              total: ('This flat pays', {for (final (k, _) in planPeriods) k: flat.of(k).total}),
+              rate: ('Rate per sq ft', {for (final (k, _) in planPeriods) k: flat.of(k).perSqft ?? '—'}),
+              extra: p.compared
+                  ? ('Charge heads bill it now', {for (final (k, _) in planPeriods) k: flat.of(k).current ?? '0'})
+                  : null,
+            ),
           ],
         ]),
-      );
+      ),
+      const SizedBox(height: 14),
+    ]);
+  }
+
+  // ── Every flat ──
 
   Widget _flats(BillPlan p) {
     final q = _search.toLowerCase();
@@ -334,19 +527,22 @@ class _BillPlannerPanelState extends ConsumerState<BillPlannerPanel> {
           child: EmptyState(icon: Icons.apartment_rounded, title: 'No flats to show', subtitle: 'Nothing matches.'),
         )
       else
-        for (final f in shown) _PlanFlatTile(flat: f, compared: p.compared),
+        for (final f in shown) _PlanFlatTile(flat: f, plan: p, period: _period),
     ]);
   }
 }
 
 class _PlanFlatTile extends StatelessWidget {
   final PlanFlat flat;
-  final bool compared;
-  const _PlanFlatTile({required this.flat, required this.compared});
+  final BillPlan plan;
+  final String period;
+  const _PlanFlatTile({required this.flat, required this.plan, required this.period});
 
   @override
   Widget build(BuildContext context) {
-    final change = amountOf(flat.change ?? '0');
+    final f = flat.of(period);
+    final change = amountOf(f.change ?? '0');
+    final noun = _BillPlannerPanelState._periodNoun(period);
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ExpansionTile(
@@ -356,18 +552,18 @@ class _PlanFlatTile extends StatelessWidget {
         subtitle: Text(
             [
               if (flat.areaSqft != null) '${flat.areaSqft!.toStringAsFixed(0)} sq ft',
-              if (flat.perSqft != null) '₹${flat.perSqft} / sq ft',
+              if (f.perSqft != null) '₹${f.perSqft} / sq ft',
             ].join(' · '),
             style: const TextStyle(fontSize: 12.5)),
         trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text(formatRupees(flat.total), style: const TextStyle(fontWeight: FontWeight.w700)),
-          if (compared && change != 0)
-            Text('${change > 0 ? '+' : ''}${formatRupees(flat.change!)}',
+          Text(formatRupees(f.total), style: const TextStyle(fontWeight: FontWeight.w700)),
+          if (plan.compared && change != 0)
+            Text('${change > 0 ? '+' : ''}${formatRupees(f.change!)}',
                 style: TextStyle(fontSize: 11.5, color: change > 0 ? AppTheme.warning : AppTheme.success)),
         ]),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         children: [
-          for (final s in flat.shares)
+          for (final s in f.shares)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: Row(children: [
@@ -376,8 +572,8 @@ class _PlanFlatTile extends StatelessWidget {
               ]),
             ),
           const Divider(height: 14),
-          _row('Maintenance for the month', flat.total, bold: true),
-          if (compared && flat.current != null) _row('Charge heads now', flat.current!),
+          _row('Maintenance for the $noun', f.total, bold: true),
+          if (plan.compared && f.current != null) _row('Charge heads now', f.current!),
         ],
       ),
     );

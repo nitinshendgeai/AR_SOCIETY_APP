@@ -205,3 +205,49 @@ def test_the_screen_shows_a_few_rows_and_says_how_many_there_are(client, db, rig
     full = client.get(f"{P}/report/{rig['sid']}/file", params={"format": "xlsx"}, headers=rig["manager"]["headers"])
     from openpyxl import load_workbook
     assert sum(1 for _ in load_workbook(io.BytesIO(full.content))["Vehicles"].iter_rows(min_row=6)) == 123
+
+
+def _ids(db, rig):
+    return {v.vehicle_number: v.id for v in db.query(Vehicle).filter_by(society_id=rig["society"].id).all()}
+
+
+def test_each_vehicle_row_carries_its_id_so_the_screen_can_deregister_it(client, db, rig):
+    ids = _ids(db, rig)
+    rows = _get(client, rig)["vehicles"]["rows"]
+    assert {r["vehicle_number"]: r["id"] for r in rows} == {n: str(i) for n, i in ids.items()}
+
+
+def test_vehicles_can_be_deregistered_together_freeing_their_parking(client, db, rig):
+    ids = _ids(db, rig)
+    admin = rig["admin"]["headers"]
+    before = _get(client, rig)["vehicles"]["summary"]["total"]
+    r = client.post("/api/v1/vehicles/deregister", headers=admin,
+                    json={"vehicle_ids": [str(ids["MH12AA1111"]), str(ids["MH12BB2222"]), "00000000-0000-0000-0000-000000000000"]})
+    assert r.status_code == 200 and r.json() == {"deregistered": 2, "not_found": 1}
+    rep = _get(client, rig)["vehicles"]
+    assert before == 3 and rep["summary"]["total"] == 1
+    assert [x["vehicle_number"] for x in rep["rows"]] == ["MH12CC3333"]                 # only the third is left on the report
+    db.expire_all()
+    gone = db.query(Vehicle).filter_by(id=ids["MH12AA1111"]).one()
+    assert gone.is_active is False and gone.rfid_tag is None                             # soft: the record stays
+    p1 = db.query(ParkingSlot).filter_by(society_id=rig["society"].id, slot_number="P1").one()
+    assert p1.status == SlotStatus.AVAILABLE                                             # its slot is free again
+    alloc = db.query(ParkingAllocation).filter_by(vehicle_id=ids["MH12AA1111"]).one()
+    assert alloc.status.value == "released"
+    again = client.post("/api/v1/vehicles/deregister", headers=admin, json={"vehicle_ids": [str(ids["MH12AA1111"])]})
+    assert again.json() == {"deregistered": 0, "not_found": 1}                           # already gone: counted, not an error
+
+
+def test_only_committee_or_admin_in_the_same_society_may_deregister_in_bulk(client, db, rig):
+    ids = _ids(db, rig)
+    body = {"vehicle_ids": [str(ids["MH12CC3333"])]}
+    assert client.post("/api/v1/vehicles/deregister", headers=rig["manager"]["headers"], json=body).status_code == 403
+    assert client.post("/api/v1/vehicles/deregister", headers=rig["resident"]["headers"], json=body).status_code == 403
+    other = client.post("/api/v1/vehicles/deregister", headers=rig["other_admin"]["headers"], json=body)
+    assert other.status_code == 200 and other.json() == {"deregistered": 0, "not_found": 1}   # not their society's vehicle
+    db.expire_all()
+    assert db.query(Vehicle).filter_by(id=ids["MH12CC3333"]).one().is_active is True
+    admin = rig["admin"]["headers"]
+    assert client.post("/api/v1/vehicles/deregister", headers=admin, json={"vehicle_ids": []}).status_code == 422
+    too_many = {"vehicle_ids": ["00000000-0000-0000-0000-%012d" % i for i in range(501)]}
+    assert client.post("/api/v1/vehicles/deregister", headers=admin, json=too_many).status_code == 422

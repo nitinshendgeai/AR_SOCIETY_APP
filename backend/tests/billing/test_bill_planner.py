@@ -92,3 +92,61 @@ def test_the_planner_is_for_managers_of_the_society_and_writes_nothing(client, d
     _plan(client, h, society, line)
     heads = client.get(f"/api/v1/billing/charges/{society.id}", headers=h).json()
     assert heads == []                                                                       # no charge head was made
+
+
+def test_amounts_can_be_per_month_quarter_or_year_and_the_plan_reports_all_three(client, db):
+    society, flats, h = _rig(db, "pl6", areas=(600, 1200))                              # 1,800 sq ft
+    plan = _plan(client, h, society, [{"name": "Insurance", "amount": "36000", "period": "year"},     # 3,000 a month
+                                      {"name": "Security", "amount": "9000", "period": "month"}])
+    insurance = plan["lines"][0]
+    assert (insurance["amount"], insurance["period"]) == ("36000.00", "year")             # as typed
+    assert insurance["by_period"] == {"monthly": "3000.00", "quarterly": "9000.00", "yearly": "36000.00"}
+    assert plan["lines"][1]["by_period"] == {"monthly": "9000.00", "quarterly": "27000.00", "yearly": "108000.00"}
+    p = plan["periods"]
+    assert [p[k]["total"] for k in ("monthly", "quarterly", "yearly")] == ["12000.00", "36000.00", "144000.00"]
+    assert [p[k]["rate_per_sqft"] for k in ("monthly", "quarterly", "yearly")] == ["6.67", "20.00", "80.00"]
+    assert [p[k]["shortfall"] for k in ("monthly", "quarterly", "yearly")] == ["0.00"] * 3
+    assert plan["total"] == "12000.00" and plan["rate_per_sqft"] == "6.67"                 # the monthly fields are unchanged
+    small, large = _flat(plan, "101"), _flat(plan, "201")
+    assert [small["by_period"][k]["total"] for k in ("monthly", "quarterly", "yearly")] == ["4000.00", "12000.00", "48000.00"]
+    assert [large["by_period"][k]["total"] for k in ("monthly", "quarterly", "yearly")] == ["8000.00", "24000.00", "96000.00"]
+    assert small["by_period"]["quarterly"]["per_sqft"] == "20.00" and small["by_period"]["yearly"]["per_sqft"] == "80.00"
+    quarter = {s["name"]: s["amount"] for s in small["by_period"]["quarterly"]["shares"]}
+    assert quarter == {"Insurance": "3000.00", "Security": "9000.00"}                       # 600 / 1,800 of 9,000 and 27,000
+    assert plan["lines"][0]["rate_by_period"] == {"monthly": "1.6667", "quarterly": "5.0000", "yearly": "20.0000"}
+
+
+def test_a_typed_total_area_sets_the_rate_and_the_shortfall_is_shown(client, db):
+    society, flats, h = _rig(db, "pl7", areas=(600, 1200))                              # the flats add up to 1,800 sq ft
+    plan = _plan(client, h, society, [{"name": "Gym", "amount": "9000"}], total_area_sqft="2000", compare=False)
+    assert plan["area_source"] == "typed" and plan["area_total_sqft"] == 2000 and plan["flats_area_sqft"] == 1800
+    assert plan["rate_per_sqft"] == "4.50"                                                  # 9,000 / 2,000
+    assert (_flat(plan, "101")["total"], _flat(plan, "201")["total"]) == ("2700.00", "5400.00")
+    assert plan["periods"]["monthly"]["collected"] == "8100.00" and plan["periods"]["monthly"]["shortfall"] == "900.00"
+    assert plan["periods"]["yearly"]["shortfall"] == "10800.00"
+    assert any("You typed a total area of 2,000 sq ft" in n for n in plan["notes"])
+    same = _plan(client, h, society, [{"name": "Gym", "amount": "9000"}], total_area_sqft="1800", compare=False)
+    assert same["area_source"] == "typed" and same["periods"]["monthly"]["shortfall"] == "0.00"
+    assert not any("You typed" in n for n in same["notes"])                                 # nothing to point out
+    default = _plan(client, h, society, [{"name": "Gym", "amount": "9000"}], compare=False)
+    assert default["area_source"] == "flats" and default["area_total_sqft"] == 1800
+    for bad in ("0", "-5"):
+        r = client.post(URL, json={"society_id": str(society.id), "total_area_sqft": bad,
+                                   "lines": [{"name": "Gym", "amount": "5"}]}, headers=h)
+        assert r.status_code == 422
+
+
+def test_the_comparison_follows_the_period_and_a_typed_area_needs_no_flat_areas(client, db):
+    society, flats, h = _rig(db, "pl8", areas=(600, 1200))
+    _charge(client, h, society.id, "Service Charges", "fixed", 1000)                      # 1,000 a flat a month now
+    plan = _plan(client, h, society, [{"name": "Everything", "amount": "3600"}])
+    small = _flat(plan, "101")["by_period"]
+    assert (small["monthly"]["current"], small["monthly"]["total"], small["monthly"]["change"]) == ("1000.00", "1200.00", "200.00")
+    assert (small["quarterly"]["current"], small["quarterly"]["total"], small["quarterly"]["change"]) == ("3000.00", "3600.00", "600.00")
+    assert (small["yearly"]["current"], small["yearly"]["total"], small["yearly"]["change"]) == ("12000.00", "14400.00", "2400.00")
+    for f in flats:
+        f.area_sqft = None
+    db.commit()
+    typed = _plan(client, h, society, [{"name": "Gym", "amount": "1200"}], total_area_sqft="1200", compare=False)
+    assert typed["rate_per_sqft"] == "1.00" and typed["area_source"] == "typed"            # no flat has an area: the typed one is used
+    assert _flat(typed, "101")["total"] == "0.00"                                           # but a flat with no area pays nothing

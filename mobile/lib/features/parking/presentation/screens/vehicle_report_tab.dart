@@ -10,10 +10,13 @@ import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/utils/server_time.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show formatInr;
+import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/features/parking/data/vehicle_report_api.dart';
+import 'package:ar_society_app/features/parking/presentation/providers/parking_providers.dart' show parkingVehiclesProvider;
 import 'package:ar_society_app/features/society_structure/data/models/structure_models.dart' show FlatModel;
 import 'package:ar_society_app/features/society_structure/presentation/providers/structure_providers.dart';
 import 'package:ar_society_app/shared/utils/file_saver.dart';
+import 'package:ar_society_app/shared/widgets/confirm_remove.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart' show AppSheetFrame;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
@@ -51,6 +54,9 @@ class _VehicleReportTabState extends ConsumerState<VehicleReportTab> {
   String? _month; // null: the current month, as the server counts it
   String? _wingId, _flatId;
   int _section = 0; // vehicles | parking | violations | gate
+  bool _selecting = false; // choosing several vehicles to deregister together
+  final Set<String> _selected = {};
+  bool _busy = false;
 
   static const _sections = ['Vehicles', 'Parking', 'Violations', 'Gate'];
 
@@ -59,6 +65,36 @@ class _VehicleReportTabState extends ConsumerState<VehicleReportTab> {
   void _step(String shown, int by) {
     final p = shown.split('-');
     setState(() => _month = _monthKey(DateTime(int.parse(p[0]), int.parse(p[1]) + by)));
+  }
+
+  /// Deregister [ids] after asking: they leave the active lists, their RFID tags are cleared and their parking is
+  /// freed; the records are kept.
+  Future<void> _deregister(List<String> ids) async {
+    final many = ids.length > 1;
+    final ok = await confirmRemove(
+      context,
+      title: many ? 'Deregister ${ids.length} vehicles?' : 'Deregister this vehicle?',
+      message: '${many ? 'They stop' : 'It stops'} showing as active and ${many ? 'their' : 'its'} RFID '
+          '${many ? 'tags are' : 'tag is'} cleared and ${many ? 'their' : 'its'} parking is freed. The records are kept.',
+      action: 'Deregister',
+    );
+    if (!ok || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final r = await ref.read(vehicleReportApiProvider).deregister(ids);
+      ref.invalidate(vehicleReportProvider);
+      ref.invalidate(parkingVehiclesProvider);
+      if (!mounted) return;
+      setState(() {
+        _selected.clear();
+        _selecting = false;
+      });
+      AppToast.success(context, '${r.deregistered} vehicle${r.deregistered == 1 ? '' : 's'} deregistered');
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _download() => showAppSheet<void>(
@@ -236,7 +272,42 @@ class _VehicleReportTabState extends ConsumerState<VehicleReportTab> {
 
   // ── Vehicles ──
 
+  /// "Select" to tick several vehicles and deregister them together (a sheet imported wrongly); only committee and admin.
+  Widget _selectBar(List<Map<String, dynamic>> rows) {
+    final ids = [for (final v in rows) if (v['id'] != null) '${v['id']}'];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+        TextButton.icon(
+          key: const Key('vr-select'),
+          onPressed: () => setState(() {
+            _selecting = !_selecting;
+            _selected.clear();
+          }),
+          icon: Icon(_selecting ? Icons.close_rounded : Icons.checklist_rounded, size: 18),
+          label: Text(_selecting ? 'Cancel selecting' : 'Select vehicles'),
+        ),
+        if (_selecting) ...[
+          TextButton(
+            key: const Key('vr-select-all'),
+            onPressed: () => setState(() => _selected.addAll(ids)),
+            child: Text('Select all ${ids.length} shown'),
+          ),
+          if (_selected.isNotEmpty) TextButton(onPressed: () => setState(_selected.clear), child: const Text('Clear')),
+          FilledButton.icon(
+            key: const Key('vr-deregister-selected'),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.error),
+            onPressed: _selected.isEmpty || _busy ? null : () => _deregister(_selected.toList()),
+            icon: const Icon(Icons.delete_outline_rounded, size: 18),
+            label: Text('Deregister ${_selected.length} selected'),
+          ),
+        ],
+      ]),
+    );
+  }
+
   List<Widget> _vehicles(VehicleReport r) {
+    final canRemove = ref.watch(currentUserProvider)?.isAdminOrCommittee ?? false;
     final s = r.summaryOf(r.vehicles);
     final rows = r.rowsOf(r.vehicles);
     final without = ((r.vehicles['flats_without_vehicle'] as List?) ?? const []).cast<String>();
@@ -253,8 +324,24 @@ class _VehicleReportTabState extends ConsumerState<VehicleReportTab> {
         _line('Insurance: ${s['insurance_expired']} expired · ${s['insurance_soon']} expiring within 30 days · '
             '${s['insurance_missing']} not recorded'),
       if (rows.isEmpty) _empty('No vehicle on record for this selection.'),
+      if (canRemove && rows.isNotEmpty) _selectBar(rows),
       for (final v in rows)
         _RowCard(
+          leading: canRemove && _selecting && v['id'] != null
+              ? Checkbox(
+                  key: Key('vr-select-${v['id']}'),
+                  value: _selected.contains(v['id']),
+                  onChanged: (on) => setState(() => on == true ? _selected.add('${v['id']}') : _selected.remove('${v['id']}')),
+                )
+              : null,
+          trailing: canRemove && !_selecting && v['id'] != null
+              ? IconButton(
+                  key: Key('vr-remove-${v['id']}'),
+                  tooltip: 'Deregister this vehicle',
+                  icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AppTheme.error),
+                  onPressed: _busy ? null : () => _deregister(['${v['id']}']),
+                )
+              : null,
           title: '${v['vehicle_number']} · ${v['type']}',
           subtitle: [
             for (final p in [v['make_model'], v['color'], v['flat'], v['owner']])
@@ -400,7 +487,8 @@ class _RowCard extends StatelessWidget {
   final String? subtitle, detail;
   final Color? detailColor;
   final (String, Color)? tag;
-  const _RowCard({required this.title, this.subtitle, this.detail, this.detailColor, this.tag});
+  final Widget? leading, trailing;
+  const _RowCard({required this.title, this.subtitle, this.detail, this.detailColor, this.tag, this.leading, this.trailing});
 
   @override
   Widget build(BuildContext context) => Container(
@@ -412,6 +500,7 @@ class _RowCard extends StatelessWidget {
           border: Border.all(color: AppTheme.border),
         ),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (leading != null) leading!,
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
@@ -439,6 +528,7 @@ class _RowCard extends StatelessWidget {
               ),
             ),
           ],
+          if (trailing != null) trailing!,
         ]),
       );
 }

@@ -194,6 +194,27 @@ def _validate_vehicle_links(db: Session, society_id: UUID, flat_id: Optional[UUI
             raise HTTPException(status_code=404, detail="Tenant not found")
 
 
+class VehicleDeregisterRequest(OrmBase):
+    vehicle_ids: List[UUID] = Field(min_length=1, max_length=500)
+
+
+@router.post("/deregister")
+def deregister_vehicles(data: VehicleDeregisterRequest, db: Session = Depends(get_db),
+                        user: User = Depends(committee_or_admin)):
+    """Deregister many vehicles at once (e.g. a sheet imported wrongly), exactly as the single delete does for each:
+    off the active lists, its RFID tag cleared and its parking freed. Vehicles outside the caller's society, or already
+    deregistered, are left alone and counted in `not_found`."""
+    ids = set(data.vehicle_ids)
+    vehicles = _vehicle_query(db, user).filter(Vehicle.id.in_(ids)).all()
+    for v in vehicles:
+        v.is_active = False
+        v.rfid_tag = None
+    from app.modules.parking.services.parking_service import ParkingService
+    ParkingService.release_for_vehicles(db, [v.id for v in vehicles], user)
+    db.commit()
+    return {"deregistered": len(vehicles), "not_found": len(ids) - len(vehicles)}
+
+
 @router.post("/import", response_model=List[ImportResult])
 def import_vehicles_file(data: VehicleImportRequest, db: Session = Depends(get_db),
                          user: User = Depends(committee_or_admin)):

@@ -1260,30 +1260,55 @@ class EstimateChange {
 
 // ── Budget planner ───────────────────────────────────────────────────────────
 
-/// One line of the plan: what an element or common area costs the society each month, and how it is shared.
+/// The three periods a plan reports, with their words.
+const planPeriods = <(String, String)>[('monthly', 'Monthly'), ('quarterly', 'Quarterly'), ('yearly', 'Yearly')];
+
+/// How many months each period is, to scale a monthly figure.
+const planPeriodMonths = <String, int>{'monthly': 1, 'quarterly': 3, 'yearly': 12};
+
+/// One line of the plan: what an element or common area costs the society, per [period] (month | quarter | year), and
+/// how it is shared ([split]: area | equal).
 class PlanLineInput {
   final String name;
   final double amount;
-  final String split; // area | equal
-  const PlanLineInput(this.name, this.amount, {this.split = 'area'});
+  final String split;
+  final String period;
+  const PlanLineInput(this.name, this.amount, {this.split = 'area', this.period = 'month'});
 
-  Map<String, dynamic> toJson() => {'name': name, 'amount': amount, 'split': split};
+  Map<String, dynamic> toJson() => {'name': name, 'amount': amount, 'split': split, 'period': period};
+}
+
+Map<String, String> _periodMap(Object? v, String fallback) {
+  final m = (v as Map?)?.cast<String, dynamic>() ?? const {};
+  return {for (final (k, _) in planPeriods) k: _str(m[k] ?? fallback)};
 }
 
 class PlanLine {
   final String name;
-  final String amount;
+  final String amount; // as typed, per [period]
+  final String period;
   final String split;
   final String? ratePerSqft;
   final String? perFlat;
-  const PlanLine({required this.name, required this.amount, required this.split, this.ratePerSqft, this.perFlat});
+  final Map<String, String> byPeriod; // monthly | quarterly | yearly
+  const PlanLine({
+    required this.name,
+    required this.amount,
+    this.period = 'month',
+    required this.split,
+    this.ratePerSqft,
+    this.perFlat,
+    this.byPeriod = const {},
+  });
 
   factory PlanLine.fromJson(Map<String, dynamic> j) => PlanLine(
         name: j['name'] as String,
         amount: _str(j['amount']),
+        period: j['period'] as String? ?? 'month',
         split: j['split'] as String? ?? 'area',
         ratePerSqft: j['rate_per_sqft']?.toString(),
         perFlat: j['per_flat']?.toString(),
+        byPeriod: _periodMap(j['by_period'], j['amount']?.toString() ?? '0'),
       );
 }
 
@@ -1293,88 +1318,137 @@ class PlanShare {
   const PlanShare(this.name, this.amount);
 }
 
-/// What one flat would pay under the plan, with its share of each line.
-class PlanFlat {
-  final String flatLabel;
-  final double? areaSqft;
-  final List<PlanShare> shares;
+/// One flat's figures for one period: its total, its rate per sq ft, its share of each line, and (when compared) what
+/// the charge heads would bill it for the same period.
+class PlanFlatPeriod {
   final String total;
   final String? perSqft;
+  final List<PlanShare> shares;
   final String? current;
   final String? change;
+  const PlanFlatPeriod({required this.total, this.perSqft, required this.shares, this.current, this.change});
 
-  const PlanFlat(
-      {required this.flatLabel,
-      this.areaSqft,
-      required this.shares,
-      required this.total,
-      this.perSqft,
-      this.current,
-      this.change});
-
-  factory PlanFlat.fromJson(Map<String, dynamic> j) => PlanFlat(
-        flatLabel: j['flat_label'] as String? ?? '',
-        areaSqft: (j['area_sqft'] as num?)?.toDouble(),
-        shares: [
-          for (final s in (j['shares'] as List? ?? const []))
-            PlanShare((s as Map)['name'] as String, _str(s['amount']))
-        ],
+  factory PlanFlatPeriod.fromJson(Map<String, dynamic> j) => PlanFlatPeriod(
         total: _str(j['total']),
         perSqft: j['per_sqft']?.toString(),
+        shares: [
+          for (final s in (j['shares'] as List? ?? const [])) PlanShare((s as Map)['name'] as String, _str(s['amount']))
+        ],
         current: j['current']?.toString(),
         change: j['change']?.toString(),
       );
 }
 
-class BillPlan {
-  final List<PlanLine> lines;
+/// What one flat would pay under the plan: monthly, quarterly and yearly.
+class PlanFlat {
+  final String flatLabel;
+  final double? areaSqft;
+  final Map<String, PlanFlatPeriod> byPeriod;
+  const PlanFlat({required this.flatLabel, this.areaSqft, required this.byPeriod});
+
+  factory PlanFlat.fromJson(Map<String, dynamic> j) {
+    final monthly = PlanFlatPeriod.fromJson(j);
+    final by = (j['by_period'] as Map?)?.cast<String, dynamic>();
+    return PlanFlat(
+      flatLabel: j['flat_label'] as String? ?? '',
+      areaSqft: (j['area_sqft'] as num?)?.toDouble(),
+      // an older server sends the monthly figures only
+      byPeriod: {
+        for (final (k, _) in planPeriods)
+          k: by?[k] is Map ? PlanFlatPeriod.fromJson((by![k] as Map).cast<String, dynamic>()) : monthly,
+      },
+    );
+  }
+
+  PlanFlatPeriod of(String period) => byPeriod[period] ?? byPeriod['monthly']!;
+  String get wing => flatLabel.contains(' / ') ? flatLabel.substring(0, flatLabel.lastIndexOf(' / ')) : '';
+  String get number => flatLabel.contains(' / ') ? flatLabel.substring(flatLabel.lastIndexOf(' / ') + 3) : flatLabel;
+}
+
+/// The society's figures for one period.
+class PlanPeriod {
   final String total;
-  final double areaTotalSqft;
-  final int flatsCount;
   final String? ratePerSqft; // the lines shared by area
   final String perFlatEqual; // the lines shared equally
   final String? averagePerSqft;
+  final String collected; // what the flats would pay together
+  final String shortfall; // total less collected (more than the budget when negative)
+  const PlanPeriod({
+    required this.total,
+    this.ratePerSqft,
+    required this.perFlatEqual,
+    this.averagePerSqft,
+    required this.collected,
+    required this.shortfall,
+  });
+
+  factory PlanPeriod.fromJson(Map<String, dynamic> j) => PlanPeriod(
+        total: _str(j['total']),
+        ratePerSqft: j['rate_per_sqft']?.toString(),
+        perFlatEqual: _str(j['per_flat_equal']),
+        averagePerSqft: j['average_per_sqft']?.toString(),
+        collected: _str(j['collected']),
+        shortfall: _str(j['shortfall']),
+      );
+}
+
+class BillPlan {
+  final List<PlanLine> lines;
+  final Map<String, PlanPeriod> periods; // monthly | quarterly | yearly
+  final double areaTotalSqft;
+  final String areaSource; // flats | typed
+  final double flatsAreaSqft;
+  final int flatsCount;
   final List<PlanFlat> flats;
   final bool compared;
   final String? monthLabel;
-  final String? currentTotal;
-  final String? changeTotal;
+  final String? currentTotal; // monthly
   final List<String> notes;
 
   const BillPlan({
     required this.lines,
-    required this.total,
+    required this.periods,
     required this.areaTotalSqft,
+    this.areaSource = 'flats',
+    this.flatsAreaSqft = 0,
     required this.flatsCount,
-    this.ratePerSqft,
-    required this.perFlatEqual,
-    this.averagePerSqft,
     required this.flats,
     required this.compared,
     this.monthLabel,
     this.currentTotal,
-    this.changeTotal,
     this.notes = const [],
   });
 
   factory BillPlan.fromJson(Map<String, dynamic> j) {
     final t = j['totals'] as Map<String, dynamic>?;
+    final monthly = PlanPeriod.fromJson({
+      'total': j['total'],
+      'rate_per_sqft': j['rate_per_sqft'],
+      'per_flat_equal': j['per_flat_equal'],
+      'average_per_sqft': j['average_per_sqft'],
+      'collected': j['collected'] ?? j['total'],
+      'shortfall': '0',
+    });
+    final per = (j['periods'] as Map?)?.cast<String, dynamic>();
     return BillPlan(
       lines: [for (final e in (j['lines'] as List? ?? const [])) PlanLine.fromJson(e as Map<String, dynamic>)],
-      total: _str(j['total']),
+      periods: {
+        for (final (k, _) in planPeriods)
+          k: per?[k] is Map ? PlanPeriod.fromJson((per![k] as Map).cast<String, dynamic>()) : monthly,
+      },
       areaTotalSqft: (j['area_total_sqft'] as num?)?.toDouble() ?? 0,
+      areaSource: j['area_source'] as String? ?? 'flats',
+      flatsAreaSqft: (j['flats_area_sqft'] as num?)?.toDouble() ?? (j['area_total_sqft'] as num?)?.toDouble() ?? 0,
       flatsCount: j['flats_count'] as int? ?? 0,
-      ratePerSqft: j['rate_per_sqft']?.toString(),
-      perFlatEqual: _str(j['per_flat_equal']),
-      averagePerSqft: j['average_per_sqft']?.toString(),
       flats: [for (final e in (j['flats'] as List? ?? const [])) PlanFlat.fromJson(e as Map<String, dynamic>)],
       compared: j['compared'] as bool? ?? false,
       monthLabel: j['month_label'] as String?,
       currentTotal: t?['current']?.toString(),
-      changeTotal: t?['change']?.toString(),
       notes: [for (final n in (j['notes'] as List? ?? const [])) n as String],
     );
   }
+
+  PlanPeriod of(String period) => periods[period] ?? periods['monthly']!;
 }
 
 class MaintenanceBillingApi {
@@ -1569,10 +1643,13 @@ class MaintenanceBillingApi {
 
   /// The budget planner: [lines] shared over the flats by area (or equally): total, rate per sq ft and each flat's
   /// share, beside what the charge heads would bill it now when [compare]. Nothing is saved.
-  Future<BillPlan> planMaintenance(String societyId, List<PlanLineInput> lines, {bool compare = true}) async {
+  /// [totalAreaSqft]: the society's total area when typed (otherwise the flats' areas are added up).
+  Future<BillPlan> planMaintenance(String societyId, List<PlanLineInput> lines,
+      {bool compare = true, double? totalAreaSqft}) async {
     final r = await _dio.post('/billing/estimate/plan', data: {
       'society_id': societyId,
       'compare': compare,
+      if (totalAreaSqft != null) 'total_area_sqft': totalAreaSqft,
       'lines': [for (final l in lines) l.toJson()],
     });
     return BillPlan.fromJson(r.data as Map<String, dynamic>);

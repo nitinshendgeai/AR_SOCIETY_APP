@@ -56,6 +56,14 @@ class VehicleReportApi {
     return VehicleReport.fromJson(r.data as Map<String, dynamic>);
   }
 
+  /// Deregister vehicles (committee or admin): off the active lists, their RFID tags cleared and their parking freed;
+  /// the records are kept. [notFound] counts ids that were not an active vehicle of the society.
+  Future<({int deregistered, int notFound})> deregister(List<String> vehicleIds) async {
+    final r = await _dio.post('/vehicles/deregister', data: {'vehicle_ids': vehicleIds});
+    final j = r.data as Map<String, dynamic>;
+    return (deregistered: (j['deregistered'] as num).toInt(), notFound: (j['not_found'] as num).toInt());
+  }
+
   /// The whole report as a PDF (`pdf`) or an Excel file (`xlsx`).
   Future<Uint8List> file(String societyId, String format, {String? month, String? wingId, String? flatId}) async {
     final r = await _dio.get<List<int>>('/parking/report/$societyId/file',
