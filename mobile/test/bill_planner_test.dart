@@ -78,7 +78,7 @@ class _FakeBilling extends MaintenanceBillingApi {
           if (compare) 'change': f(total - now * e.value),
         };
       }
-      flatsJson.add({'flat_id': label, 'flat_label': label, 'area_sqft': a, ...by['monthly'], 'by_period': by});
+      flatsJson.add(<String, dynamic>{'flat_id': label, 'flat_label': label, 'area_sqft': a, ...(by['monthly'] as Map<String, dynamic>), 'by_period': by});
     }
     return BillPlan.fromJson({
       'lines': [
