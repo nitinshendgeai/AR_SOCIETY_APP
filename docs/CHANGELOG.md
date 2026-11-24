@@ -4,6 +4,22 @@ Format: `[YYYY-MM-DD] type: description`
 
 ---
 
+## 2026-11-24 (Round maintenance bills up to the next 50)
+
+### feat: a setting to round each maintenance bill up to the next 50
+
+- **What** - with the new choice **Up to the next 50** (Maintenance Billing, Rules), each bill's amount (charges, GST and any
+  interest on arrears) goes up to the next multiple of 50: 1,234.56 becomes 1,250, 1,260 becomes 1,300, 1,250 stays 1,250. A
+  remainder up to 50 goes to 50, anything above to 100.
+- **How it shows** - the difference is the bill's "Round off" line and is booked to the Rounding Off ledger, exactly as the nearest-rupee
+  rounding already is; the bill voucher still balances.
+- **Setting** - the rounding is now one choice: *Do not round* (the default), *Nearest rupee* or *Up to the next 50*. Existing
+  societies keep what they had. It applies to bills generated from now on; bills already made are not changed.
+- **API** - `round_up_step` (0 or 50) on `/billing/maintenance-settings`; when 50, it replaces `round_to_rupee`. New migration
+  `c3e5a7b9d1f2`.
+- Tests: `backend/tests/billing/test_round_up_to_50.py`, `mobile/test/round_up_rule_test.dart`.
+- Also: the settings sections now draw their switches and tiles on a transparent Material, which Flutter's debug check requires.
+
 ## 2026-11-22 (Residents and operations kept apart in the books)
 
 ### feat: filter registers and reports to residents, operations or everything

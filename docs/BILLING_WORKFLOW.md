@@ -68,6 +68,13 @@ interest line is added. The difference is `FlatBillDraft.round_off`, saved as `m
 `total_amount`/`outstanding`; the printed bill shows it as "Round off". `AccountPostings.post_bill` already posts any
 difference between the bill total and its lines to the `round_off` (Rounding Off) ledger, so the voucher balances.
 
+**Rounding up to the next 50.** `maintenance_settings.round_up_step` (0 = off, the default; 50 = on) makes `MaintenanceCalculator`
+round each bill's subtotal + tax *up* to the next multiple of 50 (`round_up_to_step()`): 1,234.56 becomes 1,250 (+15.44), 1,260
+becomes 1,300 (+40), and 1,250 stays. So a remainder up to 50 goes to 50 and anything above goes to 100. It uses the same
+`round_off` column, "Round off" line and Rounding Off ledger as the rupee rounding, and when it is set it takes the place of
+`round_to_rupee`. It applies to bills generated from now on. The settings screen offers *Do not round*, *Nearest rupee* and
+*Up to the next 50* as one choice.
+
 Interest on arrears is simple interest at the society rate on the unpaid principal. A committee-approved `InterestWaiver` (no interest, or a lower rate, for a date range on one flat) is applied by `MaintenanceCalculator._rate_days`.
 
 ## Payment receipt (`GET /billing/receipts/{receipt_no}/pdf`)

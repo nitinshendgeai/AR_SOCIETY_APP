@@ -268,6 +268,10 @@ class MaintenanceSettings(Base, TimestampMixin):
     # either way, is shown on the bill as "Round off" and posted to the Rounding Off ledger. Off: bills run to the paisa.
     round_to_rupee = Column(Boolean, default=False, server_default="false", nullable=False)
 
+    # 50: each bill is rounded UP to the next multiple of 50 (1,234.56 -> 1,250; 1,260 -> 1,300; 1,200 stays) and the
+    # difference is shown as "Round off", like the rupee rounding, which it replaces when both are set. 0: off.
+    round_up_step = Column(Integer, default=0, server_default="0", nullable=False)
+
     society = relationship("Society")
 
 
