@@ -597,6 +597,7 @@ class PlanLine(OrmBase):
     name: str = Field(min_length=1, max_length=150)
     amount: Decimal = Field(ge=0, le=Decimal("1000000000"))                    # what it costs the society each month
     split: Literal["area", "equal"] = "area"                                   # shared by flat area, or equally
+    period: Literal["month", "quarter", "year"] = "month"                      # what the amount covers
 
 
 class PlanRequest(OrmBase):
@@ -604,6 +605,7 @@ class PlanRequest(OrmBase):
     lines: List[PlanLine] = Field(min_length=1, max_length=60)
     month: Optional[str] = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")   # the month to compare with
     compare: bool = True
+    total_area_sqft: Optional[Decimal] = Field(default=None, gt=0, le=Decimal("100000000"))   # else the flats' areas
 
 
 @router.post("/estimate/plan", dependencies=[Depends(manager_above)])
@@ -614,7 +616,7 @@ def plan_maintenance(data: PlanRequest, db: Session = Depends(get_db), user: Use
     assert_society_access(user, data.society_id)
     try:
         return BillPlannerService(db).plan(data.society_id, [l.model_dump() for l in data.lines], data.month,
-                                           data.compare, society_today(db, data.society_id))
+                                           data.compare, society_today(db, data.society_id), data.total_area_sqft)
     except ValueError as exc:
         raise HTTPException(422, str(exc))
 
