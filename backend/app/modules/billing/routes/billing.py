@@ -379,6 +379,8 @@ class MaintenanceSettingsUpdate(OrmBase):
     auto_approve_admin_expenses: Optional[bool] = None
     # Round each bill to the whole rupee (the difference is shown on the bill and posted to Rounding Off)
     round_to_rupee: Optional[bool] = None
+    # Round each bill UP to the next multiple of this (50), or 0 for not (replaces the rupee rounding when set)
+    round_up_step: Optional[Literal[0, 50]] = None
 
     @field_validator("billing_start_date")
     @classmethod
@@ -436,6 +438,7 @@ def _settings_out(st) -> dict:
         "billing_start_date": st.billing_start_date.isoformat() if st.billing_start_date else None,
         "auto_approve_admin_expenses": bool(st.auto_approve_admin_expenses),
         "round_to_rupee": bool(st.round_to_rupee),
+        "round_up_step": int(st.round_up_step or 0),
     }
 
 @router.get("/maintenance-settings/{society_id}", dependencies=[Depends(manager_above)])

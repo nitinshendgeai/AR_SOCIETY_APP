@@ -241,6 +241,10 @@ class MaintenanceRules {
   /// Each bill is rounded to the nearest whole rupee; the difference is shown on the bill as "Round off".
   final bool roundToRupee;
 
+  /// 50: each bill is rounded UP to the next multiple of 50 (1,234.56 becomes 1,250; 1,260 becomes 1,300); 0: not.
+  /// It takes the place of [roundToRupee] when set.
+  final int roundUpStep;
+
   const MaintenanceRules({
     this.constructionCostPerSqft,
     this.interestRatePct = '12',
@@ -260,6 +264,7 @@ class MaintenanceRules {
     this.billingStartDate,
     this.autoApproveAdminExpenses = false,
     this.roundToRupee = false,
+    this.roundUpStep = 0,
   });
 
   factory MaintenanceRules.fromJson(Map<String, dynamic> j) => MaintenanceRules(
@@ -282,6 +287,7 @@ class MaintenanceRules {
             j['billing_start_date'] == null ? null : DateTime.parse(j['billing_start_date'] as String),
         autoApproveAdminExpenses: j['auto_approve_admin_expenses'] as bool? ?? false,
         roundToRupee: j['round_to_rupee'] as bool? ?? false,
+        roundUpStep: (j['round_up_step'] as num?)?.toInt() ?? 0,
       );
 }
 

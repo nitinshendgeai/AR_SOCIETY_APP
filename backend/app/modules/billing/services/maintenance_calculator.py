@@ -33,7 +33,7 @@ import calendar
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from decimal import Decimal, ROUND_FLOOR, ROUND_HALF_UP
+from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP
 from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 
@@ -72,6 +72,16 @@ def round_to_rupee(amount) -> Decimal:
     1,234.49 -> -0.49)."""
     amount = Decimal(amount)
     return money(amount.quantize(Decimal(1), rounding=ROUND_HALF_UP) - amount)
+
+
+def round_up_to_step(amount, step) -> Decimal:
+    """What to add to `amount` to take it up to the next multiple of `step` (50): nothing if it already is one.
+    1,234.56 -> +15.44 (1,250); 1,200.01 -> +49.99 (1,250); 1,260.00 -> +40.00 (1,300); 1,200.00 -> 0."""
+    amount, step = Decimal(amount), Decimal(step)
+    if step <= 0:
+        return ZERO
+    steps = (amount / step).to_integral_value(rounding=ROUND_CEILING)
+    return money(steps * step - amount)
 
 
 def cycle_months(cycle: BillingCycle) -> int:
@@ -114,7 +124,7 @@ def default_settings(society_id) -> MaintenanceSettings:
         society_id=society_id, construction_cost_per_sqft=None,
         interest_rate_pct=Decimal(12), interest_grace_days=0,
         non_occupancy_pct=ZERO, gst_enabled=False,
-        gst_rate_pct=Decimal(18), gst_threshold_monthly=Decimal(7500), round_to_rupee=False,
+        gst_rate_pct=Decimal(18), gst_threshold_monthly=Decimal(7500), round_to_rupee=False, round_up_step=0,
         bill_layout="standard", particulars_order="amount",
     )
 
@@ -619,7 +629,9 @@ class MaintenanceCalculator:
                             l.tax_amount = money(l.amount * s.gst_rate_pct / 100)
 
             self._add_arrears(draft, open_bills.get(flat.id, []), bill_date, self.waivers.get(flat.id, []))
-            if s.round_to_rupee:
+            if s.round_up_step:                  # up to the next 50 wins over the nearest rupee
+                draft.round_off = round_up_to_step(draft.subtotal + draft.tax, s.round_up_step)
+            elif s.round_to_rupee:
                 draft.round_off = round_to_rupee(draft.subtotal + draft.tax)
 
             if draft.total > 0:
