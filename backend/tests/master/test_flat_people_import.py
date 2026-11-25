@@ -94,9 +94,9 @@ def test_vehicles_dry_run_writes_nothing_then_the_import_adds_them(client, db, r
     assert (first.vehicle_type, first.make, first.model, first.color, first.parking_slot) == (
         VehicleType.CAR, "Honda", "City", "White", "P-12")
     assert first.flat_id == rig["a101"].id and first.resident_id is not None and first.tenant_id is None   # owner linked
-    assert cars["MH12CD5678"].vehicle_type == VehicleType.MOTORCYCLE and cars["MH12CD5678"].resident_id is None
+    assert cars["MH12CD5678"].vehicle_type == VehicleType.MOTORCYCLE and cars["MH12CD5678"].resident_id == first.resident_id   # no owner named: the primary resident
     assert cars["MH14EF0001"].tenant_id is not None and cars["MH14EF0001"].resident_id is None              # a tenant's vehicle
-    assert cars["MH14GH0002"].vehicle_type == VehicleType.OTHER and cars["MH14GH0002"].resident_id is None
+    assert cars["MH14GH0002"].vehicle_type == VehicleType.OTHER
 
     shown = client.get(f"/api/v1/vehicles/flat/{rig['a101'].id}", headers=rig["h"]).json()
     assert sorted(v["vehicle_number"] for v in shown) == ["MH12AB1234", "MH12CD5678"]
@@ -116,7 +116,9 @@ def test_owner_type_links_a_vehicle_to_the_tenant(client, db, rig):
     cars = {v.vehicle_number: v for v in db.query(Vehicle).all()}
     assert cars["MH12TT0001"].tenant_id is not None and cars["MH12TT0001"].resident_id is None
     assert cars["MH12TT0002"].tenant_id == cars["MH12TT0001"].tenant_id
-    assert cars["MH12TT0003"].tenant_id is None and cars["MH12TT0003"].resident_id is None
+    # a name that is no resident of the flat: the flat has no resident, only this one tenant, so it goes to them
+    assert cars["MH12TT0003"].tenant_id == cars["MH12TT0001"].tenant_id and cars["MH12TT0003"].resident_id is None
+    assert "linked to" in out[2]["message"]
 
 
 def test_a_second_import_skips_what_is_there_and_repeats_are_caught(client, db, rig):

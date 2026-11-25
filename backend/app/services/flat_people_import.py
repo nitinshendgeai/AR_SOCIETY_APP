@@ -6,7 +6,7 @@ skipped, so a corrected file can be imported again. With `dry_run` every row is 
 
 - **Vehicles**: one row per vehicle (Wing, Flat, Vehicle Number, Type, Make, Model, Colour, Parking Slot, Owner Name,
   Remarks). Checked with the same rules as registering a vehicle on the form (number format, one active vehicle per
-  number in the society). The owner name links the vehicle to that resident or tenant of the flat when it matches.
+  number in the society). The owner name links the vehicle to that resident or tenant of the flat when it matches; otherwise it goes to the flat's primary resident, so it shows on that resident's Vehicles tab.
 - **Family members**: one row per person (Wing, Flat, Name, Relationship, Mobile, Email, Date of Birth), added to the
   flat's Residents list as Family or Dependent. No app login is made for them (the office can give one later), and nobody
   is added twice: a name already on the flat is skipped.
@@ -215,6 +215,18 @@ def import_vehicles(db: Session, rows: List[VehicleImportRow], dry_run: bool, us
                     tenant_id = tenants[0].id
                 else:
                     owner_note = "Owner name is needed to link the vehicle to one of the tenants: saved without an owner"
+            if resident_id is None and tenant_id is None and kind != "tenant":
+                # No owner named, or none that matches: the vehicle still belongs to the flat's household, so it shows
+                # on its primary resident's Vehicles tab (the only resident; or, where nobody but a tenant lives, the tenant).
+                primary = next((r for r in residents if r.is_primary), None) or (residents[0] if len(residents) == 1 else None)
+                if primary is not None:
+                    resident_id = primary.id
+                    owner_note = (owner_note.replace("saved without an owner", f"linked to {primary.full_name}")
+                                  if owner_note else None)
+                elif not residents and len(tenants) == 1:
+                    tenant_id = tenants[0].id
+                    owner_note = (owner_note.replace("saved without an owner", f"linked to {tenants[0].full_name}")
+                                  if owner_note else None)
             try:
                 data = VehicleCreate.model_validate({
                     "society_id": society_id, "flat_id": flat.id, "resident_id": resident_id, "tenant_id": tenant_id,
