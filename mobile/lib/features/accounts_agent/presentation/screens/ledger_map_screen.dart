@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
-import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show formatInr;
+import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_hud.dart';
 import 'package:ar_society_app/features/accounts_agent/data/legal_api.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/providers/legal_providers.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_widgets.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
-import 'package:ar_society_app/shared/widgets/app_status.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 String ledgerStatusLabel(String s) => switch (s) {
@@ -186,15 +185,15 @@ class LedgerMapScreen extends ConsumerWidget {
         onRefresh: () async => ref.invalidate(ledgerMapProvider),
         child: async.when(
           loading: () => const AppLoader(),
-          error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(ledgerMapProvider)),
+          error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(ledgerMapProvider)),
           data: (m) => ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 96), children: [
             AgentCard(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Wrap(spacing: 8, runSpacing: 6, children: [
-                  AppStatusChip(
+                  HudChip(
                       label: m.signedOffCurrent ? 'Signed off' : (m.signedOff == null ? 'Not signed off' : 'Changed since sign-off'),
                       tone: m.signedOffCurrent ? AppTone.success : AppTone.warning),
-                  AppStatusChip(label: '${m.flagged} flagged', tone: m.flagged == 0 ? AppTone.success : AppTone.warning),
+                  HudChip(label: '${m.flagged} flagged', tone: m.flagged == 0 ? AppTone.success : AppTone.warning),
                 ]),
                 if (m.signedOff != null) ...[
                   const SizedBox(height: 6),
@@ -202,7 +201,7 @@ class LedgerMapScreen extends ConsumerWidget {
                   KeyValue('Note', m.signedOff!['note'] as String?),
                 ],
                 const SizedBox(height: 6),
-                Text(m.note, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                Text(m.note, style: const TextStyle(fontSize: 12.5, color: Hud.dim)),
                 if (mayDecide) ...[
                   const SizedBox(height: 8),
                   FilledButton.icon(
@@ -217,8 +216,8 @@ class LedgerMapScreen extends ConsumerWidget {
                 child: AgentCard(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Wrap(spacing: 8, runSpacing: 6, children: [
-                      AppStatusChip(label: ledgerStatusLabel(r.status), tone: ledgerStatusTone(r.status)),
-                      AppStatusChip(label: r.sourceLabel, tone: r.source == 'charge_type' ? AppTone.warning : AppTone.neutral),
+                      HudChip(label: ledgerStatusLabel(r.status), tone: ledgerStatusTone(r.status)),
+                      HudChip(label: r.sourceLabel, tone: r.source == 'charge_type' ? AppTone.warning : AppTone.neutral),
                     ]),
                     const SizedBox(height: 6),
                     Text(r.head, style: const TextStyle(fontWeight: FontWeight.w700)),

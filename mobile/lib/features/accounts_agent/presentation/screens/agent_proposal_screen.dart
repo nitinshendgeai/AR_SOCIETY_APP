@@ -3,15 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
-import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show formatInr;
+import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_hud.dart';
 import 'package:ar_society_app/features/accounts_agent/data/accounts_agent_api.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/providers/accounts_agent_providers.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_widgets.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
-import 'package:ar_society_app/shared/widgets/app_status.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// The approval screen: current values, proposed values, the debit/credit effect and the explanation. Nothing changes in
@@ -56,7 +55,7 @@ class _AgentProposalScreenState extends ConsumerState<AgentProposalScreen> {
         content: TextField(controller: c, maxLines: 2, decoration: const InputDecoration(labelText: 'Reason (required)')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(style: FilledButton.styleFrom(backgroundColor: AppTheme.error), onPressed: () => Navigator.pop(ctx, true), child: const Text('Reject')),
+          FilledButton(style: FilledButton.styleFrom(backgroundColor: Hud.red), onPressed: () => Navigator.pop(ctx, true), child: const Text('Reject')),
         ],
       ),
     );
@@ -92,11 +91,11 @@ class _AgentProposalScreenState extends ConsumerState<AgentProposalScreen> {
       maxWidth: 960,
       body: async.when(
         loading: () => const AppLoader(),
-        error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(agentProposalProvider(widget.proposalId))),
+        error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(agentProposalProvider(widget.proposalId))),
         data: (p) => ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 96), children: [
           AgentCard(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              AppStatusChip(
+              HudChip(
                   label: titleCase(p.status),
                   tone: switch (p.status) {
                     'PENDING' => AppTone.warning,
@@ -112,9 +111,9 @@ class _AgentProposalScreenState extends ConsumerState<AgentProposalScreen> {
                 const Padding(
                   padding: EdgeInsets.only(top: 8),
                   child: Text('The voucher changed after this proposal was made, so it was not applied. Open the finding and propose again.',
-                      style: TextStyle(color: AppTheme.error, fontSize: 13)),
+                      style: TextStyle(color: Hud.red, fontSize: 13)),
                 ),
-              if (p.error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(p.error!, style: const TextStyle(color: AppTheme.error, fontSize: 13))),
+              if (p.error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(p.error!, style: const TextStyle(color: Hud.red, fontSize: 13))),
               if (p.verificationNote != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(p.verificationNote!, style: const TextStyle(fontSize: 13))),
               if (p.decisionNote != null) KeyValue('Note', p.decisionNote),
             ]),
@@ -154,7 +153,7 @@ class _AgentProposalScreenState extends ConsumerState<AgentProposalScreen> {
             Row(children: [
               Expanded(
                 child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error),
+                    style: OutlinedButton.styleFrom(foregroundColor: Hud.red),
                     onPressed: _busy ? null : () => _reject(p),
                     child: const Text('Reject')),
               ),
@@ -169,12 +168,12 @@ class _AgentProposalScreenState extends ConsumerState<AgentProposalScreen> {
               const Padding(
                 padding: EdgeInsets.only(top: 12),
                 child: Text('You proposed this correction, so another administrator or committee member must approve it. '
-                    'You can still withdraw it with Reject.', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                    'You can still withdraw it with Reject.', style: TextStyle(color: Hud.dim, fontSize: 13)),
               ),
           ] else if (!mayDecide && p.status == 'PENDING')
             const Padding(
               padding: EdgeInsets.only(top: 16),
-              child: Text('Only an admin or committee member can approve or reject this.', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+              child: Text('Only an admin or committee member can approve or reject this.', style: TextStyle(color: Hud.dim, fontSize: 13)),
             ),
           const SizedBox(height: 12),
           TextButton(onPressed: () => context.push(agentFindingRoute(p.findingId)), child: const Text('Open the finding')),
@@ -198,11 +197,11 @@ class AgentApprovalsScreen extends ConsumerWidget {
         onRefresh: () async => ref.invalidate(agentPendingProposalsProvider),
         child: async.when(
           loading: () => const AppLoader(),
-          error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(agentPendingProposalsProvider)),
+          error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(agentPendingProposalsProvider)),
           data: (rows) => rows.isEmpty
               ? ListView(children: const [
                   SizedBox(height: 60),
-                  AppEmptyState(icon: Icons.approval_outlined, title: 'Nothing is waiting', subtitle: 'Correction proposals appear here until someone decides.'),
+                  HudEmptyState(icon: Icons.approval_outlined, title: 'Nothing is waiting', subtitle: 'Correction proposals appear here until someone decides.'),
                 ])
               : ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 96), children: [
                   for (final p in rows)
@@ -213,7 +212,7 @@ class AgentApprovalsScreen extends ConsumerWidget {
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Text(p.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                           const SizedBox(height: 4),
-                          Text(p.explanation, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                          Text(p.explanation, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: Hud.dim)),
                         ]),
                       ),
                     ),

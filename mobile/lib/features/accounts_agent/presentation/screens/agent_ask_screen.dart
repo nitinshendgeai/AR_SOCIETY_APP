@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_hud.dart';
 import 'package:ar_society_app/features/accounts_agent/data/assist_api.dart';
 import 'package:ar_society_app/features/accounts_agent/data/legal_api.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/providers/legal_providers.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
-import 'package:ar_society_app/shared/widgets/app_status.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 const _suggestedBooks = [
@@ -116,22 +115,22 @@ class _AgentAskScreenState extends ConsumerState<AgentAskScreen> {
         AgentCard(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Wrap(spacing: 8, runSpacing: 6, children: [
-              if (a.aiGenerated) const AppStatusChip(label: 'Worded by AI from the clauses below', tone: AppTone.info),
-              if (!a.answeredBySources) const AppStatusChip(label: 'Not answered by the bye-laws', tone: AppTone.warning),
-              if (a.needsProfessionalReview) const AppStatusChip(label: 'Check with your committee / adviser', tone: AppTone.warning),
+              if (a.aiGenerated) const HudChip(label: 'Worded by AI from the clauses below', tone: AppTone.info),
+              if (!a.answeredBySources) const HudChip(label: 'Not answered by the bye-laws', tone: AppTone.warning),
+              if (a.needsProfessionalReview) const HudChip(label: 'Check with your committee / adviser', tone: AppTone.warning),
             ]),
             const SizedBox(height: 8),
             Text(a.answer, style: const TextStyle(fontSize: 14, height: 1.45)),
             for (final n in a.notes) ...[
               const SizedBox(height: 8),
-              Text(n, style: const TextStyle(fontSize: 12.5, color: AppTheme.warning)),
+              Text(n, style: const TextStyle(fontSize: 12.5, color: Hud.amber)),
             ],
             if (a.societyFacts != null) ...[
               const SizedBox(height: 8),
-              Text('From your books: ${a.societyFacts}', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              Text('From your books: ${a.societyFacts}', style: const TextStyle(fontSize: 13, color: Hud.dim)),
             ],
             const SizedBox(height: 8),
-            Text(a.disclaimer, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            Text(a.disclaimer, style: const TextStyle(fontSize: 12, color: Hud.dim)),
           ]),
         ),
         if (a.cited.isNotEmpty) const AgentSectionTitle('Bye-law clauses'),
@@ -144,16 +143,16 @@ class _AgentAskScreenState extends ConsumerState<AgentAskScreen> {
         AgentCard(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             if (a.sources.isNotEmpty)
-              AppStatusChip(label: a.verifiedLaw ? 'Based on verified law' : 'Legal source not verified', tone: a.verifiedLaw ? AppTone.success : AppTone.warning),
+              HudChip(label: a.verifiedLaw ? 'Based on verified law' : 'Legal source not verified', tone: a.verifiedLaw ? AppTone.success : AppTone.warning),
             const SizedBox(height: 8),
             Text(a.answer, style: const TextStyle(fontSize: 14, height: 1.45)),
             if (a.uncertainty != null) ...[
               const SizedBox(height: 8),
-              Text(a.uncertainty!, style: const TextStyle(fontSize: 12.5, color: AppTheme.warning)),
+              Text(a.uncertainty!, style: const TextStyle(fontSize: 12.5, color: Hud.amber)),
             ],
             if (a.disclaimer != null) ...[
               const SizedBox(height: 8),
-              Text(a.disclaimer!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              Text(a.disclaimer!, style: const TextStyle(fontSize: 12, color: Hud.dim)),
             ],
           ]),
         ),
@@ -176,14 +175,14 @@ class _ClauseCard extends StatelessWidget {
               padding: const EdgeInsets.only(top: 4),
               child: Wrap(spacing: 6, runSpacing: 4, children: [
                 if (source.heading != null) Text(source.heading!, style: const TextStyle(fontSize: 12.5)),
-                AppStatusChip(label: source.societySpecific ? 'Your bye-laws' : 'Model bye-laws', tone: source.societySpecific ? AppTone.success : AppTone.info),
-                if (!source.verified) const AppStatusChip(label: 'Text not verified', tone: AppTone.warning),
+                HudChip(label: source.societySpecific ? 'Your bye-laws' : 'Model bye-laws', tone: source.societySpecific ? AppTone.success : AppTone.info),
+                if (!source.verified) const HudChip(label: 'Text not verified', tone: AppTone.warning),
               ]),
             ),
             children: [
               Align(alignment: Alignment.centerLeft, child: SelectableText(source.text, style: const TextStyle(fontSize: 13, height: 1.4))),
               const SizedBox(height: 6),
-              Align(alignment: Alignment.centerLeft, child: Text(source.documentTitle, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary))),
+              Align(alignment: Alignment.centerLeft, child: Text(source.documentTitle, style: const TextStyle(fontSize: 12, color: Hud.dim))),
             ],
           ),
         ),

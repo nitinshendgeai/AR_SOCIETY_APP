@@ -3,14 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
-import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_hud.dart';
 import 'package:ar_society_app/features/accounts_agent/data/legal_api.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/providers/legal_providers.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/society_rule_form_screen.dart' show calcValueLabels;
 import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
-import 'package:ar_society_app/shared/widgets/app_status.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 final _ruleProvider = FutureProvider.autoDispose.family<(LegalRule, List<LegalRule>), String>(
@@ -115,7 +114,7 @@ class _RuleRevisionScreenState extends ConsumerState<RuleRevisionScreen> {
       maxWidth: 800,
       body: async.when(
         loading: () => const AppLoader(),
-        error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(_ruleProvider(widget.ruleId))),
+        error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(_ruleProvider(widget.ruleId))),
         data: (pair) {
           final (rule, versions) = pair;
           final latest = versions.isEmpty ? rule : versions.last;
@@ -135,9 +134,9 @@ class _RuleRevisionScreenState extends ConsumerState<RuleRevisionScreen> {
                 child: AgentCard(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Wrap(spacing: 8, runSpacing: 6, children: [
-                      AppStatusChip(label: 'v${v.version}', tone: AppTone.neutral),
-                      AppStatusChip(label: titleCase(v.legalStatus), tone: v.legalStatus == 'SUPERSEDED' ? AppTone.neutral : AppTone.info),
-                      AppStatusChip(label: verificationLabel(v.verification), tone: v.isVerified ? AppTone.success : AppTone.warning),
+                      HudChip(label: 'v${v.version}', tone: AppTone.neutral),
+                      HudChip(label: titleCase(v.legalStatus), tone: v.legalStatus == 'SUPERSEDED' ? AppTone.neutral : AppTone.info),
+                      HudChip(label: verificationLabel(v.verification), tone: v.isVerified ? AppTone.success : AppTone.warning),
                     ]),
                     KeyValue('In force', [if (v.effectiveFrom != null) 'from ${v.effectiveFrom}', if (v.effectiveUntil != null) 'until ${v.effectiveUntil}'].join(' ')),
                     if (v.calcValue != null) KeyValue('Figure', '${v.calcValue}'),
@@ -146,7 +145,7 @@ class _RuleRevisionScreenState extends ConsumerState<RuleRevisionScreen> {
                 ),
               ),
             if (!latest.isLatest)
-              const Text('Only the latest version can be revised.', style: TextStyle(color: AppTheme.warning))
+              const Text('Only the latest version can be revised.', style: TextStyle(color: Hud.amber))
             else ...[
               const AgentSectionTitle('New version'),
               OutlinedButton.icon(
@@ -187,7 +186,7 @@ class _RuleRevisionScreenState extends ConsumerState<RuleRevisionScreen> {
               ),
               const SizedBox(height: 8),
               const Text('The new version is unverified until checked against the society document, like any rule.',
-                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12, color: Hud.dim)),
             ],
           ]);
         },

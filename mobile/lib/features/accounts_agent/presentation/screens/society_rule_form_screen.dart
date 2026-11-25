@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
-import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_hud.dart';
 import 'package:ar_society_app/features/accounts_agent/data/legal_api.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/providers/legal_providers.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_widgets.dart';
@@ -160,7 +160,7 @@ class _SocietyRuleFormScreenState extends ConsumerState<SocietyRuleFormScreen> {
       maxWidth: 760,
       body: rules.when(
         loading: () => const AppLoader(),
-        error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(legalRulesProvider)),
+        error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(legalRulesProvider)),
         data: (all) {
           final topics = numericTopics(all);
           final ownDocs = [for (final d in docs.valueOrNull ?? const <LegalDocument>[]) if (d.societySpecific && d.status != 'SUPERSEDED' && d.status != 'REJECTED') d];
@@ -260,7 +260,7 @@ class _SocietyRuleFormScreenState extends ConsumerState<SocietyRuleFormScreen> {
             ),
             const SizedBox(height: 8),
             const Text('Rules can be revised later only as a new version; the earlier version is kept.',
-                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 12, color: Hud.dim)),
           ]);
         },
       ),

@@ -2,15 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
-import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_hud.dart';
 import 'package:ar_society_app/features/accounts_agent/data/accounts_agent_api.dart';
 import 'package:ar_society_app/features/accounts_agent/data/legal_api.dart' show classificationLabel;
 import 'package:ar_society_app/features/accounts_agent/presentation/providers/accounts_agent_providers.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
-import 'package:ar_society_app/shared/widgets/app_status.dart';
-import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// Every category a finding can carry: the accounting checks, then the legal / bye-law and residential checks (D-16).
 const _categories = [
@@ -154,12 +152,12 @@ class _FindingsPage extends ConsumerWidget {
     final async = ref.watch(agentFindingsProvider(filter));
     return async.when(
       loading: () => const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator())),
-      error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), compact: true, onRetry: () => ref.invalidate(agentFindingsProvider(filter))),
+      error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), compact: true, onRetry: () => ref.invalidate(agentFindingsProvider(filter))),
       data: (page) {
         if (page.items.isEmpty && pageNo == 1) {
           return const Padding(
             padding: EdgeInsets.only(top: 40),
-            child: AppEmptyState(
+            child: HudEmptyState(
                 icon: Icons.verified_outlined, title: 'No findings', subtitle: 'Nothing matches these filters — the books look clean.'),
           );
         }
@@ -182,16 +180,16 @@ class _FindingCard extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Wrap(spacing: 8, runSpacing: 6, children: [
             SeverityChip(f.severity),
-            AppStatusChip(label: titleCase(f.status), tone: f.isOpen ? AppTone.warning : AppTone.neutral),
-            AppStatusChip(label: classificationLabel(f.classification), tone: classificationTone(f.classification)),
-            if (f.engine == 'legal') const AppStatusChip(label: 'Legal & bye-law', tone: AppTone.info),
-            if (f.onPendingVoucher) const AppStatusChip(label: 'Voucher not yet approved', tone: AppTone.info),
+            HudChip(label: titleCase(f.status), tone: f.isOpen ? AppTone.warning : AppTone.neutral),
+            HudChip(label: classificationLabel(f.classification), tone: classificationTone(f.classification)),
+            if (f.engine == 'legal') const HudChip(label: 'Legal & bye-law', tone: AppTone.info),
+            if (f.onPendingVoucher) const HudChip(label: 'Voucher not yet approved', tone: AppTone.info),
           ]),
           const SizedBox(height: 8),
           Text(f.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
           Text('${f.transactionRef ?? 'Transaction'}${f.voucherDate == null ? '' : ' · ${day(f.voucherDate!)}'} · ${titleCase(f.category)}',
-              style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+              style: const TextStyle(fontSize: 12.5, color: Hud.dim)),
           const SizedBox(height: 6),
           Text(f.explanation, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, height: 1.35)),
         ]),

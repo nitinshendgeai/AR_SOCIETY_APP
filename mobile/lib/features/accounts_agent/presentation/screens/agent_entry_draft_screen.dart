@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show LedgerAccount, formatInr;
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_hud.dart';
 import 'package:ar_society_app/features/accounts_agent/data/accounts_agent_api.dart' show ProposalLine;
 import 'package:ar_society_app/features/accounts_agent/data/assist_api.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/providers/legal_providers.dart';
@@ -12,7 +12,6 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/features/vendor/data/vendors_work_api.dart' show VendorRecord;
 import 'package:ar_society_app/features/vendor/presentation/providers/vendors_work_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
-import 'package:ar_society_app/shared/widgets/app_status.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 final _vendorsProvider = FutureProvider.autoDispose.family<List<VendorRecord>, String>(
@@ -172,7 +171,7 @@ class _AgentEntryDraftScreenState extends ConsumerState<AgentEntryDraftScreen> {
             if (r == null)
               const Padding(
                 padding: EdgeInsets.only(top: 8),
-                child: Text('Preview first: nothing is saved until you choose "Save for approval".', style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                child: Text('Preview first: nothing is saved until you choose "Save for approval".', style: TextStyle(fontSize: 12.5, color: Hud.dim)),
               ),
           ]),
         ),
@@ -181,8 +180,8 @@ class _AgentEntryDraftScreenState extends ConsumerState<AgentEntryDraftScreen> {
           AgentCard(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Wrap(spacing: 8, runSpacing: 6, children: [
-                AppStatusChip(label: titleCase(r.voucherType), tone: AppTone.info),
-                if (r.saved) AppStatusChip(label: '${r.voucherNumber} · pending approval', tone: AppTone.warning),
+                HudChip(label: titleCase(r.voucherType), tone: AppTone.info),
+                if (r.saved) HudChip(label: '${r.voucherNumber} · pending approval', tone: AppTone.warning),
               ]),
               const SizedBox(height: 8),
               KeyValue('Date', r.voucherDate),
@@ -191,11 +190,11 @@ class _AgentEntryDraftScreenState extends ConsumerState<AgentEntryDraftScreen> {
               if ((r.reference ?? '').isNotEmpty) KeyValue('Reference', r.reference),
               const Divider(height: 20),
               LinesTable(lines: [for (final l in r.lines) ProposalLine(l.account, l.debit, l.credit)]),
-              for (final b in r.basis) Padding(padding: const EdgeInsets.only(top: 6), child: Text(b, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary))),
+              for (final b in r.basis) Padding(padding: const EdgeInsets.only(top: 6), child: Text(b, style: const TextStyle(fontSize: 12.5, color: Hud.dim))),
               if (r.unclear.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
-                  child: Text('Not clear from your description: ${r.unclear.join(', ')}', style: const TextStyle(fontSize: 12.5, color: AppTheme.warning)),
+                  child: Text('Not clear from your description: ${r.unclear.join(', ')}', style: const TextStyle(fontSize: 12.5, color: Hud.amber)),
                 ),
             ]),
           ),
