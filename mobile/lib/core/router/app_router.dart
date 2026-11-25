@@ -83,6 +83,7 @@ import 'package:ar_society_app/features/vendor/presentation/screens/vendors_work
 import 'package:ar_society_app/features/vendor/presentation/screens/work_order_detail_screen.dart';
 import 'package:ar_society_app/features/vendor/presentation/screens/contract_detail_screen.dart';
 import 'package:ar_society_app/features/accounts/presentation/screens/accounts_gateway_screen.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_hud.dart' show AgentHud;
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/accounts_agent_dashboard_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_finding_detail_screen.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_findings_screen.dart';
@@ -1066,7 +1067,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 }
                 return null;
               },
-              builder: (_, state) => builder(state),
+              // The Accounts Agent screens wear their own dark command-deck theme.
+              builder: (_, state) => path.startsWith(AppRoutes.accountsAgent) ? AgentHud(child: builder(state)) : builder(state),
             ),
           GoRoute(
             path: AppRoutes.maintenanceBilling,

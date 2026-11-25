@@ -747,6 +747,30 @@ bool insideAppPage(BuildContext context) => _AppPageScope.inPage(context);
 /// The one frame for every ordinary screen (a list, a detail page, a dashboard of cards): on a computer a header
 /// (back button when there is somewhere to go back to, title, a line under it, buttons at the right, optional tabs)
 /// above a body on a centred content width; on a phone the standard app bar. Header and body share one left edge.
+/// Colours for an [AppPage] that sits on a themed backdrop of its own (the Accounts Agent's dark command deck).
+/// Without one, a page keeps the app's light grey canvas.
+class AppPageSkin extends InheritedWidget {
+  final Color background;
+  final Color title;
+  final Color subtitle;
+  final Color backBackground;
+  final Color backBorder;
+  const AppPageSkin({
+    super.key,
+    required this.background,
+    required this.title,
+    required this.subtitle,
+    required this.backBackground,
+    required this.backBorder,
+    required super.child,
+  });
+  static AppPageSkin? maybeOf(BuildContext context) => context.dependOnInheritedWidgetOfExactType<AppPageSkin>();
+  @override
+  bool updateShouldNotify(AppPageSkin old) =>
+      background != old.background || title != old.title || subtitle != old.subtitle ||
+      backBackground != old.backBackground || backBorder != old.backBorder;
+}
+
 class AppPage extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -785,9 +809,10 @@ class AppPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final desktop = MediaQuery.sizeOf(context).width >= kDesktopBreakpoint;
+    final skin = AppPageSkin.maybeOf(context);
     if (!desktop) {
       return Scaffold(
-        backgroundColor: AppTheme.surface,
+        backgroundColor: skin?.background ?? AppTheme.surface,
         drawer: drawer,
         appBar: AppBar(
           automaticallyImplyLeading: drawer == null,
@@ -817,7 +842,7 @@ class AppPage extends StatelessWidget {
           child: ConstrainedBox(constraints: BoxConstraints(maxWidth: maxWidth), child: child),
         );
     return Scaffold(
-      backgroundColor: AppTheme.surface,
+      backgroundColor: skin?.background ?? AppTheme.surface,
       floatingActionButton: floatingActionButton,
       floatingActionButtonLocation: floatingActionButtonLocation,
       bottomNavigationBar: bottomNavigationBar,
@@ -834,8 +859,8 @@ class AppPage extends StatelessWidget {
                   onPressed: () => context.pop(),
                   icon: const Icon(Icons.arrow_back_rounded, size: 20),
                   style: IconButton.styleFrom(
-                    backgroundColor: AppTheme.cardBg,
-                    side: const BorderSide(color: AppTheme.fieldBorder),
+                    backgroundColor: skin?.backBackground ?? AppTheme.cardBg,
+                    side: BorderSide(color: skin?.backBorder ?? AppTheme.fieldBorder),
                     fixedSize: const Size(40, 40),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusS)),
                   ),
@@ -847,10 +872,10 @@ class AppPage extends StatelessWidget {
                   Text(context.tr(title),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, height: 1.2, color: AppTheme.textPrimary)),
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, height: 1.2, color: skin?.title ?? AppTheme.textPrimary)),
                   if (subtitle != null) ...[
                     const SizedBox(height: 2),
-                    Text(context.tr(subtitle!), style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+                    Text(context.tr(subtitle!), style: TextStyle(fontSize: 14, color: skin?.subtitle ?? AppTheme.textSecondary)),
                   ],
                 ]),
               ),

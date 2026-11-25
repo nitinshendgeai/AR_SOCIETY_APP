@@ -4,16 +4,15 @@ import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
-import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show formatInr;
+import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_hud.dart';
 import 'package:ar_society_app/features/accounts_agent/data/legal_api.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/providers/accounts_agent_providers.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/providers/legal_providers.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_widgets.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
-import 'package:ar_society_app/shared/widgets/app_status.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// The Accounts & bye-law intelligence dashboard: every section of the society's books and governance, with what is
@@ -56,7 +55,7 @@ class _ComplianceHubScreenState extends ConsumerState<ComplianceHubScreen> {
         onRefresh: () async => invalidateLegal(ref),
         child: async.when(
           loading: () => const AppLoader(),
-          error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(complianceOverviewProvider)),
+          error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(complianceOverviewProvider)),
           data: (o) => ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 96), children: [
             AgentCard(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -97,7 +96,7 @@ class _ComplianceHubScreenState extends ConsumerState<ComplianceHubScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text('Balances: ${o.financialHealth['balances_basis']}.',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        style: const TextStyle(fontSize: 12, color: Hud.dim)),
                   ),
               ]),
             ),
@@ -125,12 +124,12 @@ class _ComplianceHubScreenState extends ConsumerState<ComplianceHubScreen> {
                     child: AgentCard(
                       onTap: () => context.push(route),
                       child: Row(children: [
-                        Icon(icon, color: AppTheme.primary),
+                        Icon(icon, color: Hud.cyan),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Text('$n. $title', style: const TextStyle(fontWeight: FontWeight.w700)),
-                            Text(sub, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                            Text(sub, style: const TextStyle(fontSize: 12.5, color: Hud.dim)),
                           ]),
                         ),
                         const Icon(Icons.chevron_right_rounded),
@@ -190,21 +189,21 @@ class _SectionTile extends StatelessWidget {
       onTap: onTap,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Icon(icon, color: AppTheme.primary),
+          Icon(icon, color: Hud.cyan),
           const SizedBox(width: 10),
           Expanded(child: Text('$number. $title', style: const TextStyle(fontWeight: FontWeight.w700))),
           Text('${s?.open ?? 0}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
         ]),
         const SizedBox(height: 8),
         Wrap(spacing: 6, runSpacing: 6, children: [
-          if (confirmed > 0) AppStatusChip(label: '$confirmed confirmed', tone: AppTone.danger),
-          if (potential > 0) AppStatusChip(label: '$potential to review', tone: AppTone.warning),
-          if (other > 0) AppStatusChip(label: '$other advisory / documents', tone: AppTone.info),
-          if ((s?.open ?? 0) == 0) const AppStatusChip(label: 'Nothing open', tone: AppTone.success),
+          if (confirmed > 0) HudChip(label: '$confirmed confirmed', tone: AppTone.danger),
+          if (potential > 0) HudChip(label: '$potential to review', tone: AppTone.warning),
+          if (other > 0) HudChip(label: '$other advisory / documents', tone: AppTone.info),
+          if ((s?.open ?? 0) == 0) const HudChip(label: 'Nothing open', tone: AppTone.success),
         ]),
         if (extra != null) ...[
           const SizedBox(height: 6),
-          Text(extra!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          Text(extra!, style: const TextStyle(fontSize: 12, color: Hud.dim)),
         ],
       ]),
     );
@@ -220,6 +219,6 @@ class _FundRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(child: KeyValue(name, formatInr(balance))),
-        if (overdrawn) const Padding(padding: EdgeInsets.only(top: 4), child: AppStatusChip(label: 'Overdrawn', tone: AppTone.danger)),
+        if (overdrawn) const Padding(padding: EdgeInsets.only(top: 4), child: HudChip(label: 'Overdrawn', tone: AppTone.danger)),
       ]);
 }

@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
-import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_hud.dart';
 import 'package:ar_society_app/features/accounts_agent/data/legal_api.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/providers/legal_providers.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_widgets.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
-import 'package:ar_society_app/shared/widgets/app_status.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// The statutory compliance calendar. The agent never assumes a tax applies: unless the society's own records show
@@ -49,7 +48,7 @@ class StatutoryCalendarScreen extends ConsumerWidget {
       maxWidth: 960,
       body: async.when(
         loading: () => const AppLoader(),
-        error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(complianceCalendarProvider)),
+        error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(complianceCalendarProvider)),
         data: (items) => ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 96), children: [
           for (final it in items)
             Padding(
@@ -57,12 +56,12 @@ class StatutoryCalendarScreen extends ConsumerWidget {
               child: AgentCard(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Wrap(spacing: 8, runSpacing: 6, children: [
-                    AppStatusChip(
+                    HudChip(
                         label: titleCase(it.status),
                         tone: it.status == 'COMPLETED' ? AppTone.success : (it.overdue ? AppTone.danger : AppTone.warning)),
-                    if (it.overdue) const AppStatusChip(label: 'Past due date', tone: AppTone.danger),
-                    if (it.needsProfessional) const AppStatusChip(label: 'Professional verification required', tone: AppTone.info),
-                    AppStatusChip(label: it.period, tone: AppTone.neutral),
+                    if (it.overdue) const HudChip(label: 'Past due date', tone: AppTone.danger),
+                    if (it.needsProfessional) const HudChip(label: 'Professional verification required', tone: AppTone.info),
+                    HudChip(label: it.period, tone: AppTone.neutral),
                   ]),
                   const SizedBox(height: 6),
                   Text(it.title, style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -79,7 +78,7 @@ class StatutoryCalendarScreen extends ConsumerWidget {
           const Padding(
             padding: EdgeInsets.only(top: 6),
             child: Text('Due dates are working dates to be verified against the current Act, Rules and notifications.',
-                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 12, color: Hud.dim)),
           ),
         ]),
       ),

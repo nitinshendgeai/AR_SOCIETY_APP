@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show formatInr;
+import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_hud.dart';
 import 'package:ar_society_app/features/accounts_agent/data/accounts_agent_api.dart';
 import 'package:ar_society_app/features/accounts_agent/data/legal_api.dart';
-import 'package:ar_society_app/shared/widgets/app_status.dart';
 
 AppTone severityTone(String s) => switch (s) {
       'CRITICAL' || 'HIGH' => AppTone.danger,
@@ -20,44 +20,109 @@ class SeverityChip extends StatelessWidget {
   final String severity;
   const SeverityChip(this.severity, {super.key});
   @override
-  Widget build(BuildContext context) => AppStatusChip(label: titleCase(severity), tone: severityTone(severity));
+  Widget build(BuildContext context) => HudChip(label: titleCase(severity), tone: severityTone(severity));
 }
 
-/// A white rounded block, the card language the Accounts screens use.
-class AgentCard extends StatelessWidget {
+/// A glass panel of the command deck: translucent navy, a cyan hairline, HUD corner brackets and a soft glow.
+/// Tappable panels light up on hover.
+class AgentCard extends StatefulWidget {
   final Widget child;
   final EdgeInsets padding;
   final VoidCallback? onTap;
-  const AgentCard({super.key, required this.child, this.padding = const EdgeInsets.all(16), this.onTap});
+
+  /// The neon of the border and brackets; cyan unless the panel reports a state (a red alarm, an amber warning).
+  final Color accent;
+  const AgentCard({super.key, required this.child, this.padding = const EdgeInsets.all(16), this.onTap, this.accent = Hud.cyan});
+  @override
+  State<AgentCard> createState() => _AgentCardState();
+}
+
+class _AgentCardState extends State<AgentCard> {
+  bool _hover = false;
   @override
   Widget build(BuildContext context) {
-    final box = Container(
+    final a = widget.accent;
+    final lit = _hover && widget.onTap != null;
+    final radius = BorderRadius.circular(AppTheme.radiusM);
+    final box = AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
       width: double.infinity,
-      padding: padding,
-      decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM)),
-      child: child,
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Hud.panelHi.withValues(alpha: lit ? 0.92 : 0.78), Hud.panel.withValues(alpha: lit ? 0.9 : 0.72)],
+        ),
+        border: Border.all(color: a.withValues(alpha: lit ? 0.6 : 0.2)),
+        boxShadow: [BoxShadow(color: a.withValues(alpha: lit ? 0.22 : 0.07), blurRadius: lit ? 28 : 22, spreadRadius: -4)],
+      ),
+      child: CustomPaint(
+        foregroundPainter: HudCorners(color: a.withValues(alpha: lit ? 1 : 0.7), length: 10),
+        child: Padding(padding: widget.padding, child: widget.child),
+      ),
     );
-    return onTap == null
-        ? box
-        : Material(
-            color: Colors.transparent,
-            child: InkWell(borderRadius: BorderRadius.circular(AppTheme.radiusM), onTap: onTap, child: box));
+    if (widget.onTap == null) return box;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: radius,
+          splashColor: a.withValues(alpha: 0.12),
+          highlightColor: a.withValues(alpha: 0.06),
+          hoverColor: Colors.transparent,
+          onTap: widget.onTap,
+          child: box,
+        ),
+      ),
+    );
   }
 }
 
+/// A HUD section heading: a lit marker, the title in spaced capitals, and a hairline fading out to the right.
 class AgentSectionTitle extends StatelessWidget {
   final String text;
   const AgentSectionTitle(this.text, {super.key});
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 18, bottom: 8),
+        padding: const EdgeInsets.only(top: 22, bottom: 10),
         child: Semantics(
           header: true,
-          child: Text(text, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+          label: text,
+          child: ExcludeSemantics(
+            child: Row(children: [
+              Transform.rotate(
+                angle: 0.785398,
+                child: Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(color: Hud.cyan, boxShadow: [BoxShadow(color: Hud.cyan.withValues(alpha: 0.8), blurRadius: 8)]),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                flex: 12, // the title takes what it needs; the hairline gets the rest
+                child: Text(text.toUpperCase(),
+                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, letterSpacing: 2.2, color: Hud.cyan)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  height: 1,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: [Hud.cyan.withValues(alpha: 0.45), Hud.cyan.withValues(alpha: 0)]),
+                  ),
+                ),
+              ),
+            ]),
+          ),
         ),
       );
 }
 
+/// A read-out tile: a large glowing figure over its label, with a thin level bar in the same colour.
 class AgentStat extends StatelessWidget {
   final String label;
   final int value;
@@ -67,14 +132,40 @@ class AgentStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AgentCard(
         onTap: onTap,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('$value', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: color)),
-          const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
-        ]),
+        accent: value > 0 ? color : Hud.cyan,
+        child: Semantics(
+          label: '$label: $value',
+          button: onTap != null,
+          child: ExcludeSemantics(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: Hud.label()),
+              const SizedBox(height: 6),
+              Text(value.toString().padLeft(2, '0'),
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    height: 1.05,
+                    color: value > 0 ? color : Hud.faint,
+                    fontFeatures: Hud.tabular,
+                    shadows: value > 0 ? [Shadow(color: color.withValues(alpha: 0.7), blurRadius: 18)] : null,
+                  )),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: value == 0 ? 0 : (0.15 + 0.85 * (1 - 1 / (1 + value / 4))),
+                  minHeight: 3,
+                  color: color,
+                  backgroundColor: Hud.line,
+                ),
+              ),
+            ]),
+          ),
+        ),
       );
 }
 
+/// A telemetry row: a small capitalised label and its value.
 class KeyValue extends StatelessWidget {
   final String label;
   final String? value;
@@ -83,10 +174,13 @@ class KeyValue extends StatelessWidget {
   Widget build(BuildContext context) => (value == null || value!.isEmpty)
       ? const SizedBox.shrink()
       : Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
+          padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SizedBox(width: 120, child: Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
-            Expanded(child: Text(value!, style: const TextStyle(fontSize: 13.5, color: AppTheme.textPrimary))),
+            SizedBox(
+              width: 168,
+              child: Padding(padding: const EdgeInsets.only(top: 2), child: Text(label.toUpperCase(), style: Hud.label(size: 10.5))),
+            ),
+            Expanded(child: Text(value!, style: const TextStyle(fontSize: 13.5, color: Hud.text, fontFeatures: Hud.tabular))),
           ]),
         );
 }
@@ -117,14 +211,14 @@ class LinesTable extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(children: [
-            Expanded(child: Text(l.account, style: TextStyle(fontSize: 13.5, decoration: deco))),
+            Expanded(child: Text(l.account, style: TextStyle(fontSize: 13.5, color: Hud.text, decoration: deco))),
             SizedBox(
-              width: 100,
-              child: Text(l.debit > 0 ? 'Dr ${formatInr(l.debit)}' : '', textAlign: TextAlign.right, style: TextStyle(fontSize: 13, decoration: deco)),
+              width: 120,
+              child: Text(l.debit > 0 ? 'Dr ${formatInr(l.debit)}' : '', textAlign: TextAlign.right, style: TextStyle(fontSize: 13, color: Hud.cyan, fontFeatures: Hud.tabular, decoration: deco)),
             ),
             SizedBox(
-              width: 100,
-              child: Text(l.credit > 0 ? 'Cr ${formatInr(l.credit)}' : '', textAlign: TextAlign.right, style: TextStyle(fontSize: 13, decoration: deco)),
+              width: 120,
+              child: Text(l.credit > 0 ? 'Cr ${formatInr(l.credit)}' : '', textAlign: TextAlign.right, style: TextStyle(fontSize: 13, color: Hud.violetText, fontFeatures: Hud.tabular, decoration: deco)),
             ),
           ]),
         ),
@@ -154,9 +248,9 @@ class LegalSourceCard extends StatelessWidget {
     return AgentCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Wrap(spacing: 8, runSpacing: 6, children: [
-          AppStatusChip(label: verificationLabel(s.verificationStatus), tone: s.verified ? AppTone.success : AppTone.warning),
-          AppStatusChip(label: titleCase(s.legalStatus), tone: AppTone.neutral),
-          AppStatusChip(label: s.societySpecific ? 'Society decision / bye-law' : 'Law / jurisdiction', tone: AppTone.info),
+          HudChip(label: verificationLabel(s.verificationStatus), tone: s.verified ? AppTone.success : AppTone.warning),
+          HudChip(label: titleCase(s.legalStatus), tone: AppTone.neutral),
+          HudChip(label: s.societySpecific ? 'Society decision / bye-law' : 'Law / jurisdiction', tone: AppTone.info),
         ]),
         const SizedBox(height: 8),
         Text(s.title, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
@@ -169,11 +263,11 @@ class LegalSourceCard extends StatelessWidget {
         if (s.blockedBy.isNotEmpty) KeyValue('Open legal review', s.blockedBy.join('; ')),
         if (s.uncertainty != null) ...[
           const SizedBox(height: 6),
-          Text(s.uncertainty!, style: const TextStyle(fontSize: 12.5, color: AppTheme.warning, height: 1.35)),
+          Text(s.uncertainty!, style: const TextStyle(fontSize: 12.5, color: Hud.amber, height: 1.35)),
         ],
         if (s.note != null) ...[
           const SizedBox(height: 6),
-          Text(s.note!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.35)),
+          Text(s.note!, style: const TextStyle(fontSize: 12, color: Hud.dim, height: 1.35)),
         ],
       ]),
     );

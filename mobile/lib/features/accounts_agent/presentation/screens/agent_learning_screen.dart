@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
-import 'package:ar_society_app/core/theme/app_theme.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_hud.dart';
 import 'package:ar_society_app/features/accounts_agent/data/accounts_agent_api.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/providers/accounts_agent_providers.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_widgets.dart';
@@ -91,7 +91,7 @@ class _AgentLearningScreenState extends ConsumerState<AgentLearningScreen> {
         onRefresh: () async => invalidateAgent(ref),
         child: status.when(
           loading: () => const AppLoader(),
-          error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(agentLearningStatusProvider)),
+          error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(agentLearningStatusProvider)),
           data: (l) {
             final run = l.lastRun;
             return ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 96), children: [
@@ -100,13 +100,13 @@ class _AgentLearningScreenState extends ConsumerState<AgentLearningScreen> {
                   const Text('Learning window', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 6),
                   Text('${day(l.windowStart)} – ${day(l.windowEnd)} · the most recent 3 months, rolling. Older records are never changed or hidden.',
-                      style: const TextStyle(fontSize: 13.5, color: AppTheme.textSecondary, height: 1.4)),
+                      style: const TextStyle(fontSize: 13.5, color: Hud.dim, height: 1.4)),
                   const SizedBox(height: 12),
                   Text('Learning confidence: ${titleCase(run?.confidenceLabel ?? 'none')}', style: const TextStyle(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 6),
                   LinearProgressIndicator(value: run?.confidenceScore ?? 0, minHeight: 8, borderRadius: BorderRadius.circular(6)),
                   const SizedBox(height: 8),
-                  Text(l.message, style: TextStyle(fontSize: 13, color: l.limited ? AppTheme.warning : AppTheme.textSecondary)),
+                  Text(l.message, style: TextStyle(fontSize: 13, color: l.limited ? Hud.amber : Hud.dim)),
                 ]),
               ),
               const AgentSectionTitle('Data coverage'),
@@ -132,7 +132,7 @@ class _AgentLearningScreenState extends ConsumerState<AgentLearningScreen> {
               const AgentSectionTitle('Monitoring'),
               settings.when(
                 loading: () => const AppLoader(),
-                error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), compact: true, onRetry: () => ref.invalidate(agentSettingsProvider)),
+                error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), compact: true, onRetry: () => ref.invalidate(agentSettingsProvider)),
                 data: (s) => AgentCard(
                   child: Column(children: [
                     SwitchListTile(
@@ -173,7 +173,7 @@ class _AgentLearningScreenState extends ConsumerState<AgentLearningScreen> {
               const AgentSectionTitle('Learning history'),
               history.when(
                 loading: () => const AppLoader(),
-                error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), compact: true, onRetry: () => ref.invalidate(agentLearningHistoryProvider)),
+                error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), compact: true, onRetry: () => ref.invalidate(agentLearningHistoryProvider)),
                 data: (rows) => rows.isEmpty
                     ? const AgentCard(child: Text('No learning runs yet.'))
                     : Column(children: [
@@ -183,7 +183,7 @@ class _AgentLearningScreenState extends ConsumerState<AgentLearningScreen> {
                             child: AgentCard(
                               child: Row(children: [
                                 Expanded(child: Text('${stamp(r.finishedAt)} · ${r.voucherCount} vouchers', style: const TextStyle(fontSize: 13.5))),
-                                Text('${titleCase(r.status)} · ${titleCase(r.confidenceLabel)}', style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                                Text('${titleCase(r.status)} · ${titleCase(r.confidenceLabel)}', style: const TextStyle(fontSize: 12.5, color: Hud.dim)),
                               ]),
                             ),
                           ),
@@ -233,10 +233,10 @@ class _DeadEvents extends ConsumerWidget {
     final async = ref.watch(agentDeadEventsProvider);
     return async.when(
       loading: () => const AppLoader(),
-      error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), compact: true, onRetry: () => ref.invalidate(agentDeadEventsProvider)),
+      error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), compact: true, onRetry: () => ref.invalidate(agentDeadEventsProvider)),
       data: (rows) => AgentCard(
         child: rows.isEmpty
-            ? const Text('No failed jobs.', style: TextStyle(color: AppTheme.textSecondary))
+            ? const Text('No failed jobs.', style: TextStyle(color: Hud.dim))
             : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 for (final e in rows)
                   Padding(
@@ -245,9 +245,9 @@ class _DeadEvents extends ConsumerWidget {
                       Text('${titleCase(e.eventType.replaceAll('.', ' '))}${e.deadAt == null ? '' : ' · failed ${day(e.deadAt!)}'}',
                           style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
                       if (e.lastError != null)
-                        Text(e.lastError!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        Text(e.lastError!, style: const TextStyle(fontSize: 12, color: Hud.dim)),
                       if (e.acknowledged)
-                        Text('Acknowledged: ${e.acknowledgeNote ?? ''}', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary))
+                        Text('Acknowledged: ${e.acknowledgeNote ?? ''}', style: const TextStyle(fontSize: 12, color: Hud.dim))
                       else
                         Wrap(spacing: 8, children: [
                           if (e.requeuesLeft > 0)

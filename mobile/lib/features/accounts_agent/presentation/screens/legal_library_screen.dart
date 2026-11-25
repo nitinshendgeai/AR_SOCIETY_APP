@@ -1,19 +1,18 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_hud.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/society_rule_form_screen.dart' show calcValueLabels;
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
-import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
 import 'package:ar_society_app/features/accounts_agent/data/legal_api.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/providers/legal_providers.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_widgets.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
-import 'package:ar_society_app/shared/widgets/app_status.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// The society's legal sources: its own documents (bye-laws, minutes, policies) with their verification state, the
@@ -69,7 +68,7 @@ class LegalLibraryScreen extends ConsumerWidget {
               TextField(controller: ref0, decoration: const InputDecoration(labelText: 'Registration / reference number (optional)')),
               const SizedBox(height: 10),
               const Text('The file is kept unchanged with its fingerprint. It is NOT used for compliance until an authorised person verifies it.',
-                  style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12.5, color: Hud.dim)),
             ]),
           ),
           actions: [
@@ -164,9 +163,9 @@ class _Documents extends ConsumerWidget {
     final async = ref.watch(legalDocumentsProvider);
     return async.when(
       loading: () => const AppLoader(),
-      error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(legalDocumentsProvider)),
+      error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(legalDocumentsProvider)),
       data: (docs) => docs.isEmpty
-          ? const AppEmptyState(
+          ? const HudEmptyState(
               icon: Icons.menu_book_outlined,
               title: 'No documents yet',
               subtitle: 'Upload the society\'s registered bye-laws and approved amendments first. Model bye-laws are not your bye-laws.')
@@ -177,10 +176,10 @@ class _Documents extends ConsumerWidget {
                   child: AgentCard(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Wrap(spacing: 8, runSpacing: 6, children: [
-                        AppStatusChip(label: titleCase(d.status), tone: d.operative ? AppTone.success : AppTone.warning),
-                        AppStatusChip(label: verificationLabel(d.verification), tone: AppTone.neutral),
-                        if (!d.societySpecific) const AppStatusChip(label: 'Jurisdiction-wide law', tone: AppTone.info),
-                        AppStatusChip(label: 'Text: ${titleCase(d.quality)}', tone: d.quality == 'GOOD' ? AppTone.neutral : AppTone.warning),
+                        HudChip(label: titleCase(d.status), tone: d.operative ? AppTone.success : AppTone.warning),
+                        HudChip(label: verificationLabel(d.verification), tone: AppTone.neutral),
+                        if (!d.societySpecific) const HudChip(label: 'Jurisdiction-wide law', tone: AppTone.info),
+                        HudChip(label: 'Text: ${titleCase(d.quality)}', tone: d.quality == 'GOOD' ? AppTone.neutral : AppTone.warning),
                       ]),
                       const SizedBox(height: 8),
                       Text(d.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
@@ -189,7 +188,7 @@ class _Documents extends ConsumerWidget {
                       KeyValue('Pages', d.pages?.toString()),
                       KeyValue('Fingerprint', d.sha256.length > 16 ? '${d.sha256.substring(0, 16)}…' : d.sha256),
                       for (final i in d.issues)
-                        Padding(padding: const EdgeInsets.only(top: 4), child: Text('• $i', style: const TextStyle(fontSize: 12.5, color: AppTheme.warning))),
+                        Padding(padding: const EdgeInsets.only(top: 4), child: Text('• $i', style: const TextStyle(fontSize: 12.5, color: Hud.amber))),
                       if (mayDecide && d.societySpecific && !d.operative && d.status != 'SUPERSEDED')
                         Align(
                           alignment: Alignment.centerRight,
@@ -248,10 +247,10 @@ class _Rules extends ConsumerWidget {
     final async = ref.watch(legalRulesProvider);
     return async.when(
       loading: () => const AppLoader(),
-      error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(legalRulesProvider)),
+      error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(legalRulesProvider)),
       data: (rules) => ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 96), children: [
         const Text('Rules are versioned. A rule that is not verified against the original Gazette or your registered bye-laws can only '
-            'raise potential issues for review, never a confirmed violation.', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            'raise potential issues for review, never a confirmed violation.', style: TextStyle(fontSize: 13, color: Hud.dim)),
         if (mayDecide) ...[
           const SizedBox(height: 10),
           Align(
@@ -270,9 +269,9 @@ class _Rules extends ConsumerWidget {
             child: AgentCard(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Wrap(spacing: 8, runSpacing: 6, children: [
-                  AppStatusChip(label: verificationLabel(r.verification), tone: r.isVerified ? AppTone.success : AppTone.warning),
-                  AppStatusChip(label: titleCase(r.legalStatus), tone: AppTone.neutral),
-                  if (r.societySpecific) const AppStatusChip(label: 'Society rule', tone: AppTone.info),
+                  HudChip(label: verificationLabel(r.verification), tone: r.isVerified ? AppTone.success : AppTone.warning),
+                  HudChip(label: titleCase(r.legalStatus), tone: AppTone.neutral),
+                  if (r.societySpecific) const HudChip(label: 'Society rule', tone: AppTone.info),
                 ]),
                 const SizedBox(height: 6),
                 Text(r.title, style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -281,7 +280,7 @@ class _Rules extends ConsumerWidget {
                 KeyValue('Reference', r.reference),
                 if (r.calcValue != null) KeyValue('Figure', '${calcValueLabels[r.calcType] ?? titleCase(r.calcType ?? '')}: ${r.calcValue}'),
                 KeyValue('In force', [if (r.effectiveFrom != null) 'from ${r.effectiveFrom}', if (r.effectiveUntil != null) 'until ${r.effectiveUntil}'].join(' ')),
-                if (r.note != null) Text(r.note!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                if (r.note != null) Text(r.note!, style: const TextStyle(fontSize: 12, color: Hud.dim)),
                 if (mayDecide && r.societySpecific && r.isLatest)
                   Align(
                     alignment: Alignment.centerRight,
@@ -334,7 +333,7 @@ class _Reviews extends ConsumerWidget {
     final async = ref.watch(legalReviewsProvider);
     return async.when(
       loading: () => const AppLoader(),
-      error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(legalReviewsProvider)),
+      error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(legalReviewsProvider)),
       data: (rows) => ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 96), children: [
         for (final r in rows)
           Padding(
@@ -342,9 +341,9 @@ class _Reviews extends ConsumerWidget {
             child: AgentCard(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Wrap(spacing: 8, runSpacing: 6, children: [
-                  AppStatusChip(label: titleCase(r.status), tone: r.isOpen ? AppTone.warning : AppTone.neutral),
-                  AppStatusChip(label: titleCase(r.type), tone: AppTone.neutral),
-                  if (r.blocking && r.isOpen) const AppStatusChip(label: 'Blocks confirmed findings', tone: AppTone.danger),
+                  HudChip(label: titleCase(r.status), tone: r.isOpen ? AppTone.warning : AppTone.neutral),
+                  HudChip(label: titleCase(r.type), tone: AppTone.neutral),
+                  if (r.blocking && r.isOpen) const HudChip(label: 'Blocks confirmed findings', tone: AppTone.danger),
                 ]),
                 const SizedBox(height: 6),
                 Text(r.title, style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -355,7 +354,7 @@ class _Reviews extends ConsumerWidget {
                 if (r.isOpen && !r.societySpecific)
                   const Padding(
                     padding: EdgeInsets.only(top: 6),
-                    child: Text('Jurisdiction-wide: decided by the platform\'s legal reviewer.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    child: Text('Jurisdiction-wide: decided by the platform\'s legal reviewer.', style: TextStyle(fontSize: 12, color: Hud.dim)),
                   ),
               ]),
             ),

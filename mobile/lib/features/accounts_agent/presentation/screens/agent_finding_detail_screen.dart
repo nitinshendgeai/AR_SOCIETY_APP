@@ -3,16 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
-import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show formatInr;
+import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_hud.dart';
 import 'package:ar_society_app/features/accounts_agent/data/accounts_agent_api.dart';
 import 'package:ar_society_app/features/accounts_agent/data/legal_api.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/providers/accounts_agent_providers.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_widgets.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
-import 'package:ar_society_app/shared/widgets/app_status.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// One finding in full: the voucher, what was detected and why, expected against actual, the evidence, and what to do.
@@ -87,7 +86,7 @@ class _AgentFindingDetailScreenState extends ConsumerState<AgentFindingDetailScr
       maxWidth: 960,
       body: async.when(
         loading: () => const AppLoader(),
-        error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(agentFindingProvider(widget.findingId))),
+        error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(agentFindingProvider(widget.findingId))),
         data: (f) => RefreshIndicator(
           onRefresh: () async => ref.invalidate(agentFindingProvider(widget.findingId)),
           child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 96), children: [
@@ -95,9 +94,9 @@ class _AgentFindingDetailScreenState extends ConsumerState<AgentFindingDetailScr
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Wrap(spacing: 8, runSpacing: 6, children: [
                   SeverityChip(f.severity),
-                  AppStatusChip(label: titleCase(f.status), tone: f.isOpen ? AppTone.warning : AppTone.neutral),
-                  AppStatusChip(label: classificationLabel(f.classification), tone: classificationTone(f.classification)),
-                  if (f.onPendingVoucher) const AppStatusChip(label: 'Voucher not yet approved', tone: AppTone.info),
+                  HudChip(label: titleCase(f.status), tone: f.isOpen ? AppTone.warning : AppTone.neutral),
+                  HudChip(label: classificationLabel(f.classification), tone: classificationTone(f.classification)),
+                  if (f.onPendingVoucher) const HudChip(label: 'Voucher not yet approved', tone: AppTone.info),
                 ]),
                 const SizedBox(height: 10),
                 Text(f.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
@@ -108,7 +107,7 @@ class _AgentFindingDetailScreenState extends ConsumerState<AgentFindingDetailScr
                 if (f.learningConfidence == 'none' || f.learningConfidence == 'limited')
                   const Padding(
                     padding: EdgeInsets.only(top: 6),
-                    child: Text('Raised with limited learning confidence.', style: TextStyle(fontSize: 12.5, color: AppTheme.warning)),
+                    child: Text('Raised with limited learning confidence.', style: TextStyle(fontSize: 12.5, color: Hud.amber)),
                   ),
               ]),
             ),
@@ -137,9 +136,9 @@ class _AgentFindingDetailScreenState extends ConsumerState<AgentFindingDetailScr
             AgentCard(
               child: Column(children: [
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Expanded(child: _Compare(label: 'Expected', text: f.expected ?? '—', color: AppTheme.success)),
+                  Expanded(child: _Compare(label: 'Expected', text: f.expected ?? '—', color: Hud.green)),
                   const SizedBox(width: 12),
-                  Expanded(child: _Compare(label: 'Actual', text: f.actual ?? '—', color: AppTheme.error)),
+                  Expanded(child: _Compare(label: 'Actual', text: f.actual ?? '—', color: Hud.red)),
                 ]),
               ]),
             ),
@@ -173,7 +172,7 @@ class _AgentFindingDetailScreenState extends ConsumerState<AgentFindingDetailScr
                     onTap: () => context.push(agentProposalRoute(p.id)),
                     child: Row(children: [
                       Expanded(child: Text(p.title, style: const TextStyle(fontWeight: FontWeight.w600))),
-                      AppStatusChip(label: titleCase(p.status), tone: p.status == 'PENDING' ? AppTone.warning : AppTone.neutral),
+                      HudChip(label: titleCase(p.status), tone: p.status == 'PENDING' ? AppTone.warning : AppTone.neutral),
                     ]),
                   ),
                 ),
@@ -212,7 +211,7 @@ class _Note extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
-        child: Text(text, style: const TextStyle(fontSize: 12.5, color: AppTheme.warning)),
+        child: Text(text, style: const TextStyle(fontSize: 12.5, color: Hud.amber)),
       );
 }
 
@@ -225,17 +224,17 @@ class _History extends ConsumerWidget {
     final async = ref.watch(agentFindingHistoryProvider(findingId));
     return async.when(
       loading: () => const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator())),
-      error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), compact: true,
+      error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), compact: true,
           onRetry: () => ref.invalidate(agentFindingHistoryProvider(findingId))),
       data: (rows) => AgentCard(
         child: rows.isEmpty
-            ? const Text('No history recorded yet.', style: TextStyle(color: AppTheme.textSecondary))
+            ? const Text('No history recorded yet.', style: TextStyle(color: Hud.dim))
             : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 for (final h in rows)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Icon(Icons.history_rounded, size: 16, color: AppTheme.textSecondary),
+                      const Icon(Icons.history_rounded, size: 16, color: Hud.dim),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -243,7 +242,7 @@ class _History extends ConsumerWidget {
                           Text('${h.actor} · ${day(h.at)} ${h.at.toLocal().hour.toString().padLeft(2, '0')}:'
                               '${h.at.toLocal().minute.toString().padLeft(2, '0')}'
                               '${h.details['reason'] != null ? ' · ${h.details['reason']}' : ''}',
-                              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                              style: const TextStyle(fontSize: 12, color: Hud.dim)),
                         ]),
                       ),
                     ]),
@@ -279,7 +278,7 @@ class _VoucherCard extends StatelessWidget {
           ]),
           const SizedBox(height: 4),
           Text('${v.type.isEmpty ? '' : '${titleCase(v.type)} · '}${day(v.date)} · ${titleCase(v.approvalStatus)}${v.cancelled ? ' · Cancelled' : ''}',
-              style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+              style: const TextStyle(fontSize: 12.5, color: Hud.dim)),
           if ((v.narration ?? '').isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(v.narration!, style: const TextStyle(fontSize: 13))),
           if ((v.reference ?? '').isNotEmpty) KeyValue('Reference', v.reference),
           if (v.sourceType != null) KeyValue('Posted from', titleCase(v.sourceType!)),

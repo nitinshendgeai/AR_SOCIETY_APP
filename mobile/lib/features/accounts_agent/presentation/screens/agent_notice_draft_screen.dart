@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show formatInr;
+import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_hud.dart';
 import 'package:ar_society_app/features/accounts_agent/data/assist_api.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/providers/legal_providers.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_widgets.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
-import 'package:ar_society_app/shared/widgets/app_status.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 const noticeKinds = {
@@ -206,10 +205,10 @@ class _AgentNoticeDraftScreenState extends ConsumerState<AgentNoticeDraftScreen>
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Wrap(spacing: 8, runSpacing: 6, children: [
                     Text('${b['source']} — clause ${b['clause_ref']}${b['page'] == null ? '' : ', page ${b['page']}'}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                    AppStatusChip(label: b['society_specific'] == true ? 'Your bye-laws' : 'Model bye-laws', tone: b['society_specific'] == true ? AppTone.success : AppTone.info),
+                    HudChip(label: b['society_specific'] == true ? 'Your bye-laws' : 'Model bye-laws', tone: b['society_specific'] == true ? AppTone.success : AppTone.info),
                   ]),
                   const SizedBox(height: 6),
-                  Text('${b['text']}', style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                  Text('${b['text']}', style: const TextStyle(fontSize: 12.5, color: Hud.dim)),
                 ]),
               ),
             ),

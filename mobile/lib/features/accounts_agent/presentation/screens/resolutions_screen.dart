@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
-import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show formatInr;
+import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_hud.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/providers/legal_providers.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_widgets.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
-import 'package:ar_society_app/shared/widgets/app_status.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 const _categories = ['expense', 'contract', 'fund_utilisation', 'fund_transfer', 'budget', 'charges', 'recovery', 'borrowing', 'policy', 'other'];
@@ -116,9 +115,9 @@ class ResolutionsScreen extends ConsumerWidget {
           : null,
       body: async.when(
         loading: () => const AppLoader(),
-        error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(resolutionsProvider)),
+        error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(resolutionsProvider)),
         data: (rows) => rows.isEmpty
-            ? const AppEmptyState(icon: Icons.how_to_vote_outlined, title: 'No resolutions recorded',
+            ? const HudEmptyState(icon: Icons.how_to_vote_outlined, title: 'No resolutions recorded',
                 subtitle: 'Record the resolutions that approve contracts, fund use, borrowing and budgets.')
             : ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 96), children: [
                 for (final r in rows)
@@ -127,9 +126,9 @@ class ResolutionsScreen extends ConsumerWidget {
                     child: AgentCard(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Wrap(spacing: 8, runSpacing: 6, children: [
-                          AppStatusChip(label: titleCase(r.status), tone: r.status == 'VERIFIED' ? AppTone.success : AppTone.warning),
-                          AppStatusChip(label: r.meetingType, tone: AppTone.neutral),
-                          AppStatusChip(label: titleCase(r.category), tone: AppTone.info),
+                          HudChip(label: titleCase(r.status), tone: r.status == 'VERIFIED' ? AppTone.success : AppTone.warning),
+                          HudChip(label: r.meetingType, tone: AppTone.neutral),
+                          HudChip(label: titleCase(r.category), tone: AppTone.info),
                         ]),
                         const SizedBox(height: 6),
                         Text('${r.number} · ${r.meetingDate == null ? '' : day(r.meetingDate!)}', style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -138,7 +137,7 @@ class ResolutionsScreen extends ConsumerWidget {
                         KeyValue('Authority', titleCase(r.authority)),
                         if (r.amount != null) KeyValue('Approved', formatInr(double.tryParse(r.amount!) ?? 0)),
                         for (final p in r.problems)
-                          Text('• $p', style: const TextStyle(fontSize: 12.5, color: AppTheme.error)),
+                          Text('• $p', style: const TextStyle(fontSize: 12.5, color: Hud.red)),
                         if (mayDecide && r.status == 'RECORDED' && r.problems.isEmpty)
                           Align(
                             alignment: Alignment.centerRight,

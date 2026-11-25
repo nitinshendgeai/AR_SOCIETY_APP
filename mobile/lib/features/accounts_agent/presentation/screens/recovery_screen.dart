@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
-import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show formatInr;
+import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_hud.dart';
 import 'package:ar_society_app/features/accounts_agent/data/legal_api.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/providers/legal_providers.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/widgets/agent_widgets.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart';
-import 'package:ar_society_app/shared/widgets/app_status.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 
 /// Member dues ageing and the recovery-readiness checklist (Section 154B-29 / Rule 106C-14). A review only: the agent
@@ -29,7 +28,7 @@ class RecoveryScreen extends ConsumerWidget {
           title: Text('Recovery readiness — ${row.flat}'),
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              AppStatusChip(
+              HudChip(
                   label: titleCase('${c['readiness']}'), tone: c['readiness'] == 'READY_FOR_PROFESSIONAL_REVIEW' ? AppTone.success : AppTone.warning),
               const SizedBox(height: 8),
               for (final i in items)
@@ -39,14 +38,14 @@ class RecoveryScreen extends ConsumerWidget {
                     Icon(
                       i['status'] == 'OK' ? Icons.check_circle_rounded : (i['status'] == 'MANUAL' ? Icons.help_outline_rounded : Icons.cancel_rounded),
                       size: 18,
-                      color: i['status'] == 'OK' ? AppTheme.success : (i['status'] == 'MANUAL' ? AppTheme.warning : AppTheme.error),
+                      color: i['status'] == 'OK' ? Hud.green : (i['status'] == 'MANUAL' ? Hud.amber : Hud.red),
                     ),
                     const SizedBox(width: 8),
                     Expanded(child: Text('${i['item']}\n${i['detail']}', style: const TextStyle(fontSize: 12.5))),
                   ]),
                 ),
               const SizedBox(height: 8),
-              Text('${c['note']}', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              Text('${c['note']}', style: const TextStyle(fontSize: 12, color: Hud.dim)),
             ]),
           ),
           actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
@@ -67,7 +66,7 @@ class RecoveryScreen extends ConsumerWidget {
       maxWidth: 960,
       body: async.when(
         loading: () => const AppLoader(),
-        error: (e, _) => AppErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(arrearsProvider)),
+        error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(arrearsProvider)),
         data: (r) => ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 96), children: [
           AgentCard(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -75,12 +74,12 @@ class RecoveryScreen extends ConsumerWidget {
               KeyValue('Defaulter after', '${r.defaulterAfterMonths} months'),
               for (final e in r.ageingTotals.entries) KeyValue('${e.key} days', formatInr(double.tryParse('${e.value}') ?? 0)),
               const SizedBox(height: 6),
-              Text(r.note, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+              Text(r.note, style: const TextStyle(fontSize: 12.5, color: Hud.dim)),
             ]),
           ),
           if (r.rule != null) ...[const AgentSectionTitle('Legal basis'), LegalSourceCard(source: r.rule!)],
           const AgentSectionTitle('Flats with unpaid bills'),
-          if (r.flats.isEmpty) const AppEmptyState(icon: Icons.verified_outlined, title: 'No unpaid bills'),
+          if (r.flats.isEmpty) const HudEmptyState(icon: Icons.verified_outlined, title: 'No unpaid bills'),
           for (final f in r.flats)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -90,10 +89,10 @@ class RecoveryScreen extends ConsumerWidget {
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(f.flat, style: const TextStyle(fontWeight: FontWeight.w700)),
-                      Text('${f.overdueDays} days overdue', style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                      Text('${f.overdueDays} days overdue', style: const TextStyle(fontSize: 12.5, color: Hud.dim)),
                     ]),
                   ),
-                  if (f.defaulter) const Padding(padding: EdgeInsets.only(right: 8), child: AppStatusChip(label: 'Defaulter', tone: AppTone.danger)),
+                  if (f.defaulter) const Padding(padding: EdgeInsets.only(right: 8), child: HudChip(label: 'Defaulter', tone: AppTone.danger)),
                   Text(formatInr(f.outstanding), style: const TextStyle(fontWeight: FontWeight.w700)),
                 ]),
               ),
