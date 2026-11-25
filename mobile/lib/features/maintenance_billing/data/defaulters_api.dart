@@ -124,6 +124,8 @@ class DuesSummary {
   final double inDefault;
   final Map<String, double> buckets;
   final double? interestRatePct;
+  final String? wing; // the wing the list is limited to, if any
+  final List<String> wings; // every wing with dues, to pick from
 
   const DuesSummary({
     required this.asOf,
@@ -135,6 +137,8 @@ class DuesSummary {
     required this.inDefault,
     required this.buckets,
     this.interestRatePct,
+    this.wing,
+    this.wings = const [],
   });
 
   factory DuesSummary.fromJson(Map<String, dynamic> j) => DuesSummary(
@@ -150,6 +154,8 @@ class DuesSummary {
             (b as Map<String, dynamic>)['key'] as String: _num(b['amount']),
         },
         interestRatePct: j['interest_rate_pct'] == null ? null : _num(j['interest_rate_pct']),
+        wing: j['wing'] as String?,
+        wings: [for (final w in (j['wings'] as List? ?? const [])) w.toString()],
       );
 }
 
@@ -176,23 +182,31 @@ class DefaultersApi {
   final Dio _dio;
   DefaultersApi({Dio? dio}) : _dio = dio ?? ApiClient.instance;
 
-  Future<DefaultersReport> report(String societyId, {int minMonths = 3, bool includeAll = false}) async {
+  Future<DefaultersReport> report(String societyId,
+      {int minMonths = 3, bool includeAll = false, String? wing}) async {
     final r = await _dio.get('/billing/defaulters/$societyId',
-        queryParameters: {'min_months': minMonths, 'include_all': includeAll});
+        queryParameters: {'min_months': minMonths, 'include_all': includeAll, if (wing != null) 'wing': wing});
     return DefaultersReport.fromJson(r.data as Map<String, dynamic>);
   }
 
-  Future<Uint8List> pdf(String societyId, {int minMonths = 3, bool includeAll = false}) async {
+  Future<Uint8List> pdf(String societyId,
+      {int minMonths = 3, bool includeAll = false, String? wing}) async {
     final r = await _dio.get<List<int>>('/billing/defaulters/$societyId',
-        queryParameters: {'min_months': minMonths, 'include_all': includeAll, 'format': 'pdf'},
+        queryParameters: {
+          'min_months': minMonths,
+          'include_all': includeAll,
+          'format': 'pdf',
+          if (wing != null) 'wing': wing,
+        },
         options: Options(responseType: ResponseType.bytes));
     return Uint8List.fromList(r.data!);
   }
 
-  /// [flatIds] null: every defaulter.
-  Future<ReminderResult> remind(String societyId, {List<String>? flatIds, int minMonths = 3}) async {
+  /// [flatIds] null: every defaulter (of [wing], when given).
+  Future<ReminderResult> remind(String societyId, {List<String>? flatIds, int minMonths = 3, String? wing}) async {
     final r = await _dio.post('/billing/defaulters/$societyId/remind', data: {
       if (flatIds != null) 'flat_ids': flatIds,
+      if (flatIds == null && wing != null) 'wing': wing,
       'min_months': minMonths,
     });
     final j = r.data as Map<String, dynamic>;

@@ -116,3 +116,24 @@ def test_months_before_clamps_to_month_end():
     assert months_before(date(2026, 5, 31), 3) == date(2026, 2, 28)
     assert months_before(date(2026, 1, 15), 3) == date(2025, 10, 15)
     assert months_before(date(2026, 3, 31), 1) == date(2026, 2, 28)
+
+
+def test_defaulters_can_be_limited_to_one_wing(client, db):
+    society, flat1, flat2, manager, _res = _two_cycles(client, db, "df5")
+    h, sid = manager["headers"], str(society.id)
+    mine = client.get(f"{API}/{sid}", params={"wing": "Tower A"}, headers=h).json()
+    assert [r["flat_id"] for r in mine["flats"]] == [str(flat1.id)]
+    assert mine["summary"]["wing"] == "Tower A" and mine["summary"]["wings"] == ["Tower A"]
+    assert mine["summary"]["defaulters"] == 1 and mine["summary"]["total_outstanding"] == "10000.00"
+
+    # another wing: nothing from this one, and the summary follows, but the picker still lists the wings with dues
+    other = client.get(f"{API}/{sid}", params={"wing": "Tower B", "include_all": True}, headers=h).json()
+    assert other["flats"] == [] and other["summary"]["defaulters"] == 0
+    assert other["summary"]["total_outstanding"] == "0.00" and other["summary"]["wings"] == ["Tower A"]
+    assert client.get(f"{API}/{sid}", headers=h).json()["summary"]["wing"] is None
+
+    # reminders and the printed list follow the wing too
+    assert client.post(f"{API}/{sid}/remind", json={"wing": "Tower B"}, headers=h).json()["flats_reminded"] == 0
+    assert client.post(f"{API}/{sid}/remind", json={"wing": "Tower A"}, headers=h).json()["flats_reminded"] == 1
+    pdf = client.get(f"{API}/{sid}", params={"wing": "Tower A", "format": "pdf"}, headers=h)
+    assert pdf.status_code == 200 and pdf.content[:4] == b"%PDF"

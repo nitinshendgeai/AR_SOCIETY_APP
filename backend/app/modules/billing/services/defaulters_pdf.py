@@ -58,6 +58,8 @@ def render_defaulters_pdf(data: dict, society, *, compress: bool = True) -> byte
     as_of = date.fromisoformat(s["as_of"])
     heading = ("LIST OF DEFAULTERS" if not s["include_all"] else "MEMBERS' DUES OUTSTANDING") + \
         f" AS ON {long_date(as_of).upper()}"
+    if s.get("wing"):
+        heading += f" — WING {str(s['wing']).upper()}"
     sub = (f"Members with maintenance dues outstanding for more than {s['min_months']} months after the due date"
            if not s["include_all"] else "Every flat with maintenance dues outstanding, aged from the due date")
     story = [*society_header(society, width), Spacer(1, 4 * mm), Paragraph(escape(heading), P["title"]),

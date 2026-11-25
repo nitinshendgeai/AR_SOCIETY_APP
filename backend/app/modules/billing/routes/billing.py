@@ -1257,9 +1257,11 @@ def ignore_bank_entry(
 class DuesReminderRequest(OrmBase):
     flat_ids: Optional[List[UUID]] = None   # None: every defaulter
     min_months: int = Field(default=3, ge=1, le=24)
+    wing: Optional[str] = Field(default=None, max_length=100)   # with no flat_ids: only this wing's defaulters
 
 
-def _defaulters_payload(db: Session, society_id: UUID, min_months: int, include_all: bool) -> dict:
+def _defaulters_payload(db: Session, society_id: UUID, min_months: int, include_all: bool,
+                        wing: Optional[str] = None) -> dict:
     from app.modules.billing.services.bill_pdf import flat_label
     from app.modules.billing.services.defaulters import (
         AGE_BUCKETS, MemberDues, bill_label, member_contact, months_before,
@@ -1268,6 +1270,10 @@ def _defaulters_payload(db: Session, society_id: UUID, min_months: int, include_
     as_of = society_today(db, society_id)
     cutoff = months_before(as_of, min_months)
     dues = MemberDues(db).flats(society_id, as_of)
+    # every wing with dues, so the picker keeps them all while one is chosen
+    wings = sorted({fd.flat.wing.name for fd in dues if fd.flat.wing}, key=_natural)
+    if wing:
+        dues = [fd for fd in dues if fd.flat.wing and fd.flat.wing.name == wing]
     settings = BillingService(db).get_maintenance_settings(society_id)
     flats, totals = [], {k: Decimal(0) for k, _, _ in AGE_BUCKETS}
     total_outstanding = in_default = defaulters_amount = Decimal(0)
@@ -1307,6 +1313,7 @@ def _defaulters_payload(db: Session, society_id: UUID, min_months: int, include_
     return {
         "summary": {
             "as_of": as_of.isoformat(), "min_months": min_months, "include_all": include_all,
+            "wing": wing, "wings": wings,
             "default_cutoff": cutoff.isoformat(),
             "flats_with_dues": len(dues), "total_outstanding": str(money(total_outstanding)),
             "defaulters": defaulters, "defaulters_outstanding": str(money(defaulters_amount)),
@@ -1324,14 +1331,16 @@ def _natural(s: str):
 
 @router.get("/defaulters/{society_id}", dependencies=[Depends(manager_above)])
 def defaulters_list(society_id: UUID, min_months: int = Query(3, ge=1, le=24), include_all: bool = False,
+                    wing: Optional[str] = Query(None, max_length=100),
                     format: str = Query("json", pattern="^(json|pdf)$"),
                     db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Defaulters — flats with dues outstanding more than `min_months`
-    after the due date — or, with include_all, every flat with dues. JSON,
+    after the due date — or, with include_all, every flat with dues; `wing`
+    keeps one wing's flats (the summary follows). JSON,
     or ?format=pdf for the printed list."""
     from app.core.tenant_scope import assert_society_access
     assert_society_access(user, society_id)
-    data = _defaulters_payload(db, society_id, min_months, include_all)
+    data = _defaulters_payload(db, society_id, min_months, include_all, wing or None)
     if format == "pdf":
         from app.models.society import Society
         from app.modules.billing.services.defaulters_pdf import render_defaulters_pdf
@@ -1349,7 +1358,7 @@ def remind_defaulters(society_id: UUID, data: DuesReminderRequest, db: Session =
     from app.core.tenant_scope import assert_society_access
     from app.modules.billing.services.defaulters import MemberDues
     assert_society_access(user, society_id)
-    return MemberDues(db).remind(society_id, data.flat_ids, data.min_months, user)
+    return MemberDues(db).remind(society_id, data.flat_ids, data.min_months, user, wing=data.wing or None)
 
 
 # ── Fines and additional charges on a flat ────────────────────────────────────

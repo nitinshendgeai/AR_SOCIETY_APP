@@ -19,10 +19,10 @@ import 'package:ar_society_app/shared/widgets/app_form.dart';
 
 final defaultersApiProvider = Provider<DefaultersApi>((_) => DefaultersApi());
 
-typedef DefaultersKey = ({String societyId, int minMonths, bool includeAll});
+typedef DefaultersKey = ({String societyId, int minMonths, bool includeAll, String? wing});
 
 final defaultersProvider = FutureProvider.autoDispose.family<DefaultersReport, DefaultersKey>(
-  (ref, k) => ref.watch(defaultersApiProvider).report(k.societyId, minMonths: k.minMonths, includeAll: k.includeAll),
+  (ref, k) => ref.watch(defaultersApiProvider).report(k.societyId, minMonths: k.minMonths, includeAll: k.includeAll, wing: k.wing),
 );
 
 final _inr = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
@@ -60,18 +60,22 @@ class DefaultersScreen extends ConsumerStatefulWidget {
 class _DefaultersScreenState extends ConsumerState<DefaultersScreen> {
   int _minMonths = 3;
   bool _includeAll = false;
+  String? _wing; // null: every wing
   String _q = '';
   final Set<String> _selected = {};
   bool _busy = false;
 
-  DefaultersKey _key(String societyId) => (societyId: societyId, minMonths: _minMonths, includeAll: _includeAll);
+  DefaultersKey _key(String societyId) => (societyId: societyId, minMonths: _minMonths, includeAll: _includeAll, wing: _wing);
+
+  /// The wing in a file name or title: '-Tower A' (with a '-'), or ''.
+  String _wingTag(String sep) => _wing == null ? '' : '$sep${_wing!.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_')}';
 
   Future<void> _pdf(String societyId, {required bool share}) async {
     setState(() => _busy = true);
-    final name = '${_includeAll ? 'Members-Dues' : 'Defaulters'}-${DateFormat('yyyy-MM-dd').format(DateTime.now())}.pdf';
+    final name = '${_includeAll ? 'Members-Dues' : 'Defaulters'}${_wingTag('-')}-${DateFormat('yyyy-MM-dd').format(DateTime.now())}.pdf';
     try {
       final bytes =
-          await ref.read(defaultersApiProvider).pdf(societyId, minMonths: _minMonths, includeAll: _includeAll);
+          await ref.read(defaultersApiProvider).pdf(societyId, minMonths: _minMonths, includeAll: _includeAll, wing: _wing);
       if (share) {
         await Share.shareXFiles([XFile.fromData(bytes, name: name, mimeType: 'application/pdf')],
             fileNameOverrides: [name], subject: 'List of Defaulters');
@@ -100,7 +104,7 @@ class _DefaultersScreenState extends ConsumerState<DefaultersScreen> {
         ],
     ];
     final csv = rows.map((row) => row.map((c) => c.contains(',') || c.contains('"') ? '"${c.replaceAll('"', '""')}"' : c).join(',')).join('\r\n');
-    final name = '${_includeAll ? 'members-dues' : 'defaulters'}-${DateFormat('yyyy-MM-dd').format(DateTime.now())}.csv';
+    final name = '${_includeAll ? 'members-dues' : 'defaulters'}${_wingTag('-')}-${DateFormat('yyyy-MM-dd').format(DateTime.now())}.csv';
     if (await saveCsvFile(csv, name) && mounted) AppToast.success(context, '$name downloaded');
   }
 
@@ -108,7 +112,7 @@ class _DefaultersScreenState extends ConsumerState<DefaultersScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(flatIds == null ? 'Remind all defaulters?' : 'Send reminder to $count flat${count == 1 ? '' : 's'}?'),
+        title: Text(flatIds == null ? (_wing == null ? 'Remind all defaulters?' : 'Remind all defaulters of $_wing?') : 'Send reminder to $count flat${count == 1 ? '' : 's'}?'),
         content: const Text(
           'Members with an app login get a notification with the amount outstanding and the oldest due date.',
           style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
@@ -122,7 +126,7 @@ class _DefaultersScreenState extends ConsumerState<DefaultersScreen> {
     if (ok != true) return;
     setState(() => _busy = true);
     try {
-      final r = await ref.read(defaultersApiProvider).remind(societyId, flatIds: flatIds, minMonths: _minMonths);
+      final r = await ref.read(defaultersApiProvider).remind(societyId, flatIds: flatIds, minMonths: _minMonths, wing: _wing);
       ref.invalidate(defaultersProvider);
       _selected.clear();
       if (mounted) {
@@ -254,6 +258,31 @@ class _DefaultersScreenState extends ConsumerState<DefaultersScreen> {
                         _selected.clear();
                       }),
                     ),
+                    if (s.wings.length > 1 || _wing != null)
+                      DropdownButtonHideUnderline(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.cardBg,
+                            borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+                            border: Border.all(color: AppTheme.fieldBorder),
+                          ),
+                          child: DropdownButton<String?>(
+                            key: const ValueKey('dues-wing'),
+                            value: _wing,
+                            isDense: true,
+                            items: [
+                              const DropdownMenuItem<String?>(value: null, child: Text('All wings')),
+                              for (final w in {...s.wings, if (_wing != null) _wing!})
+                                DropdownMenuItem<String?>(value: w, child: Text(w)),
+                            ],
+                            onChanged: (v) => setState(() {
+                              _wing = v;
+                              _selected.clear();
+                            }),
+                          ),
+                        ),
+                      ),
                     DropdownButtonHideUnderline(
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12),

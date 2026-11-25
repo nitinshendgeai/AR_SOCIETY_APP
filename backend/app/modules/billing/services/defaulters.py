@@ -177,9 +177,9 @@ class MemberDues:
     # ── Reminders ─────────────────────────────────────────────────────────────
 
     def remind(self, society_id: UUID, flat_ids: Optional[List[UUID]], min_months: int, user: Optional[User],
-               not_reminded_within_days: Optional[int] = None) -> dict:
+               not_reminded_within_days: Optional[int] = None, wing: Optional[str] = None) -> dict:
         """Send each flat's members (those with an app login) a reminder of
-        the dues outstanding. `flat_ids` None: every defaulter. `user` None: sent by the
+        the dues outstanding. `flat_ids` None: every defaulter (of `wing`, when given). `user` None: sent by the
         automatic task. `not_reminded_within_days`: skip flats reminded more recently."""
         from app.services.notification_service import NotificationService
 
@@ -188,6 +188,8 @@ class MemberDues:
         if flat_ids is None:
             cutoff = months_before(as_of, min_months)
             dues = [fd for fd in dues if fd.overdue_beyond(cutoff) > 0]
+            if wing:
+                dues = [fd for fd in dues if fd.flat.wing and fd.flat.wing.name == wing]
         if not_reminded_within_days:
             self._last_reminders({fd.flat.id: fd for fd in dues})
             recent = datetime.utcnow() - timedelta(days=not_reminded_within_days)
