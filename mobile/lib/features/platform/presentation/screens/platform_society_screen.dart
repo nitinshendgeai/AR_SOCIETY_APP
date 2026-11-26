@@ -5,6 +5,7 @@ import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/platform/data/platform_api.dart';
+import 'package:ar_society_app/features/platform/presentation/widgets/platform_ai.dart';
 import 'package:ar_society_app/features/platform/presentation/providers/platform_providers.dart';
 import 'package:ar_society_app/features/platform/presentation/screens/platform_console_screen.dart' show EventTile;
 import 'package:ar_society_app/features/platform/presentation/screens/platform_sheets.dart';
@@ -48,6 +49,9 @@ class PlatformSocietyScreen extends ConsumerWidget {
               const SizedBox(height: 18),
               _section('Services'),
               _Services(societyId: s.id),
+              const SizedBox(height: 18),
+              _section('AI (Accounts Agent)'),
+              SocietyAiSection(societyId: s.id),
               const SizedBox(height: 18),
               _section('Who runs it'),
               if (s.admins.isEmpty) Text('No society admin yet.', style: TextStyle(color: AppTheme.textSecondary)),

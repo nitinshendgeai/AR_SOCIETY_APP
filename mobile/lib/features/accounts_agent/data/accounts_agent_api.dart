@@ -483,6 +483,12 @@ class AgentSettings {
   final bool aiEnabled;
   /// The most AI tokens a month (0 = never call the AI); past it the agent answers from the app's own data.
   final int aiMonthlyTokenBudget;
+  /// Whether the society's subscription includes AI (decided by DUX OS per plan), and why not when it does not.
+  final bool aiIncluded;
+  final String? aiPlanReason;
+  final String? aiPlanLabel;
+  final int aiPlanTokens;
+  final String aiPlanPeriod; // 'month' | 'trial'
   const AgentSettings({
     required this.monitoringEnabled,
     required this.notifyMinSeverity,
@@ -494,6 +500,11 @@ class AgentSettings {
     this.aiConfigured = false,
     this.aiEnabled = false,
     this.aiMonthlyTokenBudget = 300000,
+    this.aiIncluded = true,
+    this.aiPlanReason,
+    this.aiPlanLabel,
+    this.aiPlanTokens = 0,
+    this.aiPlanPeriod = 'month',
   });
   factory AgentSettings.fromJson(Map<String, dynamic> j) => AgentSettings(
         monitoringEnabled: j['monitoring_enabled'] as bool? ?? true,
@@ -506,6 +517,11 @@ class AgentSettings {
         aiConfigured: j['ai_configured'] as bool? ?? false,
         aiEnabled: j['ai_enabled'] as bool? ?? false,
         aiMonthlyTokenBudget: (j['ai_monthly_token_budget'] as num?)?.toInt() ?? 300000,
+        aiIncluded: j['ai_included'] as bool? ?? true,
+        aiPlanReason: j['ai_plan_reason'] as String?,
+        aiPlanLabel: j['ai_plan_label'] as String?,
+        aiPlanTokens: _i(j['ai_plan_tokens']),
+        aiPlanPeriod: j['ai_plan_period'] as String? ?? 'month',
       );
 }
 
@@ -523,13 +539,23 @@ class AiUsage {
   final int reusedAnswers;
   final int answeredLocally;
   final int overBudget;
+  final int notIncluded;
   final int failedCalls;
   final int keptAnswers;
   final bool aiEnabled;
   final List<AiUsageLine> byFeature;
+  /// What the subscription allows: [planAllowed] false with [planReason] when the plan has no AI or has ended.
+  final bool planAllowed;
+  final String? planReason;
+  final String? planLabel;
+  final String period; // 'month' | 'trial'
+  final int committeeBudget;
+  final int planTokens;
   const AiUsage(this.month, this.budgetTokens, this.spentTokens, this.leftTokens, this.usedPct, this.requests,
       this.answeredWithoutAi, this.withoutAiPct, this.aiCalls, this.reusedAnswers, this.answeredLocally, this.overBudget,
-      this.failedCalls, this.keptAnswers, this.aiEnabled, this.byFeature);
+      this.notIncluded, this.failedCalls, this.keptAnswers, this.aiEnabled, this.byFeature,
+      {this.planAllowed = true, this.planReason, this.planLabel, this.period = 'month', this.committeeBudget = 0,
+      this.planTokens = 0});
   factory AiUsage.fromJson(Map<String, dynamic> j) => AiUsage(
         j['month'] as String? ?? '',
         _i(j['budget_tokens']),
@@ -543,10 +569,17 @@ class AiUsage {
         _i(j['reused_answers']),
         _i(j['answered_locally']),
         _i(j['over_budget']),
+        _i(j['not_included']),
         _i(j['failed_calls']),
         _i(j['kept_answers']),
         j['ai_enabled'] as bool? ?? false,
         [for (final x in (j['by_feature'] as List? ?? const [])) AiUsageLine.fromJson((x as Map).cast<String, dynamic>())],
+        planAllowed: ((j['entitlement'] as Map?)?['allowed'] as bool?) ?? true,
+        planReason: (j['entitlement'] as Map?)?['reason'] as String?,
+        planLabel: (j['entitlement'] as Map?)?['plan_label'] as String?,
+        period: ((j['entitlement'] as Map?)?['period'] as String?) ?? 'month',
+        committeeBudget: _i(j['committee_budget']),
+        planTokens: _i((j['entitlement'] as Map?)?['tokens']),
       );
 }
 

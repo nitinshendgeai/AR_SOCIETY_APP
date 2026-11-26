@@ -87,7 +87,8 @@ class _AgentLearningScreenState extends ConsumerState<AgentLearningScreen> {
         title: const Text('Monthly AI token budget'),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('The most tokens the agent may spend on AI wording in a calendar month. Past it, answers come from '
-              'the bye-laws and books without AI. 0 means never call the AI.'),
+              'the bye-laws and books without AI. 0 means never call the AI. Your plan\'s allowance is the upper limit: '
+              'a higher number here has no effect.'),
           const SizedBox(height: 12),
           TextField(
             controller: c,
@@ -176,11 +177,13 @@ class _AgentLearningScreenState extends ConsumerState<AgentLearningScreen> {
                       title: const Text('AI wording (Claude)'),
                       subtitle: Text(!s.aiConfigured
                           ? 'Not available: the server has no Anthropic API key. Bye-law answers list the matching clauses.'
-                          : s.aiProvider == 'anthropic'
-                              ? 'On: bye-law answers are worded by Claude from the clauses found, and entry descriptions are read by Claude. Nothing is posted or published without a person.'
-                              : 'Off: bye-law answers list the matching clauses; entries are filled from your choices and past postings.'),
-                      value: s.aiProvider == 'anthropic',
-                      onChanged: (!mayEdit || _busy || !s.aiConfigured)
+                          : !s.aiIncluded
+                              ? '${s.aiPlanReason ?? 'Your subscription does not include AI.'} Bye-law answers list the matching clauses.'
+                              : s.aiProvider == 'anthropic'
+                                  ? 'On: bye-law answers are worded by Claude from the clauses found, and entry descriptions are read by Claude. Nothing is posted or published without a person.'
+                                  : 'Off: bye-law answers list the matching clauses; entries are filled from your choices and past postings.'),
+                      value: s.aiProvider == 'anthropic' && s.aiIncluded,
+                      onChanged: (!mayEdit || _busy || !s.aiConfigured || !s.aiIncluded)
                           ? null
                           : (v) => _do(() async {
                                 await ref.read(accountsAgentApiProvider).updateSettings(aiProvider: v ? 'anthropic' : 'disabled');
@@ -335,15 +338,26 @@ class _AiUsageCard extends ConsumerWidget {
               child: LinearProgressIndicator(value: pct, minHeight: 6, color: color, backgroundColor: Hud.line),
             ),
             const SizedBox(height: 6),
-            Text(u.budgetTokens == 0 ? 'Budget 0: the AI is never called.' : '${_tokens(u.leftTokens)} left this month',
-                style: const TextStyle(fontSize: 12.5, color: Hud.dim)),
+            Text(
+                !u.planAllowed
+                    ? (u.planReason ?? 'Your subscription does not include AI.')
+                    : u.budgetTokens == 0
+                        ? 'Budget 0: the AI is never called.'
+                        : '${_tokens(u.leftTokens)} left ${u.period == 'trial' ? 'in the free trial' : 'this month'}'
+                            '${u.planLabel == null ? '' : ' · ${u.planLabel} plan'}',
+                style: TextStyle(fontSize: 12.5, color: u.planAllowed ? Hud.dim : Hud.amber)),
             const SizedBox(height: 12),
+            if (u.planAllowed)
+              KeyValue('Plan allowance', '${_tokens(u.planTokens)} ${u.period == 'trial' ? 'for the trial' : 'a month'}'),
+            if (u.planAllowed && u.committeeBudget < u.planTokens)
+              KeyValue('Committee limit', '${_tokens(u.committeeBudget)} a month'),
             KeyValue('Answered without AI', u.requests == 0
                 ? 'No questions yet this month'
                 : '${u.answeredWithoutAi} of ${u.requests} (${u.withoutAiPct.toStringAsFixed(0)}%)'),
             KeyValue('From saved answers', '${u.reusedAnswers}'),
             KeyValue('From the app\'s own data', '${u.answeredLocally}'),
             if (u.overBudget > 0) KeyValue('Held back by the budget', '${u.overBudget}'),
+            if (u.notIncluded > 0) KeyValue('Not in the plan', '${u.notIncluded}'),
             KeyValue('AI requests sent', '${u.aiCalls}${u.failedCalls > 0 ? ' (${u.failedCalls} failed)' : ''}'),
             for (final f in u.byFeature)
               KeyValue(f.label, '${f.aiCalls} requests · ${_tokens(f.tokens)} tokens · ${f.withoutAi} without AI'),

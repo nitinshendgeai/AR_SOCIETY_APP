@@ -13,6 +13,8 @@ from app.modules.platform_admin.schemas.platform_admin import (
     LimitsRequest,
     ServiceSwitchRequest,
     CleanDataRequest,
+    AiPlanUpdate,
+    SocietyAiOverride,
 )
 from app.modules.platform_admin.services.platform_admin_service import PlatformAdminService
 
@@ -142,3 +144,73 @@ def restore_default_logins(society_id: UUID, db: Session = Depends(get_db), admi
     """Recreate the society's missing default logins (admin, chairman, secretary, treasurer) with the standard
     first-login password, which must be changed at first sign-in. Existing logins are not touched."""
     return PlatformAdminService(db).restore_default_logins(str(society_id), admin)
+
+
+# ── AI by subscription ─────────────────────────────────────────────────────────
+
+@router.get("/ai-plans")
+def ai_plans(db: Session = Depends(get_db), admin: User = Depends(require_platform_admin)):
+    """What each plan includes in AI (the Accounts Agent's wording): included or not, and tokens a month (the trial's
+    for the whole trial)."""
+    from app.modules.accounts_agent.assist import entitlement
+    return {"plans": entitlement.plans(db)}
+
+
+@router.put("/ai-plans/{plan_key}")
+def set_ai_plan(plan_key: str, data: AiPlanUpdate, db: Session = Depends(get_db),
+                admin: User = Depends(require_platform_admin)):
+    from fastapi import HTTPException
+    from app.models.audit_log import AuditAction
+    from app.modules.accounts_agent.assist import entitlement
+    from app.modules.accounts_agent.models.agent import PlatformAiPlan
+    from app.services.audit_service import AuditService
+    if plan_key not in entitlement.PLANS:
+        raise HTTPException(status_code=404, detail="Unknown plan")
+    row = db.query(PlatformAiPlan).filter(PlatformAiPlan.plan_key == plan_key).first()
+    if row is None:
+        row = PlatformAiPlan(plan_key=plan_key)
+        db.add(row)
+    row.ai_included, row.monthly_tokens, row.updated_by = data.ai_included, data.tokens, admin.id
+    AuditService.log(db=db, action=AuditAction.UPDATE, module="platform_admin", entity_id=plan_key,
+                     entity_type="AiPlan", user=admin,
+                     new_values={"event": "ai_plan_changed", "plan": plan_key, "ai_included": data.ai_included,
+                                 "tokens": data.tokens})
+    db.commit()
+    return {"plans": entitlement.plans(db)}
+
+
+def _society_ai(db: Session, society_id: UUID) -> dict:
+    from app.modules.accounts_agent.assist import claude, token_guard
+    from app.modules.accounts_agent.services.engine import get_settings
+    s = get_settings(db, society_id)
+    out = token_guard.summary(db, society_id, s)
+    out.update({"override": {"mode": s.ai_plan_override or "plan", "tokens": s.ai_override_tokens},
+                "society_switch_on": s.llm_provider == "anthropic", "server_has_key": claude.configured()})
+    return out
+
+
+@router.get("/societies/{society_id}/ai")
+def society_ai(society_id: UUID, db: Session = Depends(get_db), admin: User = Depends(require_platform_admin)):
+    """The society's AI: what its subscription includes, any override, and what it spent and saved this month."""
+    PlatformAdminService(db)._get_society(str(society_id))
+    out = _society_ai(db, society_id)
+    db.commit()
+    return out
+
+
+@router.put("/societies/{society_id}/ai")
+def set_society_ai(society_id: UUID, data: SocietyAiOverride, db: Session = Depends(get_db),
+                   admin: User = Depends(require_platform_admin)):
+    """Override the plan for one society: AI on or off whatever its plan, and/or its own monthly allowance."""
+    from app.models.audit_log import AuditAction
+    from app.modules.accounts_agent.services.engine import get_settings
+    from app.services.audit_service import AuditService
+    PlatformAdminService(db)._get_society(str(society_id))
+    s = get_settings(db, society_id)
+    s.ai_plan_override = None if data.mode == "plan" else data.mode
+    s.ai_override_tokens = data.tokens if data.mode != "off" else None
+    AuditService.log(db=db, action=AuditAction.UPDATE, module="platform_admin", entity_id=str(society_id),
+                     entity_type="Society", user=admin,
+                     new_values={"event": "ai_override_changed", "mode": data.mode, "tokens": data.tokens})
+    db.commit()
+    return _society_ai(db, society_id)

@@ -1,6 +1,6 @@
 from datetime import date
 from typing import Optional
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class ExtendTrialRequest(BaseModel):
@@ -83,3 +83,14 @@ class PlatformStatsOut(BaseModel):
 
 class CleanDataRequest(BaseModel):
     confirm: str   # the society's code (its name when it has none), typed in full by the platform admin
+
+
+class AiPlanUpdate(BaseModel):
+    ai_included: bool
+    tokens: int = Field(..., ge=0, le=100_000_000)   # a month; for the trial, the whole trial
+
+
+class SocietyAiOverride(BaseModel):
+    # "plan": follow the society's plan; "on" / "off": switch AI on or off for this society whatever its plan.
+    mode: str = Field(..., pattern="^(plan|on|off)$")
+    tokens: Optional[int] = Field(None, ge=0, le=100_000_000)   # its own monthly allowance; None = the plan's

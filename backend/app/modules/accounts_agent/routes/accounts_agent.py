@@ -60,9 +60,12 @@ def get_agent_settings(society_id: Optional[UUID] = None, db: Session = Depends(
     sid = _sid(user, society_id)
     s = get_settings(db, sid)
     db.commit()
-    from app.modules.accounts_agent.assist import claude
+    from app.modules.accounts_agent.assist import claude, entitlement
+    ent = entitlement.entitlement(db, sid, s, today=society_today(db, sid))
     return {**queries.settings_dict(s), "llm_status": llm.provider_status(s.llm_provider),
-            "ai_configured": claude.configured(), "ai_enabled": claude.enabled(s)}
+            "ai_configured": claude.configured(), "ai_enabled": claude.enabled(s) and ent["allowed"],
+            "ai_included": ent["allowed"], "ai_plan_reason": ent["reason"], "ai_plan_label": ent["plan_label"],
+            "ai_plan_tokens": ent["tokens"], "ai_plan_period": ent["period"]}
 
 
 @router.put("/settings")
