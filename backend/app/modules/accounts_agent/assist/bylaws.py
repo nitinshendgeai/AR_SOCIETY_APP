@@ -4,6 +4,11 @@ Sources, in order of authority: the society's own registered bye-laws and amendm
 (which apply only where the registered bye-laws adopted them). The app finds the relevant clauses itself (keyword
 search over the extracted clause text); Claude, when enabled, only words the answer from those clauses and may cite
 nothing else. Without Claude the answer lists the clauses found. Nothing is ever cited that is not in the library.
+
+Tokens are spent only when they add something (token_guard.py): the question is cleaned and its Hindi / Marathi words
+mapped locally (prompt_opt.py); a question about the society's own figures is answered from the books; an earlier
+answer to the same question on the same clauses is reused; and over the monthly budget the clauses are listed instead.
+When a request is sent it carries the three best clauses cut to their relevant sentences, and no society figures.
 """
 import math
 import re
@@ -13,13 +18,21 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.modules.accounts_agent.assist import claude
+from app.modules.accounts_agent.assist import claude, prompt_opt, token_guard
 from app.modules.accounts_agent.legal.models import LegalClause, LegalDocument
 from app.modules.accounts_agent.services import audit
 
 SOCIETY_TYPES = ("REGISTERED_BYELAWS", "BYELAW_AMENDMENT")
 MODEL_TYPES = ("MODEL_BYELAWS",)
 TOP_K = 6
+AI_K = 3                      # clauses sent to the AI (the best ones; the rest are still listed for the reader)
+AI_CLAUSE_CHARS = 1200        # each sent clause is cut to its relevant sentences, at most this long
+FEATURE = "bylaw_answer"
+# Words that mean the person asks what the rules say (not only what the books show).
+_RULE_WORDS = set("""rule rules bye-law bye-laws bylaw bylaws byelaw byelaws clause allowed allow permitted permit can
+may must should shall required require legal law notice quorum procedure process eligible eligibility entitled right
+rights penalty fine limit maximum minimum days period nomination transfer election tenant licence non-occupancy
+नियम कायदा उपविधी उपनियम परवानगी अनुमति अधिकार नोटीस सूचना niyam kayda""".split())
 SOURCE_NAMES = {"REGISTERED_BYELAWS": "Registered bye-laws", "BYELAW_AMENDMENT": "Bye-law amendment",
                 "MODEL_BYELAWS": "Model bye-laws"}
 
@@ -119,31 +132,76 @@ def _facts(db: Session, society_id: UUID, question: str) -> Optional[str]:
     return r.get("answer") if r.get("intent") else None
 
 
+def _asks_about_rules(q: "prompt_opt.OptimizedQuery") -> bool:
+    words = set(re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)*|[\u0900-\u097F]+", q.text.lower())) | set(q.keywords)
+    return bool(words & _RULE_WORDS)
+
+
+def _ai_answer(db: Session, society_id: UUID, q: "prompt_opt.OptimizedQuery", found: List[dict], settings):
+    """(answer or None, how it was obtained, a note for the reader or None, the reuse key). Decides whether a request is worth
+    sending, and sends the smallest one that can answer."""
+    best = found[0]["score"] if found else 0
+    chosen = [f for f in found[:AI_K] if f["score"] >= best * 0.4]
+    words = prompt_opt._WORD.findall(q.text.lower()) + q.keywords
+    payload = [{"id": f"C{found.index(f) + 1}",
+                "source": f["source"] + ("" if f["society_specific"] else " (model bye-laws)"),
+                "ref": f["clause_ref"], "heading": f["heading"], "page": f["page"],
+                "text": prompt_opt.relevant_excerpt(f["text"], words, AI_CLAUSE_CHARS)} for f in chosen]
+    # The key covers the question's words, the clauses chosen and their exact text, so an edited clause asks afresh.
+    key = q.key([f["clause_id"] for f in chosen], [_digest(p["text"]) for p in payload], [q.language])
+    kept = token_guard.reuse(db, society_id, FEATURE, key)
+    if kept:
+        token_guard.note(db, society_id, FEATURE, "reused_answers")
+        try:
+            return claude.BylawAnswer(**kept), "saved_answer", "Same question answered before: no AI tokens used.", key
+        except Exception:  # noqa: BLE001 — a kept answer that no longer fits the schema is simply asked afresh
+            pass
+    estimate = token_guard.estimate_tokens(claude.BYLAW_SYSTEM, claude.bylaw_prompt(q.text, payload),
+                                           reply=claude.BYLAW_MAX_TOKENS // 2)
+    if not token_guard.within_budget(db, society_id, settings, estimate):
+        token_guard.note(db, society_id, FEATURE, "over_budget")
+        return None, "library", ("This month's AI budget is used up, so the clauses are listed without AI wording. "
+                                 "The committee can raise it in Accounts Agent → Learning & settings."), key
+    ai = claude.answer_bylaw_question(q.text, payload, None)
+    token_guard.record_call(db, society_id, FEATURE, claude.take_usage(), ok=ai is not None)
+    return ai, "ai", None, key
+
+
+def _digest(text: str) -> str:
+    import hashlib
+    return hashlib.sha256((text or "").encode()).hexdigest()[:16]
+
+
 def ask(db: Session, society_id: UUID, question: str, user, settings) -> dict:
     question = (question or "").strip()
-    found = search(db, society_id, question)
+    q = prompt_opt.normalize(question)
+    found = search(db, society_id, q.search_text)
     has_library = bool(_documents(db, society_id))
     facts = _facts(db, society_id, question)
     sources = [{**f, "cite": f"C{i + 1}"} for i, f in enumerate(found)]
-    ai_used, ai = False, None
+    ai_used, ai, answered_from, token_note, key = False, None, "library", None, None
     if sources and claude.enabled(settings):
-        ai = claude.answer_bylaw_question(
-            question,
-            [{"id": s["cite"], "source": s["source"] + ("" if s["society_specific"] else " (model bye-laws)"),
-              "ref": s["clause_ref"], "heading": s["heading"], "page": s["page"], "text": s["text"]} for s in sources],
-            facts)
+        if facts and not _asks_about_rules(q):
+            # A question about the society's own figures: the books answer it; wording clauses would add nothing.
+            token_guard.note(db, society_id, FEATURE, "answered_locally")
+            token_note = "Answered from your society's books: no AI tokens used."
+        else:
+            ai, answered_from, token_note, key = _ai_answer(db, society_id, q, found, settings)
     if ai is not None:
         valid = {s["cite"] for s in sources}
         cited = [c for c in ai.cited if c in valid]
         if ai.cited and not cited:
-            ai = None                                   # cited only things it was not given: not used
+            ai, answered_from = None, "library"          # cited only things it was not given: not used
         else:
             ai_used = True
+            if answered_from == "ai" and key:
+                token_guard.keep(db, society_id, FEATURE, key, ai.model_dump())    # the next asker pays nothing
             answer, cited_set = ai.answer, set(cited)
             sources = [{**s, "cited": s["cite"] in cited_set} for s in sources]
             answered = ai.answered_by_sources and bool(cited)
             review = ai.needs_professional_review
     if not ai_used:
+        answered_from = "library"
         if sources:
             answer = ("These bye-law clauses are the closest match to your question. Read them in full; the app "
                       "does not interpret them for you.")
@@ -170,6 +228,7 @@ def ask(db: Session, society_id: UUID, question: str, user, settings) -> dict:
     db.commit()
     return {"question": question, "answer": answer, "answered_by_sources": answered,
             "needs_professional_review": review, "ai_generated": ai_used,
+            "answered_from": answered_from, "token_note": token_note, "language": q.language,
             "ai_available": claude.enabled(settings), "notes": notes, "society_facts": facts,
             "sources": [{k: v for k, v in s.items() if k != "score"} for s in sources],
             "disclaimer": "Not legal advice. Answers come only from the bye-laws in the Legal Library"

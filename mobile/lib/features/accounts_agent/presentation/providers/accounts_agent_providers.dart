@@ -7,6 +7,8 @@ final agentDashboardProvider = FutureProvider.autoDispose<AgentDashboard>((ref) 
 
 final agentSettingsProvider = FutureProvider.autoDispose<AgentSettings>((ref) => ref.watch(accountsAgentApiProvider).settings());
 
+final agentAiUsageProvider = FutureProvider.autoDispose<AiUsage>((ref) => ref.watch(accountsAgentApiProvider).aiUsage());
+
 final agentLearningStatusProvider = FutureProvider.autoDispose<LearningStatus>((ref) => ref.watch(accountsAgentApiProvider).learningStatus());
 
 final agentLearningHistoryProvider = FutureProvider.autoDispose<List<LearningRun>>((ref) => ref.watch(accountsAgentApiProvider).learningHistory());
@@ -45,6 +47,7 @@ void invalidateAgent(WidgetRef ref) {
   ref.invalidate(agentLearningStatusProvider);
   ref.invalidate(agentLearningHistoryProvider);
   ref.invalidate(agentSettingsProvider);
+  ref.invalidate(agentAiUsageProvider);
   ref.invalidate(agentFindingHistoryProvider);
   ref.invalidate(agentDeadEventsProvider);
 }

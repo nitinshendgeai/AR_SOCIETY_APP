@@ -79,6 +79,29 @@ def update_agent_settings(data: SettingsUpdate, society_id: Optional[UUID] = Non
     return queries.settings_dict(s)
 
 
+@router.get("/ai-usage")
+def ai_usage(society_id: Optional[UUID] = None, db: Session = Depends(get_db), user: User = Depends(require_manager_above)):
+    """This month's AI tokens: spent, left in the budget, and how many requests the app answered without the AI."""
+    from app.modules.accounts_agent.assist import claude, token_guard
+    sid = _sid(user, society_id)
+    s = get_settings(db, sid)
+    out = token_guard.summary(db, sid, s)
+    db.commit()
+    return {**out, "ai_enabled": claude.enabled(s), "ai_configured": claude.configured()}
+
+
+@router.post("/ai-usage/forget-answers")
+def forget_ai_answers(society_id: Optional[UUID] = None, db: Session = Depends(get_db),
+                      user: User = Depends(require_admin_committee)):
+    """Drop the kept AI answers (each question is then worded afresh, once)."""
+    from app.modules.accounts_agent.assist import token_guard
+    sid = _sid(user, society_id)
+    n = token_guard.forget_answers(db, sid)
+    audit.record(db, sid, "ai_answers_forgotten", "settings", None, user.id, {"count": n})
+    db.commit()
+    return {"forgotten": n}
+
+
 @router.post("/monitoring")
 def set_monitoring(data: MonitoringToggle, society_id: Optional[UUID] = None, db: Session = Depends(get_db),
                    user: User = Depends(require_admin_committee)):

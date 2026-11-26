@@ -23,6 +23,7 @@ def settings_dict(s: AgentSettings) -> dict:
     return {"monitoring_enabled": s.monitoring_enabled, "notify_min_severity": s.notify_min_severity,
             "z_threshold": s.z_threshold, "recurring_tolerance_pct": s.recurring_tolerance_pct,
             "duplicate_window_days": s.duplicate_window_days, "llm_provider": s.llm_provider,
+            "ai_monthly_token_budget": s.ai_monthly_token_budget if s.ai_monthly_token_budget is not None else 300000,
             "learning_window_months": WINDOW_MONTHS}
 
 

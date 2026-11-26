@@ -9,9 +9,15 @@ Boundaries, by construction:
   clauses it was given; an entry may use only the ledgers and vendors it was given.
 * Any failure (no key, network, refusal, invalid output) returns None and the caller falls back to the deterministic
   path. Questions and clause text are not logged.
+
+Token economy (see token_guard.py for when a call is made at all): the callers send only what the answer needs — the
+few best clauses cut to their relevant sentences, the likely ledgers and vendors — with a short system prompt, low
+effort and a small reply cap. The answer comes back in the asker's language from this one request; there is never a
+separate translation call. The tokens each request used are kept for the caller to record (take_usage()).
 """
 import logging
 import os
+import threading
 from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -21,6 +27,29 @@ logger = logging.getLogger(__name__)
 PROVIDER = "anthropic"
 MODEL = "claude-opus-5-5"
 TIMEOUT_S = 60.0
+# Wording a short answer from clauses already found, or filling a voucher's fields, needs little reasoning.
+EFFORT = "low"
+BYLAW_MAX_TOKENS = 1500
+ENTRY_MAX_TOKENS = 1000
+
+_last = threading.local()
+
+
+def take_usage() -> dict | None:
+    """The tokens the last request on this thread used ({'input_tokens', 'output_tokens'}), then forgets them."""
+    u = getattr(_last, "usage", None)
+    _last.usage = None
+    return u
+
+
+def _keep_usage(response) -> None:
+    u = getattr(response, "usage", None)
+    if u is None:
+        _last.usage = None
+        return
+    n = lambda k: int(getattr(u, k, 0) or 0)  # noqa: E731
+    _last.usage = {"input_tokens": n("input_tokens") + n("cache_creation_input_tokens") + n("cache_read_input_tokens"),
+                   "output_tokens": n("output_tokens")}
 
 
 def configured() -> bool:
@@ -44,13 +73,14 @@ def _client():
     return anthropic.Anthropic(timeout=TIMEOUT_S, max_retries=2)
 
 
-def _parse(system: str, user: str, schema, max_tokens: int = 4000):
+def _parse(system: str, user: str, schema, max_tokens: int = BYLAW_MAX_TOKENS):
     """One structured call. Returns the validated object or None.
 
     Server-side fallbacks are on (a refused request is retried on another model inside the same call). If the API
     rejects the fallbacks option itself, the call is repeated once without it rather than silently losing the feature."""
     import anthropic
-    kwargs = dict(model=MODEL, max_tokens=max_tokens, system=system,
+    _last.usage = None
+    kwargs = dict(model=MODEL, max_tokens=max_tokens, system=system, output_config={"effort": EFFORT},
                   messages=[{"role": "user", "content": user}], output_format=schema)
     client = _client()
     try:
@@ -70,6 +100,7 @@ def _parse(system: str, user: str, schema, max_tokens: int = 4000):
     except Exception:  # noqa: BLE001 — never let the optional AI path break the feature
         logger.exception("[accounts-agent] Claude request failed")
         return None
+    _keep_usage(response)
     if response.stop_reason == "refusal":
         logger.info("[accounts-agent] Claude declined the request")
         return None
@@ -95,21 +126,27 @@ BYLAW_SYSTEM = (
     "- Clauses marked 'model bye-laws' apply to this society only if its registered bye-laws adopted them unchanged; "
     "say so when you rely on one.\n"
     "- Extracted clause text is unverified (it may come from OCR); do not present the answer as legal advice.\n"
-    "- Be brief and practical. Write in the language of the question (English or Marathi)."
+    "- Be brief and practical: at most 5 sentences. Write the answer in the reply_language given."
 )
 
 
-def answer_bylaw_question(question: str, clauses: List[dict], facts: Optional[str] = None) -> Optional[BylawAnswer]:
-    """clauses: [{"id": "C1", "source": "Model bye-laws", "ref": "157", "heading": …, "page": 12, "text": …}]"""
+def bylaw_prompt(question: str, clauses: List[dict], facts: Optional[str] = None) -> str:
+    """The user turn for a bye-law answer (the caller has already cut each clause to its relevant part)."""
+    from app.modules.accounts_agent.assist.prompt_opt import detect_language
+    lang = {"hi": "Hindi", "mr": "Marathi"}.get(detect_language(question), "English")
     parts = []
     for c in clauses:
         parts.append(f"<clause id=\"{c['id']}\" source=\"{c['source']}\" ref=\"{c['ref']}\" page=\"{c.get('page') or ''}\">\n"
                      f"{c.get('heading') or ''}\n{c['text'][:4000]}\n</clause>")
     user = "<clauses>\n" + "\n".join(parts) + "\n</clauses>\n"
     if facts:
-        user += f"<society_facts>\n{facts[:3000]}\n</society_facts>\n"
-    user += f"<question>\n{question[:1000]}\n</question>"
-    out = _parse(BYLAW_SYSTEM, user, BylawAnswer)
+        user += f"<society_facts>\n{facts[:600]}\n</society_facts>\n"
+    return user + f"<question>\n{question[:600]}\n</question>\n<reply_language>{lang}</reply_language>"
+
+
+def answer_bylaw_question(question: str, clauses: List[dict], facts: Optional[str] = None) -> Optional[BylawAnswer]:
+    """clauses: [{"id": "C1", "source": "Model bye-laws", "ref": "157", "heading": …, "page": 12, "text": …}]"""
+    out = _parse(BYLAW_SYSTEM, bylaw_prompt(question, clauses, facts), BylawAnswer, max_tokens=BYLAW_MAX_TOKENS)
     return out if isinstance(out, BylawAnswer) else None
 
 
@@ -135,10 +172,15 @@ ENTRY_SYSTEM = (
 )
 
 
-def parse_entry_request(text: str, ledgers: List[dict], vendors: List[dict], today: str) -> Optional[EntryParse]:
-    """ledgers / vendors: [{"id": …, "name": …}] — this society's own, active ones."""
+def entry_prompt(text: str, ledgers: List[dict], vendors: List[dict], today: str) -> str:
     lines = ["<ledgers>"] + [f"{x['id']}\t{x['name']}" for x in ledgers[:300]] + ["</ledgers>", "<vendors>"]
     lines += [f"{x['id']}\t{x['name']}" for x in vendors[:300]] + ["</vendors>", f"<today>{today}</today>",
-                                                                   f"<request>\n{text[:1000]}\n</request>"]
-    out = _parse(ENTRY_SYSTEM, "\n".join(lines), EntryParse, max_tokens=2000)
+                                                                   f"<request>\n{text[:600]}\n</request>"]
+    return "\n".join(lines)
+
+
+def parse_entry_request(text: str, ledgers: List[dict], vendors: List[dict], today: str) -> Optional[EntryParse]:
+    """ledgers / vendors: [{"id": …, "name": …}] — this society's own, active ones (the caller sends only the
+    likely ones)."""
+    out = _parse(ENTRY_SYSTEM, entry_prompt(text, ledgers, vendors, today), EntryParse, max_tokens=ENTRY_MAX_TOKENS)
     return out if isinstance(out, EntryParse) else None

@@ -189,8 +189,9 @@ def test_ai_reading_is_checked_against_the_societys_own_lists(rig, db, monkeypat
     monkeypatch.setattr(claude, "parse_entry_request", lambda text, ledgers, vendors, today: claude.EntryParse(
         voucher_type="payment", amount="4500", ledger_id=good, vendor_id="00000000-0000-0000-0000-000000000000",
         money_account="cash", narration="Lift AMC Nov", unclear=["reference"]))
-    out = entries.draft(db, rig.sid, rig.admin["user"], {"text": "paid lift AMC 4500 cash"}, get_settings(db, rig.sid),
-                        save=False)
+    # A description the app cannot read by itself (no ledger named), so Claude is asked.
+    out = entries.draft(db, rig.sid, rig.admin["user"], {"text": "settled the yearly one, 4500 cash"},
+                        get_settings(db, rig.sid), save=False)
     assert out["amount"] == "4500.00" and out["lines"][0]["account"] == rig.chart["lift_maintenance"].name
     assert out["vendor_id"] is None                      # a vendor id not in this society is dropped
     assert out["lines"][1]["account"] == rig.chart["cash"].name and out["unclear"] == ["reference"]
@@ -297,6 +298,7 @@ def test_claude_call_shape_refusal_and_errors(monkeypatch):
     assert out.answer == "a"
     kw = calls[0]
     assert kw["model"] == "claude-opus-5-5" and kw["fallbacks"] == "default" and kw["output_format"] is claude.BylawAnswer
+    assert kw["output_config"] == {"effort": "low"} and kw["max_tokens"] == claude.BYLAW_MAX_TOKENS
     assert "<clause id=\"C1\"" in kw["messages"][0]["content"] and "q?" in kw["messages"][0]["content"]
 
     monkeypatch.setattr(claude, "_client", lambda: _Client(lambda **k: _Resp(stop="refusal")))

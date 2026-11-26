@@ -116,6 +116,8 @@ class _AgentAskScreenState extends ConsumerState<AgentAskScreen> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Wrap(spacing: 8, runSpacing: 6, children: [
               if (a.aiGenerated) const HudChip(label: 'Worded by AI from the clauses below', tone: AppTone.info),
+              if (a.answeredFrom == 'saved_answer')
+                const HudChip(label: 'Saved answer · no AI tokens used', tone: AppTone.success, icon: Icons.bolt_rounded),
               if (!a.answeredBySources) const HudChip(label: 'Not answered by the bye-laws', tone: AppTone.warning),
               if (a.needsProfessionalReview) const HudChip(label: 'Check with your committee / adviser', tone: AppTone.warning),
             ]),
@@ -124,6 +126,14 @@ class _AgentAskScreenState extends ConsumerState<AgentAskScreen> {
             for (final n in a.notes) ...[
               const SizedBox(height: 8),
               Text(n, style: const TextStyle(fontSize: 12.5, color: Hud.amber)),
+            ],
+            if (a.tokenNote != null && a.answeredFrom != 'saved_answer') ...[
+              const SizedBox(height: 8),
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Icon(Icons.savings_outlined, size: 16, color: Hud.green),
+                const SizedBox(width: 6),
+                Expanded(child: Text(a.tokenNote!, style: const TextStyle(fontSize: 12.5, color: Hud.dim))),
+              ]),
             ],
             if (a.societyFacts != null) ...[
               const SizedBox(height: 8),
