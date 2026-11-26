@@ -136,13 +136,13 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
           const Text('Screenshot', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 8),
           if (!payment.hasScreenshot)
-            const Text('No screenshot attached', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13))
+            Text('No screenshot attached', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13))
           else
             Consumer(builder: (context, ref, _) {
               final screenshotAsync = ref.watch(onlinePaymentScreenshotProvider(widget.paymentId));
               return screenshotAsync.when(
                 loading: () => const AppLoader(),
-                error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+                error: (e, _) => Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
                 data: (bytes) => ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Image.memory(bytes, fit: BoxFit.contain),
@@ -187,7 +187,7 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
   Widget _row(String label, String value) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(width: 120, child: Text(label, style: const TextStyle(color: AppTheme.textSecondary))),
+          SizedBox(width: 120, child: Text(label, style: TextStyle(color: AppTheme.textSecondary))),
           Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500))),
         ]),
       );
@@ -212,18 +212,18 @@ class _SetOffCard extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Set off against bills', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 4),
-          const Text('A payment settles the flat\'s open bills, oldest first. Anything over is kept as an '
+          Text('A payment settles the flat\'s open bills, oldest first. Anything over is kept as an '
               'advance and set off against the next bill.',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           const SizedBox(height: 10),
           if (live.isEmpty && payment.unappliedAmount <= 0)
             Text(payment.isRejected ? 'Rejected — not set off against any bill.' : 'Not set off against any bill.',
-                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           for (final a in live)
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: Row(children: [
-                const Icon(Icons.check_circle_rounded, size: 16, color: AppTheme.success),
+                Icon(Icons.check_circle_rounded, size: 16, color: AppTheme.success),
                 const SizedBox(width: 8),
                 Expanded(child: Text('Bill ${a.invoiceNumber ?? a.billId}', style: const TextStyle(fontSize: 13.5))),
                 Text(_rs(a.amount), style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
@@ -233,7 +233,7 @@ class _SetOffCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: Row(children: [
-                const Icon(Icons.savings_outlined, size: 16, color: AppTheme.primary),
+                Icon(Icons.savings_outlined, size: 16, color: AppTheme.primary),
                 const SizedBox(width: 8),
                 const Expanded(
                     child: Text('Advance — for the next bill', style: TextStyle(fontSize: 13.5))),
@@ -244,14 +244,14 @@ class _SetOffCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Icon(Icons.undo_rounded, size: 16, color: AppTheme.textTertiary),
+                Icon(Icons.undo_rounded, size: 16, color: AppTheme.textTertiary),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text('Bill ${a.invoiceNumber ?? a.billId} — undone${a.releasedReason == null ? '' : ': ${a.releasedReason}'}',
-                      style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                      style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
                 ),
                 Text(_rs(a.amount),
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12.5, color: AppTheme.textTertiary, decoration: TextDecoration.lineThrough)),
               ]),
             ),

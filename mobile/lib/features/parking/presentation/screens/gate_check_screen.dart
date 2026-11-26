@@ -120,13 +120,13 @@ class _GateCheckScreenState extends ConsumerState<GateCheckScreen> {
                     border: Border.all(color: AppTheme.success.withOpacity(0.3)),
                   ),
                   child: Row(children: [
-                    const Icon(Icons.check_circle_rounded, color: AppTheme.success, size: 20),
+                    Icon(Icons.check_circle_rounded, color: AppTheme.success, size: 20),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         '${state.log.accessType.label} logged at '
                         '${_formatTime(state.log.accessTime)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13, fontWeight: FontWeight.w600,
                           color: AppTheme.textPrimary,
                         ),
@@ -196,7 +196,7 @@ class _LookupResultCard extends StatelessWidget {
           ]),
           const SizedBox(height: 10),
           Text(lookup.vehicleNumber,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary,
                   letterSpacing: 0.5)),
           const SizedBox(height: 8),
@@ -218,7 +218,7 @@ class _LookupResultCard extends StatelessWidget {
             _DetailRow(label: 'Purpose', value: lookup.visitorPurpose!),
           const SizedBox(height: 8),
           Text(lookup.message,
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ],
       ),
     );
@@ -239,11 +239,11 @@ class _DetailRow extends StatelessWidget {
           SizedBox(
             width: 90,
             child: Text(label,
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ),
           Expanded(
             child: Text(value,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
           ),
         ],

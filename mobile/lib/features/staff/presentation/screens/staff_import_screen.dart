@@ -121,7 +121,7 @@ class _StaffImportScreenState extends ConsumerState<StaffImportScreen> {
                 ),
               ]),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 '1. Download the template and fill it in (in Excel, Google Sheets, etc.)\n'
                 '2. Designation and Joining Date are optional. If a Designation doesn\'t '
                 'exist yet, it will be created automatically during import\n'
@@ -573,7 +573,7 @@ class _RowTile extends StatelessWidget {
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
               if (subtitle.isNotEmpty)
                 Text(subtitle,
-                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
               if (row.message != null) ...[
                 const SizedBox(height: 2),
                 Text(row.message!, style: TextStyle(fontSize: 11, color: color)),

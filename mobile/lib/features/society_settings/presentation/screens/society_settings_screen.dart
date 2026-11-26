@@ -33,10 +33,10 @@ class SocietySettingsScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline_rounded, color: AppTheme.error, size: 40),
+              Icon(Icons.error_outline_rounded, color: AppTheme.error, size: 40),
               const SizedBox(height: 12),
               Text(friendlyErrorMessage(e),
-                  textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.textSecondary)),
+                  textAlign: TextAlign.center, style: TextStyle(color: AppTheme.textSecondary)),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => ref.read(currentSocietyProvider.notifier).refresh(),
@@ -69,7 +69,7 @@ class SocietySettingsScreen extends ConsumerWidget {
                 alignment: Alignment.topCenter,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 1080),
-                  child: const TabBar(
+                  child: TabBar(
                     isScrollable: true,
                     labelColor: AppTheme.primary,
                     unselectedLabelColor: AppTheme.textSecondary,
@@ -118,13 +118,13 @@ class _SubscriptionBanner extends StatelessWidget {
       color: AppTheme.warning.withOpacity(0.1),
       child: Row(
         children: [
-          const Icon(Icons.access_time_rounded,
+          Icon(Icons.access_time_rounded,
               color: AppTheme.warning, size: 16),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               'Trial account${trialEnd != null ? ' · Expires $trialEnd' : ''}',
-              style: const TextStyle(
+              style: TextStyle(
                   color: AppTheme.warning,
                   fontSize: 12,
                   fontWeight: FontWeight.w600),
@@ -454,7 +454,7 @@ class _SubscriptionTab extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppTheme.radiusM),
             border: Border.all(color: AppTheme.primary.withOpacity(0.2)),
           ),
-          child: const Padding(
+          child: Padding(
             padding: EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -646,7 +646,7 @@ class _InfoTile extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(label,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13, color: AppTheme.textSecondary)),
           ),
           Text(value,

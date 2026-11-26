@@ -84,11 +84,11 @@ class _NoticeDetailScreenState extends ConsumerState<NoticeDetailScreen> {
               Row(children: [
                 Icon(noticeCategoryIcon(n.category), size: 18, color: AppTheme.textSecondary),
                 const SizedBox(width: 6),
-                Text(noticeCategoryLabel(n.category), style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                Text(noticeCategoryLabel(n.category), style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                 const SizedBox(width: 10),
                 if (n.priority == 'urgent' || n.priority == 'high') StatusPill(noticePriorityLabel(n.priority), noticePriorityColor(n.priority)),
-                if (writer && n.isDraft) const Padding(padding: EdgeInsets.only(left: 8), child: StatusPill('Draft', AppTheme.warning)),
-                if (n.status == 'archived') const Padding(padding: EdgeInsets.only(left: 8), child: StatusPill('Archived', AppTheme.textSecondary)),
+                if (writer && n.isDraft) Padding(padding: EdgeInsets.only(left: 8), child: StatusPill('Draft', AppTheme.warning)),
+                if (n.status == 'archived') Padding(padding: EdgeInsets.only(left: 8), child: StatusPill('Archived', AppTheme.textSecondary)),
               ]),
               const SizedBox(height: 10),
               Text(n.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, height: 1.25)),
@@ -99,7 +99,7 @@ class _NoticeDetailScreenState extends ConsumerState<NoticeDetailScreen> {
                   if ((n.createdByName ?? '').isNotEmpty) 'by ${n.createdByName}',
                   if (n.expiryDate != null) 'shown until ${noticeDay(n.expiryDate)}',
                 ].join(' · '),
-                style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12.5),
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 12.5),
               ),
               const SizedBox(height: 16),
               SelectableText(n.content, style: const TextStyle(fontSize: 15, height: 1.55)),
@@ -183,7 +183,7 @@ class _AudienceCard extends ConsumerWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM), boxShadow: AppTheme.cardShadow),
       child: Row(children: [
-        const Icon(Icons.groups_2_outlined, color: AppTheme.textSecondary),
+        Icon(Icons.groups_2_outlined, color: AppTheme.textSecondary),
         const SizedBox(width: 10),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -192,7 +192,7 @@ class _AudienceCard extends ConsumerWidget {
               n.isPublished
                   ? '${n.totalAudience} ${n.totalAudience == 1 ? 'person' : 'people'} can see it'
                   : 'Not published yet. Nobody else can see it.',
-              style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
+              style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
             ),
           ]),
         ),
@@ -249,6 +249,6 @@ class _AckSection extends ConsumerWidget {
         leading: Icon(done ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, size: 18, color: done ? AppTheme.success : AppTheme.textTertiary),
         title: Text(p.name.isEmpty ? 'Unnamed' : p.name),
         subtitle: p.flat.isEmpty ? null : Text(p.flat),
-        trailing: p.at == null ? null : Text(noticeDay(p.at), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        trailing: p.at == null ? null : Text(noticeDay(p.at), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
       );
 }

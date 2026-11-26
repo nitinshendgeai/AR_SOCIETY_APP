@@ -136,7 +136,7 @@ class _DutyOverviewScreenState extends ConsumerState<DutyOverviewScreen> {
 
   Widget _buildBody(DutyOverviewState state, Map<String, StaffEntity> staffById) {
     if (widget.societyId.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
           padding: EdgeInsets.all(20),
           child: Text(
@@ -251,7 +251,7 @@ class _DateBar extends StatelessWidget {
                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppTheme.cardBg,
         border: Border(bottom: BorderSide(color: AppTheme.border)),
       ),
@@ -265,7 +265,7 @@ class _DateBar extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.calendar_today_rounded, size: 15, color: AppTheme.primary),
+                Icon(Icons.calendar_today_rounded, size: 15, color: AppTheme.primary),
                 const SizedBox(width: 8),
                 Text('${date.day} ${months[date.month - 1]} ${date.year}',
                     style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
@@ -355,13 +355,13 @@ class _DutyOverviewCard extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(duty.dutyName,
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimary)),
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimary)),
                   Text(staffName ?? 'Unassigned staff',
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   if (duty.location != null)
-                    Text(duty.location!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    Text(duty.location!, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   if (duty.completedFromPaper)
-                    const Text('Entered from the printed sheet',
+                    Text('Entered from the printed sheet',
                         style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
                 ],
               ),
@@ -370,10 +370,10 @@ class _DutyOverviewCard extends ConsumerWidget {
           if (duty.startTime != null) ...[
             const SizedBox(height: 8),
             Row(children: [
-              const Icon(Icons.schedule_rounded, size: 13, color: AppTheme.textSecondary),
+              Icon(Icons.schedule_rounded, size: 13, color: AppTheme.textSecondary),
               const SizedBox(width: 4),
               Text('${duty.startTime} - ${duty.endTime ?? '?'}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ]),
           ],
           if (!duty.isVerified && (dayHasCome || duty.needsVerification || !duty.isCompleted)) ...[
@@ -435,7 +435,7 @@ class _DutyOverviewCard extends ConsumerWidget {
           if (inPlan)
             TextButton(
               onPressed: () => Navigator.pop(ctx, 'later'),
-              child: const Text('This and later days', style: TextStyle(color: AppTheme.error)),
+              child: Text('This and later days', style: TextStyle(color: AppTheme.error)),
             ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),

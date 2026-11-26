@@ -96,12 +96,12 @@ class _CommentTile extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.account_circle_outlined,
+              Icon(Icons.account_circle_outlined,
                   size: 16, color: AppTheme.textSecondary),
               const SizedBox(width: 4),
               Text(
                 comment.authorName ?? comment.authorId,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.textSecondary,
@@ -127,7 +127,7 @@ class _CommentTile extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 _formatDate(comment.createdAt),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   color: AppTheme.textSecondary,
                 ),
@@ -137,7 +137,7 @@ class _CommentTile extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             comment.body,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               color: AppTheme.textPrimary,
               height: 1.4,
@@ -274,7 +274,7 @@ class _ComplaintDetailScreenState
                           Expanded(
                             child: Text(
                               _numberWithFlat(complaint),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
                                 color: AppTheme.primary,
@@ -289,7 +289,7 @@ class _ComplaintDetailScreenState
                       const SizedBox(height: 8),
                       Text(
                         complaint.title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.textPrimary,
@@ -310,7 +310,7 @@ class _ComplaintDetailScreenState
                             ),
                             child: Text(
                               complaint.category.label,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
                                 color: AppTheme.textSecondary,
                                 fontWeight: FontWeight.w500,
@@ -342,7 +342,7 @@ class _ComplaintDetailScreenState
                       const SizedBox(height: 10),
                       Text(
                         complaint.description,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           color: AppTheme.textPrimary,
                           height: 1.5,
@@ -384,7 +384,7 @@ class _ComplaintDetailScreenState
                         const Divider(height: 16),
                         Text(
                           'Resolution: ${complaint.resolutionNotes}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             color: AppTheme.textSecondary,
                             fontStyle: FontStyle.italic,
@@ -395,7 +395,7 @@ class _ComplaintDetailScreenState
                         const Divider(height: 16),
                         Text(
                           'Rejection reason: ${complaint.rejectionReason}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             color: AppTheme.error,
                             fontStyle: FontStyle.italic,
@@ -438,7 +438,7 @@ class _ComplaintDetailScreenState
         // Add comment input
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: AppTheme.cardBg,
             border: Border(top: BorderSide(color: AppTheme.border)),
           ),
@@ -461,7 +461,7 @@ class _ComplaintDetailScreenState
                 ),
                 const SizedBox(width: 10),
                 _isSendingComment
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 36,
                         height: 36,
                         child: CircularProgressIndicator(

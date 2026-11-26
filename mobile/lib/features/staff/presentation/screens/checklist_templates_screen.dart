@@ -106,7 +106,7 @@ class _ChecklistTemplatesScreenState extends ConsumerState<ChecklistTemplatesScr
             child: templatesAsync.when(
               loading: () => const AppLoader(),
               error: (e, _) => Center(
-                  child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
+                  child: Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error))),
               data: (templates) {
                 final filtered = _departmentFilter == null
                     ? templates
@@ -232,7 +232,7 @@ class _TemplateCard extends StatelessWidget {
             ],
           ),
           IconButton(icon: const Icon(Icons.edit_outlined), onPressed: onEdit),
-          IconButton(icon: const Icon(Icons.delete_outline, color: AppTheme.error), onPressed: onDelete),
+          IconButton(icon: Icon(Icons.delete_outline, color: AppTheme.error), onPressed: onDelete),
         ]),
         children: [
           for (final item in template.items)
@@ -299,7 +299,7 @@ class _TemplateEditorScreenState extends ConsumerState<_TemplateEditorScreen> {
         .where((i) => i.titleCtrl.text.trim().isNotEmpty)
         .toList();
     if (name.isEmpty || items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Name and at least one checklist item are required'),
         backgroundColor: AppTheme.error,
       ));
@@ -383,7 +383,7 @@ class _TemplateEditorScreenState extends ConsumerState<_TemplateEditorScreen> {
                 ),
                 const Text('Required', style: TextStyle(fontSize: 11)),
                 IconButton(
-                  icon: const Icon(Icons.remove_circle_outline, size: 20, color: AppTheme.error),
+                  icon: Icon(Icons.remove_circle_outline, size: 20, color: AppTheme.error),
                   onPressed: _items.length <= 1 ? null : () => setState(() => _items.removeAt(i)),
                 ),
               ]),

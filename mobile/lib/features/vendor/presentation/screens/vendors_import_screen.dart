@@ -230,7 +230,7 @@ class _VendorsImportScreenState extends ConsumerState<VendorsImportScreen> {
               initiallyExpanded: r.message != null,
               title: Text('Columns: $imported of ${r.columns.length} will be imported',
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-              subtitle: const Text('Change what a column is read as, or choose Not imported.',
+              subtitle: Text('Change what a column is read as, or choose Not imported.',
                   style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
               children: [
                 for (final c in r.columns)
@@ -269,7 +269,7 @@ class _VendorsImportScreenState extends ConsumerState<VendorsImportScreen> {
         Padding(
           padding: const EdgeInsets.all(12),
           child: Text('… and ${shown.length - capped.length} more rows',
-              textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ),
     ]);
   }
@@ -312,7 +312,7 @@ class _ColumnRow extends StatelessWidget {
               Text(column.heading, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
               if (column.sample != null)
                 Text(column.sample!,
-                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary), overflow: TextOverflow.ellipsis),
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondary), overflow: TextOverflow.ellipsis),
             ]),
           ),
           const SizedBox(width: 8),
@@ -359,7 +359,7 @@ class _RowTile extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Row ${row.line}: ${(row.name ?? '').isEmpty ? '(no name)' : row.name}',
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            if (meta.isNotEmpty) Text(meta, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+            if (meta.isNotEmpty) Text(meta, style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
             if (row.message != null) Text(row.message!, style: TextStyle(fontSize: 11, color: color)),
           ]),
         ),

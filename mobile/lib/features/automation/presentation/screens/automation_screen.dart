@@ -87,7 +87,7 @@ class _AutomationScreenState extends ConsumerState<AutomationScreen> {
         data: (o) => ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(bottom: 14),
               child: Text(
                 'These run by themselves each morning (weekly ones once a week). Switch off any you do not want.',
@@ -142,11 +142,11 @@ class _JobCard extends StatelessWidget {
           Row(children: [
             Expanded(
               child: Text(job.title,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
             ),
             Switch(value: job.enabled, onChanged: busy ? null : onToggle),
           ]),
-          Text(job.description, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4)),
+          Text(job.description, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4)),
           const SizedBox(height: 10),
           Row(children: [
             _Chip(job.schedule == 'weekly' ? 'Weekly' : 'Daily'),
@@ -181,7 +181,7 @@ class _Chip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.10), borderRadius: BorderRadius.circular(6)),
-        child: Text(text, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppTheme.primary)),
+        child: Text(text, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppTheme.primary)),
       );
 }
 
@@ -230,7 +230,7 @@ class _Stepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(children: [
-      Expanded(child: Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
+      Expanded(child: Text(label, style: TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
       IconButton(
           visualDensity: VisualDensity.compact,
           onPressed: value <= min ? null : () => onChanged(value - 1),

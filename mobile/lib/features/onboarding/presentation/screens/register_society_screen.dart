@@ -467,7 +467,7 @@ class _Counter extends StatelessWidget {
       children: [
         Expanded(
           child: Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                   fontWeight: FontWeight.w500,
                   color: AppTheme.textPrimary)),
         ),
@@ -481,7 +481,7 @@ class _Counter extends StatelessWidget {
           child: Text(
             '$value',
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 18, fontWeight: FontWeight.w700,
                 color: AppTheme.textPrimary),
           ),

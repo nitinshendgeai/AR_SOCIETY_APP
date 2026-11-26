@@ -55,7 +55,7 @@ class _SwitcherSheetState extends ConsumerState<_SwitcherSheet> {
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             const Text('Switch society', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
-            const Text('You are signed in to each of these with the same details.',
+            Text('You are signed in to each of these with the same details.',
                 style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
             const SizedBox(height: 12),
             for (final c in widget.societies)

@@ -106,7 +106,7 @@ class _ResidentImportScreenState extends ConsumerState<ResidentImportScreen> {
                 ),
               ]),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 '1. Download the template and fill it in (in Excel, Google Sheets, etc.)\n'
                 '2. Floor, Flat Type (1 BHK, 2 BHK…), Area (sq ft), Possession or Purchase Date, Electric Meter No and Consumer No are optional. If a Wing, Floor, or Flat Number doesn\'t exist yet, it will be created automatically during import\n'
                 '3. Your own sheet works too: columns are found by their headings (Wing, Flat No, Name, Flat Type, Area, Possession Date or Purchase Date, Meter No…), in any order. Dates are read day first (01/04/2019). An area in square metres ("60 sq m") is converted to square feet\n'
@@ -662,7 +662,7 @@ class _RowTile extends StatelessWidget {
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
               if (location.isNotEmpty)
                 Text(location,
-                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
               if (row.message != null) ...[
                 const SizedBox(height: 2),
                 Text(row.message!, style: TextStyle(fontSize: 11, color: color)),

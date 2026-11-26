@@ -82,11 +82,11 @@ class _Headline extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Icon(icon, color: color, size: 22),
               const SizedBox(height: 8),
-              Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+              Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
               const SizedBox(height: 3),
               Text(formatInr(amount), key: k, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color)),
               const SizedBox(height: 4),
-              Text(note, style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, height: 1.3)),
+              Text(note, style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, height: 1.3)),
             ]),
           ),
         );
@@ -101,7 +101,7 @@ class _Headline extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(top: 10),
           child: Text('${formatInr(report.excessDeposited)} more was deposited than was deducted.',
-              key: const Key('tds-excess'), style: const TextStyle(fontSize: 12.5, color: AppTheme.warning, fontWeight: FontWeight.w600)),
+              key: const Key('tds-excess'), style: TextStyle(fontSize: 12.5, color: AppTheme.warning, fontWeight: FontWeight.w600)),
         ),
     ]);
   }
@@ -130,7 +130,7 @@ class _Quarters extends StatelessWidget {
                   Expanded(child: Text(q.quarter, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
                   Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                     Text('$creditLabel ${formatInr(q.credit)}', style: const TextStyle(fontSize: 12.5)),
-                    Text('$debitLabel ${formatInr(q.debit)}', style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                    Text('$debitLabel ${formatInr(q.debit)}', style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
                   ]),
                 ]),
               ),
@@ -152,7 +152,7 @@ class _Statement extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       SectionHeading(s.name),
       const SizedBox(height: 4),
-      Text(hint, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.3)),
+      Text(hint, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.3)),
       const SizedBox(height: 8),
       RegisterTotals(figures: [
         ('Opening', s.opening.label),
@@ -176,16 +176,16 @@ class _Statement extends StatelessWidget {
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(l.particulars, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                       Text('${formatAccountsDate(l.date)} · ${l.voucherNumber}',
-                          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                       if ((l.narration ?? '').isNotEmpty)
-                        Text(l.narration!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        Text(l.narration!, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                     ]),
                   ),
                   const SizedBox(width: 10),
                   Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                     Text(l.debit > 0 ? 'Dr ${formatInr(l.debit)}' : 'Cr ${formatInr(l.credit)}',
                         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                    Text(l.balance.label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    Text(l.balance.label, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   ]),
                 ]),
               ),

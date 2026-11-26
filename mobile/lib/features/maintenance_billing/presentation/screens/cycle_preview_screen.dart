@@ -79,7 +79,7 @@ class _CyclePreviewScreenState extends ConsumerState<CyclePreviewScreen> {
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+            child: Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
           ),
         ),
         data: (p) {
@@ -133,7 +133,7 @@ class _CyclePreviewScreenState extends ConsumerState<CyclePreviewScreen> {
                       borderRadius: BorderRadius.circular(AppTheme.radiusM),
                     ),
                     child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Icon(Icons.warning_amber_rounded, color: AppTheme.warning, size: 20),
+                      Icon(Icons.warning_amber_rounded, color: AppTheme.warning, size: 20),
                       const SizedBox(width: 10),
                       Expanded(child: Text(w, style: const TextStyle(fontSize: 13))),
                     ]),
@@ -240,7 +240,7 @@ class _ExpenseAllocationCard extends StatelessWidget {
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           key: ValueKey('allocation-${a.chargeName}'),
-          leading: const Icon(Icons.receipt_long_rounded, color: AppTheme.primary),
+          leading: Icon(Icons.receipt_long_rounded, color: AppTheme.primary),
           title: Text('${a.chargeName}: ${formatRupees(a.poolAmount)} actual expenses',
               style: const TextStyle(fontWeight: FontWeight.w600)),
           subtitle: Text('${_day(a.periodStart)} – ${_day(a.periodEnd)} · shared $how over ${a.eligibleFlats} flat(s)',
@@ -260,7 +260,7 @@ class _ExpenseAllocationCard extends StatelessWidget {
             if (amountOf(a.pendingAmount) > 0) ...[
               const SizedBox(height: 6),
               Text('${formatRupees(a.pendingAmount)} is waiting for approval and is not included.',
-                  style: const TextStyle(fontSize: 13, color: AppTheme.warning)),
+                  style: TextStyle(fontSize: 13, color: AppTheme.warning)),
             ],
             const SizedBox(height: 8),
             for (final s in a.sources)

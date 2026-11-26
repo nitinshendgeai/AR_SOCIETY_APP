@@ -46,7 +46,7 @@ class PrimaryChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppTheme.radiusXl),
         border: Border.all(color: AppTheme.warning.withOpacity(0.3)),
       ),
-      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(Icons.star_rounded, size: 12, color: AppTheme.warning),
         SizedBox(width: 3),
         Text('PRIMARY',
@@ -128,7 +128,7 @@ class RmSection extends StatelessWidget {
         children: [
           Row(children: [
             Text(title,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w700,
                     color: AppTheme.primary, letterSpacing: 0.4)),
             const Spacer(),
@@ -159,11 +159,11 @@ class RmRow extends StatelessWidget {
           SizedBox(
             width: 130,
             child: Text(label,
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w500)),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w500)),
           ),
           Expanded(
             child: Text(value,
-                style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontWeight: FontWeight.w600)),
+                style: TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -190,12 +190,12 @@ class RmEmptyState extends StatelessWidget {
             Icon(icon, size: 48, color: AppTheme.border),
             const SizedBox(height: 16),
             Text(title,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
             if (subtitle != null) ...[
               const SizedBox(height: 6),
               Text(subtitle!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
             ],
           ],
         ),
@@ -213,7 +213,7 @@ class RmSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
             fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.primary, letterSpacing: 0.4),
       );
 }
@@ -230,7 +230,7 @@ class RmFormField extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
             const SizedBox(height: 6),
             child,
           ],

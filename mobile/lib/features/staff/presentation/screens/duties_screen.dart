@@ -83,7 +83,7 @@ class _DutiesScreenState extends ConsumerState<DutiesScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(message, style: const TextStyle(color: AppTheme.error)),
+                Text(message, style: TextStyle(color: AppTheme.error)),
                 const SizedBox(height: 12),
                 TextButton(
                   onPressed: () => ref.read(dutyProvider.notifier).loadDuties(widget.staffId),
@@ -223,26 +223,26 @@ class _DutyCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(duty.dutyName,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                             color: AppTheme.textPrimary)),
                     if (duty.location != null)
                       Text(duty.location!,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12, color: AppTheme.textSecondary)),
                   ],
                 ),
               ),
               if (duty.isCompleted)
-                const Icon(Icons.check_circle_rounded,
+                Icon(Icons.check_circle_rounded,
                     color: AppTheme.success, size: 20),
             ],
           ),
           if (duty.description != null) ...[
             const SizedBox(height: 10),
             Text(duty.description!,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13, color: AppTheme.textSecondary, height: 1.4)),
           ],
           if (duty.checklistItems.isNotEmpty) ...[
@@ -256,12 +256,12 @@ class _DutyCard extends ConsumerWidget {
                   size: 13, color: AppTheme.textSecondary),
               const SizedBox(width: 4),
               Text(formatDate(duty.dutyDate),
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               if (duty.startTime != null) ...[
-                const Text(' · ',
+                Text(' · ',
                     style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
                 Text('${duty.startTime} - ${duty.endTime ?? '?'}',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12, color: AppTheme.textSecondary)),
               ],
               const Spacer(),
@@ -335,7 +335,7 @@ class _ChecklistSection extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Checklist ($done/${duty.checklistItems.length})',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
           const SizedBox(height: 4),
           for (final item in duty.checklistItems)

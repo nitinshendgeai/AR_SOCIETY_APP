@@ -331,7 +331,7 @@ class _LogServiceSheetState extends ConsumerState<LogServiceSheet> {
       child: Form(
         key: _form,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text(widget.asset.name, style: const TextStyle(color: AppTheme.textSecondary)),
+          Text(widget.asset.name, style: TextStyle(color: AppTheme.textSecondary)),
           const SizedBox(height: 12),
           if (widget.service == null) ...[
             FormFieldBox(label: 'What was done', required: true, child: DropdownButtonFormField<String>(
@@ -378,7 +378,7 @@ class _LogServiceSheetState extends ConsumerState<LogServiceSheet> {
                   : next != null
                       ? 'Left blank, the next service is set for ${formatDay(next)} (every $interval months)'
                       : 'No next service will be set',
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
             ),
           ),
           const SizedBox(height: 20),
@@ -450,7 +450,7 @@ class _ScheduleServiceSheetState extends ConsumerState<ScheduleServiceSheet> {
         child: Form(
           key: _form,
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(widget.asset.name, style: const TextStyle(color: AppTheme.textSecondary)),
+            Text(widget.asset.name, style: TextStyle(color: AppTheme.textSecondary)),
             const SizedBox(height: 12),
             FormFieldBox(label: 'Kind of visit', required: true, child: DropdownButtonFormField<String>(
               initialValue: _type,
@@ -545,9 +545,9 @@ class _AmcSheetState extends ConsumerState<AmcSheet> {
         child: Form(
           key: _form,
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(widget.asset.name, style: const TextStyle(color: AppTheme.textSecondary)),
+            Text(widget.asset.name, style: TextStyle(color: AppTheme.textSecondary)),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'For a contract covering just this asset. A yearly contract with sanction and visit schedule '
               'is kept under Vendors & Work.',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.35),

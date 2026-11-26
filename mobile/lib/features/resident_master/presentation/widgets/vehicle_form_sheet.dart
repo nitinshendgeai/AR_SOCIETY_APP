@@ -256,7 +256,7 @@ class _VehicleFormSheetBodyState extends ConsumerState<_VehicleFormSheetBody> {
                     child: OutlinedButton.icon(
                       onPressed: _submitting ? null : _deactivate,
                       icon: _deactivating
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 16, height: 16,
                               child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.error),
                             )
@@ -264,7 +264,7 @@ class _VehicleFormSheetBodyState extends ConsumerState<_VehicleFormSheetBody> {
                       label: Text(_deactivating ? 'Deactivating…' : 'Deactivate Vehicle'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppTheme.error,
-                        side: const BorderSide(color: AppTheme.error),
+                        side: BorderSide(color: AppTheme.error),
                       ),
                     ),
                   ),

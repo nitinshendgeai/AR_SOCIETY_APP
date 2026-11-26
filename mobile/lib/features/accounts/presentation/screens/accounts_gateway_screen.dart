@@ -139,7 +139,7 @@ class _Strip extends StatelessWidget {
         child: Row(children: [
           Expanded(
             child: Text('Financial year ${s.fy}',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
           ),
           Text('Bank ${formatInr(s.bank)}   ·   Cash ${formatInr(s.cash)}',
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),

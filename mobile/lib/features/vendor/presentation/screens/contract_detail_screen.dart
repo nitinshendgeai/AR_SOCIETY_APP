@@ -96,7 +96,7 @@ class _ContractDetailScreenState extends ConsumerState<ContractDetailScreen> {
                         vendorCategoryLabel(c.category),
                         kServiceFrequencies.firstWhere((f) => f.$1 == c.serviceFrequency, orElse: () => (c.serviceFrequency, c.serviceFrequency)).$2,
                         '${formatBillDate(c.startDate)} – ${formatBillDate(c.endDate)}',
-                      ].join(' · '), style: const TextStyle(color: AppTheme.textSecondary)),
+                      ].join(' · '), style: TextStyle(color: AppTheme.textSecondary)),
                       const SizedBox(height: 8),
                       InfoLine('Vendor', c.vendorName ?? '—'),
                       if (c.annualValue != null) InfoLine('Annual value', formatRupees(c.annualValue!)),

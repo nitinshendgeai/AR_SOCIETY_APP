@@ -32,25 +32,25 @@ class PlatformSocietyScreen extends ConsumerWidget {
             child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 40), children: [
               Row(children: [
                 StatusPill(statusLabel(s.status), statusColor(s.status)),
-                if (s.trialEnded && s.status == 'TRIAL') const Padding(padding: EdgeInsets.only(left: 8), child: StatusPill('Trial ended', AppTheme.warning)),
+                if (s.trialEnded && s.status == 'TRIAL') Padding(padding: EdgeInsets.only(left: 8), child: StatusPill('Trial ended', AppTheme.warning)),
                 const SizedBox(width: 10),
                 Expanded(child: Text(s.standing, style: const TextStyle(fontWeight: FontWeight.w600))),
               ]),
               const SizedBox(height: 4),
-              Text([if ((s.code ?? '').isNotEmpty) s.code!, if ((s.city ?? '').isNotEmpty) s.city!, if (s.createdAt != null) 'Joined ${dayText(s.createdAt)}'].join(' · '), style: const TextStyle(color: AppTheme.textSecondary)),
+              Text([if ((s.code ?? '').isNotEmpty) s.code!, if ((s.city ?? '').isNotEmpty) s.city!, if (s.createdAt != null) 'Joined ${dayText(s.createdAt)}'].join(' · '), style: TextStyle(color: AppTheme.textSecondary)),
               const SizedBox(height: 14),
               _Actions(society: s),
               const SizedBox(height: 18),
               _section('Use'),
               _Usage(label: 'People', used: s.users, allowed: s.allowedUsers),
               _Usage(label: 'Flats', used: s.flats, allowed: s.allowedFlats),
-              Text('${s.wings} wing${s.wings == 1 ? '' : 's'} · setup ${s.setupPct}% done · last sign-in ${ago(s.lastLogin)}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12.5)),
+              Text('${s.wings} wing${s.wings == 1 ? '' : 's'} · setup ${s.setupPct}% done · last sign-in ${ago(s.lastLogin)}', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12.5)),
               const SizedBox(height: 18),
               _section('Services'),
               _Services(societyId: s.id),
               const SizedBox(height: 18),
               _section('Who runs it'),
-              if (s.admins.isEmpty) const Text('No society admin yet.', style: TextStyle(color: AppTheme.textSecondary)),
+              if (s.admins.isEmpty) Text('No society admin yet.', style: TextStyle(color: AppTheme.textSecondary)),
               for (final a in s.admins)
                 ListTile(
                   dense: true,
@@ -61,11 +61,11 @@ class PlatformSocietyScreen extends ConsumerWidget {
                 ),
               if ((s.contactName ?? '').isNotEmpty || (s.contactEmail ?? '').isNotEmpty || (s.contactPhone ?? '').isNotEmpty) ...[
                 const SizedBox(height: 6),
-                Text('Contact on file: ${[if ((s.contactName ?? '').isNotEmpty) s.contactName!, if ((s.contactEmail ?? '').isNotEmpty) s.contactEmail!, if ((s.contactPhone ?? '').isNotEmpty) s.contactPhone!].join(' · ')}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12.5)),
+                Text('Contact on file: ${[if ((s.contactName ?? '').isNotEmpty) s.contactName!, if ((s.contactEmail ?? '').isNotEmpty) s.contactEmail!, if ((s.contactPhone ?? '').isNotEmpty) s.contactPhone!].join(' · ')}', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12.5)),
               ],
               const SizedBox(height: 18),
               _section('What has been done'),
-              if (s.history.isEmpty) const Text('Nothing yet.', style: TextStyle(color: AppTheme.textSecondary)),
+              if (s.history.isEmpty) Text('Nothing yet.', style: TextStyle(color: AppTheme.textSecondary)),
               for (final e in s.history) EventTile(event: e),
             ]),
           ),
@@ -125,7 +125,7 @@ class _ServicesState extends ConsumerState<_Services> {
       loading: () => const Padding(padding: EdgeInsets.all(12), child: LinearProgressIndicator()),
       error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
       data: (list) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Switch a service off for this society and it disappears from their app. Sign-in, flats and residents, '
+        Text('Switch a service off for this society and it disappears from their app. Sign-in, flats and residents, '
             'and maintenance billing are always on.',
             style: TextStyle(color: AppTheme.textSecondary, fontSize: 12.5)),
         const SizedBox(height: 6),

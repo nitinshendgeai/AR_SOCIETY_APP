@@ -299,7 +299,7 @@ class _Tile extends StatelessWidget {
             Text('Row ${row.line}: ${row.shopNumber.isEmpty ? '(no shop number)' : 'Shop ${row.shopNumber}'}'
                 '${row.owner.isEmpty ? '' : ' — ${row.owner}'}',
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            if (meta.isNotEmpty) Text(meta, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+            if (meta.isNotEmpty) Text(meta, style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
             if (row.message != null) Text(row.message!, style: TextStyle(fontSize: 11, color: color)),
           ]),
         ),

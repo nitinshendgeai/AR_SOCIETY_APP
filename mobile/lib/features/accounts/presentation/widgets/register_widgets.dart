@@ -86,7 +86,7 @@ class RegisterTotals extends StatelessWidget {
       child: Wrap(spacing: 28, runSpacing: 12, children: [
         for (final (label, value) in figures)
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
+            Text(label, style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
             const SizedBox(height: 3),
             Text(value,
                 style: const TextStyle(
@@ -108,7 +108,7 @@ class EnteredBy extends StatelessWidget {
         (name == null || name!.isEmpty) ? '—' : '$prefix$name',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+        style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
       );
 }
 

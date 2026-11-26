@@ -133,12 +133,12 @@ class _ElementMonthsScreenState extends ConsumerState<ElementMonthsScreen> {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Total spent, ${_dmy(r.from)} to ${_dmy(r.to)}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               Text(formatInr(r.total), key: const ValueKey('months-total'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
             ]),
           ),
           Text('${r.months.length} month${r.months.length == 1 ? '' : 's'}',
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ]),
       ),
       const SizedBox(height: 12),
@@ -183,9 +183,9 @@ class _MonthCard extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(children: [
-                Expanded(child: Text(l.name, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
-                Text(formatInr(l.amount), style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                const Icon(Icons.chevron_right_rounded, size: 16, color: AppTheme.textSecondary),
+                Expanded(child: Text(l.name, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
+                Text(formatInr(l.amount), style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                Icon(Icons.chevron_right_rounded, size: 16, color: AppTheme.textSecondary),
               ]),
             ),
           ),

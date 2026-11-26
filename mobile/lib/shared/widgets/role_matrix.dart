@@ -260,11 +260,11 @@ class _RoleMatrixState extends State<RoleMatrix> {
               child: Text(widget.description,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
             ),
             const SizedBox(width: 16),
             Text('$shown roles × ${widget.columns.length} ${widget.columnNoun}',
-                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
           ],
         ]),
       );
@@ -288,7 +288,7 @@ class _RoleMatrixState extends State<RoleMatrix> {
             Container(
               width: count * _cellWidth,
               alignment: Alignment.center,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppTheme.primarySoft,
                 border: Border(
                   right: BorderSide(color: AppTheme.cardBg, width: 2),
@@ -297,7 +297,7 @@ class _RoleMatrixState extends State<RoleMatrix> {
               ),
               child: Text((group ?? 'Other').toUpperCase(),
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: AppTheme.primary)),
             ),
         ]),
@@ -352,7 +352,7 @@ class _RoleMatrixState extends State<RoleMatrix> {
                       style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600))),
             ),
             Text('${r.granted.intersection({for (final c in widget.columns) c.key}).length}',
-                style: const TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
+                style: TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
           ]),
         ),
       );

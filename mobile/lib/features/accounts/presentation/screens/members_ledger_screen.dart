@@ -159,7 +159,7 @@ class _MembersLedgerScreenState extends ConsumerState<MembersLedgerScreen> {
                               style: const TextStyle(fontSize: 12.5)),
                             trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                               DrCrText(m.balance),
-                              const Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
+                              Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
                             ]),
                             onTap: () => open(m),
                           ),

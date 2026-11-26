@@ -132,7 +132,7 @@ class DocumentsScreen extends ConsumerWidget {
                       Padding(
                           padding: const EdgeInsets.fromLTRB(2, 14, 2, 8),
                           child: Text(c.$2,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                   color: AppTheme.textSecondary))),
@@ -169,7 +169,7 @@ class DocumentsScreen extends ConsumerWidget {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       if (d.visibility == 'committee')
-                                        const StatusPill(
+                                        StatusPill(
                                             'Committee', AppTheme.warning),
                                       if (office)
                                         IconButton(
@@ -252,13 +252,13 @@ class _AddSheetState extends ConsumerState<_AddSheet> {
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
-            const Icon(Icons.attach_file_rounded,
+            Icon(Icons.attach_file_rounded,
                 size: 18, color: AppTheme.textSecondary),
             const SizedBox(width: 6),
             Expanded(
                 child: Text(
                     '${widget.file.name} · ${sizeText(widget.file.size)}',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13, color: AppTheme.textSecondary))),
           ]),
           const SizedBox(height: 14),

@@ -93,7 +93,7 @@ class _AttendanceLocationScreenState extends ConsumerState<AttendanceLocationScr
         data: (cfg) => ResponsiveBody(
           maxWidth: 720,
           child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 96), children: [
-            const Text(
+            Text(
                 "Staff check in and out only from the spots below. The phone's location is read at that moment only: it is "
                 'never tracked in between. Phones are usually accurate to 3 to 10 m outdoors, and worse indoors.',
                 style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.35)),
@@ -114,7 +114,7 @@ class _AttendanceLocationScreenState extends ConsumerState<AttendanceLocationScr
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(_modes.firstWhere((m) => m.$1 == cfg.mode).$3,
-                  style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.35)),
+                  style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.35)),
             ),
             const SizedBox(height: 12),
             Row(children: [
@@ -152,7 +152,7 @@ class _AttendanceLocationScreenState extends ConsumerState<AttendanceLocationScr
             ]),
             const SizedBox(height: 8),
             if (cfg.spots.isEmpty)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
                 child: Text('No spot yet: staff can check in from anywhere. Stand at the gate and tap "Add spot here".',
                     textAlign: TextAlign.center, style: TextStyle(color: AppTheme.textSecondary)),
@@ -162,7 +162,7 @@ class _AttendanceLocationScreenState extends ConsumerState<AttendanceLocationScr
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
                   key: Key('geo-spot-${s.name}'),
-                  leading: const Icon(Icons.location_on_rounded, color: AppTheme.primary),
+                  leading: Icon(Icons.location_on_rounded, color: AppTheme.primary),
                   title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text('${s.latitude.toStringAsFixed(6)}, ${s.longitude.toStringAsFixed(6)} · within ${s.radiusM} m'),
                   trailing: committee
@@ -178,7 +178,7 @@ class _AttendanceLocationScreenState extends ConsumerState<AttendanceLocationScr
                               }),
                           IconButton(
                               tooltip: 'Remove',
-                              icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AppTheme.error),
+                              icon: Icon(Icons.delete_outline_rounded, size: 20, color: AppTheme.error),
                               onPressed: () async {
                                 final ok = await showDialog<bool>(
                                     context: context,
@@ -332,7 +332,7 @@ class _SpotSheetState extends ConsumerState<_SpotSheet> {
           if (_readNote != null)
             Padding(
               padding: const EdgeInsets.only(top: 6, bottom: 4),
-              child: Text(_readNote!, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.35)),
+              child: Text(_readNote!, style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.35)),
             ),
           const SizedBox(height: 8),
           Row(children: [

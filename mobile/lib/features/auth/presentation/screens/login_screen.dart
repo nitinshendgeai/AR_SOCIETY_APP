@@ -66,7 +66,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             Card(
               margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
-                leading: const Icon(Icons.apartment_rounded, color: AppTheme.primary),
+                leading: Icon(Icons.apartment_rounded, color: AppTheme.primary),
                 title: Text(c.societyName, style: const TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: c.roleLabel.isEmpty ? null : Text(c.roleLabel),
                 trailing: const Icon(Icons.chevron_right_rounded),
@@ -222,7 +222,7 @@ class _RegisterCTA extends StatelessWidget {
                 color: AppTheme.primary.withOpacity(0.12),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.rocket_launch_rounded,
+              child: Icon(Icons.rocket_launch_rounded,
                   color: AppTheme.primary, size: 20),
             ),
             const SizedBox(width: 14),
@@ -320,7 +320,7 @@ class _DemoFormatHintState extends State<_DemoFormatHint> {
                 const SizedBox(height: 6),
                 _HintRow(label: 'Password',     value: 'shown once, after you register'),
                 const SizedBox(height: 10),
-                const Text(
+                Text(
                   'Replace "greenpark" with your society code (lowercase).\nYou must change the password on first login.',
                   style: TextStyle(
                     fontSize: 11,
@@ -329,7 +329,7 @@ class _DemoFormatHintState extends State<_DemoFormatHint> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                const Text(
+                Text(
                   'Residents and tenants added by the society sign in with '
                   'their mobile number and the temporary password the society '
                   'office gives them, then must set a new password on first login.',
@@ -355,7 +355,7 @@ class _HintRow extends StatelessWidget {
       SizedBox(
         width: 90,
         child: Text(label,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12,
                 color: AppTheme.textSecondary,
                 fontWeight: FontWeight.w500)),
@@ -363,7 +363,7 @@ class _HintRow extends StatelessWidget {
       Expanded(
         child: Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
             color: AppTheme.textPrimary,
             fontFamily: 'monospace',

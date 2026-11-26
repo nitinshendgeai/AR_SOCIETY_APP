@@ -119,7 +119,7 @@ class _CreateUserScreenState extends ConsumerState<CreateUserScreen> {
               helper: 'Optional. The role decides which screens the person sees.',
               child: rolesAsync.when(
                 loading: () => const LinearProgressIndicator(),
-                error: (_, __) => const Text('Could not load roles', style: TextStyle(color: AppTheme.error, fontSize: 12)),
+                error: (_, __) => Text('Could not load roles', style: TextStyle(color: AppTheme.error, fontSize: 12)),
                 data: (roles) => DropdownButtonFormField<String?>(
                 isExpanded: true,
                   value: _selectedRole,

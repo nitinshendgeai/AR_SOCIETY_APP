@@ -107,7 +107,7 @@ class _LoginPickerSheetState extends State<_LoginPickerSheet> {
               return const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()));
             }
             if (snap.hasError) {
-              return const Padding(
+              return Padding(
                 padding: EdgeInsets.all(24),
                 child: Text('Only an admin can see the logins to link. Ask the society admin to do this.',
                     style: TextStyle(color: AppTheme.error)),

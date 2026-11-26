@@ -119,7 +119,7 @@ class _GymReportScreenState extends ConsumerState<GymReportScreen> {
       if (r.notCheckedOut > 0) ...[
         const SizedBox(height: 10),
         Text(context.trf('{n} visits were not ticked out. They count as visits but not as time in the gym.', {'n': r.notCheckedOut}),
-            key: const Key('gym-not-out-note'), style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+            key: const Key('gym-not-out-note'), style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
       ],
       const SizedBox(height: 20),
       SectionHeading(context.tr('Day by day')),
@@ -129,7 +129,7 @@ class _GymReportScreenState extends ConsumerState<GymReportScreen> {
       SectionHeading(context.tr('Members')),
       const SizedBox(height: 10),
       if (r.members.isEmpty)
-        Text(context.tr('Nobody used the gym in this period.'), key: const Key('gym-empty'), style: const TextStyle(color: AppTheme.textSecondary))
+        Text(context.tr('Nobody used the gym in this period.'), key: const Key('gym-empty'), style: TextStyle(color: AppTheme.textSecondary))
       else
         for (final m in r.members) _MemberRow(member: m),
     ];
@@ -151,7 +151,7 @@ class _Figure extends StatelessWidget {
             child: Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, fontFeatures: [FontFeature.tabularFigures()])),
           ),
           const SizedBox(height: 2),
-          Text(context.tr(label), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          Text(context.tr(label), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ]),
       );
 }
@@ -167,7 +167,7 @@ class _DayRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(children: [
-        SizedBox(width: 74, child: Text(DateFormat('EEE d MMM').format(day.date), style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary))),
+        SizedBox(width: 74, child: Text(DateFormat('EEE d MMM').format(day.date), style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary))),
         Expanded(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(6),
@@ -195,13 +195,13 @@ class _MemberRow extends StatelessWidget {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(member.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-                Text(member.flatLabel, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                Text(member.flatLabel, style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
               ]),
             ),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Text(context.trf(member.visits == 1 ? '{n} visit' : '{n} visits', {'n': member.visits}), style: const TextStyle(fontWeight: FontWeight.w700)),
               if (member.totalMinutes > 0)
-                Text(gymStay(member.totalMinutes), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                Text(gymStay(member.totalMinutes), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ]),
           ]),
         ),

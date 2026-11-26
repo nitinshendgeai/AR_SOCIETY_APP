@@ -73,7 +73,7 @@ class _StandardChecklistsSheetState extends ConsumerState<StandardChecklistsShee
             child: Text('Standard checklists', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
           ),
         ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
           child: Align(
             alignment: Alignment.centerLeft,
@@ -85,7 +85,7 @@ class _StandardChecklistsSheetState extends ConsumerState<StandardChecklistsShee
           child: async.when(
             loading: () => const AppLoader(),
             error: (e, _) => Center(
-                child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
+                child: Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error))),
             data: (rows) => ListView(controller: scroll, children: [
               for (final c in rows)
                 ExpansionTile(

@@ -115,14 +115,14 @@ class _FinancialReportScreenState extends ConsumerState<FinancialReportScreen> {
                 Text(r.heading, textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                 if (r.provisional)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 4),
                     child: Text('Provisional — the financial year is not over yet.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   ),
                 const SizedBox(height: 12),
-                if (!r.balanced) const _Banner('The statement doesn\'t tally — check the opening balances.',
+                if (!r.balanced) _Banner('The statement doesn\'t tally — check the opening balances.',
                     AppTheme.error),
                 for (final n in r.notes) _Banner(n, AppTheme.warning),
                 if (r.result != null) ...[
@@ -256,26 +256,26 @@ class _SideCard extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Container(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppTheme.primarySoft,
               borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusM)),
             ),
             child: Row(children: [
               Expanded(
                 child: Text(side.title.toUpperCase(),
-                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, letterSpacing: .4,
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, letterSpacing: .4,
                         color: AppTheme.primaryDark)),
               ),
               if (showPrev)
                 SizedBox(
                   width: amountW,
                   child: Text('FY ${columns[1]}', textAlign: TextAlign.right,
-                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
                 ),
               SizedBox(
                 width: amountW,
                 child: Text('FY ${columns[0]}', textAlign: TextAlign.right,
-                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppTheme.primaryDark)),
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppTheme.primaryDark)),
               ),
             ]),
           ),
@@ -378,7 +378,7 @@ class _TableCard extends StatelessWidget {
               color: AppTheme.primarySoft,
               padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
               child: Row(children: [
-                const Expanded(
+                Expanded(
                   child: Text('PARTICULARS',
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppTheme.primaryDark)),
                 ),
@@ -386,12 +386,12 @@ class _TableCard extends StatelessWidget {
                   SizedBox(
                     width: amountW,
                     child: Text(col.toUpperCase(), textAlign: TextAlign.right,
-                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: AppTheme.primaryDark)),
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: AppTheme.primaryDark)),
                   ),
               ]),
             ),
           if (report.rows.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(24),
               child: Text('Nothing to show for this year.', style: TextStyle(color: AppTheme.textSecondary)),
             ),

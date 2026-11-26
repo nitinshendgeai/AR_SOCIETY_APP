@@ -50,7 +50,7 @@ class _RequestList extends ConsumerWidget {
     return requests.when(
       loading: () => const AppLoader(),
       error: (e, _) => Center(
-        child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+        child: Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
       ),
       data: (all) {
         final list = pending ? all : all.where((r) => !r.isPending).toList();
@@ -146,7 +146,7 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
         title: const Text('Temporary password'),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Give this to ${r.fullName}. It works once — they must set a new password when they sign in.',
-              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           const SizedBox(height: 12),
           Container(
             width: double.infinity,
@@ -208,7 +208,7 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(r.fullName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
               if (details.isNotEmpty)
-                Text(details, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                Text(details, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ]),
           ),
           if (!r.isPending)
@@ -222,7 +222,7 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
                   '${r.lastAskedAt.difference(r.requestedAt).inMinutes > 1 ? ' (first asked ${_when.format(r.requestedAt.toLocal())})' : ''}'
               : '${r.status == 'completed' ? 'Reset' : 'Dismissed'} by ${r.resolvedBy ?? '—'}'
                   '${r.resolvedAt != null ? ' · ${_when.format(r.resolvedAt!.toLocal())}' : ''}',
-          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
         ),
         if (r.isPending) ...[
           const SizedBox(height: 12),

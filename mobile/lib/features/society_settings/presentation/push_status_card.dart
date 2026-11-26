@@ -72,7 +72,7 @@ class _PushStatusCardState extends ConsumerState<PushStatusCard> {
       ),
       child: status.when(
         loading: () => const LinearProgressIndicator(),
-        error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+        error: (e, _) => Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
         data: (s) {
           final on = s.enabled;
           final devices = s.platforms.entries.map((e) => '${e.value} ${e.key}').join(', ');
@@ -92,7 +92,7 @@ class _PushStatusCardState extends ConsumerState<PushStatusCard> {
                   ? 'A visitor at the gate rings the resident\'s phone, even when the app is closed.'
                   : 'The server has no Firebase key (FIREBASE_SERVICE_ACCOUNT_JSON), so nothing is pushed. '
                       'Residents still see waiting visitors in the app, refreshed every 15 seconds.',
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4),
             ),
             const SizedBox(height: 8),
             Text(

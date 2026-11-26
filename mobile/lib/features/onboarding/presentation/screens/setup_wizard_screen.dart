@@ -175,7 +175,7 @@ class _TermsStep extends StatelessWidget {
               color: AppTheme.primary.withOpacity(0.10),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.gavel_rounded,
               color: AppTheme.primary,
               size: 30,
@@ -190,7 +190,7 @@ class _TermsStep extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Please review and accept our Terms of Service before getting started.',
             style: TextStyle(color: AppTheme.textSecondary, fontSize: 14, height: 1.5),
           ),
@@ -215,7 +215,7 @@ class _TermsStep extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.only(top: 12),
                     child: RichText(
-                      text: const TextSpan(
+                      text: TextSpan(
                         style: TextStyle(
                           color: AppTheme.textPrimary,
                           fontSize: 14,
@@ -258,12 +258,12 @@ class _TermsStep extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.error_outline_rounded,
+                  Icon(Icons.error_outline_rounded,
                       color: AppTheme.error, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(error!,
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: AppTheme.error, fontSize: 13)),
                   ),
                 ],
@@ -318,7 +318,7 @@ class _TermsCardState extends State<_TermsCard> {
       child: Column(
         children: [
           ListTile(
-            leading: const Icon(Icons.description_outlined,
+            leading: Icon(Icons.description_outlined,
                 color: AppTheme.primary, size: 20),
             title: const Text(
               'Terms Summary',
@@ -326,7 +326,7 @@ class _TermsCardState extends State<_TermsCard> {
             ),
             subtitle: Text(
               _expanded ? 'Tap to collapse' : 'Tap to read key terms',
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
             ),
             trailing: Icon(
               _expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
@@ -349,7 +349,7 @@ class _TermsCardState extends State<_TermsCard> {
                                 width: 6,
                                 height: 6,
                                 margin: const EdgeInsets.only(top: 6, right: 10),
-                                decoration: const BoxDecoration(
+                                decoration: BoxDecoration(
                                   color: AppTheme.primary,
                                   shape: BoxShape.circle,
                                 ),
@@ -360,7 +360,7 @@ class _TermsCardState extends State<_TermsCard> {
                                   children: [
                                     Text(
                                       item.$1,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 13,
                                         color: AppTheme.textPrimary,
@@ -369,7 +369,7 @@ class _TermsCardState extends State<_TermsCard> {
                                     const SizedBox(height: 2),
                                     Text(
                                       item.$2,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 12,
                                         color: AppTheme.textSecondary,
                                         height: 1.4,
@@ -416,7 +416,7 @@ class _SocietyStep extends ConsumerWidget {
               color: AppTheme.primary.withOpacity(0.10),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.apartment_rounded,
               color: AppTheme.primary,
               size: 30,
@@ -431,7 +431,7 @@ class _SocietyStep extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Review the society details set up for your account.',
             style: TextStyle(color: AppTheme.textSecondary, fontSize: 14, height: 1.5),
           ),
@@ -452,12 +452,12 @@ class _SocietyStep extends ConsumerWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.error_outline_rounded, color: AppTheme.error),
+                  Icon(Icons.error_outline_rounded, color: AppTheme.error),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'Could not load society details. You can still continue.',
-                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                      style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
                     ),
                   ),
                 ],
@@ -478,7 +478,7 @@ class _SocietyStep extends ConsumerWidget {
             width: double.infinity,
             child: TextButton(
               onPressed: onNext,
-              child: const Text(
+              child: Text(
                 'Skip for now',
                 style: TextStyle(color: AppTheme.textSecondary),
               ),
@@ -513,7 +513,7 @@ class _SocietyCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     colors: [AppTheme.primary, AppTheme.primaryDark],
                   ),
                   borderRadius: BorderRadius.circular(AppTheme.radiusS),
@@ -525,7 +525,7 @@ class _SocietyCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   society.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 16,
                     color: AppTheme.textPrimary,
@@ -538,7 +538,7 @@ class _SocietyCard extends StatelessWidget {
                   color: AppTheme.success.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(AppTheme.radiusXl),
                 ),
-                child: const Text(
+                child: Text(
                   'Active',
                   style: TextStyle(
                     color: AppTheme.success,
@@ -578,7 +578,7 @@ class _SocietyCard extends StatelessWidget {
                     width: 72,
                     child: Text(
                       r.$2,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 12,
                           color: AppTheme.textSecondary,
                           fontWeight: FontWeight.w500),
@@ -587,7 +587,7 @@ class _SocietyCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       r.$3!,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 13, color: AppTheme.textPrimary),
                     ),
                   ),
@@ -621,7 +621,7 @@ class _DoneStep extends StatelessWidget {
               color: AppTheme.success.withOpacity(0.12),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.check_circle_rounded,
               color: AppTheme.success,
               size: 48,
@@ -638,7 +638,7 @@ class _DoneStep extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'Your account setup is complete. Welcome to DUX OS — your smart society management platform.',
             style: TextStyle(
               color: AppTheme.textSecondary,
@@ -692,7 +692,7 @@ class _QuickTipsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'What\'s Next?',
             style: TextStyle(
               fontWeight: FontWeight.w700,
@@ -719,7 +719,7 @@ class _QuickTipsCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       tip.$2,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         color: AppTheme.textPrimary,
                         height: 1.4,

@@ -98,7 +98,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
             const SizedBox(height: 8),
             TextButton(
               onPressed: _loading ? null : () => ref.read(authProvider.notifier).logout(),
-              child: const Text('Sign out', style: TextStyle(color: AppTheme.textSecondary)),
+              child: Text('Sign out', style: TextStyle(color: AppTheme.textSecondary)),
             ),
           ],
         ),

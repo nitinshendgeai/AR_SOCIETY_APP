@@ -187,11 +187,11 @@ class _BrandPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppTheme.primary, AppTheme.primaryDark, Color(0xFF00348F)],
+          colors: AppTheme.isDeck ? AppTheme.heroGradient : [AppTheme.primary, AppTheme.primaryDark, const Color(0xFF00348F)],
         ),
       ),
       child: SafeArea(

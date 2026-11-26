@@ -114,7 +114,7 @@ class QuotationsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (quotations.isEmpty) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 12),
         child: Text('No quotations yet. Collect them from vendors and enter each one.',
             style: TextStyle(color: AppTheme.textSecondary)),
@@ -130,11 +130,11 @@ class QuotationsList extends StatelessWidget {
             Flexible(child: Text(q.vendorName, overflow: TextOverflow.ellipsis)),
             if (q.isLowest) ...[
               const SizedBox(width: 6),
-              const _Tag('Lowest', AppTheme.success),
+              _Tag('Lowest', AppTheme.success),
             ],
             if (q.isSelected) ...[
               const SizedBox(width: 6),
-              const _Tag('Chosen', AppTheme.primary),
+              _Tag('Chosen', AppTheme.primary),
             ],
           ]),
           subtitle: Text([
@@ -198,7 +198,7 @@ class InfoLine extends StatelessWidget {
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           SizedBox(
               width: MediaQuery.sizeOf(context).width < 500 ? 120 : 170,
-              child: Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
+              child: Text(label, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
           Expanded(child: Text(value, style: const TextStyle(fontSize: 13.5))),
         ]),
       );

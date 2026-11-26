@@ -319,7 +319,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Row(children: [
-                const Icon(Icons.check_circle_rounded, size: 18, color: AppTheme.success),
+                Icon(Icons.check_circle_rounded, size: 18, color: AppTheme.success),
                 const SizedBox(width: 8),
                 Expanded(
                     child: Text('Saved: $_lastSaved. Add the next one below.', style: const TextStyle(fontSize: 13))),

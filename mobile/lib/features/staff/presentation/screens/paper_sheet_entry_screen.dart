@@ -258,12 +258,12 @@ class _PaperSheetEntryScreenState extends ConsumerState<PaperSheetEntryScreen> {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final who = Row(children: [
-      const Icon(Icons.person_rounded, color: AppTheme.primary),
+      Icon(Icons.person_rounded, color: AppTheme.primary),
       const SizedBox(width: 10),
       Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(widget.staffName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-          const Text('Enter what is written on the printed sheet',
+          Text('Enter what is written on the printed sheet',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ]),
       ),
@@ -330,7 +330,7 @@ class _PaperSheetEntryScreenState extends ConsumerState<PaperSheetEntryScreen> {
             ),
           ]),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Times as written (24-hour). An out time before the in time means the next morning, for a night shift. '
             'Entering the sheet records the attendance as approved.',
             style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
@@ -350,9 +350,9 @@ class _PaperSheetEntryScreenState extends ConsumerState<PaperSheetEntryScreen> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(d.dutyName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
         if (subtitle.isNotEmpty)
-          Text(subtitle, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         if (locked)
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 6),
             child: Text('Already verified — it can no longer be changed.',
                 style: TextStyle(fontSize: 12, color: AppTheme.warning)),
@@ -391,7 +391,7 @@ class _PaperSheetEntryScreenState extends ConsumerState<PaperSheetEntryScreen> {
           title: Text(d.isCompleted ? 'Duty completed' : 'Mark duty completed', style: const TextStyle(fontSize: 14)),
           subtitle: d.checklistItems.isNotEmpty && (_complete[d.id] ?? false) && !d.isCompleted && _missingRequired(d).isNotEmpty
               ? Text('Required items still unticked: ${_missingRequired(d).join(', ')}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.error))
+                  style: TextStyle(fontSize: 12, color: AppTheme.error))
               : null,
         ),
       ]),

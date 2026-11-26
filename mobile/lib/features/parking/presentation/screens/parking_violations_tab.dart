@@ -108,7 +108,7 @@ class _ViolationCardState extends ConsumerState<ViolationCard> {
           if (v.hasFine)
             Padding(
               padding: const EdgeInsets.only(top: 2),
-              child: Text('Fine ₹${v.fineAmount}', style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+              child: Text('Fine ₹${v.fineAmount}', style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
             ),
           if (v.canCharge || v.canWaive) ...[
             const SizedBox(height: 10),

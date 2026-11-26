@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/theme/app_look.dart';
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -123,11 +124,11 @@ class _SocietyCard extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Expanded(child: Text(s.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
-              if (s.trialEnded && s.status == 'TRIAL') const Padding(padding: EdgeInsets.only(right: 6), child: StatusPill('Trial ended', AppTheme.warning)),
+              if (s.trialEnded && s.status == 'TRIAL') Padding(padding: EdgeInsets.only(right: 6), child: StatusPill('Trial ended', AppTheme.warning)),
               StatusPill(statusLabel(s.status), statusColor(s.status)),
             ]),
             const SizedBox(height: 2),
-            Text([if ((s.code ?? '').isNotEmpty) s.code!, if ((s.city ?? '').isNotEmpty) s.city!, s.standing].join(' · '), style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12.5)),
+            Text([if ((s.code ?? '').isNotEmpty) s.code!, if ((s.city ?? '').isNotEmpty) s.city!, s.standing].join(' · '), style: TextStyle(color: AppTheme.textSecondary, fontSize: 12.5)),
             const SizedBox(height: 8),
             Wrap(spacing: 16, runSpacing: 4, children: [
               _chip(Icons.people_outline_rounded, '${s.users} of ${s.allowedUsers} people'),
@@ -141,7 +142,7 @@ class _SocietyCard extends StatelessWidget {
     );
   }
 
-  Widget _chip(IconData i, String t) => Row(mainAxisSize: MainAxisSize.min, children: [Icon(i, size: 15, color: AppTheme.textSecondary), const SizedBox(width: 4), Text(t, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary))]);
+  Widget _chip(IconData i, String t) => Row(mainAxisSize: MainAxisSize.min, children: [Icon(i, size: 15, color: AppTheme.textSecondary), const SizedBox(width: 4), Text(t, style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary))]);
 }
 
 class _ActivityTab extends ConsumerWidget {
@@ -222,18 +223,19 @@ class _PlatformAccountMenu extends ConsumerWidget {
         if (v == 'logout') _signOut(context, ref);
         if (v == 'devices') context.go(AppRoutes.activeDevices);
         if (v == 'language') showLanguagePicker(context, ref);
+        if (v == 'look') showLookPicker(context, ref);
       },
       itemBuilder: (_) => [
         if (user != null)
           PopupMenuItem<String>(
             enabled: false,
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(user.fullName, style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-              Text(user.email, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              Text(user.fullName, style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+              Text(user.email, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ]),
           ),
         const PopupMenuDivider(),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'language',
           child: Row(children: [
             Icon(Icons.translate_rounded, size: 18, color: AppTheme.textSecondary),
@@ -241,7 +243,15 @@ class _PlatformAccountMenu extends ConsumerWidget {
             Text('Language'),
           ]),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
+          value: 'look',
+          child: Row(children: [
+            Icon(Icons.auto_awesome_outlined, size: 18, color: AppTheme.textSecondary),
+            const SizedBox(width: 10),
+            const Text('Appearance'),
+          ]),
+        ),
+        PopupMenuItem<String>(
           value: 'devices',
           child: Row(children: [
             Icon(Icons.devices_rounded, size: 18, color: AppTheme.textSecondary),
@@ -249,7 +259,7 @@ class _PlatformAccountMenu extends ConsumerWidget {
             Text('Signed-in devices'),
           ]),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'logout',
           child: Row(children: [
             Icon(Icons.logout_rounded, size: 18, color: AppTheme.error),

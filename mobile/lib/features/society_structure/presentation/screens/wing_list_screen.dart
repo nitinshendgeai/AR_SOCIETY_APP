@@ -103,7 +103,7 @@ class _WingListScreenState extends ConsumerState<WingListScreen> {
                   children: [
                     Text(friendlyErrorMessage(e),
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppTheme.error)),
+                        style: TextStyle(color: AppTheme.error)),
                     const SizedBox(height: 12),
                     ElevatedButton(
                       onPressed: () =>
@@ -129,7 +129,7 @@ class _WingListScreenState extends ConsumerState<WingListScreen> {
                               ? 'No wings yet.\nTap "Add Wing" to add the first one.'
                               : 'No wings match your search.',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: AppTheme.textSecondary, fontSize: 14),
                         ),
                       ],
@@ -208,7 +208,7 @@ class _WingCard extends ConsumerWidget {
                     Row(children: [
                       Expanded(
                         child: Text(wing.name,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
                                 color: AppTheme.textPrimary)),
@@ -221,7 +221,7 @@ class _WingCard extends ConsumerWidget {
                             color: AppTheme.error.withOpacity(0.12),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Text('Inactive',
+                          child: Text('Inactive',
                               style: TextStyle(
                                   fontSize: 10,
                                   color: AppTheme.error,
@@ -243,14 +243,14 @@ class _WingCard extends ConsumerWidget {
                       Text(wing.description!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12, color: AppTheme.textSecondary)),
                     ],
                   ],
                 ),
               ),
               PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert_rounded,
+                icon: Icon(Icons.more_vert_rounded,
                     color: AppTheme.textSecondary),
                 onSelected: (v) => _onMenu(context, ref, v),
                 itemBuilder: (_) => [
@@ -262,7 +262,7 @@ class _WingCard extends ConsumerWidget {
                     value: wing.isActive ? 'deactivate' : 'activate',
                     child: Text(wing.isActive ? 'Deactivate' : 'Activate'),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'delete',
                     child: Text('Delete',
                         style: TextStyle(color: AppTheme.error)),
@@ -344,7 +344,7 @@ class _StatChip extends StatelessWidget {
         Icon(icon, size: 13, color: AppTheme.textSecondary),
         const SizedBox(width: 3),
         Text(label,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12, color: AppTheme.textSecondary)),
       ],
     );

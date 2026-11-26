@@ -26,7 +26,7 @@ class TowerParkingPreviewScreen extends ConsumerWidget {
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+            child: Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
           ),
         ),
         data: (p) {
@@ -64,7 +64,7 @@ class TowerParkingPreviewScreen extends ConsumerWidget {
                   Card(
                     margin: EdgeInsets.zero,
                     child: ListTile(
-                      leading: const Icon(Icons.layers_rounded, color: AppTheme.primary),
+                      leading: Icon(Icons.layers_rounded, color: AppTheme.primary),
                       title: Text('${z.zoneName}: ${formatRupees(z.total)}',
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                       subtitle: Text(
@@ -83,7 +83,7 @@ class TowerParkingPreviewScreen extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(AppTheme.radiusM),
                     ),
                     child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Icon(Icons.warning_amber_rounded, color: AppTheme.warning, size: 20),
+                      Icon(Icons.warning_amber_rounded, color: AppTheme.warning, size: 20),
                       const SizedBox(width: 10),
                       Expanded(child: Text(w, style: const TextStyle(fontSize: 13))),
                     ]),

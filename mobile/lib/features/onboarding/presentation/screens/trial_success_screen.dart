@@ -84,13 +84,13 @@ class _TrialSuccessScreenState extends ConsumerState<TrialSuccessScreen> {
                   border: Border.all(color: AppTheme.primary.withOpacity(0.25)),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Text('Society Code: ',
+                  Text('Society Code: ',
                       style: TextStyle(
                           fontSize: 13,
                           color: AppTheme.textSecondary,
                           fontWeight: FontWeight.w500)),
                   Text(code,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.primary,
@@ -116,7 +116,7 @@ class _TrialSuccessScreenState extends ConsumerState<TrialSuccessScreen> {
                   label: const Text('Copy All Credentials'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: const BorderSide(color: AppTheme.primary),
+                    side: BorderSide(color: AppTheme.primary),
                     foregroundColor: AppTheme.primary,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(AppTheme.radiusM)),
@@ -134,13 +134,13 @@ class _TrialSuccessScreenState extends ConsumerState<TrialSuccessScreen> {
                   border: Border.all(color: AppTheme.warning.withOpacity(0.2)),
                 ),
                 child: Row(children: [
-              const Icon(Icons.timer_rounded,
+              Icon(Icons.timer_rounded,
                   color: AppTheme.warning, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '${result.trialDays}-day free trial · Ends ${result.trialEndDate}',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 12,
                           color: AppTheme.warning,
                           fontWeight: FontWeight.w600),
@@ -161,7 +161,7 @@ class _TrialSuccessScreenState extends ConsumerState<TrialSuccessScreen> {
                     border: Border.all(color: AppTheme.error.withOpacity(0.3)),
                   ),
                   child: Text(_loginError!,
-                      style: const TextStyle(color: AppTheme.error, fontSize: 13),
+                      style: TextStyle(color: AppTheme.error, fontSize: 13),
                       textAlign: TextAlign.center),
                 ),
                 const SizedBox(height: 12),
@@ -235,11 +235,11 @@ class _AdminLoginCardState extends State<_AdminLoginCard> {
               color: AppTheme.primary.withOpacity(0.12),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.admin_panel_settings_rounded,
+            child: Icon(Icons.admin_panel_settings_rounded,
                 color: AppTheme.primary, size: 18),
           ),
           const SizedBox(width: 10),
-          const Text('Default Login',
+          Text('Default Login',
               style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 15,
@@ -249,7 +249,7 @@ class _AdminLoginCardState extends State<_AdminLoginCard> {
         _InfoRow(label: 'Email', value: widget.credential.email, canCopy: true),
         const SizedBox(height: 8),
         Row(children: [
-          const SizedBox(
+          SizedBox(
             width: 64,
             child: Text('Password',
                 style: TextStyle(
@@ -262,7 +262,7 @@ class _AdminLoginCardState extends State<_AdminLoginCard> {
               _showPwd
                   ? widget.credential.password
                   : '•' * widget.credential.password.length.clamp(6, 10),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.textPrimary,
@@ -289,7 +289,7 @@ class _AdminLoginCardState extends State<_AdminLoginCard> {
                 const SnackBar(content: Text('Password copied')),
               );
             },
-            child: const Icon(Icons.copy_rounded,
+            child: Icon(Icons.copy_rounded,
                 size: 16, color: AppTheme.primary),
           ),
         ]),
@@ -300,7 +300,7 @@ class _AdminLoginCardState extends State<_AdminLoginCard> {
             color: AppTheme.warning.withOpacity(0.08),
             borderRadius: BorderRadius.circular(6),
           ),
-          child: const Text(
+          child: Text(
             'You will be asked to change this password on first login.',
             style: TextStyle(fontSize: 11, color: AppTheme.warning),
           ),
@@ -339,21 +339,21 @@ class _AdditionalUsersCardState extends State<_AdditionalUsersCard> {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(children: [
-              const Icon(Icons.people_outline_rounded,
+              Icon(Icons.people_outline_rounded,
                   color: AppTheme.textSecondary, size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Additional Users Created',
+                    Text('Additional Users Created',
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                             color: AppTheme.textPrimary)),
                     Text(
                         '${widget.credentials.length} accounts · each has its own password',
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 12, color: AppTheme.textSecondary)),
                   ],
                 ),
@@ -390,13 +390,13 @@ class _AdditionalUsersCardState extends State<_AdditionalUsersCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(c.role,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: AppTheme.textPrimary)),
                     const SizedBox(height: 2),
                     Text(c.email,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 12,
                             color: AppTheme.textSecondary,
                             fontFamily: 'monospace')),
@@ -404,7 +404,7 @@ class _AdditionalUsersCardState extends State<_AdditionalUsersCard> {
                             _showPasswords
                                 ? c.password
                                 : '•' * c.password.length.clamp(6, 10),
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 12,
                                 color: AppTheme.textPrimary,
                                 fontFamily: 'monospace')),
@@ -419,7 +419,7 @@ class _AdditionalUsersCardState extends State<_AdditionalUsersCard> {
                         const SnackBar(content: Text('Login copied')),
                   );
                 },
-                child: const Icon(Icons.copy_rounded,
+                child: Icon(Icons.copy_rounded,
                     size: 16, color: AppTheme.primary),
               ),
             ]),
@@ -446,14 +446,14 @@ class _InfoRow extends StatelessWidget {
       SizedBox(
         width: 64,
         child: Text(label,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12,
                 color: AppTheme.textSecondary,
                 fontWeight: FontWeight.w500)),
       ),
       Expanded(
         child: Text(value,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.textPrimary,
@@ -468,7 +468,7 @@ class _InfoRow extends StatelessWidget {
             );
           },
           child:
-              const Icon(Icons.copy_rounded, size: 16, color: AppTheme.primary),
+              Icon(Icons.copy_rounded, size: 16, color: AppTheme.primary),
         ),
     ]);
   }

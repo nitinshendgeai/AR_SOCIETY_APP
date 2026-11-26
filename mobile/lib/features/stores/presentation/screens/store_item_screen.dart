@@ -50,17 +50,17 @@ class StoreItemScreen extends ConsumerWidget {
                     Row(children: [
                       Icon(itemCategoryIcon(i.category), color: AppTheme.textSecondary, size: 18),
                       const SizedBox(width: 6),
-                      Text('${i.code} · ${itemCategoryLabel(i.category)}', style: const TextStyle(color: AppTheme.textSecondary)),
+                      Text('${i.code} · ${itemCategoryLabel(i.category)}', style: TextStyle(color: AppTheme.textSecondary)),
                       const Spacer(),
-                      if (i.out) const StatusPill('Out of stock', AppTheme.error) else if (i.low) const StatusPill('Running low', AppTheme.warning),
+                      if (i.out) StatusPill('Out of stock', AppTheme.error) else if (i.low) StatusPill('Running low', AppTheme.warning),
                     ]),
                     const SizedBox(height: 8),
                     Text(i.stockText, style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: color)),
-                    Text('in stock · minimum ${qty(i.minimum)} ${unitLabel(i.unit)}', style: const TextStyle(color: AppTheme.textSecondary)),
+                    Text('in stock · minimum ${qty(i.minimum)} ${unitLabel(i.unit)}', style: TextStyle(color: AppTheme.textSecondary)),
                     if ((i.location ?? '').isNotEmpty || i.unitCost != null || (i.vendor ?? '').isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Text([if ((i.location ?? '').isNotEmpty) 'Kept at ${i.location}', if (i.unitCost != null) '₹${qty(i.unitCost!)} each', if ((i.vendor ?? '').isNotEmpty) 'From ${i.vendor}'].join(' · '),
-                          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                          style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                     ],
                   ]),
                 ),
@@ -109,7 +109,7 @@ class StoreItemScreen extends ConsumerWidget {
                   loading: () => const Padding(padding: EdgeInsets.all(16), child: LinearProgressIndicator()),
                   error: (e, _) => AppErrorBanner(message: friendlyErrorMessage(e)),
                   data: (moves) => moves.isEmpty
-                      ? const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Text('Nothing yet. Record the first stock in.', style: TextStyle(color: AppTheme.textSecondary)))
+                      ? Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Text('Nothing yet. Record the first stock in.', style: TextStyle(color: AppTheme.textSecondary)))
                       : Column(children: [
                           for (final m in moves)
                             ListTile(
@@ -123,7 +123,7 @@ class StoreItemScreen extends ConsumerWidget {
                                 if ((m.notes ?? '').isNotEmpty) m.notes!,
                                 if ((m.ref ?? '').isNotEmpty && m.type == 'stock_in') 'Bill ${m.ref}',
                               ].join(' · ')),
-                              trailing: Text('${qty(m.before)} → ${qty(m.after)}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                              trailing: Text('${qty(m.before)} → ${qty(m.after)}', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
                             ),
                         ]),
                 ),

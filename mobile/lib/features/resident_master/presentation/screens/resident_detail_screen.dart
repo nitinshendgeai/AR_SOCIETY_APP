@@ -35,7 +35,7 @@ class ResidentDetailScreen extends ConsumerWidget {
       loading: () => const Scaffold(body: const AppLoader()),
       error: (e, _) => AppPage(
         title: 'Resident',
-        body: Center(child: Text(rmFriendlyError(e), style: const TextStyle(color: AppTheme.error))),
+        body: Center(child: Text(rmFriendlyError(e), style: TextStyle(color: AppTheme.error))),
       ),
       data: (r) => _ResidentDetailBody(resident: r, canEdit: canEdit),
     );
@@ -127,11 +127,11 @@ class _ResidentDetailBody extends ConsumerWidget {
             children: [
               familyAsync.when(
                 loading: () => const LinearProgressIndicator(),
-                error: (_, __) => const Text('Unable to load family members', style: TextStyle(color: AppTheme.error, fontSize: 12)),
+                error: (_, __) => Text('Unable to load family members', style: TextStyle(color: AppTheme.error, fontSize: 12)),
                 data: (all) {
                   final others = all.where((r) => r.id != resident.id).toList();
                   if (others.isEmpty) {
-                    return const Text('No other residents on this flat.',
+                    return Text('No other residents on this flat.',
                         style: TextStyle(fontSize: 13, color: AppTheme.textSecondary));
                   }
                   return Column(
@@ -153,11 +153,11 @@ class _ResidentDetailBody extends ConsumerWidget {
             children: [
               tenantsAsync.when(
                 loading: () => const LinearProgressIndicator(),
-                error: (_, __) => const Text('Unable to load tenancy info', style: TextStyle(color: AppTheme.error, fontSize: 12)),
+                error: (_, __) => Text('Unable to load tenancy info', style: TextStyle(color: AppTheme.error, fontSize: 12)),
                 data: (tenants) {
                   final active = tenants.where((t) => t.moveOutDate == null).toList();
                   if (active.isEmpty) {
-                    return const Text('This flat is not currently rented.',
+                    return Text('This flat is not currently rented.',
                         style: TextStyle(fontSize: 13, color: AppTheme.textSecondary));
                   }
                   return Column(
@@ -180,7 +180,7 @@ class _ResidentDetailBody extends ConsumerWidget {
             title: 'Vehicles',
             trailing: canEdit
                 ? IconButton(
-                    icon: const Icon(Icons.add_circle_outline_rounded, size: 20, color: AppTheme.primary),
+                    icon: Icon(Icons.add_circle_outline_rounded, size: 20, color: AppTheme.primary),
                     tooltip: 'Add Vehicle',
                     onPressed: () => showVehicleFormSheet(context, ref,
                         flatId: resident.flatId, residentId: resident.id),
@@ -189,7 +189,7 @@ class _ResidentDetailBody extends ConsumerWidget {
             children: [
               vehiclesAsync.when(
                 loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text(rmFriendlyError(e), style: const TextStyle(color: AppTheme.error, fontSize: 12)),
+                error: (e, _) => Text(rmFriendlyError(e), style: TextStyle(color: AppTheme.error, fontSize: 12)),
                 data: (vehicles) {
                   final own = vehicles
                       .where((v) =>
@@ -197,7 +197,7 @@ class _ResidentDetailBody extends ConsumerWidget {
                           (resident.isPrimary && v.residentId == null && v.tenantId == null)) // the household's, no owner yet
                       .toList();
                   if (own.isEmpty) {
-                    return const Text('No vehicles registered.',
+                    return Text('No vehicles registered.',
                         style: TextStyle(fontSize: 13, color: AppTheme.textSecondary));
                   }
                   return Column(
@@ -219,21 +219,21 @@ class _ResidentDetailBody extends ConsumerWidget {
           RmSection(title: 'Occupancy History', children: [
             historyAsync.when(
               loading: () => const LinearProgressIndicator(),
-              error: (_, __) => const Text('Unable to load history', style: TextStyle(color: AppTheme.error, fontSize: 12)),
+              error: (_, __) => Text('Unable to load history', style: TextStyle(color: AppTheme.error, fontSize: 12)),
               data: (logs) {
                 final relevant = logs.where((l) => l.residentId == resident.id).toList();
                 if (relevant.isEmpty) {
-                  return const Text('No occupancy events recorded yet.',
+                  return Text('No occupancy events recorded yet.',
                       style: TextStyle(fontSize: 13, color: AppTheme.textSecondary));
                 }
                 return Column(
                   children: relevant.map((l) => Padding(
                         padding: const EdgeInsets.symmetric(vertical: 6),
                         child: Row(children: [
-                          const Icon(Icons.circle, size: 6, color: AppTheme.primary),
+                          Icon(Icons.circle, size: 6, color: AppTheme.primary),
                           const SizedBox(width: 8),
-                          Expanded(child: Text(l.eventType.label, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
-                          Text(rmFormatDate(l.eventDate), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                          Expanded(child: Text(l.eventType.label, style: TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
+                          Text(rmFormatDate(l.eventDate), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                         ]),
                       )).toList(),
                 );
@@ -260,7 +260,7 @@ class _ResidentDetailBody extends ConsumerWidget {
                 label: const Text('Move In'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.success,
-                  side: const BorderSide(color: AppTheme.success),
+                  side: BorderSide(color: AppTheme.success),
                   minimumSize: const Size(double.infinity, 44),
                 ),
               ),
@@ -271,7 +271,7 @@ class _ResidentDetailBody extends ConsumerWidget {
                 label: const Text('Move Out'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.error,
-                  side: const BorderSide(color: AppTheme.error),
+                  side: BorderSide(color: AppTheme.error),
                   minimumSize: const Size(double.infinity, 44),
                 ),
               ),
@@ -314,7 +314,7 @@ class _HeaderCard extends StatelessWidget {
           width: 56,
           height: 56,
           decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.15), shape: BoxShape.circle),
-          child: const Icon(Icons.person_rounded, color: AppTheme.primary, size: 28),
+          child: Icon(Icons.person_rounded, color: AppTheme.primary, size: 28),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -322,7 +322,7 @@ class _HeaderCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(resident.fullName,
-                  style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
               const SizedBox(height: 6),
               Wrap(spacing: 6, runSpacing: 6, children: [
                 ResidentTypeBadge(type: resident.residentType),
@@ -352,19 +352,19 @@ class _PersonTile extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(children: [
-          const Icon(Icons.person_outline_rounded, size: 18, color: AppTheme.textSecondary),
+          Icon(Icons.person_outline_rounded, size: 18, color: AppTheme.textSecondary),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-                Text(subtitle, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                Text(name, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ],
             ),
           ),
           if (trailing != null) trailing!,
-          const Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.textSecondary),
+          Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.textSecondary),
         ]),
       ),
     );
@@ -388,15 +388,15 @@ class _VehicleTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(children: [
-        const Icon(Icons.directions_car_rounded, size: 18, color: AppTheme.textSecondary),
+        Icon(Icons.directions_car_rounded, size: 18, color: AppTheme.textSecondary),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(vehicle.vehicleNumber, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+              Text(vehicle.vehicleNumber, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
               Text('${vehicle.vehicleType.label}${vehicle.parkingSlot != null ? " · Slot ${vehicle.parkingSlot}" : ""}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ],
           ),
         ),
@@ -407,7 +407,7 @@ class _VehicleTile extends StatelessWidget {
             onPressed: onEdit,
           ),
           IconButton(
-            icon: const Icon(Icons.remove_circle_outline_rounded, size: 18, color: AppTheme.error),
+            icon: Icon(Icons.remove_circle_outline_rounded, size: 18, color: AppTheme.error),
             tooltip: 'Deregister vehicle',
             onPressed: onDeactivate,
           ),

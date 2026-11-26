@@ -96,7 +96,7 @@ class InfoRow extends StatelessWidget {
           Icon(icon, size: 16, color: AppTheme.textSecondary),
           const SizedBox(width: 10),
           Text(label,
-              style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
           const Spacer(),
           Text(value,
               style: TextStyle(
@@ -121,7 +121,7 @@ class SectionHeader extends StatelessWidget {
     return Row(
       children: [
         Text(context.tr(title),
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
                 color: AppTheme.textPrimary)),
@@ -157,7 +157,7 @@ class EmptyState extends StatelessWidget {
             Icon(icon, size: 48, color: AppTheme.border),
             const SizedBox(height: 16),
             Text(title,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textSecondary)),
@@ -165,7 +165,7 @@ class EmptyState extends StatelessWidget {
               const SizedBox(height: 6),
               Text(subtitle!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13, color: AppTheme.textSecondary)),
             ]
           ],

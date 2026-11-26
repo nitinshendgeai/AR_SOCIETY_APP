@@ -82,7 +82,7 @@ class FloorDetailSheet extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: Text(context.tr('The lights of this wing could not be found. Pull down on the report to refresh it.'),
-                style: const TextStyle(color: AppTheme.textSecondary)),
+                style: TextStyle(color: AppTheme.textSecondary)),
           )
         else
           for (final (kind, title, part) in kinds)
@@ -157,7 +157,7 @@ class _OlderMonthNote extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(color: AppTheme.primarySoft, borderRadius: BorderRadius.circular(AppTheme.radiusM)),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Icon(Icons.info_outline_rounded, size: 18, color: AppTheme.primary),
+          Icon(Icons.info_outline_rounded, size: 18, color: AppTheme.primary),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -184,7 +184,7 @@ class _Section extends StatelessWidget {
     final body = sheet.when(
       loading: () => const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator())),
       error: (e, _) => Row(children: [
-        Expanded(child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.textSecondary))),
+        Expanded(child: Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.textSecondary))),
         TextButton(
           onPressed: onRetry,
           style: TextButton.styleFrom(minimumSize: const Size(AppSpacing.minTouch, AppSpacing.minTouch)),
@@ -213,15 +213,15 @@ class _Section extends StatelessWidget {
               child: Semantics(
                 header: true,
                 child: Text(context.tr(title!),
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
               ),
             ),
             if (count != null)
               Text(count!,
-                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
           ]),
         ),
-        const Divider(height: 1, thickness: 1.5, color: AppTheme.fieldBorder),
+        Divider(height: 1, thickness: 1.5, color: AppTheme.fieldBorder),
         Padding(padding: const EdgeInsets.fromLTRB(12, 10, 12, 4), child: body),
       ]),
     );
@@ -237,7 +237,7 @@ class _Groups extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (groups.isEmpty) {
-      return Text(context.tr('Nothing to show.'), style: const TextStyle(color: AppTheme.textSecondary));
+      return Text(context.tr('Nothing to show.'), style: TextStyle(color: AppTheme.textSecondary));
     }
     // A floor's own lights ("This floor") or a single group read as plain rows; one card per flat when there are several.
     if (groups.length == 1 && groups.first.flatId == null) return _Rows(points: groups.first.points);
@@ -320,7 +320,7 @@ class _Row extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(cell.label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
             const SizedBox(height: 2),
-            Text(detail, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            Text(detail, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             if (cell.status == 'not_working' && cell.notWorkingSince != null)
               Text(context.trf('Not working since {when}', {'when': lightDay(cell.notWorkingSince!)}),
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kToneColors[AppTone.danger]!.foreground)),

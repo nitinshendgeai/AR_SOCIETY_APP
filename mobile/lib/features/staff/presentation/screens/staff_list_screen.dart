@@ -168,7 +168,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
             contentPadding: const EdgeInsets.symmetric(vertical: 10),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppTheme.radiusM),
-              borderSide: const BorderSide(color: AppTheme.border),
+              borderSide: BorderSide(color: AppTheme.border),
             ),
             filled: true,
             fillColor: AppTheme.cardBg,
@@ -352,7 +352,7 @@ class _StaffCard extends ConsumerWidget {
                     color: AppTheme.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(AppTheme.radiusM),
                   ),
-                  child: const Icon(Icons.person_rounded, color: AppTheme.primary, size: 22),
+                  child: Icon(Icons.person_rounded, color: AppTheme.primary, size: 22),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -360,15 +360,15 @@ class _StaffCard extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(staff.fullName,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.textPrimary)),
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.textPrimary)),
                       Text(
                         '${staff.employeeCode} · ${staff.departmentLabel}',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                       ),
                       if (staff.designationName != null)
                         Text(
                           staff.designationName!,
-                          style: const TextStyle(fontSize: 11, color: AppTheme.primary, fontWeight: FontWeight.w500),
+                          style: TextStyle(fontSize: 11, color: AppTheme.primary, fontWeight: FontWeight.w500),
                         ),
                     ],
                   ),
@@ -377,22 +377,22 @@ class _StaffCard extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 10),
-            const Divider(height: 1, color: AppTheme.border),
+            Divider(height: 1, color: AppTheme.border),
             const SizedBox(height: 10),
             Row(
               children: [
-                const Icon(Icons.phone_rounded, size: 14, color: AppTheme.textSecondary),
+                Icon(Icons.phone_rounded, size: 14, color: AppTheme.textSecondary),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(staff.mobile,
-                          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                       if (staff.reportingManagerName != null)
                         Text(
                           'Reports to: ${staff.reportingManagerName}',
-                          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                          style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
                         ),
                     ],
                   ),
@@ -438,12 +438,12 @@ class _AccessDeniedWidget extends StatelessWidget {
                 color: AppTheme.error.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(AppTheme.radiusXl),
               ),
-              child: const Icon(Icons.lock_outline_rounded, color: AppTheme.error, size: 36),
+              child: Icon(Icons.lock_outline_rounded, color: AppTheme.error, size: 36),
             ),
             const SizedBox(height: 16),
-            const Text('Access Denied', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+            Text('Access Denied', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'You do not have permission to view staff records. Contact your Society Admin.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),

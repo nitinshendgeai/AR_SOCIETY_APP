@@ -28,7 +28,7 @@ const _securityFormCodes = ['visitors', 'complaints', 'staff'];
 const _residentFormCodes = ['visitors', 'complaints', 'edit_my_info', 'my_bills'];
 
 /// The account actions at the bottom of More: not screens of the menu.
-const _accountActions = {'Language', 'Switch society', 'Help', 'Signed-in devices', 'Sign out'};
+const _accountActions = {'Language', 'Appearance', 'Switch society', 'Help', 'Signed-in devices', 'Sign out'};
 
 /// Opens More for [user] and returns every screen the menu lists, group by group (the sheet shows one group at a
 /// time, so each group's pill is tapped in turn).

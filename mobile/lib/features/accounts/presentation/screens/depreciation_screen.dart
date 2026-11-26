@@ -130,7 +130,7 @@ class _DepreciationScreenState extends ConsumerState<DepreciationScreen> {
               _journal('Dr  ${s.debit.ledger}', s.debit.amount),
               for (final c in s.credits) _journal('      Cr  ${c.ledger}', c.amount),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                   'Nothing has been posted. Review the figures, then enter this as a Journal voucher in Accounts. '
                   'The fixed-asset ledgers carry book value, so depreciation is credited to them.',
                   style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.35)),
@@ -147,7 +147,7 @@ class _DepreciationScreenState extends ConsumerState<DepreciationScreen> {
               child: ListTile(
                 title: Text('${p.code} · ${p.name}', style: const TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: Text(p.issues.join('; ')),
-                leading: const Icon(Icons.warning_amber_rounded, color: AppTheme.warning),
+                leading: Icon(Icons.warning_amber_rounded, color: AppTheme.warning),
               ),
             ),
         ],
@@ -167,7 +167,7 @@ class _DepreciationScreenState extends ConsumerState<DepreciationScreen> {
     final rules = ref.watch(depreciationRulesProvider(societyId));
     final assets = ref.watch(depreciationAssetsProvider(societyId));
     return [
-      const Text(
+      Text(
           'How each kind of asset is depreciated. These are only starting values (the usual income-tax rates on a '
           'reducing balance): have your chartered accountant confirm them. Changing a rate changes the schedule of every '
           'year, so do not change it after a year\'s depreciation has been entered in the books.',
@@ -231,7 +231,7 @@ class _DepreciationScreenState extends ConsumerState<DepreciationScreen> {
                               if (a.stopOn != null) 'until ${formatAccountsDate(a.stopOn!)}',
                               if (a.own != null) 'own setting',
                             ].join(' · '),
-                            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                         for (final p in a.problems) Padding(padding: const EdgeInsets.only(top: 3), child: StatusPill(p, AppTheme.warning)),
                       ]),
                       trailing: committee ? const Icon(Icons.edit_outlined, size: 18) : null,
@@ -271,20 +271,20 @@ class _RowTile extends StatelessWidget {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(r.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                 Text('${r.code} · ${assetCategoryLabel(r.category)}',
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ]),
             ),
             const SizedBox(width: 10),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Text(formatInr(r.depreciation), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-              const Text('depreciation', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+              Text('depreciation', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
             ]),
           ]),
           const SizedBox(height: 8),
           Text(
               '${r.method == 'wdv' ? 'Reducing balance' : 'Straight line'} ${_pct(r.rate)}% · in use from ${formatAccountsDate(r.start)}'
               '${r.days < 365 ? ' · ${r.days} days this year' : ''}',
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           Text('Cost ${formatInr(r.cost)} · book value ${formatInr(r.openingWdv)} → ${formatInr(r.closingWdv)}',
               style: const TextStyle(fontSize: 12.5)),
         ]),

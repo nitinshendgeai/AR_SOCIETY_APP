@@ -64,7 +64,7 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> with SingleTicker
           if (raiser)
             TextButton.icon(
               onPressed: alert,
-              icon: const Icon(Icons.warning_amber_rounded, size: 18, color: AppTheme.error),
+              icon: Icon(Icons.warning_amber_rounded, size: 18, color: AppTheme.error),
               label: Text(context.tr('Emergency alert'), style: TextStyle(color: AppTheme.error)),
             ),
           if (writer && desktop) HeaderActionButton(icon: Icons.add_rounded, label: 'New notice', onPressed: newNotice),
@@ -117,7 +117,7 @@ class _Board extends ConsumerWidget {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(color: AppTheme.warningSoft, borderRadius: BorderRadius.circular(AppTheme.radiusM)),
                     child: Row(children: [
-                      const Icon(Icons.mark_email_unread_outlined, color: AppTheme.warning),
+                      Icon(Icons.mark_email_unread_outlined, color: AppTheme.warning),
                       const SizedBox(width: 10),
                       Expanded(child: Text(waiting == 1 ? '1 notice is waiting for you to confirm you have read it' : '$waiting notices are waiting for you to confirm you have read them',
                           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5))),
@@ -170,14 +170,14 @@ class _AlertCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) => Card(
         color: AppTheme.error.withOpacity(0.08),
         margin: const EdgeInsets.only(bottom: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusM), side: const BorderSide(color: AppTheme.error)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusM), side: BorderSide(color: AppTheme.error)),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Icon(alertTypeIcon(alert.type), color: AppTheme.error),
               const SizedBox(width: 10),
-              Expanded(child: Text(alert.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5, color: AppTheme.error))),
+              Expanded(child: Text(alert.title, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5, color: AppTheme.error))),
             ]),
             const SizedBox(height: 6),
             Text(
@@ -186,7 +186,7 @@ class _AlertCard extends ConsumerWidget {
                 if ((alert.location ?? '').isNotEmpty) alert.location!,
                 'raised ${clockTime(alert.triggeredAt)}${alert.triggeredBy == null ? '' : ' by ${alert.triggeredBy}'}',
               ].join(' · '),
-              style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
+              style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
             ),
             if ((alert.description ?? '').isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -227,27 +227,27 @@ class NoticeCard extends StatelessWidget {
                   Row(children: [
                     Icon(noticeCategoryIcon(n.category), size: 16, color: AppTheme.textSecondary),
                     const SizedBox(width: 6),
-                    Text(noticeCategoryLabel(n.category), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    Text(noticeCategoryLabel(n.category), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                     const SizedBox(width: 8),
                     if (n.priority == 'urgent' || n.priority == 'high') StatusPill(noticePriorityLabel(n.priority), color),
                     const Spacer(),
-                    Text(noticeDay(n.publishDate ?? n.createdAt), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    Text(noticeDay(n.publishDate ?? n.createdAt), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   ]),
                   const SizedBox(height: 6),
                   Text(n.title, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 4),
                   Text(n.content, maxLines: 3, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13.5, color: AppTheme.textSecondary, height: 1.35)),
+                      style: TextStyle(fontSize: 13.5, color: AppTheme.textSecondary, height: 1.35)),
                   const SizedBox(height: 8),
                   Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
                     if (manage) StatusPill(n.isDraft ? 'Draft' : (n.isPublished ? (n.isExpired ? 'Expired' : 'Published') : 'Archived'),
                         n.isDraft ? AppTheme.warning : (n.isPublished && !n.isExpired ? AppTheme.success : AppTheme.textSecondary)),
-                    if (manage) Text(audienceLabel(n.audience), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    if (manage) Text(audienceLabel(n.audience), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                     if (manage && n.isPublished)
                       Text(n.ackRequired ? '${n.ackCount} of ${n.totalAudience} confirmed' : '${n.totalAudience} reached',
-                          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                    if (!manage && n.needsAck) const StatusPill('Please confirm you have read this', AppTheme.warning),
-                    if (!manage && n.ackRequired && n.acknowledged == true) const StatusPill('You have read this', AppTheme.success),
+                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    if (!manage && n.needsAck) StatusPill('Please confirm you have read this', AppTheme.warning),
+                    if (!manage && n.ackRequired && n.acknowledged == true) StatusPill('You have read this', AppTheme.success),
                   ]),
                 ]),
               ),

@@ -319,7 +319,7 @@ class _SetOffBannerState extends ConsumerState<_SetOffBanner> {
                 '${tableMoney(u.amountAgainstOpenBills)} paid by ${u.flatsWithOpenBills} '
                 'flat${u.flatsWithOpenBills == 1 ? '' : 's'} is held on account while their bills are still open. '
                 'Set it off against the open bills, oldest first.',
-                style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
               ),
             ),
             FilledButton.icon(

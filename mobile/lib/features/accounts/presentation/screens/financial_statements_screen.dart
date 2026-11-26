@@ -59,7 +59,7 @@ class _FinancialStatementsScreenState extends ConsumerState<FinancialStatementsS
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
                 children: [
-                  const Text('Financial year', style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                  Text('Financial year', style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
                   const SizedBox(height: 8),
                   Wrap(spacing: 8, runSpacing: 8, children: [
                     for (final y in years)
@@ -91,7 +91,7 @@ class _FinancialStatementsScreenState extends ConsumerState<FinancialStatementsS
                           ),
                           title: Text(e.value.$1, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                           subtitle: Text(e.value.$2, style: const TextStyle(fontSize: 12)),
-                          trailing: const Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
+                          trailing: Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
                           onTap: () => context.push(reportRoute(e.key, fy)),
                         ),
                       ],
@@ -160,7 +160,7 @@ class _YearCard extends StatelessWidget {
               if ((year.reserveTransfer ?? 0) > 0)
                 '${formatInr(year.reserveTransfer!)} (${_pctLabel(year.reservePct!)}%) carried to the Reserve Fund',
             ].join(' · '),
-            style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
+            style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
           ),
         ],
       ]),
@@ -170,7 +170,7 @@ class _YearCard extends StatelessWidget {
   Widget _figure(String label, String value, {Color? color}) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
+          Text(label, style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
           const SizedBox(height: 3),
           Text(value,
               style: TextStyle(
@@ -219,7 +219,7 @@ class _ClosingCardState extends ConsumerState<_ClosingCard> {
       builder: (ctx) => AlertDialog(
         title: Text('Reopen ${widget.year.label}?'),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text(
+          Text(
             'The closing entry is cancelled and the year can be changed again. '
             'Close it again once the corrections are made — the statements already shared will change.',
             style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
@@ -295,7 +295,7 @@ class _ClosingCardState extends ConsumerState<_ClosingCard> {
           Expanded(child: Text(text, style: const TextStyle(fontSize: 13))),
         ]),
         if (!widget.canCloseBooks && (y.canClose || y.canReopen))
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 10),
             child: Text('The Society Admin or the committee (Treasurer / Secretary) closes the year\'s books.',
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
@@ -361,7 +361,7 @@ class _CloseSheetState extends State<_CloseSheet> {
             ),
           )),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Under the MCS Act at least 25% of the year\'s net surplus is carried to the Reserve Fund; '
             'use the share your general body or auditor has fixed.',
             style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),

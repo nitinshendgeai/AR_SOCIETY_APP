@@ -21,10 +21,10 @@ import 'package:ar_society_app/shared/widgets/app_widgets.dart';
 /// The two sides of the Match tab are told apart by colour everywhere they appear: the society's own entries (the books)
 /// are blue, the bank's statement rows are purple (the Match grids, the Bank rows tab, and the books' entries offered
 /// for a bank row, listed as Cleared, and the payments and deposits not yet cleared on the Statement tab). Money in keeps its green amount on either side.
-const _appColor = AppTheme.primary;
-const _appSoft = AppTheme.primarySoft;
-const _bankColor = AppTheme.secondary;
-const _bankSoft = Color(0xFFEFEEFB);
+final _appColor = AppTheme.primary;
+final _appSoft = AppTheme.primarySoft;
+final _bankColor = AppTheme.secondary;
+Color get _bankSoft => AppTheme.isDeck ? const Color(0xFF1C1A3A) : const Color(0xFFEFEEFB);
 
 /// The Statement tab shows the first few of the bank's own items; the whole list is on the Match tab.
 const _bankOnlyShown = 5;
@@ -152,7 +152,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
         title: const Text('Balance on the bank statement'),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('The closing balance the bank\'s statement shows on ${formatAccountsDate(_asOn)}.',
-              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           const SizedBox(height: 12),
           TextField(
             key: const ValueKey('statement-balance-field'),
@@ -287,10 +287,10 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
                     padding: const EdgeInsets.only(top: 18),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       // rows of the bank statement: the bank colour (purple)
-                      const Text('In the bank, not in your books',
+                      Text('In the bank, not in your books',
                           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _bankColor)),
                       const SizedBox(height: 2),
-                      const Text(
+                      Text(
                           'Charges, interest or credits the bank made on its own. Tap one to record it in the books, or to match it to an entry.',
                           style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                       const SizedBox(height: 8),
@@ -301,7 +301,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
                           child: Text(
                               '${b.bankOnlyRows.length - _bankOnlyShown} more: they are all on the Match tab.',
                               key: const ValueKey('bank-only-more'),
-                              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                         ),
                     ]),
                   ),
@@ -344,7 +344,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
             label: const Text('Upload bank statement'),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
               'Any bank\'s PDF (downloaded from net banking) or a CSV. It is read, checked, matched with your books and compared with the balance below.',
               style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
         ]),
@@ -354,9 +354,9 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
         padding: const EdgeInsets.only(top: 18),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // entries of your books: the app colour (blue)
-          Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _appColor)),
+          Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _appColor)),
           const SizedBox(height: 2),
-          Text(hint, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          Text(hint, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           const SizedBox(height: 8),
           for (final l in lines)
             _LineTile(
@@ -373,7 +373,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
     final payments = all.where((l) => !l.isDeposit).fold<double>(0, (s, l) => s + l.amount);
     return Material(
       elevation: 8,
-      color: Colors.white,
+      color: AppTheme.cardBg,
       child: SafeArea(
         top: false,
         child: Padding(
@@ -536,7 +536,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
     final ok = problem == null;
     return Material(
       elevation: 8,
-      color: Colors.white,
+      color: AppTheme.cardBg,
       child: SafeArea(
         top: false,
         child: Padding(
@@ -548,11 +548,11 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
                   TextSpan(children: [
                     TextSpan(
                         text: 'Entries ${selE.length} · ${formatInr(eTotal / 100)}',
-                        style: const TextStyle(color: _appColor)),
+                        style: TextStyle(color: _appColor)),
                     const TextSpan(text: '    '),
                     TextSpan(
                         text: 'Bank rows ${selR.length} · ${formatInr(rTotal / 100)}',
-                        style: const TextStyle(color: _bankColor)),
+                        style: TextStyle(color: _bankColor)),
                   ]),
                   key: const ValueKey('match-totals'),
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
@@ -593,7 +593,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
           decoration: BoxDecoration(
               color: _bankSoft, borderRadius: BorderRadius.circular(10), border: Border.all(color: _bankColor.withValues(alpha: 0.5))),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: const Row(children: [
+          child: Row(children: [
             Icon(Icons.account_balance_rounded, size: 20, color: _bankColor),
             SizedBox(width: 8),
             Expanded(
@@ -631,7 +631,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
           ),
         ]),
       ),
-      const Padding(
+      Padding(
         padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
         child: Align(
           alignment: Alignment.centerLeft,
@@ -724,7 +724,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
               subtitle: 'Lines you mark as cleared, or match to the bank statement, are listed here.',
             )
           : Column(children: [
-              const Padding(
+              Padding(
                 padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
                 child: _SideBanner(
                     icon: Icons.menu_book_rounded,
@@ -732,7 +732,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
                     accent: _appColor,
                     soft: _appSoft),
               ),
-              const Padding(
+              Padding(
                 padding: EdgeInsets.fromLTRB(18, 0, 16, 0),
                 child: Align(
                   alignment: Alignment.centerLeft,
@@ -750,7 +750,7 @@ class _BankReconciliationStatementScreenState extends ConsumerState<BankReconcil
                       margin: const EdgeInsets.only(bottom: 8),
                       clipBehavior: Clip.antiAlias,
                       child: DecoratedBox(
-                        decoration: const BoxDecoration(border: Border(left: BorderSide(color: _appColor, width: 3))),
+                        decoration: BoxDecoration(border: Border(left: BorderSide(color: _appColor, width: 3))),
                         child: ListTile(
                           key: ValueKey('cleared-${l.entryId}'),
                           title: Text('${l.voucherNumber}${l.party == null ? '' : ' · ${l.party}'}',
@@ -841,7 +841,7 @@ class _GridPanel extends StatelessWidget {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('$title ($count)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: accent)),
-                Text(subtitle, style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
+                Text(subtitle, style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
               ]),
             ),
           ]),
@@ -854,7 +854,7 @@ class _GridPanel extends StatelessWidget {
                       padding: const EdgeInsets.all(16),
                       child: Text(empty,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary))))
+                          style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary))))
               : ListView(children: [
                   for (final c in children)
                     DecoratedBox(
@@ -879,7 +879,7 @@ class _SummaryCard extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.only(top: 8),
         child: Row(children: [
-          const Expanded(
+          Expanded(
               child: Text('Not checked against the bank statement yet — upload it, or enter its closing balance.',
                   style: TextStyle(fontSize: 12, color: AppTheme.textSecondary))),
           TextButton(
@@ -943,7 +943,7 @@ class _SummaryCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text('${b.accountName} as on ${formatAccountsDate(b.asOn)}',
-              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           const SizedBox(height: 8),
           _row('Balance as per the books', b.balancePerBooks),
           _row('Add: payments not yet cleared', b.paymentsNotClearedTotal, sign: '+ '),
@@ -951,7 +951,7 @@ class _SummaryCard extends StatelessWidget {
           const Divider(height: 20),
           _row('Balance as per the bank', b.balancePerBank, bold: true),
           const SizedBox(height: 6),
-          const Text('This should equal the closing balance on the bank\'s statement for the same day.',
+          Text('This should equal the closing balance on the bank\'s statement for the same day.',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           _check(),
         ]),
@@ -979,7 +979,7 @@ class _LineTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       clipBehavior: Clip.antiAlias,
       child: DecoratedBox(
-        decoration: const BoxDecoration(border: Border(left: BorderSide(color: _appColor, width: 3))),
+        decoration: BoxDecoration(border: Border(left: BorderSide(color: _appColor, width: 3))),
         child: CheckboxListTile(
           key: ValueKey('line-${line.voucherNumber}'),
           value: picked,
@@ -1014,7 +1014,7 @@ class _RowTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       clipBehavior: Clip.antiAlias,
       child: DecoratedBox(
-        decoration: const BoxDecoration(border: Border(left: BorderSide(color: _bankColor, width: 3))),
+        decoration: BoxDecoration(border: Border(left: BorderSide(color: _bankColor, width: 3))),
         child: ListTile(
         key: ValueKey('row-${row.id}'),
         onTap: onTap,
@@ -1107,7 +1107,7 @@ class _RowSheetState extends ConsumerState<_RowSheet> {
         loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: AppLoader()),
         error: (e, _) => AppErrorState(compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(rowSuggestionsProvider((societyId: widget.societyId, rowId: row.id)))),
         data: (list) => list.isEmpty
-            ? const Padding(
+            ? Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
                 child: Text(
                   'No payment or deposit of this amount is waiting in the books. Check that the voucher is entered and '
@@ -1116,15 +1116,15 @@ class _RowSheetState extends ConsumerState<_RowSheet> {
                 ),
               )
             : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                const Text('Could be', style: TextStyle(fontWeight: FontWeight.w700, color: _appColor)),
-                const Text('Entries in your books', style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
+                Text('Could be', style: TextStyle(fontWeight: FontWeight.w700, color: _appColor)),
+                Text('Entries in your books', style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
                 const SizedBox(height: 8),
                 for (final l in list)
                   Card(
                     margin: const EdgeInsets.only(bottom: 8),
                     clipBehavior: Clip.antiAlias,
                     child: DecoratedBox(
-                      decoration: const BoxDecoration(border: Border(left: BorderSide(color: _appColor, width: 3))),
+                      decoration: BoxDecoration(border: Border(left: BorderSide(color: _appColor, width: 3))),
                       child: ListTile(
                       title: Text('${l.voucherNumber}${l.party == null ? '' : ' · ${l.party}'}',
                           style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -1187,7 +1187,7 @@ class _BookItState extends ConsumerState<_BookIt> {
                 credit
                     ? 'Interest or a credit the bank made on its own. Record it as received into:'
                     : 'Charges or a payment the bank made on its own. Record it as paid to:',
-                style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.35)),
+                style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.35)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               key: ValueKey('book-ledger-$_ledgerId'),

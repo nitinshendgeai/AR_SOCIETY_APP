@@ -54,7 +54,7 @@ class _TdsRegisterScreenState extends ConsumerState<TdsRegisterScreen> {
       body: ResponsiveBody(
         maxWidth: 860,
         child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 96), children: [
-          const Text(
+          Text(
               'TDS deducted when vendors were paid, with the date each amount is due to be deposited. Use it for the '
               'challan and the quarterly return.',
               style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.35)),
@@ -127,19 +127,19 @@ class _RegisterTile extends StatelessWidget {
                 if (r.sectionLabel != null) r.sectionLabel!,
                 '${rate == rate.roundToDouble() ? rate.toStringAsFixed(0) : rate}% of ${inr(r.base)}',
               ].join(' · '),
-              style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
           Text(
               [
                 if ((r.pan ?? '').isNotEmpty) 'PAN ${r.pan}' else 'No PAN',
                 if (r.constitution != null) r.constitution!,
                 'Paid to vendor ${inr(r.netPaid)}',
               ].join(' · '),
-              style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
           if (r.depositDue != null)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text('Deposit by ${formatAccountsDate(r.depositDue!)}',
-                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.primary)),
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.primary)),
             ),
         ]),
       ),

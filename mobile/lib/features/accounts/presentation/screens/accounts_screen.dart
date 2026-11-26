@@ -45,7 +45,7 @@ Future<void> chooseNewVoucher(BuildContext context) async {
             subtitle: Text(voucherTypeHint(t), style: const TextStyle(fontSize: 12)),
             trailing: voucherHotkeyLabel(t) == null
                 ? null
-                : Text(voucherHotkeyLabel(t)!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                : Text(voucherHotkeyLabel(t)!, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             onTap: () => Navigator.pop(ctx, t),
           ),
       ]),
@@ -136,7 +136,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                 const SizedBox(height: 12),
                 for (final f in r.failures) ...[
                   Text(f.label, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  Text(f.message, style: const TextStyle(fontSize: 12, color: AppTheme.error)),
+                  Text(f.message, style: TextStyle(fontSize: 12, color: AppTheme.error)),
                   const SizedBox(height: 10),
                 ],
               ]),
@@ -337,7 +337,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                 const _SectionTitle('Enter a voucher'),
                 Wrap(spacing: 10, runSpacing: 10, children: [
                   ActionChip(
-                    avatar: const Icon(Icons.shopping_bag_outlined, size: 18, color: AppTheme.primary),
+                    avatar: Icon(Icons.shopping_bag_outlined, size: 18, color: AppTheme.primary),
                     label: const Text('Expense'),
                     onPressed: () => context.push(AppRoutes.accountsExpenseNew),
                   ),
@@ -349,7 +349,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                     ),
                 ]),
                 const SizedBox(height: 10),
-                const Text(
+                Text(
                   'Maintenance bills, payments received and vendor bills are posted to the books '
                   'automatically — enter vouchers here only for everything else.',
                   style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
@@ -384,7 +384,7 @@ class _RecurringDueBanner extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
             child: Row(children: [
-              const Icon(Icons.event_repeat_rounded, color: AppTheme.warning),
+              Icon(Icons.event_repeat_rounded, color: AppTheme.warning),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -392,8 +392,8 @@ class _RecurringDueBanner extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
                 ),
               ),
-              const Text('Record', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600)),
-              const Icon(Icons.chevron_right_rounded, color: AppTheme.primary),
+              Text('Record', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600)),
+              Icon(Icons.chevron_right_rounded, color: AppTheme.primary),
             ]),
           ),
         ),
@@ -417,13 +417,13 @@ class _WarningBanner extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
             child: Row(children: [
-              const Icon(Icons.warning_amber_rounded, color: AppTheme.error),
+              Icon(Icons.warning_amber_rounded, color: AppTheme.error),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(message, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
               ),
-              const Text('Fix', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600)),
-              const Icon(Icons.chevron_right_rounded, color: AppTheme.primary),
+              Text('Fix', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600)),
+              Icon(Icons.chevron_right_rounded, color: AppTheme.primary),
             ]),
           ),
         ),
@@ -445,7 +445,7 @@ class _ApprovalBanner extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
             child: Row(children: [
-              const Icon(Icons.fact_check_rounded, color: AppTheme.warning),
+              Icon(Icons.fact_check_rounded, color: AppTheme.warning),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -455,8 +455,8 @@ class _ApprovalBanner extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
                 ),
               ),
-              const Text('Review', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600)),
-              const Icon(Icons.chevron_right_rounded, color: AppTheme.primary),
+              Text('Review', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600)),
+              Icon(Icons.chevron_right_rounded, color: AppTheme.primary),
             ]),
           ),
         ),
@@ -479,7 +479,7 @@ class _PendingBanner extends StatelessWidget {
           border: Border.all(color: AppTheme.warning.withOpacity(0.3)),
         ),
         child: Row(children: [
-          const Icon(Icons.sync_problem_rounded, color: AppTheme.warning),
+          Icon(Icons.sync_problem_rounded, color: AppTheme.warning),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -570,10 +570,10 @@ class BooksGrid extends StatelessWidget {
                         Text(i.subtitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                       ]),
                     ),
-                    const Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
+                    Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
                   ]),
                 ),
               ),
@@ -610,7 +610,7 @@ class _CashBankCard extends StatelessWidget {
               trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                 if (a.balance != null) DrCrText(a.balance!),
                 const SizedBox(width: 4),
-                const Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
+                Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
               ]),
               onTap: () => context.push(ledgerRoute(a.id)),
             ),

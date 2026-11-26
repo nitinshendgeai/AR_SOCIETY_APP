@@ -83,7 +83,7 @@ class _PendingResidentChangesScreenState extends ConsumerState<PendingResidentCh
               Navigator.pop(ctx);
               _reject(req, reasonCtrl.text.trim());
             },
-            child: const Text('Reject', style: TextStyle(color: Colors.white)),
+            child: Text('Reject', style: TextStyle(color: AppTheme.onPrimary)),
           ),
         ],
       ),
@@ -120,7 +120,7 @@ class _PendingResidentChangesScreenState extends ConsumerState<PendingResidentCh
             ),
             if (req.flatDisplay != null)
               Text(req.flatDisplay!,
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ]),
           const SizedBox(height: 8),
           ...req.changes.entries.map((e) => Padding(
@@ -201,7 +201,7 @@ class _PendingResidentChangesScreenState extends ConsumerState<PendingResidentCh
               Navigator.pop(ctx);
               _familyAct(req, () => ref.read(familyRequestsApiProvider).reject(req.id, reasonCtrl.text.trim()), 'Rejected');
             },
-            child: Text(ctx.tr('Reject'), style: const TextStyle(color: Colors.white)),
+            child: Text(ctx.tr('Reject'), style: TextStyle(color: AppTheme.onPrimary)),
           ),
         ],
       ),
@@ -217,7 +217,7 @@ class _PendingResidentChangesScreenState extends ConsumerState<PendingResidentCh
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Expanded(child: Text(req.fullName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14))),
-          if (req.flatDisplay != null) Text(req.flatDisplay!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          if (req.flatDisplay != null) Text(req.flatDisplay!, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ]),
         const SizedBox(height: 6),
         Text(context.tr(req.typeLabel), style: const TextStyle(fontSize: 13)),
@@ -226,7 +226,7 @@ class _PendingResidentChangesScreenState extends ConsumerState<PendingResidentCh
           Text('${context.tr('Date of Birth')}: ${req.dateOfBirth!.day}/${req.dateOfBirth!.month}/${req.dateOfBirth!.year}',
               style: const TextStyle(fontSize: 13)),
         if (req.requesterName != null)
-          Text('${context.tr('Asked by')} ${req.requesterName}', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          Text('${context.tr('Asked by')} ${req.requesterName}', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         const SizedBox(height: 12),
         Row(children: [
           Expanded(

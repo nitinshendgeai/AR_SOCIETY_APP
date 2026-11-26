@@ -241,7 +241,7 @@ class _AssetTile extends StatelessWidget {
                   [a.assetCode, assetCategoryLabel(a.category), if ((a.location ?? '').isNotEmpty) a.location!].join(' · '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),
                 if (a.warrantyStatus == 'expiring' || a.warrantyStatus == 'expired')
                   Padding(
@@ -255,7 +255,7 @@ class _AssetTile extends StatelessWidget {
             if (a.isRetired)
               StatusPill(assetStatusLabel(a.status), AppTheme.textSecondary)
             else if (a.status == 'under_maintenance')
-              const StatusPill('Under repair', AppTheme.warning)
+              StatusPill('Under repair', AppTheme.warning)
             else if (svc != 'none')
               StatusPill(serviceLabel(svc, a.daysToService), serviceColor(svc)),
           ]),

@@ -47,7 +47,7 @@ class _HandoverScreenState extends ConsumerState<HandoverScreen>
   Widget build(BuildContext context) {
     ref.listen(handoverProvider, (_, next) {
       if (next is HandoverCreated) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Handover submitted successfully'),
           backgroundColor: AppTheme.success,
           behavior: SnackBarBehavior.floating,
@@ -197,7 +197,7 @@ class _HandoverCard extends ConsumerWidget {
                   children: [
                     Text(
                       handover.area ?? 'Shift Handover',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
                           color: AppTheme.textPrimary),
@@ -205,7 +205,7 @@ class _HandoverCard extends ConsumerWidget {
                     const SizedBox(height: 2),
                     Text(
                       _formatDateTime(handover.createdAt),
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 12, color: AppTheme.textSecondary),
                     ),
                   ],
@@ -217,7 +217,7 @@ class _HandoverCard extends ConsumerWidget {
           const SizedBox(height: 12),
           Text(
             handover.summary,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
@@ -231,7 +231,7 @@ class _HandoverCard extends ConsumerWidget {
                 const SizedBox(width: 6),
                 Text(
                   '${handover.items.length} item${handover.items.length > 1 ? 's' : ''}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12, color: AppTheme.textSecondary),
                 ),
                 const SizedBox(width: 12),
@@ -242,7 +242,7 @@ class _HandoverCard extends ConsumerWidget {
                       color: AppTheme.error.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Text('⚠️ Urgent items',
+                    child: Text('⚠️ Urgent items',
                         style: TextStyle(
                             fontSize: 11,
                             color: AppTheme.error,
@@ -276,14 +276,14 @@ class _HandoverCard extends ConsumerWidget {
                       ),
                       if (item.quantity != null)
                         Text('×${item.quantity}',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 12, color: AppTheme.textSecondary)),
                     ],
                   ),
                 )),
             if (handover.items.length > 3)
               Text('+${handover.items.length - 3} more',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12, color: AppTheme.textSecondary,
                       fontStyle: FontStyle.italic)),
           ],
@@ -391,7 +391,7 @@ class _HandoverCard extends ConsumerWidget {
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
               onPressed: () {
                 if (reasonCtrl.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                  ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
                     content: Text('Please enter a reason for disputing this handover'),
                     backgroundColor: AppTheme.error,
                     behavior: SnackBarBehavior.floating,
@@ -484,7 +484,7 @@ class _CreateTabState extends ConsumerState<_CreateTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Handover Details',
+                  Text('Handover Details',
                       style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
@@ -541,7 +541,7 @@ class _CreateTabState extends ConsumerState<_CreateTab> {
                 children: [
                   Row(
                     children: [
-                      const Text('Handover Items',
+                      Text('Handover Items',
                           style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
@@ -595,7 +595,7 @@ class _CreateTabState extends ConsumerState<_CreateTab> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (widget.societyId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Society context is missing. Please go back and reopen this screen.'),
         backgroundColor: AppTheme.error,
         behavior: SnackBarBehavior.floating,
@@ -661,17 +661,17 @@ class _ItemDraftTile extends StatelessWidget {
           Expanded(
             child: Text(
               '${item.type.replaceAll('_', ' ')} · ${item.title}',
-              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+              style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
             ),
           ),
           if (item.quantity != null)
             Text('×${item.quantity}',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12, color: AppTheme.textSecondary)),
           const SizedBox(width: 8),
           GestureDetector(
             onTap: onRemove,
-            child: const Icon(Icons.close_rounded,
+            child: Icon(Icons.close_rounded,
                 size: 18, color: AppTheme.textSecondary),
           ),
         ],
@@ -771,7 +771,7 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                     onChanged: (v) => setState(() => _isUrgent = v!),
                     activeColor: AppTheme.error,
                   ),
-                  const Text('Urgent',
+                  Text('Urgent',
                       style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
                 ],
               ),

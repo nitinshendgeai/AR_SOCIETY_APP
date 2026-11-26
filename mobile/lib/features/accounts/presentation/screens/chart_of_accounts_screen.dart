@@ -87,7 +87,7 @@ class _ChartOfAccountsScreenState extends ConsumerState<ChartOfAccountsScreen> {
                               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                           const SizedBox(width: 8),
                           Text(nature == 'income' || nature == 'expense' ? 'Income & Expenditure' : 'Balance Sheet',
-                              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                         ]),
                       ),
                       for (final g in groups.where((g) => g.nature == nature))
@@ -141,7 +141,7 @@ class _GroupCard extends StatelessWidget {
                   SizedBox(
                     width: 44,
                     child: Text(a.code ?? '',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textTertiary,
+                        style: TextStyle(fontSize: 12, color: AppTheme.textTertiary,
                             fontFeatures: [FontFeature.tabularFigures()])),
                   ),
                   Expanded(
@@ -153,24 +153,24 @@ class _GroupCard extends StatelessWidget {
                         ),
                         if (a.isDefaultBank) ...[
                           const SizedBox(width: 6),
-                          const StatusPill('Default', AppTheme.primary),
+                          StatusPill('Default', AppTheme.primary),
                         ],
                         if (!a.isSystem) ...[
                           const SizedBox(width: 6),
-                          const StatusPill('Custom', AppTheme.secondary),
+                          StatusPill('Custom', AppTheme.secondary),
                         ],
                       ]),
                       if (a.maintenanceElementName != null)
                         Text('Counts towards ${a.maintenanceElementName}',
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
+                            style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
                     ]),
                   ),
                   if (a.balance != null) DrCrText(a.balance!, weight: FontWeight.w500),
                   IconButton(
                     tooltip: 'Edit ledger',
                     visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.textSecondary),
+                    icon: Icon(Icons.edit_outlined, size: 18, color: AppTheme.textSecondary),
                     onPressed: () => onEdit(a),
                   ),
                 ]),
@@ -278,7 +278,7 @@ class _LedgerSheetState extends ConsumerState<_LedgerSheet> {
         const SizedBox(height: 14),
         ref.watch(maintenanceElementsProvider((societyId: widget.societyId, includeInactive: false))).when(
               loading: () => const LinearProgressIndicator(),
-              error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+              error: (e, _) => Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
               data: (elements) => FormFieldBox(label: 'Counts towards maintenance element', child: DropdownButtonFormField<String?>(
                 initialValue: elements.any((e) => e.id == _elementId) ? _elementId : null,
                 isExpanded: true,
@@ -324,7 +324,7 @@ class _LedgerSheetState extends ConsumerState<_LedgerSheet> {
             validator: (v) => v == null ? 'Choose the group this ledger belongs to' : null,
           )),
           if (system)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 6),
               child: Text('A standard ledger — the automatic postings use it, so it stays in its group.',
                   style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
@@ -406,7 +406,7 @@ class _LedgerSheetState extends ConsumerState<_LedgerSheet> {
               ),
             ),
           ]),
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 6),
             child: Text('The balance brought forward when you start keeping books here.',
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),

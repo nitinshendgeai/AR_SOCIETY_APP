@@ -179,7 +179,7 @@ class AdminOverview extends ConsumerWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('The overview could not be loaded.', style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          const Text('Check your connection and try again.',
+          Text('Check your connection and try again.',
               style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
           const SizedBox(height: 10),
           OutlinedButton.icon(
@@ -250,7 +250,7 @@ class _Label extends StatelessWidget {
   const _Label(this.text);
   @override
   Widget build(BuildContext context) => Text(text,
-      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary));
+      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary));
 }
 
 /// A section the server could not load: says so plainly (a screen reader announces it) and offers a retry.
@@ -267,7 +267,7 @@ class _SectionError extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('This could not be loaded just now.', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
-            const Text('The figures are not shown rather than shown wrong. Try again in a moment.',
+            Text('The figures are not shown rather than shown wrong. Try again in a moment.',
                 style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
             const SizedBox(height: 10),
             OutlinedButton.icon(
@@ -298,7 +298,7 @@ class _Frame extends StatelessWidget {
             Row(children: [
               Expanded(
                   child: Text(title!,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimary))),
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimary))),
               if (trailing != null) trailing!,
             ]),
             const SizedBox(height: 14),
@@ -322,10 +322,10 @@ class _CollectionCard extends StatelessWidget {
       return _Frame(
         title: 'Maintenance collection',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('No billing cycle yet.',
+          Text('No billing cycle yet.',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
           const SizedBox(height: 4),
-          const Text('Create the first cycle to see what has been billed and collected.',
+          Text('Create the first cycle to see what has been billed and collected.',
               style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.4)),
           const SizedBox(height: 12),
           OutlinedButton(onPressed: () => context.go(AppRoutes.maintenanceBilling), child: const Text('Open billing')),
@@ -338,18 +338,18 @@ class _CollectionCard extends StatelessWidget {
       title: 'Maintenance collection',
       trailing: TextButton(onPressed: () => context.go(AppRoutes.maintenanceBilling), child: const Text('Billing')),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(cl.cycleName, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+        Text(cl.cycleName, style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
         const SizedBox(height: 6),
         Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Expanded(
             // Wraps to a second line on a very narrow screen instead of cutting the amount.
             child: Wrap(crossAxisAlignment: WrapCrossAlignment.end, spacing: 8, children: [
               Text(_inr(cl.collected),
-                  style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text('of ${_inr(cl.billed)} billed',
-                    style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
               ),
             ]),
           ),
@@ -372,16 +372,16 @@ class _CollectionCard extends StatelessWidget {
         if (cl.draftBills > 0) ...[
           const SizedBox(height: 10),
           Row(children: [
-            const Icon(Icons.schedule_send_rounded, size: 16, color: AppTheme.textSecondary),
+            Icon(Icons.schedule_send_rounded, size: 16, color: AppTheme.textSecondary),
             const SizedBox(width: 6),
             Expanded(
                 child: Text('${_n(cl.draftBills, 'bill is', 'bills are')} generated but not issued yet, so not counted here.',
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.3))),
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.3))),
           ]),
         ],
         if (cl.trend.length > 1) ...[
           const SizedBox(height: 18),
-          const Text('Last cycles', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+          Text('Last cycles', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
           const SizedBox(height: 8),
           _TrendBars(points: cl.trend),
         ],
@@ -398,7 +398,7 @@ class _Fact extends StatelessWidget {
   const _Fact(this.label, this.value, this.color);
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
+        Text(label, style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
         Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color)),
       ]);
 }
@@ -443,14 +443,14 @@ class _TrendBars extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
           ),
       ]),
       const SizedBox(height: 8),
       Row(mainAxisAlignment: MainAxisAlignment.center, children: [
         _Key(color: AppTheme.primary.withOpacity(0.25), label: 'Billed'),
         const SizedBox(width: 14),
-        const _Key(color: AppTheme.primary, label: 'Collected'),
+        _Key(color: AppTheme.primary, label: 'Collected'),
       ]),
     ]);
   }
@@ -484,7 +484,7 @@ class _Key extends StatelessWidget {
   Widget build(BuildContext context) => Row(children: [
         Container(width: 10, height: 10, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
         const SizedBox(width: 5),
-        Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+        Text(label, style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
       ]);
 }
 
@@ -503,9 +503,9 @@ class _AttentionCard extends StatelessWidget {
       trailing: known.isEmpty
           ? null
           : Text('${known.length}',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
       child: known.isEmpty
-          ? const Row(children: [
+          ? Row(children: [
               Icon(Icons.check_circle_rounded, color: AppTheme.success, size: 22),
               SizedBox(width: 10),
               Expanded(
@@ -545,8 +545,8 @@ class _AttentionRow extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
               child: Text(a.text(item),
-                  style: const TextStyle(fontSize: 13.5, color: AppTheme.textPrimary, height: 1.3))),
-          const Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.textTertiary),
+                  style: TextStyle(fontSize: 13.5, color: AppTheme.textPrimary, height: 1.3))),
+          Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.textTertiary),
         ]),
       ),
     );
@@ -613,7 +613,7 @@ class _Glance extends StatelessWidget {
           Semantics(
             liveRegion: true,
             child: Row(children: [
-              const Icon(Icons.error_outline_rounded, size: 18, color: AppTheme.warning),
+              Icon(Icons.error_outline_rounded, size: 18, color: AppTheme.warning),
               const SizedBox(width: 8),
               Expanded(
                   child: Text(
@@ -624,7 +624,7 @@ class _Glance extends StatelessWidget {
                               : o.failed('occupancy')
                                   ? 'Occupancy and resident figures could not be loaded.'
                                   : 'Visitor figures could not be loaded.',
-                      style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
+                      style: TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
               TextButton(onPressed: onRetry, child: const Text('Try again')),
             ]),
           ),
@@ -636,10 +636,10 @@ class _Glance extends StatelessWidget {
               child: Text('${o.occupied} of ${o.flats} flats occupied',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
             ),
             const SizedBox(width: 8),
-            Text('${o.vacant} vacant', style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+            Text('${o.vacant} vacant', style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
           ]),
           const SizedBox(height: 8),
           ClipRRect(
@@ -681,8 +681,8 @@ class _Stat extends StatelessWidget {
           Icon(icon, size: 18, color: AppTheme.textSecondary),
           const SizedBox(width: 8),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-            Text(label, style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
+            Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+            Text(label, style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
           ]),
         ]),
       );

@@ -133,7 +133,7 @@ class _BookingSheetState extends ConsumerState<BookingSheet> {
         autovalidateMode: AutovalidateMode.onUserInteraction,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text('${a.hours}${a.capacity != null ? ' · up to ${a.capacity} people' : ''}',
-              style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
           const SizedBox(height: 12),
           FormFieldBox(label: 'Date', child: DateField(
             label: '',value: _date,
@@ -167,7 +167,7 @@ class _BookingSheetState extends ConsumerState<BookingSheet> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(color: AppTheme.warningSoft, borderRadius: BorderRadius.circular(AppTheme.radiusM)),
               child: Row(children: [
-                const Icon(Icons.currency_rupee_rounded, size: 18, color: AppTheme.warning),
+                Icon(Icons.currency_rupee_rounded, size: 18, color: AppTheme.warning),
                 const SizedBox(width: 8),
                 Expanded(child: Text('$cost. The committee collects it from you; it is not added to your maintenance bill.',
                     style: const TextStyle(fontSize: 12.5, height: 1.35))),
@@ -400,7 +400,7 @@ class _RuleSheetState extends ConsumerState<RuleSheet> {
               validator: (v) => (double.tryParse((v ?? '').trim()) ?? 0) <= 0 ? 'Enter a number above zero' : null,
             )),
           ] else
-            Padding(padding: const EdgeInsets.only(top: 10), child: Text(k.hint, style: const TextStyle(color: AppTheme.textSecondary))),
+            Padding(padding: const EdgeInsets.only(top: 10), child: Text(k.hint, style: TextStyle(color: AppTheme.textSecondary))),
           const SizedBox(height: 6),
           Text(context.tr('Setting a rule again replaces the earlier one.'), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           const SizedBox(height: 14),

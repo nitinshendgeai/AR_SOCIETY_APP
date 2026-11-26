@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/theme/app_look.dart';
 import 'package:ar_society_app/shared/widgets/premium.dart';
 import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/l10n/language_picker.dart';
@@ -65,7 +66,7 @@ class PhoneBottomBar extends ConsumerWidget {
     return MediaQuery(
       data: MediaQuery.of(context).copyWith(textScaler: scaler),
       child: DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppTheme.cardBg,
         boxShadow: [BoxShadow(color: Color(0x1A1C1C1E), blurRadius: 20, offset: Offset(0, -4))],
       ),
@@ -126,7 +127,7 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
         Widget heading(String label) => Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
               child: Text(ctx.tr(label),
-                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
             );
         final society = user.societies.where((c) => c.current).map((c) => c.societyName).firstOrNull;
         return ListenableBuilder(
@@ -154,7 +155,7 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
                     Text([user.roles.firstOrNull ?? user.primaryRole, if (society != null) society].join(' · '),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                        style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
                   ]),
                 ),
               ]),
@@ -179,14 +180,14 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
                 Padding(
                   padding: const EdgeInsets.all(24),
                   child: Center(
-                    child: Text(ctx.tr('No screen matches'), style: const TextStyle(color: AppTheme.textSecondary)),
+                    child: Text(ctx.tr('No screen matches'), style: TextStyle(color: AppTheme.textSecondary)),
                   ),
                 ),
               if (searching)
                 for (final (category, item) in results)
                   ListTile(
                     leading: AccentBadge(icon: item.icon, accent: accentFor(item.label), size: 38),
-                    trailing: const Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
+                    trailing: Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
                     title: Text(ctx.tr(item.label)),
                     subtitle: Text(ctx.tr(category.label)),
                     onTap: () {
@@ -204,7 +205,7 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
               if (!searching) for (final item in menu[group].items)
                 ListTile(
                   leading: AccentBadge(icon: item.icon, accent: accentFor(item.label), size: 38),
-                  trailing: item.route == null ? null : const Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
+                  trailing: item.route == null ? null : Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
                   title: Text(ctx.tr(item.label), style: const TextStyle(fontWeight: FontWeight.w600)),
                   onTap: item.route == null
                       ? null
@@ -222,10 +223,22 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
                 leading: AccentBadge(icon: Icons.translate_rounded, accent: kAccents[1], size: 38),
                 title: Text(ctx.tr('Language')),
                 trailing: Text(kLanguageNames[sheetRef.watch(localeProvider).languageCode] ?? 'English',
-                    style: const TextStyle(color: AppTheme.textSecondary)),
+                    style: TextStyle(color: AppTheme.textSecondary)),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   showLanguagePicker(context, ref);
+                },
+              ),
+            ),
+            Consumer(
+              builder: (ctx, sheetRef, _) => ListTile(
+                leading: AccentBadge(icon: Icons.auto_awesome_outlined, accent: kAccents[3], size: 38),
+                title: Text(ctx.tr('Appearance')),
+                trailing: Text(ctx.tr(sheetRef.watch(appLookProvider) == AppLook.deck ? 'Command deck' : 'Light'),
+                    style: TextStyle(color: AppTheme.textSecondary)),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  showLookPicker(context, ref);
                 },
               ),
             ),
@@ -258,7 +271,7 @@ void _showMore(BuildContext context, WidgetRef ref, List<AppMenuCategory> menu, 
             ),
             ListTile(
               leading: AccentBadge(icon: Icons.logout_rounded, accent: kAccents[7], size: 38),
-              title: Text(ctx.tr('Sign out'), style: const TextStyle(color: AppTheme.error)),
+              title: Text(ctx.tr('Sign out'), style: TextStyle(color: AppTheme.error)),
               onTap: () {
                 Navigator.of(ctx).pop();
                 confirmSignOut(context, ref);

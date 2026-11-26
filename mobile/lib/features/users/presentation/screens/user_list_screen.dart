@@ -167,8 +167,8 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
               width: 140,
               sortKey: (u) => u.mustChangePassword ? 0 : 1,
               cell: (u) => u.mustChangePassword
-                  ? const StatusPill('Must change', AppTheme.warning)
-                  : const Text('Set', style: TextStyle(fontSize: 13.5, color: AppTheme.textSecondary)),
+                  ? StatusPill('Must change', AppTheme.warning)
+                  : Text('Set', style: TextStyle(fontSize: 13.5, color: AppTheme.textSecondary)),
             ),
           ],
         ),
@@ -219,13 +219,13 @@ class _SearchBar extends StatelessWidget {
         onChanged: onChanged,
         decoration: InputDecoration(
           hintText: 'Search by name or email…',
-          hintStyle: const TextStyle(
+          hintStyle: TextStyle(
               color: AppTheme.textSecondary, fontSize: 14),
-          prefixIcon: const Icon(Icons.search_rounded,
+          prefixIcon: Icon(Icons.search_rounded,
               color: AppTheme.textSecondary, size: 20),
           suffixIcon: controller.text.isNotEmpty
               ? IconButton(
-                  icon: const Icon(Icons.clear_rounded,
+                  icon: Icon(Icons.clear_rounded,
                       size: 18, color: AppTheme.textSecondary),
                   onPressed: () {
                     controller.clear();
@@ -239,11 +239,11 @@ class _SearchBar extends StatelessWidget {
           fillColor: AppTheme.cardBg,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusM),
-            borderSide: const BorderSide(color: AppTheme.border),
+            borderSide: BorderSide(color: AppTheme.border),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusM),
-            borderSide: const BorderSide(color: AppTheme.border),
+            borderSide: BorderSide(color: AppTheme.border),
           ),
         ),
       ),
@@ -431,7 +431,7 @@ class _UserTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(user.fullName,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                           color: AppTheme.textPrimary)),
@@ -439,7 +439,7 @@ class _UserTile extends StatelessWidget {
                   Text(user.contactLine,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 12, color: AppTheme.textSecondary)),
                   const SizedBox(height: 6),
                   Wrap(
@@ -490,7 +490,7 @@ class _Avatar extends StatelessWidget {
       ),
       child: Center(
         child: Text(initials,
-            style: const TextStyle(
+            style: TextStyle(
                 color: AppTheme.primary,
                 fontWeight: FontWeight.w700,
                 fontSize: 15)),
@@ -513,7 +513,7 @@ class _RoleBadge extends StatelessWidget {
         border: Border.all(color: AppTheme.secondary.withOpacity(0.3)),
       ),
       child: Text(role,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 10,
               color: AppTheme.secondary,
               fontWeight: FontWeight.w600)),
@@ -557,7 +557,7 @@ class _PwdBadge extends StatelessWidget {
         color: AppTheme.warning.withOpacity(0.1),
         borderRadius: BorderRadius.circular(6),
       ),
-      child: const Text('Pwd Reset',
+      child: Text('Pwd Reset',
           style: TextStyle(
               fontSize: 9,
               color: AppTheme.warning,
@@ -578,12 +578,12 @@ class _EmptyView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.people_outline_rounded,
+            Icon(Icons.people_outline_rounded,
                 size: 48, color: AppTheme.textSecondary),
             const SizedBox(height: 12),
             Text(
               hasFilters ? 'No users match filters' : 'No users yet',
-              style: const TextStyle(
+              style: TextStyle(
                   color: AppTheme.textSecondary, fontSize: 15),
             ),
           ],
@@ -606,12 +606,12 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline_rounded,
+            Icon(Icons.error_outline_rounded,
                 color: AppTheme.error, size: 40),
             const SizedBox(height: 12),
             Text(message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                     color: AppTheme.textSecondary, fontSize: 13)),
             const SizedBox(height: 16),
             TextButton.icon(

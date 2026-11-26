@@ -186,7 +186,7 @@ class _AppDataTableState<T> extends State<AppDataTable<T>> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 16),
             child: Column(children: [
-              Text(widget.error!, textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.error)),
+              Text(widget.error!, textAlign: TextAlign.center, style: TextStyle(color: AppTheme.error)),
               if (widget.onRetry != null) ...[
                 const SizedBox(height: 12),
                 OutlinedButton(onPressed: widget.onRetry, child: const Text('Retry')),
@@ -197,7 +197,7 @@ class _AppDataTableState<T> extends State<AppDataTable<T>> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 16),
             child: widget.empty ??
-                const Center(
+                Center(
                   child: Text('No records', style: TextStyle(color: AppTheme.textSecondary)),
                 ),
           )
@@ -340,12 +340,12 @@ class _AppDataTableState<T> extends State<AppDataTable<T>> {
         child: Row(children: [
           Text(
             '${start + 1}–${start + shown} of $total',
-            style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
+            style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
           ),
           const Spacer(),
           if (pages > 1) ...[
             Text('Page ${_page + 1} of $pages',
-                style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
             const SizedBox(width: 8),
             IconButton(
               tooltip: 'Previous page',
@@ -397,12 +397,12 @@ class TwoLineCell extends StatelessWidget {
           Text(title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
           if (subtitle != null && subtitle!.isNotEmpty)
             Text(subtitle!,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ],
       );
 }

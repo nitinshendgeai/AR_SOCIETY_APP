@@ -16,7 +16,7 @@ Future<void> showTempPasswordDialog(BuildContext context, String pwd, {String? w
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Share this with ${who ?? 'the user'}. They must change it on login.',
-              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           const SizedBox(height: 12),
           GestureDetector(
             onTap: () {
@@ -39,13 +39,13 @@ Future<void> showTempPasswordDialog(BuildContext context, String pwd, {String? w
                     child: SelectableText(pwd,
                         style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w700, fontSize: 16)),
                   ),
-                  const Icon(Icons.copy_rounded, size: 16, color: AppTheme.primary),
+                  Icon(Icons.copy_rounded, size: 16, color: AppTheme.primary),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 10),
-          const Text('It is shown only now. If it is lost, reset the password from the user\'s page.',
+          Text('It is shown only now. If it is lost, reset the password from the user\'s page.',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ],
       ),

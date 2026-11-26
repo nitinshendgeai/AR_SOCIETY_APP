@@ -292,7 +292,7 @@ class _Tile extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Row ${row.line}: ${flat.isEmpty ? '(no flat)' : 'Flat $flat'}${item.isEmpty ? '' : ' — $item'}',
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            if (meta.isNotEmpty) Text(meta, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+            if (meta.isNotEmpty) Text(meta, style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
             if (row.message != null) Text(row.message!, style: TextStyle(fontSize: 11, color: color)),
           ]),
         ),

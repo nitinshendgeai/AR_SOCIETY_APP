@@ -565,11 +565,11 @@ class _BillDetailSheet extends ConsumerWidget {
                       '${p.paymentDate.day}/${p.paymentDate.month}/${p.paymentDate.year} · '
                       '${vendorPaymentModeLabel(p.paymentMode)}'
                       '${p.transactionRef != null && p.transactionRef!.isNotEmpty ? ' · ${p.transactionRef}' : ''}',
-                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                      style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
                     ),
                     if (p.isReversed)
                       Text('Reversed${p.reversalReason != null ? ': ${p.reversalReason}' : ''}',
-                          style: const TextStyle(color: AppTheme.error, fontSize: 12)),
+                          style: TextStyle(color: AppTheme.error, fontSize: 12)),
                   ]),
                 ),
                 if (!p.isReversed)
@@ -588,7 +588,7 @@ class _BillDetailSheet extends ConsumerWidget {
   Widget _row(String label, String value) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(width: 110, child: Text(label, style: const TextStyle(color: AppTheme.textSecondary))),
+          SizedBox(width: 110, child: Text(label, style: TextStyle(color: AppTheme.textSecondary))),
           Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500))),
         ]),
       );

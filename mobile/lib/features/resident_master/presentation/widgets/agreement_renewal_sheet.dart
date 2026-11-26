@@ -95,7 +95,7 @@ class _RenewalSheetBodyState extends ConsumerState<_RenewalSheetBody> {
       ref.invalidate(tenantAgreementsProvider(widget.tenant.id));
       ref.read(tenantFormProvider.notifier).reset();
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Agreement renewed'), backgroundColor: AppTheme.success,
         behavior: SnackBarBehavior.floating,
       ));

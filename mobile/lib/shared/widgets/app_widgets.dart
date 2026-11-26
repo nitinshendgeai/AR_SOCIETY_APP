@@ -132,13 +132,13 @@ class AppErrorBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.error_outline_rounded,
+          Icon(Icons.error_outline_rounded,
               color: AppTheme.error, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppTheme.error,
                 fontSize: 13.5,
                 fontWeight: FontWeight.w500,
@@ -179,7 +179,7 @@ class AppErrorState extends StatelessWidget {
         child: Semantics(
           liveRegion: true,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.cloud_off_rounded, size: 28, color: AppTheme.error),
+            Icon(Icons.cloud_off_rounded, size: 28, color: AppTheme.error),
             const SizedBox(height: 10),
             Text(context.tr('This could not be loaded'),
                 textAlign: TextAlign.center,
@@ -187,7 +187,7 @@ class AppErrorState extends StatelessWidget {
             const SizedBox(height: 4),
             Text(message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4)),
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4)),
             const SizedBox(height: 14),
             OutlinedButton.icon(
               onPressed: onRetry,
@@ -213,7 +213,7 @@ class AppErrorState extends StatelessWidget {
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(color: AppTheme.errorSoft, borderRadius: BorderRadius.circular(AppTheme.radiusL)),
-                    child: const Icon(Icons.cloud_off_rounded, size: 30, color: AppTheme.error),
+                    child: Icon(Icons.cloud_off_rounded, size: 30, color: AppTheme.error),
                   ),
                   const SizedBox(height: 16),
                   Text(context.tr('This could not be loaded'),
@@ -222,7 +222,7 @@ class AppErrorState extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(message,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4)),
+                      style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4)),
                   const SizedBox(height: 20),
                   OutlinedButton.icon(
                     onPressed: onRetry,
@@ -352,7 +352,7 @@ class AppToast {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(context.tr(message),
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: AppTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.w500)),
               ),
             ],
@@ -445,13 +445,13 @@ class AppEmptyState extends StatelessWidget {
             const SizedBox(height: 16),
             Text(context.tr(title),
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
             if (subtitle != null) ...[
               const SizedBox(height: 6),
               Text(context.tr(subtitle!),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4)),
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4)),
             ],
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 20),
@@ -556,7 +556,7 @@ class KpiCard extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: AppTheme.textSecondary,
                       fontWeight: FontWeight.w600,
@@ -575,7 +575,7 @@ class KpiCard extends StatelessWidget {
                         softWrap: false,
                         // textSecondary, not textTertiary: the note can say something the person needs to act on
                         // (for example "Could not load. Tap to retry") and the lighter grey is below readable contrast.
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           color: AppTheme.textSecondary,
                         ),

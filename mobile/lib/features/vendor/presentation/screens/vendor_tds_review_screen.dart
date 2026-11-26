@@ -91,7 +91,7 @@ class _VendorTdsReviewScreenState extends ConsumerState<VendorTdsReviewScreen> {
             child: ResponsiveBody(
               maxWidth: 860,
               child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 96), children: [
-                const Text(
+                Text(
                     'The TDS deducted when a vendor is paid depends on its type (individual, firm, company…), its PAN and its '
                     'section. Fix the vendors below so every payment is deducted at the right rate.',
                     style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.35)),
@@ -170,7 +170,7 @@ class _VendorTile extends StatelessWidget {
           Text(v.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
           Text(
               [v.vendorCode, if ((v.pan ?? '').isNotEmpty) 'PAN ${v.pan}' else 'No PAN'].join(' · '),
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           const SizedBox(height: 4),
           Text('Type: ${v.constitutionLabel ?? 'Not set'}', style: const TextStyle(fontSize: 13)),
           Text('Section: ${v.sectionLabel ?? v.section ?? 'None (no TDS deducted)'}', style: const TextStyle(fontSize: 13)),
@@ -192,7 +192,7 @@ class _VendorTile extends StatelessWidget {
                     if (v.suggestedConstitutionLabel != null) v.suggestedConstitutionLabel!,
                     if (v.suggestedSectionLabel != null) v.suggestedSectionLabel!,
                   ].join(' · ')}',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primary)),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primary)),
             ),
           if (committee) ...[
             const SizedBox(height: 10),

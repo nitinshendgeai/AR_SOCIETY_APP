@@ -72,13 +72,13 @@ class _AppLoaderState extends State<AppLoader>
                   if (widget.label != null) ...[
                     const SizedBox(height: 14),
                     Text(widget.label!,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 13.5, color: AppTheme.textSecondary)),
                   ],
                   if (!widget.compact)
                     Opacity(
                       opacity: slow,
-                      child: const Padding(
+                      child: Padding(
                         padding: EdgeInsets.only(top: 10),
                         child: Text(
                             'Still working… the server may be waking up',
@@ -137,11 +137,7 @@ class _ShimmerState extends State<Shimmer> with SingleTickerProviderStateMixin {
           return LinearGradient(
             begin: Alignment(-1.5 + 3 * t, -0.3),
             end: Alignment(-0.5 + 3 * t, 0.3),
-            colors: const [
-              Color(0xFFE9EBF0),
-              Color(0xFFF7F8FA),
-              Color(0xFFE9EBF0)
-            ],
+            colors: [AppTheme.skeleton, AppTheme.skeletonShine, AppTheme.skeleton],
             stops: const [0.25, 0.5, 0.75],
           ).createShader(rect);
         },
@@ -163,7 +159,7 @@ class SkeletonBox extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-            color: const Color(0xFFE9EBF0),
+            color: AppTheme.skeleton,
             borderRadius: BorderRadius.circular(radius)),
       );
 }

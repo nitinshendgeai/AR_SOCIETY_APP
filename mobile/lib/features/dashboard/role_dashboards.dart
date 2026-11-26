@@ -231,7 +231,7 @@ class _BiometricEnrollTriggerState extends ConsumerState<_BiometricEnrollTrigger
     if (confirmed) {
       await BiometricPreference.setEnabled(true);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Biometric unlock enabled'),
           backgroundColor: AppTheme.success,
         ));
@@ -400,7 +400,7 @@ class _QuickActionChip extends StatelessWidget {
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   AccentBadge(icon: icon, accent: accentFor(label), size: 40),
                   const SizedBox(height: 8),
-                  Text(context.tr(label), textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                  Text(context.tr(label), textAlign: TextAlign.center, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
                 ]),
               ),
             ),
@@ -469,11 +469,11 @@ class _InfoTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 11, color: AppTheme.textSecondary)),
                 const SizedBox(height: 2),
                 Text(value,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.textPrimary)),
@@ -797,7 +797,7 @@ class SecurityDashboardScreen extends ConsumerWidget {
           ]),
         ],
         const SizedBox(height: 18),
-        _OperationalPanel(title: 'Shift Notes', children: const [
+        _OperationalPanel(title: 'Shift Notes', children: [
           _InfoTile(icon: Icons.swap_horiz_rounded, title: 'Handover', value: 'Use Staff → Handover to log shift notes', color: AppTheme.warning),
           SizedBox(height: 8),
           _InfoTile(icon: Icons.gpp_good_rounded, title: 'Visitor log', value: 'Use visitor actions above to manage entries', color: AppTheme.success),
@@ -845,7 +845,7 @@ class ResidentDashboardScreen extends ConsumerWidget {
               borderRadius: BorderRadius.circular(AppTheme.radiusM),
               border: Border.all(color: AppTheme.warning.withOpacity(0.35)),
             ),
-            child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Icon(Icons.link_off_rounded, color: AppTheme.warning, size: 20),
               SizedBox(width: 10),
               Expanded(
@@ -898,18 +898,18 @@ class ResidentDashboardScreen extends ConsumerWidget {
                 Container(
                   width: 40,
                   height: 40,
-                  decoration: const BoxDecoration(color: AppTheme.error, shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: AppTheme.error, shape: BoxShape.circle),
                   child: const Icon(Icons.sos_rounded, color: Colors.white, size: 22),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('SOS', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppTheme.error)),
+                    Text('SOS', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppTheme.error)),
                     Text(context.tr('Need help now? Tell security and the committee.'),
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   ]),
                 ),
-                const Icon(Icons.chevron_right_rounded, color: AppTheme.error),
+                Icon(Icons.chevron_right_rounded, color: AppTheme.error),
               ]),
             ),
           ),
@@ -1053,7 +1053,7 @@ class _ServiceGrid extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
                   ]),
                 ),
               ),
@@ -1157,7 +1157,7 @@ class _DeptRow extends StatelessWidget {
         Expanded(
           flex: 3,
           child: Text(_label,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
         ),
         _pill('$present present', AppTheme.success),
         const SizedBox(width: 6),

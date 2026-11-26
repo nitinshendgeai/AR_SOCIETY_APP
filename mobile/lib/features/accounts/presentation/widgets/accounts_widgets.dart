@@ -284,16 +284,16 @@ class _LedgerPickerSheetState extends State<_LedgerPickerSheet> {
             key: const Key('ledger-picker-create'),
             dense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-            leading: const Icon(Icons.add_circle_outline_rounded, size: 20, color: AppTheme.primary),
+            leading: Icon(Icons.add_circle_outline_rounded, size: 20, color: AppTheme.primary),
             title: Text('Create ledger "${_q.trim()}"',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.primary)),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.primary)),
             onTap: () async {
               final made = await widget.onCreate!(_q.trim());
               if (made != null && context.mounted) Navigator.pop(context, made);
             },
           ),
         if (rows.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.all(24),
             child: Text('No ledger matches', style: TextStyle(color: AppTheme.textSecondary)),
           ),
@@ -301,7 +301,7 @@ class _LedgerPickerSheetState extends State<_LedgerPickerSheet> {
           Padding(
             padding: const EdgeInsets.fromLTRB(4, 12, 4, 4),
             child: Text(entry.key.toUpperCase(),
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 11, letterSpacing: .4, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
           ),
           for (final l in entry.value)
@@ -320,7 +320,7 @@ class _LedgerPickerSheetState extends State<_LedgerPickerSheet> {
               title: Text(l.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
               trailing: l.code == null
                   ? null
-                  : Text(l.code!, style: const TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
+                  : Text(l.code!, style: TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
               onTap: () => Navigator.pop(context, l),
             ),
         ],
@@ -357,7 +357,7 @@ class _FlatPickerSheetState extends State<_FlatPickerSheet> {
       scrollBody: false,
       child: ListView(shrinkWrap: true, children: [
         if (rows.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.all(24),
             child: Text('No flat matches', style: TextStyle(color: AppTheme.textSecondary)),
           ),
@@ -506,7 +506,7 @@ class _VoucherDocumentsState extends ConsumerState<_VoucherDocuments> {
         ),
       ]),
       if (docs.isEmpty)
-        const Text('No bill or receipt filed against this voucher yet.',
+        Text('No bill or receipt filed against this voucher yet.',
             style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
       for (final d in docs)
         ListTile(
@@ -564,7 +564,7 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
       builder: (ctx) => AlertDialog(
         title: Text('Cancel ${v.voucherNumber}?'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('The voucher stays on record, marked cancelled, and drops out of every ledger.',
+          Text('The voucher stays on record, marked cancelled, and drops out of every ledger.',
               style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           const SizedBox(height: 12),
           FormFieldBox(label: 'Reason', child: TextField(controller: reason, decoration: const InputDecoration())),
@@ -606,7 +606,7 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
       title: 'Voucher',
       child: async.when(
         loading: () => const Padding(padding: EdgeInsets.all(32), child: const AppLoader()),
-        error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+        error: (e, _) => Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
         data: (v) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
             VoucherTypeChip(v.voucherType),
@@ -617,7 +617,7 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
               child: Text(v.voucherNumber, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
             ),
             Text(formatAccountsDate(v.voucherDate),
-                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           ]),
           if (v.isCancelled) ...[
             const SizedBox(height: 10),
@@ -625,7 +625,7 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(color: AppTheme.errorSoft, borderRadius: BorderRadius.circular(AppTheme.radiusS)),
               child: Text('Cancelled${v.cancelReason == null ? '' : ': ${v.cancelReason}'}',
-                  style: const TextStyle(fontSize: 13, color: AppTheme.error, fontWeight: FontWeight.w600)),
+                  style: TextStyle(fontSize: 13, color: AppTheme.error, fontWeight: FontWeight.w600)),
             ),
           ],
           if (v.isPending) ...[
@@ -633,7 +633,7 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(color: AppTheme.warningSoft, borderRadius: BorderRadius.circular(AppTheme.radiusS)),
-              child: const Text('Waiting for approval by the admin or committee. It is not in the books until then.',
+              child: Text('Waiting for approval by the admin or committee. It is not in the books until then.',
                   style: TextStyle(fontSize: 13, color: AppTheme.warning, fontWeight: FontWeight.w600)),
             ),
           ],
@@ -643,7 +643,7 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(color: AppTheme.errorSoft, borderRadius: BorderRadius.circular(AppTheme.radiusS)),
               child: Text('Rejected${(v.approvalNote ?? '').isEmpty ? '' : ': ${v.approvalNote}'}',
-                  style: const TextStyle(fontSize: 13, color: AppTheme.error, fontWeight: FontWeight.w600)),
+                  style: TextStyle(fontSize: 13, color: AppTheme.error, fontWeight: FontWeight.w600)),
             ),
           ],
           if (v.isReversed) ...[
@@ -651,7 +651,7 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(color: AppTheme.warningSoft, borderRadius: BorderRadius.circular(AppTheme.radiusS)),
-              child: const Text('Reversed by an entry in a later year (this year\'s books are closed).',
+              child: Text('Reversed by an entry in a later year (this year\'s books are closed).',
                   style: TextStyle(fontSize: 13, color: AppTheme.warning, fontWeight: FontWeight.w600)),
             ),
           ],
@@ -659,7 +659,7 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
           _EntriesTable(v.entries, v.amount),
           if ((v.narration ?? '').isNotEmpty) ...[
             const SizedBox(height: 14),
-            const Text('Narration', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            Text('Narration', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             const SizedBox(height: 2),
             Text(v.narration!, style: const TextStyle(fontSize: 14)),
           ],
@@ -681,23 +681,23 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
           if (v.sourceLabel != null) ...[
             const SizedBox(height: 12),
             Row(children: [
-              const Icon(Icons.auto_awesome_rounded, size: 16, color: AppTheme.primary),
+              Icon(Icons.auto_awesome_rounded, size: 16, color: AppTheme.primary),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                     v.sourceType == null ? v.sourceLabel! : '${v.sourceLabel} — cancel it from there, not here.',
-                    style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                    style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
               ),
             ]),
           ],
           if (v.isLocked) ...[
             const SizedBox(height: 12),
             Row(children: [
-              const Icon(Icons.lock_outline_rounded, size: 16, color: AppTheme.textSecondary),
+              Icon(Icons.lock_outline_rounded, size: 16, color: AppTheme.textSecondary),
               const SizedBox(width: 6),
               Expanded(
                 child: Text('The books for FY ${v.fiscalYear} are closed — this entry can\'t be changed.',
-                    style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                    style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
               ),
             ]),
           ],
@@ -734,7 +734,7 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
             Text('Edit history (${v.revisions.length})',
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
-            const Text('The voucher as it stood before each change, newest first.',
+            Text('The voucher as it stood before each change, newest first.',
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             const SizedBox(height: 8),
             for (final r in v.revisions) _RevisionTile(r),
@@ -745,7 +745,7 @@ class _VoucherSheetState extends ConsumerState<_VoucherSheet> {
   }
 
   Widget _meta(String label, String value) => Text.rich(TextSpan(children: [
-        TextSpan(text: '$label: ', style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+        TextSpan(text: '$label: ', style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
         TextSpan(text: value, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
       ]));
 }
@@ -776,7 +776,7 @@ class _RevisionTile extends StatelessWidget {
           subtitle: Text(
               'Reason: ${r.reason}\nWas ${formatInr(r.amount)} on ${formatAccountsDate(r.voucherDate)}'
               '${r.voucherNumber.isEmpty ? '' : ' · ${r.voucherNumber}'}',
-              style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
           children: [
             _EntriesTable(r.entries, r.amount),
             if ((r.narration ?? '').isNotEmpty) ...[
@@ -799,7 +799,7 @@ class _EntriesTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const head = TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppTheme.textSecondary);
+    final head = TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppTheme.textSecondary);
     const num = TextStyle(fontSize: 13.5, fontFeatures: [FontFeature.tabularFigures()]);
     Widget money(double v) =>
         SizedBox(width: 96, child: Text(v == 0 ? '' : formatInr(v), textAlign: TextAlign.right, style: num));
@@ -812,7 +812,7 @@ class _EntriesTable extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           color: AppTheme.surface,
-          child: const Row(children: [
+          child: Row(children: [
             Expanded(child: Text('PARTICULARS', style: head)),
             SizedBox(width: 96, child: Text('DEBIT', textAlign: TextAlign.right, style: head)),
             SizedBox(width: 96, child: Text('CREDIT', textAlign: TextAlign.right, style: head)),

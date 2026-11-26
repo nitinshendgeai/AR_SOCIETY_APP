@@ -177,7 +177,7 @@ class _StockInSheetState extends ConsumerState<StockInSheet> {
         key: _form,
         autovalidateMode: AutovalidateMode.onUserInteraction,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('In stock now: ${item.stockText}', style: const TextStyle(color: AppTheme.textSecondary)),
+          Text('In stock now: ${item.stockText}', style: TextStyle(color: AppTheme.textSecondary)),
           const SizedBox(height: 12),
           FormFieldBox(label: 'How many ${unitLabel(item.unit)} came in *', child: TextFormField(
             controller: _qty,
@@ -250,7 +250,7 @@ class _CountSheetState extends ConsumerState<CountSheet> {
         key: _form,
         autovalidateMode: AutovalidateMode.onUserInteraction,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('The app thinks there are ${item.stockText}. Enter what you actually counted.', style: const TextStyle(color: AppTheme.textSecondary, height: 1.35)),
+          Text('The app thinks there are ${item.stockText}. Enter what you actually counted.', style: TextStyle(color: AppTheme.textSecondary, height: 1.35)),
           const SizedBox(height: 12),
           FormFieldBox(label: 'Counted (${unitLabel(item.unit)}) *', child: TextFormField(
             controller: _qty,
@@ -321,11 +321,11 @@ class _IssueSheetState extends ConsumerState<IssueSheet> {
         key: _form,
         autovalidateMode: AutovalidateMode.onUserInteraction,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('In stock: ${item.stockText}', style: const TextStyle(color: AppTheme.textSecondary)),
+          Text('In stock: ${item.stockText}', style: TextStyle(color: AppTheme.textSecondary)),
           const SizedBox(height: 12),
           people.when(
             loading: () => const LinearProgressIndicator(),
-            error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+            error: (e, _) => Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
             data: (list) => FormFieldBox(label: 'Give it to', required: true, child: DropdownButtonFormField<String>(
               initialValue: _staff,
               isExpanded: true,
@@ -414,7 +414,7 @@ class _ReturnSheetState extends ConsumerState<ReturnSheet> {
         key: _form,
         autovalidateMode: AutovalidateMode.onUserInteraction,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('${i.toName ?? 'Someone'} has ${qty(i.outstanding)} ${unitLabel(i.unit)}.', style: const TextStyle(color: AppTheme.textSecondary)),
+          Text('${i.toName ?? 'Someone'} has ${qty(i.outstanding)} ${unitLabel(i.unit)}.', style: TextStyle(color: AppTheme.textSecondary)),
           const SizedBox(height: 12),
           FormFieldBox(label: 'How many came back', required: true, child: TextFormField(
             controller: _qty,
@@ -428,14 +428,14 @@ class _ReturnSheetState extends ConsumerState<ReturnSheet> {
             },
           )),
           const SizedBox(height: 12),
-          const Text('Condition', style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+          Text('Condition', style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
           const SizedBox(height: 6),
           Wrap(spacing: 8, children: [
             for (final c in const [('good', 'Good'), ('damaged', 'Damaged'), ('lost', 'Lost')])
               ChoiceChip(label: Text(c.$2), selected: _condition == c.$1, onSelected: (_) => setState(() => _condition = c.$1)),
           ]),
           if (_condition != 'good')
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 6),
               child: Text('Damaged or lost items are closed off here but do not go back on the shelf.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ),

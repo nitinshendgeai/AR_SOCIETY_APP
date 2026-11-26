@@ -162,10 +162,10 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                   vendorCategoryLabel(wo.category),
                   if (wo.location != null) wo.location!,
                   if (wo.vendorName != null) 'Vendor: ${wo.vendorName}',
-                ].join(' · '), style: const TextStyle(color: AppTheme.textSecondary)),
+                ].join(' · '), style: TextStyle(color: AppTheme.textSecondary)),
                 if (wo.cancelReason != null) ...[
                   const SizedBox(height: 6),
-                  Text('Cancelled: ${wo.cancelReason}', style: const TextStyle(color: AppTheme.error)),
+                  Text('Cancelled: ${wo.cancelReason}', style: TextStyle(color: AppTheme.error)),
                 ],
                 const SizedBox(height: 12),
                 _NextStep(
@@ -258,7 +258,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                             : '${formatRupees(wo.retentionHeld)}${wo.retentionDueOn != null ? ' until ${formatBillDate(wo.retentionDueOn!)}' : ''}'),
                   InfoLine('Can be paid now', formatRupees(wo.payableNow)),
                   const Divider(),
-                  if (wo.bills.isEmpty) const Text('No bills yet', style: TextStyle(color: AppTheme.textSecondary)),
+                  if (wo.bills.isEmpty) Text('No bills yet', style: TextStyle(color: AppTheme.textSecondary)),
                   for (final b in wo.bills)
                     ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -374,7 +374,7 @@ class _NextStep extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(text, style: const TextStyle(fontSize: 13.5, height: 1.35)),
         if (needsCommittee)
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 4),
             child: Text('Some steps are for the managing committee.',
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
@@ -439,7 +439,7 @@ class _CompleteSheetState extends ConsumerState<_CompleteSheet> {
         child: Form(
           key: _form,
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const Text('Certify only after the work has been inspected. The final payment is released after this.',
+            Text('Certify only after the work has been inspected. The final payment is released after this.',
                 style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
             const SizedBox(height: 12),
             FormFieldBox(label: 'Completed on', child: DateField(
@@ -532,7 +532,7 @@ class _BillSheetState extends ConsumerState<_BillSheet> {
         key: _form,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text('Up to ${formatRupees(widget.wo.unbilled)} more can be billed on ${widget.wo.woNumber}.',
-              style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
           const SizedBox(height: 12),
           FormFieldBox(label: 'Vendor\'s bill no. *', child: TextFormField(
             controller: _number,
@@ -648,7 +648,7 @@ class _ReviseSheetState extends ConsumerState<_ReviseSheet> {
           key: _form,
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text('Extra work beyond the sanctioned ${formatRupees(widget.wo.sanction.amount ?? '0')} needs a fresh '
-                'resolution before it is billed.', style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                'resolution before it is billed.', style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
             const SizedBox(height: 12),
             FormFieldBox(label: 'New sanctioned amount (₹)', required: true, child: TextFormField(
               controller: _amount,

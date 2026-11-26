@@ -108,7 +108,7 @@ class _GatewayMenuState extends State<GatewayMenu> {
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 18, 8, 6),
               child: Text(section.title.toUpperCase(),
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 11.5, letterSpacing: .6, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
             ),
             Container(
@@ -152,12 +152,12 @@ class _GatewayMenuState extends State<GatewayMenu> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(color: AppTheme.warningSoft, borderRadius: BorderRadius.circular(AppTheme.radiusS)),
                 child: Text(item.badge!,
-                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppTheme.warning)),
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppTheme.warning)),
               ),
               const SizedBox(width: 10),
             ],
             if (item.hint != null) ...[
-              Text(item.hint!, style: const TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
+              Text(item.hint!, style: TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
               const SizedBox(width: 10),
             ],
             Container(

@@ -180,7 +180,7 @@ class _BillPlannerPanelState extends ConsumerState<BillPlannerPanel> {
       if (_error != null)
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: Text(friendlyErrorMessage(_error!), style: const TextStyle(color: AppTheme.error)),
+          child: Text(friendlyErrorMessage(_error!), style: TextStyle(color: AppTheme.error)),
         ),
       if (_loading && p == null)
         const Padding(padding: EdgeInsets.only(top: 40), child: AppLoader())
@@ -195,7 +195,7 @@ class _BillPlannerPanelState extends ConsumerState<BillPlannerPanel> {
         for (final n in p.notes)
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Text(n, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            child: Text(n, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ),
       ],
     ]);
@@ -207,7 +207,7 @@ class _BillPlannerPanelState extends ConsumerState<BillPlannerPanel> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Budget', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
           const SizedBox(height: 2),
-          const Text(
+          Text(
               'List what the society needs: its elements and common areas, each per month, quarter or year, and the '
               'total area of the society. Each line is shared by flat area (a flat pays its area x the rate) or equally '
               'between all flats. Then Calculate: the totals come out monthly, quarterly and yearly.',
@@ -348,7 +348,7 @@ class _BillPlannerPanelState extends ConsumerState<BillPlannerPanel> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _periodSwitch(),
         const SizedBox(height: 10),
-        Text('Total the society needs each $noun', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        Text('Total the society needs each $noun', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         Text(formatRupees(per.total), key: const ValueKey('plan-total'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
         const SizedBox(height: 6),
         Text('Rate by area: ${_rate(per.ratePerSqft)}${_period == 'monthly' ? '' : ' per $noun'}',
@@ -358,14 +358,14 @@ class _BillPlannerPanelState extends ConsumerState<BillPlannerPanel> {
         Text(
             '${p.flatsCount} flats · ${p.areaTotalSqft.toStringAsFixed(0)} sq ft '
             '(${p.areaSource == 'typed' ? 'as typed' : "the flats' areas"}) · average ${_rate(per.averagePerSqft)}',
-            style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
         if (shortfall != 0) ...[
           const SizedBox(height: 8),
           Text(
               'The flats would pay ${formatRupees(per.collected)} together: '
               '${shortfall > 0 ? 'short of' : 'over'} the budget by ${formatRupees(shortfall.abs().toStringAsFixed(2))}',
               key: const ValueKey('plan-shortfall'),
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.warning)),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.warning)),
         ],
         if (currentNow != null) ...[
           const SizedBox(height: 8),
@@ -398,7 +398,7 @@ class _BillPlannerPanelState extends ConsumerState<BillPlannerPanel> {
                   flex: 2,
                   child: Text(planPeriods.firstWhere((e) => e.$1 == k).$2,
                       textAlign: TextAlign.right,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
                 ),
             ]);
         Widget row((String, Map<String, String>) r, {bool bold = false, bool rupees = true, Color? color}) => Padding(

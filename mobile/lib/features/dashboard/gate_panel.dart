@@ -175,7 +175,7 @@ class _Stat extends StatelessWidget {
               Text(unavailable ? context.tr('Tap to retry') : label,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
               ]),
             ),
           ),

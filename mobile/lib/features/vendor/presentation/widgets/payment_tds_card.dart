@@ -29,7 +29,7 @@ class PaymentTdsCard extends StatelessWidget {
       return Padding(
         key: const Key('tds-note'),
         padding: const EdgeInsets.only(top: 10),
-        child: Text(p.note, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        child: Text(p.note, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
       );
     }
     final tds = double.tryParse(p.tdsAmount) ?? 0;
@@ -49,7 +49,7 @@ class PaymentTdsCard extends StatelessWidget {
           Text(formatInr(tds), key: const Key('tds-amount'), style: const TextStyle(fontWeight: FontWeight.w700)),
         ]),
         const SizedBox(height: 2),
-        Text(p.note, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        Text(p.note, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         const Divider(height: 18),
         Row(children: [
           const Expanded(child: Text('Vendor receives', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),

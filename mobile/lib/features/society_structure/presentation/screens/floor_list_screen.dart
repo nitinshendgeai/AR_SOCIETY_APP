@@ -39,7 +39,7 @@ class FloorListScreen extends ConsumerWidget {
             children: [
               Text(friendlyErrorMessage(e),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppTheme.error)),
+                  style: TextStyle(color: AppTheme.error)),
               const SizedBox(height: 12),
               ElevatedButton(
                 onPressed: () =>
@@ -61,7 +61,7 @@ class FloorListScreen extends ConsumerWidget {
                   const SizedBox(height: 12),
                   Text('No floors yet.\nTap + to add the first floor.',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: AppTheme.textSecondary, fontSize: 14)),
                 ],
               ),
@@ -116,7 +116,7 @@ class _FloorCard extends ConsumerWidget {
               child: Center(
                 child: Text(
                   '${floor.floorNumber}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.secondary,
@@ -130,31 +130,31 @@ class _FloorCard extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(floor.displayName,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.textPrimary)),
                   const SizedBox(height: 4),
                   Row(children: [
-                    const Icon(Icons.door_front_door_rounded,
+                    Icon(Icons.door_front_door_rounded,
                         size: 13, color: AppTheme.textSecondary),
                     const SizedBox(width: 4),
                     Text('${floor.flatCount} ${floor.flatCount == 1 ? 'flat' : 'flats'}',
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 12, color: AppTheme.textSecondary)),
                   ]),
                 ],
               ),
             ),
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert_rounded,
+              icon: Icon(Icons.more_vert_rounded,
                   color: AppTheme.textSecondary),
               onSelected: (v) => _onMenu(context, ref, v),
               itemBuilder: (_) => [
                 const PopupMenuItem(value: 'edit', child: Text('Edit')),
                 const PopupMenuItem(
                     value: 'add_flats', child: Text('Add Flats')),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'delete',
                   child: Text('Delete',
                       style: TextStyle(color: AppTheme.error)),

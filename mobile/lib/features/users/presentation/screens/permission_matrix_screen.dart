@@ -33,12 +33,12 @@ class PermissionMatrixScreen extends ConsumerWidget {
         loading: () => const AppLoader(),
         error: (e, _) => Center(
             child: Text(friendlyErrorMessage(e),
-                style: const TextStyle(color: AppTheme.error))),
+                style: TextStyle(color: AppTheme.error))),
         data: (permissions) => matrixAsync.when(
           loading: () => const AppLoader(),
           error: (e, _) => Center(
               child: Text(friendlyErrorMessage(e),
-                  style: const TextStyle(color: AppTheme.error))),
+                  style: TextStyle(color: AppTheme.error))),
           data: (rows) => _MatrixTable(permissions: permissions, rows: rows),
         ),
       ),

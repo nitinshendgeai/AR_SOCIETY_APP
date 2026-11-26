@@ -192,7 +192,7 @@ class _MoreRegisterScreenState extends ConsumerState<MoreRegisterScreen> {
                 if ((row[c.key] ?? '').isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
-                    child: Text('${c.label}: ${row[c.key]}', style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                    child: Text('${c.label}: ${row[c.key]}', style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
                   ),
             ]),
           ),

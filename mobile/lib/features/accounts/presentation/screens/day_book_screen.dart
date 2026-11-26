@@ -142,7 +142,7 @@ class _DayBookScreenState extends ConsumerState<DayBookScreen> {
                     Padding(
                       padding: const EdgeInsets.only(left: 2, bottom: 8),
                       child: Text('${live.length} vouchers · ${formatInr(total)}',
-                          style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                          style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
                     ),
                     if (desktop)
                       AppDataTable<Voucher>(
@@ -190,9 +190,9 @@ class _DayBookScreenState extends ConsumerState<DayBookScreen> {
                                       fontFeatures: const [FontFeature.tabularFigures()],
                                       decoration: v.isCancelled ? TextDecoration.lineThrough : null,
                                       color: v.isCancelled ? AppTheme.textTertiary : AppTheme.textPrimary)),
-                              if (v.isCancelled) const StatusPill('Cancelled', AppTheme.error),
-                              if (v.isPending && !v.isCancelled) const StatusPill('Waiting approval', AppTheme.warning),
-                              if (v.isRejected && !v.isCancelled) const StatusPill('Rejected', AppTheme.error),
+                              if (v.isCancelled) StatusPill('Cancelled', AppTheme.error),
+                              if (v.isPending && !v.isCancelled) StatusPill('Waiting approval', AppTheme.warning),
+                              if (v.isRejected && !v.isCancelled) StatusPill('Rejected', AppTheme.error),
                             ]),
                           ),
                         ],
@@ -258,9 +258,9 @@ class _VoucherTile extends StatelessWidget {
                 if ((v.narration ?? '').isNotEmpty)
                   Text(v.narration!,
                       maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                 Text('Entered by ${v.createdByName ?? (v.isAuto ? 'System' : '—')}',
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
+                    style: TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
               ]),
             ),
             const SizedBox(width: 10),

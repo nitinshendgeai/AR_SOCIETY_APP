@@ -324,7 +324,7 @@ class _StaffProfileStatus extends ConsumerWidget {
       icon     = Icons.sync_rounded;
       title    = 'Loading your staff profile…';
       subtitle = 'Operational modules will be ready in a moment.';
-      trailing = const SizedBox(
+      trailing = SizedBox(
         width: 18,
         height: 18,
         child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
@@ -375,7 +375,7 @@ class _StaffProfileStatus extends ConsumerWidget {
                           color: color)),
                   const SizedBox(height: 2),
                   Text(context.tr(subtitle),
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 11, color: AppTheme.textSecondary)),
                 ],
               ),
@@ -427,13 +427,13 @@ class _ModuleCard extends StatelessWidget {
               AccentBadge(icon: icon, accent: accentFor(label), size: 44),
               const Spacer(),
               Text(context.tr(label),
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
                       color: AppTheme.textPrimary)),
               const SizedBox(height: 2),
               Text(context.tr(subtitle),
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 11, color: AppTheme.textSecondary)),
             ],
           ),

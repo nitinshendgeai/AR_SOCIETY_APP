@@ -180,7 +180,7 @@ class _FlatListScreenState extends ConsumerState<FlatListScreen> {
           empty: Text(
             (async.valueOrNull?.isEmpty ?? true) ? 'No flats yet. Use "Add Flat" to add the first one.' : 'No flats match your filters.',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: AppTheme.textSecondary),
+            style: TextStyle(color: AppTheme.textSecondary),
           ),
           columns: [
             AppDataColumn.text('Flat', (f) => f.flatNumber, flex: 1, bold: true),
@@ -250,7 +250,7 @@ class _FlatListScreenState extends ConsumerState<FlatListScreen> {
                 children: [
                   Text(friendlyErrorMessage(e),
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppTheme.error)),
+                      style: TextStyle(color: AppTheme.error)),
                   const SizedBox(height: 12),
                   ElevatedButton(
                     onPressed: () =>
@@ -277,7 +277,7 @@ class _FlatListScreenState extends ConsumerState<FlatListScreen> {
                             ? 'No flats yet.\nTap "Add Flat" to add the first one.'
                             : 'No flats match your filters.',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: AppTheme.textSecondary,
                             fontSize: 14),
                       ),
@@ -362,7 +362,7 @@ class _FlatCard extends ConsumerWidget {
                   Row(children: [
                     Expanded(
                       child: Text(flat.displayName,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
                               color: AppTheme.textPrimary)),
@@ -373,20 +373,20 @@ class _FlatCard extends ConsumerWidget {
                   Row(children: [
                     if (flat.flatType != null) ...[
                       Text(flat.flatType!,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12,
                               color: AppTheme.textSecondary)),
                       const SizedBox(width: 10),
                     ],
                     if (flat.areaSqft != null)
                       Text('${flat.areaSqft!.toStringAsFixed(0)} sqft',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12,
                               color: AppTheme.textSecondary)),
                     if (flat.floor != null) ...[
                       const SizedBox(width: 10),
                       Text('Floor ${flat.floor}',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12,
                               color: AppTheme.textSecondary)),
                     ],
@@ -395,12 +395,12 @@ class _FlatCard extends ConsumerWidget {
               ),
             ),
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert_rounded,
+              icon: Icon(Icons.more_vert_rounded,
                   color: AppTheme.textSecondary),
               onSelected: (v) => _onMenu(context, ref, v),
               itemBuilder: (_) => [
                 const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'delete',
                   child: Text('Delete',
                       style: TextStyle(color: AppTheme.error)),

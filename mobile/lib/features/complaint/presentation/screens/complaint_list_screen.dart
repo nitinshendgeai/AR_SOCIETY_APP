@@ -83,7 +83,7 @@ class _CategoryChip extends StatelessWidget {
       ),
       child: Text(
         category.label,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppTheme.textSecondary,
           fontSize: 11,
           fontWeight: FontWeight.w500,
@@ -116,7 +116,7 @@ class _ComplaintListTile extends StatelessWidget {
               Expanded(
                 child: Text(
                   _numberWithFlat(complaint),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.primary,
@@ -131,7 +131,7 @@ class _ComplaintListTile extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             complaint.title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: AppTheme.textPrimary,
@@ -155,7 +155,7 @@ class _ComplaintListTile extends StatelessWidget {
               const Spacer(),
               Text(
                 _formatDate(complaint.createdAt),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   color: AppTheme.textSecondary,
                 ),
@@ -311,7 +311,7 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
           ),
           const Spacer(),
           Text('${rows.length} of ${all.length}',
-              style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
         ]),
         rows: rows,
         loading: state is ComplaintListLoading || state is ComplaintListInitial,

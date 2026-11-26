@@ -193,7 +193,7 @@ class _MaintenanceBillDetailScreenState extends ConsumerState<MaintenanceBillDet
                         for (final p in bill.payments)
                           ListTile(
                             contentPadding: EdgeInsets.zero,
-                            leading: const Icon(Icons.check_circle_rounded, color: AppTheme.success),
+                            leading: Icon(Icons.check_circle_rounded, color: AppTheme.success),
                             title: Text(formatRupees(p.amount),
                                 style: const TextStyle(fontWeight: FontWeight.w600)),
                             subtitle: Text([
@@ -312,10 +312,10 @@ class BillSummaryCard extends StatelessWidget {
           ),
         ]),
         if (bill.residentName != null)
-          Text(bill.residentName!, style: const TextStyle(color: AppTheme.textSecondary)),
+          Text(bill.residentName!, style: TextStyle(color: AppTheme.textSecondary)),
         const SizedBox(height: 16),
         Text(settled ? 'Bill amount' : 'Balance due',
-            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         Text(
           formatRupees(settled ? bill.totalAmount : bill.outstanding),
           style: TextStyle(
@@ -348,7 +348,7 @@ class _Meta extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+          Text(label, style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
           Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
         ],
       );
@@ -453,12 +453,12 @@ class BillFormatView extends ConsumerWidget {
         BillSection(
           title: 'Payments',
           child: bill.payments.isEmpty
-              ? const Text('No payments recorded yet', style: TextStyle(color: AppTheme.textSecondary))
+              ? Text('No payments recorded yet', style: TextStyle(color: AppTheme.textSecondary))
               : Column(children: [
                   for (final p in bill.payments)
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.check_circle_rounded, color: AppTheme.success),
+                      leading: Icon(Icons.check_circle_rounded, color: AppTheme.success),
                       title: Text(formatRupees(p.amount), style: const TextStyle(fontWeight: FontWeight.w600)),
                       subtitle: Text([
                         formatBillDate(p.paymentDate),

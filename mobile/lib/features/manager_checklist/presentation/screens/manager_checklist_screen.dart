@@ -79,7 +79,7 @@ class _ManagerChecklistScreenState extends ConsumerState<ManagerChecklistScreen>
 }
 
 Widget _error(Object e) =>
-    ListView(padding: const EdgeInsets.all(24), children: [Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))]);
+    ListView(padding: const EdgeInsets.all(24), children: [Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error))]);
 
 // ── Today ────────────────────────────────────────────────────────────────────
 
@@ -119,7 +119,7 @@ class _TodayTab extends ConsumerWidget {
                 ),
               ] else ...[
                 const SizedBox(height: 12),
-                const ChecklistCard(
+                ChecklistCard(
                   child: Row(children: [
                     Icon(Icons.check_circle_rounded, color: AppTheme.success),
                     SizedBox(width: 10),
@@ -145,7 +145,7 @@ class _TodayTab extends ConsumerWidget {
                 const SizedBox(height: 12),
                 ChecklistCard(
                   child: Row(children: [
-                    const Icon(Icons.assignment_late_rounded, color: AppTheme.warning),
+                    Icon(Icons.assignment_late_rounded, color: AppTheme.warning),
                     const SizedBox(width: 10),
                     Expanded(
                         child: Text(
@@ -210,7 +210,7 @@ class _ProgressCard extends ConsumerWidget {
         if (signed != null) ...[
           const SizedBox(height: 10),
           Text('Signed off by ${signed.signedBy ?? '—'}${(signed.remarks ?? '').isEmpty ? '' : ' · ${signed.remarks}'}',
-              style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
         ],
       ]),
     );
@@ -238,10 +238,10 @@ class _LiveTile extends StatelessWidget {
               if ((line.detail ?? '').isNotEmpty)
                 Padding(
                     padding: const EdgeInsets.only(top: 2),
-                    child: Text(line.detail!, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary))),
+                    child: Text(line.detail!, style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary))),
             ]),
           ),
-          if (line.linkKey != null) const Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
+          if (line.linkKey != null) Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
         ]),
       ),
     );
@@ -325,13 +325,13 @@ class _ItemTileState extends ConsumerState<ItemTile> {
                 if (notes.isNotEmpty)
                   Padding(
                       padding: const EdgeInsets.only(top: 4),
-                      child: Text(notes.join(' · '), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary))),
+                      child: Text(notes.join(' · '), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary))),
                 if (done && e.log != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
                         'By ${e.log!.doneBy ?? '—'} on ${shortDate(e.log!.doneOn)}${(e.log!.note ?? '').isEmpty ? '' : ' · ${e.log!.note}'}',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   ),
                 if (_open) ...[
                   if ((e.detail ?? '').isNotEmpty)
@@ -341,7 +341,7 @@ class _ItemTileState extends ConsumerState<ItemTile> {
                   if ((e.legalBasis ?? '').isNotEmpty)
                     Padding(
                         padding: const EdgeInsets.only(top: 6),
-                        child: Text('Basis: ${e.legalBasis}', style: const TextStyle(fontSize: 12.5, height: 1.4, color: AppTheme.textSecondary))),
+                        child: Text('Basis: ${e.legalBasis}', style: TextStyle(fontSize: 12.5, height: 1.4, color: AppTheme.textSecondary))),
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Wrap(spacing: 8, children: [
@@ -432,7 +432,7 @@ class _Figure extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
+        Text(label, style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
         const SizedBox(height: 3),
         Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: color)),
       ]);
@@ -456,22 +456,22 @@ class _ComplianceTile extends StatelessWidget {
               const SizedBox(height: 5),
               Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
                 StatePill(e),
-                Text(e.schedule, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                Text(e.schedule, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ]),
               if ((e.legalBasis ?? '').isNotEmpty)
                 Padding(
                     padding: const EdgeInsets.only(top: 5),
-                    child: Text(e.legalBasis!, style: const TextStyle(fontSize: 12, height: 1.35, color: AppTheme.textSecondary))),
+                    child: Text(e.legalBasis!, style: TextStyle(fontSize: 12, height: 1.35, color: AppTheme.textSecondary))),
               if (e.lastDoneOn != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
                       'Last recorded ${shortDate(e.lastDoneOn!)}${(e.lastReference ?? '').isEmpty ? '' : ' · ${e.lastReference}'}',
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
+                      style: TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
                 ),
             ]),
           ),
-          const Padding(padding: EdgeInsets.only(top: 2), child: Icon(Icons.edit_calendar_rounded, size: 20, color: AppTheme.primary)),
+          Padding(padding: EdgeInsets.only(top: 2), child: Icon(Icons.edit_calendar_rounded, size: 20, color: AppTheme.primary)),
         ]),
       ),
     );
@@ -500,7 +500,7 @@ class _ListTab extends ConsumerWidget {
           return ResponsiveBody(
             maxWidth: 900,
             child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 96), children: [
-              const ChecklistCard(
+              ChecklistCard(
                 child: Text(
                     'Every item here is on your checklist when it applies. Items tied to an asset or to staff appear only while your society has them. Switch off what you do not need, or add your own.',
                     style: TextStyle(fontSize: 13, height: 1.4, color: AppTheme.textSecondary)),
@@ -553,7 +553,7 @@ class _ListRow extends ConsumerWidget {
                     if (e.applicable && e.appliesBecause != null) e.appliesBecause!,
                     if (!e.isStandard) 'Your own item',
                   ].join(' · '),
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ]),
           ),
           Switch(

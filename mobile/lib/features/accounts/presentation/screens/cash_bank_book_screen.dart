@@ -62,7 +62,7 @@ class _CashBankBookScreenState extends ConsumerState<CashBankBookScreen> {
             if (_scope != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text(scopeNote(_scope), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                child: Text(scopeNote(_scope), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ),
             if (all.valueOrNull case final book? when book.sections.length > 1) ...[
               const SizedBox(height: 10),
@@ -149,7 +149,7 @@ class _SectionHeader extends StatelessWidget {
       Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(section.accountName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-          Text(detail, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+          Text(detail, style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
         ]),
       ),
     ]);
@@ -216,9 +216,9 @@ class _LineTile extends StatelessWidget {
                   maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
               const SizedBox(height: 2),
               Text('${formatAccountsDate(line.date)} · ${line.voucherNumber}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               Text('Entered by ${line.enteredBy ?? '—'}${line.approvedBy != null ? ' · Approved by ${line.approvedBy}' : line.isAuto ? ' · Auto-posted' : ''}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
             ]),
           ),
           const SizedBox(width: 10),
@@ -230,7 +230,7 @@ class _LineTile extends StatelessWidget {
                     color: receipt ? AppTheme.success : AppTheme.textPrimary,
                     fontFeatures: const [FontFeature.tabularFigures()])),
             const SizedBox(height: 2),
-            Text('Bal ${drCrOf(line.balance).label}', style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
+            Text('Bal ${drCrOf(line.balance).label}', style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
           ]),
         ]),
       ),

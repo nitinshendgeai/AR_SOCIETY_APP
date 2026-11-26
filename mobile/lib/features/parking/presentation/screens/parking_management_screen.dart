@@ -374,15 +374,15 @@ class _ZoneCard extends StatelessWidget {
           Row(children: [
             Expanded(
               child: Text(zone.name,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
             ),
             Text('${slots.length} slot${slots.length == 1 ? '' : 's'}',
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             IconButton(
               key: ValueKey('zone-remove-${zone.id}'),
               tooltip: 'Remove zone',
               visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.error),
+              icon: Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.error),
               onPressed: onRemoveZone,
             ),
           ]),
@@ -397,10 +397,10 @@ class _ZoneCard extends StatelessWidget {
                   zone.monthlyRate == null
                       ? 'Rate: parking charge rate'
                       : 'Rate: ₹${zone.monthlyRate!.toStringAsFixed(zone.monthlyRate! % 1 == 0 ? 0 : 2)} / car slot / month',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.primary, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 12, color: AppTheme.primary, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(width: 4),
-                const Icon(Icons.edit_rounded, size: 14, color: AppTheme.primary),
+                Icon(Icons.edit_rounded, size: 14, color: AppTheme.primary),
               ]),
             ),
           ),
@@ -508,7 +508,7 @@ class _VehiclesTabState extends ConsumerState<_VehiclesTab> {
                 all.isEmpty
                     ? 'Vehicles that residents and tenants register appear here.'
                     : '${all.length} vehicle(s) registered · $without without parking',
-                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
               ),
               const SizedBox(height: 10),
               TextField(
@@ -583,7 +583,7 @@ class _VehicleTile extends ConsumerWidget {
             children: [
               Row(children: [
                 Text(v.vehicleNumber,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -594,7 +594,7 @@ class _VehicleTile extends ConsumerWidget {
                 ),
               ]),
               const SizedBox(height: 4),
-              Text(details, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              Text(details, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ],
           ),
         ),
@@ -656,7 +656,7 @@ class _AllotVehicleSheetState extends ConsumerState<_AllotVehicleSheet> {
                 error: (e, _) => Text('Could not load slots: $e'),
                 data: (slots) {
                   if (slots.isEmpty) {
-                    return const Text('No free slots — add one in the Slots tab first.',
+                    return Text('No free slots — add one in the Slots tab first.',
                         style: TextStyle(fontSize: 13, color: AppTheme.textSecondary));
                   }
                   return FormFieldBox(label: 'Free slot', child: DropdownButtonFormField<ParkingSlotEntity>(
@@ -820,7 +820,7 @@ class _AllocationTile extends ConsumerWidget {
             children: [
               Row(children: [
                 Text(allocation.slotNumber ?? '—',
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.primary)),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.primary)),
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -836,9 +836,9 @@ class _AllocationTile extends ConsumerWidget {
               ]),
               const SizedBox(height: 4),
               Text(allocation.vehicleNumber ?? 'No vehicle linked',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
               if (flat.isNotEmpty)
-                Text(flat, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                Text(flat, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ],
           ),
         ),
@@ -909,7 +909,7 @@ class _AllocateParkingSheetState extends ConsumerState<_AllocateParkingSheet> {
                     error: (e, _) => Text('Could not load vehicles: $e'),
                     data: (vehicles) {
                       if (vehicles.isEmpty) {
-                        return const Text('No vehicles registered on this flat yet.',
+                        return Text('No vehicles registered on this flat yet.',
                             style: TextStyle(fontSize: 13, color: AppTheme.textSecondary));
                       }
                       return FormFieldBox(label: 'Vehicle', child: DropdownButtonFormField<VehicleModel>(
@@ -929,7 +929,7 @@ class _AllocateParkingSheetState extends ConsumerState<_AllocateParkingSheet> {
                 error: (e, _) => Text('Could not load slots: $e'),
                 data: (slots) {
                   if (slots.isEmpty) {
-                    return const Text('No available slots — add one in the Slots tab first.',
+                    return Text('No available slots — add one in the Slots tab first.',
                         style: TextStyle(fontSize: 13, color: AppTheme.textSecondary));
                   }
                   return FormFieldBox(label: 'Available Slot', child: DropdownButtonFormField<ParkingSlotEntity>(

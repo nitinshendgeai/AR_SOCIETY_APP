@@ -172,11 +172,11 @@ class _LedgerTile extends ConsumerWidget {
               only == null
                   ? context.tr('Your account with the society')
                   : '${context.tr(ledgerBalanceWords(only))} · ${formatRupees(only.balance)}',
-              style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
+              style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
             ),
           ]),
         ),
-        const Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
+        Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
       ]),
     );
   }
@@ -219,12 +219,12 @@ class _DueHero extends StatelessWidget {
           if (!clear) ...[
             const SizedBox(height: 6),
             Text(formatRupees(summary.totalOutstanding),
-                style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+                style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
             const SizedBox(height: 4),
             Text(
               '${summary.openCount} unpaid bill${summary.openCount == 1 ? '' : 's'}'
               '${summary.overdueCount > 0 ? '  ·  ${summary.overdueCount} overdue' : ''}',
-              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
             ),
             if (next != null) ...[
               const SizedBox(height: 4),

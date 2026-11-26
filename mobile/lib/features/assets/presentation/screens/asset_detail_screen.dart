@@ -204,7 +204,7 @@ class _Body extends ConsumerWidget {
         trailing: done.isEmpty ? null : 'Spent ${formatInr(history.totalServiceCost)}',
         children: [
           if (done.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 6),
               child: Text('Nothing logged yet. Use "Log a service" after each visit.', style: TextStyle(color: AppTheme.textSecondary)),
             ),
@@ -233,10 +233,10 @@ class _Body extends ConsumerWidget {
                   '${c.annualCost == null ? '' : ' · ${formatInr(c.annualCost!)} a year'}'
                   '${c.comprehensive ? ' · parts included' : ''}'),
               trailing: c.ended
-                  ? const StatusPill('Ended', AppTheme.textSecondary)
+                  ? StatusPill('Ended', AppTheme.textSecondary)
                   : c.daysLeft <= 30
                       ? StatusPill('Ends in ${c.daysLeft < 0 ? 0 : c.daysLeft} days', AppTheme.warning)
-                      : const StatusPill('In force', AppTheme.success),
+                      : StatusPill('In force', AppTheme.success),
             ),
           for (final c in history.contracts)
             ListTile(
@@ -267,7 +267,7 @@ class _Body extends ConsumerWidget {
               dense: true,
               title: Text(_logLabel(l.action)),
               subtitle: (l.notes ?? '').isEmpty ? null : Text(l.notes!, maxLines: 2, overflow: TextOverflow.ellipsis),
-              trailing: Text(formatDay(l.when.toLocal()), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              trailing: Text(formatDay(l.when.toLocal()), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ),
         ]),
     ]);
@@ -305,7 +305,7 @@ class _Header extends StatelessWidget {
               Text(a.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               const SizedBox(height: 2),
               Text([a.assetCode, assetCategoryLabel(a.category), if ((a.location ?? '').isNotEmpty) a.location!].join(' · '),
-                  style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
               const SizedBox(height: 10),
               Wrap(spacing: 8, runSpacing: 6, children: [
                 StatusPill(assetStatusLabel(a.status), a.status == 'active' ? AppTheme.success : (a.status == 'under_maintenance' ? AppTheme.warning : AppTheme.textSecondary)),
@@ -335,7 +335,7 @@ class _Section extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14))),
-                if (trailing != null) Text(trailing!, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                if (trailing != null) Text(trailing!, style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
               ]),
               const SizedBox(height: 6),
               ...children,
@@ -357,7 +357,7 @@ class _Row extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SizedBox(width: 120, child: Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
+        SizedBox(width: 120, child: Text(label, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
         Expanded(child: Text(value!, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: valueColor))),
       ]),
     );
