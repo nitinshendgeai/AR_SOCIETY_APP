@@ -9,6 +9,8 @@ import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart';
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/financial_statements_screen.dart' show reportRoute;
+import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_catalogue.dart';
 import 'package:ar_society_app/features/accounts/presentation/widgets/accounts_widgets.dart';
 import 'package:ar_society_app/features/accounts/presentation/widgets/voucher_hotkeys.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
@@ -72,6 +74,15 @@ class AccountsScreen extends ConsumerStatefulWidget {
 }
 
 class _AccountsScreenState extends ConsumerState<AccountsScreen> {
+  final _find = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _find.dispose();
+    super.dispose();
+  }
+
   bool _syncing = false;
 
   Future<void> _sync(String societyId) async {
@@ -218,6 +229,16 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                   _RecurringDueBanner(count: due.length, onTap: () => context.push(AppRoutes.accountsRecurring)),
                   const SizedBox(height: 14),
                 ],
+                _FindField(controller: _find, onChanged: (v) => setState(() => _query = v.trim())),
+                const SizedBox(height: 16),
+                if (_query.isNotEmpty)
+                  _CatalogueView(
+                    entries: accountsCatalogue(fy: s.fy, vendorBills: canOpenVendorBills, pendingApprovals: s.pendingApprovals)
+                        .where((e) => e.matches(_query))
+                        .toList(),
+                    query: _query,
+                  )
+                else ...[
                 KpiGrid(cards: [
                   KpiCard(
                     icon: Icons.account_balance_rounded,
@@ -253,7 +274,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                     label: 'Income ${s.fy}',
                     value: money(s.fyIncome),
                     color: AppTheme.success,
-                    onTap: () => context.push(AppRoutes.accountsChart),
+                    onTap: () => context.push(reportRoute('income-expenditure', s.fy)),
                   ),
                   KpiCard(
                     icon: Icons.trending_down_rounded,
@@ -261,99 +282,22 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                     value: money(s.fyExpense),
                     note: '${s.fySurplus >= 0 ? 'Surplus' : 'Deficit'} ${formatInr(s.fySurplus.abs())}',
                     color: AppTheme.secondary,
-                    onTap: () => context.push(AppRoutes.accountsChart),
+                    onTap: () => context.push(reportRoute('income-expenditure', s.fy)),
                   ),
                 ]),
                 const SizedBox(height: 22),
-                const _SectionTitle('Books & Registers'),
-                BooksGrid(items: [
-                  BookItem(Icons.menu_book_rounded, 'Cash & Bank Book',
-                      'Every receipt and payment, with who entered it',
-                      () => context.push(AppRoutes.accountsCashBook)),
-                  BookItem(Icons.account_balance_rounded, 'Bank Reconciliation',
-                      'Match the bank statement with the books',
-                      () => context.push(AppRoutes.accountsBankRecon)),
-                  BookItem(Icons.receipt_long_rounded, 'Day Book', 'Every voucher, date-wise',
-                      () => context.push(AppRoutes.accountsDayBook)),
-                  BookItem(Icons.request_quote_rounded, 'Invoice Register',
-                      'Maintenance invoices raised on members',
-                      () => context.push(AppRoutes.accountsInvoices)),
-                  BookItem(Icons.inventory_2_rounded, 'Bills Register', 'Bills received from vendors',
-                      () => context.push(AppRoutes.accountsBills)),
-                  BookItem(Icons.event_repeat_rounded, 'Monthly Expenses',
-                      'Security, lift, electricity: recorded each month as they fall due',
-                      () => context.push(AppRoutes.accountsRecurring)),
-                  BookItem(Icons.policy_rounded, 'Accounts Agent',
-                      'Audits new entries, explains anything unusual and proposes corrections for approval',
-                      () => context.push(AppRoutes.accountsAgent)),
-                  BookItem(Icons.library_books_rounded, 'All Registers',
-                      'Receipts, rental, attendance, petty cash, TDS ledger, depreciation',
-                      () => context.push(AppRoutes.accountsRegisters)),
-                ]),
-                const SizedBox(height: 22),
-                const _SectionTitle('Receivables & Payables'),
-                BooksGrid(items: [
-                  BookItem(Icons.hourglass_bottom_rounded, 'Outstanding Receivable',
-                      'What members owe, aged by days overdue',
-                      () => context.push(AppRoutes.accountsReceivable)),
-                  BookItem(Icons.hourglass_top_rounded, 'Outstanding Payable',
-                      'What the society owes vendors, aged',
-                      () => context.push(AppRoutes.accountsPayable)),
-                  BookItem(Icons.groups_2_rounded, "Members' Ledger", 'Flat-wise dues and advances',
-                      () => context.push(AppRoutes.accountsMembers)),
-                  if (canOpenVendorBills)
-                    BookItem(Icons.storefront_rounded, 'Vendor Bills', 'Bills booked and paid',
-                        () => context.push(AppRoutes.vendorBills)),
-                  BookItem(Icons.fact_check_rounded, 'Approvals',
-                      s.pendingApprovals > 0 ? '${s.pendingApprovals} waiting' : 'Payments and journals to approve',
-                      () => context.push(AppRoutes.accountsApprovals)),
-                ]),
-                const SizedBox(height: 22),
-                const _SectionTitle('Accounting Setup'),
-                BooksGrid(items: [
-                  BookItem(Icons.account_tree_rounded, 'Chart of Accounts', 'Groups, ledgers and balances',
-                      () => context.push(AppRoutes.accountsChart)),
-                ]),
-                const SizedBox(height: 22),
-                const _SectionTitle('Financial Reports'),
-                BooksGrid(items: [
-                  BookItem(Icons.summarize_rounded, 'Financial Statements',
-                      'Balance Sheet, I&E, Trial Balance · Year-end closing',
-                      () => context.push(AppRoutes.accountsStatements)),
-                  BookItem(Icons.pie_chart_outline_rounded, 'Spend by Element',
-                      'Monthly and yearly spend on each maintenance element',
-                      () => context.push(AppRoutes.accountsExpenses)),
-                  BookItem(Icons.account_balance_rounded, 'TDS Ledger',
-                      'TDS to deposit with the government and TDS to claim back',
-                      () => context.push(AppRoutes.accountsTdsLedger)),
-                  BookItem(Icons.trending_down_rounded, 'Depreciation',
-                      'Setup, and each asset\'s depreciation for the year',
-                      () => context.push(AppRoutes.accountsDepreciation)),
-                ]),
-                const SizedBox(height: 22),
+                _CatalogueView(
+                  entries: accountsCatalogue(fy: s.fy, vendorBills: canOpenVendorBills, pendingApprovals: s.pendingApprovals),
+                ),
                 const _SectionTitle('Cash & Bank Books'),
                 _CashBankCard(accounts: s.cashBankAccounts),
-                const SizedBox(height: 22),
-                const _SectionTitle('Enter a voucher'),
-                Wrap(spacing: 10, runSpacing: 10, children: [
-                  ActionChip(
-                    avatar: Icon(Icons.shopping_bag_outlined, size: 18, color: AppTheme.primary),
-                    label: const Text('Expense'),
-                    onPressed: () => context.push(AppRoutes.accountsExpenseNew),
-                  ),
-                  for (final t in kManualVoucherTypes)
-                    ActionChip(
-                      avatar: Icon(_voucherIcon(t), size: 18, color: voucherTypeColor(t)),
-                      label: Text(voucherTypeLabel(t)),
-                      onPressed: () => context.push(newVoucherRoute(t)),
-                    ),
-                ]),
                 const SizedBox(height: 10),
                 Text(
                   'Maintenance bills, payments received and vendor bills are posted to the books '
                   'automatically — enter vouchers here only for everything else.',
                   style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),
+                ],
               ],
             ),
           ),
@@ -497,6 +441,64 @@ class _PendingBanner extends StatelessWidget {
           ),
         ]),
       );
+}
+
+/// "Find a report, register or form": narrows the page to what matches as the person types.
+class _FindField extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  const _FindField({required this.controller, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) => TextField(
+        key: const Key('accounts-find'),
+        controller: controller,
+        onChanged: onChanged,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: 'Find a report, register or form — e.g. balance sheet, receipt, TDS',
+          prefixIcon: const Icon(Icons.search_rounded),
+          suffixIcon: controller.text.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: 'Clear',
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: () {
+                    controller.clear();
+                    onChanged('');
+                  },
+                ),
+        ),
+      );
+}
+
+/// The catalogue, section by section ([kAccountsSections]); a section with nothing in it is left out. With a [query]
+/// it is the search result, and says so when nothing matches.
+class _CatalogueView extends StatelessWidget {
+  final List<AccountsEntry> entries;
+  final String? query;
+  const _CatalogueView({required this.entries, this.query});
+
+  @override
+  Widget build(BuildContext context) {
+    if (entries.isEmpty) {
+      return AppEmptyState(
+        icon: Icons.search_off_rounded,
+        title: 'Nothing called "$query"',
+        subtitle: 'Try another word, such as ledger, receipt, balance sheet or register.',
+      );
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      for (final section in kAccountsSections)
+        if (entries.where((e) => e.section == section).toList() case final inSection when inSection.isNotEmpty) ...[
+          _SectionTitle(section),
+          BooksGrid(items: [
+            for (final e in inSection) BookItem(e.icon, e.title, e.subtitle, () => context.push(e.route)),
+          ]),
+          const SizedBox(height: 22),
+        ],
+    ]);
+  }
 }
 
 class _SectionTitle extends StatelessWidget {

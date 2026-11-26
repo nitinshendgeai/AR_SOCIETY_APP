@@ -494,23 +494,32 @@ class _TopBar extends ConsumerWidget {
         color: AppTheme.cardBg,
         border: Border(bottom: BorderSide(color: AppTheme.border)),
       ),
+      // Long crumbs give way (ending in "…") rather than pushing the account menu off the bar.
       child: Row(children: [
-        for (var i = 0; i < crumbs.length; i++) ...[
-          if (i > 0)
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8),
-              child: Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.textTertiary),
-            ),
-          Text(
-            crumbs[i],
-            style: TextStyle(
-              fontSize: 13.5,
-              fontWeight: i == crumbs.length - 1 ? FontWeight.w600 : FontWeight.w500,
-              color: i == crumbs.length - 1 ? AppTheme.textPrimary : AppTheme.textSecondary,
-            ),
-          ),
-        ],
-        const Spacer(),
+        Expanded(
+          child: Row(children: [
+            for (var i = 0; i < crumbs.length; i++) ...[
+              if (i > 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.textTertiary),
+                ),
+              Flexible(
+                child: Text(
+                  crumbs[i],
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: i == crumbs.length - 1 ? FontWeight.w600 : FontWeight.w500,
+                    color: i == crumbs.length - 1 ? AppTheme.textPrimary : AppTheme.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ]),
+        ),
+        const SizedBox(width: 12),
         if (user != null) _UserMenu(user: user!),
       ]),
     );
