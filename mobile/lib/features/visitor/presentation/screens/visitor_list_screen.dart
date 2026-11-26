@@ -155,13 +155,13 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
         final checkIn = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            icon: const Icon(Icons.verified_rounded, color: AppTheme.success, size: 36),
+            icon: Icon(Icons.verified_rounded, color: AppTheme.success, size: 36),
             title: const Text('Valid code'),
             content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(data.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               const SizedBox(height: 4),
               Text([data.mobile, if (data.flatLabel != null) 'Visiting ${data.flatLabel}'].join('  ·  ')),
-              if (data.purpose != null) Text(data.purpose!, style: const TextStyle(color: AppTheme.textSecondary)),
+              if (data.purpose != null) Text(data.purpose!, style: TextStyle(color: AppTheme.textSecondary)),
             ]),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Not now')),
@@ -360,7 +360,7 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
             child: Text(context.tr('Only the latest visitors are searched'),
                 key: const Key('visitor-search-cap'),
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ),
         Expanded(child: tabs),
       ]);
@@ -435,13 +435,13 @@ extension on _VisitorListView {
                     if (v.canCheckIn)
                       OutlinedButton.icon(
                         onPressed: isActing ? null : () => actions.checkIn(v.id),
-                        icon: const Icon(Icons.login_rounded, size: 16, color: AppTheme.success),
+                        icon: Icon(Icons.login_rounded, size: 16, color: AppTheme.success),
                         label: const Text('Check in'),
                       ),
                     if (v.canCheckOut)
                       OutlinedButton.icon(
                         onPressed: isActing ? null : () => actions.checkOut(v.id),
-                        icon: const Icon(Icons.logout_rounded, size: 16, color: AppTheme.warning),
+                        icon: Icon(Icons.logout_rounded, size: 16, color: AppTheme.warning),
                         label: const Text('Check out'),
                       ),
                   ]
@@ -509,14 +509,14 @@ class _VisitorCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(visitor.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                             color: AppTheme.textPrimary)),
                     Text(
                         [visitor.mobile, if (visitor.flatLabel != null) visitor.flatLabel!]
                             .join('  ·  '),
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 12, color: AppTheme.textSecondary)),
                   ],
                 ),
@@ -534,7 +534,7 @@ class _VisitorCard extends ConsumerWidget {
                   child: Text(visitor.purpose!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 12, color: AppTheme.textSecondary)),
                 ),
               ],
@@ -543,11 +543,11 @@ class _VisitorCard extends ConsumerWidget {
           if (_whenLine(context, visitor) != null) ...[
             const SizedBox(height: 8),
             Row(children: [
-              const Icon(Icons.schedule_rounded, size: 14, color: AppTheme.textSecondary),
+              Icon(Icons.schedule_rounded, size: 14, color: AppTheme.textSecondary),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(_whenLine(context, visitor)!,
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ),
             ]),
           ],
@@ -686,7 +686,7 @@ class _TypeChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(context.tr(type.label),
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 11,
               color: AppTheme.textSecondary,
               fontWeight: FontWeight.w500)),

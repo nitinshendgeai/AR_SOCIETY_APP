@@ -67,7 +67,7 @@ class _ShopsScreenState extends ConsumerState<ShopsScreen> {
         child: async.when(
           loading: () => const SkeletonList(),
           error: (e, _) => ListView(children: [
-            Padding(padding: const EdgeInsets.all(24), child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
+            Padding(padding: const EdgeInsets.all(24), child: Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error))),
           ]),
           data: (all) => _content(all, desktop),
         ),
@@ -171,7 +171,7 @@ class _ShopsScreenState extends ConsumerState<ShopsScreen> {
               ]),
               const SizedBox(height: 4),
               Text([s.ownerName, if ((s.ownerPhone ?? '').isNotEmpty) s.ownerPhone!].join(' · '),
-                  style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
               const SizedBox(height: 6),
               Wrap(spacing: 14, runSpacing: 4, children: [
                 _fact(Icons.event_available_rounded,

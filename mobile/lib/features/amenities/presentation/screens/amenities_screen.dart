@@ -151,18 +151,18 @@ class _AmenityCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   [a.hours, if (a.capacity != null) 'up to ${a.capacity} people', if ((a.location ?? '').isNotEmpty) a.location!].join(' · '),
-                  style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12.5),
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 12.5),
                 ),
                 const SizedBox(height: 8),
                 Wrap(spacing: 6, runSpacing: 6, children: [
-                  if (!a.active) const StatusPill('Closed', AppTheme.textSecondary),
-                  if (!a.bookingRequired) const StatusPill('No booking needed', AppTheme.success),
-                  if (a.bookingRequired && a.approvalRequired) const StatusPill('Needs approval', AppTheme.warning),
-                  if (a.chargeable) const StatusPill('Chargeable', AppTheme.primary),
+                  if (!a.active) StatusPill('Closed', AppTheme.textSecondary),
+                  if (!a.bookingRequired) StatusPill('No booking needed', AppTheme.success),
+                  if (a.bookingRequired && a.approvalRequired) StatusPill('Needs approval', AppTheme.warning),
+                  if (a.chargeable) StatusPill('Chargeable', AppTheme.primary),
                 ]),
               ]),
             ),
-            const Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
+            Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
           ]),
         ),
       ),
@@ -232,9 +232,9 @@ class _BookingCardState extends ConsumerState<BookingCard> {
           Text(b.when, style: const TextStyle(fontWeight: FontWeight.w600)),
           if (widget.showWho)
             Text([if ((b.bookedBy ?? '').isNotEmpty) b.bookedBy!, if ((b.flat ?? '').isNotEmpty) b.flat!, '${b.guests} ${b.guests == 1 ? 'person' : 'people'}'].join(' · '),
-                style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12.5))
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 12.5))
           else
-            Text('${b.guests} ${b.guests == 1 ? 'person' : 'people'}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12.5)),
+            Text('${b.guests} ${b.guests == 1 ? 'person' : 'people'}', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12.5)),
           if ((b.purpose ?? '').isNotEmpty) Text(b.purpose!, style: const TextStyle(fontSize: 13)),
           if (b.charge != null || b.deposit != null)
             Padding(
@@ -245,12 +245,12 @@ class _BookingCardState extends ConsumerState<BookingCard> {
                     if (b.deposit != null)
                       'Deposit ${rupees(b.deposit)}${widget.manager && b.depositText != null ? ' (${b.depositText})' : ''}',
                   ].join(' · '),
-                  style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
             ),
           if (b.status == 'rejected' && (b.rejectionReason ?? '').isNotEmpty)
-            Padding(padding: const EdgeInsets.only(top: 4), child: Text('Why: ${b.rejectionReason}', style: const TextStyle(color: AppTheme.error, fontSize: 12.5))),
+            Padding(padding: const EdgeInsets.only(top: 4), child: Text('Why: ${b.rejectionReason}', style: TextStyle(color: AppTheme.error, fontSize: 12.5))),
           if (b.status == 'cancelled' && (b.cancellationReason ?? '').isNotEmpty)
-            Padding(padding: const EdgeInsets.only(top: 4), child: Text('Reason: ${b.cancellationReason}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12.5))),
+            Padding(padding: const EdgeInsets.only(top: 4), child: Text('Reason: ${b.cancellationReason}', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12.5))),
           if (widget.manager && (b.canReceiveDeposit || b.canRefundDeposit)) ...[
             const SizedBox(height: 10),
             Wrap(spacing: 8, runSpacing: 8, children: [

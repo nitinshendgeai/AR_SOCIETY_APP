@@ -112,7 +112,7 @@ class SectionTitle extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(2, 20, 2, 8),
         child: Row(children: [
           Expanded(child: Text(text, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700))),
-          if (trailing != null) Text(trailing!, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+          if (trailing != null) Text(trailing!, style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
         ]),
       );
 }
@@ -137,7 +137,7 @@ class JurisdictionNote extends StatelessWidget {
               Text('Rules loaded: ${jurisdiction.packs.join(' + ')}',
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
               const SizedBox(height: 3),
-              Text(jurisdiction.note, style: const TextStyle(fontSize: 12.5, height: 1.4, color: AppTheme.textSecondary)),
+              Text(jurisdiction.note, style: TextStyle(fontSize: 12.5, height: 1.4, color: AppTheme.textSecondary)),
             ]),
           ),
         ]),
@@ -161,10 +161,10 @@ class ChecklistTodayCard extends ConsumerWidget {
       child: ChecklistCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const Icon(Icons.fact_check_rounded, color: AppTheme.primary),
+            Icon(Icons.fact_check_rounded, color: AppTheme.primary),
             const SizedBox(width: 10),
             const Expanded(child: Text("Today's checklist", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700))),
-            const Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
+            Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
           ]),
           const SizedBox(height: 8),
           Text(

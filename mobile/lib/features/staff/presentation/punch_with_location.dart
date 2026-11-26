@@ -75,7 +75,7 @@ Future<_Outcome> _readPhone(BuildContext context, WidgetRef ref, GeoStatus statu
                     a == null
                         ? 'Stay outdoors or near a window.'
                         : 'Accurate to ${a.round()} m (need ${status.maxAccuracyM.round()} m)',
-                    style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                    style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
               ]),
             ),
           ),

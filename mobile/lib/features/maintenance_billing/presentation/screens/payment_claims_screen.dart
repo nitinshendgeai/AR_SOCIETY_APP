@@ -37,13 +37,13 @@ class ResidentClaimsBanner extends ConsumerWidget {
             border: Border.all(color: AppTheme.primary.withOpacity(0.35)),
           ),
           child: Row(children: [
-            const Icon(Icons.how_to_reg_rounded, color: AppTheme.primary),
+            Icon(Icons.how_to_reg_rounded, color: AppTheme.primary),
             const SizedBox(width: 10),
             Expanded(
               child: Text('$n payment${n == 1 ? '' : 's'} reported by residents ${n == 1 ? 'is' : 'are'} waiting for you to check',
                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
             ),
-            const Icon(Icons.chevron_right_rounded, color: AppTheme.primary),
+            Icon(Icons.chevron_right_rounded, color: AppTheme.primary),
           ]),
         ),
       ),
@@ -205,7 +205,7 @@ class _ClaimCardState extends ConsumerState<_ClaimCard> {
             child: Text('${c.flatLabel}  ·  ${formatRupees(c.amount)}',
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
           ),
-          Text(paymentModeLabel(c.paymentMode), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          Text(paymentModeLabel(c.paymentMode), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ]),
         const SizedBox(height: 6),
         Text(
@@ -214,7 +214,7 @@ class _ClaimCardState extends ConsumerState<_ClaimCard> {
             if (c.claimedByName != null) 'reported by ${c.claimedByName}',
             if (c.billInvoiceNumber != null) 'bill ${c.billInvoiceNumber}',
           ].join('  ·  '),
-          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
         ),
         if (c.transactionRef != null) ...[
           const SizedBox(height: 4),
@@ -222,7 +222,7 @@ class _ClaimCardState extends ConsumerState<_ClaimCard> {
         ],
         if (c.notes != null) ...[
           const SizedBox(height: 4),
-          Text(c.notes!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          Text(c.notes!, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ],
         const SizedBox(height: 10),
         Row(children: [

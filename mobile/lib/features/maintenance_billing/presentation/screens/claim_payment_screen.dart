@@ -213,7 +213,7 @@ class _ClaimPaymentScreenState extends ConsumerState<ClaimPaymentScreen> {
                     _shot = null;
                     _shotName = null;
                   }),
-                  child: const Text('Remove', style: TextStyle(color: AppTheme.error)),
+                  child: Text('Remove', style: TextStyle(color: AppTheme.error)),
                 ),
               ),
           ],

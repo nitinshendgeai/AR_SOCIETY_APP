@@ -218,7 +218,7 @@ class _SetupBanner extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(AppTheme.radiusM),
           onTap: onTap,
-          child: const Padding(
+          child: Padding(
             padding: EdgeInsets.all(14),
             child: Row(children: [
               Icon(Icons.info_outline_rounded, color: AppTheme.warning),
@@ -275,7 +275,7 @@ class _CycleCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               '${formatBillDate(cycle.cycleStart)} – ${formatBillDate(cycle.cycleEnd)} · Due ${formatBillDate(cycle.dueDate)}',
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
             ),
             if (cycle.isFinalized) ...[
               const SizedBox(height: 12),
@@ -294,7 +294,7 @@ class _CycleCard extends StatelessWidget {
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
                 ),
                 Text('${cycle.paidCount}/${cycle.billsCount} flats paid',
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ]),
             ],
           ]),
@@ -459,7 +459,7 @@ class _ChargeHeadsTab extends ConsumerWidget {
         error: (e, _) => ListView(children: [
           Padding(
             padding: const EdgeInsets.all(24),
-            child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+            child: Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
           ),
         ]),
         data: (charges) {
@@ -522,7 +522,7 @@ class _ChargeHeadsTab extends ConsumerWidget {
             children: [
               actions,
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Each flat\'s bill is worked out from these every cycle. Changes apply to '
                 'bills generated from now on — preview a cycle to see exact amounts.',
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
@@ -541,8 +541,8 @@ class _ChargeHeadsTab extends ConsumerWidget {
                       flex: 2,
                       sortKey: (c) => c.isServiceCharge ? 0 : 1,
                       cell: (c) => c.isServiceCharge
-                          ? const StatusPill('Service charge', AppTheme.success)
-                          : const Text('—', style: TextStyle(color: AppTheme.textSecondary)),
+                          ? StatusPill('Service charge', AppTheme.success)
+                          : Text('—', style: TextStyle(color: AppTheme.textSecondary)),
                     ),
                     AppDataColumn.text('GST', (c) => c.gstApplicable ? '${c.taxPercent}%' : 'No GST'),
                   ],
@@ -751,7 +751,7 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
           if (!_editing) ...[
             ref.watch(maintenanceElementsProvider((societyId: widget.societyId, includeInactive: false))).when(
                   loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+                  error: (e, _) => Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
                   data: (elements) => FormFieldBox(label: 'Start from element', child: DropdownButtonFormField<String>(
                     initialValue: _elementId,
                     isExpanded: true,
@@ -770,7 +770,7 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
             const SizedBox(height: 14),
           ] else if (widget.existing!.elementName != null) ...[
             Text('Element: ${widget.existing!.elementName}',
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             const SizedBox(height: 14),
           ],
           FormFieldBox(label: 'Type', required: true, child: DropdownButtonFormField<String>(
@@ -797,7 +797,7 @@ class _ChargeHeadSheetState extends ConsumerState<_ChargeHeadSheet> {
           )),
           const SizedBox(height: 6),
           Text(chargeBasisHint(_basis),
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           const SizedBox(height: 14),
           FormFieldBox(label: '${chargeAmountFieldLabel(_basis)} *', child: TextFormField(
             controller: _amountCtrl,
@@ -1003,7 +1003,7 @@ class _LoadFromElementsSheetState extends ConsumerState<_LoadFromElementsSheet> 
           padding: EdgeInsets.all(24),
           child: const AppLoader(),
         ),
-        error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+        error: (e, _) => Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
         data: (elements) {
           if (!_initialised) {
             _initialised = true;
@@ -1012,7 +1012,7 @@ class _LoadFromElementsSheetState extends ConsumerState<_LoadFromElementsSheet> 
                 .map((e) => e.id));
           }
           return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const Text(
+            Text(
               'Tick the elements your society charges and enter each amount. '
               'Sinking and repair fund rates follow the bye-laws — set the construction cost in Rules.',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
@@ -1147,7 +1147,7 @@ class _BudgetSuggestionSheetState extends ConsumerState<_BudgetSuggestionSheet> 
     return BillingSheetFrame(
       title: 'Suggest Budget from Expenses',
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const Text(
+        Text(
           'Works out each charge head from what you actually spent on the expense ledgers linked to '
           'its element (vendor bills, payment vouchers), scaled to a full year. Add the increase you '
           'expect for the coming year, review, and apply the ones you want.',
@@ -1180,7 +1180,7 @@ class _BudgetSuggestionSheetState extends ConsumerState<_BudgetSuggestionSheet> 
             padding: EdgeInsets.all(24),
             child: const AppLoader(),
           ),
-          error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+          error: (e, _) => Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
           data: (data) {
             if (_initialisedFor != _months) {
               _initialisedFor = _months;
@@ -1216,7 +1216,7 @@ class _BudgetSuggestionSheetState extends ConsumerState<_BudgetSuggestionSheet> 
         Text(
           'Expenses from ${formatBillDate(data.periodStart)} to ${formatBillDate(data.periodEnd)} · '
           '${data.monthsCovered} month${data.monthsCovered == 1 ? '' : 's'} with spending, scaled to 12.',
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
         ),
       const SizedBox(height: 4),
       for (final s in data.suggestions) _suggestionRow(s, data.monthsCovered),
@@ -1265,13 +1265,13 @@ class _BudgetSuggestionSheetState extends ConsumerState<_BudgetSuggestionSheet> 
         Text.rich(TextSpan(style: const TextStyle(fontSize: 12), children: [
           TextSpan(
             text: 'Now: ${s.currentAmount == null ? 'not set' : basisRateLabel(s.basis, s.currentAmount)}',
-            style: const TextStyle(color: AppTheme.textSecondary),
+            style: TextStyle(color: AppTheme.textSecondary),
           ),
           if (canApply) ...[
             const TextSpan(text: '   →   '),
             TextSpan(
               text: basisRateLabel(s.basis, proposed),
-              style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.primary),
+              style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.primary),
             ),
           ],
         ])),
@@ -1293,7 +1293,7 @@ class _SuggestionNote extends StatelessWidget {
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Icon(icon, size: 18, color: AppTheme.textSecondary),
           const SizedBox(width: 10),
-          Expanded(child: Text(text, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary))),
+          Expanded(child: Text(text, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary))),
         ]),
       );
 }
@@ -1309,7 +1309,7 @@ class _RulesTab extends ConsumerWidget {
     return ref.watch(maintenanceRulesProvider(societyId)).when(
           loading: () => const AppLoader(),
           error: (e, _) => Center(
-              child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
+              child: Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error))),
           data: (rules) => _RulesForm(societyId: societyId, rules: rules),
         );
   }
@@ -1424,7 +1424,7 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
-            Text(help, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            Text(help, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             const SizedBox(height: 12),
             ...fields,
           ]),

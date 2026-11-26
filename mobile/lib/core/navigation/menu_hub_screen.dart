@@ -67,7 +67,7 @@ class _MenuHubScreenState extends ConsumerState<MenuHubScreen> {
                       Padding(
                         padding: const EdgeInsets.all(AppSpacing.xl),
                         child: Center(
-                          child: Text(context.tr('No screen matches'), style: const TextStyle(color: AppTheme.textSecondary)),
+                          child: Text(context.tr('No screen matches'), style: TextStyle(color: AppTheme.textSecondary)),
                         ),
                       ),
                     if (searching)
@@ -130,7 +130,7 @@ class _Tiles extends StatelessWidget {
                 Text(context.tr(item.label),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
                 ]),
               ),
             ),

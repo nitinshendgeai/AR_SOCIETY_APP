@@ -10,7 +10,7 @@ Future<void> showStaffLoginDialog(BuildContext context, {required String name, r
     builder: (ctx) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusL)),
       title: Row(
-        children: const [
+        children: [
           Icon(Icons.check_circle_rounded, color: AppTheme.success, size: 22),
           SizedBox(width: 8),
           Text('Login ready', style: TextStyle(fontSize: 16)),
@@ -20,7 +20,7 @@ Future<void> showStaffLoginDialog(BuildContext context, {required String name, r
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$name can sign in with:', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          Text('$name can sign in with:', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           const SizedBox(height: 12),
           SelectableText(message, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
         ],

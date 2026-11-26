@@ -207,7 +207,7 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
               child: allDesignations.isEmpty
                   ? InputDecorator(
                       decoration: const InputDecoration(),
-                      child: const Text(
+                      child: Text(
                         'No designations set up yet',
                         style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
                       ),
@@ -302,7 +302,7 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusL)),
         title: Row(
-          children: const [
+          children: [
             Icon(Icons.check_circle_rounded, color: AppTheme.success, size: 22),
             SizedBox(width: 8),
             Text('Staff Account Created', style: TextStyle(fontSize: 16)),
@@ -312,7 +312,7 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('$name can now log in with:', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            Text('$name can now log in with:', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
             const SizedBox(height: 12),
             _CredentialRow(label: 'Email', value: email),
             const SizedBox(height: 8),
@@ -325,7 +325,7 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: AppTheme.warning.withOpacity(0.3)),
               ),
-              child: const Text(
+              child: Text(
                 'They will be prompted to change their password on first login.',
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
               ),
@@ -358,7 +358,7 @@ class _StaffAddScreenState extends ConsumerState<StaffAddScreen> {
   void _submit(String societyId) {
     if (!_formKey.currentState!.validate()) return;
     if (societyId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Society not loaded. Please reload the app.'),
         backgroundColor: AppTheme.error,
         behavior: SnackBarBehavior.floating,
@@ -402,7 +402,7 @@ class _CredentialRow extends StatelessWidget {
     children: [
       SizedBox(
         width: 70,
-        child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+        child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
             color: AppTheme.textSecondary)),
       ),
       Expanded(

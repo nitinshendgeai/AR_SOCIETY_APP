@@ -18,7 +18,7 @@ class SetupWizardScreen extends ConsumerStatefulWidget {
 class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
   int _step = 0;
 
-  static const _steps = [
+  static final _steps = [
     _WizardStep(
       icon: Icons.apartment_rounded,
       title: 'Society Profile',
@@ -105,13 +105,13 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
                     color: AppTheme.success.withOpacity(0.2)),
               ),
               child: Row(children: [
-                const Icon(Icons.check_circle_rounded,
+                Icon(Icons.check_circle_rounded,
                     color: AppTheme.success, size: 26),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text('Setup Complete!',
                           style: TextStyle(
                               fontWeight: FontWeight.w700,
@@ -156,7 +156,7 @@ class _ProgressHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [AppTheme.primary, AppTheme.primaryDark],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -304,7 +304,7 @@ class _StepCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(step.title,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: AppTheme.textPrimary)),
@@ -317,7 +317,7 @@ class _StepCard extends StatelessWidget {
                               color: AppTheme.success.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: const Text('Done',
+                            child: Text('Done',
                                 style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
@@ -326,7 +326,7 @@ class _StepCard extends StatelessWidget {
                       ]),
                       const SizedBox(height: 6),
                       Text(step.description,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12,
                               color: AppTheme.textSecondary)),
                       if (isSelected) ...[

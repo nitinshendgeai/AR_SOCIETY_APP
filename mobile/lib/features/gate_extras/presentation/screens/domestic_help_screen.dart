@@ -175,7 +175,7 @@ class _HelpCard extends ConsumerWidget {
                     Row(children: [
                       Expanded(
                           child: Text('${h.name} · ${helpKindLabel(h.kind)}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
                                   color: AppTheme.textPrimary))),
@@ -188,7 +188,7 @@ class _HelpCard extends ConsumerWidget {
                           if (h.passNo != null) h.passNo!,
                           h.flats.map((f) => f.label).join(', '),
                         ].where((s) => s.isNotEmpty).join(' · '),
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 13, color: AppTheme.textSecondary)),
                     if (h.inside)
                       Padding(
@@ -279,11 +279,11 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
             SizedBox(
                 width: 96,
                 child: Text(label,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13, color: AppTheme.textSecondary))),
             Expanded(
                 child: Text(value!,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 14, color: AppTheme.textPrimary))),
           ]),
         );
@@ -342,7 +342,7 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
                         e.outAt == null
                             ? 'inside'
                             : 'left ${DateFormat('h:mm a').format(e.outAt!)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 13, color: AppTheme.textSecondary)),
                   ]),
                 ),
@@ -506,7 +506,7 @@ class _RegisterSheetState extends ConsumerState<_RegisterSheet> {
             flats.when(
               loading: () => const LinearProgressIndicator(),
               error: (e, _) => Text(friendlyErrorMessage(e),
-                  style: const TextStyle(color: AppTheme.error)),
+                  style: TextStyle(color: AppTheme.error)),
               data: (list) => FormFieldBox(label: 'Works in flat', required: true, child: DropdownButtonFormField<FlatModel>(
                 initialValue: _flat,
                 isExpanded: true,

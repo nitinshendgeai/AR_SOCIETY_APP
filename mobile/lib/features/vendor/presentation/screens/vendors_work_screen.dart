@@ -101,7 +101,7 @@ Widget _asyncList<T>(
         data: (rows) => ResponsiveBody(
           maxWidth: 860,
           child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 96), children: [
-            Text(intro, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.35)),
+            Text(intro, style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.35)),
             const SizedBox(height: 12),
             if (rows.isEmpty)
               Padding(padding: const EdgeInsets.symmetric(vertical: 40), child: Center(child: Text(empty))),
@@ -484,7 +484,7 @@ class _ContractSheetState extends ConsumerState<_ContractSheet> {
           const SizedBox(height: 12),
           vendors.when(
             loading: () => const LinearProgressIndicator(),
-            error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+            error: (e, _) => Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
             data: (list) => FormFieldBox(label: 'Present vendor', required: true, child: DropdownButtonFormField<String>(
               initialValue: _vendor,
               isExpanded: true,
@@ -580,7 +580,7 @@ class VendorsTab extends ConsumerWidget {
                 v.mobile,
                 if (v.gstNumber != null) 'GSTIN ${v.gstNumber}',
               ].join(' · ')),
-              if (v.blacklistReason != null) Text('Blacklisted: ${v.blacklistReason}', style: const TextStyle(color: AppTheme.error)),
+              if (v.blacklistReason != null) Text('Blacklisted: ${v.blacklistReason}', style: TextStyle(color: AppTheme.error)),
               const SizedBox(height: 4),
               StatusPill(v.statusLabel, switch (v.status) {
                 'active' => AppTheme.success,
@@ -730,7 +730,7 @@ class _LimitsSheetState extends ConsumerState<_LimitsSheet> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text('Leave a limit blank to follow the bye-law (${formatRupees(widget.limits.byeLawLimit)} for '
                 '${widget.limits.members} members). Other figures must be resolved by the general body.',
-                style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
             const SizedBox(height: 12),
             FormFieldBox(label: 'Committee may sanction up to (₹)', child: TextFormField(
               controller: _committee,

@@ -85,7 +85,7 @@ class InterestWaiversSection extends ConsumerWidget {
           ),
       ]),
       const SizedBox(height: 6),
-      const Text(
+      Text(
         'Waive the interest on one flat\'s arrears, or charge a lower rate, for a stretch of days. '
         'It applies from that flat\'s next bill; bills already issued don\'t change.',
         style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
@@ -93,7 +93,7 @@ class InterestWaiversSection extends ConsumerWidget {
       const SizedBox(height: 12),
       async.when(
         loading: () => const Padding(padding: EdgeInsets.all(16), child: LinearProgressIndicator()),
-        error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+        error: (e, _) => Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
         data: (list) => list.isEmpty
             ? const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
@@ -196,7 +196,7 @@ class _WaiverSheetState extends ConsumerState<_WaiverSheet> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           flats.when(
             loading: () => const LinearProgressIndicator(),
-            error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+            error: (e, _) => Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
             data: (list) => FormFieldBox(label: 'Flat', required: true, child: DropdownButtonFormField<FlatModel>(
               initialValue: _flat,
               isExpanded: true,

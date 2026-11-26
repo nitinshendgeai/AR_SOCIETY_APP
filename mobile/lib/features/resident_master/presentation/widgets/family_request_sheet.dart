@@ -130,7 +130,7 @@ class _FamilyRequestSheetState extends ConsumerState<_FamilyRequestSheet> {
           ),
           if (_error != null) ...[
             const SizedBox(height: 12),
-            Text(_error!, key: const Key('family-error'), style: const TextStyle(color: AppTheme.error, fontSize: 13)),
+            Text(_error!, key: const Key('family-error'), style: TextStyle(color: AppTheme.error, fontSize: 13)),
           ],
           const SizedBox(height: 18),
           AppPrimaryButton(label: 'Send for approval', isLoading: _busy, onPressed: _send),

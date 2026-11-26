@@ -47,22 +47,22 @@ class StaffDetailScreen extends ConsumerWidget {
                       ? ClipOval(child: Image.network(
                           staff.photoUrl!,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Icon(Icons.person_rounded, color: AppTheme.primary, size: 38),
+                          errorBuilder: (_, __, ___) => Icon(Icons.person_rounded, color: AppTheme.primary, size: 38),
                           loadingBuilder: (ctx, child, progress) => progress == null
                               ? child
                               : const SizedBox(width: 38, height: 38, child: CircularProgressIndicator(strokeWidth: 2)),
                         ))
-                      : const Icon(Icons.person_rounded, color: AppTheme.primary, size: 38),
+                      : Icon(Icons.person_rounded, color: AppTheme.primary, size: 38),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   staff.fullName,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   staff.employeeCode,
-                  style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                 ),
                 const SizedBox(height: 8),
                 _StatusBadge(status: staff.status),
@@ -143,7 +143,7 @@ class StaffDetailScreen extends ConsumerWidget {
             _Section(
               title: 'Admin Notes',
               children: [
-                Text(staff.notes!, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                Text(staff.notes!, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
               ],
             ),
           ],
@@ -197,7 +197,7 @@ class _Section extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
                   color: AppTheme.primary, letterSpacing: 0.4)),
           const SizedBox(height: 12),
           ...children,
@@ -222,11 +222,11 @@ class _Row extends StatelessWidget {
           SizedBox(
             width: 120,
             child: Text(label,
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w500)),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w500)),
           ),
           Expanded(
             child: Text(value,
-                style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontWeight: FontWeight.w600)),
+                style: TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -349,7 +349,7 @@ class _LoginAccountCardState extends ConsumerState<_LoginAccountCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Email: ${widget.email}',
-              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
@@ -360,13 +360,13 @@ class _LoginAccountCardState extends ConsumerState<_LoginAccountCard> {
               ),
               child: SelectableText(
                 password,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
                   color: AppTheme.primary, letterSpacing: 3),
                 textAlign: TextAlign.center,
               ),
             ),
             const SizedBox(height: 8),
-            const Text('Staff must change this password on first login.',
+            Text('Staff must change this password on first login.',
               style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
           ],
         ),
@@ -404,7 +404,7 @@ class _LoginAccountCardState extends ConsumerState<_LoginAccountCard> {
         children: [
           Row(
             children: [
-              const Text('Login Account',
+              Text('Login Account',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
                   color: AppTheme.primary, letterSpacing: 0.4)),
               const Spacer(),
@@ -427,7 +427,7 @@ class _LoginAccountCardState extends ConsumerState<_LoginAccountCard> {
             Padding(
               padding: const EdgeInsets.only(top: 4, bottom: 4),
               child: Text(_error!,
-                style: const TextStyle(color: AppTheme.error, fontSize: 12)),
+                style: TextStyle(color: AppTheme.error, fontSize: 12)),
             )
           else if (_actionLoading)
             const Padding(

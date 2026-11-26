@@ -48,19 +48,19 @@ class PendingVisitorsBanner extends ConsumerWidget {
                   color: AppTheme.warning.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(AppTheme.radiusS),
                 ),
-                child: const Icon(Icons.notifications_active_rounded, color: AppTheme.warning),
+                child: Icon(Icons.notifications_active_rounded, color: AppTheme.warning),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(title,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
                   const SizedBox(height: 2),
                   Text(subtitle,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                 ]),
               ),
               const SizedBox(width: 8),

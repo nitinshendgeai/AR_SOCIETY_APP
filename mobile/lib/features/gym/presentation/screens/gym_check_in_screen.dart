@@ -71,7 +71,7 @@ class _GymCheckInScreenState extends ConsumerState<GymCheckInScreen> {
                   child: Padding(
                     padding: const EdgeInsets.all(32),
                     child: Text(context.tr('Choose a wing and a flat to see its members.'),
-                        textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.textSecondary)),
+                        textAlign: TextAlign.center, style: TextStyle(color: AppTheme.textSecondary)),
                   ),
                 )
               : ref.watch(gymFlatMembersProvider(flatId)).when(
@@ -105,7 +105,7 @@ class _GymCheckInScreenState extends ConsumerState<GymCheckInScreen> {
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Icon(Icons.hourglass_top_rounded, size: 18, color: AppTheme.warning),
+            Icon(Icons.hourglass_top_rounded, size: 18, color: AppTheme.warning),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -119,7 +119,7 @@ class _GymCheckInScreenState extends ConsumerState<GymCheckInScreen> {
       if (!flat.letToTenants)
         Text(
           context.tr('Not on the list? The resident adds them in My Home (Household, Add family member), and the office approves. They can use the gym after that.'),
-          style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
+          style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
         ),
     ]);
   }
@@ -136,7 +136,7 @@ class _GymCheckInScreenState extends ConsumerState<GymCheckInScreen> {
                   : 'No members are listed for this flat.'),
               key: const Key('gym-no-members'),
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppTheme.textSecondary),
+              style: TextStyle(color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 16),
             _notListed(flat),

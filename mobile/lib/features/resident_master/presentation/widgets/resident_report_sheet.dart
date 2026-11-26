@@ -113,11 +113,11 @@ class _ResidentReportSheetState extends ConsumerState<ResidentReportSheet> {
                 onChanged: (v) => setState(() => v == true ? _chosen!.add(c.key) : _chosen!.remove(c.key)),
                 title: Text(c.label),
                 subtitle: c.sensitive
-                    ? const Text('Personal details', style: TextStyle(fontSize: 11.5, color: AppTheme.warning))
+                    ? Text('Personal details', style: TextStyle(fontSize: 11.5, color: AppTheme.warning))
                     : null,
               ),
             const SizedBox(height: 4),
-            const Text('An identity number is printed with only its last four characters.',
+            Text('An identity number is printed with only its last four characters.',
                 style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
             const SizedBox(height: 12),
             Wrap(spacing: 8, runSpacing: 8, children: [
@@ -127,7 +127,7 @@ class _ResidentReportSheetState extends ConsumerState<ResidentReportSheet> {
               action('xlsx-share', Icons.ios_share_rounded, 'Share Excel', 'xlsx', share: true),
             ]),
             if (none)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: Text('Tick at least one column.', style: TextStyle(fontSize: 12, color: AppTheme.error)),
               ),

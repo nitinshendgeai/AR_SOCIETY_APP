@@ -79,7 +79,7 @@ body: ResponsiveBody(
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
               children: [
-                const Text(
+                Text(
                   'These devices are signed in with your login. If you do not recognise one, or you '
                   'lost a phone, sign it out — it stops working at once. Changing your password also '
                   'signs out every other device.',
@@ -114,7 +114,7 @@ body: ResponsiveBody(
                     label: Text('Sign out ${others.length} other device${others.length == 1 ? '' : 's'}'),
                   ),
                 ] else
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 6),
                     child: Text('This is the only device signed in.',
                         style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
@@ -154,7 +154,7 @@ class _DeviceTile extends StatelessWidget {
             Row(children: [
               Flexible(
                 child: Text(session.device,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
               ),
               if (session.current) ...[
                 const SizedBox(width: 8),
@@ -162,14 +162,14 @@ class _DeviceTile extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: AppTheme.success.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
-                  child: const Text('This device',
+                  child: Text('This device',
                       style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.success)),
                 ),
               ],
             ]),
             const SizedBox(height: 2),
             Text('$used$where',
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ]),
         ),
         if (!session.current)

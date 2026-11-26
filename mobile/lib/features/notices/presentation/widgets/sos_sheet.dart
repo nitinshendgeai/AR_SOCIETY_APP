@@ -81,7 +81,7 @@ class _SosSheetState extends ConsumerState<SosSheet> {
         if (sent == null) ...[
           const Text('Send an SOS', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),
-          const Text('Security and the committee are told at once, with your flat. Your neighbours are not.',
+          Text('Security and the committee are told at once, with your flat. Your neighbours are not.',
               style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           const SizedBox(height: 14),
           Wrap(spacing: 8, runSpacing: 8, children: [
@@ -103,7 +103,7 @@ class _SosSheetState extends ConsumerState<SosSheet> {
             maxLength: 200,
             decoration: const InputDecoration(hintText: 'Anything they should know (optional)'),
           ),
-          if (_error != null) Text(_error!, style: const TextStyle(color: AppTheme.error, fontSize: 13)),
+          if (_error != null) Text(_error!, style: TextStyle(color: AppTheme.error, fontSize: 13)),
           const SizedBox(height: 8),
           ElevatedButton.icon(
             key: const Key('sos-send'),
@@ -113,7 +113,7 @@ class _SosSheetState extends ConsumerState<SosSheet> {
             label: Text(_busy ? 'Sending…' : 'Send SOS'),
           ),
         ] else ...[
-          const Icon(Icons.check_circle_rounded, color: AppTheme.success, size: 44),
+          Icon(Icons.check_circle_rounded, color: AppTheme.success, size: 44),
           const SizedBox(height: 8),
           const Text('Help has been told',
               textAlign: TextAlign.center, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
@@ -125,9 +125,9 @@ class _SosSheetState extends ConsumerState<SosSheet> {
               'Stay where you are if you can.',
             ].join(' '),
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+            style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
           ),
-          if (_error != null) Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.error, fontSize: 13)),
+          if (_error != null) Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: AppTheme.error, fontSize: 13)),
           const SizedBox(height: 14),
           OutlinedButton(
             key: const Key('sos-cancel'),

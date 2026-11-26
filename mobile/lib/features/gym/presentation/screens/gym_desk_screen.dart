@@ -122,7 +122,7 @@ class _GymDeskScreenState extends ConsumerState<GymDeskScreen> {
         if (live.inside.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Text(context.tr('Nobody is in the gym.'), style: const TextStyle(color: AppTheme.textSecondary)),
+            child: Text(context.tr('Nobody is in the gym.'), style: TextStyle(color: AppTheme.textSecondary)),
           )
         else
           for (final v in live.inside)
@@ -137,7 +137,7 @@ class _GymDeskScreenState extends ConsumerState<GymDeskScreen> {
           SectionHeading(context.tr('Not ticked out on an earlier day')),
           const SizedBox(height: 4),
           Text(context.tr('These were ticked in on an earlier day and never ticked out. Close them so they do not stay open.'),
-              style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
           const SizedBox(height: 10),
           for (final v in live.earlierOpen)
             _VisitTile(
@@ -171,7 +171,7 @@ class _Stat extends StatelessWidget {
           Text('$value',
               style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: colors.foreground, fontFeatures: const [FontFeature.tabularFigures()])),
           const SizedBox(height: 2),
-          Text(context.tr(label), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+          Text(context.tr(label), maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
         ]),
       ),
     );
@@ -202,7 +202,7 @@ class _VisitTile extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(visit.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
               Text('${visit.flatLabel} · ${context.tr(earlier ? 'In' : 'Since')} $since$stay',
-                  maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                  maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
             ]),
           ),
           const SizedBox(width: 8),

@@ -164,12 +164,12 @@ class _ItemTile extends StatelessWidget {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(i.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5)),
-                Text([i.code, itemCategoryLabel(i.category), if ((i.location ?? '').isNotEmpty) i.location!].join(' · '), style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12.5)),
+                Text([i.code, itemCategoryLabel(i.category), if ((i.location ?? '').isNotEmpty) i.location!].join(' · '), style: TextStyle(color: AppTheme.textSecondary, fontSize: 12.5)),
               ]),
             ),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Text(i.stockText, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: color)),
-              if (i.out) const StatusPill('Out of stock', AppTheme.error) else if (i.low) const StatusPill('Running low', AppTheme.warning),
+              if (i.out) StatusPill('Out of stock', AppTheme.error) else if (i.low) StatusPill('Running low', AppTheme.warning),
             ]),
           ]),
         ),
@@ -241,7 +241,7 @@ class IssueCard extends ConsumerWidget {
           Text('${qty(i.issued)} ${unitLabel(i.unit)} to ${i.toName ?? 'someone'}${i.at == null ? '' : ' on ${dayText(i.at)}'}', style: const TextStyle(fontWeight: FontWeight.w600)),
           if (i.isOut) Text('${qty(i.outstanding)} still out${i.expectedReturn == null ? '' : ' · due back ${dayText(i.expectedReturn)}'}', style: TextStyle(color: i.overdue ? AppTheme.error : AppTheme.textSecondary, fontSize: 12.5)),
           if ((i.purpose ?? '').isNotEmpty) Text(i.purpose!, style: const TextStyle(fontSize: 13)),
-          if (i.byName != null) Text('Issued by ${i.byName}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+          if (i.byName != null) Text('Issued by ${i.byName}', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
           if (i.isOut)
             Align(
               alignment: Alignment.centerLeft,

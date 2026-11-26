@@ -48,7 +48,7 @@ class MyLedgerScreen extends ConsumerWidget {
                     Text(
                       context.trf('As of {date}. This is your account in the society\'s books; the bills screen lists each bill.',
                           {'date': _day(ledger.asOf)}),
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                     ),
                   ],
                 ),
@@ -92,7 +92,7 @@ class _FlatLedger extends StatelessWidget {
             excludeSemantics: true,
             child: Text(formatRupees(flat.balance),
                 key: const Key('ledger-balance'),
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.6,
@@ -109,7 +109,7 @@ class _FlatLedger extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Text(context.tr('Nothing has been entered in this account yet.'),
-              style: const TextStyle(color: AppTheme.textSecondary)),
+              style: TextStyle(color: AppTheme.textSecondary)),
         )
       else ...[
         Text(context.tr('Latest entries'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
@@ -122,7 +122,7 @@ class _FlatLedger extends StatelessWidget {
   Widget _kv(BuildContext context, String label, String value) => Padding(
         padding: const EdgeInsets.only(top: 4),
         child: Row(children: [
-          Expanded(child: Text(context.tr(label), style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
+          Expanded(child: Text(context.tr(label), style: TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
           Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
         ]),
       );
@@ -151,7 +151,7 @@ class _LineTile extends StatelessWidget {
             Text(line.narration.isEmpty ? context.tr(isBill ? 'Bill' : 'Payment') : line.narration,
                 maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 2),
-            Text(_day(line.date), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            Text(_day(line.date), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ]),
         ),
         const SizedBox(width: 8),
@@ -160,7 +160,7 @@ class _LineTile extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.w700, color: kToneColors[isBill ? AppTone.warning : AppTone.success]!.foreground)),
           const SizedBox(height: 2),
           Text('${context.tr('Balance')} ${formatRupees(line.balance)} ${line.drCr}',
-              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
         ]),
       ]),
     );

@@ -191,7 +191,7 @@ class _BillEstimateScreenState extends ConsumerState<BillEstimateScreen> {
                 if (_error != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(friendlyErrorMessage(_error!), style: const TextStyle(color: AppTheme.error)),
+                    child: Text(friendlyErrorMessage(_error!), style: TextStyle(color: AppTheme.error)),
                   ),
                 _summary(d),
                 const SizedBox(height: 14),
@@ -202,7 +202,7 @@ class _BillEstimateScreenState extends ConsumerState<BillEstimateScreen> {
                 for (final n in d.notes)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
-                    child: Text(n, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    child: Text(n, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   ),
               ],
               ],
@@ -233,12 +233,12 @@ class _BillEstimateScreenState extends ConsumerState<BillEstimateScreen> {
   Widget _summary(BillEstimate d) => AppCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(d.adjusted ? 'Estimated total with your changes' : 'Estimated total for ${d.monthLabel}',
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           Text(formatRupees(d.estimate),
               key: const ValueKey('estimate-total'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
           Text('${_rate(d.estimatePerSqft)} on average · ${d.flatsCount} flats · ${d.totalAreaSqft.toStringAsFixed(0)} sq ft',
-              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           if (d.adjusted) ...[
             const SizedBox(height: 8),
             Text('As it stands: ${formatRupees(d.current)} · ${_rate(d.currentPerSqft)}',
@@ -256,7 +256,7 @@ class _BillEstimateScreenState extends ConsumerState<BillEstimateScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Elements — what if?', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
           const SizedBox(height: 2),
-          const Text(
+          Text(
               'Try a rise or a cut: a change in % (10 raises it by a tenth, -5 cuts it), or the new monthly total you '
               'want from an element. To bill an element by flat area, give a rate per sq ft, or tick By area to share '
               'its total over the flats by their areas (a flat pays its area x the rate). Then Calculate.',
@@ -409,7 +409,7 @@ class _FlatTile extends StatelessWidget {
                 Expanded(child: Text(l.element, style: const TextStyle(fontSize: 13))),
                 if (adjusted && l.current != l.estimate) ...[
                   Text(formatRupees(l.current),
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 12, color: AppTheme.textSecondary, decoration: TextDecoration.lineThrough)),
                   const SizedBox(width: 8),
                 ],

@@ -11,6 +11,7 @@ import 'package:ar_society_app/core/config/env.dart';
 import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart';
+import 'package:ar_society_app/core/theme/app_look.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/core/push/push_notifications.dart';
 import 'package:ar_society_app/core/push/visitor_alert.dart';
@@ -44,6 +45,7 @@ Future<void> main() async {
   }
 
   final language = await loadSavedLanguage();
+  await loadSavedLook();
   runApp(ResettableScope(language: language));
 }
 
@@ -107,6 +109,7 @@ class ArSocietyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
     final locale = ref.watch(localeProvider);
+    ref.watch(appLookProvider); // a new look rebuilds the theme
 
     // Once signed in, register this device for push notifications.
     ref.listen<AuthState>(authProvider, (previous, next) {
@@ -161,9 +164,10 @@ class ArSocietyApp extends ConsumerWidget {
       routerConfig: router,
       // Desktop-width web gets the denser ERP theme; phones keep the
       // touch-first one. Re-evaluated as the browser window is resized.
-      builder: (context, child) => isDesktopLayout(context)
-          ? Theme(data: AppTheme.desktopTheme(Theme.of(context)), child: child!)
-          : child!,
+      // The Command deck draws its starfield behind every page.
+      builder: (context, child) => AppBackdrop(
+        child: isDesktopLayout(context) ? Theme(data: AppTheme.desktopTheme(Theme.of(context)), child: child!) : child!,
+      ),
     );
   }
 }

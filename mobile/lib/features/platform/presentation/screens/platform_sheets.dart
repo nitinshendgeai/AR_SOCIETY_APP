@@ -46,7 +46,7 @@ class _ExtendTrialSheetState extends ConsumerState<ExtendTrialSheet> {
     return BillingSheetFrame(
       title: 'Extend ${s.name}\'s trial',
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('Now: ${s.standing}', style: const TextStyle(color: AppTheme.textSecondary)),
+        Text('Now: ${s.standing}', style: TextStyle(color: AppTheme.textSecondary)),
         const SizedBox(height: 12),
         Wrap(spacing: 8, children: [
           for (final d in const [7, 15, 30, 60, 90])
@@ -83,7 +83,7 @@ class _ActivateSheetState extends ConsumerState<ActivateSheet> {
       title: s.suspended ? 'Let ${s.name} back in' : 'Put ${s.name} on a paid plan',
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         if (s.suspended)
-          const Padding(padding: EdgeInsets.only(bottom: 10), child: Text('Everyone in the society can sign in again straight away.', style: TextStyle(color: AppTheme.textSecondary))),
+          Padding(padding: EdgeInsets.only(bottom: 10), child: Text('Everyone in the society can sign in again straight away.', style: TextStyle(color: AppTheme.textSecondary))),
         Wrap(spacing: 8, children: [
           for (final p in kPlans) ChoiceChip(label: Text(p.$2), selected: _plan == p.$1, onSelected: (_) => setState(() => _plan = p.$1)),
         ]),
@@ -207,7 +207,7 @@ class _CleanDataSheetState extends ConsumerState<CleanDataSheet> {
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 2),
                       child: Row(children: [
-                        Expanded(child: Text(r.key.replaceAll('_', ' '), style: const TextStyle(color: AppTheme.textSecondary))),
+                        Expanded(child: Text(r.key.replaceAll('_', ' '), style: TextStyle(color: AppTheme.textSecondary))),
                         Text('${r.value}', style: const TextStyle(fontWeight: FontWeight.w600)),
                       ]),
                     ),
@@ -270,7 +270,7 @@ class _RestoreLoginsSheetState extends ConsumerState<RestoreLoginsSheet> {
           Text(
               'Recreates any of the four default logins (admin, chairman, secretary, treasurer) that are missing, each with its role. '
               'Logins that already exist are not changed. Each new login must change its password the first time it signs in.',
-              style: const TextStyle(height: 1.4, color: AppTheme.textSecondary)),
+              style: TextStyle(height: 1.4, color: AppTheme.textSecondary)),
           const SizedBox(height: 14),
           AppPrimaryButton(label: 'Restore logins', isLoading: _saving, onPressed: _saving ? null : _restore),
         ] else ...[
@@ -343,7 +343,7 @@ class _LimitsSheetState extends ConsumerState<LimitsSheet> {
           const SizedBox(height: 12),
           _field(_storage, 'Storage (MB)'),
           const SizedBox(height: 8),
-          const Text('These are recorded and shown against usage. The app does not stop a society going over them yet.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.35)),
+          Text('These are recorded and shown against usage. The app does not stop a society going over them yet.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.35)),
           const SizedBox(height: 14),
           AppPrimaryButton(
             label: 'Save',

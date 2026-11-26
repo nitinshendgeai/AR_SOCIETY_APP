@@ -161,23 +161,23 @@ class _ExpensesByElementScreenState extends ConsumerState<ExpensesByElementScree
         child: Row(children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Total spent', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              Text('Total spent', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               Text(formatInr(r.total), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
             ]),
           ),
           if (r.unlinkedTotal > 0)
             Text('${formatInr(r.unlinkedTotal)} on heads\nno element covers',
-                textAlign: TextAlign.right, style: const TextStyle(fontSize: 12, color: AppTheme.warning)),
+                textAlign: TextAlign.right, style: TextStyle(fontSize: 12, color: AppTheme.warning)),
         ]),
       ),
       const SizedBox(height: 12),
       for (final e in r.elements) ...[_ElementCard(spend: e), const SizedBox(height: 10)],
       if (r.unlinked.isNotEmpty) ...[
         const SizedBox(height: 6),
-        const Text('Not counted towards any element',
+        Text('Not counted towards any element',
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.warning)),
         const SizedBox(height: 4),
-        const Text(
+        Text(
           'These were spent on expense heads that count towards no maintenance element, so they are in nobody\'s '
           'budget. Link each head to the element it belongs to.',
           style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.4),
@@ -232,13 +232,13 @@ class _ElementCard extends StatelessWidget {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(spend.name,
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: nothing ? AppTheme.textSecondary : AppTheme.textPrimary)),
-                  const Text('Month by month', style: TextStyle(fontSize: 11.5, color: AppTheme.primary)),
+                  Text('Month by month', style: TextStyle(fontSize: 11.5, color: AppTheme.primary)),
                 ]),
               ),
               Text(nothing ? 'Nothing recorded' : formatInr(spend.total),
                   style: TextStyle(
                       fontWeight: FontWeight.w700, color: nothing ? AppTheme.warning : AppTheme.textPrimary, fontSize: nothing ? 12 : 15)),
-              const Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.textSecondary),
+              Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.textSecondary),
             ]),
           ),
         ),
@@ -249,9 +249,9 @@ class _ElementCard extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(children: [
-                Expanded(child: Text(l.name, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
-                Text(formatInr(l.amount), style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                const Icon(Icons.chevron_right_rounded, size: 16, color: AppTheme.textSecondary),
+                Expanded(child: Text(l.name, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
+                Text(formatInr(l.amount), style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                Icon(Icons.chevron_right_rounded, size: 16, color: AppTheme.textSecondary),
               ]),
             ),
           ),

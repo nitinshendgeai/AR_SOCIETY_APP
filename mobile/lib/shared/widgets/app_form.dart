@@ -209,7 +209,7 @@ class _Header extends StatelessWidget {
         icon: const Icon(Icons.arrow_back_rounded, size: 20),
         style: IconButton.styleFrom(
           backgroundColor: AppTheme.cardBg,
-          side: const BorderSide(color: AppTheme.fieldBorder),
+          side: BorderSide(color: AppTheme.fieldBorder),
           fixedSize: const Size(40, 40),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusS)),
         ),
@@ -222,13 +222,13 @@ class _Header extends StatelessWidget {
               child: Text(context.tr(title),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, height: 1.2, color: AppTheme.textPrimary)),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, height: 1.2, color: AppTheme.textPrimary)),
             ),
             if (status != null) ...[const SizedBox(width: 12), status!],
           ]),
           if (subtitle != null) ...[
             const SizedBox(height: 2),
-            Text(context.tr(subtitle!), style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+            Text(context.tr(subtitle!), style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
           ],
         ]),
       ),
@@ -271,7 +271,7 @@ class _ActionBar extends StatelessWidget {
       onPressed: onSubmit,
     );
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppTheme.cardBg,
         border: Border(top: BorderSide(color: AppTheme.border)),
         boxShadow: [BoxShadow(color: Color(0x0F000000), blurRadius: 12, offset: Offset(0, -2))],
@@ -287,7 +287,7 @@ class _ActionBar extends StatelessWidget {
                 ? Row(children: [
                     Expanded(
                       child: DefaultTextStyle.merge(
-                        style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                        style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                         child: note ?? Text(context.tr('Fields marked * are required')),
                       ),
                     ),
@@ -335,11 +335,11 @@ class FormSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final heading = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(context.tr(title),
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
       if (description != null) ...[
         const SizedBox(height: 6),
         Text(context.tr(description!),
-            style: const TextStyle(fontSize: 13, height: 1.45, color: AppTheme.textSecondary)),
+            style: TextStyle(fontSize: 13, height: 1.45, color: AppTheme.textSecondary)),
       ],
     ]);
     final fields = FormGrid(columns: columns, children: children);
@@ -415,13 +415,13 @@ class FormFieldBox extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text.rich(TextSpan(children: [
         TextSpan(text: context.tr(label)),
-        if (required) const TextSpan(text: ' *', style: TextStyle(color: AppTheme.error)),
-      ]), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+        if (required) TextSpan(text: ' *', style: TextStyle(color: AppTheme.error)),
+      ]), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
       const SizedBox(height: 6),
       child,
       if (helper != null) ...[
         const SizedBox(height: 5),
-        Text(context.tr(helper!), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        Text(context.tr(helper!), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
       ],
     ]);
   }
@@ -459,7 +459,7 @@ class FormSwitchTile extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(context.tr(subtitle!),
-                        style: const TextStyle(fontSize: 12.5, height: 1.35, color: AppTheme.textSecondary)),
+                        style: TextStyle(fontSize: 12.5, height: 1.35, color: AppTheme.textSecondary)),
                   ),
               ]),
             ),
@@ -502,13 +502,13 @@ class FormDateField extends StatelessWidget {
           suffixIcon: value != null && onClear != null
               ? IconButton(
                   tooltip: context.tr('Clear'),
-                  icon: const Icon(Icons.close_rounded, size: 18, color: AppTheme.textSecondary),
+                  icon: Icon(Icons.close_rounded, size: 18, color: AppTheme.textSecondary),
                   onPressed: onClear)
               : null,
           hintText: hint,
         ),
         child: Text(value == null ? '' : format(value!),
-            style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary)),
+            style: TextStyle(fontSize: 14, color: AppTheme.textPrimary)),
       ),
     );
   }
@@ -550,10 +550,10 @@ class AppSheetFrame extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(desktop ? 28 : 20, desktop ? 24 : 6, desktop ? 64 : 20, 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(context.tr(title),
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, height: 1.25, color: AppTheme.textPrimary)),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, height: 1.25, color: AppTheme.textPrimary)),
         if (subtitle != null) ...[
           const SizedBox(height: 3),
-          Text(context.tr(subtitle!), style: const TextStyle(fontSize: 13.5, height: 1.4, color: AppTheme.textSecondary)),
+          Text(context.tr(subtitle!), style: TextStyle(fontSize: 13.5, height: 1.4, color: AppTheme.textSecondary)),
         ],
       ]),
     );
@@ -658,7 +658,7 @@ class PickerRow extends StatelessWidget {
         leading: leading,
         title: Text(context.tr(title), style: TextStyle(fontSize: 14.5, fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
         subtitle: subtitle == null ? null : Text(subtitle!, style: const TextStyle(fontSize: 12.5)),
-        trailing: selected ? const Icon(Icons.check_rounded, color: AppTheme.primary) : trailing,
+        trailing: selected ? Icon(Icons.check_rounded, color: AppTheme.primary) : trailing,
         onTap: onTap,
       );
 }
@@ -677,10 +677,10 @@ class AppPageHeader extends StatelessWidget {
       Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           Text(context.tr(title),
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, height: 1.2, color: AppTheme.textPrimary)),
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, height: 1.2, color: AppTheme.textPrimary)),
           if (subtitle != null) ...[
             const SizedBox(height: 2),
-            Text(context.tr(subtitle!), style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+            Text(context.tr(subtitle!), style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
           ],
         ]),
       ),
@@ -812,7 +812,7 @@ class AppPage extends StatelessWidget {
     final skin = AppPageSkin.maybeOf(context);
     if (!desktop) {
       return Scaffold(
-        backgroundColor: skin?.background ?? AppTheme.surface,
+        backgroundColor: skin?.background ?? (AppTheme.isDeck ? Colors.transparent : AppTheme.surface),
         drawer: drawer,
         appBar: AppBar(
           automaticallyImplyLeading: drawer == null,
@@ -842,7 +842,7 @@ class AppPage extends StatelessWidget {
           child: ConstrainedBox(constraints: BoxConstraints(maxWidth: maxWidth), child: child),
         );
     return Scaffold(
-      backgroundColor: skin?.background ?? AppTheme.surface,
+      backgroundColor: skin?.background ?? (AppTheme.isDeck ? Colors.transparent : AppTheme.surface),
       floatingActionButton: floatingActionButton,
       floatingActionButtonLocation: floatingActionButtonLocation,
       bottomNavigationBar: bottomNavigationBar,

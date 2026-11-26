@@ -137,7 +137,7 @@ class _ShopSheetState extends ConsumerState<ShopSheet> {
 
   Widget _section(String title, {bool first = false}) => Padding(
         padding: EdgeInsets.only(top: first ? 0 : 6, bottom: 10),
-        child: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.primary)),
+        child: Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.primary)),
       );
 
   Widget _field(TextEditingController c, String label,
@@ -233,8 +233,8 @@ class _ShopSheetState extends ConsumerState<ShopSheet> {
             const SizedBox(height: 8),
             TextButton.icon(
               onPressed: _saving ? null : _delete,
-              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.error),
-              label: const Text('Remove this shop', style: TextStyle(color: AppTheme.error)),
+              icon: Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.error),
+              label: Text('Remove this shop', style: TextStyle(color: AppTheme.error)),
             ),
           ],
         ]),

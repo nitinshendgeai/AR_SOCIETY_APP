@@ -26,7 +26,7 @@ class FilterChoiceRow<T> extends StatelessWidget {
   Widget build(BuildContext context) => Row(children: [
         SizedBox(
           width: 84,
-          child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
+          child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
         ),
         Expanded(
           child: SizedBox(

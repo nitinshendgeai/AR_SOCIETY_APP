@@ -25,7 +25,7 @@ class UserDetailScreen extends ConsumerWidget {
             data: (user) => PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert_rounded),
               onSelected: (v) => _handleMenu(context, ref, v, user),
-              itemBuilder: (_) => const [
+              itemBuilder: (_) => [
                 PopupMenuItem(value: 'edit',  child: Text('Edit profile')),
                 PopupMenuItem(value: 'roles', child: Text('Manage roles')),
                 PopupMenuItem(value: 'reset', child: Text('Reset password')),
@@ -44,11 +44,11 @@ class UserDetailScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline_rounded,
+              Icon(Icons.error_outline_rounded,
                   color: AppTheme.error, size: 40),
               const SizedBox(height: 12),
               Text(friendlyErrorMessage(e),
-                  style: const TextStyle(color: AppTheme.textSecondary)),
+                  style: TextStyle(color: AppTheme.textSecondary)),
               TextButton(
                 onPressed: () =>
                     ref.read(userDetailProvider(userId).notifier).refresh(),
@@ -177,7 +177,7 @@ class _ProfileHeader extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [AppTheme.primary, AppTheme.primaryDark],
         ),
         borderRadius: BorderRadius.circular(AppTheme.radiusL),
@@ -256,7 +256,7 @@ class _InfoCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Profile',
+          Text('Profile',
               style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
@@ -315,7 +315,7 @@ class _InfoRow extends StatelessWidget {
         SizedBox(
           width: 72,
           child: Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12, color: AppTheme.textSecondary)),
         ),
         Expanded(
@@ -349,7 +349,7 @@ class _RolesCard extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text('Assigned Roles',
                     style: TextStyle(
                         fontWeight: FontWeight.w700,
@@ -373,7 +373,7 @@ class _RolesCard extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           if (user.roles.isEmpty)
-            const Text('No roles assigned',
+            Text('No roles assigned',
                 style: TextStyle(
                     color: AppTheme.textSecondary, fontSize: 13))
           else
@@ -399,7 +399,7 @@ class _RoleChip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Chip(
       label: Text(role,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 12,
               color: AppTheme.primary,
               fontWeight: FontWeight.w600)),

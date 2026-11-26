@@ -45,7 +45,7 @@ class VendorPicker extends ConsumerWidget {
     final vendors = ref.watch(vendorRecordsProvider(societyId));
     return vendors.when(
       loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 18), child: LinearProgressIndicator()),
-      error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+      error: (e, _) => Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
       data: (all) {
         // Vendors who can be paid; one already chosen stays listed even if since blacklisted.
         final list = all.where((v) => v.status != 'blacklisted' || v.id == value).toList()

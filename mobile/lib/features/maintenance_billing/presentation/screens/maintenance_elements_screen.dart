@@ -108,7 +108,7 @@ class MaintenanceElementsScreen extends ConsumerWidget {
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
               children: [
-                const Text(
+                Text(
                   'The kinds of charge your society can bill, and how each is worked out by default. '
                   'Charge heads are created from these — edit a default here and new charge heads '
                   'pick it up; existing ones keep their own settings.',
@@ -131,7 +131,7 @@ class MaintenanceElementsScreen extends ConsumerWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
                           ),
-                          if (!e.isSystem) const _Tag('Custom', AppTheme.primary),
+                          if (!e.isSystem) _Tag('Custom', AppTheme.primary),
                         ]),
                       ),
                       AppDataColumn.text('Default calculation', (e) => e.rateLabel, flex: 4),
@@ -140,23 +140,23 @@ class MaintenanceElementsScreen extends ConsumerWidget {
                         label: 'Type',
                         sortKey: (e) => e.isServiceCharge ? 0 : 1,
                         cell: (e) => e.isServiceCharge
-                            ? const StatusPill('Service', AppTheme.success)
-                            : const Text('—', style: TextStyle(color: AppTheme.textSecondary)),
+                            ? StatusPill('Service', AppTheme.success)
+                            : Text('—', style: TextStyle(color: AppTheme.textSecondary)),
                       ),
                       AppDataColumn(
                         label: 'Status',
                         width: 120,
                         sortKey: (e) => e.isActive ? 0 : 1,
                         cell: (e) => e.isActive
-                            ? const StatusPill('Active', AppTheme.success)
-                            : const StatusPill('Switched off', AppTheme.textSecondary),
+                            ? StatusPill('Active', AppTheme.success)
+                            : StatusPill('Switched off', AppTheme.textSecondary),
                       ),
                     ],
                   )
                 else ...[
                   for (final e in active) _ElementTile(element: e, onTap: () => openSheet(e)),
                   if (inactive.isNotEmpty) ...[
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.fromLTRB(4, 16, 0, 8),
                       child: Text('Switched off',
                           style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
@@ -189,8 +189,8 @@ class _ElementTile extends StatelessWidget {
           onTap: onTap,
           title: Row(children: [
             Expanded(child: Text(e.name, style: const TextStyle(fontWeight: FontWeight.w600))),
-            if (!e.isSystem) const _Tag('Custom', AppTheme.primary),
-            if (e.isServiceCharge) const _Tag('Service', AppTheme.success),
+            if (!e.isSystem) _Tag('Custom', AppTheme.primary),
+            if (e.isServiceCharge) _Tag('Service', AppTheme.success),
           ]),
           subtitle: Text(
             [e.rateLabel, if (e.byeLawRef != null) e.byeLawRef!].join('\n'),
@@ -314,7 +314,7 @@ class _ElementSheetState extends ConsumerState<_ElementSheet> {
             onChanged: (v) => setState(() => _basis = v ?? _basis),
           )),
           const SizedBox(height: 6),
-          Text(chargeBasisHint(_basis), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          Text(chargeBasisHint(_basis), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           const SizedBox(height: 14),
           FormFieldBox(label: 'Default ${chargeAmountFieldLabel(_basis).toLowerCase()}', child: TextFormField(
             controller: _amountCtrl,

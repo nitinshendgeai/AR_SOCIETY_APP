@@ -67,7 +67,7 @@ class _Loaded extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: Text(context.tr('Outstanding maintenance'),
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
         ),
         AppStatusChip(label: statusLabel, tone: tone, icon: icon),
       ]),
@@ -77,7 +77,7 @@ class _Loaded extends StatelessWidget {
         excludeSemantics: true,
         child: Text(
           formatRupees(summary.totalOutstanding),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 34,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.6,
@@ -91,7 +91,7 @@ class _Loaded extends StatelessWidget {
         owes
             ? context.trf(count == 1 ? 'Across {n} open bill' : 'Across {n} open bills', {'n': count})
             : context.tr('You have no open bills'),
-        style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+        style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
       ),
       const SizedBox(height: AppSpacing.m),
       SizedBox(
@@ -135,11 +135,11 @@ class _Failed extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
         liveRegion: true,
         child: Row(children: [
-          const Icon(Icons.cloud_off_rounded, color: AppTheme.textSecondary),
+          Icon(Icons.cloud_off_rounded, color: AppTheme.textSecondary),
           const SizedBox(width: AppSpacing.m),
           Expanded(
             child: Text(context.tr('Could not check what is outstanding'),
-                style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary)),
+                style: TextStyle(fontSize: 14, color: AppTheme.textPrimary)),
           ),
           TextButton(
             onPressed: onRetry,

@@ -102,7 +102,7 @@ class _ApprovalCard extends ConsumerWidget {
                   color: AppTheme.warning.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(AppTheme.radiusM),
                 ),
-                child: const Icon(Icons.person_rounded,
+                child: Icon(Icons.person_rounded,
                     color: AppTheme.warning, size: 24),
               ),
               const SizedBox(width: 12),
@@ -111,14 +111,14 @@ class _ApprovalCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(visitor.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 15,
                             color: AppTheme.textPrimary)),
                     Text(
                         [visitor.mobile, if (visitor.flatLabel != null) visitor.flatLabel!]
                             .join('  ·  '),
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 12, color: AppTheme.textSecondary)),
                   ],
                 ),
@@ -130,7 +130,7 @@ class _ApprovalCard extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(visitor.visitorType.label,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 11,
                         color: AppTheme.warning,
                         fontWeight: FontWeight.w600)),
@@ -141,12 +141,12 @@ class _ApprovalCard extends ConsumerWidget {
             const SizedBox(height: 10),
             Row(
               children: [
-                const Icon(Icons.info_outline_rounded,
+                Icon(Icons.info_outline_rounded,
                     size: 14, color: AppTheme.textSecondary),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(visitor.purpose!,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 13, color: AppTheme.textSecondary)),
                 ),
               ],

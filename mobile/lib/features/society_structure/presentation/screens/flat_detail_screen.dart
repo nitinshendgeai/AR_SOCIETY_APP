@@ -40,7 +40,7 @@ class FlatDetailScreen extends ConsumerWidget {
           PopupMenuButton<String>(
             onSelected: (v) => _onMenu(context, ref, v),
             itemBuilder: (_) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'delete',
                 child: Text('Delete', style: TextStyle(color: AppTheme.error)),
               ),
@@ -149,7 +149,7 @@ class _HeaderCard extends StatelessWidget {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(flat.displayName,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
                       color: AppTheme.textPrimary)),
@@ -190,7 +190,7 @@ class _DetailsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Details',
+          Text('Details',
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -256,7 +256,7 @@ class _PeopleCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('People',
+          Text('People',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
           const SizedBox(height: 12),
           _PeopleRow(
@@ -306,7 +306,7 @@ class _PeopleRow extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             flex: 2,
-            child: Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            child: Text(label, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -316,12 +316,12 @@ class _PeopleRow extends StatelessWidget {
               textAlign: TextAlign.end,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
             ),
           ),
           if (onTap != null) ...[
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right_rounded, size: 16, color: AppTheme.textSecondary),
+            Icon(Icons.chevron_right_rounded, size: 16, color: AppTheme.textSecondary),
           ],
         ]),
       ),
@@ -342,13 +342,13 @@ class _Row extends StatelessWidget {
         Expanded(
           flex: 2,
           child: Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 13, color: AppTheme.textSecondary)),
         ),
         Expanded(
           flex: 3,
           child: Text(value,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: AppTheme.textPrimary)),

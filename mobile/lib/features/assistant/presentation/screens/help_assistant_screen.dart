@@ -8,7 +8,7 @@ import 'package:ar_society_app/features/assistant/data/assistant_api.dart';
 import 'package:ar_society_app/features/assistant/presentation/providers/assistant_providers.dart';
 import 'package:ar_society_app/features/auth/presentation/providers/auth_provider.dart';
 
-const _aiGradient = LinearGradient(
+final _aiGradient = LinearGradient(
   colors: [AppTheme.primary, Color(0xFF7A5CFF)],
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
@@ -90,7 +90,7 @@ class _Avatar extends StatelessWidget {
         child: Container(
           width: size,
           height: size,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
               shape: BoxShape.circle, gradient: _aiGradient),
           child: Icon(Icons.auto_awesome_rounded,
               size: size * 0.55, color: Colors.white),
@@ -113,7 +113,7 @@ class _Notice extends StatelessWidget {
             const SizedBox(height: 12),
             Text(text,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AppTheme.textSecondary)),
+                style: TextStyle(color: AppTheme.textSecondary)),
             if (action != null) ...[const SizedBox(height: 8), action!],
           ]),
         ),
@@ -199,7 +199,7 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
                 child: Text(
                   context.tr(
                       'Live configuration checks need a society. Platform admins can choose one in the Platform Console.'),
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12, color: AppTheme.textSecondary),
                 ),
               ),
@@ -231,7 +231,7 @@ class _ChatBodyState extends ConsumerState<_ChatBody> {
                 child: Text(
                   context.tr('Answers come from the approved DuxOS manuals.'),
                   key: const Key('manualsOnlyBanner'),
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 11, color: AppTheme.textTertiary),
                 ),
               ),
@@ -266,7 +266,7 @@ class _Welcome extends StatelessWidget {
               ? context.tr('Hi! I\'m your DuxOS assistant')
               : '${context.tr('Hi')} $name! ${context.tr('I\'m your DuxOS assistant')}',
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w600,
               color: AppTheme.textPrimary),
@@ -276,11 +276,11 @@ class _Welcome extends StatelessWidget {
           context.tr(
               'Ask me how to do anything in the app. I answer from the official DuxOS manuals. I can\'t look up residents, dues or payments, and I never change anything.'),
           textAlign: TextAlign.center,
-          style: const TextStyle(color: AppTheme.textSecondary),
+          style: TextStyle(color: AppTheme.textSecondary),
         ),
         const SizedBox(height: 20),
         Text(context.tr('Try asking'),
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.textSecondary)),
@@ -296,7 +296,7 @@ class _Welcome extends StatelessWidget {
                 color: AppTheme.cardBg,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    side: const BorderSide(color: AppTheme.border)),
+                    side: BorderSide(color: AppTheme.border)),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
                   onTap: () => onPick(q),
@@ -304,14 +304,14 @@ class _Welcome extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 12),
                     child: Row(children: [
-                      const Icon(Icons.chat_bubble_outline_rounded,
+                      Icon(Icons.chat_bubble_outline_rounded,
                           size: 18, color: AppTheme.primary),
                       const SizedBox(width: 10),
                       Expanded(
                           child: Text(q,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: AppTheme.textPrimary))),
-                      const Icon(Icons.north_east_rounded,
+                      Icon(Icons.north_east_rounded,
                           size: 16, color: AppTheme.textTertiary),
                     ]),
                   ),
@@ -412,7 +412,7 @@ class _Composer extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
             color: AppTheme.cardBg,
             border: Border(top: BorderSide(color: AppTheme.border))),
         child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -504,7 +504,7 @@ class _Bubble extends ConsumerWidget {
             ),
             side: isUser
                 ? BorderSide.none
-                : const BorderSide(color: AppTheme.border),
+                : BorderSide(color: AppTheme.border),
           ),
           clipBehavior: Clip.antiAlias,
           child: Padding(
@@ -602,7 +602,7 @@ class _Bubble extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(top: 10),
             child: Text(a.uncertainty!,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12,
                     fontStyle: FontStyle.italic,
                     color: AppTheme.textSecondary)),
@@ -611,13 +611,13 @@ class _Bubble extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(a.escalation!,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12, color: AppTheme.textSecondary)),
           ),
         if (a.sources.isNotEmpty) ...[
           const SizedBox(height: 12),
           Text(context.tr('Sources'),
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.3,
@@ -628,14 +628,14 @@ class _Bubble extends ConsumerWidget {
               padding: const EdgeInsets.only(top: 3),
               child:
                   Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Padding(
+                Padding(
                     padding: EdgeInsets.only(top: 1),
                     child: Icon(Icons.menu_book_outlined,
                         size: 13, color: AppTheme.textTertiary)),
                 const SizedBox(width: 6),
                 Expanded(
                     child: Text('${s.title} › ${s.section}',
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 12, color: AppTheme.textSecondary))),
               ]),
             ),
@@ -659,7 +659,7 @@ class _Bubble extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 7),
                       child: Text(q,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 13,
                               color: AppTheme.primary,
                               fontWeight: FontWeight.w500)),
@@ -730,7 +730,7 @@ class _Section extends StatelessWidget {
             const SizedBox(width: 6),
             Expanded(
               child: Text(title,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: AppTheme.textPrimary)),
@@ -759,7 +759,7 @@ class _StepRow extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: AppTheme.primary.withValues(alpha: 0.12)),
             child: Text('$number',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.primary)),
@@ -826,9 +826,9 @@ class _RevealState extends State<_Reveal> with SingleTickerProviderStateMixin {
     super.dispose();
   }
 
-  static const _lead =
+  static final _lead =
       TextStyle(fontSize: 13, height: 1.35, color: AppTheme.textSecondary);
-  static const _body =
+  static final _body =
       TextStyle(fontSize: 15, height: 1.45, color: AppTheme.textPrimary);
 
   TextSpan _spans(String visible) {

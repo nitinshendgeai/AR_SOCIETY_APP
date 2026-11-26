@@ -131,7 +131,7 @@ class _PollCardState extends ConsumerState<_PollCard> {
             Row(children: [
               Expanded(
                   child: Text(p.question,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 15.5,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.textPrimary))),
@@ -143,7 +143,7 @@ class _PollCardState extends ConsumerState<_PollCard> {
             if ((p.description ?? '').isNotEmpty) ...[
               const SizedBox(height: 4),
               Text(p.description!,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13,
                       color: AppTheme.textSecondary,
                       height: 1.4)),
@@ -177,7 +177,7 @@ class _PollCardState extends ConsumerState<_PollCard> {
               '${p.votes} of ${p.flats} flats voted · '
               '${p.open ? 'closes ${DateFormat('d MMM').format(p.closesOn)}' : 'closed'}'
               '${!p.resultsVisible ? '\nResults show ${p.resultsAfter == 'close' ? 'when the poll closes' : 'after you vote'}.' : ''}',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12.5, color: AppTheme.textSecondary, height: 1.4),
             ),
             if (p.canVote) ...[
@@ -323,7 +323,7 @@ class _NewPollSheetState extends ConsumerState<_NewPollSheet> {
               maxLines: 5,
               decoration: const InputDecoration())),
           const SizedBox(height: 14),
-          const Text('Options',
+          Text('Options',
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,

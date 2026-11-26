@@ -151,8 +151,8 @@ Widget _card({
       Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
-          Text(line2, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
-          if (line3 != null) Text(line3, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+          Text(line2, style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+          if (line3 != null) Text(line3, style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
         ]),
       ),
       const SizedBox(width: 10),
@@ -163,7 +163,7 @@ Widget _card({
       ]),
     ]),
     const SizedBox(height: 4),
-    Text('Entered by ${enteredBy ?? 'System'}', style: const TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
+    Text('Entered by ${enteredBy ?? 'System'}', style: TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
   ]);
 }
 

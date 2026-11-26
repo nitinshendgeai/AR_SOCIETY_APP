@@ -2,6 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:ar_society_app/core/l10n/app_locale.dart';
+import 'package:ar_society_app/core/theme/app_look.dart';
+import 'package:ar_society_app/core/theme/app_theme.dart';
+export 'package:ar_society_app/core/theme/app_look.dart' show HudBackdrop;
 import 'package:ar_society_app/core/theme/design_tokens.dart';
 import 'package:ar_society_app/shared/widgets/app_form.dart' show AppPageSkin;
 
@@ -196,136 +199,19 @@ class AgentHud extends StatelessWidget {
         subtitle: Hud.dim,
         backBackground: Hud.panel,
         backBorder: Hud.cyan.withValues(alpha: 0.4),
-        child: ColoredBox(
-          color: Hud.void0,
-          child: Stack(fit: StackFit.expand, children: [
-            const Positioned.fill(child: HudBackdrop()),
-            DefaultTextStyle.merge(style: const TextStyle(color: Hud.text), child: child),
-          ]),
-        ),
+        // In the Command deck the app already draws this backdrop behind every page.
+        child: AppTheme.isDeck
+            ? DefaultTextStyle.merge(style: const TextStyle(color: Hud.text), child: child)
+            : ColoredBox(
+                color: Hud.void0,
+                child: Stack(fit: StackFit.expand, children: [
+                  const Positioned.fill(child: HudBackdrop()),
+                  DefaultTextStyle.merge(style: const TextStyle(color: Hud.text), child: child),
+                ]),
+              ),
       ),
     );
   }
-}
-
-/// Deep-space gradient, two nebula glows, a perspective grid falling away to a horizon, a few stars and a slow scan
-/// line. The scan line stands still when the user has asked for less motion.
-class HudBackdrop extends StatefulWidget {
-  const HudBackdrop({super.key});
-  @override
-  State<HudBackdrop> createState() => _HudBackdropState();
-}
-
-class _HudBackdropState extends State<HudBackdrop> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(seconds: 9));
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final still = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    if (still || TickerMode.valuesOf(context).enabled == false) {
-      _c.stop();
-      _c.value = 0.35;
-    } else if (!_c.isAnimating) {
-      _c.repeat();
-    }
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => IgnorePointer(
-        child: ExcludeSemantics(
-          child: RepaintBoundary(child: CustomPaint(painter: _BackdropPainter(_c), isComplex: true)),
-        ),
-      );
-}
-
-class _BackdropPainter extends CustomPainter {
-  final Animation<double> t;
-  _BackdropPainter(this.t) : super(repaint: t);
-
-  static final List<Offset> _stars = () {
-    final r = math.Random(7);
-    return [for (var i = 0; i < 70; i++) Offset(r.nextDouble(), r.nextDouble() * 0.6)];
-  }();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    canvas.drawRect(
-      rect,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF060A1A), Hud.void0, Color(0xFF050817)],
-          stops: [0, 0.55, 1],
-        ).createShader(rect),
-    );
-    void glow(Offset c, double r, Color color) => canvas.drawCircle(
-          c,
-          r,
-          Paint()
-            ..shader = RadialGradient(colors: [color, color.withValues(alpha: 0)]).createShader(Rect.fromCircle(center: c, radius: r)),
-        );
-    final w = size.width, h = size.height;
-    glow(Offset(w * 0.85, h * 0.05), math.max(w, h) * 0.55, Hud.violet.withValues(alpha: 0.16));
-    glow(Offset(w * 0.1, h * 0.3), math.max(w, h) * 0.45, Hud.cyan.withValues(alpha: 0.09));
-
-    final star = Paint()..color = Colors.white;
-    for (var i = 0; i < _stars.length; i++) {
-      final s = _stars[i];
-      final twinkle = 0.25 + 0.35 * (0.5 + 0.5 * math.sin((t.value * 2 * math.pi) + i));
-      star.color = Colors.white.withValues(alpha: twinkle * 0.6);
-      canvas.drawCircle(Offset(s.dx * w, s.dy * h), i % 9 == 0 ? 1.2 : 0.7, star);
-    }
-
-    // Perspective floor grid from the horizon (62%) down.
-    final horizon = h * 0.62;
-    final grid = Paint()
-      ..strokeWidth = 1
-      ..color = Hud.cyan.withValues(alpha: 0.07);
-    final vanish = Offset(w / 2, horizon);
-    for (var i = -14; i <= 14; i++) {
-      canvas.drawLine(vanish, Offset(w / 2 + i * w * 0.12, h), grid);
-    }
-    final drift = t.value; // rows slide toward the viewer
-    for (var k = 0; k < 12; k++) {
-      final p = (k + drift) / 12;
-      final y = horizon + (h - horizon) * p * p;
-      grid.color = Hud.cyan.withValues(alpha: 0.02 + 0.09 * p);
-      canvas.drawLine(Offset(0, y), Offset(w, y), grid);
-    }
-    canvas.drawRect(
-      Rect.fromLTWH(0, horizon - 40, w, 80),
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Hud.cyan.withValues(alpha: 0), Hud.cyan.withValues(alpha: 0.06), Hud.cyan.withValues(alpha: 0)],
-        ).createShader(Rect.fromLTWH(0, horizon - 40, w, 80)),
-    );
-
-    // Scan line.
-    final sy = h * t.value;
-    canvas.drawRect(
-      Rect.fromLTWH(0, sy - 60, w, 60),
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Hud.cyan.withValues(alpha: 0), Hud.cyan.withValues(alpha: 0.035)],
-        ).createShader(Rect.fromLTWH(0, sy - 60, w, 60)),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_BackdropPainter old) => false;
 }
 
 /// HUD corner brackets drawn over a panel's corners.

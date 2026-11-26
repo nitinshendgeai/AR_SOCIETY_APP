@@ -151,7 +151,7 @@ class _VendorSheetState extends ConsumerState<VendorSheet> {
   Widget _section(String title, {bool first = false}) => Padding(
         padding: EdgeInsets.only(top: first ? 0 : 6, bottom: 10),
         child: Text(title,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.primary)),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.primary)),
       );
 
   /// The vendor's type and TDS section. The rate we deduct when paying comes from these (and the PAN).
@@ -196,7 +196,7 @@ class _VendorSheetState extends ConsumerState<VendorSheet> {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'TDS is worked out when you record a payment, from this type, the section and the PAN above (no PAN means 20%). '
             'The PAN must match the type: P individual, H HUF, F firm or LLP, C company.',
             style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
@@ -344,14 +344,14 @@ class _PaidToVendor extends ConsumerWidget {
                 child: Row(children: [
                   Expanded(
                     child: Text('${v.voucherNumber} · ${formatAccountsDate(v.voucherDate)}',
-                        style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                        style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
                   ),
                   Text(formatInr(v.amount), style: const TextStyle(fontSize: 12.5)),
                 ]),
               ),
             if (rows.length > 5)
               Text('and ${rows.length - 5} more in the Day Book',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ]),
         );
       },

@@ -30,7 +30,7 @@ class MyHomeScreen extends ConsumerWidget {
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Text(rmFriendlyError(e), textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.error)),
+            child: Text(rmFriendlyError(e), textAlign: TextAlign.center, style: TextStyle(color: AppTheme.error)),
           ),
         ),
         data: (me) {
@@ -75,7 +75,7 @@ class _Body extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [AppTheme.primary, AppTheme.primaryDark]),
+              gradient: LinearGradient(colors: AppTheme.isDeck ? AppTheme.heroGradient : [AppTheme.primary, AppTheme.primaryDark]),
               borderRadius: BorderRadius.circular(AppTheme.radiusL),
             ),
             child: Row(children: [
@@ -104,7 +104,7 @@ class _Body extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(AppTheme.radiusM),
                 border: Border.all(color: AppTheme.warning.withOpacity(0.3)),
               ),
-              child: const Row(children: [
+              child: Row(children: [
                 Icon(Icons.pending_actions_rounded, color: AppTheme.warning, size: 18),
                 SizedBox(width: 8),
                 Expanded(
@@ -143,12 +143,12 @@ class _Body extends ConsumerWidget {
             children: [
               household.when(
                 loading: () => const LinearProgressIndicator(),
-                error: (_, __) => const Text('Could not load the household',
+                error: (_, __) => Text('Could not load the household',
                     style: TextStyle(color: AppTheme.error, fontSize: 12)),
                 data: (all) {
                   final others = all.where((r) => r.id != me.id).toList();
                   if (others.isEmpty) {
-                    return const Text('No one else is registered on this flat.',
+                    return Text('No one else is registered on this flat.',
                         style: TextStyle(fontSize: 13, color: AppTheme.textSecondary));
                   }
                   return Column(children: [
@@ -156,13 +156,13 @@ class _Body extends ConsumerWidget {
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 6),
                         child: Row(children: [
-                          const Icon(Icons.person_outline_rounded, size: 18, color: AppTheme.textSecondary),
+                          Icon(Icons.person_outline_rounded, size: 18, color: AppTheme.textSecondary),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Text(r.fullName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                               Text(r.residentType.label,
-                                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                             ]),
                           ),
                           if (r.isPrimary) const PrimaryChip(),
@@ -177,7 +177,7 @@ class _Body extends ConsumerWidget {
                 context.tr(_canAddFamily(me)
                     ? 'New family members are added once the society office approves. To remove someone, ask the office.'
                     : 'To add or remove someone, ask the society office.'),
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
               ),
             ],
           ),
@@ -192,10 +192,10 @@ class _Body extends ConsumerWidget {
             children: [
               vehicles.when(
                 loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text(rmFriendlyError(e), style: const TextStyle(color: AppTheme.error, fontSize: 12)),
+                error: (e, _) => Text(rmFriendlyError(e), style: TextStyle(color: AppTheme.error, fontSize: 12)),
                 data: (list) {
                   if (list.isEmpty) {
-                    return const Text('No vehicles registered. Add yours so the gate knows it.',
+                    return Text('No vehicles registered. Add yours so the gate knows it.',
                         style: TextStyle(fontSize: 13, color: AppTheme.textSecondary));
                   }
                   return Column(children: [
@@ -212,7 +212,7 @@ class _Body extends ConsumerWidget {
                                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
                               Text(
                                 [v.vehicleType.label, if (v.parkingSlot != null) 'Slot ${v.parkingSlot}'].join('  ·  '),
-                                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                               ),
                             ]),
                           ),
@@ -222,7 +222,7 @@ class _Body extends ConsumerWidget {
                 },
               ),
               const SizedBox(height: 6),
-              const Text('To change or remove a vehicle, ask the society office.',
+              Text('To change or remove a vehicle, ask the society office.',
                   style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ],
           ),
@@ -263,7 +263,7 @@ class _FamilyRequests extends ConsumerWidget {
                   r.isPending
                       ? '${context.tr(r.typeLabel)} · ${context.tr('Waiting for the office to approve')}'
                       : '${context.tr('Not approved')}: ${r.rejectionReason ?? ''}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),
               ]),
             ),
@@ -289,7 +289,7 @@ class _DetailRow extends StatelessWidget {
       child: Row(children: [
         Icon(icon, size: 18, color: AppTheme.textSecondary),
         const SizedBox(width: 10),
-        SizedBox(width: 120, child: Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary))),
+        SizedBox(width: 120, child: Text(label, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary))),
         Expanded(
           child: Text(has ? value! : 'Not set',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: has ? AppTheme.textPrimary : AppTheme.textSecondary)),

@@ -392,7 +392,7 @@ class _DutyAssignScreenState extends ConsumerState<DutyAssignScreen> {
                   style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               for (final e in byReason.entries) ...[
-                Text(e.key, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                Text(e.key, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
                 for (final s in e.value.take(12))
                   Padding(
                     padding: const EdgeInsets.only(left: 8, top: 2),
@@ -440,9 +440,9 @@ class _Summary extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppTheme.radiusS),
       ),
       child: Row(children: [
-        const Icon(Icons.info_outline_rounded, size: 16, color: AppTheme.primary),
+        Icon(Icons.info_outline_rounded, size: 16, color: AppTheme.primary),
         const SizedBox(width: 8),
-        Expanded(child: Text(text, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary))),
+        Expanded(child: Text(text, style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary))),
       ]),
     );
   }
@@ -467,7 +467,7 @@ class _ChecklistTemplateDropdown extends ConsumerWidget {
       data: (all) {
         final templates = all.where((t) => departments.contains(t.department)).toList();
         if (templates.isEmpty) {
-          return const Text('No checklist templates for the chosen staff yet.',
+          return Text('No checklist templates for the chosen staff yet.',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary));
         }
         return DropdownButtonFormField<ChecklistTemplateEntity>(
@@ -504,7 +504,7 @@ class _StaffPicker extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppTheme.radiusM),
           boxShadow: AppTheme.cardShadow,
         ),
-        child: const Text('No staff found. Add staff first.',
+        child: Text('No staff found. Add staff first.',
             style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
       );
     }
@@ -525,7 +525,7 @@ class _StaffPicker extends StatelessWidget {
           for (final e in byDept.entries) ...[
             Row(children: [
               Text(e.value.first.departmentLabel,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
               const Spacer(),
               TextButton(
                 style: TextButton.styleFrom(

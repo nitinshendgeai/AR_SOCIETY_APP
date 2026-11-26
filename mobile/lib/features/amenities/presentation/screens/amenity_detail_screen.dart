@@ -90,17 +90,17 @@ class _AmenityDetailScreenState extends ConsumerState<AmenityDetailScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(amenityTypeLabel(a.type), style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12.5)),
+                    Text(amenityTypeLabel(a.type), style: TextStyle(color: AppTheme.textSecondary, fontSize: 12.5)),
                     Text(a.hours, style: const TextStyle(fontWeight: FontWeight.w700)),
                   ]),
                 ),
-                if (!a.active) const StatusPill('Closed', AppTheme.textSecondary),
+                if (!a.active) StatusPill('Closed', AppTheme.textSecondary),
               ]),
               if ((a.location ?? '').isNotEmpty || a.capacity != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 10),
                   child: Text([if ((a.location ?? '').isNotEmpty) a.location!, if (a.capacity != null) 'Up to ${a.capacity} people at a time'].join(' · '),
-                      style: const TextStyle(color: AppTheme.textSecondary)),
+                      style: TextStyle(color: AppTheme.textSecondary)),
                 ),
               if ((a.description ?? '').isNotEmpty) Padding(padding: const EdgeInsets.only(top: 10), child: Text(a.description!, style: const TextStyle(height: 1.4))),
               const SizedBox(height: 18),
@@ -187,9 +187,9 @@ class _DaySchedule extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Row(children: [
-                  const Icon(Icons.block_rounded, color: AppTheme.error, size: 18),
+                  Icon(Icons.block_rounded, color: AppTheme.error, size: 18),
                   const SizedBox(width: 8),
-                  Expanded(child: Text('Closed this day${(v.closedReason ?? '').isEmpty ? '' : ': ${v.closedReason}'}', style: const TextStyle(color: AppTheme.error, fontWeight: FontWeight.w600))),
+                  Expanded(child: Text('Closed this day${(v.closedReason ?? '').isEmpty ? '' : ': ${v.closedReason}'}', style: TextStyle(color: AppTheme.error, fontWeight: FontWeight.w600))),
                 ]),
               )
             else if (v.taken.isEmpty)
@@ -256,7 +256,7 @@ class _Rules extends ConsumerWidget {
         ListTile(
           dense: true,
           contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.rule_rounded, size: 20, color: AppTheme.textSecondary),
+          leading: Icon(Icons.rule_rounded, size: 20, color: AppTheme.textSecondary),
           title: Text(ruleText(r)),
           trailing: setup
               ? IconButton(
@@ -282,13 +282,13 @@ class _Rates extends ConsumerWidget {
     final rates = ref.watch(amenityRatesProvider(amenity.id)).valueOrNull ?? const <AmenityRate>[];
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _sectionHeader('Rates', onAdd: setup ? () => showAppSheet(context: context, builder: (_) => RateSheet(amenityId: amenity.id)) : null, addLabel: 'Add a rate'),
-      if (rates.isEmpty) Text(amenity.chargeable ? 'No rate set yet.' : 'Free to use.', style: const TextStyle(color: AppTheme.textSecondary)),
+      if (rates.isEmpty) Text(amenity.chargeable ? 'No rate set yet.' : 'Free to use.', style: TextStyle(color: AppTheme.textSecondary)),
       for (final r in rates)
         ListTile(
           dense: true,
           contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.currency_rupee_rounded, size: 20, color: AppTheme.textSecondary),
-          title: Row(children: [Flexible(child: Text(r.label)), if (r.isDefault) const Padding(padding: EdgeInsets.only(left: 8), child: StatusPill('Used', AppTheme.success))]),
+          leading: Icon(Icons.currency_rupee_rounded, size: 20, color: AppTheme.textSecondary),
+          title: Row(children: [Flexible(child: Text(r.label)), if (r.isDefault) Padding(padding: EdgeInsets.only(left: 8), child: StatusPill('Used', AppTheme.success))]),
           subtitle: Text(r.text),
           trailing: setup
               ? IconButton(
@@ -319,7 +319,7 @@ class _ClosedDates extends ConsumerWidget {
         ListTile(
           dense: true,
           contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.event_busy_rounded, size: 20, color: AppTheme.textSecondary),
+          leading: Icon(Icons.event_busy_rounded, size: 20, color: AppTheme.textSecondary),
           title: Text(dayLabel(d.date)),
           subtitle: (d.reason ?? '').isEmpty ? null : Text(d.reason!),
           trailing: IconButton(

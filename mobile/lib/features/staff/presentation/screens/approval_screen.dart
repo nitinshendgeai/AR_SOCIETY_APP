@@ -160,7 +160,7 @@ class _ErrorView extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             if (isPermission)
-              const Text(
+              Text(
                 'Contact your administrator if you believe this is an error.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
@@ -318,12 +318,12 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(staffLabel,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
                             color: AppTheme.textPrimary)),
                     Text(formatDate(r.attendanceDate),
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   ],
                 ),
               ),
@@ -372,7 +372,7 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
                     const SizedBox(width: 4),
                     Text(
                       _expanded ? 'Hide' : 'Details',
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                     ),
                   ],
                 ),
@@ -448,7 +448,7 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
             ),
             Text(
               formatDate(widget.record.attendanceDate),
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -505,7 +505,7 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
             ),
             Text(
               formatDate(widget.record.attendanceDate),
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 8),
             Container(
@@ -519,7 +519,7 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
                 isCheckin
                     ? 'Rejecting will remove this check-in. The staff member must check in again.'
                     : 'Rejecting will remove this check-out. The staff member must check out again.',
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
               ),
             ),
             const SizedBox(height: 12),
@@ -551,7 +551,7 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
                     reason: reason, department: widget.department);
               }
             },
-            child: const Text('Reject', style: TextStyle(color: Colors.white)),
+            child: Text('Reject', style: TextStyle(color: AppTheme.onPrimary)),
           ),
         ],
       ),
@@ -575,11 +575,11 @@ class _DetailRow extends StatelessWidget {
           SizedBox(
             width: 70,
             child: Text(label,
-                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
           ),
           Expanded(
             child: Text(value,
-                style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary,
+                style: TextStyle(fontSize: 12, color: AppTheme.textPrimary,
                     fontWeight: FontWeight.w500)),
           ),
         ],

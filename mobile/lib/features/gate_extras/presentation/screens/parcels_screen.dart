@@ -64,7 +64,7 @@ class ParcelsScreen extends ConsumerWidget {
                 Padding(
                     padding: const EdgeInsets.fromLTRB(2, 14, 2, 8),
                     child: Text(title,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: AppTheme.textSecondary))),
@@ -175,7 +175,7 @@ class _ParcelCard extends ConsumerWidget {
             Row(children: [
               Expanded(
                   child: Text(title.isEmpty ? 'Parcel' : title,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.textPrimary))),
@@ -196,7 +196,7 @@ class _ParcelCard extends ConsumerWidget {
                     'for ${p.recipientName}',
                   if (p.receivedAt != null) fmt.format(p.receivedAt!),
                 ].join(' · '),
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13, color: AppTheme.textSecondary)),
             if (p.status == 'collected')
               Padding(
@@ -208,14 +208,14 @@ class _ParcelCard extends ConsumerWidget {
                         'by ${p.collectedByName}',
                       if (p.collectedAt != null) fmt.format(p.collectedAt!),
                     ].join(' '),
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12.5, color: AppTheme.textSecondary)),
               ),
             if ((p.note ?? '').isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(p.note!,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12.5, color: AppTheme.textSecondary)),
               ),
             if (p.atGate) ...[
@@ -299,7 +299,7 @@ class _LogSheetState extends ConsumerState<_LogSheet> {
           flats.when(
             loading: () => const LinearProgressIndicator(),
             error: (e, _) => Text(friendlyErrorMessage(e),
-                style: const TextStyle(color: AppTheme.error)),
+                style: TextStyle(color: AppTheme.error)),
             data: (list) => FormFieldBox(label: 'Flat', required: true, child: DropdownButtonFormField<FlatModel>(
               initialValue: _flat,
               isExpanded: true,

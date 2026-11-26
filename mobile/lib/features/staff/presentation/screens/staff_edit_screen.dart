@@ -244,7 +244,7 @@ class _StaffEditScreenState extends ConsumerState<StaffEditScreen> {
                   label: const Text('Deactivate staff'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.error,
-                    side: const BorderSide(color: AppTheme.error),
+                    side: BorderSide(color: AppTheme.error),
                   ),
                 ),
               ),

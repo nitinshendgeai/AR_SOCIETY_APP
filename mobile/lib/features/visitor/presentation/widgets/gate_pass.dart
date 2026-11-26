@@ -17,17 +17,17 @@ Future<void> showGatePass(BuildContext context, VisitorEntity visitor) async {
     builder: (ctx) => AlertDialog(
       title: const Text('Gate code'),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text('For ${visitor.name}', style: const TextStyle(color: AppTheme.textSecondary)),
+        Text('For ${visitor.name}', style: TextStyle(color: AppTheme.textSecondary)),
         const SizedBox(height: 12),
         Semantics(
           label: 'Gate code ${code.split('').join(' ')}',
           excludeSemantics: true,
           child: Text(code,
               key: const Key('gate-code'),
-              style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w800, letterSpacing: 6, color: AppTheme.primary)),
+              style: TextStyle(fontSize: 38, fontWeight: FontWeight.w800, letterSpacing: 6, color: AppTheme.primary)),
         ),
         const SizedBox(height: 12),
-        const Text('The guest tells this code to the guard at the gate. It works once.',
+        Text('The guest tells this code to the guard at the gate. It works once.',
             textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
       ]),
       actions: [

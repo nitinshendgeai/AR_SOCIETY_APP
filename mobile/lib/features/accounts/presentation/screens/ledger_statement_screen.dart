@@ -206,7 +206,7 @@ class _Header extends StatelessWidget {
         ? 'All dates'
         : '${from == null ? 'Start' : formatAccountsDate(from!)} – ${to == null ? 'Today' : formatAccountsDate(to!)}';
     Widget figure(String label, Widget value) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
+          Text(label, style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
           const SizedBox(height: 3),
           value,
         ]);
@@ -216,11 +216,11 @@ class _Header extends StatelessWidget {
       decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text([if (subtitle != null) subtitle!, a.groupName ?? ''].where((s) => s.isNotEmpty).join(' · '),
-            style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+            style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
         if (a.isBank && (a.bankAccountNumber ?? '').isNotEmpty)
           Text('A/c ${a.bankAccountNumber}${a.bankIfsc == null ? '' : ' · ${a.bankIfsc}'}',
-              style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
-        Text(period, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+        Text(period, style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
         const SizedBox(height: 14),
         Wrap(spacing: 28, runSpacing: 12, children: [
           figure('Opening', DrCrText(st.opening, fontSize: 15, weight: FontWeight.w700)),
@@ -253,13 +253,13 @@ class _LineTile extends StatelessWidget {
                   style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
               const SizedBox(height: 2),
               Text('${formatAccountsDate(line.date)} · ${line.voucherNumber}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               if ((line.narration ?? '').isNotEmpty)
                 Text(line.narration!,
                     maxLines: 2, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
+                    style: TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
               Text('Entered by ${line.enteredBy ?? (line.isAuto ? 'System' : '—')}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textTertiary)),
             ]),
           ),
           const SizedBox(width: 10),
@@ -272,7 +272,7 @@ class _LineTile extends StatelessWidget {
                     fontFeatures: const [FontFeature.tabularFigures()])),
             const SizedBox(height: 2),
             Text('Bal ${line.balance.label}',
-                style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
           ]),
         ]),
       ),

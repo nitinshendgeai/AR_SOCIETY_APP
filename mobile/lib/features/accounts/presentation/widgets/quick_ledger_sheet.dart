@@ -105,7 +105,7 @@ class _QuickLedgerSheetState extends ConsumerState<QuickLedgerSheet> {
       title: 'New ledger',
       subtitle: 'Made now, and used on this voucher',
       child: _error != null
-          ? Text(friendlyErrorMessage(_error!), style: const TextStyle(color: AppTheme.error))
+          ? Text(friendlyErrorMessage(_error!), style: TextStyle(color: AppTheme.error))
           : groups == null
               ? const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
               : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

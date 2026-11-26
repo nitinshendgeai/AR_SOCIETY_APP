@@ -49,7 +49,7 @@ class ResidentLoginReport {
 }
 
 /// Statuses in the order the report lists them, with what they say and what to do about each.
-const _statusInfo = <String, (String, String, Color)>{
+final _statusInfo = <String, (String, String, Color)>{
   'login_unlinked': ('Login exists, not linked', 'Open the resident and link the login', AppTheme.warning),
   'no_login': ('No login yet', 'Has a mobile number: a login can be made for it', AppTheme.error),
   'no_mobile': ('No mobile number', 'Add a mobile number to the resident', AppTheme.error),
@@ -115,7 +115,7 @@ class _ResidentLoginStatusScreenState extends ConsumerState<ResidentLoginStatusS
             style: TextStyle(fontSize: 13, height: 1.4),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Until a resident signs in, anyone who knows this password and their mobile number could sign in as them.',
             style: TextStyle(fontSize: 12, color: AppTheme.warning, height: 1.4),
           ),
@@ -231,7 +231,7 @@ class _ResidentLoginStatusScreenState extends ConsumerState<ResidentLoginStatusS
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+            child: Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
           ),
         ),
         data: (data) => ResponsiveBody(
@@ -293,7 +293,7 @@ class _ResidentLoginStatusScreenState extends ConsumerState<ResidentLoginStatusS
         title: Text('${r.fullName} · ${r.flatLabel}', style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(r.phone ?? 'No mobile number'),
-          if (hint.isNotEmpty) Text(hint, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          if (hint.isNotEmpty) Text(hint, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           const SizedBox(height: 4),
           StatusPill(info.$1, info.$3),
         ]),

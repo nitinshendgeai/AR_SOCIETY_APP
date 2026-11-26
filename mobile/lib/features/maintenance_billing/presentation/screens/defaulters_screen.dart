@@ -113,7 +113,7 @@ class _DefaultersScreenState extends ConsumerState<DefaultersScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(flatIds == null ? (_wing == null ? 'Remind all defaulters?' : 'Remind all defaulters of $_wing?') : 'Send reminder to $count flat${count == 1 ? '' : 's'}?'),
-        content: const Text(
+        content: Text(
           'Members with an app login get a notification with the amount outstanding and the oldest due date.',
           style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
         ),
@@ -361,7 +361,7 @@ class _DefaultersScreenState extends ConsumerState<DefaultersScreen> {
                           width: 118,
                           sortKey: (f) => f.lastPaymentDate,
                           cell: (f) => f.lastPaymentDate == null
-                              ? const Text('—', style: TextStyle(color: AppTheme.textTertiary))
+                              ? Text('—', style: TextStyle(color: AppTheme.textTertiary))
                               : TwoLineCell(_d(f.lastPaymentDate!), _rs(f.lastPaymentAmount ?? 0)),
                         ),
                         AppDataColumn(
@@ -389,7 +389,7 @@ class _DefaultersScreenState extends ConsumerState<DefaultersScreen> {
                         'Dues are aged from each bill\'s due date; payments on account are set off against the oldest '
                         'bills first. Interest at ${s.interestRatePct!.toStringAsFixed(s.interestRatePct! % 1 == 0 ? 0 : 2)}% '
                         'p.a. on arrears is added to the next bill.',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                       ),
                     ),
                 ],
@@ -421,7 +421,7 @@ class _AgeingStrip extends StatelessWidget {
                   Container(width: 8, height: 8,
                       decoration: BoxDecoration(color: bucketColor(e.key), shape: BoxShape.circle)),
                   const SizedBox(width: 6),
-                  Text(e.value, style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary,
+                  Text(e.value, style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary,
                       fontWeight: FontWeight.w600)),
                 ]),
                 const SizedBox(height: 3),
@@ -470,7 +470,7 @@ class _FlatCard extends StatelessWidget {
                           fontFeatures: [FontFeature.tabularFigures()])),
                 ]),
                 const SizedBox(height: 2),
-                Text(f.memberName, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                Text(f.memberName, style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
                 const SizedBox(height: 6),
                 Row(children: [
                   StatusPill(overdueLabel(f.daysOverdue), color),
@@ -478,14 +478,14 @@ class _FlatCard extends StatelessWidget {
                   Flexible(
                     child: Text('${f.unpaidBills} unpaid · since ${_d(f.oldestDueDate)}',
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   ),
                 ]),
                 if (f.lastRemindedAt != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text('Reminded ${_d(f.lastRemindedAt!.toLocal())}',
-                        style: const TextStyle(fontSize: 11.5, color: AppTheme.textTertiary)),
+                        style: TextStyle(fontSize: 11.5, color: AppTheme.textTertiary)),
                   ),
               ]),
             ),
@@ -520,7 +520,7 @@ class _FlatSheet extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text('${_rs(f.onAccount)} paid on account is set off against the oldest bills.',
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ),
         const SizedBox(height: 14),
         const Text('Unpaid bills', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
@@ -563,7 +563,7 @@ class _FlatSheet extends StatelessWidget {
   }
 
   Widget _fig(String label, String value) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
+        Text(label, style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
         const SizedBox(height: 2),
         Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
       ]);

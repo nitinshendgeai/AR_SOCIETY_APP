@@ -35,7 +35,7 @@ class TdsRulesScreen extends ConsumerWidget {
           child: ResponsiveBody(
             maxWidth: 860,
             child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 96), children: [
-              const Text(
+              Text(
                   'The rate deducted when a vendor is paid, by nature of payment and kind of vendor. These start from the '
                   'usual rates; have your chartered accountant confirm them. A vendor with no PAN is deducted at 20% '
                   'whatever the rate here.',
@@ -78,7 +78,7 @@ class _RuleTile extends StatelessWidget {
         subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('${r.payeeLabel} · section ${r.section}'),
           Text('Nothing deducted under: ${_limit(r.yearlyLimit)} in the year · ${_limit(r.singleLimit)} in one payment',
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           if (!r.active) ...[const SizedBox(height: 4), StatusPill('Not in use', AppTheme.warning)],
         ]),
         isThreeLine: true,

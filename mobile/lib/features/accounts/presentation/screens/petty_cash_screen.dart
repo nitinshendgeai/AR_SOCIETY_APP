@@ -91,7 +91,7 @@ class PettyCashScreen extends ConsumerWidget {
               loading: () => const Padding(padding: EdgeInsets.all(16), child: AppLoader()),
               error: (e, _) => AppErrorState(compact: true, message: friendlyErrorMessage(e), onRetry: () => ref.invalidate(pettyCashCountsProvider(societyId))),
               data: (rows) => rows.isEmpty
-                  ? const Card(
+                  ? Card(
                       child: Padding(
                           padding: EdgeInsets.all(16),
                           child: Text('No count yet. Count the cash in the box now and then, and note it here.',
@@ -116,7 +116,7 @@ class _Box extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('In the box (per the books)', style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+          Text('In the box (per the books)', style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
           const SizedBox(height: 2),
           Text(formatInr(box.balance),
               key: const ValueKey('petty-balance'), style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800)),
@@ -133,13 +133,13 @@ class _Box extends StatelessWidget {
             const SizedBox(height: 10),
             Text('${formatInr(box.pending)} more is set aside by expenses waiting for approval.',
                 key: const ValueKey('petty-pending'),
-                style: const TextStyle(fontSize: 12.5, color: AppTheme.warning, fontWeight: FontWeight.w600)),
+                style: TextStyle(fontSize: 12.5, color: AppTheme.warning, fontWeight: FontWeight.w600)),
           ],
           if (low) ...[
             const SizedBox(height: 10),
             Text('Top up ${formatInr(box.topUpNeeded!)} to bring it back to the float.',
                 key: const ValueKey('petty-low'),
-                style: const TextStyle(fontSize: 12.5, color: AppTheme.warning, fontWeight: FontWeight.w600)),
+                style: TextStyle(fontSize: 12.5, color: AppTheme.warning, fontWeight: FontWeight.w600)),
           ],
         ]),
       ),
@@ -153,7 +153,7 @@ class _Fact extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
+        Text(label, style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
         Text(value, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
       ]);
 }
@@ -526,7 +526,7 @@ class _PettyCountSheetState extends ConsumerState<PettyCountSheet> {
         const SizedBox(height: 12),
         TextField(controller: _note, decoration: const InputDecoration(labelText: 'Note (optional)')),
         const SizedBox(height: 6),
-        const Text('A count only records the difference. Nothing is posted to the books.',
+        Text('A count only records the difference. Nothing is posted to the books.',
             style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         const SizedBox(height: 16),
         AppPrimaryButton(label: 'Save count', isLoading: _saving, onPressed: _saving ? null : () => _save(societyId)),

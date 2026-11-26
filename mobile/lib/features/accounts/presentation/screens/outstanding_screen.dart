@@ -181,7 +181,7 @@ class _PartyTile extends StatelessWidget {
             for (final (key, label) in labels)
               if ((party.buckets[key] ?? 0) > 0)
                 Text('$label: ${formatInr(party.buckets[key]!)}',
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ]),
           const SizedBox(height: 8),
           for (final b in bills)

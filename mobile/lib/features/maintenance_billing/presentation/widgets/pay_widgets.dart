@@ -26,7 +26,7 @@ Future<void> showHowToPaySheet(BuildContext context, {MaintenanceBill? bill}) =>
               bill == null
                   ? 'Pay the society using the details below, then tell the office.'
                   : 'Pay ${formatRupees(bill.outstanding)} using the details below, then tell the office.',
-              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 14),
             const HowToPayCard(),
@@ -75,7 +75,7 @@ class HowToPayCard extends ConsumerWidget {
             if (i.notes != null && i.notes!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text(i.notes!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                child: Text(i.notes!, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ),
           ]),
         );
@@ -113,7 +113,7 @@ class _CopyRow extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+              Text(label, style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
               SelectableText(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
             ]),
           ),

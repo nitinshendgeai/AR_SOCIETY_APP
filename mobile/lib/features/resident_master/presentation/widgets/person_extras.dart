@@ -179,7 +179,7 @@ class PersonExtrasSections extends ConsumerWidget {
       columns: 1,
       children: [
         if (rows.isEmpty)
-          const Text('No family members added.', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+          Text('No family members added.', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
         ...rows,
         Align(
           alignment: Alignment.centerLeft,
@@ -313,7 +313,7 @@ class PersonExtrasSections extends ConsumerWidget {
       columns: 1,
       children: [
         if (rows.isEmpty)
-          const Text('No vehicles added.', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+          Text('No vehicles added.', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
         ...rows,
         Align(
           alignment: Alignment.centerLeft,
@@ -368,13 +368,13 @@ class PersonExtrasSections extends ConsumerWidget {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-              Text(subtitle, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+              Text(subtitle, style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
             ]),
           ),
           IconButton(
             key: removeKey,
             tooltip: 'Remove',
-            icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AppTheme.error),
+            icon: Icon(Icons.delete_outline_rounded, size: 20, color: AppTheme.error),
             onPressed: onRemove,
           ),
         ]),

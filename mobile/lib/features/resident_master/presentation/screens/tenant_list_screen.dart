@@ -329,7 +329,7 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
                   size: 14, color: _activeFilter == true ? AppTheme.success : AppTheme.textSecondary),
               const SizedBox(width: 4),
               Text(_activeFilter == true ? 'Active' : 'Inactive',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
             ]),
           ),
         ),
@@ -413,7 +413,7 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Text(message, textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.error)),
+                    child: Text(message, textAlign: TextAlign.center, style: TextStyle(color: AppTheme.error)),
                   ),
                   const SizedBox(height: 12),
                   ElevatedButton(onPressed: _load, child: const Text('Retry')),
@@ -475,7 +475,7 @@ class _TenantCard extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(color: AppTheme.secondary.withOpacity(0.1), borderRadius: BorderRadius.circular(AppTheme.radiusM)),
-              child: const Icon(Icons.groups_2_rounded, color: AppTheme.secondary, size: 22),
+              child: Icon(Icons.groups_2_rounded, color: AppTheme.secondary, size: 22),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -486,20 +486,20 @@ class _TenantCard extends StatelessWidget {
                     Expanded(
                       child: Text(tenant.fullName,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
                     ),
                     ActiveBadge(isActive: tenant.isActive && !tenant.hasMovedOut),
                   ]),
                   const SizedBox(height: 4),
                   Row(children: [
-                    const Icon(Icons.door_front_door_outlined, size: 13, color: AppTheme.textSecondary),
+                    Icon(Icons.door_front_door_outlined, size: 13, color: AppTheme.textSecondary),
                     const SizedBox(width: 4),
-                    Text(flat?.displayName ?? '—', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    Text(flat?.displayName ?? '—', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                     if (tenant.phone != null) ...[
                       const SizedBox(width: 10),
-                      const Icon(Icons.phone_rounded, size: 13, color: AppTheme.textSecondary),
+                      Icon(Icons.phone_rounded, size: 13, color: AppTheme.textSecondary),
                       const SizedBox(width: 4),
-                      Text(tenant.phone!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      Text(tenant.phone!, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                     ],
                   ]),
                   if (tenant.agreementEndDate != null) ...[

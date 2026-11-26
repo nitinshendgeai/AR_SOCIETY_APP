@@ -57,7 +57,7 @@ class RecurringExpensesScreen extends ConsumerWidget {
         child: ResponsiveBody(
           maxWidth: 820,
           child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 96), children: [
-            const Text(
+            Text(
               'Bills that come every month. Each month they appear below as due. Confirm the amount, or enter it '
               'for a bill that changes, and it is booked as a payment under its maintenance element.',
               style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
@@ -72,7 +72,7 @@ class RecurringExpensesScreen extends ConsumerWidget {
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Row(children: [
-                          const Icon(Icons.check_circle_rounded, color: AppTheme.success),
+                          Icon(Icons.check_circle_rounded, color: AppTheme.success),
                           const SizedBox(width: 12),
                           Expanded(child: Text(all.valueOrNull?.isEmpty ?? true ? 'Nothing set up yet.' : 'Nothing due. You are up to date.')),
                         ]),
@@ -158,7 +158,7 @@ class _DueCard extends ConsumerWidget {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(due.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                   const SizedBox(height: 2),
-                  Text(monthLabel(due.month), style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                  Text(monthLabel(due.month), style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                 ]),
               ),
               Text(due.amount == null ? 'Amount varies' : formatInr(due.amount!),
@@ -169,14 +169,14 @@ class _DueCard extends ConsumerWidget {
               if (due.daysLate > 0)
                 StatusPill('${due.daysLate} day${due.daysLate == 1 ? '' : 's'} late', due.daysLate > 30 ? AppTheme.error : AppTheme.warning)
               else
-                const StatusPill('Due today', AppTheme.primary),
+                StatusPill('Due today', AppTheme.primary),
               Text(
                 [
                   if ((due.expenseAccountName ?? '').isNotEmpty) due.expenseAccountName!,
                   if ((due.elementName ?? '').isNotEmpty) 'counts towards ${due.elementName}',
                   if ((due.payee ?? '').isNotEmpty) due.payee!,
                 ].join(' · '),
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
               ),
             ]),
             const SizedBox(height: 10),
@@ -211,7 +211,7 @@ class _TemplateTile extends StatelessWidget {
             if ((r.elementName ?? '').isNotEmpty) '→ ${r.elementName}',
           ].join(' · ')),
           trailing: !r.isActive
-              ? const StatusPill('Paused', AppTheme.textSecondary)
+              ? StatusPill('Paused', AppTheme.textSecondary)
               : r.dueMonths > 0
                   ? StatusPill('${r.dueMonths} due', AppTheme.warning)
                   : null,
@@ -485,7 +485,7 @@ class _RecordDueSheetState extends ConsumerState<RecordDueSheet> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text('${monthLabel(widget.due.month)} · ${widget.due.expenseAccountName ?? ''}'
               '${(widget.due.elementName ?? '').isEmpty ? '' : ' · counts towards ${widget.due.elementName}'}',
-              style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
           const SizedBox(height: 14),
           FormFieldBox(label: 'Amount for this month (₹)', required: true, child: TextFormField(
             controller: _amount,

@@ -64,7 +64,7 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
         width: 400,
         child: sent
             ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Icon(Icons.mark_email_read_rounded, color: AppTheme.success),
+                Icon(Icons.mark_email_read_rounded, color: AppTheme.success),
                 const SizedBox(width: 12),
                 Expanded(child: Text(_sentMessage!)),
               ])
@@ -74,7 +74,7 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Enter the email or mobile number you sign in with. Your society office will '
                       'reset your password and give you a temporary one.',
                       style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
@@ -95,7 +95,7 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
                     ),
                     if (_error != null) ...[
                       const SizedBox(height: 12),
-                      Text(_error!, style: const TextStyle(color: AppTheme.error, fontSize: 13)),
+                      Text(_error!, style: TextStyle(color: AppTheme.error, fontSize: 13)),
                     ],
                   ],
                 ),

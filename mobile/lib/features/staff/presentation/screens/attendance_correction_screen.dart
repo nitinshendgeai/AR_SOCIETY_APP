@@ -142,7 +142,7 @@ class _CorrectionReviewCard extends ConsumerWidget {
               Expanded(
                 child: Text(
                   correction.staffName ?? 'Staff #${correction.staffId.substring(0, correction.staffId.length.clamp(0, 8))}',
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimary),
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimary),
                 ),
               ),
               Container(
@@ -159,7 +159,7 @@ class _CorrectionReviewCard extends ConsumerWidget {
           ),
           const SizedBox(height: 4),
           Text(formatDate(correction.correctionDate),
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           const SizedBox(height: 10),
           if (correction.originalStatus != correction.requestedStatus &&
               correction.requestedStatus != null)
@@ -182,11 +182,11 @@ class _CorrectionReviewCard extends ConsumerWidget {
             ),
           const SizedBox(height: 6),
           Text(correction.reason,
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontStyle: FontStyle.italic)),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontStyle: FontStyle.italic)),
           if (correction.status == CorrectionStatus.rejected && correction.rejectionReason != null) ...[
             const SizedBox(height: 6),
             Text('Rejected: ${correction.rejectionReason}',
-                style: const TextStyle(fontSize: 12, color: AppTheme.error)),
+                style: TextStyle(fontSize: 12, color: AppTheme.error)),
           ],
           if (correction.isPending) ...[
             const SizedBox(height: 12),
@@ -248,7 +248,7 @@ class _CorrectionReviewCard extends ConsumerWidget {
               ref.read(correctionProvider.notifier)
                   .reject(correction.id, societyId, reasonCtrl.text.trim());
             },
-            child: const Text('Reject', style: TextStyle(color: Colors.white)),
+            child: Text('Reject', style: TextStyle(color: AppTheme.onPrimary)),
           ),
         ],
       ),

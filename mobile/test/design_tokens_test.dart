@@ -27,7 +27,7 @@ void main() {
   });
 
   test('every text colour in the theme meets 4.5:1 on white and on the page background', () {
-    const text = {
+    final text = {
       'textPrimary': AppTheme.textPrimary,
       'textSecondary': AppTheme.textSecondary,
       'textTertiary': AppTheme.textTertiary,

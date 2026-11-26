@@ -42,7 +42,7 @@ class _ApprovalsScreenState extends ConsumerState<ApprovalsScreen> {
       builder: (ctx) => AlertDialog(
         title: Text('Reject ${v.voucherNumber}?'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('It stays on record as rejected and never counts in the books. Say why, so the person who entered it can correct it.',
+          Text('It stays on record as rejected and never counts in the books. Say why, so the person who entered it can correct it.',
               style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           const SizedBox(height: 12),
           FormFieldBox(label: 'Reason', required: true, child: TextField(controller: reason, maxLines: 2)),
@@ -159,24 +159,24 @@ class _ApprovalCard extends StatelessWidget {
         Text(
             '${formatAccountsDate(v.voucherDate)} · Entered by ${v.createdByName ?? '—'}'
             '${(v.vendorName ?? '').isEmpty ? '' : ' · Paid to ${v.vendorName}'}',
-            style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+            style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
         if ((v.narration ?? '').isNotEmpty) ...[
           const SizedBox(height: 6),
           Text(v.narration!, style: const TextStyle(fontSize: 13.5)),
         ],
         const SizedBox(height: 8),
-        for (final l in lines) Text(l, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+        for (final l in lines) Text(l, style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
         if ((v.reference ?? '').isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Text('Reference ${v.reference}', style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+            child: Text('Reference ${v.reference}', style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
           ),
         const SizedBox(height: 12),
         if (!mayApprove)
-          const Text('Waiting for the admin or a committee member.',
+          Text('Waiting for the admin or a committee member.',
               style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary))
         else if (!v.canApprove)
-          const Text('You entered this one, so another admin or committee member has to approve it.',
+          Text('You entered this one, so another admin or committee member has to approve it.',
               style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary))
         else
           Wrap(spacing: 10, runSpacing: 8, children: [
@@ -191,7 +191,7 @@ class _ApprovalCard extends StatelessWidget {
               icon: const Icon(Icons.close_rounded, size: 18),
               label: const Text('Reject'),
               style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.error, minimumSize: const Size(0, 44), side: const BorderSide(color: AppTheme.error)),
+                  foregroundColor: AppTheme.error, minimumSize: const Size(0, 44), side: BorderSide(color: AppTheme.error)),
             ),
           ]),
       ]),

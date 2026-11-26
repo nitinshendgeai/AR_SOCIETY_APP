@@ -158,7 +158,7 @@ class _EditMyProfileScreenState extends ConsumerState<EditMyProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(children: [
-                        const Icon(Icons.pending_actions_rounded, color: AppTheme.warning, size: 18),
+                        Icon(Icons.pending_actions_rounded, color: AppTheme.warning, size: 18),
                         const SizedBox(width: 8),
                         const Expanded(
                           child: Text('Change request pending approval',
@@ -169,10 +169,10 @@ class _EditMyProfileScreenState extends ConsumerState<EditMyProfileScreen> {
                       ...pending.changes.entries.map((e) => Padding(
                             padding: const EdgeInsets.symmetric(vertical: 2),
                             child: Text('${_fieldLabel(e.key)}: ${e.value ?? '—'}',
-                                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
                           )),
                       const SizedBox(height: 6),
-                      const Text(
+                      Text(
                         'You can send a new request once this one is reviewed by an Admin or Committee member.',
                         style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                       ),

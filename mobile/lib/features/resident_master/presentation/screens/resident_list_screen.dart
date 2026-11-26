@@ -242,7 +242,7 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
                   color: _activeFilter == true ? AppTheme.success : AppTheme.textSecondary),
               const SizedBox(width: 4),
               Text(_activeFilter == true ? 'Active' : 'Inactive',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
             ]),
           ),
         ),
@@ -350,7 +350,7 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Text(message, textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.error)),
+                      child: Text(message, textAlign: TextAlign.center, style: TextStyle(color: AppTheme.error)),
                     ),
                     const SizedBox(height: 12),
                     ElevatedButton(onPressed: _load, child: const Text('Retry')),
@@ -412,7 +412,7 @@ class _ResidentCard extends StatelessWidget {
                 color: AppTheme.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(AppTheme.radiusM),
               ),
-              child: const Icon(Icons.person_rounded, color: AppTheme.primary, size: 22),
+              child: Icon(Icons.person_rounded, color: AppTheme.primary, size: 22),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -423,22 +423,22 @@ class _ResidentCard extends StatelessWidget {
                     Expanded(
                       child: Text(resident.fullName,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
                     ),
                     if (resident.isPrimary) ...[const PrimaryChip(), const SizedBox(width: 6)],
                     ResidentTypeBadge(type: resident.residentType),
                   ]),
                   const SizedBox(height: 4),
                   Row(children: [
-                    const Icon(Icons.door_front_door_outlined, size: 13, color: AppTheme.textSecondary),
+                    Icon(Icons.door_front_door_outlined, size: 13, color: AppTheme.textSecondary),
                     const SizedBox(width: 4),
                     Text(flat?.displayName ?? '—',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                     if (resident.phone != null) ...[
                       const SizedBox(width: 10),
-                      const Icon(Icons.phone_rounded, size: 13, color: AppTheme.textSecondary),
+                      Icon(Icons.phone_rounded, size: 13, color: AppTheme.textSecondary),
                       const SizedBox(width: 4),
-                      Text(resident.phone!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      Text(resident.phone!, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                     ],
                   ]),
                   if (!resident.isActive) ...[

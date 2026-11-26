@@ -47,7 +47,7 @@ class RolesScreen extends ConsumerWidget {
       body: async.when(
         loading: () => const AppLoader(),
         error: (e, _) => ListView(children: [
-          Padding(padding: const EdgeInsets.all(24), child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)))
+          Padding(padding: const EdgeInsets.all(24), child: Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)))
         ]),
         data: (all) {
           final mine = all.where((r) => r.isCustom).toList();
@@ -57,7 +57,7 @@ class RolesScreen extends ConsumerWidget {
             child: ResponsiveBody(
               maxWidth: 860,
               child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 96), children: [
-                const Text(
+                Text(
                     'Roles decide what a user may do and which screens they see. The standard roles are shared by every society. '
                     'Add a role of your own when none of them fits, for example a gym instructor or a librarian.',
                     style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.35)),
@@ -89,7 +89,7 @@ class _Heading extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
-        child: Text(text, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.primary)),
+        child: Text(text, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.primary)),
       );
 }
 
@@ -144,7 +144,7 @@ class _RoleTile extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(top: 2),
             child: Text(r.userCount == 1 ? '1 user' : '${r.userCount} users',
-                style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
           ),
           if (r.isCustom) ...[
             const SizedBox(height: 10),

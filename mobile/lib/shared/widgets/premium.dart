@@ -63,20 +63,20 @@ class PremiumSurface extends StatelessWidget {
   final VoidCallback? onTap;
   final EdgeInsetsGeometry padding;
   final double radius;
-  final Color color;
+  final Color? color; // the card colour of the look in use when not given
   const PremiumSurface({
     super.key,
     required this.child,
     this.onTap,
     this.padding = const EdgeInsets.all(16),
     this.radius = AppTheme.radiusL,
-    this.color = AppTheme.cardBg,
+    this.color,
   });
 
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
-          color: color,
+          color: color ?? AppTheme.cardBg,
           borderRadius: BorderRadius.circular(radius),
           boxShadow: AppTheme.cardShadow,
         ),
@@ -100,14 +100,20 @@ class HeroBanner extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         width: double.infinity,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF0A2A6B), Color(0xFF0057D9), Color(0xFF2F8CFF)],
-            stops: [0, 0.6, 1],
+          gradient: LinearGradient(
+            colors: AppTheme.heroGradient,
+            stops: const [0, 0.6, 1],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-          boxShadow: [BoxShadow(color: const Color(0xFF0057D9).withOpacity(0.32), blurRadius: 24, offset: const Offset(0, 10))],
+          border: AppTheme.isDeck ? Border.all(color: AppTheme.primary.withOpacity(0.35)) : null,
+          boxShadow: [
+            BoxShadow(
+                color: (AppTheme.isDeck ? AppTheme.primary : const Color(0xFF0057D9)).withOpacity(AppTheme.isDeck ? 0.18 : 0.32),
+                blurRadius: 24,
+                offset: const Offset(0, 10)),
+          ],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(AppTheme.radiusXl),
@@ -140,7 +146,7 @@ class SectionHeading extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: Text(text,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimary, letterSpacing: -0.1)),
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimary, letterSpacing: -0.1)),
         ),
       ]);
 }

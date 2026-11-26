@@ -132,7 +132,7 @@ class _VehicleReportTabState extends ConsumerState<VehicleReportTab> {
         ]),
         if (_section >= 2) _monthBar(shown) else const SizedBox(height: 8),
         if (_section < 2)
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(bottom: 8),
             child: Text('As on today', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ),
@@ -237,7 +237,7 @@ class _VehicleReportTabState extends ConsumerState<VehicleReportTab> {
                   FittedBox(
                       child: Text('$value', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color))),
                   const SizedBox(height: 2),
-                  Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
+                  Text(label, textAlign: TextAlign.center, style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
                 ]),
               ),
             ),
@@ -247,7 +247,7 @@ class _VehicleReportTabState extends ConsumerState<VehicleReportTab> {
 
   Widget _heading(String text) => Padding(
         padding: const EdgeInsets.only(top: 12, bottom: 8),
-        child: Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
+        child: Text(text, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
       );
 
   Widget _line(String text, {Color? color}) => Padding(
@@ -260,12 +260,12 @@ class _VehicleReportTabState extends ConsumerState<VehicleReportTab> {
       : Padding(
           padding: const EdgeInsets.only(top: 4, bottom: 8),
           child: Text('Showing the first $shown of $total. "Print or download" has them all.',
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         );
 
   Widget _empty(String text) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Text(text, style: const TextStyle(color: AppTheme.textSecondary)),
+        child: Text(text, style: TextStyle(color: AppTheme.textSecondary)),
       );
 
   String _counted(Object? by) => ((by as Map?) ?? const {}).entries.map((e) => '${e.key} ${e.value}').join(' · ');
@@ -338,7 +338,7 @@ class _VehicleReportTabState extends ConsumerState<VehicleReportTab> {
               ? IconButton(
                   key: Key('vr-remove-${v['id']}'),
                   tooltip: 'Deregister this vehicle',
-                  icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AppTheme.error),
+                  icon: Icon(Icons.delete_outline_rounded, size: 20, color: AppTheme.error),
                   onPressed: _busy ? null : () => _deregister(['${v['id']}']),
                 )
               : null,
@@ -507,7 +507,7 @@ class _RowCard extends StatelessWidget {
               if (subtitle != null && subtitle!.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Text(subtitle!, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+                  child: Text(subtitle!, style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
                 ),
               if (detail != null)
                 Padding(

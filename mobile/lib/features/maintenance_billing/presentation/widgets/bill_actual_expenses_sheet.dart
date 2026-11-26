@@ -60,7 +60,7 @@ class _BillActualExpensesSheetState extends ConsumerState<BillActualExpensesShee
       subtitle: 'Each tick bills exactly what was spent in the billing cycle, shared by area or equally.',
       child: heads.when(
         loading: () => const Padding(padding: EdgeInsets.all(24), child: AppLoader()),
-        error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+        error: (e, _) => Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
         data: (all) {
           final list = all.where(_eligible).toList();
           if (!_seeded) {
@@ -68,7 +68,7 @@ class _BillActualExpensesSheetState extends ConsumerState<BillActualExpensesShee
             _picked.addAll(list.where((c) => !c.isPeriodExpense && _suggested(c)).map((c) => c.id));
           }
           if (list.isEmpty) {
-            return const Text('No charge head is made from an element with a spend-based calculation yet.',
+            return Text('No charge head is made from an element with a spend-based calculation yet.',
                 style: TextStyle(color: AppTheme.textSecondary));
           }
           final changeable = _picked.where((id) => list.any((c) => c.id == id && !c.isPeriodExpense)).length;
@@ -90,7 +90,7 @@ class _BillActualExpensesSheetState extends ConsumerState<BillActualExpensesShee
                         : 'Now ${c.rateLabel} · has a typed rate — tick only if it should follow spend'),
               ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'A head with no expense in a cycle puts nothing on the bills for that cycle. '
               'Only one head can bill an element\'s expenses.',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),

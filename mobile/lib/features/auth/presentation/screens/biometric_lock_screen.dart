@@ -66,7 +66,7 @@ class _BiometricLockScreenState extends ConsumerState<BiometricLockScreen> {
           const SizedBox(height: 8),
           TextButton(
             onPressed: () => ref.read(authProvider.notifier).logout(),
-            child: const Text('Use password instead', style: TextStyle(color: AppTheme.textSecondary)),
+            child: Text('Use password instead', style: TextStyle(color: AppTheme.textSecondary)),
           ),
         ],
       ),

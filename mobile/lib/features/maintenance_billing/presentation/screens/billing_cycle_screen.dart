@@ -387,7 +387,7 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
             ),
             if (secondary != null) ...[
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 'Not issued yet: if something is wrong, delete these bills and make them again.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
@@ -452,7 +452,7 @@ class _Header extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(
         '${formatBillDate(cycle.cycleStart)} – ${formatBillDate(cycle.cycleEnd)} · Due ${formatBillDate(cycle.dueDate)}',
-        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+        style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
       ),
       if (cycle.isFinalized) ...[
         const SizedBox(height: 12),

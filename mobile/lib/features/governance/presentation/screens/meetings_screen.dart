@@ -89,7 +89,7 @@ class _Heading extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
       padding: const EdgeInsets.fromLTRB(2, 14, 2, 8),
       child: Text(text,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: AppTheme.textSecondary)));
@@ -131,33 +131,33 @@ class _MeetingCard extends StatelessWidget {
                                 cancelled ? TextDecoration.lineThrough : null,
                             color: AppTheme.textPrimary))),
                 if (cancelled)
-                  const StatusPill('Cancelled', AppTheme.error)
+                  StatusPill('Cancelled', AppTheme.error)
                 else if (m.minutesPublished)
-                  const StatusPill('Minutes', AppTheme.success),
+                  StatusPill('Minutes', AppTheme.success),
               ]),
               const SizedBox(height: 4),
               Text(meetingTypeLabel(m.meetingType),
                   style:
-                      const TextStyle(fontSize: 12.5, color: AppTheme.primary)),
+                      TextStyle(fontSize: 12.5, color: AppTheme.primary)),
               const SizedBox(height: 8),
               Row(children: [
-                const Icon(Icons.event_rounded,
+                Icon(Icons.event_rounded,
                     size: 16, color: AppTheme.textSecondary),
                 const SizedBox(width: 6),
                 Expanded(
                     child: Text(when,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 13, color: AppTheme.textSecondary))),
               ]),
               if ((m.venue ?? '').isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Row(children: [
-                  const Icon(Icons.place_outlined,
+                  Icon(Icons.place_outlined,
                       size: 16, color: AppTheme.textSecondary),
                   const SizedBox(width: 6),
                   Expanded(
                       child: Text(m.venue!,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 13, color: AppTheme.textSecondary))),
                 ]),
               ],
@@ -189,7 +189,7 @@ class _MeetingSheet extends ConsumerWidget {
     Widget label(String t) => Padding(
         padding: const EdgeInsets.only(top: 14, bottom: 6),
         child: Text(t,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: AppTheme.primary)));
@@ -201,7 +201,7 @@ class _MeetingSheet extends ConsumerWidget {
             '${meetingTypeLabel(m.meetingType)} · ${DateFormat('d MMM yyyy').format(m.date)}'
             '${m.startTime == null ? '' : ' · ${_timeText(m.startTime)}'}'
             '${(m.venue ?? '').isEmpty ? '' : '\n${m.venue}'}',
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 13.5, color: AppTheme.textSecondary, height: 1.4)),
         if ((m.agenda ?? '').isNotEmpty) ...[
           label('Agenda'),
@@ -273,7 +273,7 @@ class _MeetingSheet extends ConsumerWidget {
                 ref.invalidate(meetingsProvider(sid));
                 if (context.mounted) Navigator.pop(context);
               },
-              child: const Text('Cancel this meeting',
+              child: Text('Cancel this meeting',
                   style: TextStyle(color: AppTheme.error)),
             ),
         ],
@@ -528,7 +528,7 @@ class _MinutesSheetState extends ConsumerState<_MinutesSheet> {
                     'One per line: name, flat, designation (flat and designation are optional)',
                 alignLabelWithHint: true))),
         const SizedBox(height: 14),
-        const Text('Resolutions',
+        Text('Resolutions',
             style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,

@@ -90,7 +90,7 @@ class CertificatesScreen extends ConsumerWidget {
                                   Row(children: [
                                     Expanded(
                                         child: Text(context.tr(r.title),
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                                 fontSize: 15,
                                                 fontWeight: FontWeight.w700,
                                                 color: AppTheme.textPrimary))),
@@ -108,14 +108,14 @@ class CertificatesScreen extends ConsumerWidget {
                                           DateFormat('d MMM yyyy')
                                               .format(r.createdAt!),
                                       ].join(' · '),
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                           fontSize: 13,
                                           color: AppTheme.textSecondary)),
                                   if (r.approved &&
                                       r.certificateNo != null) ...[
                                     const SizedBox(height: 4),
                                     Text('No. ${r.certificateNo}',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w600,
                                             color: AppTheme.primary)),
@@ -204,7 +204,7 @@ class _RequestSheetState extends ConsumerState<_RequestSheet> {
           onChanged: (v) => setState(() => _kind = v),
         )),
         if (kCertificateKinds.where((k) => k.$1 == _kind && k.$3).isNotEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 8),
             child: Text(
                 'Your flat\'s maintenance dues must be cleared for this one.',
@@ -369,11 +369,11 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
             SizedBox(
                 width: 96,
                 child: Text(label,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13, color: AppTheme.textSecondary))),
             Expanded(
                 child: Text(value!,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 14, color: AppTheme.textPrimary))),
           ]),
         );
@@ -413,7 +413,7 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text('${context.tr('PDF in')}: ',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13, color: AppTheme.textSecondary)),
               for (final l in const ['hi', 'mr'])
                 TextButton(

@@ -80,7 +80,7 @@ class _RecordSheetState extends ConsumerState<RecordSheet> {
         key: _form,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           if (e.legalBasis != null) ...[
-            Text('Basis: ${e.legalBasis}', style: const TextStyle(fontSize: 12.5, height: 1.4, color: AppTheme.textSecondary)),
+            Text('Basis: ${e.legalBasis}', style: TextStyle(fontSize: 12.5, height: 1.4, color: AppTheme.textSecondary)),
             const SizedBox(height: 14),
           ],
           FormFieldBox(
@@ -174,7 +174,7 @@ class _SignoffSheetState extends ConsumerState<SignoffSheet> {
                 s.liveOpen == 0
                     ? 'Nothing is flagged from the records.'
                     : '${s.liveOpen} item(s) are still flagged from the records.',
-                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           ]),
         ),
         const SizedBox(height: 14),

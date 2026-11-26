@@ -93,7 +93,7 @@ class FlatChargesTab extends ConsumerWidget {
         error: (e, _) => ListView(children: [
           Padding(
             padding: const EdgeInsets.all(24),
-            child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+            child: Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
           ),
         ]),
         data: (all) {
@@ -103,7 +103,7 @@ class FlatChargesTab extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
               children: [
-                const Text(
+                Text(
                   'A fine or an extra charge on one flat goes on its next maintenance bill, with the reason. '
                   'Use it for things like parking violations, damage to common property or a member\'s own '
                   'additional charges.',
@@ -247,7 +247,7 @@ class _FlatChargeSheetState extends ConsumerState<_FlatChargeSheet> {
           const SizedBox(height: 14),
           flats.when(
             loading: () => const LinearProgressIndicator(),
-            error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+            error: (e, _) => Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
             data: (list) => FormFieldBox(label: 'Flat', required: true, child: DropdownButtonFormField<FlatModel>(
               initialValue: _flat,
               isExpanded: true,
@@ -475,12 +475,12 @@ class _BulkFlatChargeSheetState extends ConsumerState<_BulkFlatChargeSheet> {
           ),
           const SizedBox(height: 8),
           if (_rented)
-            const Text('Every flat marked tenant occupied (an active tenant who has moved in).',
+            Text('Every flat marked tenant occupied (an active tenant who has moved in).',
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondary))
           else
             flats.when(
               loading: () => const LinearProgressIndicator(),
-              error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+              error: (e, _) => Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
               data: (list) => Align(
                 alignment: Alignment.centerLeft,
                 child: OutlinedButton.icon(

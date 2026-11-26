@@ -36,7 +36,7 @@ class TenantDetailScreen extends ConsumerWidget {
       loading: () => const Scaffold(body: const AppLoader()),
       error: (e, _) => AppPage(
         title: 'Tenant',
-        body: Center(child: Text(rmFriendlyError(e), style: const TextStyle(color: AppTheme.error))),
+        body: Center(child: Text(rmFriendlyError(e), style: TextStyle(color: AppTheme.error))),
       ),
       data: (t) => _TenantDetailBody(tenant: t, canEdit: canEdit),
     );
@@ -120,7 +120,7 @@ class _TenantDetailBody extends ConsumerWidget {
                 : null,
             children: [
               if (tenant.agreementStartDate == null)
-                const Text('No agreement on file.', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary))
+                Text('No agreement on file.', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary))
               else ...[
                 // A tenant created with agreement dates but no move-in yet
                 // has those dates cached on the Tenant row only — no
@@ -129,7 +129,7 @@ class _TenantDetailBody extends ConsumerWidget {
                 // active/expired/terminated badge here mislabeled this
                 // case "Terminated", even though nothing was ever active.
                 if (!hasActiveAgreement && tenant.moveInDate == null)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(bottom: 8),
                     child: Text('Not yet active — becomes effective when the tenant moves in.',
                         style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontStyle: FontStyle.italic)),
@@ -150,10 +150,10 @@ class _TenantDetailBody extends ConsumerWidget {
                     ),
                     if (daysLeft != null && daysLeft >= 0 && daysLeft <= 30 && hasActiveAgreement)
                       Text('Expires in $daysLeft day${daysLeft == 1 ? '' : 's'}',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.warning))
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.warning))
                     else if (daysLeft != null && daysLeft < 0 && hasActiveAgreement)
                       Text('Expired ${-daysLeft} day${daysLeft == -1 ? '' : 's'} ago',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.error)),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.error)),
                   ]),
                 const SizedBox(height: 8),
                 RmRow(label: 'Start Date', value: rmFormatDate(tenant.agreementStartDate)),
@@ -177,16 +177,16 @@ class _TenantDetailBody extends ConsumerWidget {
               final historyAsync = ref.watch(tenantAgreementsProvider(tenant.id));
               return historyAsync.when(
                 loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text(rmFriendlyError(e), style: const TextStyle(color: AppTheme.error, fontSize: 12)),
+                error: (e, _) => Text(rmFriendlyError(e), style: TextStyle(color: AppTheme.error, fontSize: 12)),
                 data: (agreements) {
                   if (agreements.isEmpty) {
-                    return const Text('No agreement history available.',
+                    return Text('No agreement history available.',
                         style: TextStyle(fontSize: 13, color: AppTheme.textSecondary));
                   }
                   return Column(
                     children: [
                       for (int i = 0; i < agreements.length; i++) ...[
-                        if (i > 0) const Divider(height: 20, color: AppTheme.border),
+                        if (i > 0) Divider(height: 20, color: AppTheme.border),
                         _AgreementHistoryTile(
                           agreement: agreements[i],
                           label: i == 0 ? 'CURRENT' : i == 1 ? 'PREVIOUS' : 'OLDER',
@@ -204,7 +204,7 @@ class _TenantDetailBody extends ConsumerWidget {
             title: 'Vehicles',
             trailing: canEdit
                 ? IconButton(
-                    icon: const Icon(Icons.add_circle_outline_rounded, size: 20, color: AppTheme.primary),
+                    icon: Icon(Icons.add_circle_outline_rounded, size: 20, color: AppTheme.primary),
                     tooltip: 'Add Vehicle',
                     onPressed: () => showVehicleFormSheet(context, ref, flatId: tenant.flatId, tenantId: tenant.id),
                   )
@@ -212,24 +212,24 @@ class _TenantDetailBody extends ConsumerWidget {
             children: [
               vehiclesAsync.when(
                 loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text(rmFriendlyError(e), style: const TextStyle(color: AppTheme.error, fontSize: 12)),
+                error: (e, _) => Text(rmFriendlyError(e), style: TextStyle(color: AppTheme.error, fontSize: 12)),
                 data: (vehicles) {
                   final own = vehicles.where((v) => v.tenantId == tenant.id).toList();
                   if (own.isEmpty) {
-                    return const Text('No vehicles registered.', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary));
+                    return Text('No vehicles registered.', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary));
                   }
                   return Column(
                     children: own.map((v) => Padding(
                           padding: const EdgeInsets.symmetric(vertical: 6),
                           child: Row(children: [
-                            const Icon(Icons.directions_car_rounded, size: 18, color: AppTheme.textSecondary),
+                            Icon(Icons.directions_car_rounded, size: 18, color: AppTheme.textSecondary),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(v.vehicleNumber, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-                                  Text(v.vehicleType.label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                                  Text(v.vehicleNumber, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+                                  Text(v.vehicleType.label, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                                 ],
                               ),
                             ),
@@ -240,7 +240,7 @@ class _TenantDetailBody extends ConsumerWidget {
                                 onPressed: () => showVehicleFormSheet(context, ref, flatId: tenant.flatId, tenantId: tenant.id, vehicle: v),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.remove_circle_outline_rounded, size: 18, color: AppTheme.error),
+                                icon: Icon(Icons.remove_circle_outline_rounded, size: 18, color: AppTheme.error),
                                 tooltip: 'Deregister vehicle',
                                 onPressed: () => confirmDeactivateVehicle(context, ref, tenant.flatId, v),
                               ),
@@ -257,20 +257,20 @@ class _TenantDetailBody extends ConsumerWidget {
           RmSection(title: 'Occupancy History', children: [
             historyAsync.when(
               loading: () => const LinearProgressIndicator(),
-              error: (_, __) => const Text('Unable to load history', style: TextStyle(color: AppTheme.error, fontSize: 12)),
+              error: (_, __) => Text('Unable to load history', style: TextStyle(color: AppTheme.error, fontSize: 12)),
               data: (logs) {
                 final relevant = logs.where((l) => l.tenantId == tenant.id).toList();
                 if (relevant.isEmpty) {
-                  return const Text('No occupancy events recorded yet.', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary));
+                  return Text('No occupancy events recorded yet.', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary));
                 }
                 return Column(
                   children: relevant.map((l) => Padding(
                         padding: const EdgeInsets.symmetric(vertical: 6),
                         child: Row(children: [
-                          const Icon(Icons.circle, size: 6, color: AppTheme.secondary),
+                          Icon(Icons.circle, size: 6, color: AppTheme.secondary),
                           const SizedBox(width: 8),
-                          Expanded(child: Text(l.eventType.label, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
-                          Text(rmFormatDate(l.eventDate), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                          Expanded(child: Text(l.eventType.label, style: TextStyle(fontSize: 13, color: AppTheme.textPrimary))),
+                          Text(rmFormatDate(l.eventDate), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                         ]),
                       )).toList(),
                 );
@@ -287,7 +287,7 @@ class _TenantDetailBody extends ConsumerWidget {
                 label: const Text('Move In'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.success,
-                  side: const BorderSide(color: AppTheme.success),
+                  side: BorderSide(color: AppTheme.success),
                   minimumSize: const Size(double.infinity, 44),
                 ),
               ),
@@ -298,7 +298,7 @@ class _TenantDetailBody extends ConsumerWidget {
                 label: const Text('Move Out'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.error,
-                  side: const BorderSide(color: AppTheme.error),
+                  side: BorderSide(color: AppTheme.error),
                   minimumSize: const Size(double.infinity, 44),
                 ),
               ),
@@ -339,14 +339,14 @@ class _HeaderCard extends StatelessWidget {
         Container(
           width: 56, height: 56,
           decoration: BoxDecoration(color: AppTheme.secondary.withOpacity(0.16), shape: BoxShape.circle),
-          child: const Icon(Icons.groups_2_rounded, color: AppTheme.secondary, size: 28),
+          child: Icon(Icons.groups_2_rounded, color: AppTheme.secondary, size: 28),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(tenant.fullName, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+              Text(tenant.fullName, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
               const SizedBox(height: 6),
               ActiveBadge(isActive: tenant.isActive && !tenant.hasMovedOut),
             ],
@@ -373,7 +373,7 @@ class _AgreementHistoryTile extends StatelessWidget {
       children: [
         Row(children: [
           Text(label,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.primary, letterSpacing: 0.6)),
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.primary, letterSpacing: 0.6)),
           const SizedBox(width: 8),
           AgreementStatusBadge(
             status: agreement.status == AgreementStatus.active && (rmDaysUntil(agreement.endDate) ?? 0) < 0
@@ -383,23 +383,23 @@ class _AgreementHistoryTile extends StatelessWidget {
         ]),
         const SizedBox(height: 6),
         Text('${rmFormatDate(agreement.startDate)} → ${rmFormatDate(agreement.endDate)}',
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
         if (agreement.monthlyRent != null || agreement.securityDeposit != null) ...[
           const SizedBox(height: 2),
           Text([
             if (agreement.monthlyRent != null) 'Rent ${tableMoney(agreement.monthlyRent)}',
             if (agreement.securityDeposit != null) 'Deposit ${tableMoney(agreement.securityDeposit)}',
-          ].join(' · '), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          ].join(' · '), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ],
         if (agreement.channel != null) ...[
           const SizedBox(height: 2),
           Text(
               'Through ${[agreementChannelLabel(agreement.channel), if ((agreement.channelName ?? '').isNotEmpty) agreement.channelName!].join(' · ')}',
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ],
         if (agreement.terminationReason != null) ...[
           const SizedBox(height: 2),
-          Text(agreement.terminationReason!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          Text(agreement.terminationReason!, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ],
       ],
     );

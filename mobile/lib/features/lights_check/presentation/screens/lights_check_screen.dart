@@ -315,7 +315,7 @@ class _CheckTabState extends ConsumerState<_CheckTab> {
       Row(children: [
         Expanded(
             child: Text('${_marks.length} of $total marked',
-                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, fontWeight: FontWeight.w600))),
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, fontWeight: FontWeight.w600))),
         TextButton.icon(
           key: const Key('mark-all-working'),
           onPressed: () => setState(() {
@@ -494,11 +494,11 @@ class _BrokenCard extends ConsumerWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(light.label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
           const SizedBox(height: 2),
-          Text(light.where, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          Text(light.where, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           const SizedBox(height: 4),
           Text(
             light.since == null ? 'Not working' : 'Not working since ${lightStamp(light.since!)}',
-            style: const TextStyle(fontSize: 12, color: AppTheme.error, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 12, color: AppTheme.error, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 10),
           ElevatedButton.icon(
@@ -669,7 +669,7 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
               if (r.floorsNotChecked + r.floorsPartlyChecked + r.areasNotChecked + r.areasPartlyChecked > 0) _attention(r),
               for (final f in r.floors) _FloorRow(floor: f, onTap: () => _openFloor(f, shown)),
               if (r.areas.isNotEmpty) ...[
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 8, bottom: 8),
                   child: Text('Common areas', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
                 ),
@@ -790,7 +790,7 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
               Text('$value',
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kToneColors[tone]!.foreground)),
               const SizedBox(height: 2),
-              Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              Text(label, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ]),
           ),
         );
@@ -827,7 +827,7 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
           borderRadius: BorderRadius.circular(AppTheme.radiusM),
         ),
         child: Row(children: [
-          const Icon(Icons.info_outline_rounded, size: 18, color: AppTheme.warning),
+          Icon(Icons.info_outline_rounded, size: 18, color: AppTheme.warning),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -900,7 +900,7 @@ class _FloorRow extends StatelessWidget {
                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800))),
           AppStatusChip(label: label, tone: tone),
           const SizedBox(width: 4),
-          const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
+          Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
         ]),
         const SizedBox(height: 6),
         Text(
@@ -908,7 +908,7 @@ class _FloorRow extends StatelessWidget {
           '  ·  Spot lights ${floor.spot.checked}/${floor.spot.expected}'
           '${floor.flats == 0 ? '' : ' (${floor.flats} flat${floor.flats == 1 ? '' : 's'})'}'
           '${floor.camera.expected == 0 ? '' : '  ·  Camera ${floor.camera.checked}/${floor.camera.expected}'}',
-          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+          style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
         ),
         if (floor.notWorking > 0) ...[
           const SizedBox(height: 4),
@@ -960,7 +960,7 @@ class _FlatCard extends StatelessWidget {
                 ),
                 if (l.checkedAt != null) ...[
                   const SizedBox(width: 8),
-                  Text(lightStamp(l.checkedAt!), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  Text(lightStamp(l.checkedAt!), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                 ],
               ]),
             ),
@@ -1032,7 +1032,7 @@ class _ManageAreasSheet extends ConsumerWidget {
               ]),
             ),
           if (areas.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
               child: Text('No areas yet. Add Parking, Lobby, Gym, Podium or Refuse Area.',
                   style: TextStyle(color: AppTheme.textSecondary)),
@@ -1181,12 +1181,12 @@ class _AreaRow extends StatelessWidget {
                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800))),
           AppStatusChip(label: label, tone: tone),
           const SizedBox(width: 4),
-          const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
+          Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
         ]),
         const SizedBox(height: 6),
         Text(
           [for (final i in area.items) '${i.label} ${i.part.checked}/${i.part.expected}'].join('  ·  '),
-          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+          style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
         ),
         if (area.notWorking > 0) ...[
           const SizedBox(height: 4),

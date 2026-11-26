@@ -223,7 +223,7 @@ class _CorrectionTile extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(formatDate(correction.correctionDate),
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimary)),
               ),
               Container(
@@ -240,11 +240,11 @@ class _CorrectionTile extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(correction.reason,
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           if (correction.status == CorrectionStatus.rejected && correction.rejectionReason != null) ...[
             const SizedBox(height: 6),
             Text('Reason: ${correction.rejectionReason}',
-                style: const TextStyle(fontSize: 12, color: AppTheme.error, fontStyle: FontStyle.italic)),
+                style: TextStyle(fontSize: 12, color: AppTheme.error, fontStyle: FontStyle.italic)),
           ],
         ],
       ),
@@ -269,7 +269,7 @@ class _TodayCard extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [AppTheme.primary, AppTheme.primaryDark],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -480,19 +480,19 @@ class _AttendanceHistoryTile extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(formatDate(record.attendanceDate),
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.textPrimary)),
                     const SizedBox(height: 4),
                     Row(
                       children: [
                         Text(
                           '${formatTime(record.checkInTime)} → ${formatTime(record.checkOutTime)}',
-                          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                          style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
                         ),
                         if (record.workingHours != null) ...[
-                          const Text(' · ', style: TextStyle(color: AppTheme.textSecondary)),
+                          Text(' · ', style: TextStyle(color: AppTheme.textSecondary)),
                           Text(formatHours(record.workingHours),
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: AppTheme.primary, fontSize: 12, fontWeight: FontWeight.w600)),
                         ],
                       ],
@@ -542,7 +542,7 @@ Future<void> _openCorrectionDialog(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(formatDate(record.attendanceDate),
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               const SizedBox(height: 12),
               FormFieldBox(label: 'Correct status to', child: DropdownButtonFormField<AttendanceStatus>(
                 value: selected,

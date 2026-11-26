@@ -196,7 +196,7 @@ class _TypeaheadFieldState<T extends Object> extends State<TypeaheadField<T>> {
                 child: SizedBox(
                   width: c.maxWidth,
                   child: list.isEmpty && _newName == null
-                      ? const Padding(
+                      ? Padding(
                           padding: EdgeInsets.all(14),
                           child: Text('Nothing matches', style: TextStyle(color: AppTheme.textSecondary)),
                         )
@@ -212,7 +212,7 @@ class _TypeaheadFieldState<T extends Object> extends State<TypeaheadField<T>> {
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                   child: Row(children: [
-                                    const Icon(Icons.add_circle_outline_rounded, size: 18, color: AppTheme.primary),
+                                    Icon(Icons.add_circle_outline_rounded, size: 18, color: AppTheme.primary),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
@@ -220,7 +220,7 @@ class _TypeaheadFieldState<T extends Object> extends State<TypeaheadField<T>> {
                                             ? 'Create "$_newName"  (Enter or Alt+C)'
                                             : 'Create "$_newName"  (Alt+C)',
                                         overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.primary),
                                       ),
                                     ),
@@ -240,10 +240,10 @@ class _TypeaheadFieldState<T extends Object> extends State<TypeaheadField<T>> {
                                   Expanded(
                                       child: Text(widget.label(o),
                                           overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary))),
+                                          style: TextStyle(fontSize: 14, color: AppTheme.textPrimary))),
                                   if (detail != null && detail.isNotEmpty) ...[
                                     const SizedBox(width: 12),
-                                    Text(detail, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                                    Text(detail, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                                   ],
                                 ]),
                               ),

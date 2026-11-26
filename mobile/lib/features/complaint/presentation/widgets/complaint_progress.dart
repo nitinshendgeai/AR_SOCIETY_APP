@@ -99,12 +99,12 @@ class ComplaintProgressCard extends StatelessWidget {
         if (rejected && complaint.rejectionReason != null && complaint.rejectionReason!.isNotEmpty) ...[
           const SizedBox(height: 4),
           Text('Reason: ${complaint.rejectionReason}',
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ],
         if (complaint.reopenCount > 0) ...[
           const SizedBox(height: 4),
           Text('Reopened ${complaint.reopenCount} time${complaint.reopenCount == 1 ? '' : 's'}',
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ],
       ]),
     );

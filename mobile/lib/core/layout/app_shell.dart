@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/core/theme/app_look.dart';
 import 'package:ar_society_app/core/l10n/app_locale.dart';
 import 'package:ar_society_app/core/l10n/language_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -223,12 +224,12 @@ class _PhoneFrameState extends ConsumerState<_PhoneFrame> {
               height: 40,
               alignment: Alignment.centerLeft,
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.border))),
+              decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.border))),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.arrow_back_rounded, size: 18, color: AppTheme.primary),
+                Icon(Icons.arrow_back_rounded, size: 18, color: AppTheme.primary),
                 const SizedBox(width: 6),
                 Text(context.tr('Dashboard'),
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primary)),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primary)),
               ]),
             ),
           ),
@@ -359,7 +360,7 @@ class _GroupHeader extends StatelessWidget {
             child: Row(children: [
               Expanded(
                 child: Text(label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.1,
@@ -404,7 +405,7 @@ class _Brand extends ConsumerWidget {
                       Text(society ?? context.tr('Society ERP'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, height: 1.2)),
+                          style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, height: 1.2)),
                     ],
                   ),
                 ),
@@ -489,14 +490,14 @@ class _TopBar extends ConsumerWidget {
     return Container(
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppTheme.cardBg,
         border: Border(bottom: BorderSide(color: AppTheme.border)),
       ),
       child: Row(children: [
         for (var i = 0; i < crumbs.length; i++) ...[
           if (i > 0)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(horizontal: 8),
               child: Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.textTertiary),
             ),
@@ -536,6 +537,7 @@ class _UserMenu extends ConsumerWidget {
         if (v == 'devices') context.go(AppRoutes.activeDevices);
         if (v == 'society') showSocietySwitcher(context, ref);
         if (v == 'language') showLanguagePicker(context, ref);
+        if (v == 'look') showLookPicker(context, ref);
         if (v == 'help') context.go(AppRoutes.helpAssistant);
       },
       itemBuilder: (_) => [
@@ -543,8 +545,8 @@ class _UserMenu extends ConsumerWidget {
           enabled: false,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(user.fullName,
-                style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-            Text(user.email, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+            Text(user.email, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ]),
         ),
         const PopupMenuDivider(),
@@ -552,7 +554,7 @@ class _UserMenu extends ConsumerWidget {
           PopupMenuItem<String>(
             value: 'society',
             child: Row(children: [
-              const Icon(Icons.swap_horiz_rounded, size: 18, color: AppTheme.textSecondary),
+              Icon(Icons.swap_horiz_rounded, size: 18, color: AppTheme.textSecondary),
               const SizedBox(width: 10),
               Text(context.tr('Switch society')),
             ]),
@@ -560,15 +562,23 @@ class _UserMenu extends ConsumerWidget {
         PopupMenuItem<String>(
           value: 'language',
           child: Row(children: [
-            const Icon(Icons.translate_rounded, size: 18, color: AppTheme.textSecondary),
+            Icon(Icons.translate_rounded, size: 18, color: AppTheme.textSecondary),
             const SizedBox(width: 10),
             Text(context.tr('Language')),
           ]),
         ),
         PopupMenuItem<String>(
+          value: 'look',
+          child: Row(children: [
+            Icon(Icons.auto_awesome_outlined, size: 18, color: AppTheme.textSecondary),
+            const SizedBox(width: 10),
+            Text(context.tr('Appearance')),
+          ]),
+        ),
+        PopupMenuItem<String>(
           value: 'help',
           child: Row(children: [
-            const Icon(Icons.help_outline_rounded, size: 18, color: AppTheme.textSecondary),
+            Icon(Icons.help_outline_rounded, size: 18, color: AppTheme.textSecondary),
             const SizedBox(width: 10),
             Text(context.tr('Help')),
           ]),
@@ -576,7 +586,7 @@ class _UserMenu extends ConsumerWidget {
         PopupMenuItem<String>(
           value: 'devices',
           child: Row(children: [
-            const Icon(Icons.devices_rounded, size: 18, color: AppTheme.textSecondary),
+            Icon(Icons.devices_rounded, size: 18, color: AppTheme.textSecondary),
             const SizedBox(width: 10),
             Text(context.tr('Signed-in devices')),
           ]),
@@ -584,9 +594,9 @@ class _UserMenu extends ConsumerWidget {
         PopupMenuItem<String>(
           value: 'logout',
           child: Row(children: [
-            const Icon(Icons.logout_rounded, size: 18, color: AppTheme.error),
+            Icon(Icons.logout_rounded, size: 18, color: AppTheme.error),
             const SizedBox(width: 10),
-            Text(context.tr('Sign out'), style: const TextStyle(color: AppTheme.error)),
+            Text(context.tr('Sign out'), style: TextStyle(color: AppTheme.error)),
           ]),
         ),
       ],
@@ -595,7 +605,7 @@ class _UserMenu extends ConsumerWidget {
           radius: 16,
           backgroundColor: AppTheme.primarySoft,
           child: Text(_initials,
-              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppTheme.primary)),
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppTheme.primary)),
         ),
         const SizedBox(width: 10),
         Column(
@@ -607,11 +617,11 @@ class _UserMenu extends ConsumerWidget {
             // "Society Admin"); primaryRole only knows the routing groups
             // and showed a Manager as "Resident".
             Text(user.roles.firstOrNull ?? user.primaryRole,
-                style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
+                style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
           ],
         ),
         const SizedBox(width: 4),
-        const Icon(Icons.expand_more_rounded, size: 18, color: AppTheme.textSecondary),
+        Icon(Icons.expand_more_rounded, size: 18, color: AppTheme.textSecondary),
       ]),
     );
   }

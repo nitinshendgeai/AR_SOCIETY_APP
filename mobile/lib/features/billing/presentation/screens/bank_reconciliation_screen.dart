@@ -115,9 +115,9 @@ class _BankReconciliationScreenState extends ConsumerState<BankReconciliationScr
                 ),
             ]),
             const Spacer(),
-            const Icon(Icons.info_outline_rounded, size: 16, color: AppTheme.textSecondary),
+            Icon(Icons.info_outline_rounded, size: 16, color: AppTheme.textSecondary),
             const SizedBox(width: 6),
-            const Text('Bank statement PDF, or CSV: Date, Description, Amount (Reference optional)',
+            Text('Bank statement PDF, or CSV: Date, Description, Amount (Reference optional)',
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ]),
           rows: rows,
@@ -254,7 +254,7 @@ class _BankReconciliationScreenState extends ConsumerState<BankReconciliationScr
             child: entriesAsync.when(
               loading: () => const AppLoader(),
               error: (e, _) => Center(
-                  child: Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error))),
+                  child: Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error))),
               data: (entries) {
                 final filtered = _statusFilter == null
                     ? entries
@@ -426,10 +426,10 @@ class _BankMatchEntrySheetState extends ConsumerState<BankMatchEntrySheet> {
         const SizedBox(height: 10),
         candidatesAsync.when(
           loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: AppLoader()),
-          error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+          error: (e, _) => Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
           data: (candidates) {
             if (candidates.isEmpty) {
-              return const Padding(
+              return Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
                 child: Center(
                   child: Text(

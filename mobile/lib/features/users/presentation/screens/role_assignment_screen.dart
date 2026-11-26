@@ -27,7 +27,7 @@ class RoleAssignmentScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(16),
             child: Text(
               'Tap a role to assign or remove it.',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 13, color: AppTheme.textSecondary),
             ),
           ),
@@ -37,7 +37,7 @@ class RoleAssignmentScreen extends ConsumerWidget {
                   const AppLoader(),
               error: (e, _) => Center(
                   child: Text(friendlyErrorMessage(e),
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: AppTheme.error))),
               data: (roles) => ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -126,13 +126,13 @@ class _RoleTileState extends State<_RoleTile> {
         ),
       ),
       title: Text(widget.role.name,
-          style: const TextStyle(
+          style: TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 14,
               color: AppTheme.textPrimary)),
       subtitle: widget.role.description != null
           ? Text(widget.role.description!,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11, color: AppTheme.textSecondary))
           : null,
       trailing: _loading

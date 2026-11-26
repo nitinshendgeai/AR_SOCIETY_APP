@@ -181,7 +181,7 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
           const SizedBox(height: 8),
           wingsAsync.when(
             loading: () => const AppLoader(),
-            error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+            error: (e, _) => Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
             data: (wings) => FormFieldBox(label: 'Wing', required: true, child: DropdownButtonFormField<String>(
               value: _wingId,
               decoration: const InputDecoration(),
@@ -199,7 +199,7 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
               final flatsAsync = ref.watch(flatsByWingProvider(_wingId!));
               return flatsAsync.when(
                 loading: () => const AppLoader(),
-                error: (e, _) => Text(friendlyErrorMessage(e), style: const TextStyle(color: AppTheme.error)),
+                error: (e, _) => Text(friendlyErrorMessage(e), style: TextStyle(color: AppTheme.error)),
                 data: (flats) => FormFieldBox(label: 'Flat', required: true, child: DropdownButtonFormField<String>(
                   value: _flatId,
                   decoration: const InputDecoration(),
@@ -227,16 +227,16 @@ class _OnlinePaymentSubmitScreenState extends ConsumerState<OnlinePaymentSubmitS
           ),
           const SizedBox(height: 14),
           if (_flatId == null)
-            const Text('Select a flat first to see its outstanding bills',
+            Text('Select a flat first to see its outstanding bills',
                 style: TextStyle(color: AppTheme.textSecondary, fontSize: 12))
           else if (billsAsync == null || billsAsync.isLoading)
             const AppLoader()
           else if (billsAsync.hasError)
-            Text(friendlyErrorMessage(billsAsync.error!), style: const TextStyle(color: AppTheme.error))
+            Text(friendlyErrorMessage(billsAsync.error!), style: TextStyle(color: AppTheme.error))
           else if (_target == _PaymentTarget.openBills)
             _SetOffPreview(bills: openBills, amount: amount)
           else if (billsAsync.value!.isEmpty)
-            const Text('No outstanding bills for this flat',
+            Text('No outstanding bills for this flat',
                 style: TextStyle(color: AppTheme.textSecondary, fontSize: 12))
           else
             FormFieldBox(label: 'Bill', required: true, child: DropdownButtonFormField<String>(
@@ -355,7 +355,7 @@ class _SetOffPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (bills.isEmpty) {
-      return const Text(
+      return Text(
           'No open bills for this flat. The payment is kept as an advance and set off against the next bill '
           'when it is issued.',
           style: TextStyle(color: AppTheme.textSecondary, fontSize: 12.5));
@@ -387,14 +387,14 @@ class _SetOffPreview extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusM)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const Text('Open bills — the payment settles them oldest first',
+        Text('Open bills — the payment settles them oldest first',
             style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         const SizedBox(height: 4),
         ...rows,
         if (left > 0) ...[
           const Divider(height: 14),
           Row(children: [
-            const Icon(Icons.savings_outlined, size: 16, color: AppTheme.primary),
+            Icon(Icons.savings_outlined, size: 16, color: AppTheme.primary),
             const SizedBox(width: 8),
             const Expanded(child: Text('Advance — for the next bill', style: TextStyle(fontSize: 12.5))),
             Text(_rs(left), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),

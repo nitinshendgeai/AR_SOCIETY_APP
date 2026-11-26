@@ -326,7 +326,7 @@ class _VoucherFormScreenState extends ConsumerState<VoucherFormScreen> {
                   ? 'The books for FY ${editing.fiscalYear} are closed — ${editing.voucherNumber} can\'t be changed.'
                   : '${editing.voucherNumber} can\'t be edited.',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppTheme.textSecondary)),
+              style: TextStyle(color: AppTheme.textSecondary)),
         ),
       ));
     }
@@ -708,7 +708,7 @@ class _UnpaidBillsNote extends ConsumerWidget {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
           child: Row(children: [
-            const Icon(Icons.info_outline_rounded, size: 18, color: AppTheme.warning),
+            Icon(Icons.info_outline_rounded, size: 18, color: AppTheme.warning),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -739,7 +739,7 @@ class _ResidentPaymentNote extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
           child: Row(children: [
-            const Icon(Icons.info_outline_rounded, size: 18, color: AppTheme.warning),
+            Icon(Icons.info_outline_rounded, size: 18, color: AppTheme.warning),
             const SizedBox(width: 8),
             const Expanded(
               child: Text(
