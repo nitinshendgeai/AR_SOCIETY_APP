@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ar_society_app/features/accounts_agent/data/accounts_agent_api.dart';
 import 'package:ar_society_app/features/accounts_agent/data/assist_api.dart';
 import 'package:ar_society_app/features/accounts_agent/presentation/screens/agent_notice_draft_screen.dart';
 
@@ -85,5 +86,36 @@ void main() {
     expect(seen.single.path, '/accounts-agent/notices/draft');
     expect(r.dues.single['flat'], 'A-101');
     expect(r.savedNoticeIds, ['n1']);
+  });
+
+  test('a reused answer says it cost no AI tokens', () async {
+    final a = await AssistApi(dio: _server([], {
+      'answer': 'Fourteen clear days [C1].', 'answered_by_sources': true, 'needs_professional_review': false,
+      'ai_generated': true, 'notes': [], 'disclaimer': '', 'sources': [],
+      'answered_from': 'saved_answer', 'token_note': 'Same question answered before: no AI tokens used.',
+    })).askBylaws('सभेसाठी किती दिवसांची नोटीस?');
+    expect(a.answeredFrom, 'saved_answer');
+    expect(a.tokenNote, contains('no AI tokens'));
+    final old = await AssistApi(dio: _server([], {'answer': 'x', 'sources': []})).askBylaws('q');
+    expect(old.answeredFrom, 'library');          // an older server without the fields
+    expect(old.tokenNote, isNull);
+  });
+
+  test('AI usage for the month is read with its savings', () async {
+    final seen = <RequestOptions>[];
+    final u = await AccountsAgentApi(dio: _server(seen, {
+      'month': '2026-11', 'budget_tokens': 300000, 'spent_tokens': 4200, 'left_tokens': 295800, 'used_pct': 1.4,
+      'requests': 10, 'answered_without_ai': 7, 'without_ai_pct': 70.0, 'ai_calls': 3, 'reused_answers': 5,
+      'answered_locally': 2, 'over_budget': 0, 'failed_calls': 0, 'kept_answers': 3, 'ai_enabled': true,
+      'by_feature': [
+        {'feature': 'bylaw_answer', 'label': 'Bye-law answers', 'ai_calls': 3, 'input_tokens': 3600, 'output_tokens': 600,
+         'reused_answers': 5, 'answered_locally': 1, 'over_budget': 0},
+      ],
+    })).aiUsage();
+    expect(seen.single.path, '/accounts-agent/ai-usage');
+    expect(u.spentTokens, 4200);
+    expect(u.answeredWithoutAi, 7);
+    expect(u.byFeature.single.tokens, 4200);
+    expect(u.byFeature.single.withoutAi, 6);
   });
 }

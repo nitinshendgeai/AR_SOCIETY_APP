@@ -14,6 +14,8 @@ class SettingsUpdate(BaseModel):
     # "anthropic": bye-law answers worded by Claude and free-text entry requests read by Claude. Takes effect only
     # when the deployment also sets ANTHROPIC_API_KEY. "disabled" (default): deterministic answers only.
     llm_provider: Optional[str] = None
+    # The most AI tokens a month (0 = never call the AI). Past it the agent answers from the app's own data.
+    ai_monthly_token_budget: Optional[int] = Field(None, ge=0, le=20_000_000)
 
     @field_validator("llm_provider")
     @classmethod

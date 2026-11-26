@@ -43,8 +43,12 @@ class BylawAnswer {
   final String? societyFacts;
   final List<BylawSource> sources;
   final String disclaimer;
+  /// "ai" (a request was sent), "saved_answer" (an earlier AI answer reused: no tokens) or "library" (no AI).
+  final String answeredFrom;
+  /// Why no AI tokens were spent, when that is worth saying ("Same question answered before…", "budget used up…").
+  final String? tokenNote;
   const BylawAnswer(this.answer, this.answeredBySources, this.needsProfessionalReview, this.aiGenerated, this.notes,
-      this.societyFacts, this.sources, this.disclaimer);
+      this.societyFacts, this.sources, this.disclaimer, {this.answeredFrom = 'library', this.tokenNote});
   factory BylawAnswer.fromJson(Map<String, dynamic> j) => BylawAnswer(
         j['answer'] as String? ?? '',
         j['answered_by_sources'] as bool? ?? false,
@@ -54,6 +58,8 @@ class BylawAnswer {
         j['society_facts'] as String?,
         [for (final s in _maps(j['sources'])) BylawSource.fromJson(s)],
         j['disclaimer'] as String? ?? '',
+        answeredFrom: j['answered_from'] as String? ?? 'library',
+        tokenNote: j['token_note'] as String?,
       );
   List<BylawSource> get cited => sources.where((s) => s.cited).toList();
 }

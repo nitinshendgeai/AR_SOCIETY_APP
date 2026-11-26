@@ -481,6 +481,8 @@ class AgentSettings {
   /// The deployment has an Anthropic API key (without it the switch has no effect).
   final bool aiConfigured;
   final bool aiEnabled;
+  /// The most AI tokens a month (0 = never call the AI); past it the agent answers from the app's own data.
+  final int aiMonthlyTokenBudget;
   const AgentSettings({
     required this.monitoringEnabled,
     required this.notifyMinSeverity,
@@ -491,6 +493,7 @@ class AgentSettings {
     this.aiProvider = 'disabled',
     this.aiConfigured = false,
     this.aiEnabled = false,
+    this.aiMonthlyTokenBudget = 300000,
   });
   factory AgentSettings.fromJson(Map<String, dynamic> j) => AgentSettings(
         monitoringEnabled: j['monitoring_enabled'] as bool? ?? true,
@@ -502,6 +505,62 @@ class AgentSettings {
         aiProvider: j['llm_provider'] as String? ?? 'disabled',
         aiConfigured: j['ai_configured'] as bool? ?? false,
         aiEnabled: j['ai_enabled'] as bool? ?? false,
+        aiMonthlyTokenBudget: (j['ai_monthly_token_budget'] as num?)?.toInt() ?? 300000,
+      );
+}
+
+/// This month's AI token use: what was spent, what is left, and how often the app answered without the AI.
+class AiUsage {
+  final String month;
+  final int budgetTokens;
+  final int spentTokens;
+  final int leftTokens;
+  final double usedPct;
+  final int requests;
+  final int answeredWithoutAi;
+  final double withoutAiPct;
+  final int aiCalls;
+  final int reusedAnswers;
+  final int answeredLocally;
+  final int overBudget;
+  final int failedCalls;
+  final int keptAnswers;
+  final bool aiEnabled;
+  final List<AiUsageLine> byFeature;
+  const AiUsage(this.month, this.budgetTokens, this.spentTokens, this.leftTokens, this.usedPct, this.requests,
+      this.answeredWithoutAi, this.withoutAiPct, this.aiCalls, this.reusedAnswers, this.answeredLocally, this.overBudget,
+      this.failedCalls, this.keptAnswers, this.aiEnabled, this.byFeature);
+  factory AiUsage.fromJson(Map<String, dynamic> j) => AiUsage(
+        j['month'] as String? ?? '',
+        _i(j['budget_tokens']),
+        _i(j['spent_tokens']),
+        _i(j['left_tokens']),
+        _d(j['used_pct']),
+        _i(j['requests']),
+        _i(j['answered_without_ai']),
+        _d(j['without_ai_pct']),
+        _i(j['ai_calls']),
+        _i(j['reused_answers']),
+        _i(j['answered_locally']),
+        _i(j['over_budget']),
+        _i(j['failed_calls']),
+        _i(j['kept_answers']),
+        j['ai_enabled'] as bool? ?? false,
+        [for (final x in (j['by_feature'] as List? ?? const [])) AiUsageLine.fromJson((x as Map).cast<String, dynamic>())],
+      );
+}
+
+class AiUsageLine {
+  final String label;
+  final int aiCalls;
+  final int tokens;
+  final int withoutAi;
+  const AiUsageLine(this.label, this.aiCalls, this.tokens, this.withoutAi);
+  factory AiUsageLine.fromJson(Map<String, dynamic> j) => AiUsageLine(
+        j['label'] as String? ?? '',
+        _i(j['ai_calls']),
+        _i(j['input_tokens']) + _i(j['output_tokens']),
+        _i(j['reused_answers']) + _i(j['answered_locally']) + _i(j['over_budget']),
       );
 }
 
@@ -569,14 +628,18 @@ class AccountsAgentApi {
   Future<AgentDashboard> dashboard() async => AgentDashboard.fromJson(_m(await _dio.get('$_base/dashboard')));
   Future<AgentSettings> settings() async => AgentSettings.fromJson(_m(await _dio.get('$_base/settings')));
 
-  Future<AgentSettings> updateSettings({double? zThreshold, double? recurringTolerancePct, int? duplicateWindowDays, String? notifyMinSeverity, String? aiProvider}) async =>
+  Future<AgentSettings> updateSettings({double? zThreshold, double? recurringTolerancePct, int? duplicateWindowDays, String? notifyMinSeverity, String? aiProvider, int? aiMonthlyTokenBudget}) async =>
       AgentSettings.fromJson(_m(await _dio.put('$_base/settings', data: {
         if (aiProvider != null) 'llm_provider': aiProvider,
+        if (aiMonthlyTokenBudget != null) 'ai_monthly_token_budget': aiMonthlyTokenBudget,
         if (zThreshold != null) 'z_threshold': zThreshold,
         if (recurringTolerancePct != null) 'recurring_tolerance_pct': recurringTolerancePct,
         if (duplicateWindowDays != null) 'duplicate_window_days': duplicateWindowDays,
         if (notifyMinSeverity != null) 'notify_min_severity': notifyMinSeverity,
       })));
+
+  Future<AiUsage> aiUsage() async => AiUsage.fromJson(_m(await _dio.get('$_base/ai-usage')));
+  Future<int> forgetAiAnswers() async => _i(_m(await _dio.post('$_base/ai-usage/forget-answers'))['forgotten']);
 
   Future<AgentStatus> setMonitoring(bool enabled) async =>
       AgentStatus.fromJson(_m(await _dio.post('$_base/monitoring', data: {'enabled': enabled})));

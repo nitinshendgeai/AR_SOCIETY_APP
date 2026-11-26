@@ -8,6 +8,8 @@ or notification table — findings and proposals only *point at* vouchers.
 - AgentFinding         one structured finding (a validation failure, an anomaly or an observation).
 - AgentProposal        a correction proposal; executed only after an authorised person approves it.
 - AgentAuditLog        append-only trail of agent and reviewer actions.
+- AgentAiUsage         AI tokens spent (and saved) per society, month and feature.
+- AgentAiAnswer        an AI-worded answer kept for reuse: the same question on the same clauses costs no tokens.
 """
 from sqlalchemy import (
     JSON, Boolean, Column, Date, DateTime, Float, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint,
@@ -48,6 +50,8 @@ class AgentSettings(Base, TimestampMixin):
     recurring_tolerance_pct = Column(Float, default=10.0, nullable=False)
     duplicate_window_days   = Column(Integer, default=7, nullable=False)
     llm_provider            = Column(String(30), default="disabled", nullable=False)
+    # Most AI tokens this society may spend in a calendar month; past it the agent answers from the app's own data.
+    ai_monthly_token_budget = Column(Integer, default=300000, nullable=False)
     last_monitored_at       = Column(DateTime, nullable=True)
     last_error              = Column(Text, nullable=True)
     updated_by              = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
@@ -193,3 +197,34 @@ class AgentAuditLog(Base, TimestampMixin):
     entity_type = Column(String(30), nullable=False)
     entity_id   = Column(String(64), nullable=True)
     details     = Column(JSON, nullable=True)
+
+
+class AgentAiUsage(Base, TimestampMixin):
+    """One row per society, month ('2026-11') and feature ('bylaw_answer', 'entry_reading')."""
+    __tablename__ = "accounts_agent_ai_usage"
+    __table_args__ = (UniqueConstraint("society_id", "month", "feature", name="uq_agent_ai_usage"),)
+
+    society_id        = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    month             = Column(String(7), nullable=False)
+    feature           = Column(String(30), nullable=False)
+    ai_calls          = Column(Integer, default=0, nullable=False)       # requests actually sent
+    input_tokens      = Column(Integer, default=0, nullable=False)
+    output_tokens     = Column(Integer, default=0, nullable=False)
+    reused_answers    = Column(Integer, default=0, nullable=False)       # served from a kept answer: no tokens
+    answered_locally  = Column(Integer, default=0, nullable=False)       # the app's own data was enough: no tokens
+    over_budget       = Column(Integer, default=0, nullable=False)       # AI wanted but the month's budget was used up
+    failed_calls      = Column(Integer, default=0, nullable=False)
+
+
+class AgentAiAnswer(Base, TimestampMixin):
+    """An AI answer kept for reuse. [key] covers the question's words and the exact clauses it was given, so a change
+    to the library (another clause matching) asks afresh."""
+    __tablename__ = "accounts_agent_ai_answers"
+    __table_args__ = (UniqueConstraint("society_id", "feature", "key", name="uq_agent_ai_answer"),)
+
+    society_id   = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    feature      = Column(String(30), nullable=False)
+    key          = Column(String(64), nullable=False)
+    payload      = Column(JSON, nullable=False)
+    hits         = Column(Integer, default=0, nullable=False)
+    last_used_at = Column(DateTime, nullable=True)
