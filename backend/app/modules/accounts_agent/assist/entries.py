@@ -179,7 +179,8 @@ def prepare(db: Session, society_id: UUID, data: dict, settings) -> dict:
                 estimate = token_guard.estimate_tokens(claude.ENTRY_SYSTEM,
                                                        claude.entry_prompt(text, short_l, short_v, today.isoformat()),
                                                        reply=claude.ENTRY_MAX_TOKENS // 2)
-                if token_guard.within_budget(db, society_id, settings, estimate):
+                ok, why, message = token_guard.check(db, society_id, settings, estimate)
+                if ok:
                     parsed = claude.parse_entry_request(text, short_l, short_v, today.isoformat())
                     token_guard.record_call(db, society_id, FEATURE, claude.take_usage(), ok=parsed is not None)
                     if parsed:
@@ -187,8 +188,11 @@ def prepare(db: Session, society_id: UUID, data: dict, settings) -> dict:
                         basis.append("Read from your description by Claude; check every field.")
                         unclear = list(parsed.unclear)
                 else:
-                    token_guard.note(db, society_id, FEATURE, "over_budget")
-                    basis.append("This month's AI budget is used up: the description was read by the app only.")
+                    token_guard.note(db, society_id, FEATURE, why)
+                    basis.append(message.replace("The clauses are listed without AI wording.",
+                                                 "The description was read by the app only.")
+                                 .replace("so the clauses are listed without AI wording", "so the description was "
+                                          "read by the app only"))
         if parsed is None and any(local.get(k) for k in ("amount", "ledger_id", "vendor_id", "voucher_type")):
             parsed = claude.EntryParse(voucher_type=local.get("voucher_type") or "payment",
                                        amount=local.get("amount"), voucher_date=local.get("voucher_date"),

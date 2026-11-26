@@ -10,6 +10,7 @@ import 'package:ar_society_app/features/auth/presentation/providers/auth_provide
 import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
 import 'package:ar_society_app/features/platform/data/platform_api.dart';
+import 'package:ar_society_app/features/platform/presentation/widgets/platform_ai.dart';
 import 'package:ar_society_app/features/platform/presentation/providers/platform_providers.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart' show StatusPill;
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
@@ -27,7 +28,7 @@ class PlatformConsoleScreen extends ConsumerStatefulWidget {
 }
 
 class _PlatformConsoleScreenState extends ConsumerState<PlatformConsoleScreen> with SingleTickerProviderStateMixin {
-  late final _tabs = TabController(length: 2, vsync: this);
+  late final _tabs = TabController(length: 3, vsync: this);
   final _search = TextEditingController();
   String _q = '';
   String? _status;
@@ -44,8 +45,8 @@ class _PlatformConsoleScreenState extends ConsumerState<PlatformConsoleScreen> w
     title: 'Platform Console',
     // On a computer the top bar's account menu has Sign out; a phone has no top bar, so the console carries it.
     actions: [if (!isDesktopLayout(context)) const _PlatformAccountMenu()],
-    bottom: TabBar(controller: _tabs, tabs: const [Tab(text: 'Societies'), Tab(text: 'Activity')]),
-    body: TabBarView(controller: _tabs, children: [_societies(), const _ActivityTab()]),
+    bottom: TabBar(controller: _tabs, tabs: const [Tab(text: 'Societies'), Tab(text: 'Activity'), Tab(text: 'AI plans')]),
+    body: TabBarView(controller: _tabs, children: [_societies(), const _ActivityTab(), const AiPlansTab()]),
   );
 
   Widget _societies() {

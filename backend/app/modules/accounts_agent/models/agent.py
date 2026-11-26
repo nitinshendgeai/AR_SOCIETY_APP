@@ -52,6 +52,10 @@ class AgentSettings(Base, TimestampMixin):
     llm_provider            = Column(String(30), default="disabled", nullable=False)
     # Most AI tokens this society may spend in a calendar month; past it the agent answers from the app's own data.
     ai_monthly_token_budget = Column(Integer, default=300000, nullable=False)
+    # Set by the PLATFORM administrator only (never by the society): "on" / "off" overrides what the society's plan
+    # includes; NULL follows the plan. ai_override_tokens replaces the plan's allowance when set.
+    ai_plan_override        = Column(String(8), nullable=True)
+    ai_override_tokens      = Column(Integer, nullable=True)
     last_monitored_at       = Column(DateTime, nullable=True)
     last_error              = Column(Text, nullable=True)
     updated_by              = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
@@ -213,6 +217,7 @@ class AgentAiUsage(Base, TimestampMixin):
     reused_answers    = Column(Integer, default=0, nullable=False)       # served from a kept answer: no tokens
     answered_locally  = Column(Integer, default=0, nullable=False)       # the app's own data was enough: no tokens
     over_budget       = Column(Integer, default=0, nullable=False)       # AI wanted but the month's budget was used up
+    not_included      = Column(Integer, default=0, nullable=False)       # AI wanted but the subscription has no AI
     failed_calls      = Column(Integer, default=0, nullable=False)
 
 
@@ -228,3 +233,14 @@ class AgentAiAnswer(Base, TimestampMixin):
     payload      = Column(JSON, nullable=False)
     hits         = Column(Integer, default=0, nullable=False)
     last_used_at = Column(DateTime, nullable=True)
+
+
+class PlatformAiPlan(Base, TimestampMixin):
+    """What each subscription plan includes in AI, set by the platform administrator. plan_key is a plan
+    ('starter', 'growth', 'enterprise') or 'trial'; for 'trial' the tokens cover the whole trial, not a month."""
+    __tablename__ = "platform_ai_plans"
+
+    plan_key       = Column(String(30), nullable=False, unique=True)
+    ai_included    = Column(Boolean, default=False, nullable=False)
+    monthly_tokens = Column(Integer, default=0, nullable=False)
+    updated_by     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

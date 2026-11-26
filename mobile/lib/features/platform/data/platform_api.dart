@@ -297,6 +297,21 @@ class PlatformApi {
           .map((e) => SocietyServiceSwitch.fromJson(e as Map<String, dynamic>))
           .toList();
 
+  Future<List<AiPlanRow>> aiPlans() async => [
+        for (final x in ((await _dio.get('/platform-admin/ai-plans')).data['plans'] as List))
+          AiPlanRow.fromJson((x as Map).cast<String, dynamic>()),
+      ];
+
+  Future<void> setAiPlan(String planKey, bool included, int tokens) =>
+      _dio.put('/platform-admin/ai-plans/$planKey', data: {'ai_included': included, 'tokens': tokens});
+
+  Future<SocietyAi> societyAi(String id) async =>
+      SocietyAi.fromJson((await _dio.get('/platform-admin/societies/$id/ai')).data as Map<String, dynamic>);
+
+  /// [mode]: 'plan' (follow the plan), 'on' or 'off'. [tokens]: this society's own monthly allowance, or null.
+  Future<void> setSocietyAi(String id, String mode, int? tokens) =>
+      _dio.put('/platform-admin/societies/$id/ai', data: {'mode': mode, 'tokens': tokens});
+
   Future<void> switchService(String id, String key, bool enabled) =>
       _dio.put('/platform-admin/societies/$id/services/$key', data: {'enabled': enabled});
 
@@ -310,5 +325,61 @@ class PlatformApi {
       for (final c in (j['restored'] as List? ?? const []))
         RestoredLogin(role: c['role'] as String? ?? '', email: c['email'] as String? ?? '', password: c['password'] as String? ?? ''),
     ];
+  }
+}
+
+
+int _n(Object? v) => (v is num) ? v.toInt() : int.tryParse('${v ?? 0}') ?? 0;
+
+/// What one subscription plan includes in AI. For the trial, [tokens] covers the whole trial.
+class AiPlanRow {
+  final String planKey;
+  final String label;
+  final bool aiIncluded;
+  final int tokens;
+  final String period; // 'month' | 'trial'
+  const AiPlanRow(this.planKey, this.label, this.aiIncluded, this.tokens, this.period);
+  factory AiPlanRow.fromJson(Map<String, dynamic> j) => AiPlanRow(j['plan_key'] as String? ?? '',
+      j['label'] as String? ?? '', j['ai_included'] as bool? ?? false, _n(j['tokens']), j['period'] as String? ?? 'month');
+}
+
+/// One society's AI: what its subscription allows, the platform override, and this period's use.
+class SocietyAi {
+  final bool allowed;
+  final String? reason;
+  final String? planLabel;
+  final String period;
+  final int allowance;
+  final int budgetTokens;
+  final int spentTokens;
+  final int requests;
+  final int aiCalls;
+  final int answeredWithoutAi;
+  final String overrideMode; // 'plan' | 'on' | 'off'
+  final int? overrideTokens;
+  final bool societySwitchOn;
+  final bool serverHasKey;
+  const SocietyAi(this.allowed, this.reason, this.planLabel, this.period, this.allowance, this.budgetTokens,
+      this.spentTokens, this.requests, this.aiCalls, this.answeredWithoutAi, this.overrideMode, this.overrideTokens,
+      this.societySwitchOn, this.serverHasKey);
+  factory SocietyAi.fromJson(Map<String, dynamic> j) {
+    final e = (j['entitlement'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final o = (j['override'] as Map?)?.cast<String, dynamic>() ?? const {};
+    return SocietyAi(
+      e['allowed'] as bool? ?? false,
+      e['reason'] as String?,
+      e['plan_label'] as String?,
+      e['period'] as String? ?? 'month',
+      _n(e['tokens']),
+      _n(j['budget_tokens']),
+      _n(j['spent_tokens']),
+      _n(j['requests']),
+      _n(j['ai_calls']),
+      _n(j['answered_without_ai']),
+      o['mode'] as String? ?? 'plan',
+      o['tokens'] == null ? null : _n(o['tokens']),
+      j['society_switch_on'] as bool? ?? false,
+      j['server_has_key'] as bool? ?? false,
+    );
   }
 }

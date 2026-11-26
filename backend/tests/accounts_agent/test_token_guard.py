@@ -19,8 +19,11 @@ def rig(db):
     return LRig(db, "tok")
 
 
-def _ai_on(monkeypatch, db, rig, budget=None):
+def _ai_on(monkeypatch, db, rig, budget=None, plan="growth"):
+    """AI switched on by the society, on an active plan that includes AI (Growth: 300,000 tokens a month)."""
+    from app.models.society import AccountStatus
     monkeypatch.setattr(claude, "configured", lambda: True)
+    rig.society.account_status, rig.society.is_trial, rig.society.subscription_plan = AccountStatus.ACTIVE, False, plan
     s = get_settings(db, rig.sid)
     s.llm_provider = "anthropic"
     if budget is not None:

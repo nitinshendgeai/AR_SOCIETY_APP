@@ -158,10 +158,10 @@ def _ai_answer(db: Session, society_id: UUID, q: "prompt_opt.OptimizedQuery", fo
             pass
     estimate = token_guard.estimate_tokens(claude.BYLAW_SYSTEM, claude.bylaw_prompt(q.text, payload),
                                            reply=claude.BYLAW_MAX_TOKENS // 2)
-    if not token_guard.within_budget(db, society_id, settings, estimate):
-        token_guard.note(db, society_id, FEATURE, "over_budget")
-        return None, "library", ("This month's AI budget is used up, so the clauses are listed without AI wording. "
-                                 "The committee can raise it in Accounts Agent → Learning & settings."), key
+    ok, why, message = token_guard.check(db, society_id, settings, estimate)
+    if not ok:
+        token_guard.note(db, society_id, FEATURE, why)
+        return None, "library", message, key
     ai = claude.answer_bylaw_question(q.text, payload, None)
     token_guard.record_call(db, society_id, FEATURE, claude.take_usage(), ok=ai is not None)
     return ai, "ai", None, key
@@ -229,7 +229,8 @@ def ask(db: Session, society_id: UUID, question: str, user, settings) -> dict:
     return {"question": question, "answer": answer, "answered_by_sources": answered,
             "needs_professional_review": review, "ai_generated": ai_used,
             "answered_from": answered_from, "token_note": token_note, "language": q.language,
-            "ai_available": claude.enabled(settings), "notes": notes, "society_facts": facts,
+            "ai_available": claude.enabled(settings) and token_guard.plans.entitlement(db, society_id, settings)["allowed"],
+            "notes": notes, "society_facts": facts,
             "sources": [{k: v for k, v in s.items() if k != "score"} for s in sources],
             "disclaimer": "Not legal advice. Answers come only from the bye-laws in the Legal Library"
                           + (" and were worded by an AI model (Claude) from the clauses shown." if ai_used else ".")}

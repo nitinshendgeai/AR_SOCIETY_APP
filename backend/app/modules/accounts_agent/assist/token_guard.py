@@ -3,8 +3,11 @@
 Every place that could call the AI goes through here first:
 
 1. **Reuse** — the same question on the same clauses was answered before: the kept answer is returned (no tokens).
-2. **Budget** — the society's monthly token budget (Accounts Agent → Learning & settings) would be exceeded: the app
-   answers from its own data instead and says why.
+2. **Subscription** — the society's plan must include AI (entitlement.py): an expired, suspended or cancelled
+   subscription, an ended trial or a plan without AI means no request at all.
+3. **Budget** — the plan's allowance (a month, or the whole trial) and the committee's own lower monthly budget
+   (Accounts Agent → Learning & settings) must both have room: otherwise the app answers from its own data and says
+   why.
 3. **Record** — every request sent is counted with the tokens it actually used, and so is every request *not* sent
    (answered from the app's data, reused, or over budget), so the committee can see what the AI costs and saves.
 
@@ -17,6 +20,7 @@ from uuid import UUID
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.modules.accounts_agent.assist import entitlement as plans
 from app.modules.accounts_agent.models.agent import AgentAiAnswer, AgentAiUsage
 from app.utils.local_time import society_today
 
@@ -36,7 +40,8 @@ def _row(db: Session, society_id: UUID, feature: str) -> AgentAiUsage:
            .first())
     if row is None:
         row = AgentAiUsage(society_id=society_id, month=month, feature=feature, ai_calls=0, input_tokens=0,
-                           output_tokens=0, reused_answers=0, answered_locally=0, over_budget=0, failed_calls=0)
+                           output_tokens=0, reused_answers=0, answered_locally=0, over_budget=0, not_included=0,
+                           failed_calls=0)
         db.add(row)
         db.flush()
     return row
@@ -47,6 +52,34 @@ def spent_this_month(db: Session, society_id: UUID) -> int:
     total = (db.query(func.coalesce(func.sum(AgentAiUsage.input_tokens + AgentAiUsage.output_tokens), 0))
              .filter(AgentAiUsage.society_id == society_id, AgentAiUsage.month == month).scalar())
     return int(total or 0)
+
+
+def spent_since(db: Session, society_id: UUID, since) -> int:
+    """Tokens spent from the month of [since] on (a trial's allowance covers the whole trial)."""
+    q = (db.query(func.coalesce(func.sum(AgentAiUsage.input_tokens + AgentAiUsage.output_tokens), 0))
+         .filter(AgentAiUsage.society_id == society_id))
+    if since is not None:
+        q = q.filter(AgentAiUsage.month >= since.strftime("%Y-%m"))
+    return int(q.scalar() or 0)
+
+
+def check(db: Session, society_id: UUID, settings, estimate: int) -> tuple:
+    """May a request of about [estimate] tokens be sent? (ok, counter to note when not, message for the reader)."""
+    ent = plans.entitlement(db, society_id, settings, today=society_today(db, society_id))
+    if not ent["allowed"]:
+        return False, "not_included", (ent["reason"] or "AI is not part of this society's subscription.") + \
+            " The clauses are listed without AI wording."
+    if ent["period"] == "trial":
+        if spent_since(db, society_id, ent["since"]) + max(0, estimate) > ent["tokens"]:
+            return False, "over_budget", ("The free trial's AI allowance is used up, so the clauses are listed "
+                                          "without AI wording. It comes back when the society is put on a plan.")
+    elif spent_this_month(db, society_id) + max(0, estimate) > ent["tokens"]:
+        return False, "over_budget", (f"This month's AI allowance in the {ent['plan_label']} plan is used up, so the "
+                                      "clauses are listed without AI wording.")
+    if not within_budget(db, society_id, settings, estimate):
+        return False, "over_budget", ("This month's AI budget is used up, so the clauses are listed without AI "
+                                      "wording. The committee can raise it in Accounts Agent → Learning & settings.")
+    return True, None, None
 
 
 def budget_of(settings) -> int:
@@ -67,7 +100,8 @@ def estimate_tokens(*texts: str, reply: int = 600) -> int:
 
 
 def note(db: Session, society_id: UUID, feature: str, what: str) -> None:
-    """Count a request that was NOT sent: what ∈ {'reused_answers', 'answered_locally', 'over_budget'}."""
+    """Count a request that was NOT sent: what ∈ {'reused_answers', 'answered_locally', 'over_budget',
+    'not_included'}."""
     row = _row(db, society_id, feature)
     setattr(row, what, (getattr(row, what) or 0) + 1)
 
@@ -123,19 +157,32 @@ def summary(db: Session, society_id: UUID, settings) -> dict:
             .filter(AgentAiUsage.society_id == society_id, AgentAiUsage.month == month).all())
     by_feature = []
     totals = {k: 0 for k in ("ai_calls", "input_tokens", "output_tokens", "reused_answers", "answered_locally",
-                             "over_budget", "failed_calls")}
+                             "over_budget", "not_included", "failed_calls")}
     for r in rows:
         d = {k: int(getattr(r, k) or 0) for k in totals}
         for k in totals:
             totals[k] += d[k]
         by_feature.append({"feature": r.feature, "label": FEATURES.get(r.feature, r.feature), **d})
     spent = totals["input_tokens"] + totals["output_tokens"]
-    budget = budget_of(settings)
-    asked = totals["ai_calls"] + totals["reused_answers"] + totals["answered_locally"] + totals["over_budget"]
-    without_ai = totals["reused_answers"] + totals["answered_locally"] + totals["over_budget"]
+    ent = plans.entitlement(db, society_id, settings, today=society_today(db, society_id))
+    committee = budget_of(settings)
+    if not ent["allowed"]:
+        budget, period_spent = 0, spent
+    elif ent["period"] == "trial":
+        period_spent = spent_since(db, society_id, ent["since"])
+        budget = min(committee, ent["tokens"]) if committee else 0
+    else:
+        period_spent = spent
+        budget = min(committee, ent["tokens"])
+    asked = (totals["ai_calls"] + totals["reused_answers"] + totals["answered_locally"] + totals["over_budget"]
+             + totals["not_included"])
+    without_ai = asked - totals["ai_calls"]
     kept = db.query(func.count(AgentAiAnswer.id)).filter(AgentAiAnswer.society_id == society_id).scalar() or 0
-    return {"month": month, "budget_tokens": budget, "spent_tokens": spent,
-            "left_tokens": max(0, budget - spent), "used_pct": round(100 * spent / budget, 1) if budget else 0.0,
+    return {"month": month, "budget_tokens": budget, "spent_tokens": period_spent, "spent_this_month": spent,
+            "left_tokens": max(0, budget - period_spent),
+            "used_pct": round(100 * period_spent / budget, 1) if budget else 0.0,
+            "committee_budget": committee,
+            "entitlement": {**ent, "since": ent["since"].isoformat() if ent["since"] else None},
             "requests": asked, "answered_without_ai": without_ai,
             "without_ai_pct": round(100 * without_ai / asked, 1) if asked else 0.0,
             "kept_answers": int(kept), **totals,
