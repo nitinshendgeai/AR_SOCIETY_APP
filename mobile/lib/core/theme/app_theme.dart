@@ -2,23 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ar_society_app/core/motion/motion.dart';
 
-/// Design language: a native-feeling, iOS-inspired system — vivid single
-/// accent, layered neutral grays instead of heavy borders, generous corner
-/// radii, soft ambient shadows instead of hard elevation, and a type scale
-/// modelled on Apple's Human Interface Guidelines sizes/weights/tracking.
-///
-/// Scope note: this file (plus the shared widgets in
-/// shared/widgets/app_widgets.dart) is the whole redesign surface for this
-/// pass — every screen already reads these as static constants or through
-/// ThemeData's component themes, so recoloring/retyping here reaches the
-/// entire app without touching individual screens. What it can't reach:
-/// screens that hand-roll their own `Container(decoration: BoxDecoration(...))`
-/// "cards" with their own inline radius/border instead of using a themed
-/// component — those keep their existing look until a later per-screen pass.
-///
-/// Two looks, chosen by each user (account menu → Appearance): the light one and the dark sci-fi "Command deck".
-/// Screens read colours as `AppTheme.textSecondary` and the like; these come from the palette of the look in use, so
-/// switching the look rebuilds the app with the other palette (see `app_look.dart`).
 /// The two looks the user can choose between.
 enum AppLook { light, deck }
 
@@ -72,6 +55,23 @@ class AppPalette {
   );
 }
 
+/// Design language: a native-feeling, iOS-inspired system — vivid single
+/// accent, layered neutral grays instead of heavy borders, generous corner
+/// radii, soft ambient shadows instead of hard elevation, and a type scale
+/// modelled on Apple's Human Interface Guidelines sizes/weights/tracking.
+///
+/// Scope note: this file (plus the shared widgets in
+/// shared/widgets/app_widgets.dart) is the whole redesign surface for this
+/// pass — every screen already reads these as static constants or through
+/// ThemeData's component themes, so recoloring/retyping here reaches the
+/// entire app without touching individual screens. What it can't reach:
+/// screens that hand-roll their own `Container(decoration: BoxDecoration(...))`
+/// "cards" with their own inline radius/border instead of using a themed
+/// component — those keep their existing look until a later per-screen pass.
+///
+/// Two looks, chosen by each user (account menu → Appearance): the light one and the dark sci-fi "Command deck".
+/// Screens read colours as `AppTheme.textSecondary` and the like; these come from the palette of the look in use, so
+/// switching the look rebuilds the app with the other palette (see `app_look.dart`).
 class AppTheme {
   // Bundled locally (assets/fonts/Inter-Variable.ttf) rather than fetched at
   // runtime via the google_fonts package: a runtime font fetch that fails
