@@ -60,7 +60,10 @@ void main() {
         'Finance & Maintenance': [
           'Maintenance Billing', 'Maintenance Elements', 'Online Payments', 'Defaulters', 'Vendor Bills', 'Bank Reconciliation',
         ],
-        'Accounts & Financial Reports': ['Accounts'],
+        'Accounts & Financial Reports': [
+          'Accounts', 'Day Book', 'Cash & Bank Book', "Members' Ledger", 'Financial Statements', 'Registers',
+          'Chart of Accounts', 'Approvals',
+        ],
         'Administration & Settings': [
           'Users & Roles', 'Permission Matrix', 'Forms Matrix', 'Society Settings', 'Automatic tasks', 'Setup Wizard',
         ],
@@ -71,7 +74,7 @@ void main() {
 
     test('no duplicate labels, routes or icons; every item has a route', () {
       final items = [for (final c in appMenuCategories) ...c.items];
-      expect(items.length, 42); // the Accounts and Gateway entries were merged into one; the Gym's attendance book was added
+      expect(items.length, 49); // the Accounts group lists the main books and reports; the Gym's attendance book was added
       expect(items.map((i) => i.label).toSet().length, items.length, reason: 'duplicate label');
       expect(items.map((i) => i.route).toSet().length, items.length, reason: 'duplicate route');
       expect(items.map((i) => i.icon.codePoint).toSet().length, items.length, reason: 'duplicate icon');
@@ -97,9 +100,11 @@ void main() {
       }
     });
 
-    test('the Accounts group has a single entry; the Gateway is reached from inside it', () {
+    test('the Accounts group opens the Accounts page first, then the main books and reports; not the Gateway', () {
       final accounts = appMenuCategories.firstWhere((c) => c.label == 'Accounts & Financial Reports');
-      expect(accounts.items.map((i) => i.route), [AppRoutes.accounts]);
+      expect(accounts.items.first.route, AppRoutes.accounts);
+      expect(accounts.items.map((i) => i.route), containsAll([AppRoutes.accountsDayBook, AppRoutes.accountsStatements]));
+      expect(accounts.items.map((i) => i.route), isNot(contains(AppRoutes.accountsGateway)));
       expect(accounts.items.map((i) => i.formCode).toSet(), {'accounts'});
     });
   });
@@ -112,7 +117,7 @@ void main() {
         'Accounts & Financial Reports', 'Administration & Settings',
       ]);
       expect(t['Administration & Settings'], contains('Users & Roles'));
-      expect(t.values.expand((x) => x).length, 37);
+      expect(t.values.expand((x) => x).length, 44);
     });
 
     test('Committee has no Users, Permission Matrix or Forms Matrix', () {
@@ -125,7 +130,7 @@ void main() {
       expect(t['People & Residents'], ['Staff']);
       expect(t['Property & Parking'], ['Assets']);
       expect(t.containsKey('Administration & Settings'), isFalse);
-      expect(t['Accounts & Financial Reports'], ['Accounts']);
+      expect(t['Accounts & Financial Reports'], ['Accounts', 'Day Book', 'Cash & Bank Book', "Members' Ledger", 'Financial Statements', 'Registers', 'Chart of Accounts', 'Approvals']);
     });
 
     test('Resident: own bills first, community screens, own profile; nothing administrative', () {
@@ -195,7 +200,7 @@ void main() {
         ShellRoute(
           builder: (_, state, child) => AppShell(location: state.uri.path, child: child),
           routes: [
-            for (final p in ['/admin', '/residents', '/staff/list', '/accounts', '/accounts/gateway', '/accounts/day-book', '/users', '/vendors/bills', '/billing/online-payments'])
+            for (final p in ['/admin', '/residents', '/staff/list', '/accounts', '/accounts/gateway', '/accounts/day-book', '/accounts/expenses', '/users', '/vendors/bills', '/billing/online-payments'])
               GoRoute(path: p, builder: (_, __) => page(p)),
           ],
         ),
@@ -254,6 +259,12 @@ void main() {
 
     testWidgets('the current page is the selected entry; a page below it keeps its parent selected', (t) async {
       await boot(t, _user('Society Admin'), _admin, start: '/accounts/day-book');
+      expect(selected(t, 'Day Book'), isTrue);
+      expect(selected(t, 'Accounts'), isFalse);
+    });
+
+    testWidgets('a page below Accounts that has no entry of its own keeps Accounts selected', (t) async {
+      await boot(t, _user('Society Admin'), _admin, start: '/accounts/expenses');
       expect(selected(t, 'Accounts'), isTrue);
     });
 
@@ -264,10 +275,10 @@ void main() {
 
     testWidgets('a page opened from Accounts adds a third crumb; the entry itself does not', (t) async {
       final router = await boot(t, _user('Society Admin'), _admin, start: '/accounts');
-      expect(find.text('Day Book'), findsNothing);
-      router.go('/accounts/day-book');
+      expect(find.text('Spend by Maintenance Element'), findsNothing);
+      router.go('/accounts/expenses');
       await t.pumpAndSettle();
-      expect(find.text('Day Book'), findsOneWidget);                  // the crumb (the page is a stub)
+      expect(find.text('Spend by Maintenance Element'), findsOneWidget); // the crumb (the page is a stub)
       expect(find.text('Accounts & Financial Reports'), findsWidgets);
     });
 

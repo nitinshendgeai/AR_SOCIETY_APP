@@ -80,11 +80,18 @@ const appMenuCategories = [
     AppMenuItem('vendor_bills', 'Vendor Bills', Icons.request_page_rounded, AppRoutes.vendorBills),
     AppMenuItem('bank_reconciliation', 'Bank Reconciliation', Icons.account_balance_rounded, AppRoutes.bankReconciliation),
   ]),
-  // One entry only: the Accounts landing page and the keyboard Gateway of Accounts list the same
-  // screens, so two menu entries just confused people. The Gateway is still reached from the
-  // Gateway button on the Accounts page and with Alt+G.
+  // The Accounts page lists every form, report and register (with a search box); the books and reports people open
+  // most are also here so they are one click away and the menu search finds them. The keyboard Gateway of Accounts
+  // is reached from the Accounts page and with Alt+G, not from here.
   AppMenuCategory('Accounts & Financial Reports', Icons.menu_book_rounded, [
     AppMenuItem('accounts', 'Accounts', Icons.account_balance_wallet_rounded, AppRoutes.accounts),
+    AppMenuItem('accounts', 'Day Book', Icons.receipt_long_rounded, AppRoutes.accountsDayBook),
+    AppMenuItem('accounts', 'Cash & Bank Book', Icons.menu_book_rounded, AppRoutes.accountsCashBook),
+    AppMenuItem('accounts', "Members' Ledger", Icons.groups_2_rounded, AppRoutes.accountsMembers),
+    AppMenuItem('accounts', 'Financial Statements', Icons.summarize_rounded, AppRoutes.accountsStatements),
+    AppMenuItem('accounts', 'Registers', Icons.library_books_rounded, AppRoutes.accountsRegisters),
+    AppMenuItem('accounts', 'Chart of Accounts', Icons.account_tree_rounded, AppRoutes.accountsChart),
+    AppMenuItem('accounts', 'Approvals', Icons.approval_rounded, AppRoutes.accountsApprovals),
   ]),
   AppMenuCategory('Administration & Settings', Icons.admin_panel_settings_rounded, [
     AppMenuItem('users_roles', 'Users & Roles', Icons.people_rounded, AppRoutes.usersList),
