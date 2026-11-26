@@ -378,6 +378,7 @@ class _ResidentFormScreenState extends ConsumerState<ResidentFormScreen> {
           tenant: false,
           personId: widget.resident?.id,
           flatId: widget.resident?.flatId,
+          primary: widget.resident?.isPrimary ?? false,
           drafts: _drafts,
           onDraftsChanged: () => setState(() {}),
         ),

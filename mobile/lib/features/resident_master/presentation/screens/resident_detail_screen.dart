@@ -191,7 +191,11 @@ class _ResidentDetailBody extends ConsumerWidget {
                 loading: () => const LinearProgressIndicator(),
                 error: (e, _) => Text(rmFriendlyError(e), style: const TextStyle(color: AppTheme.error, fontSize: 12)),
                 data: (vehicles) {
-                  final own = vehicles.where((v) => v.residentId == resident.id).toList();
+                  final own = vehicles
+                      .where((v) =>
+                          v.residentId == resident.id ||
+                          (resident.isPrimary && v.residentId == null && v.tenantId == null)) // the household's, no owner yet
+                      .toList();
                   if (own.isEmpty) {
                     return const Text('No vehicles registered.',
                         style: TextStyle(fontSize: 13, color: AppTheme.textSecondary));

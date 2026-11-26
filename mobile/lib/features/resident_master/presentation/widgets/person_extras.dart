@@ -86,6 +86,10 @@ class PersonExtrasSections extends ConsumerWidget {
 
   /// The flat of the person being edited (unused on the Add form).
   final String? flatId;
+
+  /// A resident who is the flat's primary contact also shows the flat's vehicles that have no owner yet (a sheet
+  /// import, say), which are the household's.
+  final bool primary;
   final PersonDrafts drafts;
   final VoidCallback onDraftsChanged;
 
@@ -94,6 +98,7 @@ class PersonExtrasSections extends ConsumerWidget {
     required this.tenant,
     required this.personId,
     required this.flatId,
+    this.primary = false,
     required this.drafts,
     required this.onDraftsChanged,
   });
@@ -288,7 +293,9 @@ class PersonExtrasSections extends ConsumerWidget {
         loading: () => [const LinearProgressIndicator()],
         error: (e, _) => [AppErrorBanner(message: rmFriendlyError(e))],
         data: (list) => [
-          for (final v in list.where((v) => tenant ? v.tenantId == personId : v.residentId == personId))
+          for (final v in list.where((v) => tenant
+              ? v.tenantId == personId
+              : v.residentId == personId || (primary && v.residentId == null && v.tenantId == null)))
             _row(
               key: Key('vehicle-${v.id}'),
               icon: Icons.directions_car_outlined,

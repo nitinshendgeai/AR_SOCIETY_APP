@@ -1083,6 +1083,32 @@ void main() {
       expect(find.text('MH01XY9999'), findsOneWidget);
       expect(find.byKey(const Key('vehicle-remove-veh-1')), findsOneWidget);
     });
+
+    testWidgets('a vehicle with no owner (a sheet import) shows on the primary resident only', (tester) async {
+      Future<void> open(bool primary) async {
+        bigScreen(tester);
+        final ds = _FakeDataSource()
+          ..residents = [_resident(id: 'res-1', isPrimary: primary)]
+          ..vehicles = [
+            _vehicle(id: 'veh-1', vehicleNumber: 'MH01XY9999'),                      // imported: no owner
+            _vehicle(id: 'veh-2', vehicleNumber: 'MH02ZZ0001', residentId: 'res-2'), // someone else's
+          ];
+        await tester.pumpWidget(_wrap(
+          ResidentFormScreen(resident: _resident(id: 'res-1', isPrimary: primary)),
+          overrides: [
+            flatsBySocietyProvider.overrideWith(() => _FakeFlatsNotifier([_flat()])),
+            residentMasterRepositoryProvider.overrideWithValue(ResidentMasterRepository(ds: ds)),
+          ],
+        ));
+        await tester.pumpAndSettle();
+      }
+
+      await open(true);
+      expect(find.text('MH01XY9999'), findsOneWidget);
+      expect(find.text('MH02ZZ0001'), findsNothing);
+      await open(false);
+      expect(find.text('MH01XY9999'), findsNothing);
+    });
   });
 
   // ── Remove (entered by mistake) ──────────────────────────────────────────
