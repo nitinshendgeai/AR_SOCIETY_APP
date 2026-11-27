@@ -651,6 +651,15 @@ class BillingService:
         """The bills that stand while the cycle is regenerated: issued, paid or part-paid, or with a payment or
         receipt on them. Everything else (unissued, cancelled) is replaced. Raises when nothing can be replaced. A few
         queries for the whole cycle, not several per bill."""
+        stay = self._standing_bills(bills)
+        stay_flats = {b.flat_id for b in stay}
+        if not any(b.flat_id not in stay_flats for b in bills):
+            raise HTTPException(409, "Nothing to regenerate: every bill of this cycle has been issued or has a payment "
+                                     "on it. Cancel a bill first to make it again.")
+        return stay
+
+    def _standing_bills(self, bills: List[MaintenanceBill]) -> List[MaintenanceBill]:
+        """The bills that cannot simply be dropped: issued, paid or part-paid, or with a payment or receipt on them."""
         db = self.db
         live = [b for b in bills if b.bill_status != BillStatus.CANCELLED]
         ids = [b.id for b in live]
@@ -662,12 +671,35 @@ class BillingService:
                 PaymentAllocation.bill_id.in_(chunk), PaymentAllocation.released_at.is_(None)))
             with_payment.update(i for (i,) in db.query(OnlinePaymentSubmission.bill_id).filter(
                 OnlinePaymentSubmission.bill_id.in_(chunk)))
-        stay = [b for b in live if self.regenerate_blocker(b) is not None or b.id in with_payment]
-        stay_flats = {b.flat_id for b in stay}
-        if not any(b.flat_id not in stay_flats for b in bills):
-            raise HTTPException(409, "Nothing to regenerate: every bill of this cycle has been issued or has a payment "
-                                     "on it. Cancel a bill first to make it again.")
-        return stay
+        return [b for b in live if self.regenerate_blocker(b) is not None or b.id in with_payment]
+
+    def cycle_deletable(self, cycle: BillingCycle, bills: Optional[List[MaintenanceBill]] = None) -> Optional[str]:
+        """Why a cycle cannot be deleted, or None when it can: only a cycle that has not been billed, that is with no
+        bill issued (now or once, even if cancelled since) and none with a payment on it."""
+        bills = self.bill_repo.get_by_cycle(cycle.id) if bills is None else bills
+        if any(b.issued_at is not None for b in bills) or self._standing_bills(bills):
+            return "Bills of this cycle have been issued, so it can't be deleted. Cancel a bill to correct it instead."
+        return None
+
+    def delete_cycle(self, cycle_id: UUID, user: User, request=None) -> dict:
+        """Delete a cycle that has not been billed, with the bills made for it but never issued: what generating them
+        did is undone first (the flats' running dues, the one-off charges they took up, the expense working)."""
+        self._lock_cycle(cycle_id)
+        cycle = self.cycle_repo.get(cycle_id)
+        if not cycle: raise HTTPException(404, "Billing cycle not found")
+        assert_society_access(user, cycle.society_id)
+        bills = self.bill_repo.get_by_cycle(cycle_id)
+        reason = self.cycle_deletable(cycle, bills)
+        if reason:
+            raise HTTPException(409, reason)
+        name, removed = cycle.name, len(bills)
+        self._remove_unissued_bills(cycle, bills)
+        self.db.expire(cycle, ["bills"])
+        self.db.delete(cycle)
+        self._audit(AuditAction.DELETE, cycle, "BillingCycle", user, request,
+                    old_values={"name": name, "bills_removed": removed})
+        self.db.commit()
+        return {"deleted": True, "cycle_id": str(cycle_id), "name": name, "bills_removed": removed}
 
     @staticmethod
     def _bill_label(b: MaintenanceBill) -> str:
