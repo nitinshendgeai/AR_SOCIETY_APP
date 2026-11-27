@@ -39,7 +39,7 @@ from app.modules.accounts.services.accounts_service import (
 from app.modules.vendor.services.work_orders import inr
 from app.modules.accounts.services.chart_of_accounts import VENDOR_CATEGORY_LEDGER, bill_line_ledger_key
 from app.modules.billing.models.billing import (
-    BillStatus, MaintenanceBill, MaintenanceChargeConfig, MaintenanceElement, OnlinePaymentSubmission,
+    BillStatus, ChargeType, MaintenanceBill, MaintenanceChargeConfig, MaintenanceElement, OnlinePaymentSubmission,
     PaymentMode, PaymentReceipt, ReconciliationStatus,
 )
 from app.modules.billing.services.bill_pdf import _bill_month, flat_label, member
@@ -90,13 +90,29 @@ class AccountPostings:
             narration = f"{narration} (dated {d:%d %b %Y}; FY {fiscal_year(d)} books closed)"
         return self.accounts.build_voucher(society_id, voucher_type, on, lines, narration=narration, **kw)
 
-    def _element_code(self, society_id: UUID, description: str) -> Optional[str]:
+    def _element_info(self, society_id: UUID) -> dict:
+        """Charge head name → (element code, the ledger the element is set to credit or None)."""
         if society_id not in self._element_codes:
-            rows = (self.db.query(MaintenanceChargeConfig.name, MaintenanceElement.code)
+            rows = (self.db.query(MaintenanceChargeConfig.name, MaintenanceElement.code, MaintenanceElement.credit_ledger_id)
                     .join(MaintenanceElement, MaintenanceElement.id == MaintenanceChargeConfig.element_id)
                     .filter(MaintenanceChargeConfig.society_id == society_id).all())
-            self._element_codes[society_id] = {name: code for name, code in rows}
-        return self._element_codes[society_id].get(description)
+            self._element_codes[society_id] = {name: (code, ledger) for name, code, ledger in rows}
+        return self._element_codes[society_id]
+
+    def _element_code(self, society_id: UUID, description: str) -> Optional[str]:
+        return (self._element_info(society_id).get(description) or (None, None))[0]
+
+    def _configured_ledger(self, society_id: UUID, li) -> Optional[Account]:
+        """The ledger the society set for this line's element, if any. Interest and non-occupancy lines always follow
+        their fixed rule; a ledger of another society or a closed one is ignored."""
+        desc = (li.description or "").lower()
+        if li.charge_type == ChargeType.PENALTY or "non-occupancy" in desc or "non occupancy" in desc:
+            return None
+        ledger_id = (self._element_info(society_id).get(li.description) or (None, None))[1]
+        if ledger_id is None:
+            return None
+        acc = self.db.get(Account, ledger_id)
+        return acc if acc is not None and acc.society_id == society_id and acc.is_active else None
 
     def _cash_or_bank(self, society_id: UUID, is_cash: bool) -> Account:
         if is_cash:
@@ -150,8 +166,14 @@ class AccountPostings:
         sid = bill.society_id
         dues = self.accounts.system_account(sid, "members_dues")
         credits: Dict[str, Decimal] = {}
+        configured: Dict[str, Account] = {}
         for li in bill.line_items:
-            key = bill_line_ledger_key(li, self._element_code(sid, li.description))
+            acc = self._configured_ledger(sid, li)
+            if acc is not None:
+                key = f"acc:{acc.id}"
+                configured[key] = acc
+            else:
+                key = bill_line_ledger_key(li, self._element_code(sid, li.description))
             credits[key] = credits.get(key, ZERO) + money(li.amount)
             if money(li.tax_amount):
                 credits["gst_payable"] = credits.get("gst_payable", ZERO) + money(li.tax_amount)
@@ -167,10 +189,11 @@ class AccountPostings:
         flat = bill.flat
         lines = [Line(dues, debit=total, flat_id=bill.flat_id)]
         for key, amount in credits.items():
+            acc = configured.get(key) or self.accounts.system_account(sid, key)
             if amount > 0:
-                lines.append(Line(self.accounts.system_account(sid, key), credit=amount))
+                lines.append(Line(acc, credit=amount))
             elif amount < 0:
-                lines.append(Line(self.accounts.system_account(sid, key), debit=-amount))
+                lines.append(Line(acc, debit=-amount))
         return self._post(
             sid, "bill", bill.bill_date, lines, user=user,
             narration=f"{_bill_month(bill)} — {_member_of(flat, bill.resident)}",

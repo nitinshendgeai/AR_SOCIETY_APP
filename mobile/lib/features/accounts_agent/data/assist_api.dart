@@ -71,6 +71,67 @@ class DraftLine {
   const DraftLine(this.account, this.debit, this.credit);
 }
 
+/// The agent's answer when an entry belongs to another screen, where the app posts it the proper way: a member's
+/// payment (Billing: credits the member's dues and marks the bill paid) or a payment of a vendor's booked bill (Vendor
+/// Bills: settles the bill through Sundry Creditors).
+class EntryRedirect {
+  final String kind; // member_receipt | vendor_bill_payment
+  final String message;
+  final String accounting;
+  final String? flat;
+  final String amount;
+  final List<Map<String, dynamic>> bills;
+  final String? flatId;
+  final String? vendorId;
+  /// cash | upi | bank_transfer | cheque | neft | rtgs, read from the description.
+  final String paymentMode;
+  final String? reference;
+  /// The agent can record it itself once the person confirms (it knows the flat; the amount fits the bills).
+  final bool canRecord;
+  const EntryRedirect(this.kind, this.message, this.accounting, this.flat, this.amount, this.bills,
+      {this.flatId, this.vendorId, this.paymentMode = 'bank_transfer', this.reference, this.canRecord = false});
+  factory EntryRedirect.fromJson(Map<String, dynamic> j) => EntryRedirect(
+        j['kind'] as String? ?? '',
+        j['message'] as String? ?? '',
+        j['accounting'] as String? ?? '',
+        j['flat'] as String?,
+        '${j['amount'] ?? ''}',
+        _maps(j['bills']),
+        flatId: j['flat_id'] as String?,
+        vendorId: j['vendor_id'] as String?,
+        paymentMode: j['payment_mode'] as String? ?? 'bank_transfer',
+        reference: j['reference'] as String?,
+        canRecord: j['can_record'] as bool? ?? false,
+      );
+
+  /// What "Record it for me" sends, once the person confirmed (with the mode and reference they settled on).
+  Map<String, dynamic> recordPayload({required String mode, String? reference, String? text}) => {
+        'kind': kind,
+        'amount': amount,
+        if (flatId != null) 'flat_id': flatId,
+        if (vendorId != null) 'vendor_id': vendorId,
+        'payment_mode': mode,
+        if ((reference ?? '').trim().isNotEmpty) 'reference': reference!.trim(),
+        if ((text ?? '').trim().isNotEmpty) 'text': text!.trim(),
+        'confirm': true,
+      };
+}
+
+/// What the agent recorded: the receipt / payment, the bills it settled, and the entry in one sentence.
+class EntryRecorded {
+  final String summary;
+  final String? reference;
+  final List<String> settled;
+  final String status;
+  const EntryRecorded(this.summary, this.reference, this.settled, this.status);
+  factory EntryRecorded.fromJson(Map<String, dynamic> j) => EntryRecorded(
+        j['summary'] as String? ?? '',
+        j['reference'] as String?,
+        [for (final x in (j['settled'] as List? ?? const [])) '$x'],
+        j['status'] as String? ?? '',
+      );
+}
+
 /// The voucher the agent proposes (and, once saved, the pending voucher it created).
 class EntryDraftResult {
   final String voucherType;
@@ -84,8 +145,10 @@ class EntryDraftResult {
   final bool saved;
   final String? voucherNumber;
   final String? approvalStatus;
+  /// Set instead of a voucher when the entry belongs to Billing or Vendor Bills.
+  final EntryRedirect? redirect;
   const EntryDraftResult(this.voucherType, this.voucherDate, this.amount, this.narration, this.reference, this.lines,
-      this.basis, this.unclear, this.saved, this.voucherNumber, this.approvalStatus);
+      this.basis, this.unclear, this.saved, this.voucherNumber, this.approvalStatus, [this.redirect]);
   factory EntryDraftResult.fromJson(Map<String, dynamic> j) => EntryDraftResult(
         j['voucher_type'] as String? ?? 'payment',
         j['voucher_date'] as String? ?? '',
@@ -101,6 +164,7 @@ class EntryDraftResult {
         j['saved'] as bool? ?? false,
         j['voucher_number'] as String?,
         j['approval_status'] as String?,
+        j['redirect'] == null ? null : EntryRedirect.fromJson((j['redirect'] as Map).cast<String, dynamic>()),
       );
 }
 
@@ -115,6 +179,7 @@ Map<String, dynamic> entryDraftPayload({
   String? moneyAccount,
   String? reference,
   String? narration,
+  bool notAgainstBill = false,
   required bool save,
 }) {
   String? clean(String? s) => (s == null || s.trim().isEmpty) ? null : s.trim();
@@ -136,6 +201,7 @@ Map<String, dynamic> entryDraftPayload({
     if (moneyAccount != null) 'money_account': moneyAccount,
     if (clean(reference) != null) 'reference': clean(reference),
     if (clean(narration) != null) 'narration': clean(narration),
+    if (notAgainstBill) 'not_against_bill': true,
     'save': save,
   };
 }
@@ -170,6 +236,9 @@ class AssistApi {
 
   Future<EntryDraftResult> draftEntry(Map<String, dynamic> payload) async =>
       EntryDraftResult.fromJson((await _dio.post('$_base/entries/draft', data: payload)).data as Map<String, dynamic>);
+
+  Future<EntryRecorded> recordEntry(Map<String, dynamic> payload) async =>
+      EntryRecorded.fromJson((await _dio.post('$_base/entries/record', data: payload)).data as Map<String, dynamic>);
 
   Future<NoticeDraftResult> draftNotice(Map<String, dynamic> payload) async =>
       NoticeDraftResult.fromJson((await _dio.post('$_base/notices/draft', data: payload)).data as Map<String, dynamic>);

@@ -31,6 +31,28 @@ const _source = {
 };
 
 void main() {
+  test('element review: findings with their fixes, and applying the chosen ones', () async {
+    final seen = <RequestOptions>[];
+    final api = LegalApi(dio: _server(seen, {
+      'summary': {'elements': 12, 'to_fix': 1, 'high': 1},
+      'recommendations': [
+        {'id': 'f1', 'kind': 'wrong_ledger_nature', 'severity': 'HIGH', 'element': 'Sinking Fund', 'in_use': true,
+         'title': "'Sinking Fund' is credited to the wrong kind of ledger", 'detail': 'A fund held for the members…',
+         'current_ledger': 'Service Charges', 'proposed_ledger': 'Sinking Fund', 'bye_law_ref': 'Bye-laws 13(c), 67(a)(v)'},
+      ],
+      'applied': [{'id': 'f1', 'change': "'Sinking Fund' now credits 'Sinking Fund'"}],
+    }));
+    final r = await api.elementReview();
+    expect(seen.last.path, '/accounts-agent/ledger-mapping/element-review');
+    expect(r.elements, 12);
+    expect(r.fixes.single.severity, 'HIGH');
+    expect(r.fixes.single.proposedLedger, 'Sinking Fund');
+    final done = await api.applyElementFixes(['f1']);
+    expect(seen.last.path, '/accounts-agent/ledger-mapping/element-review/apply');
+    expect(seen.last.data, {'ids': ['f1']});
+    expect(done.single, contains('now credits'));
+  });
+
   test('a potential issue is never labelled as confirmed', () {
     expect(classificationLabel('POTENTIAL_NON_COMPLIANCE'), contains('needs review'));
     expect(classificationLabel('POTENTIAL_NON_COMPLIANCE').toLowerCase(), isNot(contains('confirmed')));

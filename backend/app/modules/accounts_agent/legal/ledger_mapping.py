@@ -39,7 +39,8 @@ CALC_TYPE = "element_ledger"
 RECENT_DAYS = 100
 CATCH_ALL = "other_charges_recovered"
 LIVE = (BillStatus.GENERATED, BillStatus.ISSUED, BillStatus.PARTIALLY_PAID, BillStatus.PAID, BillStatus.OVERDUE)
-SOURCE_LABELS = {"special": "Fixed rule for interest / non-occupancy lines", "element": "Standard element table",
+SOURCE_LABELS = {"configured": "Set for this element by the society",
+                 "special": "Fixed rule for interest / non-occupancy lines", "element": "Standard element table",
                  "keyword": "Recognised from the line's wording", "charge_type": "Default for the charge type (fallback)"}
 
 
@@ -61,6 +62,19 @@ def ledger_source(charge_type, description: str, element_code: Optional[str]) ->
     else:
         src = "charge_type"
     return key, src
+
+
+def effective(by_id, by_key, charge_type, description: str, element) -> tuple:
+    """(ledger Account or None, standard key or None, source) a bill line is ACTUALLY credited to — the same decision
+    as posting: the ledger set for the element when there is one (never for interest / non-occupancy lines), else the
+    standard table."""
+    key, src = ledger_source(charge_type, description, element.code if element is not None else None)
+    ledger_id = getattr(element, "credit_ledger_id", None)
+    if ledger_id is not None and src != "special":
+        acc = by_id.get(ledger_id)
+        if acc is not None and acc.is_active:
+            return acc, None, "configured"
+    return by_key.get(key), key, src
 
 
 def _accounts(db: Session, sid: UUID):
@@ -104,15 +118,15 @@ def mapping(db: Session, sid: UUID, today: date) -> dict:
               .filter(MaintenanceBill.society_id == sid, MaintenanceBill.bill_status.in_(LIVE),
                       MaintenanceBill.bill_date >= today - timedelta(days=RECENT_DAYS))):
         for li in b.line_items:
-            key, src = ledger_source(li.charge_type, li.description, _code_for(heads, li.description))
-            posted[li.description][key] += Decimal(str(li.amount))
+            acc, key, src = effective(by_id, by_key, li.charge_type, li.description, _element_for(heads, li.description))
+            posted[li.description][_key_of(acc, key)] += Decimal(str(li.amount))
             if src == "special":
                 special.add(li.description)
     rows = []
     for h in sorted(heads, key=lambda h: h.name):
         code = h.element.code if h.element else None
-        key, src = ledger_source(h.charge_type, h.name, code)
-        std = by_key.get(key)
+        std, key, src = effective(by_id, by_key, h.charge_type, h.name, h.element)
+        key = _key_of(std, key)
         app = society_rule(db, sid, code, today) if code else None
         rule_acc = _rule_account(app, by_id, by_key) if app else None
         pend = pending_rule(db, sid, code) if code and not (app and app.rule) else None
@@ -135,11 +149,11 @@ def mapping(db: Session, sid: UUID, today: date) -> dict:
             "society_rule_ledger": rule_acc.name if rule_acc else None,
             "society_rule_ledger_id": str(rule_acc.id) if rule_acc else None,
             "pending_society_rule": registry.rule_dict(pend) if pend else None,
-            "recent_postings": [{"ledger": by_key[k].name if k in by_key else k, "amount": str(v)}
+            "recent_postings": [{"ledger": _name(k, by_id, by_key), "amount": str(v)}
                                 for k, v in posted.get(h.name, {}).items()],
             "status": status,
         })
-    unmatched = [{"description": d, "ledgers": [{"ledger": by_key[k].name if k in by_key else k, "amount": str(v)}
+    unmatched = [{"description": d, "ledgers": [{"ledger": _name(k, by_id, by_key), "amount": str(v)}
                                                 for k, v in led.items()]}
                  for d, led in posted.items() if d not in {h.name for h in heads} and d not in special]
     fp = fingerprint(rows)
@@ -150,9 +164,35 @@ def mapping(db: Session, sid: UUID, today: date) -> dict:
     return {"as_of": today.isoformat(), "rows": rows, "unmatched_bill_lines": unmatched, "fingerprint": fp,
             "signed_off": signed, "signed_off_current": bool(signed and signed["fingerprint"] == fp),
             "ledgers": ledgers,
-            "note": "Postings follow the app's standard element table. A society rule changes what the agent checks "
-                    "against, not how bills are posted: correct a difference by changing the charge head's element in "
-                    "Billing, or the society's rule."}
+            "note": "Bills are credited to the ledger set for each element (Accounts Agent → element review), else to "
+                    "the app's standard element table. A society rule is what the agent checks against: apply it "
+                    "with the element review, or revise the rule."}
+
+
+def _key_of(acc, key) -> Optional[str]:
+    """A stable key for the ledger a line goes to: its system key, else 'acc:<id>' (a ledger the society created)."""
+    if acc is None:
+        return key
+    return acc.system_key or f"acc:{acc.id}"
+
+
+def _name(k, by_id, by_key) -> str:
+    if k in by_key:
+        return by_key[k].name
+    if isinstance(k, str) and k.startswith("acc:"):
+        try:
+            acc = by_id.get(UUID(k[4:]))
+        except ValueError:
+            acc = None
+        return acc.name if acc is not None else k
+    return k
+
+
+def _element_for(heads, description: str):
+    for h in heads:
+        if h.name == description:
+            return h.element
+    return None
 
 
 def _code_for(heads, description: str) -> Optional[str]:
@@ -218,8 +258,7 @@ def chk_element_ledger_rules(s) -> List:
         if not app.rule:
             continue
         want = _rule_account(app, by_id, by_key)
-        key, _src = ledger_source(li.charge_type, li.description, code)
-        got = by_key.get(key)
+        got, _key, _src = effective(by_id, by_key, li.charge_type, li.description, h.element if h else None)
         if want is None or got is None or want.id == got.id:
             continue
         g = groups.setdefault((code, got.id, want.id), {"app": app, "want": want, "got": got, "bills": [], "amount": Decimal("0"),
@@ -232,13 +271,13 @@ def chk_element_ledger_rules(s) -> List:
         out.append(s.legal("A-LED-01", "element_ledger", "element_ledger", app,
                            f"'{g['head']}' is credited to {g['got'].name}; the society's rule says {g['want'].name}",
                            f"{len(g['bills'])} recent bill line(s) for '{g['head']}' (element {code}), {_inr(g['amount'])} in all, "
-                           f"were credited to '{g['got'].name}' by the app's standard posting table. The society's rule "
+                           f"were credited to '{g['got'].name}'. The society's rule "
                            f"{app.rule.rule_code} ({registry.LEVEL_NAMES.get(app.rule.source_level)}) puts this element in "
                            f"'{g['want'].name}'.",
                            expected=g["want"].name, actual=g["got"].name, severity="MEDIUM",
-                           recommended="If the society's rule is right, link the charge head to an element that posts to "
-                                       f"'{g['want'].name}' (Billing → charge heads) and pass a journal moving the amounts; "
-                                       "if the standard table is right, revise the society's rule.",
+                           recommended="If the society's rule is right, apply it in the agent's element review (Ledger map "
+                                       "→ Review elements) so new bills follow it, and pass a journal moving the amounts "
+                                       "already posted; if the current ledger is right, revise the society's rule.",
                            evidence={"element": code, "posted_ledger": g["got"].name, "rule_ledger": g["want"].name,
                                      "bills": g["bills"][:30], "amount": str(g["amount"])},
                            subject=f"{code}:{g['got'].id}"))
@@ -252,8 +291,9 @@ def chk_ledger_fallback(s) -> List:
     _by_id, by_key = _accounts(s.db, s.sid)
     fallback: Dict[str, dict] = {}
     orphan: Dict[str, dict] = {}
+    by_id = _by_id
     for b, li, h, code in _recent_lines(s):
-        key, src = ledger_source(li.charge_type, li.description, code)
+        acc, key, src = effective(by_id, by_key, li.charge_type, li.description, h.element if h else None)
         if src != "charge_type":
             continue
         bucket = orphan if h is None else fallback

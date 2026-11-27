@@ -386,8 +386,56 @@ class LegalApi {
   Future<LedgerMap> ledgerMap() async => LedgerMap.fromJson(_m(await _dio.get('$_base/ledger-mapping')));
 
   /// Signs off exactly the map that was shown: the server refuses (409) if it changed since.
+  Future<ElementReview> elementReview() async =>
+      ElementReview.fromJson(_m(await _dio.get('$_base/ledger-mapping/element-review')));
+
+  /// Apply the selected fixes (admin / committee). Returns the changes made, one sentence each.
+  Future<List<String>> applyElementFixes(List<String> ids) async {
+    final r = _m(await _dio.post('$_base/ledger-mapping/element-review/apply', data: {'ids': ids}));
+    return [for (final a in (r['applied'] as List? ?? const [])) '${(a as Map)['change']}'];
+  }
+
   Future<LedgerMap> signOffLedgerMap({required String role, required String note, required String fingerprint}) async =>
       LedgerMap.fromJson(_m(await _dio.post('$_base/ledger-mapping/sign-off', data: {'role': role, 'note': note, 'fingerprint': fingerprint})));
 
   Future<AssistantAnswer> ask(String q) async => AssistantAnswer.fromJson(_m(await _dio.post('$_base/assistant/ask', data: {'question': q.trim()})));
+}
+
+
+/// One finding of the agent's element review, with the change that fixes it.
+class ElementFix {
+  final String id;
+  final String kind; // wrong_ledger_nature | follow_society_rule | own_ledger_needed | link_expense
+  final String severity; // HIGH | MEDIUM | LOW
+  final String element;
+  final bool inUse;
+  final String title;
+  final String detail;
+  final String? currentLedger;
+  final String? proposedLedger;
+  final String? byeLawRef;
+  const ElementFix(this.id, this.kind, this.severity, this.element, this.inUse, this.title, this.detail,
+      this.currentLedger, this.proposedLedger, this.byeLawRef);
+  factory ElementFix.fromJson(Map<String, dynamic> j) => ElementFix(
+        j['id'] as String? ?? '',
+        j['kind'] as String? ?? '',
+        j['severity'] as String? ?? 'LOW',
+        j['element'] as String? ?? '',
+        j['in_use'] as bool? ?? false,
+        j['title'] as String? ?? '',
+        j['detail'] as String? ?? '',
+        j['current_ledger'] as String?,
+        j['proposed_ledger'] as String?,
+        j['bye_law_ref'] as String?,
+      );
+}
+
+class ElementReview {
+  final int elements;
+  final List<ElementFix> fixes;
+  const ElementReview(this.elements, this.fixes);
+  factory ElementReview.fromJson(Map<String, dynamic> j) => ElementReview(
+        ((j['summary'] as Map?)?['elements'] as num?)?.toInt() ?? 0,
+        [for (final r in (j['recommendations'] as List? ?? const [])) ElementFix.fromJson((r as Map).cast<String, dynamic>())],
+      );
 }

@@ -12,6 +12,8 @@ final legalReviewsProvider = FutureProvider.autoDispose<List<LegalReview>>((ref)
 final resolutionsProvider = FutureProvider.autoDispose<List<SocietyResolution>>((ref) => ref.watch(legalApiProvider).resolutions());
 final complianceCalendarProvider = FutureProvider.autoDispose<List<ComplianceItem>>((ref) => ref.watch(legalApiProvider).calendar());
 final ledgerMapProvider = FutureProvider.autoDispose<LedgerMap>((ref) => ref.watch(legalApiProvider).ledgerMap());
+
+final elementReviewProvider = FutureProvider.autoDispose<ElementReview>((ref) => ref.watch(legalApiProvider).elementReview());
 final arrearsProvider = FutureProvider.autoDispose<ArrearsReport>((ref) => ref.watch(legalApiProvider).arrears());
 
 void invalidateLegal(WidgetRef ref) {
@@ -23,4 +25,5 @@ void invalidateLegal(WidgetRef ref) {
   ref.invalidate(complianceCalendarProvider);
   ref.invalidate(arrearsProvider);
   ref.invalidate(ledgerMapProvider);
+  ref.invalidate(elementReviewProvider);
 }

@@ -764,3 +764,33 @@ def sign_off_ledger_map(data: SignOffIn, society_id: Optional[UUID] = None, db: 
     out["signed_off"] = lm.last_sign_off(db, sid)
     out["signed_off_current"] = True
     return out
+
+
+# ── The agent's element review: elements and ledgers per the bye-laws ──────────────────────────────────────────────
+
+class ElementFixesIn(BaseModel):
+    ids: list[str] = Field(..., min_length=1, max_length=200)
+
+
+@router.get("/ledger-mapping/element-review")
+def element_review(society_id: Optional[UUID] = None, db: Session = Depends(get_db),
+                   user: User = Depends(require_manager_above)):
+    """The agent's check of every maintenance element: the ledger its bills credit (the society's own rule first; funds
+    to funds, recoveries to income; no catch-all) and its linked expense ledger — each finding with its fix."""
+    from app.modules.accounts_agent.assist import element_setup
+    sid = _sid(user, society_id)
+    registry.ensure_jurisdiction_pack(db)
+    out = element_setup.review(db, sid, society_today(db, sid))
+    db.commit()
+    return out
+
+
+@router.post("/ledger-mapping/element-review/apply")
+def apply_element_fixes(data: ElementFixesIn, society_id: Optional[UUID] = None, db: Session = Depends(get_db),
+                        user: User = Depends(require_admin_committee)):
+    """Apply the selected fixes from the element review (admin / committee only). Audited; affects new bills."""
+    from app.modules.accounts_agent.assist import element_setup
+    sid = _sid(user, society_id)
+    out = element_setup.apply(db, sid, data.ids, user, society_today(db, sid))
+    db.commit()
+    return out

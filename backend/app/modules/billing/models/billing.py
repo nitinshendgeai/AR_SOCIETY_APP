@@ -161,6 +161,10 @@ class MaintenanceElement(Base, TimestampMixin):
     gst_applicable    = Column(Boolean, default=True, nullable=False)
     sort_order        = Column(Integer, default=100, nullable=False)
     is_system         = Column(Boolean, default=False, nullable=False)  # seeded standard element
+    # The ledger this element's bill lines are credited to, when the society set one (its bye-laws / accounting
+    # policy, applied by the committee or through the Accounts Agent's element review). NULL: the standard table.
+    credit_ledger_id  = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="SET NULL", use_alter=True,
+                                                         name="fk_maintenance_elements_credit_ledger"), nullable=True)
 
     society = relationship("Society")
 
