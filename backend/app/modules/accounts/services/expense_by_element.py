@@ -135,3 +135,75 @@ def element_months(db: Session, society_id: UUID, element_id: str, date_from: da
         })
     return {"element_id": element_id, "title": title, "date_from": date_from.isoformat(),
             "date_to": date_to.isoformat(), "total": str(money(grand)), "months": months}
+
+
+def monthly_by_element(db: Session, society_id: UUID, date_from: date, date_to: date) -> dict:
+    """Every element's spend month by month in one table, from the books (every approved expense entry: payment
+    vouchers, vendor bills, journals, net of refunds — the same rule as `expenses_by_element`), with what the bills
+    charged members for the element in the same month beside it. Elements as rows, months as columns; expense ledgers
+    no element covers make their own row; totals per month and per element."""
+    from app.modules.billing.models.billing import BillStatus, MaintenanceBill, MaintenanceChargeConfig
+    firsts = list(_months_between(date_from, date_to))
+    index = {f: i for i, f in enumerate(firsts)}
+    ledgers = (db.query(Account).join(AccountGroup, AccountGroup.id == Account.group_id)
+               .filter(Account.society_id == society_id, AccountGroup.nature == "expense").all())
+    element_of = {a.id: a.maintenance_element_id for a in ledgers}
+    spent: Dict[object, List[Decimal]] = {}
+    if ledgers:
+        rows = (db.query(Voucher.voucher_date, VoucherEntry.account_id, VoucherEntry.debit, VoucherEntry.credit)
+                .join(Voucher, Voucher.id == VoucherEntry.voucher_id)
+                .filter(Voucher.society_id == society_id, Voucher.is_cancelled == False,  # noqa: E712
+                        Voucher.approval_status == "approved", Voucher.voucher_type != "closing",
+                        Voucher.voucher_date >= date_from, Voucher.voucher_date <= date_to,
+                        VoucherEntry.account_id.in_(list(element_of))))
+        for day, account_id, debit, credit in rows:
+            key = element_of.get(account_id) or "none"
+            spent.setdefault(key, [ZERO] * len(firsts))[index[date(day.year, day.month, 1)]] += (
+                Decimal(str(debit or 0)) - Decimal(str(credit or 0)))
+
+    # What the bills charged for each element (bill lines carry the charge head's name; the head names its element).
+    head_element = {name: el for name, el in db.query(MaintenanceChargeConfig.name, MaintenanceChargeConfig.element_id)
+                    .filter(MaintenanceChargeConfig.society_id == society_id, MaintenanceChargeConfig.element_id.isnot(None))}
+    billed: Dict[object, List[Decimal]] = {}
+    live = (BillStatus.GENERATED, BillStatus.ISSUED, BillStatus.PARTIALLY_PAID, BillStatus.PAID, BillStatus.OVERDUE)
+    for b in (db.query(MaintenanceBill).filter(MaintenanceBill.society_id == society_id,
+                                               MaintenanceBill.bill_status.in_(live),
+                                               MaintenanceBill.bill_date >= date_from,
+                                               MaintenanceBill.bill_date <= date_to)):
+        i = index[date(b.bill_date.year, b.bill_date.month, 1)]
+        for li in b.line_items:
+            el = head_element.get(li.description)
+            if el is not None:
+                billed.setdefault(el, [ZERO] * len(firsts))[i] += Decimal(str(li.amount or 0))
+
+    elements = (db.query(MaintenanceElement).filter(MaintenanceElement.society_id == society_id)
+                .order_by(MaintenanceElement.sort_order, MaintenanceElement.name).all())
+    out_rows, month_spent, month_billed = [], [ZERO] * len(firsts), [ZERO] * len(firsts)
+
+    def row(key, name, code):
+        s = spent.get(key, [ZERO] * len(firsts))
+        bl = billed.get(key, [ZERO] * len(firsts))
+        for i in range(len(firsts)):
+            month_spent[i] += s[i]
+            month_billed[i] += bl[i]
+        ts, tb = sum(s, ZERO), sum(bl, ZERO)
+        return {"element_id": str(key) if key != "none" else "none", "element": name, "code": code,
+                "spent": [str(money(v)) for v in s], "billed": [str(money(v)) for v in bl],
+                "spent_total": str(money(ts)), "billed_total": str(money(tb)), "difference": str(money(tb - ts)),
+                "has_ledger": key == "none" or any(el == key for el in element_of.values())}
+
+    for e in elements:
+        r = row(e.id, e.name, e.code)
+        if r["has_ledger"] or Decimal(r["spent_total"]) or Decimal(r["billed_total"]):
+            out_rows.append(r)
+    if spent.get("none"):
+        out_rows.append(row("none", "Not counted towards any element", None))
+    ts, tb = sum(month_spent, ZERO), sum(month_billed, ZERO)
+    return {"date_from": date_from.isoformat(), "date_to": date_to.isoformat(),
+            "months": [{"month": f"{f:%Y-%m}", "label": f"{f:%b %Y}"} for f in firsts],
+            "rows": out_rows,
+            "totals": {"spent": [str(money(v)) for v in month_spent], "billed": [str(money(v)) for v in month_billed],
+                       "spent_total": str(money(ts)), "billed_total": str(money(tb)), "difference": str(money(tb - ts))},
+            "note": "Spent: every approved expense entry in the books (payments, vendor bills, journals, net of refunds) "
+                    "on the ledgers linked to each element. Billed: what the maintenance bills charged members for the "
+                    "element. A ledger counts towards an element when it is linked (Accounts Agent → element review)."}

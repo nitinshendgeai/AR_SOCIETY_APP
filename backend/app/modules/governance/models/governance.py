@@ -102,3 +102,47 @@ class SocietyDocument(Base, TimestampMixin):
     size_bytes = Column(Integer, nullable=False)
     data = Column(LargeBinary, nullable=False)
     uploaded_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+
+# ── The managing committee ────────────────────────────────────────────────────────────────────────────────────────
+# A committee is elected (or appointed) for a term (Maharashtra: five years, MCS Act s.73CB / bye-law 117); its members
+# hold offices — Chairman, Vice-Chairman, Secretary, Joint Secretary, Treasurer, members, co-opted members — each with
+# the powers the committee gave them (cheque signing, approving payments, signing documents, a spending limit).
+
+COMMITTEE_POSITIONS = ("chairman", "vice_chairman", "secretary", "joint_secretary", "treasurer", "member",
+                       "co_opted", "invitee")
+SINGLE_OFFICE = ("chairman", "vice_chairman", "secretary", "joint_secretary", "treasurer")   # one holder at a time
+
+
+class ManagingCommittee(Base, TimestampMixin):
+    __tablename__ = "managing_committees"
+
+    society_id = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(150), nullable=False)                 # "Managing Committee 2024–2029"
+    formed_on = Column(Date, nullable=False)                   # election / first meeting
+    term_ends_on = Column(Date, nullable=True)
+    election_note = Column(Text, nullable=True)                # who conducted the election, resolution no., …
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    members = relationship("CommitteeMember", cascade="all, delete-orphan", order_by="CommitteeMember.sort_order")
+
+
+class CommitteeMember(Base, TimestampMixin):
+    __tablename__ = "committee_members"
+
+    committee_id = Column(UUID(as_uuid=True), ForeignKey("managing_committees.id", ondelete="CASCADE"), nullable=False, index=True)
+    society_id = Column(UUID(as_uuid=True), ForeignKey("societies.id", ondelete="CASCADE"), nullable=False, index=True)
+    resident_id = Column(UUID(as_uuid=True), ForeignKey("residents.id", ondelete="SET NULL"), nullable=True)
+    full_name = Column(String(255), nullable=False)
+    flat_label = Column(String(60), nullable=True)
+    position = Column(String(30), nullable=False, default="member")
+    phone = Column(String(20), nullable=True)
+    email = Column(String(255), nullable=True)
+    from_date = Column(Date, nullable=False)
+    to_date = Column(Date, nullable=True)                      # left the office (resigned, replaced) — kept for the record
+    cheque_signatory = Column(Boolean, nullable=False, default=False)
+    approves_payments = Column(Boolean, nullable=False, default=False)
+    signs_documents = Column(Boolean, nullable=False, default=False)
+    spending_limit = Column(Integer, nullable=True)           # rupees one may approve alone; NULL = not set
+    responsibilities = Column(Text, nullable=True)             # "Maintenance, vendors", "Accounts, audit"…
+    sort_order = Column(Integer, nullable=False, default=100)

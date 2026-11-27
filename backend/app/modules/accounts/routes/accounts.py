@@ -771,6 +771,25 @@ def expenses_by_element_report(society_id: UUID, date_from: Optional[date] = Non
     return expenses_by_element(db, society_id, start, end)
 
 
+@router.get("/expenses-by-element/{society_id}/monthly")
+def expenses_by_element_monthly(society_id: UUID, date_from: Optional[date] = None, date_to: Optional[date] = None,
+                                db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Element-wise expenses month by month (default: the financial year so far): every element's spend from the
+    accounts in each month, beside what the bills charged for it, with totals."""
+    from app.modules.accounts.services.expense_by_element import monthly_by_element
+    assert_society_access(user, society_id)
+    today = society_today(db, society_id)
+    start = (date_from or fiscal_year_start(today)).replace(day=1)
+    end = date_to or today
+    if end < start:
+        raise HTTPException(status_code=422, detail="The end date can't be before the start date")
+    if (end.year - start.year) * 12 + end.month - start.month >= 24:
+        raise HTTPException(status_code=422, detail="Pick at most 24 months")
+    AccountsService(db).ensure_chart(society_id)
+    db.commit()
+    return monthly_by_element(db, society_id, start, end)
+
+
 @router.get("/expenses-by-element/{society_id}/months")
 def expenses_by_element_months(society_id: UUID, element_id: str = Query(..., pattern="^(none|[0-9a-fA-F-]{36})$"),
                                date_from: Optional[date] = None, date_to: Optional[date] = None,

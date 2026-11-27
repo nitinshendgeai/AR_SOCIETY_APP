@@ -165,3 +165,93 @@ def download_document(doc_id: UUID, db: Session = Depends(get_db), user: User = 
 @router.delete("/documents/{doc_id}", status_code=204, dependencies=[office])
 def delete_document(doc_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     GovernanceService(db).delete_document(doc_id, user)
+
+
+# ── Managing committee register ─────────────────────────────────────────────────────────────────────────────────
+
+from app.modules.governance.services.committee_service import CommitteeService  # noqa: E402
+
+_POSITION = "^(chairman|vice_chairman|secretary|joint_secretary|treasurer|member|co_opted|invitee)$"
+
+
+class CommitteeIn(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=150)
+    formed_on: dt.date
+    term_ends_on: Optional[dt.date] = None          # default: five years
+    election_note: Optional[str] = Field(default=None, max_length=2000)
+
+
+class CommitteeUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=150)
+    formed_on: Optional[dt.date] = None
+    term_ends_on: Optional[dt.date] = None
+    election_note: Optional[str] = Field(default=None, max_length=2000)
+
+
+class CommitteeMemberIn(BaseModel):
+    resident_id: Optional[UUID] = None              # name, flat and contacts are taken from the resident
+    full_name: Optional[str] = Field(default=None, max_length=255)
+    flat: Optional[str] = Field(default=None, max_length=60)
+    position: str = Field(default="member", pattern=_POSITION)
+    phone: Optional[str] = Field(default=None, max_length=20)
+    email: Optional[str] = Field(default=None, max_length=255)
+    from_date: Optional[dt.date] = None
+    to_date: Optional[dt.date] = None
+    cheque_signatory: Optional[bool] = None
+    approves_payments: Optional[bool] = None
+    signs_documents: Optional[bool] = None
+    spending_limit: Optional[int] = Field(default=None, ge=0)
+    responsibilities: Optional[str] = Field(default=None, max_length=500)
+    replace: bool = False                           # the outgoing holder of this office leaves the day before
+
+
+class CommitteeMemberUpdate(BaseModel):
+    full_name: Optional[str] = Field(default=None, max_length=255)
+    flat: Optional[str] = Field(default=None, max_length=60)
+    position: Optional[str] = Field(default=None, pattern=_POSITION)
+    phone: Optional[str] = Field(default=None, max_length=20)
+    email: Optional[str] = Field(default=None, max_length=255)
+    from_date: Optional[dt.date] = None
+    to_date: Optional[dt.date] = None
+    cheque_signatory: Optional[bool] = None
+    approves_payments: Optional[bool] = None
+    signs_documents: Optional[bool] = None
+    spending_limit: Optional[int] = Field(default=None, ge=0)
+    responsibilities: Optional[str] = Field(default=None, max_length=500)
+    replace: bool = False
+
+
+@router.get("/committee/society/{society_id}", dependencies=[member])
+def committee_register(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """The committee in office (term, office-bearers, their powers and contacts, what is missing) and earlier ones."""
+    return CommitteeService(db).register(society_id, user)
+
+
+@router.post("/committee/society/{society_id}", status_code=201, dependencies=[office])
+def create_committee(society_id: UUID, data: CommitteeIn, db: Session = Depends(get_db),
+                     user: User = Depends(get_current_user)):
+    return CommitteeService(db).create_committee(society_id, data.model_dump(), user)
+
+
+@router.put("/committee/{committee_id}", dependencies=[office])
+def update_committee(committee_id: UUID, data: CommitteeUpdate, db: Session = Depends(get_db),
+                     user: User = Depends(get_current_user)):
+    return CommitteeService(db).update_committee(committee_id, data.model_dump(exclude_unset=True), user)
+
+
+@router.post("/committee/{committee_id}/members", status_code=201, dependencies=[office])
+def add_committee_member(committee_id: UUID, data: CommitteeMemberIn, db: Session = Depends(get_db),
+                         user: User = Depends(get_current_user)):
+    return CommitteeService(db).add_member(committee_id, data.model_dump(exclude_none=True), user)
+
+
+@router.put("/committee/members/{member_id}", dependencies=[office])
+def update_committee_member(member_id: UUID, data: CommitteeMemberUpdate, db: Session = Depends(get_db),
+                            user: User = Depends(get_current_user)):
+    return CommitteeService(db).update_member(member_id, data.model_dump(exclude_unset=True), user)
+
+
+@router.delete("/committee/members/{member_id}", dependencies=[office])
+def remove_committee_member(member_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Remove a row entered by mistake. Someone who left the office gets a leaving date instead (PUT to_date)."""
+    return CommitteeService(db).remove_member(member_id, user)

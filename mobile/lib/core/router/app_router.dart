@@ -7,6 +7,8 @@ import 'package:ar_society_app/features/gate_extras/presentation/screens/domesti
 import 'package:ar_society_app/features/gate_extras/presentation/screens/parcels_screen.dart';
 import 'package:ar_society_app/features/governance/presentation/screens/documents_screen.dart';
 import 'package:ar_society_app/features/governance/presentation/screens/meetings_screen.dart';
+import 'package:ar_society_app/features/governance/presentation/screens/committee_screen.dart';
+import 'package:ar_society_app/features/accounts/presentation/screens/element_monthly_screen.dart';
 import 'package:ar_society_app/features/manager_checklist/presentation/screens/manager_checklist_screen.dart';
 import 'package:ar_society_app/features/governance/presentation/screens/polls_screen.dart';
 import 'package:ar_society_app/features/shops/presentation/screens/shops_screen.dart';
@@ -265,6 +267,7 @@ class AppRoutes {
   static const accountsDayBook    = '/accounts/day-book';
   static const accountsExpenseNew = '/accounts/expense/new';
   static const accountsExpenses   = '/accounts/expenses';
+  static const accountsExpensesMonthly = '/accounts/expenses/monthly';
   static const accountsRecurring  = '/accounts/recurring';
   static const accountsMembers    = '/accounts/members';
   static const accountsCashBook   = '/accounts/registers/cash-bank';
@@ -334,6 +337,7 @@ class AppRoutes {
   static const shopsImport        = '/shops/import';
   static const automation         = '/automation';
   static const meetings           = '/meetings';
+  static const committee          = '/committee';
   static const managerChecklist   = '/manager-checklist';
   static const polls              = '/polls';
   static const documents          = '/documents';
@@ -772,6 +776,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: AppRoutes.shops, builder: (_, __) => const ShopsScreen()),
           GoRoute(path: AppRoutes.automation, builder: (_, __) => const AutomationScreen()),
           GoRoute(path: AppRoutes.meetings, builder: (_, __) => const MeetingsScreen()),
+          GoRoute(path: AppRoutes.committee, builder: (_, __) => const CommitteeScreen()),
           GoRoute(path: AppRoutes.managerChecklist, builder: (_, __) => const ManagerChecklistScreen()),
           GoRoute(path: AppRoutes.polls, builder: (_, __) => const PollsScreen()),
           GoRoute(path: AppRoutes.documents, builder: (_, __) => const DocumentsScreen()),
@@ -988,6 +993,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             }),
             (AppRoutes.accountsGateway, (_) => const AccountsGatewayScreen()),
             (AppRoutes.accountsExpenses, (_) => const ExpensesByElementScreen()),
+            (AppRoutes.accountsExpensesMonthly, (_) => const ElementMonthlyScreen()),
             (AppRoutes.accountsRecurring, (_) => const RecurringExpensesScreen()),
             (AppRoutes.accountsMembers, (_) => const MembersLedgerScreen()),
             (AppRoutes.accountsCashBook, (_) => const CashBankBookScreen()),

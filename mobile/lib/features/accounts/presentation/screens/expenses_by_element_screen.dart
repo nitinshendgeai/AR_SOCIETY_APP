@@ -92,6 +92,11 @@ class _ExpensesByElementScreenState extends ConsumerState<ExpensesByElementScree
       title: 'Spend by element',
       actions: [
         AppBarTextAction(
+          onPressed: () => context.push(AppRoutes.accountsExpensesMonthly),
+          icon: Icons.table_chart_rounded,
+          label: 'Monthly table',
+        ),
+        AppBarTextAction(
           onPressed: () => context.push(AppRoutes.accountsExpenseNew),
           icon: Icons.add_rounded,
           label: 'Add expense',
