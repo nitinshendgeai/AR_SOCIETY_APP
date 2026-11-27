@@ -81,7 +81,15 @@ class EntryRedirect {
   final String? flat;
   final String amount;
   final List<Map<String, dynamic>> bills;
-  const EntryRedirect(this.kind, this.message, this.accounting, this.flat, this.amount, this.bills);
+  final String? flatId;
+  final String? vendorId;
+  /// cash | upi | bank_transfer | cheque | neft | rtgs, read from the description.
+  final String paymentMode;
+  final String? reference;
+  /// The agent can record it itself once the person confirms (it knows the flat; the amount fits the bills).
+  final bool canRecord;
+  const EntryRedirect(this.kind, this.message, this.accounting, this.flat, this.amount, this.bills,
+      {this.flatId, this.vendorId, this.paymentMode = 'bank_transfer', this.reference, this.canRecord = false});
   factory EntryRedirect.fromJson(Map<String, dynamic> j) => EntryRedirect(
         j['kind'] as String? ?? '',
         j['message'] as String? ?? '',
@@ -89,6 +97,38 @@ class EntryRedirect {
         j['flat'] as String?,
         '${j['amount'] ?? ''}',
         _maps(j['bills']),
+        flatId: j['flat_id'] as String?,
+        vendorId: j['vendor_id'] as String?,
+        paymentMode: j['payment_mode'] as String? ?? 'bank_transfer',
+        reference: j['reference'] as String?,
+        canRecord: j['can_record'] as bool? ?? false,
+      );
+
+  /// What "Record it for me" sends, once the person confirmed (with the mode and reference they settled on).
+  Map<String, dynamic> recordPayload({required String mode, String? reference, String? text}) => {
+        'kind': kind,
+        'amount': amount,
+        if (flatId != null) 'flat_id': flatId,
+        if (vendorId != null) 'vendor_id': vendorId,
+        'payment_mode': mode,
+        if ((reference ?? '').trim().isNotEmpty) 'reference': reference!.trim(),
+        if ((text ?? '').trim().isNotEmpty) 'text': text!.trim(),
+        'confirm': true,
+      };
+}
+
+/// What the agent recorded: the receipt / payment, the bills it settled, and the entry in one sentence.
+class EntryRecorded {
+  final String summary;
+  final String? reference;
+  final List<String> settled;
+  final String status;
+  const EntryRecorded(this.summary, this.reference, this.settled, this.status);
+  factory EntryRecorded.fromJson(Map<String, dynamic> j) => EntryRecorded(
+        j['summary'] as String? ?? '',
+        j['reference'] as String?,
+        [for (final x in (j['settled'] as List? ?? const [])) '$x'],
+        j['status'] as String? ?? '',
       );
 }
 
@@ -196,6 +236,9 @@ class AssistApi {
 
   Future<EntryDraftResult> draftEntry(Map<String, dynamic> payload) async =>
       EntryDraftResult.fromJson((await _dio.post('$_base/entries/draft', data: payload)).data as Map<String, dynamic>);
+
+  Future<EntryRecorded> recordEntry(Map<String, dynamic> payload) async =>
+      EntryRecorded.fromJson((await _dio.post('$_base/entries/record', data: payload)).data as Map<String, dynamic>);
 
   Future<NoticeDraftResult> draftNotice(Map<String, dynamic> payload) async =>
       NoticeDraftResult.fromJson((await _dio.post('$_base/notices/draft', data: payload)).data as Map<String, dynamic>);

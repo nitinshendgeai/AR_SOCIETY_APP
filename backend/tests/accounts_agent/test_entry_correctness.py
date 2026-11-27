@@ -157,3 +157,74 @@ def test_review_api_and_only_admin_or_committee_may_apply(client, rig, db):
     r = client.post(f"{API}/ledger-mapping/element-review/apply", json={"ids": [rid, "nope"]},
                     headers=rig.admin["headers"])
     assert r.status_code == 200 and len(r.json()["applied"]) == 1 and r.json()["skipped"][0]["id"] == "nope"
+
+
+# ── "Record it for me": the agent records the hand-off through the proper flow, once confirmed ─────────────────────
+
+def _post_bill(rig, db, amount=3000):
+    from app.models.society import Society  # noqa: F401
+    cy = rig.cycle(rig.today - timedelta(days=30), rig.today - timedelta(days=1))
+    b = rig.bill(rig.flat_rows[0], cy, [(ChargeType.MAINTENANCE, "Service Charges", amount, amount)])
+    AccountPostings(db, rig.svc).post_bill(b)
+    db.commit()
+    return b
+
+
+def test_the_agent_records_a_members_cash_payment_once_confirmed(client, rig, db):
+    from app.modules.billing.models.billing import MaintenanceBill, OnlinePaymentSubmission
+    b = _post_bill(rig, db)
+    flat = rig.flat_rows[0]
+    draft = _draft(rig, db, {"text": f"received 3000 cash from A-{flat.flat_number}", "voucher_type": "receipt"})
+    r = draft["redirect"]
+    assert r["can_record"] is True and r["payment_mode"] == "cash"
+    body = {"kind": "member_receipt", "amount": "3000", "flat_id": r["flat_id"], "payment_mode": r["payment_mode"]}
+    assert client.post(f"{API}/entries/record", json=body, headers=rig.admin["headers"]).status_code == 422  # not confirmed
+    out = client.post(f"{API}/entries/record", json={**body, "confirm": True}, headers=rig.admin["headers"])
+    assert out.status_code == 200, out.text
+    o = out.json()
+    assert o["recorded"] and o["settled"] == [b.invoice_number] and "Cr Members' Dues" in o["summary"]
+    sub = db.query(OnlinePaymentSubmission).filter(OnlinePaymentSubmission.flat_id == flat.id).one()
+    assert sub.receipt_number == o["reference"]
+    db.expire_all()
+    assert db.get(MaintenanceBill, b.id).outstanding == Decimal("0.00")
+    # posted the proper way: Dr Cash, Cr Members' Dues — never an income ledger
+    v = db.query(Voucher).filter(Voucher.source_type == "online_payment", Voucher.source_id == sub.id).one()
+    credited = {e.account_id for e in v.entries if e.credit}
+    assert credited == {rig.chart["members_dues"].id}
+
+
+def test_an_online_member_payment_needs_its_reference(client, rig, db):
+    _post_bill(rig, db)
+    body = {"kind": "member_receipt", "amount": "3000", "flat_id": str(rig.flat_rows[0].id), "payment_mode": "upi",
+            "confirm": True}
+    r = client.post(f"{API}/entries/record", json=body, headers=rig.admin["headers"])
+    assert r.status_code == 422 and "UTR" in r.json()["detail"]
+    r = client.post(f"{API}/entries/record", json={**body, "reference": "UTR123456"}, headers=rig.admin["headers"])
+    assert r.status_code == 200 and r.json()["status"] == "pending"          # waits for bank reconciliation
+
+
+def test_the_agent_pays_a_vendors_booked_bills_oldest_first(client, rig, db):
+    v = rig.vendor("CleanPro")
+    for n, days in (("CP-OCT", 40), ("CP-NOV", 10)):
+        db.add(VendorInvoice(society_id=rig.sid, vendor_id=v.id, invoice_number=n, invoice_date=rig.today - timedelta(days=days),
+                             amount=D("6000"), total_amount=D("6000"), paid_amount=D("0"), is_paid=False))
+    db.commit()
+    body = {"kind": "vendor_bill_payment", "amount": "8000", "vendor_id": str(v.id), "payment_mode": "cheque",
+            "reference": "CHQ 000123", "confirm": True}
+    out = client.post(f"{API}/entries/record", json=body, headers=rig.admin["headers"])
+    assert out.status_code == 200, out.text
+    assert out.json()["settled"] == ["CP-OCT", "CP-NOV"] and "Sundry Creditors" in out.json()["summary"]
+    db.expire_all()
+    paid = {i.invoice_number: i for i in db.query(VendorInvoice).filter(VendorInvoice.vendor_id == v.id)}
+    assert paid["CP-OCT"].is_paid and Decimal(str(paid["CP-NOV"].paid_amount)) == Decimal("2000")
+    too_much = client.post(f"{API}/entries/record", json={**body, "amount": "99999"}, headers=rig.admin["headers"])
+    assert too_much.status_code == 422
+
+
+def test_recording_needs_manager_rights(client, rig, db):
+    from tests.conftest import make_user
+    res = make_user(db, "res@ent.com", role="Resident")
+    res["user"].society_id = rig.sid
+    db.commit()
+    body = {"kind": "member_receipt", "amount": "100", "flat_id": str(rig.flat_rows[0].id), "confirm": True}
+    assert client.post(f"{API}/entries/record", json=body, headers=res["headers"]).status_code == 403

@@ -182,6 +182,7 @@ class _AgentEntryDraftScreenState extends ConsumerState<AgentEntryDraftScreen> {
           const AgentSectionTitle('Record this elsewhere'),
           _RedirectCard(
             redirect: r!.redirect!,
+            text: _text.text,
             onNotAgainstBill: () {
               setState(() => _notAgainstBill = true);
               _run(save: false);
@@ -218,13 +219,98 @@ class _AgentEntryDraftScreenState extends ConsumerState<AgentEntryDraftScreen> {
 
 
 /// Why the agent does not draft this entry here, the proper entry, and a button to the screen that records it.
-class _RedirectCard extends StatelessWidget {
+class _RedirectCard extends ConsumerStatefulWidget {
   final EntryRedirect redirect;
+  final String text;
   final VoidCallback onNotAgainstBill;
-  const _RedirectCard({required this.redirect, required this.onNotAgainstBill});
+  const _RedirectCard({required this.redirect, required this.text, required this.onNotAgainstBill});
+  @override
+  ConsumerState<_RedirectCard> createState() => _RedirectCardState();
+}
+
+const _modes = <String, String>{
+  'cash': 'Cash', 'cheque': 'Cheque', 'upi': 'UPI', 'bank_transfer': 'Bank transfer', 'neft': 'NEFT', 'rtgs': 'RTGS',
+};
+
+class _RedirectCardState extends ConsumerState<_RedirectCard> {
+  bool _busy = false;
+  EntryRecorded? _done;
+
+  /// Shows exactly what will be recorded; the agent records it only when the person confirms.
+  Future<void> _recordForMe() async {
+    final redirect = widget.redirect;
+    final member = redirect.kind == 'member_receipt';
+    var mode = redirect.paymentMode;
+    final refCtl = TextEditingController(text: redirect.reference ?? '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text(member ? 'Record the member\'s payment?' : 'Pay the vendor\'s bills?'),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(member
+                ? 'The agent issues the receipt${redirect.flat == null ? '' : ' for ${redirect.flat}'}, credits the member\'s dues and sets it off against the oldest unpaid bills.'
+                : 'The agent pays the vendor\'s oldest unpaid bills first, each with the TDS booked on it.'),
+            const SizedBox(height: 10),
+            KeyValue('Amount', formatInr(double.tryParse(redirect.amount) ?? 0)),
+            KeyValue('Entry', redirect.accounting),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              initialValue: _modes.containsKey(mode) ? mode : 'bank_transfer',
+              decoration: const InputDecoration(labelText: 'Paid by'),
+              items: [for (final e in _modes.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+              onChanged: (v) => setD(() => mode = v ?? mode),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: refCtl,
+              decoration: InputDecoration(
+                labelText: mode == 'cash' ? 'Reference (optional)' : 'Cheque no. / UTR',
+                helperText: member && mode != 'cash' && mode != 'cheque' ? 'Needed for UPI and bank transfers' : null,
+              ),
+            ),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Record it')),
+          ],
+        ),
+      ),
+    );
+    final reference = refCtl.text;
+    refCtl.dispose();
+    if (ok != true) return;
+    setState(() => _busy = true);
+    try {
+      final done = await ref.read(assistApiProvider)
+          .recordEntry(redirect.recordPayload(mode: mode, reference: reference, text: widget.text));
+      if (!mounted) return;
+      setState(() => _done = done);
+      AppToast.success(context, done.reference == null ? 'Recorded' : '${done.reference} recorded');
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
+    final redirect = widget.redirect;
+    final onNotAgainstBill = widget.onNotAgainstBill;
+    if (_done != null) {
+      return AgentCard(
+        accent: Hud.green,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          HudChip(label: _done!.status == 'pending' ? 'Recorded · waits for bank reconciliation' : 'Recorded',
+              tone: AppTone.success, icon: Icons.check_circle_outline_rounded),
+          const SizedBox(height: 8),
+          Text(_done!.summary, style: const TextStyle(fontSize: 13.5, height: 1.4)),
+          if (_done!.settled.isNotEmpty) KeyValue('Bills settled', _done!.settled.join(', ')),
+        ]),
+      );
+    }
     final member = redirect.kind == 'member_receipt';
     return AgentCard(
       accent: Hud.amber,
@@ -243,10 +329,17 @@ class _RedirectCard extends StatelessWidget {
           KeyValue('Open bill ${b['invoice_number']}', '${formatInr(double.tryParse('${b['due']}') ?? 0)} due · ${b['invoice_date']}'),
         const SizedBox(height: 10),
         Wrap(spacing: 10, runSpacing: 8, children: [
-          FilledButton.icon(
+          if (redirect.canRecord)
+            FilledButton.icon(
+              key: const Key('record-for-me'),
+              onPressed: _busy ? null : _recordForMe,
+              icon: const Icon(Icons.auto_fix_high_rounded),
+              label: const Text('Record it for me'),
+            ),
+          OutlinedButton.icon(
             onPressed: () => context.push(member ? AppRoutes.onlinePayments : AppRoutes.vendorBills),
             icon: Icon(member ? Icons.receipt_long_outlined : Icons.request_page_outlined),
-            label: Text(member ? 'Record the member\'s payment' : 'Open Vendor Bills'),
+            label: Text(member ? 'Open Billing' : 'Open Vendor Bills'),
           ),
           if (!member)
             OutlinedButton(onPressed: onNotAgainstBill, child: const Text('Not for these bills — draft it here')),

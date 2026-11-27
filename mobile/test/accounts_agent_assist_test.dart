@@ -136,4 +136,24 @@ void main() {
         {'amount': '500', 'not_against_bill': true, 'save': false});
     expect(entryDraftPayload(amount: '500', save: false).containsKey('not_against_bill'), isFalse);
   });
+
+  test('"Record it for me" sends the confirmed hand-off and reads back what was recorded', () async {
+    final redirect = EntryRedirect.fromJson({
+      'kind': 'member_receipt', 'flat_id': 'f1', 'flat': 'A Wing 101', 'amount': '3000.00', 'payment_mode': 'cash',
+      'can_record': true, 'message': 'm', 'accounting': "Dr Bank / Cash · Cr Members' Dues (that flat)",
+    });
+    expect(redirect.canRecord, isTrue);
+    final payload = redirect.recordPayload(mode: 'upi', reference: ' UTR9 ', text: 'received 3000 from A-101');
+    expect(payload, {'kind': 'member_receipt', 'amount': '3000.00', 'flat_id': 'f1', 'payment_mode': 'upi',
+        'reference': 'UTR9', 'text': 'received 3000 from A-101', 'confirm': true});
+    final seen = <RequestOptions>[];
+    final done = await AssistApi(dio: _server(seen, {
+      'recorded': true, 'reference': 'RCPT-0042', 'settled': ['INV-7'], 'status': 'pending',
+      'summary': "Receipt RCPT-0042 issued for A Wing 101: Dr Bank / Cr Members' Dues…",
+    })).recordEntry(payload);
+    expect(seen.single.path, '/accounts-agent/entries/record');
+    expect(done.reference, 'RCPT-0042');
+    expect(done.settled, ['INV-7']);
+    expect(done.status, 'pending');
+  });
 }

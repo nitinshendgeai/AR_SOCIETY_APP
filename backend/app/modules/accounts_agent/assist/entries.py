@@ -310,7 +310,10 @@ def prepare(db: Session, society_id: UUID, data: dict, settings) -> dict:
                             "payments → Record payment: the app issues the receipt, credits the member's dues and marks "
                             "the bill paid (Dr Bank / Cr Members' Dues). A voucher here would book the income a second "
                             "time, because it was booked when the bill was raised."),
-                "accounting": "Dr Bank / Cash · Cr Members' Dues (that flat)"})
+                "accounting": "Dr Bank / Cash · Cr Members' Dues (that flat)",
+                "payment_mode": payment_mode(text, data.get("money_account")),
+                "reference": data.get("reference") or (parsed.reference if parsed else None),
+                "can_record": f is not None})
     if vtype == "payment" and vendor_id and not data.get("not_against_bill"):
         open_bills = _open_vendor_bills(db, society_id, vendor_id)
         if open_bills:
@@ -320,7 +323,10 @@ def prepare(db: Session, society_id: UUID, data: dict, settings) -> dict:
                             "the payment settles the bill (Dr Sundry Creditors / Cr Bank, TDS as booked). Debiting the "
                             "expense again here would count it twice. If this payment is for something else, draft it "
                             "with 'not against a bill'."),
-                "accounting": "Dr Sundry Creditors (vendor) · Cr Bank / Cash"})
+                "accounting": "Dr Sundry Creditors (vendor) · Cr Bank / Cash",
+                "payment_mode": payment_mode(text, data.get("money_account")),
+                "reference": data.get("reference") or (parsed.reference if parsed else None),
+                "can_record": amount <= sum((Decimal(b["due"]) for b in open_bills), Decimal("0"))})
     money_key = data.get("money_account") or (parsed.money_account if parsed else None) or "bank"
     money_acc = chart.get(MONEY_KEYS.get(money_key, "bank"))
     if money_acc is None:
@@ -379,3 +385,96 @@ def draft(db: Session, society_id: UUID, user, data: dict, settings, save: bool)
     out.update({"saved": True, "voucher_id": str(v.id), "voucher_number": v.voucher_number,
                 "approval_status": v.approval_status})
     return out
+
+
+# ── "Record it for me": the agent records the hand-off itself, through the proper flow ────────────────────────────
+
+_MODE_WORDS = [("cheque", "cheque"), ("chq", "cheque"), ("neft", "neft"), ("rtgs", "rtgs"), ("imps", "bank_transfer"),
+               ("upi", "upi"), ("gpay", "upi"), ("phonepe", "upi"), ("paytm", "upi"), ("transfer", "bank_transfer"),
+               ("cash", "cash"), ("rokh", "cash"), ("nakad", "cash"), ("रोख", "cash"), ("नकद", "cash")]
+
+
+def payment_mode(text: str, money_account: Optional[str]) -> str:
+    low = (text or "").lower()
+    for word, mode in _MODE_WORDS:
+        if re.search(rf"(?<![a-z]){re.escape(word)}(?![a-z])", low):
+            return mode
+    return "cash" if money_account == "cash" else "bank_transfer"
+
+
+def record(db: Session, society_id: UUID, user, data: dict) -> dict:
+    """Record a member's payment or a vendor-bill payment the agent handed off, after the person confirmed it — with
+    the same service and controls as the office screens (receipt issued, dues and bills updated, posted to the books;
+    non-cash member payments wait for bank reconciliation as usual)."""
+    from app.modules.billing.models.billing import PaymentMode
+    from app.modules.billing.services.billing_service import BillingService
+    from app.modules.vendor.models.vendor import VendorPaymentMode
+    from app.modules.vendor.services.vendor_service import VendorService_
+    if not data.get("confirm"):
+        raise HTTPException(422, "Confirm the entry before the agent records it.")
+    amount = _money(data.get("amount"))
+    if amount is None:
+        raise HTTPException(422, "Give the amount.")
+    on = data.get("paid_on") or society_today(db, society_id)
+    text = (data.get("text") or "").strip()
+    mode = data.get("payment_mode") or payment_mode(text, data.get("money_account"))
+    ref = (data.get("reference") or "").strip() or None
+    kind = data.get("kind")
+
+    if kind == "member_receipt":
+        flat_id = _uuid(data.get("flat_id"))
+        if flat_id is None:
+            raise HTTPException(422, "Choose the member's flat.")
+        if mode != "cash" and mode != "cheque" and not ref:
+            raise HTTPException(422, "Give the UPI / bank transaction reference (UTR), or record it in Billing with "
+                                     "the payment screenshot.")
+        sub = BillingService(db).create_online_payment_submission(
+            flat_id=flat_id, amount=amount, payment_date=on, payment_mode=PaymentMode(mode), transaction_ref=ref,
+            bank_name=None, notes=("Recorded by the Accounts Agent" + (f": {text[:200]}" if text else "")), user=user,
+            require_screenshot=False)
+        settled = [a.bill.invoice_number for a in getattr(sub, "allocations", []) or [] if a.bill is not None]
+        audit.record(db, society_id, "entry_recorded", "online_payment", sub.id, user.id,
+                     {"kind": kind, "amount": str(amount), "receipt": sub.receipt_number, "bills": settled})
+        db.commit()
+        status = getattr(sub.status, "value", str(sub.status))
+        return {"kind": kind, "recorded": True, "reference": sub.receipt_number, "amount": str(amount),
+                "settled": settled, "status": status,
+                "summary": (f"Receipt {sub.receipt_number} issued for {flat_label_of(db, flat_id)}: Dr "
+                            f"{'Cash' if mode == 'cash' else 'Bank'} / Cr Members' Dues"
+                            + (f", set off against {', '.join(settled)}" if settled else ", kept as an advance")
+                            + ("." if status == "reconciled" else "; it waits for bank reconciliation as usual."))}
+
+    if kind == "vendor_bill_payment":
+        vendor_id = _uuid(data.get("vendor_id"))
+        if vendor_id is None:
+            raise HTTPException(422, "Choose the vendor.")
+        remaining, items = amount, []
+        for b in _open_vendor_bills(db, society_id, vendor_id):          # oldest first
+            if remaining <= 0:
+                break
+            pay = min(remaining, Decimal(b["due"]))
+            items.append({"invoice_id": UUID(b["invoice_id"]), "amount": pay, "number": b["invoice_number"]})
+            remaining -= pay
+        if not items:
+            raise HTTPException(422, "This vendor has no unpaid booked bills; draft the payment as a voucher instead.")
+        if remaining > 0:
+            raise HTTPException(422, f"The amount is ₹{remaining} more than the vendor's unpaid bills; pay the bills "
+                                     "and draft the rest (an advance) as a voucher.")
+        out = VendorService_(db).pay_bills(
+            vendor_id, [{"invoice_id": i["invoice_id"], "amount": i["amount"]} for i in items], on,
+            VendorPaymentMode(mode), ref, None, user, None)
+        audit.record(db, society_id, "entry_recorded", "vendor_payment", vendor_id, user.id,
+                     {"kind": kind, "amount": str(amount), "bills": [i["number"] for i in items]})
+        db.commit()
+        return {"kind": kind, "recorded": True, "amount": str(amount), "settled": [i["number"] for i in items],
+                "status": "paid", "result": out if isinstance(out, dict) else None,
+                "summary": (f"Paid {', '.join(i['number'] for i in items)}: Dr Sundry Creditors / Cr "
+                            f"{'Cash' if mode == 'cash' else 'Bank'}, TDS as booked on each bill.")}
+    raise HTTPException(422, "Unknown entry kind.")
+
+
+def flat_label_of(db: Session, flat_id: UUID) -> str:
+    from app.models.flat import Flat
+    from app.models.wing import Wing
+    row = db.query(Flat, Wing).join(Wing, Wing.id == Flat.wing_id).filter(Flat.id == flat_id).first()
+    return f"{row[1].name} {row[0].flat_number}" if row else "the flat"

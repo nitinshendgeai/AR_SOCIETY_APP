@@ -70,6 +70,29 @@ def draft_entry(data: EntryDraft, society_id: Optional[UUID] = None, db: Session
     return entries.draft(db, sid, user, body, get_settings(db, sid), save=data.save)
 
 
+class EntryRecord(BaseModel):
+    """A hand-off the person confirmed: the agent records it through Billing / Vendor Bills."""
+    kind: str = Field(..., pattern="^(member_receipt|vendor_bill_payment)$")
+    amount: str = Field(..., max_length=20)
+    flat_id: Optional[UUID] = None
+    vendor_id: Optional[UUID] = None
+    paid_on: Optional[date] = None
+    money_account: Optional[str] = Field(None, pattern="^(bank|cash)$")
+    payment_mode: Optional[str] = Field(None, pattern="^(cash|upi|bank_transfer|cheque|neft|rtgs)$")
+    reference: Optional[str] = Field(None, max_length=100)
+    text: Optional[str] = Field(None, max_length=1000)
+    confirm: bool = False
+
+
+@router.post("/entries/record")
+def record_entry(data: EntryRecord, society_id: Optional[UUID] = None, db: Session = Depends(get_db),
+                 user: User = Depends(require_manager_above)):
+    """Record a member's payment or a vendor-bill payment for the person (who must confirm it): a receipt / payment
+    through the same service and controls as the office screens, posted to the books."""
+    sid = _sid(user, society_id)
+    return entries.record(db, sid, user, data.model_dump())
+
+
 class NoticeDraft(BaseModel):
     kind: str = Field(..., pattern="^(AGM|SGM|COMMITTEE|DUES)$")
     meeting_date: Optional[date] = None
