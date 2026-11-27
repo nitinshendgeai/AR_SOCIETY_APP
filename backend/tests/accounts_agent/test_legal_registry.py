@@ -230,3 +230,73 @@ def test_new_registered_bye_laws_supersede_the_old(rig, db):
 def test_society_cannot_record_state_law_as_its_own(rig, db):
     with pytest.raises(HTTPException):
         rig.upload("Act text", document_type="ACT", title="MCS Act")
+
+
+# ── Model and draft bye-law references ───────────────────────────────────────────────────────────────────────────
+
+def _byelaw_rules(db):
+    return db.query(LegalRule).filter(LegalRule.society_id.is_(None),
+                                      LegalRule.rule_code.like("MH-MODEL-%") | LegalRule.rule_code.like("MH-DRAFT26-%")).all()
+
+
+def test_byelaw_references_are_cited_and_never_verified(rig, db):
+    rows = _byelaw_rules(db)
+    model = [r for r in rows if r.rule_code.startswith("MH-MODEL-")]
+    draft = [r for r in rows if r.rule_code.startswith("MH-DRAFT26-")]
+    assert len(model) == 9 and len(draft) == 8
+    for r in rows:
+        assert r.verification_status == "PENDING_VERIFICATION" and r.source_level == "H" and r.human_review_required
+        assert r.bye_law_number and r.page_number and r.original_text and r.clause_reference and r.source_document_title
+    assert all(r.legal_status == "MODEL_REFERENCE" for r in model)
+    assert all(r.legal_status == "DRAFT" for r in draft)
+
+
+def test_draft_bye_laws_are_never_in_force_and_model_ones_are_advisory(rig, db):
+    for r in _byelaw_rules(db):
+        if r.rule_code.startswith("MH-DRAFT26-"):
+            assert not registry.in_force(r, rig.today)
+            assert registry.resolve(db, rig.sid, r.topic, rig.today).rule is None
+    app = registry.resolve(db, rig.sid, "reference.funds.sinking_fund.minimum", rig.today)
+    assert app.rule.rule_code == "MH-MODEL-FUND-SINKING-RATE" and app.effective_value == 0.25
+    assert registry.classify(app) == "ADVISORY_OBSERVATION"
+
+
+def test_byelaw_references_do_not_change_what_governs_the_engine_topics(rig, db):
+    expect = {"funds.sinking_fund.rate": "MH-FUND-SINKING-RATE", "funds.repair_fund.rate": "MH-FUND-REPAIR-RATE",
+              "expenditure.committee_limit": "MH-EXP-106C13-LIMIT", "charges.apportionment": "MH-CHG-APPORTIONMENT",
+              "charges.non_occupancy.max_pct": "MH-CHG-NONOCC-CAP"}
+    for topic, code in expect.items():
+        assert registry.resolve(db, rig.sid, topic, rig.today).rule.rule_code == code
+    interest = registry.resolve(db, rig.sid, "charges.interest_on_arrears.max_rate_pct", date(2026, 7, 1))
+    assert interest.rule.rule_code == "MH-CHG-INTEREST-CAP" and interest.rule.version == 2 and interest.effective_value == 12
+
+
+def test_byelaw_figures_match_the_documents_read(rig, db):
+    from app.modules.accounts_agent.legal.compliance import _slab
+    by = {r.rule_code: r for r in _byelaw_rules(db)}
+    assert by["MH-MODEL-FUND-REPAIR-RATE"].calculation_method["value"] == 0.75
+    assert by["MH-MODEL-FUND-SINKING-RATE"].calculation_method["value"] == 0.25
+    assert "excluding land" in by["MH-MODEL-FUND-SINKING-RATE"].title
+    assert by["MH-MODEL-FUND-EDU-TRAINING"].calculation_method["value"] == 10
+    assert by["MH-MODEL-CHG-INTEREST-70"].calculation_method["value"] == 21
+    assert by["MH-DRAFT26-CHG-INTEREST"].calculation_method["value"] == 12
+    assert by["MH-DRAFT26-CHG-NONOCC"].calculation_method["value"] == 10
+    assert by["MH-DRAFT26-REC-DEFAULTER"].calculation_method["defaulter_after_months"] == 3
+    model_limit, draft_limit = by["MH-MODEL-EXP-COMMITTEE-LIMIT"], by["MH-DRAFT26-EXP-REPAIR-LIMIT"]
+    assert [_slab(model_limit, n) for n in (20, 40, 333)] == [25000, 50000, 100000]
+    assert [_slab(draft_limit, n) for n in (20, 40, 80, 333, 1000, 1001)] == [100000, 200000, 300000, 400000, 400000, 500000]
+    assert model_limit.bye_law_number == "156(a)"       # not 157, which the older MH-EXP-BYELAW157 row cites
+    apportion = by["MH-MODEL-CHG-APPORTIONMENT"].calculation_method["bases"]
+    assert "equally" in apportion["service_charges"] and "building" in apportion["lift_maintenance"]
+    assert "area" in apportion["insurance"] and "inlets" in apportion["water_charges"]
+
+
+def test_byelaw_reviews_are_listed_but_do_not_block(rig, db):
+    keys = ["byelaws-2026-11:editions", "byelaws-2026-11:draft-vs-model", "byelaws-2026-11:citations"]
+    rows = {r.dedupe_key: r for r in db.query(LegalReview).filter(LegalReview.dedupe_key.in_(keys))}
+    assert set(rows) == set(keys) and not any(r.blocking for r in rows.values())
+    codes = {r.rule_code for r in _byelaw_rules(db)} | {"MH-EXP-BYELAW157", "MH-FUND-REPAIR-RATE"}
+    assert all(set(r.rule_codes) <= codes for r in rows.values())
+    # the two Gazette discrepancies are untouched and still block
+    assert db.query(LegalReview).filter(LegalReview.dedupe_key == "gazette-2026:106C-13:slab-boundary").one().blocking
+    assert registry.ensure_jurisdiction_pack(db) == 0
