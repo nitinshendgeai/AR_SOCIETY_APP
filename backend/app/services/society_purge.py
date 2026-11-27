@@ -73,6 +73,10 @@ def delete_order(metadata, names):
                 parent = fk.column.table.name
                 if parent == n or parent not in g:
                     continue
+                # A use_alter key is the declared cycle-breaker (e.g. maintenance_elements.credit_ledger_id ↔
+                # accounts.maintenance_element_id): nullable and ON DELETE SET NULL, so its parent may go first.
+                if fk.use_alter or getattr(fk.constraint, "use_alter", False):
+                    continue
                 if blocking_only and (fk.ondelete or "").upper() not in BLOCKING_ONDELETE:
                     continue
                 g[parent].add(n)  # parent must be deleted after child

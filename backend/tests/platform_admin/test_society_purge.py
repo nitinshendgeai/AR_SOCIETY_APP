@@ -119,6 +119,11 @@ def test_delete_order_removes_children_before_their_parents():
         for fk in md.tables[name].foreign_keys:
             parent = fk.column.table.name
             if parent != name and parent in position:
+                if fk.use_alter:
+                    # The one declared cycle-breaker (two tables pointing at each other) may have its parent deleted
+                    # first — but only because it is harmless: nullable and SET NULL, never NOT NULL or RESTRICT.
+                    assert fk.parent.nullable and (fk.ondelete or "").upper() == "SET NULL", f"{name}.{fk.parent.name}"
+                    continue
                 assert position[name] < position[parent], f"{name} must be deleted before {parent}"
 
 
