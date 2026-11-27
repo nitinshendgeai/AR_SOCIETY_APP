@@ -337,7 +337,7 @@ class AppRoutes {
   static const shopsImport        = '/shops/import';
   static const automation         = '/automation';
   static const meetings           = '/meetings';
-  static const committee          = '/committee';
+  static const committee          = '/managing-committee';
   static const managerChecklist   = '/manager-checklist';
   static const polls              = '/polls';
   static const documents          = '/documents';
