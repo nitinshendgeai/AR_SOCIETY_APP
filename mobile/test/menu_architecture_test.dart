@@ -51,7 +51,7 @@ void main() {
         'People & Residents': ['Residents', 'Tenants', 'Pending Resident Changes', 'Staff'],
         'Property & Parking': ['Wings', 'Flats', 'Shops', 'Parking Management', 'Assets'],
         'Community & Services': [
-          'Visitors', 'Parcels', 'Domestic help', 'Complaints', 'Notices', 'Amenities', 'Meetings', 'Polls', 'Documents',
+          'Visitors', 'Parcels', 'Domestic help', 'Complaints', 'Notices', 'Amenities', 'Managing Committee', 'Meetings', 'Polls', 'Documents',
           'Certificates & NOC',
         ],
         'Operations': [
@@ -74,7 +74,7 @@ void main() {
 
     test('no duplicate labels, routes or icons; every item has a route', () {
       final items = [for (final c in appMenuCategories) ...c.items];
-      expect(items.length, 49); // the Accounts group lists the main books and reports; the Gym's attendance book was added
+      expect(items.length, 50); // the Accounts group lists the main books and reports; the Gym's attendance book was added
       expect(items.map((i) => i.label).toSet().length, items.length, reason: 'duplicate label');
       expect(items.map((i) => i.route).toSet().length, items.length, reason: 'duplicate route');
       expect(items.map((i) => i.icon.codePoint).toSet().length, items.length, reason: 'duplicate icon');
@@ -117,7 +117,7 @@ void main() {
         'Accounts & Financial Reports', 'Administration & Settings',
       ]);
       expect(t['Administration & Settings'], contains('Users & Roles'));
-      expect(t.values.expand((x) => x).length, 44);
+      expect(t.values.expand((x) => x).length, 45);
     });
 
     test('Committee has no Users, Permission Matrix or Forms Matrix', () {

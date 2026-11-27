@@ -201,3 +201,42 @@ def test_spend_no_element_covers_has_its_own_month_view_and_bad_requests_are_ref
     db.commit()
     assert client.get(f"{base}?element_id=none", headers=outsider["headers"]).status_code == 403
     assert client.get(f"{base}?element_id=none", headers=manager).status_code == 200
+
+
+# ── Element-wise, month by month ──────────────────────────────────────────────────────────────────────────────────
+
+def _months_ago(n):
+    y, m = TODAY.year, TODAY.month - n
+    while m <= 0:
+        y, m = y - 1, m + 12
+    return date(y, m, 1)
+
+
+def test_monthly_table_puts_every_expense_entry_under_its_element_and_month(client, db):
+    society, admin, _manager, _ = _rig(db, "eem")
+    L = _ledgers(client, admin, society.id)
+    last, this = _months_ago(1), _months_ago(0)
+    _pay(client, admin, society.id, L, "security_charges", 30000, "bank", on=last)
+    _pay(client, admin, society.id, L, "security_charges", 31000, "bank", on=this)
+    _pay(client, admin, society.id, L, "electricity", 8450, "bank", on=this)
+    r = client.get(f"{A}/expenses-by-element/{society.id}/monthly?date_from={last}&date_to={TODAY}", headers=admin)
+    assert r.status_code == 200, r.text
+    t = r.json()
+    assert [m["month"] for m in t["months"]] == [f"{last:%Y-%m}", f"{this:%Y-%m}"]
+    rows = {x["element"]: x for x in t["rows"]}
+    assert rows["Security Services"]["spent"] == ["30000.00", "31000.00"]
+    assert rows["Security Services"]["spent_total"] == "61000.00"
+    electricity = next(x for n, x in rows.items() if "Electricity" in n)
+    assert electricity["spent"] == ["0.00", "8450.00"]
+    assert t["totals"]["spent"] == ["30000.00", "39450.00"] and t["totals"]["spent_total"] == "69450.00"
+    # every row has both series, and the difference is billed less spent
+    assert all(len(x["billed"]) == 2 for x in t["rows"])
+    assert rows["Security Services"]["difference"] == f"{float(rows['Security Services']['billed_total']) - 61000:.2f}"
+
+
+def test_monthly_table_rejects_a_bad_range(client, db):
+    society, admin, _m, _ = _rig(db, "eem2")
+    assert client.get(f"{A}/expenses-by-element/{society.id}/monthly?date_from=2025-01-01&date_to=2024-01-01",
+                      headers=admin).status_code == 422
+    assert client.get(f"{A}/expenses-by-element/{society.id}/monthly?date_from=2020-01-01&date_to=2024-01-01",
+                      headers=admin).status_code == 422
