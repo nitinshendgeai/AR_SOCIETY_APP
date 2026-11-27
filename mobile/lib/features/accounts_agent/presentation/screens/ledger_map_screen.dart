@@ -209,6 +209,8 @@ class LedgerMapScreen extends ConsumerWidget {
                 ],
               ]),
             ),
+            const AgentSectionTitle('Agent review: elements & ledgers by the bye-laws'),
+            _ElementReviewPanel(mayDecide: mayDecide),
             const AgentSectionTitle('Charge heads'),
             for (final r in m.rows)
               Padding(
@@ -247,6 +249,140 @@ class LedgerMapScreen extends ConsumerWidget {
           ]),
         ),
       ),
+    );
+  }
+}
+
+
+/// The agent's review of the maintenance elements and their ledgers: each finding with the change that fixes it. Admin
+/// and committee members select fixes and apply them; nothing changes until they do.
+class _ElementReviewPanel extends ConsumerStatefulWidget {
+  final bool mayDecide;
+  const _ElementReviewPanel({required this.mayDecide});
+  @override
+  ConsumerState<_ElementReviewPanel> createState() => _ElementReviewPanelState();
+}
+
+class _ElementReviewPanelState extends ConsumerState<_ElementReviewPanel> {
+  final Set<String> _picked = {};
+  bool _busy = false;
+
+  AppTone _tone(String severity) => switch (severity) {
+        'HIGH' => AppTone.danger,
+        'MEDIUM' => AppTone.warning,
+        _ => AppTone.info,
+      };
+
+  Future<void> _apply(List<ElementFix> fixes) async {
+    final chosen = fixes.where((f) => _picked.contains(f.id)).toList();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Apply ${chosen.length} change${chosen.length == 1 ? '' : 's'}?'),
+        content: Text([
+          for (final f in chosen) '• ${f.title}',
+          '',
+          'Bills generated from now on follow these ledgers. Bills already posted are not changed.',
+        ].join('\n')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Apply')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _busy = true);
+    try {
+      final done = await ref.read(legalApiProvider).applyElementFixes(chosen.map((f) => f.id).toList());
+      ref.invalidate(elementReviewProvider);
+      ref.invalidate(ledgerMapProvider);
+      if (mounted) {
+        setState(_picked.clear);
+        AppToast.success(context, done.isEmpty ? 'Nothing needed changing' : '${done.length} change(s) applied');
+      }
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(elementReviewProvider);
+    return async.when(
+      loading: () => const Padding(padding: EdgeInsets.all(12), child: LinearProgressIndicator()),
+      error: (e, _) => HudErrorState(message: friendlyErrorMessage(e), compact: true, onRetry: () => ref.invalidate(elementReviewProvider)),
+      data: (r) {
+        if (r.fixes.isEmpty) {
+          return AgentCard(
+            child: Row(children: [
+              const Icon(Icons.verified_rounded, color: Hud.green),
+              const SizedBox(width: 10),
+              Expanded(child: Text('All ${r.elements} elements credit the right kind of ledger and their expense ledgers are linked.')),
+            ]),
+          );
+        }
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text(
+              'Funds the bye-laws let a society collect (sinking, repairs, reserve…) must be held as funds, never income; '
+              'charges recovered from members are income; the society\'s own verified rule wins. Each finding below '
+              'comes with the exact change.',
+              style: TextStyle(fontSize: 12.5, color: Hud.dim, height: 1.4)),
+          const SizedBox(height: 8),
+          for (final f in r.fixes)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: AgentCard(
+                padding: const EdgeInsets.fromLTRB(8, 10, 14, 10),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  if (widget.mayDecide)
+                    Checkbox(
+                      key: Key('fix-${f.id}'),
+                      value: _picked.contains(f.id),
+                      onChanged: _busy ? null : (v) => setState(() => v == true ? _picked.add(f.id) : _picked.remove(f.id)),
+                    )
+                  else
+                    const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Wrap(spacing: 8, runSpacing: 6, children: [
+                        HudChip(label: f.severity == 'HIGH' ? 'Wrong' : (f.severity == 'MEDIUM' ? 'Should change' : 'Tidy-up'),
+                            tone: _tone(f.severity)),
+                        if (!f.inUse) const HudChip(label: 'Not billed yet', tone: AppTone.neutral),
+                      ]),
+                      const SizedBox(height: 6),
+                      Text(f.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 4),
+                      Text(f.detail, style: const TextStyle(fontSize: 13, color: Hud.dim, height: 1.35)),
+                      const SizedBox(height: 4),
+                      if (f.kind != 'link_expense') ...[
+                        KeyValue('Now', f.currentLedger ?? 'No ledger'),
+                        KeyValue('Change to', f.proposedLedger),
+                      ],
+                      KeyValue('Basis', f.byeLawRef),
+                    ]),
+                  ),
+                ]),
+              ),
+            ),
+          if (widget.mayDecide)
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              FilledButton.icon(
+                key: const Key('apply-element-fixes'),
+                onPressed: _busy || _picked.isEmpty ? null : () => _apply(r.fixes),
+                icon: const Icon(Icons.done_all_rounded),
+                label: Text(_picked.isEmpty ? 'Select changes to apply' : 'Apply ${_picked.length} selected'),
+              ),
+              TextButton(
+                onPressed: _busy ? null : () => setState(() => _picked..clear()..addAll(r.fixes.map((f) => f.id))),
+                child: const Text('Select all'),
+              ),
+            ])
+          else
+            const Text('An admin or committee member applies these changes.', style: TextStyle(fontSize: 12.5, color: Hud.dim)),
+        ]);
+      },
     );
   }
 }

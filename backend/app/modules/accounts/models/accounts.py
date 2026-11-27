@@ -103,7 +103,7 @@ class Account(Base, TimestampMixin):
                                     nullable=True, index=True)
 
     group = relationship("AccountGroup", back_populates="accounts")
-    maintenance_element = relationship("MaintenanceElement")
+    maintenance_element = relationship("MaintenanceElement", foreign_keys=[maintenance_element_id])
 
     @property
     def maintenance_element_name(self):

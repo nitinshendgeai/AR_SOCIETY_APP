@@ -118,4 +118,22 @@ void main() {
     expect(u.byFeature.single.tokens, 4200);
     expect(u.byFeature.single.withoutAi, 6);
   });
+
+  test('a member payment comes back as a hand-off to Billing, not a voucher', () async {
+    final r = await AssistApi(dio: _server([], {
+      'redirect': {'kind': 'member_receipt', 'flat': 'A Wing 101', 'amount': '3500.00',
+                   'message': "This is a member's payment from A Wing 101.", 'accounting': "Dr Bank / Cash · Cr Members' Dues (that flat)"},
+      'saved': false, 'lines': [], 'basis': [], 'unclear': [],
+    })).draftEntry(entryDraftPayload(text: 'received 3500 from A-101', save: false));
+    expect(r.redirect?.kind, 'member_receipt');
+    expect(r.redirect?.flat, 'A Wing 101');
+    expect(r.redirect?.accounting, contains("Members' Dues"));
+    expect(r.lines, isEmpty);
+  });
+
+  test('a vendor payment can be confirmed as not for the booked bills', () {
+    expect(entryDraftPayload(amount: '500', notAgainstBill: true, save: false),
+        {'amount': '500', 'not_against_bill': true, 'save': false});
+    expect(entryDraftPayload(amount: '500', save: false).containsKey('not_against_bill'), isFalse);
+  });
 }

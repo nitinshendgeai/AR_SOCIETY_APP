@@ -71,6 +71,27 @@ class DraftLine {
   const DraftLine(this.account, this.debit, this.credit);
 }
 
+/// The agent's answer when an entry belongs to another screen, where the app posts it the proper way: a member's
+/// payment (Billing: credits the member's dues and marks the bill paid) or a payment of a vendor's booked bill (Vendor
+/// Bills: settles the bill through Sundry Creditors).
+class EntryRedirect {
+  final String kind; // member_receipt | vendor_bill_payment
+  final String message;
+  final String accounting;
+  final String? flat;
+  final String amount;
+  final List<Map<String, dynamic>> bills;
+  const EntryRedirect(this.kind, this.message, this.accounting, this.flat, this.amount, this.bills);
+  factory EntryRedirect.fromJson(Map<String, dynamic> j) => EntryRedirect(
+        j['kind'] as String? ?? '',
+        j['message'] as String? ?? '',
+        j['accounting'] as String? ?? '',
+        j['flat'] as String?,
+        '${j['amount'] ?? ''}',
+        _maps(j['bills']),
+      );
+}
+
 /// The voucher the agent proposes (and, once saved, the pending voucher it created).
 class EntryDraftResult {
   final String voucherType;
@@ -84,8 +105,10 @@ class EntryDraftResult {
   final bool saved;
   final String? voucherNumber;
   final String? approvalStatus;
+  /// Set instead of a voucher when the entry belongs to Billing or Vendor Bills.
+  final EntryRedirect? redirect;
   const EntryDraftResult(this.voucherType, this.voucherDate, this.amount, this.narration, this.reference, this.lines,
-      this.basis, this.unclear, this.saved, this.voucherNumber, this.approvalStatus);
+      this.basis, this.unclear, this.saved, this.voucherNumber, this.approvalStatus, [this.redirect]);
   factory EntryDraftResult.fromJson(Map<String, dynamic> j) => EntryDraftResult(
         j['voucher_type'] as String? ?? 'payment',
         j['voucher_date'] as String? ?? '',
@@ -101,6 +124,7 @@ class EntryDraftResult {
         j['saved'] as bool? ?? false,
         j['voucher_number'] as String?,
         j['approval_status'] as String?,
+        j['redirect'] == null ? null : EntryRedirect.fromJson((j['redirect'] as Map).cast<String, dynamic>()),
       );
 }
 
@@ -115,6 +139,7 @@ Map<String, dynamic> entryDraftPayload({
   String? moneyAccount,
   String? reference,
   String? narration,
+  bool notAgainstBill = false,
   required bool save,
 }) {
   String? clean(String? s) => (s == null || s.trim().isEmpty) ? null : s.trim();
@@ -136,6 +161,7 @@ Map<String, dynamic> entryDraftPayload({
     if (moneyAccount != null) 'money_account': moneyAccount,
     if (clean(reference) != null) 'reference': clean(reference),
     if (clean(narration) != null) 'narration': clean(narration),
+    if (notAgainstBill) 'not_against_bill': true,
     'save': save,
   };
 }

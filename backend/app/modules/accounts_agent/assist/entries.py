@@ -7,6 +7,17 @@ normal AccountsService with every accounting rule applied, and is ALWAYS saved a
 after someone approves it through the usual voucher approval (whoever drafted it cannot approve it while another
 admin or committee member exists).
 
+Proper entries, the way the society's own books are kept (the same as the app's automatic postings):
+
+* a member's maintenance payment is NOT an income receipt — the income was booked when the bill was raised. It is
+  recorded against the member's dues (Dr Bank / Cr Members' Dues, the bill marked paid) in Billing, so the agent hands
+  it over there instead of drafting a voucher that would count the income twice;
+* a payment to a vendor with booked, unpaid bills settles those bills (Dr Sundry Creditors, TDS as booked) in Vendor
+  Bills — debiting an expense again would count it twice — so the agent hands that over too;
+* a receipt is never credited to a ledger only bills credit (service charges and other recoveries, the funds, interest
+  and non-occupancy, Members' Dues);
+* everything else (bank interest, hall rent from an outsider, a cash purchase) is drafted here, for approval.
+
 Tokens: the app reads the description itself first (amount, cash or bank, vendor, ledger, date, reference — in English,
 Hindi or Marathi words). Claude is asked only when that leaves the amount or the ledger unknown, within the society's
 monthly budget, and then gets only the likely ledgers and vendors, not the whole chart.
@@ -28,6 +39,60 @@ from app.modules.accounts_agent.services.learning import Profile
 from app.utils.local_time import society_today
 
 MONEY_KEYS = {"bank": "bank", "cash": "cash"}
+# Ledgers only maintenance bills credit: a direct receipt into one of these would count member income twice.
+from app.modules.accounts.services.chart_of_accounts import ELEMENT_LEDGER as _EL, CHARGE_TYPE_LEDGER as _CTL  # noqa: E402
+BILL_ONLY_KEYS = (set(_EL.values()) | set(_CTL.values())
+                  | {"members_dues", "interest_on_arrears", "non_occupancy", "fines_penalties", "round_off"}) - {"amenities_income"}
+_MEMBER_WORDS = {"maintenance", "dues", "member", "members", "flat", "arrears", "sadasya", "सदस्य",
+                 "सभासद", "देखभाल", "मेंटेनन्स", "थकबाकी", "बकाया", "फ्लॅट", "फ्लैट"}
+
+
+class Redirect(Exception):
+    """The entry belongs to another screen, where the app posts it properly; carries what that screen needs."""
+
+    def __init__(self, payload: dict):
+        super().__init__(payload.get("message"))
+        self.payload = payload
+
+
+def _flat_in_text(db: Session, society_id: UUID, text: str):
+    """The flat the description names ("A-101", "B 304", "flat 1203" when only one wing has it), or None."""
+    from app.models.flat import Flat
+    from app.models.wing import Wing
+    rows = (db.query(Flat, Wing).join(Wing, Wing.id == Flat.wing_id).filter(Wing.society_id == society_id).all())
+    # "A-101", "A 101", "A/101", "WING A 101", "B304": a wing name or code right before a flat number.
+    pairs = {(w.upper(), n.lstrip("0")) for w, n in
+             re.findall(r"(?<![A-Z0-9])([A-Z]{1,8})\s*[-/ ]?\s*(\d{1,5})(?![0-9])",
+                        re.sub(r"\bWING\b", " ", (text or "").upper()))}
+    hits = []
+    for f, w in rows:
+        num = (f.flat_number or "").upper().replace(" ", "").lstrip("0")
+        names = {(w.name or "").upper().replace("WING", "").strip(), (getattr(w, "code", None) or "").upper()} - {""}
+        if any((wn, num) in pairs for wn in names):
+            hits.append((f, w))
+    if len({f.id for f, _ in hits}) == 1:
+        return hits[0]
+    if not hits:
+        bare = [(f, w) for f, w in rows if re.search(rf"\b(?:flat|फ्लॅट|फ्लैट)\s*(?:no\.?\s*)?{re.escape(str(f.flat_number))}\b",
+                                                      text or "", re.IGNORECASE)]
+        if len({f.id for f, _ in bare}) == 1:
+            return bare[0]
+    return None
+
+
+def _open_vendor_bills(db: Session, society_id: UUID, vendor_id: UUID) -> List[dict]:
+    from app.modules.vendor.models.vendor import VendorInvoice
+    rows = (db.query(VendorInvoice).filter(VendorInvoice.society_id == society_id, VendorInvoice.vendor_id == vendor_id,
+                                           VendorInvoice.is_paid == False, VendorInvoice.is_active == True)  # noqa: E712
+            .order_by(VendorInvoice.invoice_date).all())
+    out = []
+    for inv in rows:
+        due = (Decimal(str(inv.net_payable_amount if inv.net_payable_amount is not None else inv.total_amount))
+               - Decimal(str(inv.paid_amount or 0)))
+        if due > 0:
+            out.append({"invoice_id": str(inv.id), "invoice_number": inv.invoice_number,
+                        "invoice_date": inv.invoice_date.isoformat(), "due": str(due.quantize(Decimal("0.01")))})
+    return out
 FEATURE = "entry_reading"
 AI_LIST_SIZE = 25             # ledgers and vendors sent to Claude: the likeliest ones only
 
@@ -36,6 +101,8 @@ _AMOUNT = re.compile(r"(?<![\w/-])(?:₹|rs\.?|inr|रु\.?|रुपये|र
 _DATE = re.compile(r"\b(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})\b")
 _REF = re.compile(r"\b(?:bill|invoice|inv|cheque|chq|ref|utr|receipt)\s*(?:no\.?|number|#)?\s*[:#-]?\s*"
                   r"([A-Z0-9][A-Z0-9/-]{2,})", re.IGNORECASE)
+_FLAT_REF = re.compile(r"(?<![A-Za-z0-9])(?:[A-Za-z]\s*[-/]\s*\d{1,5}|[A-Za-z]{1,8}\s+wing\s*\d{1,5}|wing\s+[A-Za-z]{1,8}\s*\d{1,5}"
+                       r"|(?:flat|फ्लॅट|फ्लैट)\s*(?:no\.?\s*)?\d{1,5})(?![0-9])", re.IGNORECASE)
 _RECEIPT_WORDS = {"received", "receive", "receipt", "collected", "credited", "from", "mila", "mile", "jama", "जमा",
                   "मिळाले", "मिला", "प्राप्त", "आले"}
 _PAYMENT_WORDS = {"paid", "pay", "payment", "paying", "spent", "to", "diya", "dile", "bhara", "bharle", "bharla",
@@ -56,6 +123,7 @@ def read_locally(text: str, ledgers: List[dict], vendors: List[dict], today: dat
     out: dict = {"unclear": []}
     amounts = []
     plain = _REF.sub(" ", _DATE.sub(" ", text or ""))     # a date or a bill number is not an amount
+    plain = _FLAT_REF.sub(" ", plain)                        # nor is a flat ("A-101", "B wing 304", "flat 12")
     for m in _AMOUNT.finditer(plain):
         digits = m.group(1).replace(",", "")
         if len(digits) > 10:
@@ -128,11 +196,18 @@ def _money(v) -> Optional[Decimal]:
 
 
 def _ledgers(db: Session, society_id: UUID, natures) -> List[dict]:
-    rows = (db.query(Account.id, Account.name).join(AccountGroup, AccountGroup.id == Account.group_id)
+    """Active ledgers of these natures a drafted entry may use. Income ledgers that only maintenance bills credit (the
+    standard recoveries and any ledger an element is set to credit) are left out."""
+    from app.modules.billing.models.billing import MaintenanceElement
+    rows = (db.query(Account.id, Account.name, Account.system_key, AccountGroup.nature)
+            .join(AccountGroup, AccountGroup.id == Account.group_id)
             .filter(Account.society_id == society_id, Account.is_active == True,  # noqa: E712
                     Account.is_cash == False, Account.is_bank == False,  # noqa: E712
                     AccountGroup.nature.in_(natures)).order_by(Account.name).all())
-    return [{"id": str(i), "name": n} for i, n in rows]
+    element_ledgers = {i for (i,) in db.query(MaintenanceElement.credit_ledger_id)
+                       .filter(MaintenanceElement.society_id == society_id, MaintenanceElement.credit_ledger_id.isnot(None))}
+    return [{"id": str(i), "name": n} for i, n, key, nature in rows
+            if not (nature == "income" and (key in BILL_ONLY_KEYS or i in element_ledgers))]
 
 
 def _vendors(db: Session, society_id: UUID) -> List[dict]:
@@ -222,6 +297,30 @@ def prepare(db: Session, society_id: UUID, data: dict, settings) -> dict:
         vendor_id = None
     if vendor_id and vtype != "payment":
         raise HTTPException(422, "Only a payment can be made to a vendor.")
+    if vtype == "receipt" and not data.get("ledger_id"):
+        hit = _flat_in_text(db, society_id, text)
+        words = set(prompt_opt._WORD.findall(text.lower()))
+        if hit is not None or words & _MEMBER_WORDS:
+            f, w = hit if hit is not None else (None, None)
+            label = f"{w.name} {f.flat_number}" if f is not None else None
+            raise Redirect({
+                "kind": "member_receipt", "flat_id": str(f.id) if f is not None else None, "flat": label,
+                "amount": str(amount), "money_account": data.get("money_account") or (parsed.money_account if parsed else "bank"),
+                "message": (f"This is a member's payment{' from ' + label if label else ''}. Record it in Billing → Online "
+                            "payments → Record payment: the app issues the receipt, credits the member's dues and marks "
+                            "the bill paid (Dr Bank / Cr Members' Dues). A voucher here would book the income a second "
+                            "time, because it was booked when the bill was raised."),
+                "accounting": "Dr Bank / Cash · Cr Members' Dues (that flat)"})
+    if vtype == "payment" and vendor_id and not data.get("not_against_bill"):
+        open_bills = _open_vendor_bills(db, society_id, vendor_id)
+        if open_bills:
+            raise Redirect({
+                "kind": "vendor_bill_payment", "vendor_id": str(vendor_id), "bills": open_bills, "amount": str(amount),
+                "message": (f"This vendor has {len(open_bills)} booked bill(s) not yet paid. Pay them in Vendor Bills: "
+                            "the payment settles the bill (Dr Sundry Creditors / Cr Bank, TDS as booked). Debiting the "
+                            "expense again here would count it twice. If this payment is for something else, draft it "
+                            "with 'not against a bill'."),
+                "accounting": "Dr Sundry Creditors (vendor) · Cr Bank / Cash"})
     money_key = data.get("money_account") or (parsed.money_account if parsed else None) or "bank"
     money_acc = chart.get(MONEY_KEYS.get(money_key, "bank"))
     if money_acc is None:
@@ -259,7 +358,11 @@ def prepare(db: Session, society_id: UUID, data: dict, settings) -> dict:
 
 
 def draft(db: Session, society_id: UUID, user, data: dict, settings, save: bool) -> dict:
-    p = prepare(db, society_id, data, settings)
+    try:
+        p = prepare(db, society_id, data, settings)
+    except Redirect as r:
+        db.commit()                                        # keep the usage counters of any reading done
+        return {"redirect": r.payload, "saved": False, "lines": [], "basis": [], "unclear": []}
     out = {k: (str(v) if isinstance(v, (Decimal, UUID, date)) else v) for k, v in p.items() if k != "entries"}
     out["saved"] = False
     if not save:

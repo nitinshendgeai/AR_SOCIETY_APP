@@ -53,6 +53,8 @@ class EntryDraft(BaseModel):
     money_account: Optional[str] = Field(None, pattern="^(bank|cash)$")
     reference: Optional[str] = Field(None, max_length=100)
     narration: Optional[str] = Field(None, max_length=250)
+    # The person confirms this vendor payment is not for the vendor's booked, unpaid bills (an advance, a cash purchase).
+    not_against_bill: bool = False
     save: bool = False
 
 

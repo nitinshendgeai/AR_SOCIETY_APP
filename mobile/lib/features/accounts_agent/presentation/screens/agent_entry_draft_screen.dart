@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:ar_society_app/core/router/app_router.dart';
 import 'package:ar_society_app/core/theme/design_tokens.dart';
 import 'package:ar_society_app/features/accounts/data/accounts_api.dart' show LedgerAccount, formatInr;
 import 'package:ar_society_app/features/accounts/presentation/providers/accounts_providers.dart';
@@ -36,6 +38,7 @@ class _AgentEntryDraftScreenState extends ConsumerState<AgentEntryDraftScreen> {
   String? _vendorId;
   String? _ledgerId;
   DateTime? _date;
+  bool _notAgainstBill = false;
   EntryDraftResult? _result;
   bool _busy = false;
 
@@ -52,7 +55,7 @@ class _AgentEntryDraftScreenState extends ConsumerState<AgentEntryDraftScreen> {
     try {
       payload = entryDraftPayload(
         text: _text.text, voucherType: _type, amount: _amount.text, date: _date, vendorId: _vendorId,
-        ledgerId: _ledgerId, moneyAccount: _money, reference: _reference.text, save: save,
+        ledgerId: _ledgerId, moneyAccount: _money, reference: _reference.text, notAgainstBill: _notAgainstBill, save: save,
       );
     } on FormatException catch (e) {
       showErrorToast(context, Exception(e.message));
@@ -163,7 +166,7 @@ class _AgentEntryDraftScreenState extends ConsumerState<AgentEntryDraftScreen> {
             Wrap(spacing: 10, runSpacing: 10, children: [
               OutlinedButton.icon(onPressed: _busy ? null : () => _run(save: false), icon: const Icon(Icons.preview_outlined), label: const Text('Preview')),
               FilledButton.icon(
-                onPressed: _busy || r == null || r.saved ? null : () => _run(save: true),
+                onPressed: _busy || r == null || r.saved || r.redirect != null ? null : () => _run(save: true),
                 icon: const Icon(Icons.send_outlined),
                 label: const Text('Save for approval'),
               ),
@@ -175,7 +178,16 @@ class _AgentEntryDraftScreenState extends ConsumerState<AgentEntryDraftScreen> {
               ),
           ]),
         ),
-        if (r != null) ...[
+        if (r?.redirect != null) ...[
+          const AgentSectionTitle('Record this elsewhere'),
+          _RedirectCard(
+            redirect: r!.redirect!,
+            onNotAgainstBill: () {
+              setState(() => _notAgainstBill = true);
+              _run(save: false);
+            },
+          ),
+        ] else if (r != null) ...[
           AgentSectionTitle(r.saved ? 'Saved — waiting for approval' : 'Proposed voucher'),
           AgentCard(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -199,6 +211,46 @@ class _AgentEntryDraftScreenState extends ConsumerState<AgentEntryDraftScreen> {
             ]),
           ),
         ],
+      ]),
+    );
+  }
+}
+
+
+/// Why the agent does not draft this entry here, the proper entry, and a button to the screen that records it.
+class _RedirectCard extends StatelessWidget {
+  final EntryRedirect redirect;
+  final VoidCallback onNotAgainstBill;
+  const _RedirectCard({required this.redirect, required this.onNotAgainstBill});
+
+  @override
+  Widget build(BuildContext context) {
+    final member = redirect.kind == 'member_receipt';
+    return AgentCard(
+      accent: Hud.amber,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Wrap(spacing: 8, runSpacing: 6, children: [
+          HudChip(label: member ? 'Member payment' : 'Vendor bill payment', tone: AppTone.warning,
+              icon: member ? Icons.home_outlined : Icons.storefront_outlined),
+          if (redirect.flat != null) HudChip(label: redirect.flat!, tone: AppTone.info),
+        ]),
+        const SizedBox(height: 8),
+        Text(redirect.message, style: const TextStyle(fontSize: 13.5, height: 1.4)),
+        const SizedBox(height: 8),
+        KeyValue('Proper entry', redirect.accounting),
+        if (redirect.amount.isNotEmpty) KeyValue('Amount', formatInr(double.tryParse(redirect.amount) ?? 0)),
+        for (final b in redirect.bills)
+          KeyValue('Open bill ${b['invoice_number']}', '${formatInr(double.tryParse('${b['due']}') ?? 0)} due · ${b['invoice_date']}'),
+        const SizedBox(height: 10),
+        Wrap(spacing: 10, runSpacing: 8, children: [
+          FilledButton.icon(
+            onPressed: () => context.push(member ? AppRoutes.onlinePayments : AppRoutes.vendorBills),
+            icon: Icon(member ? Icons.receipt_long_outlined : Icons.request_page_outlined),
+            label: Text(member ? 'Record the member\'s payment' : 'Open Vendor Bills'),
+          ),
+          if (!member)
+            OutlinedButton(onPressed: onNotAgainstBill, child: const Text('Not for these bills — draft it here')),
+        ]),
       ]),
     );
   }
