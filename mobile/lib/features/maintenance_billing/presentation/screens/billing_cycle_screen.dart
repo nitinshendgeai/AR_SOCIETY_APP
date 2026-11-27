@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_society_app/features/maintenance_billing/presentation/screens/maintenance_billing_screen.dart' show deleteBillingCycle;
 import 'package:ar_society_app/core/motion/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
@@ -95,6 +96,11 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
       await ref.read(maintenanceBillingApiProvider).setCycleDueDate(widget.cycleId, picked);
       if (mounted) AppToast.success(context, 'Due date changed to ${formatBillDate(picked)}');
     });
+  }
+
+  Future<void> _deleteCycle(BillingCycle cycle) async {
+    final deleted = await deleteBillingCycle(context, ref, widget.societyId, cycle);
+    if (deleted && mounted) Navigator.of(context).pop();
   }
 
   Future<void> _regenerate(BillingCycle cycle) async {
@@ -207,6 +213,13 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
               icon: Icons.restart_alt_rounded,
               label: 'Regenerate bills',
               onPressed: _busy ? null : () => _regenerate(cycle),
+            ),
+          if (cycle != null && cycle.canDelete)
+            IconButton(
+              key: const Key('cycle-delete'),
+              tooltip: 'Delete this cycle (not billed)',
+              icon: const Icon(Icons.delete_outline_rounded),
+              onPressed: _busy ? null : () => _deleteCycle(cycle),
             ),
           if (cycle != null)
             IconButton(

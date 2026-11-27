@@ -616,6 +616,7 @@ class BillingCycle {
   final String frequency;
   final bool isFinalized;
   final bool canRegenerate;
+  final bool canDelete; // not billed: nothing issued, so the cycle can be deleted
   final String? notes;
   final int billsCount;
   final int generatedCount;
@@ -640,6 +641,7 @@ class BillingCycle {
     required this.frequency,
     required this.isFinalized,
     this.canRegenerate = false,
+    this.canDelete = false,
     this.notes,
     this.billsCount = 0,
     this.generatedCount = 0,
@@ -670,6 +672,7 @@ class BillingCycle {
         frequency: j['frequency'] as String? ?? 'monthly',
         isFinalized: j['is_finalized'] as bool? ?? false,
         canRegenerate: j['can_regenerate'] as bool? ?? false,
+        canDelete: j['can_delete'] as bool? ?? false,
         notes: j['notes'] as String?,
         billsCount: j['bills_count'] as int? ?? 0,
         generatedCount: j['generated_count'] as int? ?? 0,
@@ -1669,6 +1672,13 @@ class MaintenanceBillingApi {
   /// Deletes the cycle's unissued (and cancelled) bills and makes them again from today's charges, rules and
   /// expenses; bills that are issued or paid stay, and the server refuses when none can be replaced. Returns how many
   /// bills were made.
+  /// Delete a cycle that has not been billed (nothing issued), with any bills made for it. Returns how many bills
+  /// went with it.
+  Future<int> deleteCycle(String cycleId) async {
+    final r = await _dio.delete('/billing/cycles/$cycleId', options: _longRunning);
+    return (r.data['bills_removed'] as num?)?.toInt() ?? 0;
+  }
+
   Future<int> regenerateBills(String cycleId) async {
     final r = await _dio.post('/billing/cycles/$cycleId/regenerate-bills', options: _longRunning);
     return (r.data as Map<String, dynamic>)['bills_generated'] as int;

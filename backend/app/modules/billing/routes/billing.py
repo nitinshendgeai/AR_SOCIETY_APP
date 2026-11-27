@@ -472,6 +472,9 @@ def _cycle_out(cy, today: Optional[date] = None) -> dict:
         "is_finalized": cy.is_finalized,
         "notes": cy.notes,
         "can_regenerate": BillingService.can_regenerate(cy),
+        # not billed: nothing issued yet (the server checks payments too), so the cycle can be deleted
+        "can_delete": all(b.issued_at is None and b.bill_status in (BillStatus.DRAFT, BillStatus.GENERATED, BillStatus.CANCELLED)
+                          for b in cy.bills),
         "bills_count": len(live),
         "generated_count": sum(1 for b in live if b.bill_status == BillStatus.GENERATED),
         "paid_count": sum(1 for b in live if b.bill_status == BillStatus.PAID),
@@ -497,6 +500,12 @@ def set_cycle_due_date(cycle_id: UUID, data: CycleDueDate, request: Request, db:
                        user: User = Depends(get_current_user)):
     """Correct the due date of a cycle and of all its bills."""
     return _cycle_out(BillingService(db).set_cycle_due_date(cycle_id, data.due_date, user, request))
+
+@router.delete("/cycles/{cycle_id}", dependencies=[Depends(manager_above)])
+def delete_cycle(cycle_id: UUID, request: Request, db: Session = Depends(get_db),
+                 user: User = Depends(get_current_user)):
+    """Delete a cycle that has not been billed: no bill issued, none paid. Any bills made for it are removed with it."""
+    return BillingService(db).delete_cycle(cycle_id, user, request)
 
 @router.get("/cycles/{society_id}", dependencies=[Depends(manager_above)])
 def list_cycles(society_id: UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):

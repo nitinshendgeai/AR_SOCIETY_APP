@@ -16,6 +16,7 @@ import 'package:ar_society_app/features/maintenance_billing/presentation/screens
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/billing_sheet_frame.dart';
 import 'package:ar_society_app/features/maintenance_billing/presentation/widgets/bill_actual_expenses_sheet.dart';
 import 'package:ar_society_app/shared/widgets/app_widgets.dart';
+import 'package:ar_society_app/shared/widgets/confirm_remove.dart';
 import 'package:ar_society_app/core/layout/app_sheet.dart';
 import 'package:ar_society_app/shared/widgets/app_data_table.dart';
 import 'package:ar_society_app/core/layout/app_shell.dart' show isDesktopLayout;
@@ -100,6 +101,29 @@ class _MaintenanceBillingScreenState extends ConsumerState<MaintenanceBillingScr
 }
 
 // ── Cycles tab ────────────────────────────────────────────────────────────────
+
+/// Delete a cycle that has not been billed, after asking. True when it was deleted.
+Future<bool> deleteBillingCycle(BuildContext context, WidgetRef ref, String societyId, BillingCycle cycle) async {
+  final bills = cycle.billsCount > 0 ? ' and its ${cycle.billsCount} unissued bill${cycle.billsCount == 1 ? '' : 's'}' : '';
+  final ok = await confirmRemove(
+    context,
+    title: 'Delete ${cycle.name}?',
+    message: 'This cycle$bills will be deleted. Nothing in it has been issued, so no resident is billed and nothing '
+        'is posted to the books; the flats\' dues and any fines taken up by those bills go back as they were.',
+    action: 'Delete cycle',
+  );
+  if (!ok || !context.mounted) return false;
+  try {
+    await ref.read(maintenanceBillingApiProvider).deleteCycle(cycle.id);
+    ref.invalidate(billingCyclesProvider(societyId));
+    if (context.mounted) AppToast.success(context, '${cycle.name} deleted');
+    return true;
+  } catch (e) {
+    ref.invalidate(billingCyclesProvider(societyId));    // the server may have done it even if the answer was lost
+    if (context.mounted) showErrorToast(context, e);
+    return false;
+  }
+}
 
 class _CyclesTab extends ConsumerWidget {
   final String societyId;
@@ -189,12 +213,25 @@ class _CyclesTab extends ConsumerWidget {
                       sortKey: (c) => _cycleStage(c).$1,
                       cell: (c) => StatusPill(_cycleStage(c).$1, _cycleStage(c).$2),
                     ),
+                    AppDataColumn(
+                      label: '',
+                      width: 56,
+                      cell: (c) => c.canDelete
+                          ? IconButton(
+                              key: ValueKey('cycle-delete-${c.id}'),
+                              tooltip: 'Delete this cycle (not billed)',
+                              icon: Icon(Icons.delete_outline_rounded, color: AppTheme.error),
+                              onPressed: () => deleteBillingCycle(context, ref, societyId, c),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
                   ],
                 )
               else
                 for (final c in cycles)
                   _CycleCard(
                     cycle: c,
+                    onDelete: c.canDelete ? () => deleteBillingCycle(context, ref, societyId, c) : null,
                     onTap: () => Navigator.push(context, MaterialPageRoute(
                       builder: (_) => BillingCycleScreen(cycleId: c.id, societyId: societyId),
                     )),
@@ -246,7 +283,8 @@ class _SetupBanner extends StatelessWidget {
 class _CycleCard extends StatelessWidget {
   final BillingCycle cycle;
   final VoidCallback onTap;
-  const _CycleCard({required this.cycle, required this.onTap});
+  final VoidCallback? onDelete; // set for a cycle that has not been billed
+  const _CycleCard({required this.cycle, required this.onTap, this.onDelete});
 
   (String, Color) get _stage => _cycleStage(cycle);
 
@@ -271,6 +309,14 @@ class _CycleCard extends StatelessWidget {
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               ),
               _Pill(label: stageLabel, color: stageColor),
+              if (onDelete != null)
+                IconButton(
+                  key: ValueKey('cycle-delete-${cycle.id}'),
+                  tooltip: 'Delete this cycle (not billed)',
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(Icons.delete_outline_rounded, color: AppTheme.error),
+                  onPressed: onDelete,
+                ),
             ]),
             const SizedBox(height: 4),
             Text(
