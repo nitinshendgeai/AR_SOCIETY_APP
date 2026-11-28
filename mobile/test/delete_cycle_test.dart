@@ -30,6 +30,22 @@ class _FakeBilling extends MaintenanceBillingApi {
   @override
   Future<List<BillingCycle>> listCycles(String societyId) async => [...cycles];
 
+  final renamed = <({String id, String? name})>[];
+
+  @override
+  Future<({BillingCycle cycle, int billsMoved})> updateCycle(String cycleId,
+      {String? name, DateTime? cycleStart, DateTime? cycleEnd}) async {
+    renamed.add((id: cycleId, name: name));
+    final i = cycles.indexWhere((c) => c.id == cycleId);
+    final old = cycles[i];
+    cycles[i] = BillingCycle.fromJson({
+      'id': old.id, 'name': name ?? old.name, 'cycle_start': '2030-06-01', 'cycle_end': '2030-06-30',
+      'due_date': '2030-06-10', 'frequency': 'monthly', 'is_finalized': old.isFinalized,
+      'can_delete': old.canDelete, 'bills_count': old.billsCount, 'generated_count': old.generatedCount,
+    });
+    return (cycle: cycles[i], billsMoved: 0);
+  }
+
   @override
   Future<int> deleteCycle(String cycleId) async {
     deleted.add(cycleId);
@@ -76,5 +92,35 @@ void main() {
     expect(find.text('June 2030'), findsNothing);                                         // gone from the list
     expect(find.text('July 2030'), findsOneWidget);
     expect(find.text('May 2030'), findsOneWidget);
+  });
+
+  testWidgets('every cycle in the list can be renamed, billed or not', (t) async {
+    t.view.physicalSize = const Size(500, 3000);
+    t.view.devicePixelRatio = 1.0;
+    addTearDown(t.view.resetPhysicalSize);
+    addTearDown(t.view.resetDevicePixelRatio);
+    final api = _FakeBilling();
+    await t.pumpWidget(ProviderScope(
+      overrides: [
+        currentUserProvider.overrideWithValue(_admin),
+        maintenanceBillingApiProvider.overrideWithValue(api),
+        chargeHeadsProvider.overrideWith((ref, id) async => const <ChargeHead>[]),
+      ],
+      child: MaterialApp(theme: AppTheme.lightTheme, home: const MaintenanceBillingScreen()),
+    ));
+    await t.pumpAndSettle();
+
+    for (final id in ['c-open', 'c-empty', 'c-issued']) {
+      expect(find.byKey(ValueKey('cycle-edit-$id')), findsOneWidget, reason: id);
+    }
+    await t.tap(find.byKey(const ValueKey('cycle-edit-c-issued')));          // the issued one: only the edit, no delete
+    await t.pumpAndSettle();
+    expect(find.text('Correct this cycle'), findsOneWidget);
+    await t.enterText(find.byKey(const Key('cycle-edit-name')), 'April 2030 Maintenance');
+    await t.tap(find.byKey(const Key('cycle-edit-save')));
+    await t.pumpAndSettle();
+    expect(api.renamed, [(id: 'c-issued', name: 'April 2030 Maintenance')]);
+    expect(find.text('April 2030 Maintenance'), findsOneWidget);
+    expect(find.text('May 2030'), findsNothing);
   });
 }
