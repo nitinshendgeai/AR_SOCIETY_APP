@@ -415,7 +415,7 @@ class _Brand extends ConsumerWidget {
   }
 }
 
-class _NavTile extends StatelessWidget {
+class _NavTile extends StatefulWidget {
   final IconData icon;
   final String label;
   final bool selected;
@@ -432,39 +432,56 @@ class _NavTile extends StatelessWidget {
   });
 
   @override
+  State<_NavTile> createState() => _NavTileState();
+}
+
+class _NavTileState extends State<_NavTile> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
-    final color = selected ? AppTheme.primary : AppTheme.textSecondary;
+    final w = widget;
+    // Selected or under the pointer, the item takes the look's accent: its tint behind, its colour on the text.
+    final lit = w.selected || _hover;
+    final color = lit ? AppTheme.primary : AppTheme.textSecondary;
     final tile = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
       child: Material(
-        color: selected ? AppTheme.primarySoft : Colors.transparent,
+        color: w.selected
+            ? AppTheme.primarySoft
+            : _hover
+                ? AppTheme.hoverFill.withOpacity(AppTheme.isDeck ? 0.75 : 0.7)
+                : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
-          hoverColor: AppTheme.surface,
-          onTap: onTap,
+          hoverColor: Colors.transparent,
+          onHover: (h) {
+            if (h != _hover) setState(() => _hover = h);
+          },
+          onTap: w.onTap,
           child: SizedBox(
             height: 40,
             child: Row(
-              mainAxisAlignment: collapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+              mainAxisAlignment: w.collapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
               children: [
-                if (!collapsed) const SizedBox(width: 12),
+                if (!w.collapsed) const SizedBox(width: 12),
                 Badge(
-                  isLabelVisible: badge > 0,
-                  label: Text('$badge'),
+                  isLabelVisible: w.badge > 0,
+                  label: Text('${w.badge}'),
                   backgroundColor: AppTheme.error,
-                  child: Icon(icon, size: 20, color: color),
+                  child: Icon(w.icon, size: 20, color: color),
                 ),
-                if (!collapsed) ...[
+                if (!w.collapsed) ...[
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      label,
+                      w.label,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 13.5,
-                        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                        color: selected ? AppTheme.primary : AppTheme.textPrimary,
+                        fontWeight: w.selected ? FontWeight.w600 : FontWeight.w500,
+                        color: lit ? AppTheme.primary : AppTheme.textPrimary,
                       ),
                     ),
                   ),
@@ -475,8 +492,8 @@ class _NavTile extends StatelessWidget {
         ),
       ),
     );
-    final announced = Semantics(button: true, selected: selected, label: label, excludeSemantics: true, child: tile);
-    return collapsed ? Tooltip(message: label, waitDuration: const Duration(milliseconds: 300), child: announced) : announced;
+    final announced = Semantics(button: true, selected: w.selected, label: w.label, excludeSemantics: true, child: tile);
+    return w.collapsed ? Tooltip(message: w.label, waitDuration: const Duration(milliseconds: 300), child: announced) : announced;
   }
 }
 

@@ -460,7 +460,7 @@ class _Composer extends StatelessWidget {
             key: const Key('assistantSend'),
             style: IconButton.styleFrom(
                 backgroundColor: AppTheme.primary,
-                foregroundColor: Colors.white),
+                foregroundColor: AppTheme.onPrimary),
             tooltip: context.tr('Send'),
             onPressed: sending ? null : () => onSend(),
             icon: const Icon(Icons.arrow_upward_rounded),

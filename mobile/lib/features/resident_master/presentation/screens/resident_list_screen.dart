@@ -329,7 +329,7 @@ class _ResidentListScreenState extends ConsumerState<ResidentListScreen> {
           ? FloatingActionButton.extended(
               onPressed: _addResident,
               backgroundColor: AppTheme.primary,
-              foregroundColor: Colors.white,
+              foregroundColor: AppTheme.onPrimary,
               icon: const Icon(Icons.person_add_rounded),
               label: const Text('Add Resident'),
             )

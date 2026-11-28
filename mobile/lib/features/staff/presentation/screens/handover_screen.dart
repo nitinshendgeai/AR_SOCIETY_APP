@@ -730,7 +730,7 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(t.$3, size: 14,
-                        color: selected ? Colors.white : AppTheme.textSecondary),
+                        color: selected ? AppTheme.onPrimary : AppTheme.textSecondary),
                     const SizedBox(width: 4),
                     Text(t.$2),
                   ],
@@ -739,7 +739,7 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                 onSelected: (_) => setState(() => _type = t.$1),
                 selectedColor: AppTheme.primary,
                 labelStyle: TextStyle(
-                    color: selected ? Colors.white : AppTheme.textPrimary,
+                    color: selected ? AppTheme.onPrimary : AppTheme.textPrimary,
                     fontSize: 12),
               );
             }).toList(),

@@ -125,6 +125,22 @@ class AppTheme {
   /// Outline of desktop buttons and fields.
   static Color get hairline => isDeck ? const Color(0xFF233457) : const Color(0xFFD1D1D6);
 
+  /// Behind a menu item or a quiet button while the pointer is over it: a pale blue tint in the light look, a
+  /// cyan-tinted panel in the Command deck. Text and icons on it turn [primary].
+  static Color get hoverFill => primarySoft;
+
+  /// Snackbars and tooltips: a dark slab with white text in both looks (the light look's near-black, the deck's
+  /// raised navy — its near-white text colour would leave white text unreadable).
+  static Color get inverseSurface => isDeck ? const Color(0xFF1C2B4D) : textPrimary;
+  static Color get onInverseSurface => Colors.white;
+
+  /// A filled (primary) button: darker under the pointer, faded when disabled.
+  static WidgetStateProperty<Color> get primaryFill => WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) return primary.withOpacity(0.35);
+        if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) return primaryDark;
+        return primary;
+      });
+
   /// A soft, wide, low-opacity shadow in place of Material's harder elevation shadow — the "lifted card on a matte
   /// surface" look (a faint neon glow in the Command deck). Opt in per widget via
   /// `BoxDecoration(boxShadow: AppTheme.cardShadow)`.
@@ -244,8 +260,11 @@ class AppTheme {
           mouseCursor: const WidgetStatePropertyAll(SystemMouseCursors.click),
           elevation: _liftOnHover,
           shadowColor: WidgetStatePropertyAll(primary.withOpacity(0.35)),
+          backgroundColor: primaryFill,
+          foregroundColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.disabled) ? onPrimary.withOpacity(0.8) : onPrimary),
           overlayColor: WidgetStateProperty.resolveWith(
-            (states) => states.contains(WidgetState.pressed) ? Colors.white.withOpacity(0.14) : null,
+            (states) => states.contains(WidgetState.pressed) ? onPrimary.withOpacity(0.14) : Colors.transparent,
           ),
         ),
       ),
@@ -259,8 +278,13 @@ class AppTheme {
           shape: const StadiumBorder(),
           textStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.1),
         ).copyWith(
+          backgroundColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.hovered) ? hoverFill : Colors.transparent),
+          side: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)
+              ? BorderSide(color: primary, width: 1.2)
+              : BorderSide(color: border, width: 1.2)),
           overlayColor: WidgetStateProperty.resolveWith(
-            (states) => states.contains(WidgetState.pressed) ? primary.withOpacity(0.06) : null,
+            (states) => states.contains(WidgetState.pressed) ? primary.withOpacity(0.10) : Colors.transparent,
           ),
         ),
       ),
@@ -271,6 +295,12 @@ class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           shape: const StadiumBorder(),
           textStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 15, fontWeight: FontWeight.w600),
+        ).copyWith(
+          overlayColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.pressed)) return primary.withOpacity(0.16);
+            if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) return primary.withOpacity(0.10);
+            return null;
+          }),
         ),
       ),
 
@@ -281,6 +311,12 @@ class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           shape: const StadiumBorder(),
           textStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.1),
+        ).copyWith(
+          backgroundColor: primaryFill,
+          foregroundColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.disabled) ? onPrimary.withOpacity(0.8) : onPrimary),
+          overlayColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.pressed) ? onPrimary.withOpacity(0.14) : Colors.transparent),
         ),
       ),
 
@@ -289,12 +325,25 @@ class AppTheme {
           shape: const WidgetStatePropertyAll(StadiumBorder()),
           side: WidgetStatePropertyAll(BorderSide(color: border)),
           backgroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? primarySoft : cardBg),
-          foregroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? primary : textSecondary),
+          foregroundColor: WidgetStateProperty.resolveWith((s) =>
+              s.contains(WidgetState.selected) || s.contains(WidgetState.hovered) ? primary : textSecondary),
+          overlayColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.pressed)
+              ? primary.withOpacity(0.14)
+              : s.contains(WidgetState.hovered) ? primary.withOpacity(0.08) : null),
         ),
       ),
 
       iconButtonTheme: IconButtonThemeData(
-        style: IconButton.styleFrom(foregroundColor: textPrimary),
+        style: IconButton.styleFrom(foregroundColor: textPrimary).copyWith(
+          foregroundColor: WidgetStateProperty.resolveWith((s) {
+            if (s.contains(WidgetState.disabled)) return textTertiary;
+            if (s.contains(WidgetState.hovered) || s.contains(WidgetState.focused)) return primary;
+            return textPrimary;   // an IconButton given its own `color` keeps it (the widget's style wins)
+          }),
+          overlayColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.pressed)
+              ? primary.withOpacity(0.16)
+              : s.contains(WidgetState.hovered) || s.contains(WidgetState.focused) ? primary.withOpacity(0.10) : null),
+        ),
       ),
 
       // One look for every screen's main action button (some screens set
@@ -377,8 +426,9 @@ class AppTheme {
       ),
 
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: textPrimary,
-        contentTextStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white),
+        backgroundColor: inverseSurface,
+        actionTextColor: isDeck ? primary : const Color(0xFF7FB2FF),
+        contentTextStyle: TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 14, fontWeight: FontWeight.w500, color: onInverseSurface),
         behavior: SnackBarBehavior.floating,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusM)),
@@ -401,7 +451,7 @@ class AppTheme {
       ),
 
       chipTheme: ChipThemeData(
-        backgroundColor: surface,
+        backgroundColor: isDeck ? cardBg : surface,
         selectedColor: primarySoft,
         disabledColor: surface,
         labelStyle: TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 13, fontWeight: FontWeight.w600, color: textSecondary),
@@ -423,7 +473,7 @@ class AppTheme {
         fillColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected) ? primary : Colors.transparent,
         ),
-        checkColor: const WidgetStatePropertyAll(Colors.white),
+        checkColor: WidgetStatePropertyAll(onPrimary),
         side: BorderSide(color: border, width: 1.6),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
@@ -445,10 +495,10 @@ class AppTheme {
 
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
-          color: textPrimary,
+          color: inverseSurface,
           borderRadius: BorderRadius.circular(8),
         ),
-        textStyle: const TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 12.5, color: Colors.white),
+        textStyle: TextStyle(fontFamily: _fontFamily, fontFamilyFallback: _fontFallback, fontSize: 12.5, color: onInverseSurface),
       ),
 
       dropdownMenuTheme: DropdownMenuThemeData(
@@ -505,7 +555,7 @@ class AppTheme {
     return base.copyWith(
       textTheme: textTheme,
       splashFactory: InkRipple.splashFactory,
-      hoverColor: textPrimary.withOpacity(0.04),
+      hoverColor: primary.withOpacity(0.06),
 
       appBarTheme: base.appBarTheme.copyWith(
         toolbarHeight: 64,
@@ -527,12 +577,11 @@ class AppTheme {
           shape: buttonShape,
           textStyle: buttonText,
         ).copyWith(
-          backgroundColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.disabled)) return primary.withOpacity(0.35);
-            if (states.contains(WidgetState.hovered)) return primaryDark;
-            return primary;
-          }),
-          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          backgroundColor: primaryFill,
+          foregroundColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.disabled) ? onPrimary.withOpacity(0.8) : onPrimary),
+          overlayColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.pressed) ? onPrimary.withOpacity(0.14) : Colors.transparent),
           animationDuration: AppMotion.base,
           mouseCursor: const WidgetStatePropertyAll(SystemMouseCursors.click),
           elevation: _liftOnHover,
@@ -548,6 +597,11 @@ class AppTheme {
           shape: buttonShape,
           textStyle: buttonText,
         ).copyWith(
+          backgroundColor: primaryFill,
+          foregroundColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.disabled) ? onPrimary.withOpacity(0.8) : onPrimary),
+          overlayColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.pressed) ? onPrimary.withOpacity(0.14) : Colors.transparent),
           animationDuration: AppMotion.base,
           mouseCursor: const WidgetStatePropertyAll(SystemMouseCursors.click),
           elevation: _liftOnHover,
@@ -562,20 +616,25 @@ class AppTheme {
           minimumSize: buttonSize,
           padding: buttonPadding,
           visualDensity: VisualDensity.standard,
-          side: const BorderSide(color: Color(0xFFD1D1D6)),
+          side: BorderSide(color: hairline),
           shape: buttonShape,
           textStyle: buttonText,
         ).copyWith(
           animationDuration: AppMotion.base,
           mouseCursor: const WidgetStatePropertyAll(SystemMouseCursors.click),
-          // The border picks up the accent when the pointer is over it.
+          // Under the pointer the button takes the accent: its border and text turn the primary colour on a tint.
           side: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)
               ? BorderSide(color: primary)
-              : const BorderSide(color: Color(0xFFD1D1D6))),
+              : BorderSide(color: hairline)),
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.disabled)) return textTertiary;
+            if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) return primary;
+            return textPrimary;
+          }),
+          backgroundColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.hovered) ? hoverFill : cardBg),
           overlayColor: WidgetStateProperty.resolveWith(
-            (states) => states.contains(WidgetState.hovered) || states.contains(WidgetState.pressed)
-                ? textPrimary.withOpacity(0.05)
-                : null,
+            (states) => states.contains(WidgetState.pressed) ? primary.withOpacity(0.10) : Colors.transparent,
           ),
         ),
       ),
@@ -591,8 +650,8 @@ class AppTheme {
           animationDuration: AppMotion.base,
           mouseCursor: const WidgetStatePropertyAll(SystemMouseCursors.click),
           overlayColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.pressed)) return primary.withOpacity(0.14);
-            if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) return primary.withOpacity(0.08);
+            if (states.contains(WidgetState.pressed)) return primary.withOpacity(0.16);
+            if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) return primary.withOpacity(0.10);
             return null;
           }),
         ),

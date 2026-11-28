@@ -518,8 +518,8 @@ class _SocietyCard extends StatelessWidget {
                   ),
                   borderRadius: BorderRadius.circular(AppTheme.radiusS),
                 ),
-                child: const Icon(Icons.apartment_rounded,
-                    color: Colors.white, size: 22),
+                child: Icon(Icons.apartment_rounded,
+                    color: AppTheme.onPrimary, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(

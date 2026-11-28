@@ -282,13 +282,13 @@ class AppPrimaryButton extends StatelessWidget {
                   child: child),
             ),
             child: isLoading
-                ? const SizedBox(
-                    key: ValueKey('busy'),
+                ? SizedBox(
+                    key: const ValueKey('busy'),
                     width: 22,
                     height: 22,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.5,
-                      color: Colors.white,
+                      color: AppTheme.onPrimary,
                     ),
                   )
                 : Row(
@@ -397,7 +397,7 @@ class AppFilterPill extends StatelessWidget {
       labelStyle: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w600,
-        color: selected ? Colors.white : AppTheme.textSecondary,
+        color: selected ? AppTheme.onPrimary : AppTheme.textSecondary,
       ),
     );
   }
