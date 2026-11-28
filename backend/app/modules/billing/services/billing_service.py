@@ -12,6 +12,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional
 from uuid import UUID
 from fastapi import HTTPException, Request
+from app.utils.local_time import society_today
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -1485,6 +1486,52 @@ class BillingService:
         self.db.commit()
         self.db.refresh(submission)
         return submission
+
+    def change_online_payment_date(self, submission_id: UUID, new_date: date, reason: str, user: User,
+                                   request=None) -> OnlinePaymentSubmission:
+        """Correct the date a payment was received on (a day and month entered the wrong way round, say). The payment
+        goes through what a rejected payment and its reinstatement go through, so everything that carries its date
+        follows and nothing is edited in place: what it settled is released, its receipt voucher is cancelled (the
+        books keep it, with the reason) and posted again on the new date (in the year that date falls in, with that
+        year's number), and it is set off against the same bills again for the same amounts. The receipt number,
+        amount and mode do not change."""
+        sub = self.get_online_payment_submission(submission_id, user)
+        if not sub.is_active or sub.status == ReconciliationStatus.REJECTED:
+            raise HTTPException(409, "A rejected payment has no date to correct")
+        if new_date > society_today(self.db, sub.society_id):
+            raise HTTPException(422, "The payment date can't be in the future")
+        if new_date < date(2000, 1, 1):
+            raise HTTPException(422, "The payment date is too old")
+        old_date = sub.payment_date
+        if new_date == old_date:
+            return sub
+        why = f"Payment date corrected from {old_date:%d %b %Y} to {new_date:%d %b %Y}: {reason}"
+        settled = [(a.bill, Decimal(a.amount)) for a in sub.allocations if a.is_live]
+        status = sub.status
+        sub.status = ReconciliationStatus.REJECTED            # the same path as a rejection: release and cancel
+        self.allocator.release_payment(sub, why, user)
+        sub.review_notes = why
+        self._post("online_payment_status_changed", sub, user)
+        sub.payment_date = new_date
+        sub.status = status
+        self.db.flush()
+        self._post("post_online_payment", sub, user)           # all of it as the flat's advance, until set off below
+        from app.modules.accounts.services.postings import AccountPostings
+        postings = AccountPostings(self.db)
+        for bill, amount in settled:
+            take = min(amount, Decimal(bill.outstanding))
+            if take > 0 and bill.bill_status in (BillStatus.ISSUED, BillStatus.PARTIALLY_PAID, BillStatus.OVERDUE):
+                alloc = self.allocator.allocate(sub, bill, take, user)
+                if postings.active_voucher("online_payment", sub.id):
+                    postings.post_advance_allocation(alloc, user)
+        self.allocator._sync_advance(sub.flat_id, user)
+        self._audit(AuditAction.UPDATE, sub, "OnlinePaymentSubmission", user, request,
+                    old_values={"payment_date": old_date.isoformat()},
+                    new_values={"payment_date": new_date.isoformat(), "reason": reason,
+                                "receipt_number": sub.receipt_number})
+        self.db.commit()
+        self.db.refresh(sub)
+        return sub
 
     def export_online_payments_csv(self, society_id: UUID, status=None,
                                     wing_id=None, flat_id=None) -> str:

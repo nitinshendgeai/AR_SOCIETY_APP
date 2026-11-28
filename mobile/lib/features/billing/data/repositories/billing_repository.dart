@@ -93,6 +93,13 @@ class BillingRepository {
     } catch (e) { return _handle(e); }
   }
 
+  Future<BillingResult<OnlinePaymentEntity>> changePaymentDate(String id, DateTime date, String reason) async {
+    try {
+      final m = await _ds.changePaymentDate(id, date, reason);
+      return BillingSuccess(m.toEntity());
+    } catch (e) { return _handle(e); }
+  }
+
   Future<BillingResult<Uint8List>> getScreenshotBytes(String id) async {
     try {
       return BillingSuccess(await _ds.getScreenshotBytes(id));

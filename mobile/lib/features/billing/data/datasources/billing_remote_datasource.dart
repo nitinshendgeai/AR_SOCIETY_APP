@@ -95,6 +95,15 @@ class BillingRemoteDataSource {
     return OnlinePaymentModel.fromJson(r.data as Map<String, dynamic>);
   }
 
+  /// PATCH /billing/online-payments/{id}/date
+  Future<OnlinePaymentModel> changePaymentDate(String id, DateTime date, String reason) async {
+    final r = await _dio.patch(
+      '/billing/online-payments/$id/date',
+      data: {'payment_date': date.toIso8601String().split('T').first, 'reason': reason},
+    );
+    return OnlinePaymentModel.fromJson(r.data as Map<String, dynamic>);
+  }
+
   /// GET /billing/online-payments/{id}/screenshot
   Future<Uint8List> getScreenshotBytes(String id) async {
     final r = await _dio.get<List<int>>(

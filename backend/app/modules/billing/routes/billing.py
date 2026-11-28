@@ -120,6 +120,13 @@ class OnlinePaymentStatusUpdate(OrmBase):
     status: ReconciliationStatus
     review_notes: Optional[str] = None
 
+class PaymentDateChange(OrmBase):
+    payment_date: date
+    reason: str = Field(min_length=3, max_length=500)
+
+    _date = field_validator("payment_date")(val.sane_date)
+
+
 class BankMatchConfirm(OrmBase):
     submission_id: UUID
 
@@ -1183,6 +1190,18 @@ def update_online_payment_status(
 ):
     submission = BillingService(db).update_online_payment_status(
         submission_id, data.status, data.review_notes, user)
+    return _online_payment_out(submission)
+
+
+@router.patch("/online-payments/{submission_id}/date", dependencies=[Depends(require_admin_committee)])
+def change_online_payment_date(
+    submission_id: UUID, data: PaymentDateChange, request: Request,
+    db: Session = Depends(get_db), user: User = Depends(get_current_user),
+):
+    """Correct the date a payment was received on (committee or admin). What it settled is released and set off again
+    and its receipt voucher is cancelled and posted on the new date; see BillingService.change_online_payment_date."""
+    submission = BillingService(db).change_online_payment_date(
+        submission_id, data.payment_date, data.reason.strip(), user, request)
     return _online_payment_out(submission)
 
 

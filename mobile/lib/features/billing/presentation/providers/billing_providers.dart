@@ -58,6 +58,20 @@ class OnlinePaymentsNotifier extends FamilyAsyncNotifier<List<OnlinePaymentEntit
     }
   }
 
+  /// Correct the date the payment was received on (committee or admin).
+  Future<void> changeDate(String id, DateTime date, String reason) async {
+    final result = await ref.read(billingRepositoryProvider).changePaymentDate(id, date, reason);
+    switch (result) {
+      case BillingSuccess(:final data):
+        final rows = <OnlinePaymentEntity>[...(state.valueOrNull ?? [])];
+        final idx = rows.indexWhere((p) => p.id == id);
+        if (idx != -1) rows[idx] = data;
+        state = AsyncData(rows);
+      case BillingFailure(:final message):
+        throw Exception(message);
+    }
+  }
+
   Future<void> updateStatus(String id, String status, {String? reviewNotes}) async {
     final result = await ref.read(billingRepositoryProvider).updateStatus(id, status, reviewNotes: reviewNotes);
     switch (result) {

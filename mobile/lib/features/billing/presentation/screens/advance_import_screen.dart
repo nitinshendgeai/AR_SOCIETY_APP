@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ar_society_app/core/api/api_client.dart';
 import 'package:ar_society_app/core/theme/app_theme.dart';
@@ -66,6 +67,8 @@ class _AdvanceImportScreenState extends ConsumerState<AdvanceImportScreen> {
   String? _fileError;
   bool _busy = false;
   bool _done = false;
+  String? _csv; // the file as read, so it can be read again when the date order is changed
+  bool _monthFirst = false; // dates in the file are mm/dd/yyyy
 
   int _count(_Status s) => (_rows ?? []).where((r) => r.status == s).length;
 
@@ -104,6 +107,43 @@ class _AdvanceImportScreenState extends ConsumerState<AdvanceImportScreen> {
     }
   }
 
+  /// Read the file with the date order chosen and check every row with the server (nothing is saved).
+  Future<void> _check() async {
+    final rows = _parse(_csv!);
+    if (rows.isEmpty) {
+      setState(() {
+        _rows = null;
+        _fileError = 'No rows with an amount found in that file.';
+      });
+      return;
+    }
+    final sendable = rows.where((r) => r.payload != null).toList();
+    final outcomes = sendable.isEmpty ? <Map<String, dynamic>>[] : await _send(sendable, dryRun: true);
+    setState(() => _rows = _merge(rows, outcomes, recorded: false));
+  }
+
+  Future<void> _setMonthFirst(bool v) async {
+    setState(() {
+      _monthFirst = v;
+      _busy = true;
+    });
+    try {
+      await _check();
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// The earliest and latest payment date of the rows that read, to be checked by eye before anything is saved.
+  String? _dateRange(List<_Row> rows) {
+    final dates = [for (final r in rows) if (r.payload != null) r.payload!['payment_date'] as String]..sort();
+    if (dates.isEmpty) return null;
+    String show(String iso) => DateFormat('d MMM yyyy').format(DateTime.parse(iso));
+    return dates.first == dates.last ? show(dates.first) : '${show(dates.first)} to ${show(dates.last)}';
+  }
+
   Future<void> _pick() async {
     setState(() => _fileError = null);
     final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['csv'], withData: true);
@@ -113,14 +153,9 @@ class _AdvanceImportScreenState extends ConsumerState<AdvanceImportScreen> {
     try {
       final bytes = picked.bytes;
       if (bytes == null) throw 'the file could not be read';
-      final rows = _parse(_decode(bytes));
-      if (rows.isEmpty) {
-        setState(() => _fileError = 'No rows with an amount found in that file.');
-        return;
-      }
-      final sendable = rows.where((r) => r.payload != null).toList();
-      final outcomes = sendable.isEmpty ? <Map<String, dynamic>>[] : await _send(sendable, dryRun: true);
-      setState(() => _rows = _merge(rows, outcomes, recorded: false));
+      _csv = _decode(bytes);
+      _monthFirst = false;
+      await _check();
     } catch (e) {
       setState(() => _fileError = 'Could not read that file: ${friendlyErrorMessage(e)}');
     } finally {
@@ -186,7 +221,7 @@ class _AdvanceImportScreenState extends ConsumerState<AdvanceImportScreen> {
       } else if (cells[3].isEmpty) {
         error = 'Payment Date is empty';
       } else {
-        final d = parseImportDate(cells[3]);
+        final d = parseImportDate(cells[3], monthFirst: _monthFirst);
         if (d == null) {
           error = 'Payment Date "${cells[3]}" is not a date (use dd/mm/yyyy)';
         } else {
@@ -296,6 +331,24 @@ class _AdvanceImportScreenState extends ConsumerState<AdvanceImportScreen> {
             TextButton(onPressed: () => setState(() { _rows = null; _fileError = null; }), child: const Text('Choose different file')),
         ]),
       ),
+      if (!_done && _dateRange(rows) != null)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Payment dates read: ${_dateRange(rows)}',
+                key: const Key('advance-date-range'), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            SwitchListTile(
+              key: const Key('advance-month-first'),
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: const Text('Dates in my file are month first (mm/dd/yyyy)', style: TextStyle(fontSize: 13)),
+              subtitle: Text('Turn this on if 10/01/2026 in the file means 1 October, not 10 January.',
+                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+              value: _monthFirst,
+              onChanged: _busy ? null : _setMonthFirst,
+            ),
+          ]),
+        ),
       Expanded(
         child: ListView.separated(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -344,7 +397,10 @@ class _Tile extends StatelessWidget {
       _Status.recorded => (AppTheme.success, Icons.check_circle_rounded),
     };
     final name = [row.wing, row.flat].where((s) => s.isNotEmpty).join(' - ');
-    final meta = [row.cells[3], row.cells[4], row.cells[5]].where((s) => s.isNotEmpty).join(' · ');
+    final iso = row.payload?['payment_date'] as String?;
+    // the date as it was read, spelled out, so a day and month the wrong way round is seen at once
+    final date = iso == null ? row.cells[3] : '${row.cells[3]} → ${DateFormat('d MMM yyyy').format(DateTime.parse(iso))}';
+    final meta = [date, row.cells[4], row.cells[5]].where((s) => s.isNotEmpty).join(' · ');
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(AppTheme.radiusS), boxShadow: AppTheme.cardShadow),

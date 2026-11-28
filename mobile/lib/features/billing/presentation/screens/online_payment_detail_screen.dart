@@ -73,6 +73,60 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
     }
   }
 
+  /// Correct the date the payment was received on: a date and the reason, then the receipt moves to it.
+  Future<void> _changeDate(String societyId, OnlinePaymentEntity payment) async {
+    final picked = await showDatePicker(
+      context: context,
+      helpText: 'Payment ${payment.receiptNumber} was received on',
+      initialDate: payment.paymentDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (picked == null || picked == payment.paymentDate || !mounted) return;
+    final reasonCtrl = TextEditingController(text: 'Date was entered wrongly');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Change the payment date?'),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(
+            '${_dmy(payment.paymentDate)} becomes ${_dmy(picked)}. The receipt voucher is cancelled (the books keep it, '
+            'with the reason) and posted again on the new date, in that year\'s numbering; the bills it settled are '
+            'set off again for the same amounts.',
+            style: const TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('payment-date-reason'),
+            controller: reasonCtrl,
+            decoration: const InputDecoration(labelText: 'Reason'),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            key: const Key('payment-date-confirm'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Change date'),
+          ),
+        ],
+      ),
+    );
+    final reason = reasonCtrl.text.trim();      // not disposed: the dialog is still closing and reads it
+    if (ok != true || !mounted) return;
+    setState(() => _updating = true);
+    try {
+      await ref.read(onlinePaymentsProvider(societyId).notifier).changeDate(widget.paymentId, picked, reason);
+      if (mounted) AppToast.success(context, 'Payment date changed to ${_dmy(picked)}');
+    } catch (e) {
+      if (mounted) showErrorToast(context, e);
+    } finally {
+      if (mounted) setState(() => _updating = false);
+    }
+  }
+
+  static String _dmy(DateTime d) => '${d.day}/${d.month}/${d.year}';
+
   /// Distinct bills this payment is on or was set off against, oldest first.
   List<String> _billIds(OnlinePaymentEntity p) {
     final ids = <String>[
@@ -119,8 +173,17 @@ class _OnlinePaymentDetailScreenState extends ConsumerState<OnlinePaymentDetailS
                 _row('Flat', '${payment.wingName ?? '-'} / ${payment.flatNumber ?? '-'}'),
                 _row('Amount', formatRupees(payment.amount)),
                 if (!payment.isOnBill) _row('On Account Of', onlinePaymentPurposeLabel(payment.purpose)),
-                _row('Payment Date',
-                    '${payment.paymentDate.day}/${payment.paymentDate.month}/${payment.paymentDate.year}'),
+                _row('Payment Date', _dmy(payment.paymentDate)),
+                if ((ref.watch(currentUserProvider)?.isAdminOrCommittee ?? false) && !payment.isRejected)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      key: const Key('payment-change-date'),
+                      onPressed: _updating ? null : () => _changeDate(societyId, payment),
+                      icon: const Icon(Icons.edit_calendar_rounded, size: 18),
+                      label: const Text('Change date'),
+                    ),
+                  ),
                 _row('Payment Mode', paymentModeLabel(payment.paymentMode)),
                 _row('Transaction Ref', payment.transactionRef ?? '-'),
                 _row('Bank', payment.bankName ?? '-'),
