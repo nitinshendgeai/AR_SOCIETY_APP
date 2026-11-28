@@ -45,7 +45,50 @@ review, and a deterministic calculation. A test exercises that whole path.
 | MH-ADM-ENTRANCE-FEE | entrance fee | model bye-law | ₹100 | MODEL_REFERENCE |
 | IN-GST-MEMBER-THRESHOLD | GST on contributions | CGST notifications | ₹7,500 / 18 % | UNVERIFIED, professional verification |
 
-**Verified rules: 0. Unverified rules: 15 (14 codes, one with two versions).**
+**Verified rules: 0. Unverified rules: 15 (14 codes, one with two versions), plus 17 bye-law references (below).**
+
+### 0.1 Model and draft bye-law references (read from uploaded PDFs, November 2026)
+
+Three PDFs were read page by page: the 91-page 2014 model bye-laws, a 49-page model edition and a 183-page
+"Draft Bye-laws, 2026". None is a society's registered bye-laws, and none is the Gazette. Their clauses are loaded as
+reference rules in `legal/seed.py` (`BYELAW_RULES`), each with the bye-law number, the PDF page (physical, not printed),
+the original wording and its calculation, and each `PENDING_VERIFICATION`.
+
+* **Model rules** (9, `MH-MODEL-*`): level H, `MODEL_REFERENCE`, so at most an `ADVISORY_OBSERVATION`.
+* **Draft rules** (8, `MH-DRAFT26-*`): `legal_status = DRAFT`, which `registry.in_force()` never treats as in force.
+* **No behaviour change.** Every reference uses its own `reference.*` or `draft2026.*` topic, so the topics the engine
+  tests (`charges.*`, `funds.*`, `expenditure.*`) resolve to the same rules as before. A test pins this.
+* Bye-law numbers differ by edition. The clause reference gives the 2014 number first and the 49-page number second.
+
+| Topic | Model (2014) | Draft 2026 |
+|---|---|---|
+| Repair & maintenance fund | minimum 0.75 % p.a. of each flat's architect-certified construction cost (13(a), PDF 11) | same minimum (18(b), PDF 17) |
+| Sinking fund | minimum 0.25 % p.a., excluding the proportionate land cost (13(c), PDF 11) | 0.25 %, land exclusion not repeated (18(a), PDF 17) |
+| Major repair fund | pro rata on area, General Body decides (13(b)) | carpet area (18(c)) |
+| Education & training fund | ₹10 per flat per month (13(d), 66(a)(xiv)) | as prescribed (18(d)) |
+| Service charges | equally by number of flats (66(a)(vi), PDF 28) | equally (63(a)(i), PDF 62) |
+| Lifts | equally among the members of the building with the lift (66(a)(iv)) | equally among the flats of that building (63(a)(iv)) |
+| Water | number and size of inlets (66(a)(ii)) | inlets / taps per sanctioned plan (63(a)(iii)) |
+| Property tax | as fixed by the local authority | as fixed by the local authority; common areas by carpet area |
+| Insurance, lease rent, NA tax | built-up area of each flat (66(a)(xi)-(xiii)) | carpet area (63(a)(ix)-(xi)) |
+| Interest on arrears | 21 % simple, or lower (70, PDF 29) | maximum 12 % simple, none in the payment period (66, PDF 66) |
+| Non-occupancy charges | by Government circular (43(2)(iii)(c)) | 10 % of service charges (63(a)(viii)) |
+| Defaulter | not in the rule pack | after 3 months from service of the bill or the due date (65(a)) |
+| Committee repair limit, once a year | ₹25,000 / ₹50,000 / ₹1,00,000 (156(a), PDF 49) | ₹1 / 2 / 3 / 4 / 5 lakh by five membership bands; 1,000 members is in the ₹4 lakh band (147(e), PDF 117) |
+
+Three non-blocking reviews were added: the editions loaded and the fact that none is a registered bye-law; the figures on
+which the draft differs from the model; and two citations in the earlier rows to correct (MH-EXP-BYELAW157 cites
+"bye-law 157", which is the Secretary's duty to inspect: the repair limit is 156(a) in the 2014 edition and 158(a) in the
+49-page edition; MH-FUND-REPAIR-RATE cites "67(a)(iii)": the clause is 13(a) and 66(a)(iii), or 69(a)(iii)).
+The earlier rows were not edited: `ensure_jurisdiction_pack` never overwrites a row, so a citation is corrected as a
+new version by a platform administrator. The two blocking Gazette reviews stay open: the draft's 1,000-member boundary is
+a third text and does not settle the English-Marathi discrepancy in the Gazette.
+
+**Not changed, and worth a decision:** `MH-CHG-APPORTIONMENT`'s allowed bases do not list insurance, lease rent or
+non-agricultural tax (carpet area in both texts), so a charge head for one of them set to an equal amount per flat is
+never flagged. For water the rule allows only per-sq-ft or budget-by-area, where both texts say number and size of
+inlets, so an equal-per-flat water head is flagged even when every flat has the same fittings. Changing the checks is a
+behaviour change and was left out of this loading.
 
 ## 1. What was built
 
