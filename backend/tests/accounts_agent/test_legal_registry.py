@@ -162,6 +162,52 @@ def test_marathi_document_language_and_clauses(rig, db):
     assert [c.clause_ref for c in db.query(LegalClause).filter(LegalClause.document_id == d.id)] == ["65", "66"]
 
 
+def _pages(*texts):
+    return [{"page": i, "text": t} for i, t in enumerate(texts, start=1)]
+
+
+def _refs(pages, language="en"):
+    return [(c["clause_ref"], c["page_number"]) for c in documents.extract_clauses(pages, language)]
+
+
+def test_clause_cross_reference_line_is_not_a_clause_start():
+    pages = _pages("58. Funds\nThe funds are kept as stated.\n59. Charges\nCharges are levied; see\n"
+                   "bye-law No. 66. for how they are shared.\n60. Seal\nThe seal is kept.",
+                   "61. Audit\nAccounts are audited.\n62. Notice\nNotice is given.",
+                   "63. Meetings\nMeetings are held.\n64. Quorum\nQuorum is five.\n65. Charges\nCharges are levied.\n"
+                   "66. Apportionment of charges\nCharges are shared as follows.\n67. Loans\nLoans are limited.")
+    assert _refs(pages) == [("58", 1), ("59", 1), ("60", 1), ("61", 2), ("62", 2), ("63", 3), ("64", 3), ("65", 3),
+                            ("66", 3), ("67", 3)]
+
+
+def test_clause_list_item_is_not_a_clause_start():
+    pages = _pages("12. Membership\nA member shall pay.\n13. Funds\nThe society shall create funds.\n14. Audit\nAudit rules.",
+                   "15. Meetings\nThe committee meets monthly, from\n13. charges of the society\nand the rest.\n16. Notice\nNotice rules.")
+    assert _refs(pages) == [("12", 1), ("13", 1), ("14", 1), ("15", 2), ("16", 2)]
+
+
+def test_clause_number_without_space_after_dot():
+    pages = _pages("11. Entrance fee\nA fee is paid.\n12. Share capital\nShares are issued.\n"
+                   "13.Other Funds to be created by the society\nThe society creates funds.\n14. Audit\nAudit rules.")
+    assert _refs(pages) == [("11", 1), ("12", 1), ("13", 1), ("14", 1)]
+    # a decimal is not a clause number
+    assert _refs(_pages("1. Rates\nInterest is 3.5 per cent per year.\n2. Notice\nNotice rules.")) == [("1", 1), ("2", 1)]
+
+
+def test_clause_table_layout_number_in_left_column():
+    pages = _pages("10      Membership of the society shall be open\n        to residents.\n"
+                   "11      Funds of the society shall be kept in a\n        bank.\n"
+                   "12      The committee shall meet every month.\n"
+                   "Amount  25000   100000\n250     5000    100")
+    assert _refs(pages) == [("10", 1), ("11", 1), ("12", 1)]
+
+
+def test_clause_numbering_may_skip_and_restart_in_second_language():
+    pages = _pages("10. A first\nText.\n11. B second\nText.\n13. D fourth\nText.\n14. E fifth\nText.",
+                   "1. Annexure one\nText.\n2. Annexure two\nText.\n3. Annexure three\nText.\n4. Annexure four\nText.")
+    assert [r for r, _ in _refs(pages)] == ["10", "11", "13", "14", "1", "2", "3", "4"]
+
+
 def test_pdf_pages_and_missing_page_detection(rig, db):
     import io
     import shutil

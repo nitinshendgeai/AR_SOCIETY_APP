@@ -39,9 +39,16 @@ DRAFT_MARKERS = re.compile(r"\b(draft|proposed|for discussion|not for circulatio
 DEVANAGARI = re.compile(r"[ऀ-ॿ]")
 LATIN = re.compile(r"[A-Za-z]")
 MARATHI_DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
+_KEYWORD = r"(?:(?:bye[- ]?law|rule|section|clause|उपविधी|नियम|कलम)\s*(?:no\.?|क्र\.?)?\s*)?"
+_NUMBER = r"(\d{1,3}[A-Z]?(?:-\d{1,3})?(?:\s*\([a-z0-9ivx]{1,4}\))*)"
+# "66. Heading", "66) Heading", "66: Heading", and "13.Other Funds" (no space, but only after a dot and only before a letter)
 CLAUSE_START = re.compile(
-    r"^\s*(?:(?:bye[- ]?law|rule|section|clause|उपविधी|नियम|कलम)\s*(?:no\.?|क्र\.?)?\s*)?"
-    r"(\d{1,3}[A-Z]?(?:-\d{1,3})?(?:\s*\([a-z0-9ivx]{1,4}\))*)\s*[\.\):–-]\s+(\S.{2,200})$", re.I)
+    r"^\s*" + _KEYWORD + _NUMBER + r"(?:\s*[\.\):–-]\s+|\.(?=[^\W\d_]))(\S.{2,200})$", re.I)
+# Table layout (pdftotext -layout): the number sits in a left column and the text starts in the next column.
+CLAUSE_TABLE_ROW = re.compile(r"^\s*" + _NUMBER + r"\s{2,}([^\W\d_].{2,200})$", re.I)
+CLAUSE_MAX_SKIP = 100          # how far a top-level number may jump ahead (missing clauses, or an excerpt of a longer text)
+CLAUSE_RESTART_PENALTY = 2.0   # a numbering that restarts (a second language / part) must bring at least 3 clauses
+_CONTINUATION_END = re.compile(r"[a-z,;(\-]$")
 # Which statuses fit which document types: a set of minutes cannot become a "registered bye-law".
 STATUS_FOR_TYPE = {
     "REGISTERED_BYELAWS": ("REGISTERED",), "BYELAW_AMENDMENT": ("APPROVED_AMENDMENT",),
@@ -279,22 +286,84 @@ def extract(file_name: str, data: bytes) -> dict:
             "language": detect_language(text), "draft_markers": markers}
 
 
+def _select_top_level(cands: List[dict]) -> set:
+    """Indexes of the plain-number candidates that form the document's own clause sequence.
+
+    A top-level clause "N" must come after the previous accepted one in increasing order (N+1 is best, a skip costs a
+    little: clauses can be missing or the text an excerpt), so a cross-reference such as
+    "bye-law No. 66." or a list item "13. charges of the society" inside another clause is not taken as a clause start.
+    The best-scoring chain wins; a line that continues the previous line's sentence counts for less, and a numbering that
+    restarts from a small number (a second language, an annexure) is allowed only if it is long enough to be a real one."""
+    best_end: dict = {}               # number -> (score, index) of the best chain ending at that number so far
+    best_big = (0.0, -1)              # best chain ending at a number >= 10, for restarts
+    score = [0.0] * len(cands)
+    prev = [-1] * len(cands)
+    for i, c in enumerate(cands):
+        w = 0.6 if c["continuation"] else 1.0
+        n = c["num"]
+        sc, pv = w, -1
+        for d in range(1, min(CLAUSE_MAX_SKIP, n - 1) + 1):
+            got = best_end.get(n - d)
+            cost = min(0.1 * (d - 1), 0.9)       # a bigger jump is worth a little less than the next number
+            if got and got[0] + w - cost > sc:
+                sc, pv = got[0] + w - cost, got[1]
+        if n <= 3 and best_big[1] >= 0 and best_big[0] + w - CLAUSE_RESTART_PENALTY > sc:
+            sc, pv = best_big[0] + w - CLAUSE_RESTART_PENALTY, best_big[1]
+        score[i], prev[i] = sc, pv
+        if n not in best_end or sc > best_end[n][0]:
+            best_end[n] = (sc, i)
+        if n >= 10 and sc > best_big[0]:
+            best_big = (sc, i)
+    if not cands:
+        return set()
+    end = max(range(len(cands)), key=lambda k: (score[k], -k))
+    chosen = set()
+    while end >= 0:
+        chosen.add(end)
+        end = prev[end]
+    return chosen
+
+
 def extract_clauses(pages: Optional[List[dict]], language: str) -> List[dict]:
-    """Numbered clauses with the page they start on. Every extracted clause needs human verification."""
-    out: List[dict] = []
-    cur = None
+    """Numbered clauses with the page they start on. Every extracted clause needs human verification.
+
+    Top-level numbers must run in sequence (see _select_top_level); sub-numbered refs such as "106C-11" or "156(a)" are kept
+    only while their number is at or just after the clause being read."""
+    rows: List[dict] = []
+    last_text = ""
     for p in pages or []:
         for line in (p["text"] or "").splitlines():
-            m = CLAUSE_START.match(line.translate(MARATHI_DIGITS))
+            norm = line.translate(MARATHI_DIGITS)
+            m = CLAUSE_START.match(norm) or CLAUSE_TABLE_ROW.match(norm)
+            row = {"page": p["page"], "line": line, "match": None}
             if m:
-                if cur:
-                    out.append(cur)
                 ref = re.sub(r"\s+", "", m.group(1))
-                cur = {"clause_ref": ref[:60], "heading": m.group(2).strip()[:300], "page_number": p["page"],
-                       "language": detect_language(line) if language == "mixed" else language, "text": line.strip()}
-            elif cur and line.strip():
-                if len(cur["text"]) < 8000:
-                    cur["text"] += "\n" + line.strip()
+                row["match"] = (ref, m.group(2).strip(), ref.isdigit(), int(re.match(r"\d+", ref).group(0)),
+                                bool(_CONTINUATION_END.search(last_text)))
+            rows.append(row)
+            if line.strip():
+                last_text = line.strip()
+    plain_idx = [i for i, r in enumerate(rows) if r["match"] and r["match"][2]]
+    cands = [{"num": rows[i]["match"][3], "continuation": rows[i]["match"][4]} for i in plain_idx]
+    chosen = {plain_idx[k] for k in _select_top_level(cands)}
+    accepted, top = set(chosen), None
+    for i, r in enumerate(rows):
+        if i in chosen:
+            top = r["match"][3]
+        elif r["match"] and not r["match"][2] and (not chosen or (top is not None and top <= r["match"][3] <= top + 5)):
+            accepted.add(i)
+    out: List[dict] = []
+    cur = None
+    for i, r in enumerate(rows):
+        if i in accepted:
+            if cur:
+                out.append(cur)
+            ref, heading = r["match"][0], r["match"][1]
+            cur = {"clause_ref": ref[:60], "heading": heading[:300], "page_number": r["page"],
+                   "language": detect_language(r["line"]) if language == "mixed" else language, "text": r["line"].strip()}
+        elif cur and r["line"].strip():
+            if len(cur["text"]) < 8000:
+                cur["text"] += "\n" + r["line"].strip()
     if cur:
         out.append(cur)
     return out[:2000]
