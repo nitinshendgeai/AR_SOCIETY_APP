@@ -619,6 +619,16 @@ class FindingsPage {
   const FindingsPage(this.items, this.total);
 }
 
+/// How the findings list can be ordered: the key the server takes, and what the person sees. The first is the default.
+const findingSorts = <(String, String)>[
+  ('severity', 'Most severe first'),
+  ('newest', 'Newest raised first'),
+  ('oldest', 'Oldest raised first'),
+  ('voucher_new', 'Latest transaction date first'),
+  ('voucher_old', 'Earliest transaction date first'),
+  ('confidence', 'Most certain first'),
+];
+
 /// What the findings list is filtered by. Value-equal so it can key a provider.
 class FindingsFilter {
   final String? severity;
@@ -629,9 +639,11 @@ class FindingsFilter {
   final String query;
   final int page;
   final String? section;
-  const FindingsFilter({this.severity, this.category, this.status, this.from, this.to, this.query = '', this.page = 1, this.section});
+  /// One of [findingSorts]; the default puts the most severe first.
+  final String sort;
+  const FindingsFilter({this.severity, this.category, this.status, this.from, this.to, this.query = '', this.page = 1, this.section, this.sort = 'severity'});
 
-  FindingsFilter copyWith({String? severity, String? category, String? status, DateTime? from, DateTime? to, String? query, int? page, bool clearSeverity = false, bool clearCategory = false, bool clearStatus = false, bool clearDates = false}) =>
+  FindingsFilter copyWith({String? severity, String? category, String? status, DateTime? from, DateTime? to, String? query, int? page, String? sort, bool clearSeverity = false, bool clearCategory = false, bool clearStatus = false, bool clearDates = false}) =>
       FindingsFilter(
         severity: clearSeverity ? null : (severity ?? this.severity),
         category: clearCategory ? null : (category ?? this.category),
@@ -641,13 +653,14 @@ class FindingsFilter {
         query: query ?? this.query,
         page: page ?? this.page,
         section: section,
+        sort: sort ?? this.sort,
       );
 
   @override
   bool operator ==(Object other) =>
-      other is FindingsFilter && other.severity == severity && other.category == category && other.status == status && other.from == from && other.to == to && other.query == query && other.page == page && other.section == section;
+      other is FindingsFilter && other.severity == severity && other.category == category && other.status == status && other.from == from && other.to == to && other.query == query && other.page == page && other.section == section && other.sort == sort;
   @override
-  int get hashCode => Object.hash(severity, category, status, from, to, query, page, section);
+  int get hashCode => Object.hash(severity, category, status, from, to, query, page, section, sort);
 }
 
 class AccountsAgentApi {
@@ -692,6 +705,7 @@ class AccountsAgentApi {
       if (f.to != null) 'date_to': _apiDate(f.to!),
       if (f.query.trim().isNotEmpty) 'q': f.query.trim(),
       if (f.section != null) 'section': f.section,
+      if (f.sort != 'severity') 'sort': f.sort,
       'page': f.page,
       'page_size': pageSize,
     }));

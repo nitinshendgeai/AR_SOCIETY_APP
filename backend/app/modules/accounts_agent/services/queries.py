@@ -111,9 +111,41 @@ def proposal_dict(p: AgentProposal) -> dict:
             "requires_other_approver": p.action_type in ("cancel_voucher", "edit_voucher")}
 
 
+# How the findings list can be ordered. Every order ends on the same tiebreak (newest raised, then id), so a page
+# boundary never repeats or skips a finding.
+FINDING_SORTS = {
+    "severity": "Most severe first",
+    "newest": "Newest raised first",
+    "oldest": "Oldest raised first",
+    "voucher_new": "Latest transaction date first",
+    "voucher_old": "Earliest transaction date first",
+    "confidence": "Most certain first",
+}
+
+
+def finding_order(sort: Optional[str]) -> list:
+    from sqlalchemy import case
+    sort = sort or "severity"
+    if sort not in FINDING_SORTS:
+        raise ValueError(f"Unknown sort '{sort}'")
+    tie = [AgentFinding.created_at.desc(), AgentFinding.id]
+    if sort == "newest":
+        return tie
+    if sort == "oldest":
+        return [AgentFinding.created_at.asc(), AgentFinding.id]
+    if sort == "voucher_new":                   # society-wide findings have no transaction date: they go last
+        return [AgentFinding.voucher_date.desc().nulls_last(), *tie]
+    if sort == "voucher_old":
+        return [AgentFinding.voucher_date.asc().nulls_last(), *tie]
+    if sort == "confidence":
+        return [AgentFinding.confidence.desc(), *tie]
+    rank = {s: i for i, s in enumerate(SEVERITIES)}
+    return [case(*[(AgentFinding.severity == s, i) for s, i in rank.items()], else_=9), *tie]
+
+
 def list_findings(db: Session, society_id: UUID, *, severity=None, category=None, status=None, finding_class=None,
                   date_from=None, date_to=None, q=None, page=1, page_size=25, engine=None, compliance_category=None,
-                  classification=None, flat_id=None, vendor_id=None, section=None) -> dict:
+                  classification=None, flat_id=None, vendor_id=None, section=None, sort="severity") -> dict:
     from app.modules.accounts_agent.legal.sections import CLAIMED, SECTIONS
     qry = db.query(AgentFinding).filter(AgentFinding.society_id == society_id)
     if section in SECTIONS:
@@ -146,10 +178,7 @@ def list_findings(db: Session, society_id: UUID, *, severity=None, category=None
         qry = qry.filter(or_(AgentFinding.title.ilike(like), AgentFinding.transaction_ref.ilike(like),
                              AgentFinding.explanation.ilike(like)))
     total = qry.count()
-    rank = {s: i for i, s in enumerate(SEVERITIES)}
-    from sqlalchemy import case
-    order = case(*[(AgentFinding.severity == s, i) for s, i in rank.items()], else_=9)
-    rows = qry.order_by(order, AgentFinding.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    rows = (qry.order_by(*finding_order(sort)).offset((page - 1) * page_size).limit(page_size).all())
     from app.modules.accounts.models.accounts import Voucher
     vids = [f.voucher_id for f in rows if f.voucher_id]
     vstat = dict(db.query(Voucher.id, Voucher.approval_status).filter(Voucher.society_id == society_id,

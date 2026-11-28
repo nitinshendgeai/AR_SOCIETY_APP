@@ -171,6 +171,7 @@ def list_findings(society_id: Optional[UUID] = None, severity: Optional[str] = N
                   classification: Optional[str] = Query(None, max_length=40),
                   flat_id: Optional[UUID] = None, vendor_id: Optional[UUID] = None,
                   section: Optional[str] = Query(None, max_length=30),
+                  sort: str = Query("severity", pattern="^(severity|newest|oldest|voucher_new|voucher_old|confidence)$"),
                   db: Session = Depends(get_db), user: User = Depends(require_manager_above)):
     sid = _sid(user, society_id)
     if severity and severity not in SEVERITIES:
@@ -180,7 +181,7 @@ def list_findings(society_id: Optional[UUID] = None, severity: Optional[str] = N
     return queries.list_findings(db, sid, severity=severity, category=category, status=status, finding_class=finding_class,
                                  date_from=date_from, date_to=date_to, q=q, page=page, page_size=page_size,
                                  engine=engine, compliance_category=compliance_category, classification=classification,
-                                 flat_id=flat_id, vendor_id=vendor_id, section=section)
+                                 flat_id=flat_id, vendor_id=vendor_id, section=section, sort=sort)
 
 
 def _finding(db: Session, sid: UUID, finding_id: UUID) -> AgentFinding:

@@ -61,6 +61,28 @@ void main() {
     expect(q.containsKey('society_id'), isFalse);
   });
 
+  test('the chosen sort order is sent to the server; the default is not sent', () async {
+    final seen = <RequestOptions>[];
+    final api = AccountsAgentApi(dio: _server(seen, {'items': [], 'total': 0, 'page': 1, 'page_size': 25}));
+    await api.findings(const FindingsFilter());
+    await api.findings(const FindingsFilter(sort: 'voucher_new', severity: 'HIGH'));
+    expect(seen[0].queryParameters.containsKey('sort'), isFalse);
+    expect(seen[1].queryParameters['sort'], 'voucher_new');
+    expect(seen[1].queryParameters['severity'], 'HIGH');
+  });
+
+  test('changing the sort keeps the other filters, and is a different list for the cache', () {
+    const base = FindingsFilter(severity: 'HIGH', query: 'x', page: 3);
+    final sorted = base.copyWith(sort: 'oldest');
+    expect(sorted.sort, 'oldest');
+    expect(sorted.severity, 'HIGH');
+    expect(sorted.query, 'x');
+    expect(sorted == base, isFalse);
+    expect(base.copyWith(page: 4).sort, 'severity');
+    expect(findingSorts.first.$1, 'severity');
+    expect({for (final o in findingSorts) o.$1}.length, findingSorts.length);
+  });
+
   test('statistics are never labelled as confirmed errors', () {
     expect(findingClassLabel('statistical_deviation'), 'Statistical deviation');
     expect(findingClassLabel('confirmed_validation_failure'), 'Confirmed validation failure');
