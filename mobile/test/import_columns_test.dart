@@ -13,6 +13,14 @@ void main() {
       expect(parseImportDate('05/12/2020 00:00:00'), DateTime(2020, 12, 5));
     });
     test('day first: 03/04/2020 is 3 April', () => expect(parseImportDate('03/04/2020'), DateTime(2020, 4, 3)));
+    test('month first, for a sheet saved from a month-first Excel: 10/01/2026 is 1 October', () {
+      expect(parseImportDate('10/01/2026', monthFirst: true), DateTime(2026, 10, 1));
+      expect(parseImportDate('10/01/2026'), DateTime(2026, 1, 10));
+      expect(parseImportDate('3-9-26', monthFirst: true), DateTime(2026, 3, 9));
+      expect(parseImportDate('2026-10-01', monthFirst: true), DateTime(2026, 10, 1));      // an ISO date has no doubt
+      expect(parseImportDate('1 Oct 2026', monthFirst: true), DateTime(2026, 10, 1));       // nor does a named month
+      expect(parseImportDate('25/12/2026', monthFirst: true), isNull);                      // there is no 25th month
+    });
     test('two-digit years', () {
       expect(parseImportDate('1/1/99'), DateTime(1999, 1, 1));
       expect(parseImportDate('1/1/05'), DateTime(2005, 1, 1));

@@ -116,8 +116,9 @@ const _months = {
 };
 
 /// A date as it is written in an Indian sheet: 01/04/2019, 1-4-19, 01.04.2019, 2019-04-01, 1-Apr-2019 or
-/// 1 April 2019 — day first. A time after the date is ignored. Null when it isn't a real date.
-DateTime? parseImportDate(String text) {
+/// 1 April 2019 — day first (with [monthFirst], 04/01/2019 is the fourth of January: a sheet saved from a
+/// month-first Excel). A time after the date is ignored. Null when it isn't a real date.
+DateTime? parseImportDate(String text, {bool monthFirst = false}) {
   var t = text.trim();
   if (t.isEmpty) return null;
   t = t.split(RegExp(r'[T ](?=\d{1,2}:)')).first.trim();
@@ -131,8 +132,8 @@ DateTime? parseImportDate(String text) {
     m = int.parse(iso[2]!);
     d = int.parse(iso[3]!);
   } else if (dmy != null) {
-    d = int.parse(dmy[1]!);
-    m = int.parse(dmy[2]!);
+    d = int.parse(monthFirst ? dmy[2]! : dmy[1]!);
+    m = int.parse(monthFirst ? dmy[1]! : dmy[2]!);
     y = _year(dmy[3]!);
   } else if (named != null) {
     d = int.parse(named[1]!);

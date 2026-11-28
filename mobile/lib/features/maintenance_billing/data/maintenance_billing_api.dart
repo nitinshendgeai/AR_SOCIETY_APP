@@ -1630,6 +1630,20 @@ class MaintenanceBillingApi {
   }
 
   /// Corrects a cycle's due date; the bills of the cycle follow.
+  /// Correct a cycle's name and/or period. The bills' periods move with it (see the server). Returns the cycle and how
+  /// many bills moved.
+  Future<({BillingCycle cycle, int billsMoved})> updateCycle(String cycleId,
+      {String? name, DateTime? cycleStart, DateTime? cycleEnd}) async {
+    String day(DateTime d) => d.toIso8601String().split('T').first;
+    final r = await _dio.patch('/billing/cycles/$cycleId', data: {
+      if (name != null) 'name': name,
+      if (cycleStart != null) 'cycle_start': day(cycleStart),
+      if (cycleEnd != null) 'cycle_end': day(cycleEnd),
+    });
+    final j = r.data as Map<String, dynamic>;
+    return (cycle: BillingCycle.fromJson(j), billsMoved: (j['bills_period_moved'] as num?)?.toInt() ?? 0);
+  }
+
   Future<BillingCycle> setCycleDueDate(String cycleId, DateTime dueDate) async {
     final r = await _dio.patch('/billing/cycles/$cycleId/due-date',
         data: {'due_date': dueDate.toIso8601String().split('T').first});

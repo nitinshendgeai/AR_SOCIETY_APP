@@ -98,6 +98,28 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
     });
   }
 
+  /// Correct the cycle's name and period (a cycle made under the wrong month).
+  Future<void> _editCycle(BillingCycle cycle) async {
+    final result = await showDialog<({String name, DateTime start, DateTime end})>(
+      context: context,
+      builder: (_) => _EditCycleDialog(cycle: cycle),
+    );
+    if (result == null) return;
+    final sameDates = result.start == cycle.cycleStart && result.end == cycle.cycleEnd;
+    await _run(() async {
+      final r = await ref.read(maintenanceBillingApiProvider).updateCycle(
+            widget.cycleId,
+            name: result.name == cycle.name ? null : result.name,
+            cycleStart: sameDates ? null : result.start,
+            cycleEnd: sameDates ? null : result.end,
+          );
+      if (mounted) {
+        AppToast.success(context,
+            sameDates ? 'Cycle renamed' : 'Cycle updated: ${r.billsMoved} bill${r.billsMoved == 1 ? '' : 's'} moved to the new period');
+      }
+    });
+  }
+
   Future<void> _deleteCycle(BillingCycle cycle) async {
     final deleted = await deleteBillingCycle(context, ref, widget.societyId, cycle);
     if (deleted && mounted) Navigator.of(context).pop();
@@ -213,6 +235,13 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
               icon: Icons.restart_alt_rounded,
               label: 'Regenerate bills',
               onPressed: _busy ? null : () => _regenerate(cycle),
+            ),
+          if (cycle != null)
+            IconButton(
+              key: const Key('cycle-edit'),
+              tooltip: 'Correct the name or period of this cycle',
+              icon: const Icon(Icons.edit_calendar_rounded),
+              onPressed: _busy ? null : () => _editCycle(cycle),
             ),
           if (cycle != null && cycle.canDelete)
             IconButton(
@@ -557,3 +586,87 @@ Color billStatusColor(String status) => switch (status) {
       'issued' => AppTheme.primary,
       _ => AppTheme.textSecondary,
     };
+
+
+/// Name and period of a cycle, to correct them.
+class _EditCycleDialog extends StatefulWidget {
+  final BillingCycle cycle;
+  const _EditCycleDialog({required this.cycle});
+
+  @override
+  State<_EditCycleDialog> createState() => _EditCycleDialogState();
+}
+
+class _EditCycleDialogState extends State<_EditCycleDialog> {
+  late final TextEditingController _name = TextEditingController(text: widget.cycle.name);
+  late DateTime _start = widget.cycle.cycleStart;
+  late DateTime _end = widget.cycle.cycleEnd;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pick(bool start) async {
+    final picked = await showDatePicker(
+      context: context,
+      helpText: start ? 'Cycle starts on' : 'Cycle ends on',
+      initialDate: start ? _start : _end,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(DateTime.now().year + 2, 12, 31),
+    );
+    if (picked != null) setState(() => start ? _start = picked : _end = picked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bad = _end.isBefore(_start) || _name.text.trim().isEmpty;
+    return AlertDialog(
+      title: const Text('Correct this cycle'),
+      content: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          TextField(
+            key: const Key('cycle-edit-name'),
+            controller: _name,
+            decoration: const InputDecoration(labelText: 'Cycle name'),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(
+              child: OutlinedButton(
+                key: const Key('cycle-edit-start'),
+                onPressed: () => _pick(true),
+                child: Text('From ${formatBillDate(_start)}'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton(
+                key: const Key('cycle-edit-end'),
+                onPressed: () => _pick(false),
+                child: Text('To ${formatBillDate(_end)}'),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          Text(
+            'Changing the period moves the period of every bill of this cycle with it, so the next cycle bills from the '
+            'day after it ends. Amounts, bill dates and due dates stay as they are. A cycle with bills not yet issued '
+            'keeps its dates until those are made again.',
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+          ),
+        ]),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        ElevatedButton(
+          key: const Key('cycle-edit-save'),
+          onPressed: bad ? null : () => Navigator.pop(context, (name: _name.text.trim(), start: _start, end: _end)),
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}

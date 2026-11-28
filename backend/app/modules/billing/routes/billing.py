@@ -77,6 +77,27 @@ class CycleCreate(OrmBase):
 class CycleDueDate(OrmBase):
     due_date: date
 
+class CycleUpdate(OrmBase):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=150)
+    cycle_start: Optional[date] = None
+    cycle_end: Optional[date] = None
+    notes: Optional[str] = Field(default=None, max_length=2000)
+
+    @field_validator("name")
+    @classmethod
+    def _name(cls, v):
+        if v is None:
+            return v
+        v = v.strip()
+        if not v:
+            raise ValueError("The cycle needs a name")
+        return v
+
+    @field_validator("cycle_start", "cycle_end")
+    @classmethod
+    def _dates(cls, v):
+        return val.sane_date(v) if v is not None else v
+
 class CancelBillRequest(OrmBase):
     reason: str
 
@@ -98,6 +119,13 @@ class PenaltyRuleCreate(OrmBase):
 class OnlinePaymentStatusUpdate(OrmBase):
     status: ReconciliationStatus
     review_notes: Optional[str] = None
+
+class PaymentDateChange(OrmBase):
+    payment_date: date
+    reason: str = Field(min_length=3, max_length=500)
+
+    _date = field_validator("payment_date")(val.sane_date)
+
 
 class BankMatchConfirm(OrmBase):
     submission_id: UUID
@@ -494,6 +522,17 @@ def create_cycle(data: CycleCreate, request: Request, db: Session = Depends(get_
     if data.cycle_end < data.cycle_start:
         raise HTTPException(422, "Cycle end date must be on or after the start date")
     return _cycle_out(BillingService(db).create_cycle(data.model_dump(), user, request))
+
+@router.patch("/cycles/{cycle_id}", dependencies=[Depends(manager_above)])
+def update_cycle(cycle_id: UUID, data: CycleUpdate, request: Request, db: Session = Depends(get_db),
+                 user: User = Depends(get_current_user)):
+    """Correct a cycle's name, notes or period, e.g. one made under the wrong month. The bills' periods move with it
+    (see BillingService.update_cycle)."""
+    changes = {k: getattr(data, k) for k in data.model_fields_set
+               if getattr(data, k) is not None or k == "notes"}          # notes may be cleared; the rest may not
+    cycle, moved, own = BillingService(db).update_cycle(cycle_id, changes, user, request)
+    return {**_cycle_out(cycle, society_today(db, cycle.society_id)), "bills_period_moved": moved,
+            "bills_with_own_period": own}
 
 @router.patch("/cycles/{cycle_id}/due-date", dependencies=[Depends(manager_above)])
 def set_cycle_due_date(cycle_id: UUID, data: CycleDueDate, request: Request, db: Session = Depends(get_db),
@@ -1151,6 +1190,18 @@ def update_online_payment_status(
 ):
     submission = BillingService(db).update_online_payment_status(
         submission_id, data.status, data.review_notes, user)
+    return _online_payment_out(submission)
+
+
+@router.patch("/online-payments/{submission_id}/date", dependencies=[Depends(require_admin_committee)])
+def change_online_payment_date(
+    submission_id: UUID, data: PaymentDateChange, request: Request,
+    db: Session = Depends(get_db), user: User = Depends(get_current_user),
+):
+    """Correct the date a payment was received on (committee or admin). What it settled is released and set off again
+    and its receipt voucher is cancelled and posted on the new date; see BillingService.change_online_payment_date."""
+    submission = BillingService(db).change_online_payment_date(
+        submission_id, data.payment_date, data.reason.strip(), user, request)
     return _online_payment_out(submission)
 
 
