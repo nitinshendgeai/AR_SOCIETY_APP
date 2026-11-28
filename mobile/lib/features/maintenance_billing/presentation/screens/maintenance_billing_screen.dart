@@ -215,15 +215,22 @@ class _CyclesTab extends ConsumerWidget {
                     ),
                     AppDataColumn(
                       label: '',
-                      width: 56,
-                      cell: (c) => c.canDelete
-                          ? IconButton(
-                              key: ValueKey('cycle-delete-${c.id}'),
-                              tooltip: 'Delete this cycle (not billed)',
-                              icon: Icon(Icons.delete_outline_rounded, color: AppTheme.error),
-                              onPressed: () => deleteBillingCycle(context, ref, societyId, c),
-                            )
-                          : const SizedBox.shrink(),
+                      width: 100,
+                      cell: (c) => Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                        IconButton(
+                          key: ValueKey('cycle-edit-${c.id}'),
+                          tooltip: 'Rename this cycle or correct its period',
+                          icon: const Icon(Icons.edit_calendar_rounded),
+                          onPressed: () => editBillingCycle(context, ref, societyId, c),
+                        ),
+                        if (c.canDelete)
+                          IconButton(
+                            key: ValueKey('cycle-delete-${c.id}'),
+                            tooltip: 'Delete this cycle (not billed)',
+                            icon: Icon(Icons.delete_outline_rounded, color: AppTheme.error),
+                            onPressed: () => deleteBillingCycle(context, ref, societyId, c),
+                          ),
+                      ]),
                     ),
                   ],
                 )
@@ -231,6 +238,7 @@ class _CyclesTab extends ConsumerWidget {
                 for (final c in cycles)
                   _CycleCard(
                     cycle: c,
+                    onEdit: () => editBillingCycle(context, ref, societyId, c),
                     onDelete: c.canDelete ? () => deleteBillingCycle(context, ref, societyId, c) : null,
                     onTap: () => Navigator.push(context, MaterialPageRoute(
                       builder: (_) => BillingCycleScreen(cycleId: c.id, societyId: societyId),
@@ -284,7 +292,8 @@ class _CycleCard extends StatelessWidget {
   final BillingCycle cycle;
   final VoidCallback onTap;
   final VoidCallback? onDelete; // set for a cycle that has not been billed
-  const _CycleCard({required this.cycle, required this.onTap, this.onDelete});
+  final VoidCallback? onEdit;
+  const _CycleCard({required this.cycle, required this.onTap, this.onDelete, this.onEdit});
 
   (String, Color) get _stage => _cycleStage(cycle);
 
@@ -309,6 +318,14 @@ class _CycleCard extends StatelessWidget {
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               ),
               _Pill(label: stageLabel, color: stageColor),
+              if (onEdit != null)
+                IconButton(
+                  key: ValueKey('cycle-edit-${cycle.id}'),
+                  tooltip: 'Rename this cycle or correct its period',
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.edit_calendar_rounded),
+                  onPressed: onEdit,
+                ),
               if (onDelete != null)
                 IconButton(
                   key: ValueKey('cycle-delete-${cycle.id}'),

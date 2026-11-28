@@ -100,24 +100,7 @@ class _BillingCycleScreenState extends ConsumerState<BillingCycleScreen> {
 
   /// Correct the cycle's name and period (a cycle made under the wrong month).
   Future<void> _editCycle(BillingCycle cycle) async {
-    final result = await showDialog<({String name, DateTime start, DateTime end})>(
-      context: context,
-      builder: (_) => _EditCycleDialog(cycle: cycle),
-    );
-    if (result == null) return;
-    final sameDates = result.start == cycle.cycleStart && result.end == cycle.cycleEnd;
-    await _run(() async {
-      final r = await ref.read(maintenanceBillingApiProvider).updateCycle(
-            widget.cycleId,
-            name: result.name == cycle.name ? null : result.name,
-            cycleStart: sameDates ? null : result.start,
-            cycleEnd: sameDates ? null : result.end,
-          );
-      if (mounted) {
-        AppToast.success(context,
-            sameDates ? 'Cycle renamed' : 'Cycle updated: ${r.billsMoved} bill${r.billsMoved == 1 ? '' : 's'} moved to the new period');
-      }
-    });
+    if (await editBillingCycle(context, ref, widget.societyId, cycle)) _refresh();
   }
 
   Future<void> _deleteCycle(BillingCycle cycle) async {
@@ -587,6 +570,36 @@ Color billStatusColor(String status) => switch (status) {
       _ => AppTheme.textSecondary,
     };
 
+
+/// Correct a cycle's name and period: ask, send, refresh the lists. True when it was changed.
+Future<bool> editBillingCycle(BuildContext context, WidgetRef ref, String societyId, BillingCycle cycle) async {
+  final result = await showDialog<({String name, DateTime start, DateTime end})>(
+    context: context,
+    builder: (_) => _EditCycleDialog(cycle: cycle),
+  );
+  if (result == null || !context.mounted) return false;
+  final sameDates = result.start == cycle.cycleStart && result.end == cycle.cycleEnd;
+  final sameName = result.name == cycle.name;
+  if (sameDates && sameName) return false;
+  try {
+    final r = await ref.read(maintenanceBillingApiProvider).updateCycle(
+          cycle.id,
+          name: sameName ? null : result.name,
+          cycleStart: sameDates ? null : result.start,
+          cycleEnd: sameDates ? null : result.end,
+        );
+    invalidateCycle(ref, societyId, cycle.id);
+    if (context.mounted) {
+      AppToast.success(context,
+          sameDates ? 'Cycle renamed' : 'Cycle updated: ${r.billsMoved} bill${r.billsMoved == 1 ? '' : 's'} moved to the new period');
+    }
+    return true;
+  } catch (e) {
+    invalidateCycle(ref, societyId, cycle.id);       // the server may have done it even if the answer was lost
+    if (context.mounted) showErrorToast(context, e);
+    return false;
+  }
+}
 
 /// Name and period of a cycle, to correct them.
 class _EditCycleDialog extends StatefulWidget {
