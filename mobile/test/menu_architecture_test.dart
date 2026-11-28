@@ -187,6 +187,29 @@ void main() {
       expect(subPageLabel('/accounts'), isNull);
       expect(subPageLabel('/residents/detail'), isNull);
     });
+
+    test('the Accounts Agent pages name themselves instead of falling back to "Dashboard"', () {
+      expect(subPageLabel(AppRoutes.accountsAgentFindings), 'Findings');
+      expect(subPageLabel('${AppRoutes.accountsAgentFindings}?severity=HIGH&title=High'), 'Findings');
+      expect(subPageLabel('/accounts-agent/findings/abc-123'), 'Finding');
+      expect(subPageLabel('/accounts-agent/proposals/p1'), 'Correction Proposal');
+      expect(subPageLabel('/accounts-agent/legal-library/rules/r1/revise'), 'Revise Rule');
+      expect(subPageLabel(AppRoutes.accountsAgent), isNull);       // the agent's own home is just "Accounts Agent"
+    });
+
+    test('the top bar names the Accounts Agent and its page; other unmatched pages still say Dashboard', () {
+      final menu = visibleMenuCategories(_admin);
+      List<String> crumbs(String p) => AppShell.breadcrumbsFor(menu, p);
+      expect(crumbs(AppRoutes.accountsAgent), ['Accounts Agent']);
+      expect(crumbs(AppRoutes.accountsAgentFindings), ['Accounts Agent', 'Findings']);
+      expect(crumbs('${AppRoutes.accountsAgentFindings}?severity=HIGH'), ['Accounts Agent', 'Findings']);
+      expect(crumbs('/accounts-agent/findings/abc'), ['Accounts Agent', 'Finding']);
+      expect(crumbs(AppRoutes.accountsAgentApprovals), ['Accounts Agent', 'Approvals']);
+      expect(crumbs(AppRoutes.accountsAgentLearning), ['Accounts Agent', 'Learning & Settings']);
+      expect(crumbs('/somewhere-unknown'), ['Dashboard']);
+      // Menu pages keep their own crumbs.
+      expect(crumbs(AppRoutes.accountsDayBook), ['Accounts & Financial Reports', 'Day Book']);
+    });
   });
 
   group('the sidebar', () {

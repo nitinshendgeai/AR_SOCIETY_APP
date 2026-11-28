@@ -304,6 +304,20 @@ String? subPageLabel(String path) {
     AppRoutes.accountsStatements: 'Financial Statements',
     AppRoutes.accountsExpenseNew: 'New Expense',
     AppRoutes.accountsVoucherNew: 'New Voucher',
+    // The Accounts Agent has no menu entry of its own (it opens from the dashboard), so each page names itself.
+    AppRoutes.accountsAgentFindings: 'Findings',
+    AppRoutes.accountsAgentApprovals: 'Approvals',
+    AppRoutes.accountsAgentLearning: 'Learning & Settings',
+    AppRoutes.accountsAgentCompliance: 'Bye-law Intelligence',
+    AppRoutes.accountsAgentLegalLibrary: 'Legal Library',
+    AppRoutes.accountsAgentSocietyRuleNew: 'New Society Rule',
+    AppRoutes.accountsAgentLedgerMap: 'Element → Ledger Map',
+    AppRoutes.accountsAgentResolutions: 'Resolutions',
+    AppRoutes.accountsAgentStatutory: 'Statutory Calendar',
+    AppRoutes.accountsAgentRecovery: 'Dues Recovery',
+    AppRoutes.accountsAgentAsk: 'Ask the Agent',
+    AppRoutes.accountsAgentEntryDraft: 'Draft an Entry',
+    AppRoutes.accountsAgentNotices: 'Notices & Agendas',
   };
   final named = exact[p];
   if (named != null) return named;
@@ -318,5 +332,8 @@ String? subPageLabel(String path) {
   if (report != null) return reports[report.group(1)];
   if (RegExp(r'^/accounts/ledger/[^/]+$').hasMatch(p)) return 'Ledger';
   if (RegExp(r'^/accounts/vouchers/[^/]+/edit$').hasMatch(p)) return 'Edit Voucher';
+  if (RegExp(r'^/accounts-agent/findings/[^/]+$').hasMatch(p)) return 'Finding';
+  if (RegExp(r'^/accounts-agent/proposals/[^/]+$').hasMatch(p)) return 'Correction Proposal';
+  if (RegExp(r'^/accounts-agent/legal-library/rules/[^/]+/revise$').hasMatch(p)) return 'Revise Rule';
   return null;
 }
