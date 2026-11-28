@@ -64,11 +64,13 @@ def test_monthly_expenses_share_one_head_and_levies_keep_their_own():
         return bill_head(SimpleNamespace(description=desc, charge_type=charge_type), code)
 
     for desc, ctype, code in [("Service Charges", ChargeType.MAINTENANCE, "service_charges"),
-                              ("Water Charges", ChargeType.WATER, "water_charges"),
                               ("Lift Maintenance", ChargeType.MAINTENANCE, "lift_maintenance"),
                               ("Building Insurance", ChargeType.OTHER, "insurance"),
                               ("Clubhouse", ChargeType.AMENITIES, None)]:
         assert head(desc, ctype, code) == "Maintenance Charges", desc
+    # water is not folded into the maintenance head: non-occupancy charges are worked out on the service charges
+    assert head("Water Charges", ChargeType.WATER, "water_charges") == "Water Charges"
+    assert head("Water", ChargeType.WATER) == "Water Charges"
     assert head("Property Tax", ChargeType.OTHER, "property_tax") == "Property Tax"
     assert head("Municipal Tax") == "Property Tax"
     assert head("Sinking Fund", ChargeType.SINKING_FUND) == "Sinking Fund"
@@ -122,11 +124,12 @@ def test_bill_layout_heads_totals_and_notes(client, db):
         f"Due Date : {bill.due_date:%d-%b-%Y}",
         f"Bill Period : {cycle.cycle_start:%d-%b-%Y} to {cycle.cycle_end:%d-%b-%Y}",
         "No Head Amount (Rs.)",
-        # Maintenance + Water (monthly expenses) together; levies on their own heads. Largest amount first, the
-        # heads with nothing charged (0.00) after them in the usual head order, then the GST rows.
-        "1 Maintenance Charges 2,800.00 2 Sinking Fund 100.00 3 Other Charges 50.00 4 Repair & Maintenance Fund 0.00 "
-        "5 Contingency Fund 0.00 6 Property Tax 0.00 7 Non Occupancy Charges 0.00 8 Parking Charges 0.00 "
-        "9 Cheque Bounce Charges 0.00 10 In & Out Charges 0.00 11 CGST @ 9% 27.00 12 SGST @ 9% 27.00",
+        # Maintenance (the monthly expenses) on one head, Water on its own, levies on their own heads. Largest amount
+        # first, the heads with nothing charged (0.00) after them in the usual head order, then the GST rows.
+        "1 Maintenance Charges 2,500.00 2 Water Charges 300.00 3 Sinking Fund 100.00 4 Other Charges 50.00 "
+        "5 Repair & Maintenance Fund 0.00 6 Contingency Fund 0.00 7 Property Tax 0.00 8 Non Occupancy Charges 0.00 "
+        "9 Parking Charges 0.00 10 Cheque Bounce Charges 0.00 11 In & Out Charges 0.00 12 CGST @ 9% 27.00 "
+        "13 SGST @ 9% 27.00",
         "Current Bill Amount 3,004.00 Arrears/Advances 0.00 Current Interest/ Late Fees 0.00 "
         "Previous Interest/ Late Fees 0.00 Total Maintenance Payable Amount Rs. 3,004.00",
         "Notes * We recommend payment through NEFT, giving following details",

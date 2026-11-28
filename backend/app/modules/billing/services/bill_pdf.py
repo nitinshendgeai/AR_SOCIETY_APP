@@ -7,9 +7,11 @@ bye-laws 65-67, arrears and interest on arrears shown on the bill):
 - a box with the member's name, flat, area, mobile and e-mail on the left,
   and bill no., bill date, due date and bill period on the right;
 - the heads table (No / Head / Amount). The society's monthly running
-  expenses (service charges, water, common electricity, lift, security,
+  expenses (service charges, common electricity, lift, security,
   housekeeping, insurance, …) are shown together as one head, "Maintenance
-  Charges"; the funds and levies the bye-laws keep separate have their own
+  Charges"; Water has its own head, "Water Charges" (non-occupancy charges
+  are worked out on the service charges, so what is water is kept apart);
+  the funds and levies the bye-laws keep separate have their own
   heads (Sinking Fund, Repair & Maintenance Fund, Property Tax, Non
   Occupancy, Parking, Cheque Bounce, In & Out, Other) and print 0.00 when
   not charged;
@@ -96,18 +98,19 @@ MODE_LABEL = {
 # The heads printed on every bill, in order. Lines are grouped into them by
 # bill_head(); heads with nothing charged print 0.00.
 MAINTENANCE = "Maintenance Charges"
+WATER = "Water Charges"
 BILL_HEADS = [
-    MAINTENANCE, "Sinking Fund", "Repair & Maintenance Fund", "Contingency Fund", "Property Tax",
+    MAINTENANCE, WATER, "Sinking Fund", "Repair & Maintenance Fund", "Contingency Fund", "Property Tax",
     "Non Occupancy Charges", "Parking Charges", "Cheque Bounce Charges", "In & Out Charges",
     "Other Charges",
 ]
 # Standard elements that are the society's monthly running expenses — shown
-# together as "Maintenance Charges".
+# together as "Maintenance Charges" (water is not among them: it has its own head).
 MONTHLY_EXPENSE_ELEMENTS = {
-    "service_charges", "water_charges", "common_electricity", "lift_maintenance", "security",
+    "service_charges", "common_electricity", "lift_maintenance", "security",
     "housekeeping", "insurance", "lease_rent_na_tax", "education_fund", "amenities",
 }
-_MONTHLY_EXPENSE_TYPES = {ChargeType.MAINTENANCE, ChargeType.WATER, ChargeType.AMENITIES}
+_MONTHLY_EXPENSE_TYPES = {ChargeType.MAINTENANCE, ChargeType.AMENITIES}
 
 
 def bill_head(line, element_code: Optional[str] = None) -> str:
@@ -130,6 +133,8 @@ def bill_head(line, element_code: Optional[str] = None) -> str:
         return "Cheque Bounce Charges"
     if "in & out" in desc or "in and out" in desc or "shifting" in desc:
         return "In & Out Charges"
+    if element_code == "water_charges" or (element_code is None and line.charge_type == ChargeType.WATER):
+        return WATER
     if element_code in MONTHLY_EXPENSE_ELEMENTS or (
             element_code is None and line.charge_type in _MONTHLY_EXPENSE_TYPES):
         return MAINTENANCE

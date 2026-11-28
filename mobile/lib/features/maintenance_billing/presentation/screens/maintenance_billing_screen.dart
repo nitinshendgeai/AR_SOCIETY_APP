@@ -1524,7 +1524,7 @@ class _RulesFormState extends ConsumerState<_RulesForm> {
           ),
           _section(
             'How the bill prints',
-            'Standard groups the charges under a fixed list of heads (Maintenance Charges, Sinking Fund, Repair & '
+            'Standard groups the charges under a fixed list of heads (Maintenance Charges, Water Charges, Sinking Fund, Repair & '
                 'Maintenance Fund...). Classic prints every maintenance element on its own line (a charge head appears under the '
                 'name of its element, and heads of one element add up), with the totals and the amount in '
                 'words, numbered notes, and the receipt for the previous bill at the foot above the signature line. Boxed '
