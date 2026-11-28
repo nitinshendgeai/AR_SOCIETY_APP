@@ -466,6 +466,57 @@ class BillingService:
         self.db.refresh(cycle)
         return cycle
 
+    def update_cycle(self, cycle_id: UUID, changes: dict, user: User, request=None) -> tuple:
+        """Correct a cycle's name, notes or period (a cycle made under the wrong month, say). Returns (cycle, bills
+        whose period moved with it, bills that keep a period of their own).
+
+        The period is what the bills and the next cycle are worked out from: the next cycle bills each flat from the
+        day after its last bill's period ends, and a head billed on actual expenses refuses days another cycle has
+        already billed. So when the dates change, the period of each bill that covers the whole cycle (and the
+        expense working it was made from) moves with them. A bill with a period of its own (a flat billed from its
+        possession date) keeps it. Bills not yet issued were worked out for the old dates, so the dates of a cycle
+        that has any are left alone until those are regenerated or the cycle is deleted."""
+        self._lock_cycle(cycle_id)
+        cycle = self.cycle_repo.get(cycle_id)
+        if not cycle: raise HTTPException(404, "Billing cycle not found")
+        assert_society_access(user, cycle.society_id)
+        old = {"name": cycle.name, "notes": cycle.notes,
+               "cycle_start": cycle.cycle_start, "cycle_end": cycle.cycle_end}
+        start = changes.get("cycle_start", cycle.cycle_start)
+        end = changes.get("cycle_end", cycle.cycle_end)
+        if end < start:
+            raise HTTPException(422, "Cycle end date must be on or after the start date")
+        dates_change = (start, end) != (cycle.cycle_start, cycle.cycle_end)
+        bills = self.bill_repo.get_by_cycle(cycle_id)
+        if dates_change and any(b.bill_status in (BillStatus.DRAFT, BillStatus.GENERATED) for b in bills):
+            raise HTTPException(409, "Bills not yet issued were worked out for the current dates: regenerate them "
+                                     "after the change, or issue them first. The name can be changed meanwhile.")
+        moved = own = 0
+        if dates_change:
+            for b in bills:
+                whole = (b.period_start in (None, old["cycle_start"])) and (b.period_end in (None, old["cycle_end"]))
+                if whole:
+                    b.period_start = start if b.period_start is not None else None
+                    b.period_end = end if b.period_end is not None else None
+                    moved += 1
+                else:
+                    own += 1
+            for a in self.db.query(BillingExpenseAllocation).filter(BillingExpenseAllocation.cycle_id == cycle.id):
+                if (a.period_start, a.period_end) == (old["cycle_start"], old["cycle_end"]):
+                    a.period_start, a.period_end = start, end
+            cycle.cycle_start, cycle.cycle_end = start, end
+        if "name" in changes:
+            cycle.name = changes["name"]
+        if "notes" in changes:
+            cycle.notes = changes["notes"]
+        new = {"name": cycle.name, "notes": cycle.notes, "cycle_start": cycle.cycle_start, "cycle_end": cycle.cycle_end}
+        self._audit(AuditAction.UPDATE, cycle, "BillingCycle", user, request,
+                    old_values={k: str(v) for k, v in old.items() if v != new[k]},
+                    new_values={**{k: str(v) for k, v in new.items() if v != old[k]}, "bills_period_moved": moved})
+        self.db.commit()
+        self.db.refresh(cycle)
+        return cycle, moved, own
+
     def list_cycles(self, society_id: UUID) -> List[BillingCycle]:
         return self.cycle_repo.get_by_society(society_id)
 
