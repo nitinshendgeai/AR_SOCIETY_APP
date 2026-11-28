@@ -142,10 +142,17 @@ class AppShell extends ConsumerWidget {
 
   static String _firstSegment(String path) => path.split('/').firstWhere((p) => p.isNotEmpty, orElse: () => '');
 
+  /// The crumbs the top bar shows for [location], as a test can reach them.
+  @visibleForTesting
+  static List<String> breadcrumbsFor(List<AppMenuCategory> categories, String location) =>
+      _breadcrumbs(_activeItem(categories, location), location);
+
   static List<String> _breadcrumbs((AppMenuCategory, AppMenuItem)? active, String location) {
     if (location == AppRoutes.helpAssistant) return const ['Help'];
-    if (active == null) return const ['Dashboard'];
     final sub = subPageLabel(location);
+    // The Accounts Agent opens from the dashboard rather than the menu, so no menu entry matches its pages.
+    if (active == null && _firstSegment(location) == 'accounts-agent') return ['Accounts Agent', if (sub != null) sub];
+    if (active == null) return const ['Dashboard'];
     return [active.$1.label, active.$2.label, if (sub != null && sub != active.$2.label) sub];
   }
 }
