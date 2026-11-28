@@ -208,17 +208,62 @@ def chk_non_occupancy_bills(s: Scan) -> List[LDraft]:
     return out
 
 
+AREA_BASES = (ChargeBasis.PER_SQFT.value, ChargeBasis.BUDGET_AREA.value, ChargeBasis.CONSTRUCTION_COST_PCT.value)
+EQUAL_BASES = (ChargeBasis.FIXED.value, ChargeBasis.BUDGET_EQUAL.value)
+# Charge heads the model bye-laws share in a way the Gazette rule's allowed bases (MH-CHG-APPORTIONMENT) do not list:
+# element code -> (bases that match the bye-law, how the bye-law shares it, bye-law number, PDF page of the 2014 model).
+# They are judged against the model reference rule (MH-MODEL-CHG-APPORTIONMENT), so a mismatch is only ever advisory.
+REFERENCE_SHARING = {
+    "insurance": (AREA_BASES, "the built-up area of each flat", "66(a)(xi)", "28"),
+    "lease_rent_na_tax": (AREA_BASES, "the built-up area of each flat", "66(a)(xii)-(xiii)", "28"),
+    "education_fund": (EQUAL_BASES, "₹10 per flat per month, equally", "13(d), 66(a)(xiv)", "11, 28"),
+}
+WATER_INLETS = "the number and size of inlets in each flat"
+
+
+def _reference_sharing_finding(s: Scan, ref: registry.Applicable, c, code: str, basis: str, how: str, clause: str,
+                               page: str, note: str) -> LDraft:
+    r = ref.rule
+    return s.legal("L-CHG-APP-02", "charges", "charge_apportionment", ref,
+                   f"'{c.name}' is shared {basis.replace('_', ' ')}; the model bye-laws share it by {how}",
+                   f"The charge head '{c.name}' is shared among flats on the basis '{basis}'. The model bye-laws "
+                   f"({r.source_document_title}, bye-law {clause}, PDF page {page}) share it by {how}. {note} This is a "
+                   "model reference, binding only if the registered bye-laws adopted it unchanged.",
+                   expected=how, actual=basis,
+                   recommended="Check the registered bye-law and the General Body resolution on how this head is shared; "
+                               "change the basis on the charge head if needed.",
+                   evidence={"charge_head": c.name, "element": code, "basis": basis, "bye_law": clause, "pdf_page": page,
+                             "model_rule": r.rule_code}, subject=str(c.id))
+
+
 def chk_charge_apportionment(s: Scan) -> List[LDraft]:
+    """Each charge head against how it is shared. Heads the Gazette rule lists are judged by it (a potential issue while
+    unverified); water shared equally, insurance, lease rent / NA tax and the education fund, which the rule does not
+    list, are judged by the model bye-laws (advisory)."""
     out = []
     app = s.rule("charges.apportionment", s.today)
     allowed = (app.rule.calculation_method or {}).get("allowed_bases", {}) if app.rule else {}
+    ref = s.rule("reference.charges.apportionment", s.today)
     for c in s.configs():
         code = c.element.code if c.element else None
         if c.charge_type == ChargeType.PARKING:
             code = code or "parking"
-        if code not in allowed:
-            continue
         basis = c.basis.value if hasattr(c.basis, "value") else str(c.basis)
+        if ref.rule and code == "water_charges" and basis in EQUAL_BASES:
+            # Both texts share water by inlets, which an equal share matches only when every flat has the same
+            # fittings: a prompt to check the sanctioned plan, not a breach of the rule's area bases.
+            out.append(_reference_sharing_finding(
+                s, ref, c, code, basis, WATER_INLETS, "66(a)(ii)", "28",
+                "An equal share gives the same result only if every flat has the same fittings."))
+            continue
+        if code not in allowed:
+            sharing = REFERENCE_SHARING.get(code)
+            if ref.rule and sharing and basis not in sharing[0]:
+                out.append(_reference_sharing_finding(
+                    s, ref, c, code, basis, sharing[1], sharing[2], sharing[3],
+                    "If every flat is the same size an equal share and an area share come to the same."
+                    if sharing[0] == AREA_BASES else ""))
+            continue
         if basis in allowed[code]:
             continue
         out.append(s.legal("L-CHG-APP-01", "charges", "charge_apportionment", app,
@@ -283,6 +328,82 @@ def chk_fund_rates(s: Scan) -> List[LDraft]:
                                f"'{c.name}' collects {money(c.default_amount)}% p.a. of construction cost; the model "
                                f"bye-law reference figure is {ref}% p.a.", evidence={"rate_pct": str(money(c.default_amount))},
                                subject=str(c.id)))
+    return out
+
+
+FUND_MINIMUMS = ((ChargeType.SINKING_FUND, "funds.sinking_fund.rate", "L-FND-SNK-04", "Sinking fund", "13(c)"),
+                 (ChargeType.REPAIR_FUND, "funds.repair_fund.rate", "L-FND-REP-02", "Repair and maintenance fund", "13(a)"))
+FUND_TOLERANCE = Decimal("0.95")          # day-count differences between the bill and a 365-day year
+
+
+def chk_fund_minimum_collection(s: Scan) -> List[LDraft]:
+    """The sinking and repair fund contributions actually billed over the last 12 months against the bye-law minimum:
+    0.25% and 0.75% a year of each flat's architect-certified construction cost (model bye-laws 13(c) and 13(a), PDF
+    page 11). A head billed as a percentage of service charges, or as a flat amount, usually falls far short of it, and
+    the head-by-head checks above cannot see that. Needs the society's construction cost per sq ft (Billing settings)."""
+    out = []
+    configs = s.configs()
+    present = [m for m in FUND_MINIMUMS if any(c.charge_type == m[0] for c in configs)]
+    if not present:
+        return out
+    bills = _bills(s, s.today - timedelta(days=365))
+    if not bills:
+        return out
+    cost = money(s.settings.construction_cost_per_sqft) if s.settings and s.settings.construction_cost_per_sqft else D0
+    if not cost:
+        out.append(LDraft("L-FND-MIN-01", "legal", "funds", "fund_contribution", "ADVISORY_OBSERVATION", "LOW", 0.5,
+                          "The construction cost per sq ft is not set, so the fund minimums cannot be tested",
+                          "The sinking and repair fund minimums are a percentage of each flat's architect-certified "
+                          "construction cost (excluding land). Billing settings hold no construction cost, so the "
+                          "contributions billed cannot be compared with the minimum.",
+                          recommended="Enter the construction cost per sq ft from the architect's certificate in "
+                                      "Billing → Settings.", subject="construction-cost"))
+        return out
+    areas = {f.id: Decimal(str(f.area_sqft)) for f in s.db.query(Flat).join(Wing, Wing.id == Flat.wing_id)
+             .filter(Wing.society_id == s.sid, Flat.area_sqft.isnot(None))}
+    cycles = {c.id: c for c in s.db.query(BillingCycle).filter(BillingCycle.society_id == s.sid)}
+
+    def days(b) -> int:
+        if b.period_start and b.period_end:
+            return (b.period_end - b.period_start).days + 1
+        cy = cycles.get(b.cycle_id)
+        return (cy.cycle_end - cy.cycle_start).days + 1 if cy else 30
+
+    for ctype, topic, code, label, clause in present:
+        app = s.rule(topic, s.today)
+        rate = app.effective_value
+        if rate is None:
+            continue
+        rate = Decimal(str(rate))
+        if any(c.charge_type == ctype and (c.basis.value if hasattr(c.basis, "value") else str(c.basis))
+               == ChargeBasis.CONSTRUCTION_COST_PCT.value and money(c.default_amount) < rate for c in configs):
+            continue                              # the rate itself is already reported by chk_fund_rates
+        required = collected = D0
+        counted = 0
+        for b in bills:
+            area = areas.get(b.flat_id)
+            if not area:
+                continue
+            counted += 1
+            required += area * cost * rate / 100 * Decimal(days(b)) / Decimal(365)
+            collected += sum((money(li.amount) for li in b.line_items if li.charge_type == ctype), D0)
+        required, collected = money(required), money(collected)
+        if not counted or required <= 0 or collected >= required * FUND_TOLERANCE:
+            continue
+        out.append(s.legal(code, "funds", "fund_contribution", app,
+                           f"{label} billed over the last 12 months ({inr(collected)}) is below the bye-law minimum "
+                           f"({inr(required)})",
+                           f"{counted} bills for flats with a recorded area carry {inr(collected)} under the {label.lower()}. "
+                           f"At {rate}% a year of each flat's construction cost (₹{cost}/sq ft) the minimum for the same "
+                           f"periods is {inr(required)}. The model bye-laws (bye-law {clause}, PDF page 11) fix the rate "
+                           "as a minimum, which the General Body may raise but not lower.",
+                           expected=f"≥ {inr(required)}", actual=inr(collected),
+                           recommended="Check the General Body resolution and the architect's cost certificate, then set "
+                                       f"the head to the construction-cost basis at {rate}% or more from the next bill.",
+                           evidence={"bills_counted": counted, "collected": str(collected), "required": str(required),
+                                     "rate_pct": str(rate), "construction_cost_per_sqft": str(cost),
+                                     "shortfall": str(required - collected), "bye_law": clause, "pdf_page": "11"},
+                           subject=code))
     return out
 
 
@@ -1049,7 +1170,7 @@ def chk_recovery(s: Scan) -> List[LDraft]:
 
 
 CHECKS = [chk_interest_setting, chk_non_occupancy_setting, chk_non_occupancy_bills, chk_charge_apportionment,
-          chk_fund_rates, chk_bill_integrity, chk_bill_allocation, chk_bill_interest, chk_duplicate_receipts,
+          chk_fund_rates, chk_fund_minimum_collection, chk_bill_integrity, chk_bill_allocation, chk_bill_interest, chk_duplicate_receipts,
           chk_vendor_invoices, chk_resolution_amounts, chk_work_orders, chk_repair_payments, chk_vendor_concentration,
           chk_fund_utilisation, chk_fund_balances, chk_borrowing, chk_transfer_premium, chk_budget, chk_legal_sources,
           chk_calendar, chk_recovery]
