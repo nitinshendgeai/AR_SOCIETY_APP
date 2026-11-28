@@ -240,7 +240,7 @@ class _VisitorListScreenState extends ConsumerState<VisitorListScreen>
           : FloatingActionButton.extended(
               onPressed: _logVisitor,
               backgroundColor: AppTheme.primary,
-              foregroundColor: Colors.white,
+              foregroundColor: AppTheme.onPrimary,
               icon: const Icon(Icons.person_add_rounded),
               label: Text(context.tr(widget.isMy ? 'Invite guest' : 'Log Visitor')),
             ),

@@ -188,7 +188,7 @@ class _Tile extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label, style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
           const SizedBox(height: 2),
-          Text('₹${_amt(value)}', style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 17)),
+          Text(value == 0 ? '₹0' : '₹${_amt(value)}', style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 17)),
         ]),
       );
 }

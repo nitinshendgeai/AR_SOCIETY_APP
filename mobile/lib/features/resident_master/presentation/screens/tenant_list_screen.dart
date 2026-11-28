@@ -394,7 +394,7 @@ class _TenantListScreenState extends ConsumerState<TenantListScreen> {
           ? FloatingActionButton.extended(
               onPressed: _addTenant,
               backgroundColor: AppTheme.primary,
-              foregroundColor: Colors.white,
+              foregroundColor: AppTheme.onPrimary,
               icon: const Icon(Icons.person_add_alt_1_rounded),
               label: const Text('Add Tenant'),
             )

@@ -265,7 +265,7 @@ class _ComplaintListScreenState extends ConsumerState<ComplaintListScreen> {
           : FloatingActionButton.extended(
               onPressed: _newComplaint,
               backgroundColor: AppTheme.primary,
-              foregroundColor: Colors.white,
+              foregroundColor: AppTheme.onPrimary,
               icon: const Icon(Icons.add_rounded),
               label: Text(context.tr('New Complaint')),
             ),

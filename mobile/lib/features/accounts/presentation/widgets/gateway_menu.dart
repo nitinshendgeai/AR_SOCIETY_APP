@@ -171,7 +171,7 @@ class _GatewayMenuState extends State<GatewayMenu> {
               ),
               child: Text(item.letter.toUpperCase(),
                   style: TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w700, color: selected ? Colors.white : AppTheme.textSecondary)),
+                      fontSize: 12, fontWeight: FontWeight.w700, color: selected ? AppTheme.onPrimary : AppTheme.textSecondary)),
             ),
           ]),
         ),

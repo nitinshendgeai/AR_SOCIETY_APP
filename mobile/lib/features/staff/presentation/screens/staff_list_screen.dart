@@ -107,7 +107,7 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen> {
           ? FloatingActionButton.extended(
               onPressed: () => context.push('/staff/add'),
               backgroundColor: AppTheme.primary,
-              foregroundColor: Colors.white,
+              foregroundColor: AppTheme.onPrimary,
               icon: const Icon(Icons.person_add_rounded),
               label: const Text('Add Staff'),
             )

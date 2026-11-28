@@ -95,7 +95,7 @@ class _ParkingManagementScreenState extends ConsumerState<ParkingManagementScree
         builder: (_, __) => _tab.index == 4 ? const SizedBox.shrink() : FloatingActionButton.extended(
           onPressed: societyId.isEmpty ? null : () => _primaryAction(context, societyId),
           backgroundColor: AppTheme.primary,
-          foregroundColor: Colors.white,
+          foregroundColor: AppTheme.onPrimary,
           icon: Icon(_tab.index == 0 ? Icons.add_road_rounded : _tab.index == 3 ? Icons.report_gmailerrorred_rounded : Icons.assignment_add),
           label: Text(_tab.index == 0 ? 'Add Slot' : _tab.index == 3 ? 'Report Violation' : 'Allocate Parking'),
         ),
