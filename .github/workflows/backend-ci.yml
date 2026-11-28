@@ -72,7 +72,7 @@ jobs:
       # so a security regression is the first thing a reviewer sees. They run again inside the full suite below.
       - name: Security regression tests (authentication, tenant isolation, RBAC, readiness)
         run: |
-          python -m pytest tests/security -ra -q -o log_cli=false -p no:cacheprovider \
+          python -m pytest tests/security -n auto -ra -q -o log_cli=false -p no:cacheprovider \
             --junitxml=test-results/security.xml
         # no continue-on-error: a failure here fails the job
 
@@ -80,9 +80,12 @@ jobs:
         if: ${{ !cancelled() }}
         run: python scripts/ci/check_test_results.py test-results/security.xml --min-tests 50 --title "Security regression tests"
 
+      # -n auto: one pytest worker per CPU (pytest-xdist). Each worker builds its own throw-away SQLite file (see
+      # tests/conftest.py), so the tests do not share a database; they were written to run one at a time, which is why
+      # a test that depends on another's leftovers would show up here as a failure.
       - name: Full backend test suite
         run: |
-          python -m pytest -ra -q -o log_cli=false -p no:cacheprovider \
+          python -m pytest -n auto -ra -q -o log_cli=false -p no:cacheprovider \
             --ignore=tests/accounts_agent/test_postgres_integration.py \
             --junitxml=test-results/backend.xml
         # tests/accounts_agent/test_postgres_integration.py needs a real PostgreSQL server: it runs in the Migrations job

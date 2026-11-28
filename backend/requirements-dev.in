@@ -3,4 +3,5 @@
 -r requirements.in
 pytest
 pytest-asyncio
+pytest-xdist
 faker
