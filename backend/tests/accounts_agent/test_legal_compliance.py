@@ -57,8 +57,95 @@ def test_property_tax_and_water_apportionment(rig):
     rig.config("Service Charges", ChargeType.MAINTENANCE, ChargeBasis.FIXED, 2000, "service_charges", service=True)
     rig.scan()
     rows = rig.findings("L-CHG-APP-01")
-    assert {r.evidence["element"] for r in rows} == {"property_tax", "water_charges"}   # service charges equal: fine
+    assert {r.evidence["element"] for r in rows} == {"property_tax"}   # service charges equal: fine
     assert all(r.finding_class == "POTENTIAL_NON_COMPLIANCE" and r.legal_source["blocked_by_reviews"] for r in rows)
+    # Water shared equally is not a breach of the rule's area bases: both texts share it by inlets, so it is only a
+    # prompt to check the fittings, judged by the model bye-laws.
+    water = one(rig, "L-CHG-APP-02")
+    assert water.evidence["element"] == "water_charges" and water.finding_class == "ADVISORY_OBSERVATION"
+
+
+def test_model_bye_law_sharing_for_water_insurance_lease_and_education_fund(rig):
+    rig.config("Water Charges", ChargeType.WATER, ChargeBasis.BUDGET_EQUAL, 60000, "water_charges")
+    rig.config("Building Insurance", ChargeType.OTHER, ChargeBasis.FIXED, 1000, "insurance")
+    rig.config("Lease Rent / NA Tax", ChargeType.OTHER, ChargeBasis.BUDGET_EQUAL, 50000, "lease_rent_na_tax")
+    rig.config("Education Fund", ChargeType.OTHER, ChargeBasis.PER_SQFT, 1, "education_fund")
+    rig.scan()
+    rows = {r.evidence["element"]: r for r in rig.findings("L-CHG-APP-02")}
+    assert set(rows) == {"water_charges", "insurance", "lease_rent_na_tax", "education_fund"}
+    assert all(r.finding_class == "ADVISORY_OBSERVATION" and r.severity == "LOW"
+               and r.legal_rule_code == "MH-MODEL-CHG-APPORTIONMENT" for r in rows.values())
+    assert rows["insurance"].evidence["bye_law"] == "66(a)(xi)" and rows["insurance"].evidence["pdf_page"] == "28"
+    assert "built-up area" in rows["insurance"].explanation and "PDF page 28" in rows["insurance"].explanation
+    assert rows["education_fund"].evidence["bye_law"] == "13(d), 66(a)(xiv)"
+    assert "inlets" in rows["water_charges"].explanation
+    assert rig.findings("L-CHG-APP-01") == []
+
+
+def test_sharing_that_matches_the_model_bye_laws_is_not_flagged(rig):
+    rig.config("Water Charges", ChargeType.WATER, ChargeBasis.BUDGET_AREA, 60000, "water_charges")
+    rig.config("Building Insurance", ChargeType.OTHER, ChargeBasis.BUDGET_AREA, 200000, "insurance")
+    rig.config("Lease Rent / NA Tax", ChargeType.OTHER, ChargeBasis.PER_SQFT, 2, "lease_rent_na_tax")
+    rig.config("Education Fund", ChargeType.OTHER, ChargeBasis.BUDGET_EQUAL, 40000, "education_fund")
+    rig.scan()
+    assert rig.findings("L-CHG-APP-01") == [] and rig.findings("L-CHG-APP-02") == []
+
+
+def _fund_bills(rig, lines, area=370, cost="2500"):
+    """Five flats of `area` sq ft, one 31-day bill each carrying `lines` = [(charge type, head name, amount)]."""
+    if cost:
+        rig.settings(construction_cost_per_sqft=cost)
+    for fl in rig.flat_rows:
+        fl.area_sqft = area
+    rig.db.commit()
+    cy = rig.cycle(rig.today - timedelta(days=40), rig.today - timedelta(days=10))
+    for fl in rig.flat_rows:
+        rig.bill(fl, cy, [(ctype, head, amount, amount) for ctype, head, amount in lines])
+
+
+def test_sinking_fund_billed_as_percent_of_service_charges_is_below_the_bye_law_minimum(rig):
+    rig.config("Sinking Fund", ChargeType.SINKING_FUND, ChargeBasis.SERVICE_CHARGE_PCT, "0.25", "sinking_fund")
+    _fund_bills(rig, [(ChargeType.SINKING_FUND, "Sinking Fund", 10)])     # 0.25% of ~₹4,000 of service charges
+    rig.scan()
+    f = one(rig, "L-FND-SNK-04")
+    assert f.finding_class == "POTENTIAL_NON_COMPLIANCE" and f.evidence["bye_law"] == "13(c)"
+    # 5 flats x 370 sq ft x ₹2,500 x 0.25% x 31/365
+    assert abs(Decimal(f.evidence["required"]) - Decimal("982.02")) < Decimal("0.05")
+    assert f.evidence["collected"] == "50.00" and f.evidence["bills_counted"] == 5
+
+
+def test_fund_billed_at_the_minimum_on_construction_cost_is_not_flagged(rig):
+    rig.config("Sinking Fund", ChargeType.SINKING_FUND, ChargeBasis.CONSTRUCTION_COST_PCT, "0.25", "sinking_fund")
+    rig.config("Repair Fund", ChargeType.REPAIR_FUND, ChargeBasis.CONSTRUCTION_COST_PCT, "0.75", "repair_fund")
+    # minimums for a 31-day bill on 370 sq ft at ₹2,500/sq ft: sinking ~196.40, repair ~589.21
+    _fund_bills(rig, [(ChargeType.SINKING_FUND, "Sinking Fund", 200), (ChargeType.REPAIR_FUND, "Repair Fund", 600)])
+    rig.scan()
+    assert rig.findings("L-FND-SNK-04") == [] and rig.findings("L-FND-REP-02") == []
+    assert rig.findings("L-FND-SNK-01") == [] and rig.findings("L-FND-REP-01") == []
+
+
+def test_repair_fund_below_the_minimum_is_advisory_only(rig):
+    rig.config("Repair Fund", ChargeType.REPAIR_FUND, ChargeBasis.SERVICE_CHARGE_PCT, "0.75", "repair_fund")
+    _fund_bills(rig, [(ChargeType.REPAIR_FUND, "Repair Fund", 30)])
+    rig.scan()
+    f = one(rig, "L-FND-REP-02")
+    assert f.finding_class == "ADVISORY_OBSERVATION" and f.legal_rule_code == "MH-FUND-REPAIR-RATE"   # model reference
+    assert f.evidence["bye_law"] == "13(a)"
+
+
+def test_rate_below_the_minimum_is_reported_once_not_twice(rig):
+    rig.config("Sinking Fund", ChargeType.SINKING_FUND, ChargeBasis.CONSTRUCTION_COST_PCT, "0.10", "sinking_fund")
+    _fund_bills(rig, [(ChargeType.SINKING_FUND, "Sinking Fund", 80)])
+    rig.scan()
+    assert one(rig, "L-FND-SNK-01") and rig.findings("L-FND-SNK-04") == []
+
+
+def test_fund_minimum_cannot_be_tested_without_the_construction_cost(rig):
+    rig.config("Sinking Fund", ChargeType.SINKING_FUND, ChargeBasis.SERVICE_CHARGE_PCT, "0.25", "sinking_fund")
+    _fund_bills(rig, [(ChargeType.SINKING_FUND, "Sinking Fund", 10)], cost=None)
+    rig.scan()
+    f = one(rig, "L-FND-MIN-01")
+    assert f.finding_class == "ADVISORY_OBSERVATION" and rig.findings("L-FND-SNK-04") == []
 
 
 def test_wrong_maintenance_allocation_on_bills(rig):

@@ -90,6 +90,51 @@ never flagged. For water the rule allows only per-sq-ft or budget-by-area, where
 inlets, so an equal-per-flat water head is flagged even when every flat has the same fittings. Changing the checks is a
 behaviour change and was left out of this loading.
 
+### 0.2 Audit of the agent against the three bye-law PDFs (November 2026)
+
+Each legal check was compared with the clauses in section 0.1. "Conforms" means the check does what the clause says;
+the model and draft clauses are references, so none of this is a verified statement of the law.
+
+| Check | What the bye-laws say | What the agent does | Result |
+|---|---|---|---|
+| Interest ceiling (`L-CHG-INT-01/02`) | Model: 21 % simple or a lower General Body rate (70 / 72). Draft: 12 % simple, none during the payment period (66) | 21 % to 21-06-2026, 12 % from 22-06-2026, judged by the date of the bill; bill test uses the most the arrears could earn | Conforms. The interest-free payment period is not modelled, so the test is an upper bound |
+| Non-occupancy (`L-CHG-NOC-01/02`) | Model: by Government circular, not levied where the member's family lives in the flat. Draft: 10 % of service charges | 10 % ceiling on the service-charge lines of the bill | Conforms to the draft. The family exemption is not modelled |
+| Apportionment (`L-CHG-APP-01/02`) | Service charges and lifts equally; water by inlets; insurance, lease rent, NA tax by area; funds by each flat's construction cost | Fixed in this change, see below | Fixed |
+| Fund rates (`L-FND-SNK-01`, `L-FND-REP-01`) | Minimums of 0.25 % (sinking, land excluded) and 0.75 % (repair) a year of each flat's certified construction cost | Rate test only when the head is on the construction-cost basis | Gap, closed below |
+| Fund utilisation (`L-FND-USE-01/02`) | Sinking fund: General Body resolution and the Architect's certificate. Major repair fund: prior General Body permission. Repair fund: the committee | Resolution authority per fund matches. The Architect's certificate and the long-term investment of the sinking fund are not checked | Conforms, two parts not checked |
+| Committee spending limit (`L-EXP-*`) | Model: ₹25,000 / ₹50,000 / ₹1,00,000, once in a financial year (156(a) or 158(a)). Draft: five bands to ₹5 lakh | Procurement setting, then the model slabs. The draft slabs are never applied. A single payment is compared, not the year's total | Conforms. Citation corrected by review, year total partly |
+| Defaulter (`L-REC-01`) | Draft: three months from service of the bill or the due date, whichever is later | More than 90 days after the oldest due date | Conforms in substance. The draft counts from the later of service and due date, and the service date is not recorded, so a late-served bill can show as a default a little early |
+| Equal-share billing (`A-BIL-ALC-01`) | Lifts are shared equally by the flats of the building that has the lift | Expects the same rate on every flat's bill | Can flag a lift head that is correctly split per building |
+| Education and training fund | Model: ₹10 per flat per month | No check | Not covered |
+
+**What was changed**
+
+* `chk_charge_apportionment` now also judges, against the model reference rule (`MH-MODEL-CHG-APPORTIONMENT`, advisory
+  only), the heads the Gazette rule does not list: insurance and lease rent / NA tax shared equally (bye-law shares by
+  area) and the education fund shared by area (bye-law shares equally). Water shared equally is no longer reported as a
+  potential breach of the rule's area bases; it is an advisory prompt to check the inlets, because both texts share water
+  by number and size of inlets. Findings are `L-CHG-APP-02` and give the bye-law number and PDF page.
+* New `chk_fund_minimum_collection` compares the sinking and repair fund lines billed over the last 12 months with the
+  minimum on each flat's construction cost (`construction_cost_per_sqft` in Billing settings), with a 5 % tolerance for
+  day counts. `L-FND-SNK-04` (sinking fund, a potential issue while the rule is unverified) and `L-FND-REP-02` (repair
+  fund, advisory, model reference). Without the construction cost the agent says it cannot test (`L-FND-MIN-01`). A head
+  whose rate is already reported by `L-FND-SNK-01` / `L-FND-REP-01` is not reported twice.
+
+**Found, not changed**
+
+* The standard elements seed the repair and sinking funds as 0.75 % and 0.25 % of the month's service charges
+  (`billing/services/standard_elements.py`). On ₹4,000 of service charges that is ₹10 a month. The minimum on a 370 sq ft
+  flat at ₹2,500 per sq ft is about ₹193 a month for the sinking fund and ₹578 for the repair fund. The new check flags
+  this; the billing default is a billing decision and was left as it is.
+* The document pipeline reads all three PDFs (91, 49 and 183 pages, `pdftotext`) and flags the draft markers, but its
+  clause numbering is unreliable on them. It takes cross-references ("bye-law No. 66.") and list items for clause starts:
+  in the 2014 model bye-law 66 is read as page 17 instead of page 28, and in the 49-page edition bye-law 13 is read as
+  page 33 instead of page 8; in the 183-page draft only 110 clauses are found and the numbers come from a table layout.
+  Every clause is already marked as needing verification, so nothing is relied on, but a person verifying from the
+  clause list would be misled. Making the numbering sequence-aware is a separate change.
+* `MH-CHG-APPORTIONMENT` is still the Gazette rule as first loaded, with water allowing only area bases. A change to its
+  allowed bases is a new version with an effective date, to be made once the Gazette text is verified.
+
 ## 1. What was built
 
 | Phase | Delivered | Where (`backend/app/modules/accounts_agent/…`) |
