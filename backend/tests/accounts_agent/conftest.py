@@ -8,7 +8,8 @@ import pytest
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session
 
-AGENT_DB = "./test_ar_society_agent.db"
+_WORKER = os.environ.get("PYTEST_XDIST_WORKER")          # one database file per pytest-xdist worker
+AGENT_DB = f"./test_ar_society_agent_{_WORKER}.db" if _WORKER else "./test_ar_society_agent.db"
 _engine = create_engine(f"sqlite:///{AGENT_DB}", connect_args={"check_same_thread": False})
 
 

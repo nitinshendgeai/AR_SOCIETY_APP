@@ -11,7 +11,14 @@ from typing import Generator
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-os.environ.setdefault("DATABASE_URL", "sqlite:///./test_ar_society.db")
+# Under pytest-xdist every worker is its own process and needs its own throw-away database file (gw0, gw1, …): one
+# shared SQLite file would have the workers create, seed and drop each other's tables.
+_WORKER = os.environ.get("PYTEST_XDIST_WORKER")
+_DB_FILE = f"./test_ar_society_{_WORKER}.db" if _WORKER else "./test_ar_society.db"
+if _WORKER:
+    os.environ["DATABASE_URL"] = f"sqlite:///{_DB_FILE}"      # the app's own engine too, not only the tests'
+else:
+    os.environ.setdefault("DATABASE_URL", f"sqlite:///{_DB_FILE}")
 os.environ.setdefault("SECRET_KEY",   "test-secret-key-for-pytest-only")
 os.environ.setdefault("APP_ENV",      "test")
 os.environ.setdefault("SCHEDULER_ENABLED", "false")
@@ -53,7 +60,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 
-TEST_DB_URL = "sqlite:///./test_ar_society.db"
+TEST_DB_URL = f"sqlite:///{_DB_FILE}"
 
 engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
 
@@ -85,7 +92,7 @@ def create_tables():
 
     yield
     Base.metadata.drop_all(bind=engine)
-    try: os.remove("./test_ar_society.db")
+    try: os.remove(_DB_FILE)
     except FileNotFoundError: pass
 
 
