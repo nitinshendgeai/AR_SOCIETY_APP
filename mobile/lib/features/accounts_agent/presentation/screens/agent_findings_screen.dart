@@ -21,7 +21,8 @@ const _categories = [
   'recovery', 'statutory_compliance', 'vendor_audit', 'budget', 'borrowing', 'transfer', 'element_ledger', 'legal_sources',
 ];
 
-/// Findings, most severe first, with the filters an auditor reaches for: severity, category, status, dates and search.
+/// Findings, most severe first unless the person picks another order (when raised, transaction date, how certain the
+/// agent is), with the filters an auditor reaches for: severity, category, status, dates and search.
 class AgentFindingsScreen extends ConsumerStatefulWidget {
   final String? initialSeverity;
   final String? initialStatus;
@@ -125,6 +126,17 @@ class _AgentFindingsScreenState extends ConsumerState<AgentFindingsScreen> {
               ],
               onChanged: (v) => _set(v == null ? f.copyWith(clearStatus: true) : f.copyWith(status: v)),
             ),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.sort_rounded, size: 18, color: Hud.dim),
+              const SizedBox(width: 6),
+              DropdownButton<String>(
+                key: const Key('findings-sort'),
+                value: f.sort,
+                underline: const SizedBox.shrink(),
+                items: [for (final o in findingSorts) DropdownMenuItem<String>(value: o.$1, child: Text(o.$2))],
+                onChanged: (v) => v == null ? null : _set(f.copyWith(sort: v)),
+              ),
+            ]),
             OutlinedButton.icon(
               onPressed: _pickDates,
               icon: const Icon(Icons.date_range_rounded, size: 18),
